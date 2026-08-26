@@ -3,10 +3,7 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=tutor-web",
   "devCommand": "cd ../.. && pnpm turbo run dev --filter=tutor-web",
   "git": {
-    "deploymentEnabled": {
-      "*": false,
-      "main": true
-    }
+    "deploymentEnabled": false
   },
   "functions": {
     "src/app/api/queues/ucat-question-generation/route.ts": {
@@ -37,6 +34,5 @@
     }
   ]
 }
-
 
 

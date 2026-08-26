@@ -2,10 +2,7 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=ucat-web",
   "devCommand": "cd ../.. && pnpm turbo run dev --filter=ucat-web",
   "git": {
-    "deploymentEnabled": {
-      "*": false,
-      "main": true
-    }
+    "deploymentEnabled": false
   },
   "functions": {
     "src/app/api/cron/ucat-preparation-refreshes/route.ts": {

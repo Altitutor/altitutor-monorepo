@@ -3,9 +3,6 @@
   "buildCommand": "cd ../.. && pnpm turbo run build --filter=student-web",
   "devCommand": "cd ../.. && pnpm turbo run dev --filter=student-web",
   "git": {
-    "deploymentEnabled": {
-      "*": false,
-      "main": true
-    }
+    "deploymentEnabled": false
   }
 }

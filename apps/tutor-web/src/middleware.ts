@@ -1,9 +1,10 @@
-import { NextResponse, type NextRequest } from "next/server";
-import { createServerClient } from "@supabase/ssr";
+import * as Sentry from "@sentry/nextjs";
 import type { Database } from "@altitutor/shared";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
-const MIDDLEWARE_DEADLINE_MS = 10_000;
+const SESSION_DEADLINE_MS = 10_000;
 const RETRY_AFTER_SECONDS = 5;
 
 type CookieToSet = {
@@ -12,82 +13,78 @@ type CookieToSet = {
   options?: Parameters<NextResponse["cookies"]["set"]>[2];
 };
 
-class MiddlewareDeadlineError extends Error {
-  constructor() {
-    super("Tutor middleware dependency deadline exceeded");
-    this.name = "MiddlewareDeadlineError";
-  }
-}
-
-function createInvocationDeadline() {
+function createDeadline() {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout>;
   const expiration = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
-      reject(new MiddlewareDeadlineError());
-    }, MIDDLEWARE_DEADLINE_MS);
+      reject(new Error("Tutor session dependency deadline exceeded"));
+    }, SESSION_DEADLINE_MS);
   });
   return {
-    async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
-      const requestController = new AbortController();
-      const abortRequest = () => requestController.abort();
-      const signals = [controller.signal, init.signal].filter(
-        (signal): signal is AbortSignal => Boolean(signal),
-      );
-      signals.forEach((signal) => {
-        if (signal.aborted) abortRequest();
-        else signal.addEventListener("abort", abortRequest, { once: true });
-      });
-      try {
-        return await fetch(input, {
-          ...init,
-          signal: requestController.signal,
-        });
-      } finally {
-        signals.forEach((signal) =>
-          signal.removeEventListener("abort", abortRequest),
-        );
-      }
-    },
+    fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
+      fetch(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
       return Promise.race([Promise.resolve(operation), expiration]);
     },
-    dispose() {
-      clearTimeout(timeout);
-    },
+    dispose: () => clearTimeout(timeout),
   };
 }
 
-function applyResponseMetadata(response: NextResponse, cookies: CookieToSet[]) {
-  cookies.forEach(({ name, value, options }) =>
-    response.cookies.set(name, value, options),
-  );
+function field(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null) return null;
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
+  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
-function unavailableResponse(cookies: CookieToSet[]) {
-  return applyResponseMetadata(
-    new NextResponse(
-      "Tutor services are temporarily unavailable. Please try again.",
-      {
-        status: 503,
-        headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
-      },
-    ),
+function unavailable(
+  request: NextRequest,
+  startedAt: number,
+  error: unknown,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  Sentry.captureMessage("Middleware dependency unavailable", {
+    level: "error",
+    fingerprint: ["middleware-dependency-unavailable", "tutor-web", "authentication"],
+    tags: {
+      app: "tutor-web",
+      dependency_stage: "authentication",
+      http_status: "503",
+      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+    },
+    extra: {
+      elapsed_ms: Math.max(0, Date.now() - startedAt),
+      error_message: field(error, "message"),
+      request_method: request.method,
+      request_path: request.nextUrl.pathname,
+    },
+  });
+  return applyMetadata(
+    new NextResponse("Tutor services are temporarily unavailable. Please try again.", {
+      status: 503,
+      headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
+    }),
     cookies,
+    headers,
   );
 }
 
-export async function middleware(req: NextRequest) {
-  const { pathname, search, origin } = new URL(req.url);
+/** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
+export async function handleAuthRequest(request: NextRequest) {
+  const startedAt = Date.now();
+  const { pathname, search, origin } = request.nextUrl;
+  if (request.method === "OPTIONS") return NextResponse.next({ request });
 
-  if (req.method === "OPTIONS") {
-    return NextResponse.next({ request: req });
-  }
-
-  const isPublicPath =
+  const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
     pathname.startsWith("/reset-password") ||
@@ -96,114 +93,64 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith("/form/") ||
     pathname.startsWith("/sentry-example-page") ||
     pathname.startsWith("/pdfjs/");
+  if (pathname.startsWith("/api") || isPublic) return NextResponse.next({ request });
 
-  if (pathname.startsWith("/api") || isPublicPath) {
-    return NextResponse.next({ request: req });
-  }
-
-  const cookiesToSet: CookieToSet[] = [];
-  let response = NextResponse.next({ request: req });
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const cookies: CookieToSet[] = [];
+  const responseHeaders: Record<string, string> = {};
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("Tutor middleware Supabase environment is unavailable");
-    return unavailableResponse(cookiesToSet);
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  const deadline = createInvocationDeadline();
-  const supabase = instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return req.cookies.getAll();
+  let response = NextResponse.next({ request });
+  const deadline = createDeadline();
+  const supabase = instrumentSupabaseClient(
+    createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(updatedCookies, updatedHeaders) {
+          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach((cookie) => {
+            const index = cookies.findIndex((current) => current.name === cookie.name);
+            if (index >= 0) cookies[index] = cookie;
+            else cookies.push(cookie);
+          });
+          Object.assign(responseHeaders, updatedHeaders);
+          response = applyMetadata(NextResponse.next({ request }), cookies, responseHeaders);
+        },
       },
-      setAll(updatedCookies) {
-        updatedCookies.forEach(({ name, value }) =>
-          req.cookies.set(name, value),
-        );
-        updatedCookies.forEach((cookie) => {
-          const existingIndex = cookiesToSet.findIndex(
-            (existing) => existing.name === cookie.name,
-          );
-          if (existingIndex >= 0) cookiesToSet[existingIndex] = cookie;
-          else cookiesToSet.push(cookie);
-        });
-        response = NextResponse.next({ request: req });
-        applyResponseMetadata(response, cookiesToSet);
-      },
-    },
-    cookieOptions: { name: "tutor-auth" },
-    global: { fetch: deadline.fetch },
-  }));
+      cookieOptions: { name: "tutor-auth" },
+      global: { fetch: deadline.fetch },
+    }),
+  );
 
   try {
-    let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
     try {
-      claimsResult = await deadline.race(supabase.auth.getClaims());
+      claims = await deadline.race(supabase.auth.getClaims());
     } catch (error) {
-      console.error("Tutor middleware authentication dependency failed", error);
-      return unavailableResponse(cookiesToSet);
+      return unavailable(request, startedAt, error, cookies, responseHeaders);
     }
-    const { data: claimsData, error: claimsError } = claimsResult;
-    const isMissingSession = claimsError?.name === "AuthSessionMissingError";
-    if (claimsError && !isMissingSession) {
-      console.error(
-        "Tutor middleware authentication dependency failed",
-        claimsError,
-      );
-      return unavailableResponse(cookiesToSet);
+    const missingSession = claims.error?.name === "AuthSessionMissingError";
+    if (claims.error && !missingSession) {
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
     }
-    const userId = claimsData?.claims?.sub;
-
-    if (!userId) {
+    if (missingSession || !claims.data?.claims?.sub) {
       const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("next", `${pathname}${search}`);
-      return applyResponseMetadata(
-        NextResponse.redirect(loginUrl),
-        cookiesToSet,
-      );
+      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
     }
-
-    let profileResult: {
-      data: { role: "ADMINSTAFF" | "TUTOR"; status: string | null } | null;
-      error: { message: string } | null;
-    };
-    try {
-      profileResult = await deadline.race(
-        supabase.from("vtutor_profile").select("role, status").maybeSingle(),
-      );
-    } catch (error) {
-      console.error("Tutor middleware profile dependency failed", error);
-      return unavailableResponse(cookiesToSet);
-    }
-    if (profileResult.error) {
-      console.error(
-        "Tutor middleware profile dependency failed",
-        profileResult.error,
-      );
-      return unavailableResponse(cookiesToSet);
-    }
-    const isActiveStaff =
-      profileResult.data?.status === "ACTIVE" &&
-      (profileResult.data.role === "TUTOR" ||
-        profileResult.data.role === "ADMINSTAFF");
-    if (!isActiveStaff) {
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/login?error=access_denied", origin)),
-        cookiesToSet,
-      );
-    }
-
     if (pathname === "/") {
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/dashboard", origin)),
-        cookiesToSet,
-      );
+      return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
     }
-    return applyResponseMetadata(response, cookiesToSet);
+    return applyMetadata(response, cookies, responseHeaders);
   } finally {
     deadline.dispose();
   }
 }
+
+export const middleware = handleAuthRequest;
 
 export const config = {
   matcher: [

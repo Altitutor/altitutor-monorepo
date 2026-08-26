@@ -118,7 +118,7 @@ export function useUcatAccess(): UcatAccessFlags {
     queryKey: ["ucat-access", user?.id],
     queryFn: fetchUcatAccess,
     enabled: Boolean(user),
-    staleTime: 60_000,
+    staleTime: 30_000,
   });
 
   useEffect(() => {

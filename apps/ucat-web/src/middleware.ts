@@ -1,17 +1,12 @@
-import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
+import type { Database } from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { Database } from "@altitutor/shared";
+import { NextResponse, type NextRequest } from "next/server";
+import { authEntryPath } from "@/features/auth/lib/return-intent";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
-import { isAllowedBeforeSignupComplete } from "@/features/signup-onboarding/lib/signup-complete-paths";
-import { resolvePostAuthDestination } from "@/features/auth/lib/social-auth";
-import {
-  authEntryPath,
-  pathWithReturnIntent,
-  safePostAuthReturnPath,
-} from "@/features/auth/lib/return-intent";
 
-const MIDDLEWARE_DEADLINE_MS = 10_000;
+const SESSION_DEADLINE_MS = 10_000;
 const RETRY_AFTER_SECONDS = 5;
 
 type CookieToSet = {
@@ -20,99 +15,76 @@ type CookieToSet = {
   options?: Parameters<NextResponse["cookies"]["set"]>[2];
 };
 
-type SignupAccessResult = {
-  data: Pick<
-    Database["public"]["Views"]["vstudent_ucat_my_access"]["Row"],
-    "ucat_signup_completed_at"
-  > | null;
-  error: { message: string } | null;
-};
-
-type StaffAccessResult = {
-  data: string | null;
-  error: { message: string } | null;
-};
-
-class MiddlewareDeadlineError extends Error {
-  constructor() {
-    super("UCAT middleware dependency deadline exceeded");
-    this.name = "MiddlewareDeadlineError";
-  }
-}
-
-function createInvocationDeadline() {
+function createDeadline() {
   const controller = new AbortController();
   let timeout: ReturnType<typeof setTimeout>;
   const expiration = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
       controller.abort();
-      reject(new MiddlewareDeadlineError());
-    }, MIDDLEWARE_DEADLINE_MS);
+      reject(new Error("UCAT session dependency deadline exceeded"));
+    }, SESSION_DEADLINE_MS);
   });
-
   return {
-    async fetch(input: RequestInfo | URL, init: RequestInit = {}) {
-      const requestController = new AbortController();
-      const abortRequest = () => requestController.abort();
-      const signals = [controller.signal, init.signal].filter(
-        (signal): signal is AbortSignal => Boolean(signal),
-      );
-      signals.forEach((signal) => {
-        if (signal.aborted) abortRequest();
-        else signal.addEventListener("abort", abortRequest, { once: true });
-      });
-
-      try {
-        return await fetch(input, {
-          ...init,
-          signal: requestController.signal,
-        });
-      } finally {
-        signals.forEach((signal) =>
-          signal.removeEventListener("abort", abortRequest),
-        );
-      }
-    },
+    fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
+      fetch(input, { ...init, signal: controller.signal }),
     race<T>(operation: PromiseLike<T>) {
       return Promise.race([Promise.resolve(operation), expiration]);
     },
-    dispose() {
-      clearTimeout(timeout);
-    },
+    dispose: () => clearTimeout(timeout),
   };
 }
 
-function applyResponseMetadata(response: NextResponse, cookies: CookieToSet[]) {
-  cookies.forEach(({ name, value, options }) => {
-    response.cookies.set(name, value, options);
-  });
+function field(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null) return null;
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
+  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
 
-function unavailableResponse(cookies: CookieToSet[]) {
-  const response = new NextResponse(
-    "We couldn't verify account access. Please try again.",
-    {
-      status: 503,
-      headers: {
-        "Cache-Control": "private, no-store",
-        "Retry-After": String(RETRY_AFTER_SECONDS),
-      },
+function unavailable(
+  request: NextRequest,
+  startedAt: number,
+  error: unknown,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  Sentry.captureMessage("Middleware dependency unavailable", {
+    level: "error",
+    fingerprint: ["middleware-dependency-unavailable", "ucat-web", "authentication"],
+    tags: {
+      app: "ucat-web",
+      dependency_stage: "authentication",
+      http_status: "503",
+      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
     },
+    extra: {
+      elapsed_ms: Math.max(0, Date.now() - startedAt),
+      error_message: field(error, "message"),
+      request_method: request.method,
+      request_path: request.nextUrl.pathname,
+    },
+  });
+  return applyMetadata(
+    new NextResponse("We couldn't verify account access. Please try again.", {
+      status: 503,
+      headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
+    }),
+    cookies,
+    headers,
   );
-  return applyResponseMetadata(response, cookies);
 }
 
-export async function middleware(request: NextRequest) {
-  const { pathname, origin } = new URL(request.url);
-
-  // Preflight requests do not carry useful application intent. Authenticating
-  // them adds two account-access queries and can turn an otherwise harmless
-  // browser probe into a user-visible 503 when Supabase is under load.
-  if (request.method === "OPTIONS") {
-    return NextResponse.next({ request });
-  }
+/** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
+export async function handleAuthRequest(request: NextRequest) {
+  const startedAt = Date.now();
+  const { pathname, origin } = request.nextUrl;
+  if (request.method === "OPTIONS") return NextResponse.next({ request });
 
   if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(request.url);
@@ -120,104 +92,61 @@ export async function middleware(request: NextRequest) {
     redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
+  if (pathname === "/auth/callback") return NextResponse.next({ request });
+  if (pathname === "/pricing") return NextResponse.redirect(new URL("/subscribe", origin));
 
-  // PKCE magic links: do not run Supabase session logic here. Session refresh can clear
-  // PKCE verifier storage before /auth/callback runs exchangeCodeForSession.
-  if (pathname === "/auth/callback") {
-    return NextResponse.next({ request });
-  }
-
-  if (pathname === "/pricing") {
-    return NextResponse.redirect(new URL("/subscribe", origin));
-  }
-
-  const publicPaths = ["/login", "/signup", "/forgot-password"];
-  const isDevelopmentSentryExample =
-    process.env.NODE_ENV === "development" &&
-    pathname === "/sentry-example-page";
-  const isPublicPath =
-    publicPaths.includes(pathname) || isDevelopmentSentryExample;
-  const isApiPath = pathname.startsWith("/api/");
-  const isNoAuthPublicPath =
+  const isNoSessionPath =
     pathname === "/reset-password" ||
     pathname.startsWith("/marketing-preview/") ||
-    pathname === "/api/ucat/public-interest" ||
-    pathname === "/api/cron/ucat-preparation-refreshes" ||
-    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/api/") ||
     pathname.startsWith("/auth/") ||
-    pathname === "/api/ucat/subscription-config";
+    (process.env.NODE_ENV === "development" && pathname === "/sentry-example-page");
+  if (isNoSessionPath) return NextResponse.next({ request });
 
-  if (isNoAuthPublicPath) {
-    return NextResponse.next({ request });
-  }
-
-  let response = NextResponse.next({
-    request,
-  });
-  const cookiesToSet: CookieToSet[] = [];
-
+  const isPublicEntry =
+    pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
+  const cookies: CookieToSet[] = [];
+  const responseHeaders: Record<string, string> = {};
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.error("UCAT middleware Supabase environment is unavailable");
-    return unavailableResponse(cookiesToSet);
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  const deadline = createInvocationDeadline();
-
-  const supabase = instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  let response = NextResponse.next({ request });
+  const deadline = createDeadline();
+  const supabase = instrumentSupabaseClient(
+    createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(updatedCookies, updatedHeaders) {
+          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach((cookie) => {
+            const index = cookies.findIndex((current) => current.name === cookie.name);
+            if (index >= 0) cookies[index] = cookie;
+            else cookies.push(cookie);
+          });
+          Object.assign(responseHeaders, updatedHeaders);
+          response = applyMetadata(NextResponse.next({ request }), cookies, responseHeaders);
+        },
       },
-      setAll(updatedCookies) {
-        updatedCookies.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-        updatedCookies.forEach((cookie) => {
-          const existingIndex = cookiesToSet.findIndex(
-            (existing) => existing.name === cookie.name,
-          );
-          if (existingIndex >= 0) {
-            cookiesToSet[existingIndex] = cookie;
-          } else {
-            cookiesToSet.push(cookie);
-          }
-        });
-        response = NextResponse.next({
-          request,
-        });
-        applyResponseMetadata(response, cookiesToSet);
-      },
-    },
-    cookieOptions: {
-      name: "student-auth",
-    },
-    global: {
-      fetch: deadline.fetch,
-    },
-  }) as unknown as SupabaseClient<Database>);
+      cookieOptions: { name: "student-auth" },
+      global: { fetch: deadline.fetch },
+    }) as unknown as SupabaseClient<Database>,
+  );
 
   try {
-    let claimsResult: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
     try {
-      claimsResult = await deadline.race(supabase.auth.getClaims());
+      claims = await deadline.race(supabase.auth.getClaims());
     } catch (error) {
-      console.error("UCAT middleware authentication dependency failed", error);
-      return unavailableResponse(cookiesToSet);
+      return unavailable(request, startedAt, error, cookies, responseHeaders);
     }
-    const { data: claimsData, error: claimsError } = claimsResult;
-    const isMissingSession = claimsError?.name === "AuthSessionMissingError";
-    if (claimsError && !isMissingSession) {
-      console.error(
-        "UCAT middleware authentication dependency failed",
-        claimsError,
-      );
-      return unavailableResponse(cookiesToSet);
+    const missingSession = claims.error?.name === "AuthSessionMissingError";
+    if (claims.error && !missingSession) {
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
     }
-    const userId = claimsData?.claims?.sub;
-
+    const userId = claims.data?.claims?.sub;
     if (!userId && pathname.startsWith("/subscribe")) {
       const signupUrl = new URL(
         authEntryPath(
@@ -227,13 +156,9 @@ export async function middleware(request: NextRequest) {
         ),
         origin,
       );
-      return applyResponseMetadata(
-        NextResponse.redirect(signupUrl),
-        cookiesToSet,
-      );
+      return applyMetadata(NextResponse.redirect(signupUrl), cookies, responseHeaders);
     }
-
-    if (!userId && !isPublicPath) {
+    if (!userId && !isPublicEntry) {
       const loginUrl = new URL(
         authEntryPath(
           "/login",
@@ -242,124 +167,15 @@ export async function middleware(request: NextRequest) {
         ),
         origin,
       );
-      return applyResponseMetadata(
-        NextResponse.redirect(loginUrl),
-        cookiesToSet,
-      );
+      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
     }
-
-    let signupCompleted: boolean | null = null;
-    let activeStaffRole: string | null = null;
-    if (userId && !isApiPath) {
-      let accessResult: SignupAccessResult;
-      let staffResult: StaffAccessResult;
-      try {
-        [accessResult, staffResult] = await deadline.race(
-          Promise.all([
-            supabase
-              .from("vstudent_ucat_my_access")
-              .select("ucat_signup_completed_at")
-              .maybeSingle(),
-            supabase.rpc("current_ucat_signup_staff_role"),
-          ]),
-        );
-      } catch (error) {
-        console.error(
-          "UCAT middleware account-access dependency failed",
-          error,
-        );
-        return unavailableResponse(cookiesToSet);
-      }
-
-      if (accessResult.error) {
-        console.error(
-          "UCAT middleware signup-access dependency failed",
-          accessResult.error,
-        );
-        return unavailableResponse(cookiesToSet);
-      }
-      signupCompleted =
-        accessResult.data == null
-          ? null
-          : Boolean(accessResult.data.ucat_signup_completed_at);
-      if (staffResult.error) {
-        console.error(
-          "UCAT middleware staff-access dependency failed",
-          staffResult.error,
-        );
-        return unavailableResponse(cookiesToSet);
-      }
-      activeStaffRole = staffResult.data;
-    }
-
-    if (userId && activeStaffRole) {
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL("/auth/staff-account", origin)),
-        cookiesToSet,
-      );
-    }
-
-    if (userId && pathname === "/") {
-      const dest =
-        signupCompleted === false ? "/signup/complete" : "/dashboard";
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL(dest, origin)),
-        cookiesToSet,
-      );
-    }
-
-    if (userId && pathname === "/forgot-password") {
-      const dest =
-        signupCompleted === false ? "/signup/complete" : "/dashboard";
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL(dest, origin)),
-        cookiesToSet,
-      );
-    }
-
-    if (userId && (pathname === "/login" || pathname === "/signup")) {
-      const redirectTo = safePostAuthReturnPath(
-        request.nextUrl.searchParams.get("redirect"),
-      );
-      const destination =
-        signupCompleted === null
-          ? redirectTo
-          : resolvePostAuthDestination({
-              intent: "login",
-              provider: null,
-              next: redirectTo,
-              signupCompleted,
-            });
-      return applyResponseMetadata(
-        NextResponse.redirect(new URL(destination, origin)),
-        cookiesToSet,
-      );
-    }
-
-    if (
-      userId &&
-      signupCompleted === false &&
-      !isAllowedBeforeSignupComplete(pathname)
-    ) {
-      return applyResponseMetadata(
-        NextResponse.redirect(
-          new URL(
-            pathWithReturnIntent(
-              "/signup/complete",
-              `${pathname}${request.nextUrl.search}`,
-            ),
-            origin,
-          ),
-        ),
-        cookiesToSet,
-      );
-    }
-
-    return applyResponseMetadata(response, cookiesToSet);
+    return applyMetadata(response, cookies, responseHeaders);
   } finally {
     deadline.dispose();
   }
 }
+
+export const middleware = handleAuthRequest;
 
 export const config = {
   matcher: [

@@ -115,3 +115,9 @@ pnpm db:types
 ### Remote
 
 Migrations go through CI/CD. Do not apply migrations manually to shared development or production databases.
+
+Production web deployments are released by `.github/workflows/supabase-deploy.yml` only after the corresponding Supabase deployment succeeds. Vercel Git auto-deployments are disabled so they cannot bypass that gate. Before enabling or rotating the release credential, run:
+
+```bash
+./scripts/setup-production-release-gate.sh
+```

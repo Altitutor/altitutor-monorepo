@@ -11,6 +11,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/scripts/**'
       - 'supabase/templates/**'
+      - 'scripts/**'
       - 'turbo.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -25,6 +26,7 @@ on:
       - 'supabase/migrations/**'
       - 'supabase/scripts/**'
       - 'supabase/templates/**'
+      - 'scripts/**'
       - 'turbo.json'
       - 'package.json'
       - 'pnpm-lock.yaml'
@@ -59,6 +61,9 @@ jobs:
         with:
           node-version: 24
           cache: 'pnpm'
+
+      - name: Check production release gate
+        run: node --test scripts/production-release-gate.test.mjs
 
       - uses: actions/cache@v4
         with:

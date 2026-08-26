@@ -4,7 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
-export async function getSupabaseServerClient(): Promise<
+export async function getSupabaseServerClient(globalFetch?: typeof fetch): Promise<
   SupabaseClient<Database>
 > {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -56,5 +56,6 @@ export async function getSupabaseServerClient(): Promise<
     cookieOptions: {
       name: "student-auth",
     },
+    ...(globalFetch ? { global: { fetch: globalFetch } } : {}),
   }) as unknown as SupabaseClient<Database>);
 }

@@ -164,7 +164,7 @@ export function useCurrentStaff() {
     queryKey: staffKeys.current(userId),
     queryFn: () => staffApi.getByUserId(userId!),
     enabled: !authLoading && !!userId,
-    staleTime: 1000 * 60 * 5, // 5 minutes - user data doesn't change often
+    staleTime: 30_000,
     gcTime: 1000 * 60 * 15, // 15 minutes
   });
 }
