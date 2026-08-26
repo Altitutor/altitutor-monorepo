@@ -115,6 +115,19 @@ describe("resolveUcatPortalAccess", () => {
     expect(mockCaptureMessage).not.toHaveBeenCalled();
   });
 
+  it("uses middleware-verified identity without verifying the JWT twice", async () => {
+    mockGetClaims.mockRejectedValue(new Error("redundant auth verification"));
+    mockRpc.mockResolvedValue({ data: accessPayload, error: null });
+
+    await expect(resolveUcatPortalAccess("user-1")).resolves.toMatchObject({
+      status: "allowed",
+      userId: "user-1",
+      access: { studentId: "student-1" },
+    });
+    expect(mockGetClaims).not.toHaveBeenCalled();
+    expect(mockRpc).toHaveBeenCalledTimes(1);
+  });
+
   it("reports other claims failures as unavailable", async () => {
     mockGetClaims.mockResolvedValue({
       data: null,

@@ -1,5 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
-import type { Database } from "@altitutor/shared";
+import {
+  headersWithVerifiedUser,
+  type Database,
+} from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
@@ -14,6 +17,12 @@ type CookieToSet = {
   value: string;
   options?: Parameters<NextResponse["cookies"]["set"]>[2];
 };
+
+function forwardRequest(request: NextRequest, userId: string | null) {
+  return NextResponse.next({
+    request: { headers: headersWithVerifiedUser(request.headers, userId) },
+  });
+}
 
 function createDeadline() {
   const controller = new AbortController();
@@ -84,7 +93,7 @@ function unavailable(
 export async function handleAuthRequest(request: NextRequest) {
   const startedAt = Date.now();
   const { pathname, origin } = request.nextUrl;
-  if (request.method === "OPTIONS") return NextResponse.next({ request });
+  if (request.method === "OPTIONS") return forwardRequest(request, null);
 
   if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(request.url);
@@ -92,7 +101,7 @@ export async function handleAuthRequest(request: NextRequest) {
     redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
-  if (pathname === "/auth/callback") return NextResponse.next({ request });
+  if (pathname === "/auth/callback") return forwardRequest(request, null);
   if (pathname === "/pricing") return NextResponse.redirect(new URL("/subscribe", origin));
 
   const isNoSessionPath =
@@ -101,7 +110,7 @@ export async function handleAuthRequest(request: NextRequest) {
     pathname.startsWith("/api/") ||
     pathname.startsWith("/auth/") ||
     (process.env.NODE_ENV === "development" && pathname === "/sentry-example-page");
-  if (isNoSessionPath) return NextResponse.next({ request });
+  if (isNoSessionPath) return forwardRequest(request, null);
 
   const isPublicEntry =
     pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password";
@@ -113,7 +122,6 @@ export async function handleAuthRequest(request: NextRequest) {
     return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  let response = NextResponse.next({ request });
   const deadline = createDeadline();
   const supabase = instrumentSupabaseClient(
     createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
@@ -127,7 +135,6 @@ export async function handleAuthRequest(request: NextRequest) {
             else cookies.push(cookie);
           });
           Object.assign(responseHeaders, updatedHeaders);
-          response = applyMetadata(NextResponse.next({ request }), cookies, responseHeaders);
         },
       },
       cookieOptions: { name: "student-auth" },
@@ -169,7 +176,11 @@ export async function handleAuthRequest(request: NextRequest) {
       );
       return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
     }
-    return applyMetadata(response, cookies, responseHeaders);
+    return applyMetadata(
+      forwardRequest(request, userId ?? null),
+      cookies,
+      responseHeaders,
+    );
   } finally {
     deadline.dispose();
   }

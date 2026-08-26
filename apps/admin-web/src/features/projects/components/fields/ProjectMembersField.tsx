@@ -53,14 +53,15 @@ export function ProjectMembersField({
   }, [knownMembers]);
 
   const leadId = form.watch('projectLeadId');
-  const memberIds = form.watch('memberIds') ?? [];
+  const memberIds = form.watch('memberIds');
 
   const selectedMembers = useMemo(() => {
+    const selectedMemberIds = memberIds ?? [];
     const byId = new Map<string, ProjectStaffRef>();
     for (const person of [...cachedStaff, ...knownMembers, ...staffList]) {
       byId.set(person.id, person);
     }
-    return memberIds
+    return selectedMemberIds
       .filter((id) => id !== leadId)
       .map((id) => byId.get(id) ?? { id, first_name: null, last_name: null });
   }, [cachedStaff, knownMembers, staffList, memberIds, leadId]);

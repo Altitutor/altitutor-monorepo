@@ -16,6 +16,8 @@ jobs:
   verify:
     name: Verify release commit
     uses: ./.github/workflows/ci.yml
+    with:
+      full_run: ${{ github.ref_name == 'main' }}
 
   deploy:
     needs: verify

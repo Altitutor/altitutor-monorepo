@@ -1,10 +1,17 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { VERIFIED_USER_ID_HEADER } from "@altitutor/shared";
 import { PortalAccessUnavailable } from "@/features/auth/components/PortalAccessUnavailable";
 import { loadAdminPortalAccess } from "@/features/auth/server/portal-access";
 import AdminClientLayout from "./client-layout";
 
-export default async function AdminLayout({ children }: { children: React.ReactNode }) {
-  const access = await loadAdminPortalAccess();
+export default async function AdminLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const verifiedUserId = (await headers()).get(VERIFIED_USER_ID_HEADER);
+  const access = await loadAdminPortalAccess(verifiedUserId);
 
   if (access.status === "unauthenticated") redirect("/login");
   if (access.status === "denied") redirect("/login?error=access_denied");

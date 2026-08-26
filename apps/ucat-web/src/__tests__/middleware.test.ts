@@ -31,9 +31,35 @@ describe("UCAT session middleware", () => {
   });
 
   it("does no database work for protected navigation", async () => {
-    expect((await middleware(request("/dashboard"))).status).toBe(200);
+    const response = await middleware(request("/dashboard"));
+    expect(response.status).toBe(200);
+    expect(
+      response.headers.get(
+        "x-middleware-request-x-altitutor-verified-user-id",
+      ),
+    ).toBe("student-1");
     expect(mockFrom).not.toHaveBeenCalled();
     expect(mockRpc).not.toHaveBeenCalled();
+  });
+
+  it("strips an unverified identity header from anonymous requests", async () => {
+    mockGetClaims.mockResolvedValue({
+      data: null,
+      error: { name: "AuthSessionMissingError" },
+    });
+    const response = await middleware(
+      request("/login", {
+        headers: { "x-altitutor-verified-user-id": "forged-user" },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.headers.get("x-middleware-override-headers")).toBe("");
+    expect(
+      response.headers.get(
+        "x-middleware-request-x-altitutor-verified-user-id",
+      ),
+    ).toBeNull();
   });
 
   it("redirects an anonymous protected request with return intent", async () => {
@@ -85,5 +111,8 @@ describe("UCAT session middleware", () => {
     const response = await middleware(request("/dashboard"));
     expect(response.headers.get("set-cookie")).toContain("student-auth=rotated");
     expect(response.headers.get("expires")).toBe("0");
+    expect(response.headers.get("x-middleware-request-cookie")).toContain(
+      "student-auth=rotated",
+    );
   });
 });

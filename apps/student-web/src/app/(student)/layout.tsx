@@ -1,10 +1,17 @@
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { VERIFIED_USER_ID_HEADER } from "@altitutor/shared";
 import { PortalAccessUnavailable } from "@/features/auth/components/PortalAccessUnavailable";
 import { loadStudentPortalAccess } from "@/features/auth/server/portal-access";
 import StudentClientLayout from "./client-layout";
 
-export default async function StudentLayout({ children }: { children: React.ReactNode }) {
-  const access = await loadStudentPortalAccess();
+export default async function StudentLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const verifiedUserId = (await headers()).get(VERIFIED_USER_ID_HEADER);
+  const access = await loadStudentPortalAccess(verifiedUserId);
 
   if (access.status === "unauthenticated") redirect("/login");
   if (access.status === "denied") redirect("/login?error=access_denied");

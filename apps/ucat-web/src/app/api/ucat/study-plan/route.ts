@@ -7,6 +7,8 @@ import {
 } from "@/features/study-plan/server/study-plan-service";
 import { parseStudyPlanProfileInput } from "@/features/study-plan/lib/validation";
 
+export const dynamic = "force-dynamic";
+
 function errorMessage(error: unknown, fallback: string) {
   if (error instanceof Error) return error.message;
   if (error && typeof error === "object" && "message" in error) {

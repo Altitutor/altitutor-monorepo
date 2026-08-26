@@ -1,9 +1,15 @@
 # Monorepo CI for all workspace apps (admin-web, tutor-web, student-web, marketing-web, ucat-web, student-app, packages).
-# PRs run affected packages. Main/develop releases call this workflow and run the full monorepo.
+# PRs and development run affected packages. Production releases run the full monorepo.
 name: CI
 
 on:
   workflow_call:
+    inputs:
+      full_run:
+        description: Run every workspace task instead of only packages affected by the current commit
+        required: false
+        type: boolean
+        default: true
   pull_request:
     paths:
       - 'apps/**'
@@ -25,8 +31,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  # Empty on push / workflow_dispatch → turbo runs all packages.
-  TURBO_FILTER: ${{ github.event_name == 'pull_request' && format('...[origin/{0}]', github.base_ref) || '' }}
+  # PRs compare with their base branch; development calls compare with the prior commit.
+  # An empty filter is reserved for full production verification and manual runs.
+  TURBO_FILTER: ${{ github.event_name == 'pull_request' && format('...[origin/{0}]', github.base_ref) || (github.event_name == 'push' && inputs.full_run == false && '...[HEAD^]' || '') }}
 
 jobs:
   lint:
@@ -54,10 +61,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-turbo-${{ github.base_ref }}-
-            ${{ runner.os }}-turbo-
+            ${{ runner.os }}-turbo-${{ github.job }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -109,10 +115,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-turbo-${{ github.base_ref }}-
-            ${{ runner.os }}-turbo-
+            ${{ runner.os }}-turbo-${{ github.job }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -148,10 +153,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-turbo-${{ github.base_ref }}-
-            ${{ runner.os }}-turbo-
+            ${{ runner.os }}-turbo-${{ github.job }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -167,7 +171,6 @@ jobs:
 
   build:
     name: Build
-    needs: [lint, typecheck]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -188,10 +191,9 @@ jobs:
       - uses: actions/cache@v4
         with:
           path: .turbo
-          key: ${{ runner.os }}-turbo-${{ github.sha }}
+          key: ${{ runner.os }}-turbo-${{ github.job }}-${{ github.sha }}
           restore-keys: |
-            ${{ runner.os }}-turbo-${{ github.base_ref }}-
-            ${{ runner.os }}-turbo-
+            ${{ runner.os }}-turbo-${{ github.job }}-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

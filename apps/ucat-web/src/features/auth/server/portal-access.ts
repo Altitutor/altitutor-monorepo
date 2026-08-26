@@ -161,32 +161,43 @@ async function queryWithClockSkewRetry(
   return retry;
 }
 
-export async function resolveUcatPortalAccess(): Promise<UcatPortalAccess> {
+export async function resolveUcatPortalAccess(
+  verifiedUserId?: string | null,
+): Promise<UcatPortalAccess> {
   const startedAt = Date.now();
   const deadline = createDeadline();
   try {
+    if (verifiedUserId === null) return { status: "unauthenticated" };
+
     let supabase: Awaited<ReturnType<typeof getSupabaseServerClient>>;
     try {
       supabase = await getSupabaseServerClient(deadline.fetch);
     } catch (error) {
-      captureUnavailable("authentication", startedAt, error);
+      captureUnavailable(
+        verifiedUserId === undefined ? "authentication" : "portal_access",
+        startedAt,
+        error,
+      );
       return { status: "unavailable" };
     }
-    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
-    try {
-      claims = await deadline.race(supabase.auth.getClaims());
-    } catch (error) {
-      captureUnavailable("authentication", startedAt, error);
-      return { status: "unavailable" };
+    let userId = verifiedUserId;
+    if (userId === undefined) {
+      let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+      try {
+        claims = await deadline.race(supabase.auth.getClaims());
+      } catch (error) {
+        captureUnavailable("authentication", startedAt, error);
+        return { status: "unavailable" };
+      }
+      if (claims.error?.name === "AuthSessionMissingError")
+        return { status: "unauthenticated" };
+      if (claims.error) {
+        captureUnavailable("authentication", startedAt, claims.error);
+        return { status: "unavailable" };
+      }
+      userId = claims.data?.claims?.sub;
+      if (!userId) return { status: "unauthenticated" };
     }
-    if (claims.error?.name === "AuthSessionMissingError")
-      return { status: "unauthenticated" };
-    if (claims.error) {
-      captureUnavailable("authentication", startedAt, claims.error);
-      return { status: "unavailable" };
-    }
-    const userId = claims.data?.claims?.sub;
-    if (!userId) return { status: "unauthenticated" };
 
     let result: QueryResult;
     try {
