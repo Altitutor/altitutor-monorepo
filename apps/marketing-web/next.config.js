@@ -111,11 +111,6 @@ const nextConfig = {
         permanent: true,
       },
       {
-        source: "/product/:slug*/",
-        destination: legacyRedirects.trialBookingUrl,
-        permanent: true,
-      },
-      {
         source: "/product-category/:slug*/",
         destination: "/classes/",
         permanent: true,
