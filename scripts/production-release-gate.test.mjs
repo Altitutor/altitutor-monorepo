@@ -24,6 +24,10 @@ const ucatJestConfigPath = new URL(
   "../apps/ucat-web/jest.config.js",
   import.meta.url,
 );
+const emailDispatchSecretSyncPath = new URL(
+  "../supabase/scripts/sync-ucat-email-dispatch-secret.sql",
+  import.meta.url,
+);
 
 test("Vercel Git integration cannot bypass the production release gate", async () => {
   await Promise.all(
@@ -67,6 +71,23 @@ test("every main push runs the migration gate before Vercel production deploys",
   for (const app of APPS) {
     assert.match(workflow, new RegExp(`app: ${app}\\b`, "u"));
   }
+});
+
+test("production deploys synchronize transactional email authentication", async () => {
+  const [workflow, secretSync] = await Promise.all([
+    readFile(workflowPath, "utf8"),
+    readFile(emailDispatchSecretSyncPath, "utf8"),
+  ]);
+
+  assert.match(
+    workflow,
+    /UCAT_EMAIL_DISPATCH_SECRET_KEY: \$\{\{ secrets\.UCAT_EMAIL_DISPATCH_SECRET_KEY \}\}/u,
+  );
+  assert.match(workflow, /Require production transactional email authentication/u);
+  assert.match(workflow, /supabase secrets set/u);
+  assert.match(workflow, /sync-ucat-email-dispatch-secret\.sql/u);
+  assert.match(secretSync, /vault\.update_secret/u);
+  assert.match(secretSync, /vault\.create_secret/u);
 });
 
 test("release verification is parallel, branch-scoped, and independently cached", async () => {
@@ -115,7 +136,7 @@ test("UCAT production verification executes every system test boundary", async (
   );
   assert.match(
     workflow,
-    /deno test --allow-env supabase\/functions/u,
+    /deno test --config supabase\/functions\/deno\.json --allow-env supabase\/functions/u,
     "Supabase Edge Function contracts must be release-gated",
   );
   assert.match(

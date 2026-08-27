@@ -118,6 +118,7 @@ export default defineConfig({
     timeout: 300_000,
     env: {
       ...localSupabase,
+      CRON_SECRET: "local-playwright-cron-secret",
       NEXT_DIST_DIR: ".next-e2e",
     },
   },

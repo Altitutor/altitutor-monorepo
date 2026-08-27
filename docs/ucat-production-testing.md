@@ -54,13 +54,52 @@ mischarge a customer. Keep lower-level permutations in Jest or database tests.
 From the repository root:
 
 ```sh
+# Jest unit, component, and route tests only (all workspace packages)
+pnpm test
+
+# UCAT Jest tests with the enforced production coverage baseline
 pnpm --filter ucat-web test:coverage
+
+# Playwright's four release-critical journeys in desktop Chromium
 pnpm --filter ucat-web test:e2e:critical
+
+# Every Playwright journey in desktop Chromium
+pnpm --filter ucat-web test:e2e
+
+# Every @compat journey across desktop and mobile browser profiles, plus all
+# desktop-Chromium journeys
 UCAT_E2E_FULL_BROWSER_MATRIX=true pnpm --filter ucat-web test:e2e
+
+# Database and Edge Function contracts
 supabase test db
-deno test --allow-env supabase/functions
+deno test --config supabase/functions/deno.json --allow-env supabase/functions
 ```
+
+`pnpm test` deliberately does not include Playwright, database, or Deno tests:
+those suites require browser binaries and/or local Supabase services and would
+make the normal unit-test loop slow and environment-dependent.
 
 Playwright requires a running local Supabase stack and installed browser
 binaries. CI starts and resets Supabase and installs the required browsers
 before executing these commands.
+
+For a first local run, start Supabase and install Chromium once:
+
+```sh
+supabase start
+supabase db reset
+pnpm --filter ucat-web exec playwright install chromium
+pnpm --filter ucat-web test:e2e:critical
+```
+
+`supabase db reset` rebuilds and reseeds only the local development database.
+
+## Continuous integration
+
+The `UCAT Browser and Database` job runs automatically for relevant pull
+requests and for the `develop` and `main` release workflows. Pull requests and
+`develop` run the release-critical Chromium journeys. `main` and manual CI runs
+execute the full Chrome, Edge, Firefox, WebKit/Safari, Android, and iOS matrix.
+The same job resets Supabase and runs every database contract before starting
+Playwright. The separate `UCAT Contracts` job enforces Jest coverage and runs
+all Deno Edge Function tests.

@@ -193,7 +193,7 @@ jobs:
         run: pnpm --filter ucat-web test:coverage
 
       - name: Test Supabase Edge Function contracts
-        run: deno test --allow-env supabase/functions
+        run: deno test --config supabase/functions/deno.json --allow-env supabase/functions
 
   ucat-e2e:
     name: UCAT Browser and Database

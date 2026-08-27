@@ -6,4 +6,10 @@ GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO authenticated, service_ro
 GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO authenticated, service_role;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO service_role;
 
+-- The blanket hosted-role emulation above runs after migrations during a local
+-- reset. Re-apply intentional relation-level denials that production receives
+-- from its later migration ordering.
+REVOKE ALL ON TABLE public.public_link_revocations
+  FROM PUBLIC, anon, authenticated, service_role;
+
 GRANT SELECT ON public.vmarketing_staff_profiles TO anon;

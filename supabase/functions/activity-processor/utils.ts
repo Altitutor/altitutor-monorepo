@@ -242,6 +242,7 @@ export function formatDayOfWeek(dayOfWeek: number | null | undefined): string {
 export function formatDate(timestamp: string): string {
   try {
     const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
@@ -297,6 +298,26 @@ interface SubjectLike {
   long_name?: string | null;
 }
 
+interface EntityDataLike extends Record<string, unknown> {
+  id?: string;
+  class_id?: string;
+  day_of_week?: number | null;
+  end_at?: string;
+  end_time?: string;
+  first_name?: string;
+  last_name?: string;
+  level?: string | number;
+  room?: string;
+  session_id?: string;
+  staff_id?: string;
+  start_at?: string;
+  start_time?: string;
+  student_id?: string;
+  subject_id?: string;
+  title?: string;
+  type?: string;
+}
+
 export function formatClassName(classData: ClassDataLike, subject: SubjectLike | null | undefined): string {
   if (classData.long_name?.trim()) {
     return classData.long_name.trim();
@@ -349,7 +370,7 @@ export function formatSessionDateTime(timestamp: string): string {
 export async function formatEntityName(
   supabase: SupabaseClient,
   entityType: string,
-  entityData: Record<string, unknown> | null | undefined,
+  entityData: EntityDataLike | null | undefined,
   activityEvent: ActivityEventLike
 ): Promise<string> {
   if (!entityData) return '';
@@ -699,7 +720,7 @@ export async function getOrGenerateStaffInviteToken(
 export async function extractTemplateVariables(
   supabase: SupabaseClient,
   activityEvent: ActivityEventLike & { performed_by?: string; student_id?: string; staff_id?: string; class_id?: string; session_id?: string; entity_type?: string },
-  entityData: Record<string, unknown> | null | undefined
+  entityData: EntityDataLike | null | undefined
 ): Promise<Record<string, unknown>> {
   const variables: Record<string, unknown> = getActivityEventVariables(activityEvent);
   
@@ -762,9 +783,13 @@ export async function extractTemplateVariables(
       
       if (enrollments && enrollments.length > 0) {
         const classesList = enrollments
-          .map((e: { classes?: { day_of_week?: number; start_time?: string; end_time?: string; subjects?: { short_name?: string; long_name?: string } } }) => {
-            const cls = e.classes;
-            const subject = cls?.subjects;
+          .map((enrollment) => {
+            const cls = Array.isArray(enrollment.classes)
+              ? enrollment.classes[0]
+              : enrollment.classes;
+            const subject = Array.isArray(cls?.subjects)
+              ? cls.subjects[0]
+              : cls?.subjects;
             if (!cls) return null;
             
             const dayName = formatDayOfWeek(cls.day_of_week);

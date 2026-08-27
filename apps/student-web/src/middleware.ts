@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
 import {
+  getClaimsWithJwtIssuedInFutureRetry,
   headersWithVerifiedUser,
+  isUnauthenticatedSessionError,
   type Database,
 } from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
@@ -9,6 +11,7 @@ import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-clien
 import { MARKETING_LANDING_URL } from "@/shared/lib/marketing-home-url";
 
 const SESSION_DEADLINE_MS = 10_000;
+const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
 const RETRY_AFTER_SECONDS = 5;
 
 type CookieToSet = {
@@ -88,6 +91,19 @@ function unavailable(
   );
 }
 
+function captureRecoveredClockSkew(startedAt: number) {
+  Sentry.captureMessage("Middleware JWT clock skew recovered", {
+    level: "warning",
+    fingerprint: ["middleware-jwt-clock-skew", "student-web"],
+    tags: {
+      app: "student-web",
+      dependency_stage: "authentication",
+      retry_outcome: "recovered",
+    },
+    extra: { elapsed_ms: Math.max(0, Date.now() - startedAt) },
+  });
+}
+
 /** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
 export async function handleAuthRequest(request: NextRequest) {
   const startedAt = Date.now();
@@ -148,11 +164,36 @@ export async function handleAuthRequest(request: NextRequest) {
   try {
     let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
     try {
-      claims = await deadline.race(supabase.auth.getClaims());
+      claims = await getClaimsWithJwtIssuedInFutureRetry(
+        () => deadline.race(supabase.auth.getClaims()),
+        () =>
+          deadline.race(
+            new Promise((resolve) =>
+              setTimeout(resolve, JWT_CLOCK_SKEW_RETRY_MS),
+            ),
+          ),
+        () => captureRecoveredClockSkew(startedAt),
+      );
     } catch (error) {
+      if (isUnauthenticatedSessionError(error)) {
+        if (pathname === "/") {
+          return applyMetadata(
+            NextResponse.redirect(MARKETING_LANDING_URL),
+            cookies,
+            responseHeaders,
+          );
+        }
+        const loginUrl = new URL("/login", origin);
+        loginUrl.searchParams.set("next", `${pathname}${search}`);
+        return applyMetadata(
+          NextResponse.redirect(loginUrl),
+          cookies,
+          responseHeaders,
+        );
+      }
       return unavailable(request, startedAt, error, cookies, responseHeaders);
     }
-    const missingSession = claims.error?.name === "AuthSessionMissingError";
+    const missingSession = isUnauthenticatedSessionError(claims.error);
     if (claims.error && !missingSession) {
       return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
     }

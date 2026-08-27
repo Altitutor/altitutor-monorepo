@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
 import {
+  getClaimsWithJwtIssuedInFutureRetry,
   headersWithVerifiedUser,
+  isUnauthenticatedSessionError,
   type Database,
 } from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
@@ -8,6 +10,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 const SESSION_DEADLINE_MS = 10_000;
+const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
 const RETRY_AFTER_SECONDS = 5;
 
 type CookieToSet = {
@@ -97,6 +100,19 @@ function unavailable(
   );
 }
 
+function captureRecoveredClockSkew(startedAt: number) {
+  Sentry.captureMessage("Middleware JWT clock skew recovered", {
+    level: "warning",
+    fingerprint: ["middleware-jwt-clock-skew", "admin-web"],
+    tags: {
+      app: "admin-web",
+      dependency_stage: "authentication",
+      retry_outcome: "recovered",
+    },
+    extra: { elapsed_ms: Math.max(0, Date.now() - startedAt) },
+  });
+}
+
 /** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
 export async function handleAuthRequest(request: NextRequest) {
   const startedAt = Date.now();
@@ -156,11 +172,27 @@ export async function handleAuthRequest(request: NextRequest) {
   try {
     let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
     try {
-      claims = await deadline.race(supabase.auth.getClaims());
+      claims = await getClaimsWithJwtIssuedInFutureRetry(
+        () => deadline.race(supabase.auth.getClaims()),
+        () =>
+          deadline.race(
+            new Promise((resolve) =>
+              setTimeout(resolve, JWT_CLOCK_SKEW_RETRY_MS),
+            ),
+          ),
+        () => captureRecoveredClockSkew(startedAt),
+      );
     } catch (error) {
+      if (isUnauthenticatedSessionError(error)) {
+        return applyMetadata(
+          NextResponse.redirect(new URL("/login", origin)),
+          cookies,
+          responseHeaders,
+        );
+      }
       return unavailable(request, startedAt, error, cookies, responseHeaders);
     }
-    if (claims.error?.name === "AuthSessionMissingError") {
+    if (isUnauthenticatedSessionError(claims.error)) {
       return applyMetadata(NextResponse.redirect(new URL("/login", origin)), cookies, responseHeaders);
     }
     if (claims.error) return unavailable(request, startedAt, claims.error, cookies, responseHeaders);

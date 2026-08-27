@@ -20,6 +20,7 @@ const request = (path: string, init?: ConstructorParameters<typeof NextRequest>[
 describe("UCAT session middleware", () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    mockGetClaims.mockReset();
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://supabase.altitutor.test";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
     mockGetClaims.mockResolvedValue({ data: { claims: { sub: "student-1" } }, error: null });
@@ -67,6 +68,68 @@ describe("UCAT session middleware", () => {
     const location = new URL((await middleware(request("/practice?mode=timed"))).headers.get("location")!);
     expect(location.pathname).toBe("/login");
     expect(location.searchParams.get("redirect")).toBe("/practice?mode=timed");
+  });
+
+  it("clears a dead refresh-token session and redirects with return intent", async () => {
+    mockGetClaims.mockImplementation(async () => {
+      mockCreateServerClient.mock.calls[0]?.[2]?.cookies?.setAll?.(
+        [{ name: "student-auth", value: "", options: { path: "/", maxAge: 0 } }],
+        { Pragma: "no-cache" },
+      );
+      return {
+        data: null,
+        error: {
+          name: "AuthApiError",
+          code: "refresh_token_not_found",
+          message: "Invalid Refresh Token: Refresh Token Not Found",
+        },
+      };
+    });
+
+    const response = await middleware(request("/practice?mode=timed"));
+    const location = new URL(response.headers.get("location")!);
+
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("redirect")).toBe("/practice?mode=timed");
+    expect(response.headers.get("set-cookie")).toContain("student-auth=");
+    expect(response.headers.get("pragma")).toBe("no-cache");
+    expect(mockCaptureMessage).not.toHaveBeenCalledWith(
+      "Middleware dependency unavailable",
+      expect.anything(),
+    );
+  });
+
+  it("retries once when claims verification reports JWT clock skew", async () => {
+    jest.useFakeTimers();
+    mockGetClaims
+      .mockResolvedValueOnce({
+        data: null,
+        error: {
+          name: "AuthInvalidJwtError",
+          code: "bad_jwt",
+          message: "JWT issued at future",
+        },
+      })
+      .mockResolvedValueOnce({ data: { claims: { sub: "student-1" } }, error: null });
+    try {
+      const pending = middleware(request("/dashboard"));
+      await jest.advanceTimersByTimeAsync(1_000);
+      const response = await pending;
+
+      expect(response.status).toBe(200);
+      expect(mockGetClaims).toHaveBeenCalledTimes(2);
+      expect(mockCaptureMessage).toHaveBeenCalledWith(
+        "Middleware JWT clock skew recovered",
+        expect.objectContaining({
+          tags: expect.objectContaining({
+            app: "ucat-web",
+            retry_outcome: "recovered",
+          }),
+        }),
+      );
+    } finally {
+      jest.useRealTimers();
+    }
   });
 
   it("redirects anonymous subscribe traffic to signup", async () => {

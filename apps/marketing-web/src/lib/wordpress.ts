@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import pages from "@/content/wordpress-pages.json";
+import legacyRedirects from "./legacy-redirects.json";
 import { SITE_NAME, SITE_URL } from "./site";
 
 type YoastImage = {
@@ -110,12 +111,9 @@ export function getPageStylePath(page: MarketingPage) {
 }
 
 export function getRenderableHtml(page: MarketingPage) {
-  return removeElementorWidget(page.html || `<p>${page.title}</p>`, "elementor-widget-table-of-contents")
-    .replaceAll("https://altitutor.com/wp-content/", "/wp-content/")
-    .replaceAll("https://altitutor.com/", "/")
-    .replaceAll("http://altitutor.com/", "/")
-    .replaceAll("href=\"/weekly-classes/\"", "href=\"/classes/weekly-classes/\"")
-    .replaceAll("href='/weekly-classes/'", "href='/classes/weekly-classes/'")
+  return rewriteLegacyHrefs(
+    removeElementorWidget(page.html || `<p>${page.title}</p>`, "elementor-widget-table-of-contents"),
+  )
     .replace(
       /<div class="elementor-toc__spinner-container">[\s\S]*?<\/div>/g,
       "",
@@ -124,6 +122,40 @@ export function getRenderableHtml(page: MarketingPage) {
       /(<span class="elementor-counter-number"[^>]*data-to-value="([^"]+)"[^>]*>)[^<]*(<\/span>)/g,
       "$1$2$3",
     );
+}
+
+function replaceHref(html: string, from: string, to: string) {
+  return html
+    .replaceAll(`href="${from}"`, `href="${to}"`)
+    .replaceAll(`href='${from}'`, `href='${to}'`);
+}
+
+function rewriteLegacyHrefs(html: string) {
+  let result = html
+    .replaceAll("https://www.altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("https://altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("http://www.altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("http://altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("https://www.altitutor.com/", "/")
+    .replaceAll("https://altitutor.com/", "/")
+    .replaceAll("http://www.altitutor.com/", "/")
+    .replaceAll("http://altitutor.com/", "/");
+
+  const replacements: Array<[string, string]> = [
+    ...Object.entries(legacyRedirects.pageRedirects),
+    ...legacyRedirects.trialBookingPaths.map(
+      (from) => [from, legacyRedirects.trialBookingUrl] as [string, string],
+    ),
+  ];
+
+  for (const [from, to] of replacements) {
+    result = replaceHref(result, from, to);
+    if (from.endsWith("/") && from !== "/") {
+      result = replaceHref(result, from.slice(0, -1), to);
+    }
+  }
+
+  return result;
 }
 
 function removeElementorWidget(html: string, widgetClass: string) {
