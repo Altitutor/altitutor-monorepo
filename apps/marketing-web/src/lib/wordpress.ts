@@ -54,6 +54,14 @@ export type MarketingPage = {
 
 const marketingPages = pages as MarketingPage[];
 
+export const MEDICAL_INTERVIEW_PREPARATION_PATH =
+  "/classes/medical-interview-preparation/";
+
+const MEDICAL_INTERVIEW_REMOVED_SECTION_IDS = [
+  "e1266e4", // How to get started
+  "8d9ab25", // Interested? Book a free trial
+] as const;
+
 const REDIRECTED_PATHS = new Set([
   "/new-student-registration/",
   "/new-tutor-registration/",
@@ -111,9 +119,18 @@ export function getPageStylePath(page: MarketingPage) {
 }
 
 export function getRenderableHtml(page: MarketingPage) {
-  return rewriteLegacyHrefs(
-    removeElementorWidget(page.html || `<p>${page.title}</p>`, "elementor-widget-table-of-contents"),
-  )
+  let html = removeElementorWidget(
+    page.html || `<p>${page.title}</p>`,
+    "elementor-widget-table-of-contents",
+  );
+
+  if (page.path === MEDICAL_INTERVIEW_PREPARATION_PATH) {
+    for (const sectionId of MEDICAL_INTERVIEW_REMOVED_SECTION_IDS) {
+      html = removeElementorElement(html, "section", `data-id="${sectionId}"`);
+    }
+  }
+
+  return rewriteLegacyHrefs(html)
     .replace(
       /<div class="elementor-toc__spinner-container">[\s\S]*?<\/div>/g,
       "",
@@ -158,16 +175,20 @@ function rewriteLegacyHrefs(html: string) {
   return result;
 }
 
-function removeElementorWidget(html: string, widgetClass: string) {
+function removeElementorElement(
+  html: string,
+  tag: "div" | "section",
+  marker: string,
+) {
   let result = html;
-  let classIndex = result.indexOf(widgetClass);
+  let markerIndex = result.indexOf(marker);
 
-  while (classIndex !== -1) {
-    const start = result.lastIndexOf("<div", classIndex);
+  while (markerIndex !== -1) {
+    const start = result.lastIndexOf(`<${tag}`, markerIndex);
     if (start === -1) break;
 
     let depth = 0;
-    const tagPattern = /<\/?div\b[^>]*>/g;
+    const tagPattern = new RegExp(`</?${tag}\\b[^>]*>`, "g");
     tagPattern.lastIndex = start;
 
     let end = -1;
@@ -186,10 +207,14 @@ function removeElementorWidget(html: string, widgetClass: string) {
 
     if (end === -1) break;
     result = `${result.slice(0, start)}${result.slice(end)}`;
-    classIndex = result.indexOf(widgetClass);
+    markerIndex = result.indexOf(marker);
   }
 
   return result;
+}
+
+function removeElementorWidget(html: string, widgetClass: string) {
+  return removeElementorElement(html, "div", widgetClass);
 }
 
 export function createMetadata(page?: MarketingPage): Metadata {

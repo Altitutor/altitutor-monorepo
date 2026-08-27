@@ -9,9 +9,11 @@ import {
   getPageSchema,
   getPageStylePath,
   getRenderableHtml,
+  MEDICAL_INTERVIEW_PREPARATION_PATH,
   pathFromSlug,
 } from "@/lib/wordpress";
 import { WORDPRESS_COMMON_STYLES } from "@/lib/wordpress-assets";
+import { MedicalInterviewWaitlistSection } from "@/features/product-landing/ucat/medical-interview-waitlist-section";
 
 type PageProps = {
   params: {
@@ -118,10 +120,17 @@ export default function MarketingRoute({ params }: PageProps) {
           <a href="/about/contact/">Contact us</a>
         </nav>
       </header>
-      <main
-        className="legacy-wordpress-page"
-        dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }}
-      />
+      {page.path === MEDICAL_INTERVIEW_PREPARATION_PATH ? (
+        <main className="legacy-wordpress-page">
+          <div dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }} />
+          <MedicalInterviewWaitlistSection />
+        </main>
+      ) : (
+        <main
+          className="legacy-wordpress-page"
+          dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }}
+        />
+      )}
       <LegacyWordPressInteractions />
       <footer
         className="legacy-site-footer"

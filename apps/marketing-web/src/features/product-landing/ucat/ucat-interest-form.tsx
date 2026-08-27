@@ -74,10 +74,17 @@ const phoneCountryClassName =
 const fieldClass =
   "mt-1.5 block w-full rounded-xl border border-marketing-charcoal/12 bg-white px-4 py-3 text-sm text-marketing-charcoal outline-none transition focus:border-marketing-primary focus:ring-2 focus:ring-marketing-primary/12";
 
-function InterestFormSuccess({ kind }: { kind: UcatInterestKind }) {
+function InterestFormSuccess({
+  kind,
+  successBody,
+}: {
+  kind: UcatInterestKind;
+  successBody?: string;
+}) {
   const reduceMotion = useReducedMotion();
   const copy = interestCopy(kind);
   const isSupportedAccess = isSupportedAccessKind(kind);
+  const resolvedSuccessBody = successBody ?? copy.successBody;
 
   return (
     <div
@@ -121,7 +128,7 @@ function InterestFormSuccess({ kind }: { kind: UcatInterestKind }) {
         transition={reduceMotion ? { duration: 0 } : { delay: 0.26, duration: 0.35 }}
         className={`mt-3 max-w-sm ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
       >
-        {copy.successBody}
+        {resolvedSuccessBody}
       </motion.p>
 
       <motion.div
@@ -155,7 +162,13 @@ function InterestFormSuccess({ kind }: { kind: UcatInterestKind }) {
   );
 }
 
-export function UcatInterestForm({ kind }: { kind: UcatInterestKind }) {
+export function UcatInterestForm({
+  kind,
+  successBody,
+}: {
+  kind: UcatInterestKind;
+  successBody?: string;
+}) {
   const startedAt = useRef(Date.now());
   const [state, setState] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [message, setMessage] = useState("");
@@ -227,7 +240,7 @@ export function UcatInterestForm({ kind }: { kind: UcatInterestKind }) {
   }
 
   if (state === "success") {
-    return <InterestFormSuccess kind={kind} />;
+    return <InterestFormSuccess kind={kind} successBody={successBody} />;
   }
 
   return (

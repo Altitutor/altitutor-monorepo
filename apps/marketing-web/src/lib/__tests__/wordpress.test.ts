@@ -102,4 +102,14 @@ describe("getRenderableHtml", () => {
 
     expect(invalidDestinations).toEqual([]);
   });
+
+  it("removes the medical interview trial-booking CTA from the WordPress export", () => {
+    const page = getMarketingPage("/classes/medical-interview-preparation/");
+    expect(page).toBeDefined();
+    const html = getRenderableHtml(page!);
+    expect(html).not.toContain("Interested? Book a free trial session now.");
+    expect(html).not.toContain("How to get started");
+    expect(html).not.toContain("Book a trial session");
+    expect(html).not.toContain("/booking/trial-session");
+  });
 });
