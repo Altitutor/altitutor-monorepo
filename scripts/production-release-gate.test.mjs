@@ -16,6 +16,14 @@ const workflowPath = new URL(
 );
 const ciWorkflowPath = new URL("../.github/workflows/ci.yml", import.meta.url);
 const turboConfigPath = new URL("../turbo.json", import.meta.url);
+const ucatPlaywrightConfigPath = new URL(
+  "../apps/ucat-web/playwright.config.ts",
+  import.meta.url,
+);
+const ucatJestConfigPath = new URL(
+  "../apps/ucat-web/jest.config.js",
+  import.meta.url,
+);
 
 test("Vercel Git integration cannot bypass the production release gate", async () => {
   await Promise.all(
@@ -43,6 +51,7 @@ test("every main push runs the migration gate before Vercel production deploys",
     "path filtering could let an application-only release bypass the migration gate",
   );
   assert.match(workflow, /^  deploy-web:/mu);
+  assert.match(workflow, /^  smoke-ucat-production:/mu);
   assert.match(workflow, /^  verify:/mu);
   assert.match(workflow, /^    uses: \.\/\.github\/workflows\/ci\.yml$/mu);
   assert.match(
@@ -53,6 +62,7 @@ test("every main push runs the migration gate before Vercel production deploys",
   assert.match(workflow, /^    needs: deploy$/mu);
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
+  assert.match(workflow, /node scripts\/ucat-production-smoke\.mjs/u);
 
   for (const app of APPS) {
     assert.match(workflow, new RegExp(`app: ${app}\\b`, "u"));
@@ -88,4 +98,65 @@ test("release verification is parallel, branch-scoped, and independently cached"
     false,
     "CI orchestration changes must not invalidate application build outputs",
   );
+});
+
+test("UCAT production verification executes every system test boundary", async () => {
+  const workflow = await readFile(ciWorkflowPath, "utf8");
+
+  assert.match(
+    workflow,
+    /^  ucat-contracts:/mu,
+    "CI must have a dedicated UCAT contract job",
+  );
+  assert.match(
+    workflow,
+    /pnpm --filter ucat-web test:coverage/u,
+    "UCAT coverage must be release-gated",
+  );
+  assert.match(
+    workflow,
+    /deno test --allow-env supabase\/functions/u,
+    "Supabase Edge Function contracts must be release-gated",
+  );
+  assert.match(
+    workflow,
+    /^  ucat-e2e:/mu,
+    "CI must have a dedicated UCAT browser and database job",
+  );
+  assert.match(
+    workflow,
+    /supabase test db/u,
+    "UCAT database contracts must be release-gated",
+  );
+  assert.match(
+    workflow,
+    /pnpm --filter ucat-web test:e2e/u,
+    "UCAT browser journeys must be release-gated",
+  );
+  assert.match(
+    workflow,
+    /actions\/upload-artifact@v4/u,
+    "Failed browser journeys must preserve diagnostic artifacts",
+  );
+});
+
+test("UCAT browser verification exercises production mode and supported engines", async () => {
+  const config = await readFile(ucatPlaywrightConfigPath, "utf8");
+
+  assert.match(config, /pnpm exec next build/u);
+  assert.match(config, /name: "desktop-chromium"/u);
+  assert.match(config, /name: "desktop-chrome"/u);
+  assert.match(config, /name: "desktop-edge"/u);
+  assert.match(config, /name: "desktop-firefox"/u);
+  assert.match(config, /name: "desktop-safari"/u);
+  assert.match(config, /name: "mobile-android"/u);
+  assert.match(config, /name: "mobile-ios"/u);
+});
+
+test("UCAT coverage includes unimported source and enforces a baseline", async () => {
+  const config = await readFile(ucatJestConfigPath, "utf8");
+
+  assert.match(config, /coverageProvider: "v8"/u);
+  assert.match(config, /collectCoverageFrom:/u);
+  assert.match(config, /coverageThreshold:/u);
 });

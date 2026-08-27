@@ -171,18 +171,20 @@ export async function POST(request: NextRequest) {
     data: { user },
     error: authError,
   } = authResult;
-  const requestedSelection: UcatCheckoutRequest = parsedSelection ?? {
-    tier: "unlimited",
-    interval: "week",
-  };
-  const returnContext = requestedSelection.returnContext ?? "subscribe";
-
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
   }
   if (!user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  if (!parsedSelection) {
+    return NextResponse.json(
+      { error: "Invalid checkout selection" },
+      { status: 400 },
+    );
+  }
+  const requestedSelection: UcatCheckoutRequest = parsedSelection;
+  const returnContext = requestedSelection.returnContext ?? "subscribe";
   if (!supabaseAdmin) {
     return NextResponse.json(
       { error: "Server not configured" },

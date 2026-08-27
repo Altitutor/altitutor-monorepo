@@ -38461,6 +38461,10 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: undefined
       }
+      tutor_ucat_review_content_change: {
+        Args: { p_change_id: string; p_decision: string; p_reason?: string }
+        Returns: Json
+      }
       tutor_ucat_sample_question_stem_ids: {
         Args: {
           p_category_id?: string

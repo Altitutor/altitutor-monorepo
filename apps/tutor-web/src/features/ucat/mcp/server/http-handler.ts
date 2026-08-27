@@ -1,46 +1,27 @@
 import { createMcpHandler, withMcpAuth } from 'mcp-handler'
 import { verifyUcatMcpToken } from '@/features/ucat/mcp/server/auth'
-import {
-  registerUcatMcpTools,
-  type UcatMcpProfile,
-} from '@/features/ucat/mcp/server/register-tools'
+import { registerUcatMcpTools } from '@/features/ucat/mcp/server/register-tools'
 
-const profileConfiguration: Record<
-  UcatMcpProfile,
-  { name: string; endpoint: string; instructions: string }
-> = {
-  authoring: {
-    name: 'altitutor-ucat-authoring',
-    endpoint: '/api/mcp',
-    instructions:
-      'Altitutor UCAT safe authoring. Read authoring content and reference data freely. Create drafts; edit only draft or in-review content; and submit ready drafts for review. Never edit published content or attempt to publish. Soft-delete or restore only draft or in-review top-level aggregates through the dedicated tools. Re-read an aggregate before updating, deleting, or restoring it and pass its latest opaque revision. Use explicit typed operations; omission never removes nested content. Generated images are previews until explicitly inserted with an update operation.',
-  },
-  'production-maintenance': {
-    name: 'altitutor-ucat-production-maintenance',
-    endpoint: '/api/mcp-production',
-    instructions:
-      'Altitutor UCAT production maintenance. You may edit published content through the dedicated exact-revision published-update tools. Use a direct update for a deliberate interactive edit; use a proposal when a staged or separately reviewable change is useful. A proposal does not require human review: an authorised agent may inspect and apply it through apply_ucat_content_changes, including a one-item batch. Never publish, unpublish, soft-delete, restore, or otherwise change content lifecycle state. Re-read the aggregate immediately before mutation and pass its latest opaque revision. For unattended audits, respect the audit run published-write mode and target manifest. Use explicit typed operations; omission never removes nested content. Every applied published edit remains durably recorded and recoverable.',
-  },
-}
+const instructions =
+  'Altitutor UCAT authoring. Read content and reference data across every lifecycle. Create drafts and change content through aggregate-specific change tools: draft or in-review changes apply immediately, while published or live changes return a pending changeId that must be passed to apply_ucat_content_changes. Never publish, unpublish, hard-delete, or delete published content. Re-read before mutation and pass the latest opaque revision. Use explicit typed operations; omission never removes nested content. Audit runs apply valid changes by default only to their frozen targets while active; choose proposal_only when staff review is required. Every applied published edit is durably recorded and recoverable.'
 
-export function createUcatMcpHttpHandler(profile: UcatMcpProfile) {
-  const configuration = profileConfiguration[profile]
+export function createUcatMcpHttpHandler() {
   const mcpHandler = createMcpHandler(
     (server) => {
-      registerUcatMcpTools(server, { profile })
+      registerUcatMcpTools(server)
     },
     {
       serverInfo: {
-        name: configuration.name,
+        name: 'altitutor-ucat-authoring',
         version: '1.0.0',
       },
-      instructions: configuration.instructions,
+      instructions,
       capabilities: {
         tools: {},
       },
     },
     {
-      streamableHttpEndpoint: configuration.endpoint,
+      streamableHttpEndpoint: '/api/mcp',
       disableSse: true,
       maxDuration: 300,
       verboseLogs: process.env.NODE_ENV === 'development',

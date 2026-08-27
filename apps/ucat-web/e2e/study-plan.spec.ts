@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { devices, expect, test, type Page } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { randomUUID } from "node:crypto";
 import { UCAT_TOUR_VERSIONS } from "@/features/onboarding/config/tour-catalog";
@@ -45,6 +45,9 @@ async function signIn(page: Page, email: string) {
   const { error: progressError } = await admin
     .from("students")
     .update({
+      ucat_signup_step: 4,
+      ucat_signup_completed_at: completedAt,
+      ucat_onboarding_completed_at: completedAt,
       onboarding_progress: { ...existingProgress, ...completedTutorials },
     })
     .eq("id", student.id);
@@ -791,7 +794,11 @@ test.describe("personalised Study plan", () => {
     );
   });
 
-  test("hides the companion during ordinary practice", async ({ page }) => {
+  test("an active practice attempt survives refresh, reconnection, and a device switch @critical", async ({
+    browser,
+    page,
+  }) => {
+    test.setTimeout(120_000);
     const admin = localAdmin();
     const studentId = "10000000-0000-0000-0000-000000000006";
     const { error: generationResetError } = await admin
@@ -811,6 +818,27 @@ test.describe("personalised Study plan", () => {
     if (accessError) throw accessError;
 
     await signIn(page, "fiona.harris@student.test");
+    const { data: profile, error: profileError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .select(
+        "target_score,test_year,test_date,available_days,preferred_mock_weekday,sjt_preference",
+      )
+      .eq("student_id", studentId)
+      .single();
+    if (profileError) throw profileError;
+    const generationResponse = await page.request.put("/api/ucat/study-plan", {
+      data: {
+        studyPlanEnabled: true,
+        targetScore: profile.target_score,
+        testYear: profile.test_year,
+        testDate: profile.test_date,
+        availableDays: profile.available_days,
+        preferredMockWeekday: profile.preferred_mock_weekday,
+        sjtPreference: profile.sjt_preference,
+      },
+    });
+    expect(generationResponse.ok()).toBe(true);
+    await page.reload();
     await expect
       .poll(
         async () => {
@@ -859,7 +887,7 @@ test.describe("personalised Study plan", () => {
     ).toHaveCount(0);
     const { data: session, error: sessionError } = await admin
       .from("student_practice_sessions")
-      .select("stems_snapshot, filters_snapshot")
+      .select("id, stems_snapshot, filters_snapshot")
       .eq("student_id", studentId)
       .order("started_at", { ascending: false })
       .limit(1)
@@ -877,6 +905,38 @@ test.describe("personalised Study plan", () => {
     expect(session?.filters_snapshot).toMatchObject({
       studyPlanTaskId: task.id,
     });
+    if (!session?.id)
+      throw new Error("The practice session was not persisted.");
+
+    await page.reload();
+    await expect(page).toHaveURL((url) => url.pathname === "/exam");
+
+    await page.context().setOffline(true);
+    await page.context().setOffline(false);
+    await page.reload();
+    await expect(page).toHaveURL((url) => url.pathname === "/exam");
+
+    const storage = await page.context().storageState();
+    const deviceContext = await browser.newContext({
+      ...devices["Pixel 7"],
+      storageState: { cookies: storage.cookies, origins: [] },
+    });
+    try {
+      const devicePage = await deviceContext.newPage();
+      const resumedSession = devicePage.waitForResponse(
+        (response) =>
+          response
+            .url()
+            .includes(`/api/ucat/practice-sessions/${session.id}`) &&
+          response.ok(),
+      );
+      await devicePage.goto(new URL("/exam", page.url()).toString());
+      await resumedSession;
+      await expect(devicePage).toHaveURL((url) => url.pathname === "/exam");
+    } finally {
+      await deviceContext.close();
+    }
+
     await page.goto("/exam/tutorial");
     await expect(
       page.getByRole("complementary", { name: "Study guidance" }),

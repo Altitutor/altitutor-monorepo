@@ -2,6 +2,24 @@ module.exports = {
   testEnvironment: "jsdom",
   setupFilesAfterEnv: ["<rootDir>/jest.setup.ts"],
   testPathIgnorePatterns: ["/node_modules/", "/.next/", "/e2e/"],
+  coverageProvider: "v8",
+  collectCoverageFrom: [
+    "src/**/*.{ts,tsx}",
+    "!src/**/*.d.ts",
+    "!src/**/__tests__/**",
+    "!src/**/index.ts",
+    "!src/app/**/{layout,loading,error,global-error,not-found}.tsx",
+    "!src/instrumentation*.ts",
+    "!src/sentry.*.config.ts",
+  ],
+  coverageThreshold: {
+    "./": {
+      branches: 67,
+      functions: 47,
+      lines: 32,
+      statements: 32,
+    },
+  },
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/src/$1",
     "^@altitutor/shared$": "<rootDir>/../../packages/shared/src/index.ts",
