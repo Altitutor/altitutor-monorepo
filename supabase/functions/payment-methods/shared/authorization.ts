@@ -19,7 +19,9 @@ export interface RegistrationTokenResult {
 /**
  * Check if user is admin staff
  */
-export function isAdminStaff(staffData: { role: string; status: string } | null): boolean {
+export function isAdminStaff(
+  staffData: { role: string; status?: string } | null,
+): boolean {
   return staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE';
 }
 

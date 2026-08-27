@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  FileDiff,
   FileQuestion,
   FolderTree,
   GitMerge,
@@ -9,6 +10,7 @@ import {
   Layers,
   School,
   ScrollText,
+  ShieldCheck,
   Tag,
   Dumbbell,
   type LucideIcon,
@@ -88,6 +90,18 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
   {
     heading: 'Settings',
     cards: [
+      {
+        title: 'Audits',
+        description: 'Monitor durable UCAT content audit runs and outcomes',
+        href: '/ucat/audits',
+        icon: ShieldCheck,
+      },
+      {
+        title: 'AI content changes',
+        description: 'Review, apply, or reject staged changes to live content',
+        href: '/ucat/content-changes',
+        icon: FileDiff,
+      },
       {
         title: 'Reconciliation',
         description: 'Fix uncategorized stems and questions missing explanations',

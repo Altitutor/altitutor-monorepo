@@ -9,9 +9,13 @@ per-client callback configuration. OAuth tokens preserve the acting tutor’s
 sufficient; there is no additional staff allowlist. Database changes ship only
 through CI/CD.
 
-The MCP endpoint is hosted inside tutor-web as an isolated bearer-authenticated
-adapter over shared UCAT authoring services. It is an additional client
-alongside tutor-web’s embedded authoring agent, not its replacement.
+One MCP endpoint is hosted inside tutor-web as an isolated bearer-authenticated
+adapter over shared UCAT authoring services. It exposes one catalogue across
+all authoring lifecycles and is an additional client alongside tutor-web’s
+embedded authoring agent, not its replacement. Lifecycle-specific endpoint
+profiles are rejected because they duplicate shared tools without creating a
+separate authorization boundary; the former production-maintenance endpoint is
+removed rather than retained as a compatibility alias.
 
 MCP may create drafts, edit draft or in-review content, submit drafts for
 review, soft-delete eligible draft or in-review content, restore deleted
@@ -20,13 +24,16 @@ content. It must reject publishing and soft-deleting published content; MCP
 does not expose hard deletion. Editing in-review content preserves `in_review`,
 and editing published content preserves `published`.
 
-Published writes use separate, clearly destructive tools rather than widening
-the ordinary draft/review update tools. The calling AI client may require user
-approval before executing those tools; this approval appears in that client,
-not in tutor-web. Client approval is an additional consent layer rather than
-the server's safety boundary. Tutor identity, exact-revision checks, aggregate
-scope, validation, atomicity, lifecycle preservation, and durable audit records
-are enforced even when a trusted client is configured not to prompt.
+Aggregate-specific change tools apply edits directly to draft or in-review
+content but stage a durable pending content change when the target is
+published. One clearly destructive apply tool accepts only pending change IDs,
+never raw content operations, and is the sole MCP path that changes live
+content. During an explicitly requested interactive edit, the same agent may
+stage and apply the change without a second human confirmation. Client approval
+is an additional consent layer rather than the server's safety boundary. Tutor
+identity, exact-revision checks, aggregate scope, validation, atomicity,
+lifecycle preservation, and durable audit records are enforced even when a
+trusted client is configured not to prompt.
 
 Nested composition edits may add, reorder, update, or remove lesson blocks,
 questions, answer options, stems within sets, and sets within mocks. Omission
@@ -81,30 +88,31 @@ OAuth client, tool, aggregate, revisions, operation kinds, and timestamp.
 Prompts, hidden reasoning, duplicated content, and image bytes are not retained
 in those audit events.
 
-Every proposed published edit also has a durable content-change record. It
+Every proposed published edit has a durable content-change record. It
 identifies the target aggregate and base revision/fingerprint, records typed
 operations, summary, rationale, source, status, author and timestamps, and
 retains the base snapshot needed for review and recovery. Interactive edits may
-create and apply that record atomically after client approval. Audit jobs create
-pending records which can later be applied, rejected, or marked stale. This is
-a proposal and recovery log, not a branching content-version system.
+stage and then apply that record within one agent task. Proposal-only audit jobs
+and recoveries that cannot safely overwrite later work create pending records
+which can later be applied, rejected, or marked stale. This is a proposal and
+recovery log, not a branching content-version system.
 
-Unattended audit jobs default to proposal-only operation and cannot silently
-apply published changes merely because the ordinary MCP authoring connection is
-enabled. Auto-apply authority is granted to one explicitly identified audit run
-or recurring schedule, never globally to the MCP connection or all AI-authored
-published writes. An authorised run may apply its valid proposals while
-preserving the same per-change revision checks, validation, change records, and
-recovery data. Enabling an auto-applying run or schedule is itself a destructive
-action for the calling client to approve; it does not require a separate
-approval for every aggregate changed by that run.
+Audit jobs default to `apply_valid_changes`. Creating a run with that default is
+itself a destructive action and authorises live changes only for that run's
+frozen targets while it remains active; no second authorization call or
+per-change human confirmation is required. Callers may explicitly choose
+`proposal_only`, in which case published changes remain pending for staff
+review. Run authority is never global to the MCP connection or all AI-authored
+published writes. Every application retains the same per-change revision
+checks, validation, change records, and recovery data.
 
-Once a run or schedule is explicitly authorised for auto-apply, every change
+Once a run or schedule is authorised for live application, every change
 the audit agent elects to make may be applied if it passes the ordinary tutor
 authorization, exact-revision, aggregate, reference, and domain validation
 checks. The server does not add hidden confidence thresholds or category-based
-restrictions. Production safety comes from proposal-only being the default and
-auto-apply being an explicit run or schedule policy.
+restrictions. Safety comes from frozen run scope, exact revisions, validation,
+recoverable change records, and explicit proposal-only operation when human
+review is wanted.
 
 Codex is the initial audit reasoning and orchestration layer. MCP provides the
 content reads, durable audit-run state, proposal and change records, and safe
@@ -173,8 +181,10 @@ finding which has not had that exact suggestion applied uses the distinct
 
 One durable content change may resolve or acknowledge multiple assessment
 findings, and each finding reference is retained on that change. Pending
-changes are visible to every authenticated UCAT tutor so review is a shared
-authoring workflow rather than being trapped in the proposing tutor's session.
-A bounded batch-apply operation reduces approval friction while retaining an
-independent transaction, validation result, revision check, and recovery record
-per target.
+changes are visible to every authenticated UCAT tutor through tutor-web's AI
+Content Changes queue and the MCP read interface, so review is shared authoring
+work rather than being trapped in the proposing tutor's session. Tutors may
+inspect diffs, apply changes in a bounded batch, reject with a reason, or open
+the target in its editor. Application retains an independent transaction,
+validation result, revision check, and recovery record per target; a stale
+proposal never overwrites newer work.

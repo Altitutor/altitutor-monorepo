@@ -303,7 +303,7 @@ describe('generateInvoiceItemIdempotencyKey', () => {
   it('should generate unique keys for different fee item timestamps', () => {
     const item = {
       ...baseItem,
-      sessions_students_id: 'session-student-456',
+      is_fee: true,
     };
 
     const key1 = generateInvoiceItemIdempotencyKey(
@@ -348,6 +348,7 @@ describe('formatSessionDate', () => {
 
     expect(result).toContain('2024');
     expect(result).toContain('Dec');
-    expect(result).toContain('25');
+    // 14:30 UTC is after midnight (26 Dec) in Adelaide during daylight saving.
+    expect(result).toContain('26');
   });
 });

@@ -20239,11 +20239,15 @@ export type Database = {
       ucat_student_preparation_refresh_requests: {
         Row: {
           attempt_count: number
+          claim_token: string | null
+          claimed_reasons: string[] | null
+          claimed_version: number | null
           completed_at: string | null
           dead_lettered_at: string | null
           last_error: string | null
           next_attempt_at: string
           processing_started_at: string | null
+          request_version: number
           requested_at: string
           requested_reasons: string[]
           student_id: string
@@ -20251,11 +20255,15 @@ export type Database = {
         }
         Insert: {
           attempt_count?: number
+          claim_token?: string | null
+          claimed_reasons?: string[] | null
+          claimed_version?: number | null
           completed_at?: string | null
           dead_lettered_at?: string | null
           last_error?: string | null
           next_attempt_at?: string
           processing_started_at?: string | null
+          request_version?: number
           requested_at?: string
           requested_reasons?: string[]
           student_id: string
@@ -20263,11 +20271,15 @@ export type Database = {
         }
         Update: {
           attempt_count?: number
+          claim_token?: string | null
+          claimed_reasons?: string[] | null
+          claimed_version?: number | null
           completed_at?: string | null
           dead_lettered_at?: string | null
           last_error?: string | null
           next_attempt_at?: string
           processing_started_at?: string | null
+          request_version?: number
           requested_at?: string
           requested_reasons?: string[]
           student_id?: string
@@ -20536,6 +20548,7 @@ export type Database = {
           profile_id: string
           projection_snapshot: Json
           reason: string
+          refresh_request_version: number | null
           starts_on: string
           student_id: string
           superseded_at: string | null
@@ -20550,6 +20563,7 @@ export type Database = {
           profile_id: string
           projection_snapshot?: Json
           reason: string
+          refresh_request_version?: number | null
           starts_on: string
           student_id: string
           superseded_at?: string | null
@@ -20564,6 +20578,7 @@ export type Database = {
           profile_id?: string
           projection_snapshot?: Json
           reason?: string
+          refresh_request_version?: number | null
           starts_on?: string
           student_id?: string
           superseded_at?: string | null
@@ -20625,7 +20640,10 @@ export type Database = {
           available_days: Json
           created_at: string
           id: string
+          last_authenticated_visit_at: string | null
           last_generated_at: string | null
+          last_missed_work_replan_on: string | null
+          next_maintenance_at: string | null
           next_weekly_replan_on: string | null
           preferred_mock_weekday: number
           setup_completed_at: string | null
@@ -20641,7 +20659,10 @@ export type Database = {
           available_days?: Json
           created_at?: string
           id?: string
+          last_authenticated_visit_at?: string | null
           last_generated_at?: string | null
+          last_missed_work_replan_on?: string | null
+          next_maintenance_at?: string | null
           next_weekly_replan_on?: string | null
           preferred_mock_weekday: number
           setup_completed_at?: string | null
@@ -20657,7 +20678,10 @@ export type Database = {
           available_days?: Json
           created_at?: string
           id?: string
+          last_authenticated_visit_at?: string | null
           last_generated_at?: string | null
+          last_missed_work_replan_on?: string | null
+          next_maintenance_at?: string | null
           next_weekly_replan_on?: string | null
           preferred_mock_weekday?: number
           setup_completed_at?: string | null
@@ -36576,6 +36600,8 @@ export type Database = {
       claim_ucat_preparation_refreshes: {
         Args: { p_limit?: number; p_student_id?: string }
         Returns: {
+          claim_token: string
+          request_version: number
           requested_reasons: string[]
           student_id: string
         }[]
@@ -36764,10 +36790,19 @@ export type Database = {
         }
         Returns: Json
       }
-      complete_ucat_preparation_refresh: {
-        Args: { p_error?: string; p_student_id: string }
-        Returns: undefined
-      }
+      complete_ucat_preparation_refresh:
+        | {
+            Args: {
+              p_claim_token: string
+              p_error?: string
+              p_student_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: { p_error?: string; p_student_id: string }
+            Returns: undefined
+          }
       compute_staff_tier_metrics: {
         Args: { p_staff_id: string }
         Returns: Json
@@ -37474,6 +37509,13 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: string
       }
+      list_ucat_study_plan_maintenance_anomalies: {
+        Args: { p_limit?: number }
+        Returns: {
+          anomaly: string
+          student_id: string
+        }[]
+      }
       log_activity_event: {
         Args: {
           p_changed_fields?: Json
@@ -37579,6 +37621,17 @@ export type Database = {
         Args: { p_parent_id: string; p_subject_id: string }
         Returns: undefined
       }
+      recompute_ucat_study_plan_maintenance_at: {
+        Args: { p_student_id: string }
+        Returns: string
+      }
+      record_current_ucat_authenticated_visit: {
+        Args: never
+        Returns: {
+          recorded: boolean
+          refresh_pending: boolean
+        }[]
+      }
       record_ucat_resend_email_event: {
         Args: {
           p_event_type: string
@@ -37594,6 +37647,10 @@ export type Database = {
           inserted: boolean
           ledger_id: string
         }[]
+      }
+      redrive_ucat_preparation_refresh: {
+        Args: { p_student_id: string }
+        Returns: boolean
       }
       refresh_class_schedule_projection: {
         Args: { p_class_id: string }
@@ -37638,6 +37695,25 @@ export type Database = {
           p_profile_id: string
           p_projection_snapshot: Json
           p_reason: string
+          p_setup_completed_at: string
+          p_starts_on: string
+          p_student_id: string
+          p_tasks: Json
+        }
+        Returns: string
+      }
+      replace_ucat_study_plan_generation_for_refresh: {
+        Args: {
+          p_capacity_risk: Json
+          p_ends_on: string
+          p_input_snapshot: Json
+          p_next_weekly_replan_on: string
+          p_planning_date: string
+          p_preserve_through: string
+          p_profile_id: string
+          p_projection_snapshot: Json
+          p_reason: string
+          p_refresh_request_version: number
           p_setup_completed_at: string
           p_starts_on: string
           p_student_id: string
@@ -38136,6 +38212,14 @@ export type Database = {
         }
         Returns: Json
       }
+      tutor_ucat_list_stem_picker_catalog: {
+        Args: {
+          p_after_id?: string
+          p_limit?: number
+          p_published_only?: boolean
+        }
+        Returns: Json
+      }
       tutor_ucat_match_import_stems: {
         Args: { p_drafts: Json; p_similarity_threshold?: number }
         Returns: Json
@@ -38412,6 +38496,10 @@ export type Database = {
           last_name: string
         }[]
       }
+      tutor_ucat_reconciliation_content_issues: {
+        Args: { p_feedback_question_ids?: string[] }
+        Returns: Json
+      }
       tutor_ucat_reorder_learning_modules: {
         Args: { p_items: Json }
         Returns: undefined
@@ -38448,6 +38536,10 @@ export type Database = {
       tutor_ucat_restore_question_stem: {
         Args: { p_stem_id: string }
         Returns: undefined
+      }
+      tutor_ucat_review_content_change: {
+        Args: { p_change_id: string; p_decision: string; p_reason?: string }
+        Returns: Json
       }
       tutor_ucat_sample_question_stem_ids: {
         Args: {

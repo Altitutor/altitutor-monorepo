@@ -48,7 +48,9 @@ export function calculateSessionPrice(
   const durationHours = durationMs / (1000 * 60 * 60);
 
   // Check for subject override first (use targetDate for override validation)
-  const override = overridesBySubjectAndBilling[session.subject_id]?.[session.billing_type];
+  const override = session.subject_id
+    ? overridesBySubjectAndBilling[session.subject_id]?.[session.billing_type]
+    : undefined;
   let hourlyRateCents = 0;
   let currency = 'aud';
 

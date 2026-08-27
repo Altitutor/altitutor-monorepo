@@ -18,6 +18,8 @@ export function useStudyPlan(enabled = true) {
     queryFn: fetchStudyPlan,
     staleTime: 0,
     refetchOnMount: "always",
+    refetchInterval: (query) =>
+      query.state.data?.refreshPending ? 5 * 1000 : false,
     enabled,
   });
 }
@@ -27,6 +29,8 @@ export function useDashboardStudyPlan(enabled = true) {
     queryKey: DASHBOARD_STUDY_PLAN_QUERY_KEY,
     queryFn: fetchDashboardStudyPlan,
     staleTime: 60 * 1000,
+    refetchInterval: (query) =>
+      query.state.data?.refreshPending ? 5 * 1000 : false,
     enabled,
   });
 }

@@ -183,7 +183,16 @@
     /*
      * Clickable cards / list rows that also lift on hover — compose lift + press
      * so `transform` does not fight (Tailwind utilities cannot combine transforms).
+     * Transform lives here rather than on `UCAT_SURFACE_MOTION`, which Motion
+     * stagger items also use.
      */
+    .ucat-pressable-lift:not([data-motion-static]) {
+      transition-property:
+        color, background-color, box-shadow, transform, ring-color;
+      transition-duration: var(--motion-duration-subtle);
+      transition-timing-function: var(--motion-ease-standard);
+    }
+
     .ucat-pressable-lift:not([data-motion-static]):hover {
       transform: translateY(-0.125rem);
     }

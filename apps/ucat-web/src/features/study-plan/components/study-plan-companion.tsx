@@ -482,7 +482,9 @@ export function StudyPlanCompanion({
   const visible = Boolean(
     suggestionsEnabled && (!activityInProgress || celebration != null),
   );
-  const floatingBottom = bottomFloatingDockVisible ? "bottom-24" : "bottom-4";
+  const floatingBottom = bottomFloatingDockVisible
+    ? "bottom-24"
+    : "bottom-24 md:bottom-4";
   const expandTransition = {
     duration: reduceMotion ? 0 : EXPAND_DURATION,
     ease: ENTER_EASE,
@@ -859,7 +861,7 @@ export function StudyPlanCompanion({
       className={cn(
         placement === "floating"
           ? cn(
-              "fixed right-3 z-40 transition-[width] duration-200 md:right-4",
+              "fixed left-3 right-auto z-40 transition-[width] duration-200 md:left-auto md:right-4",
               expanded ? "w-[min(390px,calc(100vw-1.5rem))]" : "w-14",
               floatingBottom,
             )

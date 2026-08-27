@@ -32,8 +32,11 @@ export async function GET() {
 
   const { error: insertError } = await supabaseAdmin
     .from("ucat_referral_codes")
-    .insert({ student_id: studentId });
-  if (insertError && insertError.code !== "23505") {
+    .upsert(
+      { student_id: studentId },
+      { onConflict: "student_id", ignoreDuplicates: true },
+    );
+  if (insertError) {
     console.error("[ucat referrals] Failed to create share code", insertError);
     captureApiError(insertError, "/api/ucat/referrals");
     return NextResponse.json(

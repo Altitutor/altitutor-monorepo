@@ -11,7 +11,7 @@ import {
   AlertDialogTitle,
   Badge,
 } from "@altitutor/ui";
-import { motion } from "motion/react";
+import { AnimatePresence, motion } from "motion/react";
 import type { Variants } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatClickableCardIcon } from "@/shared/components/ucat-clickable-card";
@@ -45,6 +45,8 @@ type StudyPlanTaskListProps = {
   afterTasks?: ReactNode;
   previewMode?: boolean;
   tourFirstTask?: boolean;
+  /** When this changes (selected study day), the list plays one enter stagger. */
+  revealKey?: string;
 };
 
 function TaskIcon({ task }: { task: StudyPlanTask }) {
@@ -105,7 +107,9 @@ function TaskRow({
   const canSkip = Boolean(today && task.scheduledDate <= today);
   const isDerivedReview =
     task.taskType === "review" && task.launchConfig.derivedReview === true;
-  const sectionName = isDerivedReview ? null : configString(task, "sectionName");
+  const sectionName = isDerivedReview
+    ? null
+    : configString(task, "sectionName");
   const prescribedPace = visibleTaskPace(task);
   const nextMilestone = isDerivedReview
     ? null
@@ -160,9 +164,13 @@ function TaskRow({
           ) : null}
           {sectionName || prescribedPace != null ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
-              {sectionName ? <Badge variant="outline">{sectionName}</Badge> : null}
+              {sectionName ? (
+                <Badge variant="outline">{sectionName}</Badge>
+              ) : null}
               {prescribedPace != null ? (
-                <Badge variant="outline">{prescribedPace.toFixed(1)}× pace</Badge>
+                <Badge variant="outline">
+                  {prescribedPace.toFixed(1)}× pace
+                </Badge>
               ) : null}
             </div>
           ) : null}
@@ -317,16 +325,27 @@ export function StudyPlanTaskList({
   afterTasks,
   previewMode = false,
   tourFirstTask = false,
+  revealKey,
 }: StudyPlanTaskListProps) {
-  const { containerVariants, itemVariants } = useUcatStaggerMotion();
+  const { containerVariants, itemVariants, reduceMotion } =
+    useUcatStaggerMotion();
   const tasksById = new Map(tasks.map((task) => [task.id, task]));
-
-  return (
+  const list = (
     <motion.ul
+      key={revealKey}
       className="space-y-3"
       variants={containerVariants}
       initial="hidden"
       animate="show"
+      exit={
+        revealKey
+          ? {
+              opacity: 0,
+              y: -6,
+              transition: { duration: reduceMotion ? 0 : 0.12 },
+            }
+          : undefined
+      }
     >
       {tasks.map((task, index) => (
         <TaskRow
@@ -351,4 +370,8 @@ export function StudyPlanTaskList({
       ) : null}
     </motion.ul>
   );
+
+  if (!revealKey) return list;
+
+  return <AnimatePresence mode="wait">{list}</AnimatePresence>;
 }

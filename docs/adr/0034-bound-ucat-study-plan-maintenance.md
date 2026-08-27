@@ -1,0 +1,9 @@
+# Bound UCAT Study-plan maintenance by eligibility and engagement
+
+Scheduled Study-plan maintenance is background work, never a page-read side effect. A Student is eligible only when Study-plan setup is complete, the plan is enabled, an open `UCAT_WEB` Online product relationship exists, and the preparation cycle has not ended. An exact test date ends eligibility after that local date; year-only timing ends at the configured testing-window end or 31 December when no window exists. Missing product relationships on otherwise configured profiles are data-integrity errors reported to Sentry.
+
+Eligible plans receive scheduled maintenance only after an authenticated UCAT visit within the preceding fourteen days. The visit is recorded at most once per browser session and coalesced in the database; returning Students immediately receive their persisted plan while a stale plan is durably queued and the UI may show a subtle updating state. Missed-work full recalculation is limited to once per Student-local day. Only the active generation may trigger maintenance or receive task reconciliation.
+
+The durable worker runs with configurable bounded concurrency, defaulting to three. Claims carry a fencing token and request version; completion from an expired claim cannot acknowledge newer work, and generation replacement is idempotent for a request version. Five failed attempts dead-letter the request and report it to Sentry. New authenticated visits or completed activity revive it, while manual recovery uses a service-only redrive operation.
+
+Superseded generations remain as evidence history. Cleanup may delete only abandoned future draft tasks with no start, completion, skip, partial-progress, or matched-activity evidence, and never a task whose dependent review contains evidence. Indexed maintenance watermarks replace repeated scans of every enabled profile.

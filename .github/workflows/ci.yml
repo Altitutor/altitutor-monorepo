@@ -169,6 +169,93 @@ jobs:
             pnpm turbo run test
           fi
 
+  ucat-contracts:
+    name: UCAT Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce UCAT application coverage
+        run: pnpm --filter ucat-web test:coverage
+
+      - name: Test Supabase Edge Function contracts
+        run: deno test --config supabase/functions/deno.json --allow-env supabase/functions
+
+  ucat-e2e:
+    name: UCAT Browser and Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.107.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install critical browser
+        if: github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
+        run: pnpm --filter ucat-web exec playwright install --with-deps chromium
+
+      - name: Install production browser matrix
+        if: github.ref_name == 'main' || github.event_name == 'workflow_dispatch'
+        run: pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge
+
+      - name: Render email templates
+        run: bash supabase/scripts/render-email-templates.sh
+
+      - name: Start and seed local Supabase
+        run: |
+          supabase start
+          supabase db reset
+
+      - name: Test database contracts
+        run: supabase test db
+
+      - name: Run critical browser journeys
+        if: github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
+        run: pnpm --filter ucat-web test:e2e:critical
+
+      - name: Run production browser matrix
+        if: github.ref_name == 'main' || github.event_name == 'workflow_dispatch'
+        env:
+          UCAT_E2E_FULL_BROWSER_MATRIX: "true"
+        run: pnpm --filter ucat-web test:e2e
+
+      - name: Preserve Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ucat-playwright-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/ucat-web/playwright-report
+            apps/ucat-web/test-results
+          if-no-files-found: ignore
+          retention-days: 14
+
   build:
     name: Build
     runs-on: ubuntu-latest

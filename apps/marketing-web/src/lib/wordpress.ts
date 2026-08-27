@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import pages from "@/content/wordpress-pages.json";
+import legacyRedirects from "./legacy-redirects.json";
 import { SITE_NAME, SITE_URL } from "./site";
 
 type YoastImage = {
@@ -52,6 +53,14 @@ export type MarketingPage = {
 };
 
 const marketingPages = pages as MarketingPage[];
+
+export const MEDICAL_INTERVIEW_PREPARATION_PATH =
+  "/classes/medical-interview-preparation/";
+
+const MEDICAL_INTERVIEW_REMOVED_SECTION_IDS = [
+  "e1266e4", // How to get started
+  "8d9ab25", // Interested? Book a free trial
+] as const;
 
 const REDIRECTED_PATHS = new Set([
   "/new-student-registration/",
@@ -110,12 +119,18 @@ export function getPageStylePath(page: MarketingPage) {
 }
 
 export function getRenderableHtml(page: MarketingPage) {
-  return removeElementorWidget(page.html || `<p>${page.title}</p>`, "elementor-widget-table-of-contents")
-    .replaceAll("https://altitutor.com/wp-content/", "/wp-content/")
-    .replaceAll("https://altitutor.com/", "/")
-    .replaceAll("http://altitutor.com/", "/")
-    .replaceAll("href=\"/weekly-classes/\"", "href=\"/classes/weekly-classes/\"")
-    .replaceAll("href='/weekly-classes/'", "href='/classes/weekly-classes/'")
+  let html = removeElementorWidget(
+    page.html || `<p>${page.title}</p>`,
+    "elementor-widget-table-of-contents",
+  );
+
+  if (page.path === MEDICAL_INTERVIEW_PREPARATION_PATH) {
+    for (const sectionId of MEDICAL_INTERVIEW_REMOVED_SECTION_IDS) {
+      html = removeElementorElement(html, "section", `data-id="${sectionId}"`);
+    }
+  }
+
+  return rewriteLegacyHrefs(html)
     .replace(
       /<div class="elementor-toc__spinner-container">[\s\S]*?<\/div>/g,
       "",
@@ -126,16 +141,54 @@ export function getRenderableHtml(page: MarketingPage) {
     );
 }
 
-function removeElementorWidget(html: string, widgetClass: string) {
-  let result = html;
-  let classIndex = result.indexOf(widgetClass);
+function replaceHref(html: string, from: string, to: string) {
+  return html
+    .replaceAll(`href="${from}"`, `href="${to}"`)
+    .replaceAll(`href='${from}'`, `href='${to}'`);
+}
 
-  while (classIndex !== -1) {
-    const start = result.lastIndexOf("<div", classIndex);
+function rewriteLegacyHrefs(html: string) {
+  let result = html
+    .replaceAll("https://www.altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("https://altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("http://www.altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("http://altitutor.com/wp-content/", "/wp-content/")
+    .replaceAll("https://www.altitutor.com/", "/")
+    .replaceAll("https://altitutor.com/", "/")
+    .replaceAll("http://www.altitutor.com/", "/")
+    .replaceAll("http://altitutor.com/", "/");
+
+  const replacements: Array<[string, string]> = [
+    ...Object.entries(legacyRedirects.pageRedirects),
+    ...legacyRedirects.trialBookingPaths.map(
+      (from) => [from, legacyRedirects.trialBookingUrl] as [string, string],
+    ),
+  ];
+
+  for (const [from, to] of replacements) {
+    result = replaceHref(result, from, to);
+    if (from.endsWith("/") && from !== "/") {
+      result = replaceHref(result, from.slice(0, -1), to);
+    }
+  }
+
+  return result;
+}
+
+function removeElementorElement(
+  html: string,
+  tag: "div" | "section",
+  marker: string,
+) {
+  let result = html;
+  let markerIndex = result.indexOf(marker);
+
+  while (markerIndex !== -1) {
+    const start = result.lastIndexOf(`<${tag}`, markerIndex);
     if (start === -1) break;
 
     let depth = 0;
-    const tagPattern = /<\/?div\b[^>]*>/g;
+    const tagPattern = new RegExp(`</?${tag}\\b[^>]*>`, "g");
     tagPattern.lastIndex = start;
 
     let end = -1;
@@ -154,10 +207,14 @@ function removeElementorWidget(html: string, widgetClass: string) {
 
     if (end === -1) break;
     result = `${result.slice(0, start)}${result.slice(end)}`;
-    classIndex = result.indexOf(widgetClass);
+    markerIndex = result.indexOf(marker);
   }
 
   return result;
+}
+
+function removeElementorWidget(html: string, widgetClass: string) {
+  return removeElementorElement(html, "div", widgetClass);
 }
 
 export function createMetadata(page?: MarketingPage): Metadata {

@@ -23,9 +23,9 @@ SELECT is(
     SELECT count(*)
     FROM public.ucat_preparation_snapshots
     WHERE engine_version <> 'preparation-engine-v1'
-       OR policy_version <> 'evidence-driven-preparation-policy-v5'
-       OR score_model_version <> 'representative-evidence-score-v1'
-       OR trajectory_model_version <> 'conditional-preparation-trajectory-v1'
+       OR policy_version <> 'evidence-driven-preparation-policy-v7'
+       OR score_model_version <> 'pooled-representative-evidence-score-v2'
+       OR trajectory_model_version <> 'observed-behavior-trajectory-v2'
   ),
   0::BIGINT,
   'incompatible derived Preparation snapshots are removed'
@@ -37,9 +37,9 @@ SELECT is(
     WHERE superseded_at IS NULL
       AND (
         input_snapshot #>> '{versions,engine}' IS DISTINCT FROM 'preparation-engine-v1'
-        OR input_snapshot #>> '{versions,policy}' IS DISTINCT FROM 'evidence-driven-preparation-policy-v5'
-        OR input_snapshot #>> '{versions,scoreModel}' IS DISTINCT FROM 'representative-evidence-score-v1'
-        OR input_snapshot #>> '{versions,trajectoryModel}' IS DISTINCT FROM 'conditional-preparation-trajectory-v1'
+        OR input_snapshot #>> '{versions,policy}' IS DISTINCT FROM 'evidence-driven-preparation-policy-v7'
+        OR input_snapshot #>> '{versions,scoreModel}' IS DISTINCT FROM 'pooled-representative-evidence-score-v2'
+        OR input_snapshot #>> '{versions,trajectoryModel}' IS DISTINCT FROM 'observed-behavior-trajectory-v2'
       )
   ),
   0::BIGINT,

@@ -59,7 +59,7 @@ function parseRun(value: unknown, countsValue: unknown): AuditRun {
     title: String(run.title ?? 'Untitled audit'),
     brief: nullableString(run.brief),
     status: String(run.status ?? 'selecting') as AuditRunStatus,
-    publishedWriteMode: String(run.published_write_mode ?? 'proposal_only') as AuditRun['publishedWriteMode'],
+    publishedWriteMode: String(run.published_write_mode ?? 'apply_valid_changes') as AuditRun['publishedWriteMode'],
     workflowId: nullableString(run.workflow_id),
     workflowVersion: nullableString(run.workflow_version),
     createdAt: String(run.created_at ?? ''),

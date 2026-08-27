@@ -1,7 +1,6 @@
 /** @jest-environment node */
 
 import { createUcatMcpHttpHandler } from '@/features/ucat/mcp/server/http-handler'
-import type { UcatMcpProfile } from '@/features/ucat/mcp/server/register-tools'
 
 jest.mock('server-only', () => ({}))
 jest.mock('@/features/ucat/mcp/server/auth', () => ({
@@ -14,11 +13,10 @@ jest.mock('@/features/ucat/mcp/server/auth', () => ({
 }))
 
 async function requestAt(
-  profile: UcatMcpProfile,
   path: string,
   method: 'initialize' | 'tools/list',
 ) {
-  const handler = createUcatMcpHttpHandler(profile)
+  const handler = createUcatMcpHttpHandler()
   return handler(new Request(`https://tutor.altitutor.test${path}`, {
     method: 'POST',
     headers: {
@@ -79,70 +77,45 @@ describe('UCAT MCP HTTP endpoints', () => {
     jest.useRealTimers()
   })
 
-  it('initializes production maintenance at its advertised URL', async () => {
-    const response = await requestAt(
-      'production-maintenance',
-      '/api/mcp-production',
-      'initialize',
-    )
+  it('initializes the unified authoring server at its advertised URL', async () => {
+    const response = await requestAt('/api/mcp', 'initialize')
 
     expect(response.status).toBe(200)
     await expect(mcpResponsePayload(response)).resolves.toMatchObject({
       result: {
         serverInfo: {
-          name: 'altitutor-ucat-production-maintenance',
+          name: 'altitutor-ucat-authoring',
         },
       },
     })
   })
 
-  it('lists both distinct tool catalogues at their advertised URLs', async () => {
-    const [authoringResponse, productionResponse] = await Promise.all([
-      requestAt('authoring', '/api/mcp', 'tools/list'),
-      requestAt(
-        'production-maintenance',
-        '/api/mcp-production',
-        'tools/list',
-      ),
-    ])
+  it('lists one lifecycle-aware tool catalogue', async () => {
+    const response = await requestAt('/api/mcp', 'tools/list')
 
-    expect(authoringResponse.status).toBe(200)
-    expect(productionResponse.status).toBe(200)
-    const [authoringPayload, productionPayload] = await Promise.all([
-      mcpResponsePayload(authoringResponse),
-      mcpResponsePayload(productionResponse),
-    ])
-    expect(authoringPayload).toMatchObject({
+    expect(response.status).toBe(200)
+    const payload = await mcpResponsePayload(response)
+    expect(payload).toMatchObject({
       result: {
         tools: expect.arrayContaining([
           expect.objectContaining({ name: 'create_question_stem' }),
+          expect.objectContaining({ name: 'change_question_stem' }),
+          expect.objectContaining({ name: 'apply_ucat_content_changes' }),
         ]),
       },
     })
-    expect(productionPayload).toMatchObject({
-      result: {
-        tools: expect.arrayContaining([
-          expect.objectContaining({ name: 'update_published_question_stem' }),
-        ]),
-      },
-    })
-    expect((authoringPayload as { result: { tools: unknown[] } }).result.tools)
-      .toHaveLength(32)
-    expect((productionPayload as { result: { tools: unknown[] } }).result.tools)
-      .toHaveLength(32)
+    expect((payload as { result: { tools: unknown[] } }).result.tools)
+      .toHaveLength(37)
 
-    const authoringTools = (authoringPayload as {
+    const tools = (payload as {
       result: { tools: Array<{ name: string; inputSchema: unknown }> }
     }).result.tools
-    const productionTools = (productionPayload as {
-      result: { tools: Array<{ name: string; inputSchema: unknown }> }
-    }).result.tools
-    const incompatibleSchemas = [...authoringTools, ...productionTools]
+    const incompatibleSchemas = tools
       .flatMap((tool) => findTupleItemsSchemas(tool.inputSchema)
         .map((path) => `${tool.name}: ${path}`))
     expect(incompatibleSchemas).toEqual([])
 
-    const visualTool = authoringTools.find((tool) => tool.name === 'render_ucat_visual')
+    const visualTool = tools.find((tool) => tool.name === 'render_ucat_visual')
     expect(visualTool).toBeDefined()
     expect(JSON.stringify(visualTool?.inputSchema)).not.toContain('"not"')
     expect(JSON.stringify(visualTool?.inputSchema)).toContain('venn_diagram')

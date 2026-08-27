@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("an anonymous visitor is sent to login with return intent", async ({
+test("an anonymous visitor is sent to login with return intent @critical @compat", async ({
   page,
 }) => {
   await page.goto("/dashboard?source=e2e");
@@ -13,7 +13,7 @@ test("an anonymous visitor is sent to login with return intent", async ({
   });
 });
 
-test("a seeded completed student can reach the protected dashboard", async ({
+test("a seeded completed student can reach the protected dashboard @critical @compat", async ({
   page,
 }) => {
   await page.goto("/login?redirect=/dashboard");

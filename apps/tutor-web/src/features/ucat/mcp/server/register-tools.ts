@@ -47,10 +47,6 @@ import {
   restoreUcatMcpContent,
   searchUcatMcpContent,
   submitUcatMcpForReview,
-  updateUcatMcpLearningModule,
-  updateUcatMcpMock,
-  updateUcatMcpQuestionSet,
-  updateUcatMcpQuestionStem,
 } from '@/features/ucat/mcp/server/service'
 import {
   createMcpImageContentFromDataUri,
@@ -70,11 +66,14 @@ import {
 } from '@/features/ucat/questions/lib/ai-generation/schema'
 import { generatedVisualBlockToImageNodeServer } from '@/features/ucat/questions/lib/ai-generation/server-content-blocks'
 import {
-  acceptUcatMcpAssessmentSuggestion,
   addUcatMcpAuditTargets,
   applyUcatMcpPendingChanges,
-  applyUcatMcpPublishedOperations,
   cancelUcatMcpAuditRun,
+  changeUcatMcpAssessmentSuggestion,
+  changeUcatMcpLearningModule,
+  changeUcatMcpMock,
+  changeUcatMcpQuestionSet,
+  changeUcatMcpQuestionStem,
   claimUcatMcpAuditTargets,
   completeUcatMcpAuditRun,
   createUcatMcpAuditRun,
@@ -82,7 +81,6 @@ import {
   getUcatMcpAuditRun,
   getUcatMcpContentChanges,
   listUcatMcpAuditRuns,
-  proposeUcatMcpContentChange,
   recordUcatMcpAssessmentDecision,
   rejectUcatMcpContentChange,
   restoreUcatMcpPublishedChange,
@@ -161,10 +159,7 @@ async function executeTool<T>(
   }
 }
 
-export type UcatMcpProfile = 'authoring' | 'production-maintenance'
-
 type UcatMcpToolDependencies = {
-  profile?: UcatMcpProfile
   createClient?: (token: string) => SupabaseClient<Database>
   generateImage?: typeof generateUcatMcpImage
   reviseImage?: typeof reviseUcatMcpImage
@@ -264,7 +259,6 @@ export function registerUcatMcpTools(
   server: McpServer,
   dependencies: UcatMcpToolDependencies = {},
 ): void {
-  const profile = dependencies.profile ?? 'authoring'
   const createClient = dependencies.createClient ?? createUcatMcpSupabaseClient
   const generateImage = dependencies.generateImage ?? generateUcatMcpImage
   const getFile = dependencies.getFile ?? getUcatMcpFile
@@ -274,7 +268,7 @@ export function registerUcatMcpTools(
     {
       title: 'Search UCAT authoring content',
       description:
-        'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks. Deleted results are read-only. Published results are read-only on the safe-authoring profile and mutable only through the production-maintenance profile. Stem search supports optional multi-status filters and composable filter trees via filter (all/any/clause). Omit status and statuses to include every lifecycle.',
+        'Search tutor-authoring learning modules (folders and lessons), question stems, sets, or mocks across every lifecycle. Deleted results are read-only. Stem search supports optional multi-status filters and composable filter trees via filter (all/any/clause). Omit status and statuses to include every lifecycle.',
       inputSchema: {
         contentType: AggregateTypeSchema,
         query: z.string().trim().max(500).optional(),
@@ -365,7 +359,6 @@ export function registerUcatMcpTools(
     ),
   )
 
-  if (profile === 'authoring') {
   server.registerTool(
     'create_learning_module',
     {
@@ -404,22 +397,23 @@ export function registerUcatMcpTools(
   )
 
   server.registerTool(
-    'update_learning_module',
+    'change_learning_module',
     {
-      title: 'Update an editable learning module',
+      title: 'Change a UCAT learning module',
       description:
-        'Apply explicit typed metadata or block operations. Omission never deletes. Draft/in-review lessons and non-live folders are editable; published lessons and folders with published descendants are rejected. Text-block content accepts { body: "plain text" }, { body: { format: "markdown", value: "## Heading\\n\\n- Item" } }, or a native TipTap/ProseMirror document; the server normalizes plain text and Markdown.',
+        'Apply explicit typed metadata or block operations to editable content. For a published lesson or live folder, stage a durable pending content change instead of changing live content; pass the returned changeId to apply_ucat_content_changes when application is authorised. Omission never deletes.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),
         operations: z.array(LearningModuleOperationSchema).min(1).max(100),
+        ...ContentChangeMetadataSchema,
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
-    async ({ id, revision, operations }, extra) => executeTool(
+    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => updateUcatMcpLearningModule(client, id, revision, operations),
+      (client) => changeUcatMcpLearningModule(client, id, revision, operations, metadata),
     ),
   )
 
@@ -454,22 +448,23 @@ export function registerUcatMcpTools(
   )
 
   server.registerTool(
-    'update_question_stem',
+    'change_question_stem',
     {
-      title: 'Update a draft or in-review question-stem bundle',
+      title: 'Change a question-stem bundle',
       description:
-        'Apply explicit add/update/move/remove operations to stem metadata, questions, and answer options. Omission never deletes. Published or stale-revision writes are rejected atomically.',
+        'Apply explicit add/update/move/remove operations to an editable stem. For a published stem, stage a durable pending content change instead of changing live content; pass the returned changeId to apply_ucat_content_changes when application is authorised. Omission never deletes.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),
         operations: z.array(QuestionStemOperationSchema).min(1).max(100),
+        ...ContentChangeMetadataSchema,
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
-    async ({ id, revision, operations }, extra) => executeTool(
+    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => updateUcatMcpQuestionStem(client, id, revision, operations),
+      (client) => changeUcatMcpQuestionStem(client, id, revision, operations, metadata),
     ),
   )
 
@@ -504,22 +499,23 @@ export function registerUcatMcpTools(
   )
 
   server.registerTool(
-    'update_question_set',
+    'change_question_set',
     {
-      title: 'Update a draft or in-review UCAT question set',
+      title: 'Change a UCAT question set',
       description:
-        'Apply explicit metadata and add/move/remove stem-membership operations. Section may change only while the set has no member stems. Omission never deletes; published and stale writes are rejected atomically.',
+        'Apply explicit metadata and add/move/remove stem-membership operations to an editable set. For a published set, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),
         operations: z.array(QuestionSetOperationSchema).min(1).max(100),
+        ...ContentChangeMetadataSchema,
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
-    async ({ id, revision, operations }, extra) => executeTool(
+    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => updateUcatMcpQuestionSet(client, id, revision, operations),
+      (client) => changeUcatMcpQuestionSet(client, id, revision, operations, metadata),
     ),
   )
 
@@ -552,136 +548,11 @@ export function registerUcatMcpTools(
   )
 
   server.registerTool(
-    'update_mock',
+    'change_mock',
     {
-      title: 'Update a draft or in-review UCAT mock exam',
+      title: 'Change a UCAT mock exam',
       description:
-        'Apply explicit metadata and add/move/remove set-membership operations. Omission never deletes; published and stale writes are rejected atomically.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(MockOperationSchema).min(1).max(100),
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: writeAnnotations,
-    },
-    async ({ id, revision, operations }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => updateUcatMcpMock(client, id, revision, operations),
-    ),
-  )
-  }
-
-  if (profile === 'production-maintenance') {
-  server.registerTool(
-    'update_published_question_stem',
-    {
-      title: 'Apply a recoverable edit to a published question-stem bundle',
-      description:
-        'Apply one atomic, exact-revision edit across a published stem, its questions, options, answer keys, explanations, metadata, and visuals. The stem remains published and every edit creates a durable before/proposed change record. This is a destructive live-content action.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(QuestionStemOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: destructiveWriteAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => applyUcatMcpPublishedOperations(client, 'stem', id, revision, operations, metadata),
-    ),
-  )
-
-  server.registerTool(
-    'propose_published_question_stem_change',
-    {
-      title: 'Propose an edit to a published question-stem bundle',
-      description:
-        'Create a durable pending change with base/proposed snapshots without changing live content.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(QuestionStemOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: writeAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => proposeUcatMcpContentChange(client, 'stem', id, revision, operations, metadata),
-    ),
-  )
-
-  server.registerTool(
-    'update_published_question_set',
-    {
-      title: 'Apply a recoverable edit to a published UCAT set',
-      description:
-        'Atomically edit published set metadata or add, remove, and reorder stem membership. Existing attempts retain their immutable snapshots.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(QuestionSetOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: destructiveWriteAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => applyUcatMcpPublishedOperations(client, 'set', id, revision, operations, metadata),
-    ),
-  )
-
-  server.registerTool(
-    'propose_published_question_set_change',
-    {
-      title: 'Propose an edit to a published UCAT set',
-      description: 'Create a pending, exact-revision set change without changing live content.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(QuestionSetOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: writeAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => proposeUcatMcpContentChange(client, 'set', id, revision, operations, metadata),
-    ),
-  )
-
-  server.registerTool(
-    'update_published_mock',
-    {
-      title: 'Apply a recoverable edit to a published UCAT mock',
-      description:
-        'Atomically edit published mock metadata or add, remove, and reorder set membership. Existing attempts retain their immutable snapshots.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(MockOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: destructiveWriteAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => applyUcatMcpPublishedOperations(client, 'mock', id, revision, operations, metadata),
-    ),
-  )
-
-  server.registerTool(
-    'propose_published_mock_change',
-    {
-      title: 'Propose an edit to a published UCAT mock',
-      description: 'Create a pending, exact-revision mock change without changing live content.',
+        'Apply explicit metadata and add/move/remove set-membership operations to an editable mock. For a published mock, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
       inputSchema: {
         id: z.string().uuid(),
         revision: z.string().min(1),
@@ -693,63 +564,7 @@ export function registerUcatMcpTools(
     },
     async ({ id, revision, operations, ...metadata }, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => proposeUcatMcpContentChange(client, 'mock', id, revision, operations, metadata),
-    ),
-  )
-
-  server.registerTool(
-    'update_published_learning_module',
-    {
-      title: 'Apply a recoverable edit to a live learning module',
-      description:
-        'Atomically edit a published lesson’s metadata and full block structure, or rename/reorder/reparent a live folder or lesson. Lifecycle remains unchanged and tree/reference validation still applies.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(LearningModuleOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: destructiveWriteAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => applyUcatMcpPublishedOperations(
-        client,
-        'learning_module',
-        id,
-        revision,
-        operations,
-        metadata,
-      ),
-    ),
-  )
-
-  server.registerTool(
-    'propose_published_learning_module_change',
-    {
-      title: 'Propose an edit to a live learning module',
-      description:
-        'Create a pending, exact-revision lesson or folder change without changing live content.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(LearningModuleOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
-      outputSchema: StructuredObjectOutputSchema,
-      annotations: writeAnnotations,
-    },
-    async ({ id, revision, operations, ...metadata }, extra) => executeTool(
-      extra.authInfo?.token,
-      (client) => proposeUcatMcpContentChange(
-        client,
-        'learning_module',
-        id,
-        revision,
-        operations,
-        metadata,
-      ),
+      (client) => changeUcatMcpMock(client, id, revision, operations, metadata),
     ),
   )
 
@@ -832,9 +647,7 @@ export function registerUcatMcpTools(
       (client) => restoreUcatMcpPublishedChange(client, changeId, summary, rationale),
     ),
   )
-  }
 
-  if (profile === 'authoring') {
   server.registerTool(
     'submit_ucat_content_for_review',
     {
@@ -894,20 +707,18 @@ export function registerUcatMcpTools(
       (client) => restoreUcatMcpContent(client, contentType, id, revision),
     ),
   )
-  }
 
-  if (profile === 'authoring' || profile === 'production-maintenance') {
   server.registerTool(
     'create_ucat_audit_run',
     {
       title: 'Create a durable UCAT audit run',
       description:
-        'Create a resumable audit manifest. Audit reasoning remains in the calling agent. proposal_only is the safe default; apply_valid_changes authorises only this run’s materialised targets for unattended published writes.',
+        'Create a resumable audit manifest. Audit reasoning remains in the calling agent. apply_valid_changes is the default and authorises published writes only for this run’s frozen targets while active; choose proposal_only when staff review is required.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
         title: z.string().trim().min(1).max(500),
         brief: z.string().max(20_000).nullable().optional(),
-        publishedWriteMode: z.enum(['proposal_only', 'apply_valid_changes']).default('proposal_only'),
+        publishedWriteMode: z.enum(['proposal_only', 'apply_valid_changes']).default('apply_valid_changes'),
         selector: AuditSelectorSchema.default({ kind: 'manual' }),
         workflowId: z.string().trim().max(300).nullable().optional(),
         workflowVersion: z.string().trim().max(300).nullable().optional(),
@@ -1078,9 +889,7 @@ export function registerUcatMcpTools(
       (client) => cancelUcatMcpAuditRun(client, runId),
     ),
   )
-  }
 
-  if (profile === 'authoring') {
   server.registerTool(
     'start_question_generation',
     {
@@ -1134,7 +943,6 @@ export function registerUcatMcpTools(
       (client) => getUcatMcpGenerationRuns(client, runId),
     ),
   )
-  }
 
   server.registerTool(
     'get_question_ai_assessment',
@@ -1187,7 +995,7 @@ export function registerUcatMcpTools(
     {
       title: 'Acknowledge, dismiss, or reject a question AI-review finding',
       description:
-        'Record a current automated-review decision without changing question content. Dismissal requires a reason. Applying a generated suggestion requires the production-maintenance accept tool.',
+        'Record a current automated-review decision without changing question content. Dismissal requires a reason. Apply a generated suggestion through change_question_ai_assessment_suggestion.',
       inputSchema: {
         runId: z.string().uuid(),
         stemId: z.string().uuid(),
@@ -1204,13 +1012,12 @@ export function registerUcatMcpTools(
     ),
   )
 
-  if (profile === 'production-maintenance') {
-    server.registerTool(
-      'accept_question_ai_assessment_suggestion',
+  server.registerTool(
+    'change_question_ai_assessment_suggestion',
     {
-      title: 'Apply a question AI-review suggestion',
+      title: 'Change a question using an AI-review suggestion',
       description:
-        'Apply the exact current suggestion through the durable content-change path and only then record suggestion_accepted. Works for editable or published stems; visual patches use deterministic server rendering.',
+        'Apply the exact current suggestion to editable content, or stage a pending content change for a published stem. Pass a staged changeId to apply_ucat_content_changes; only application records suggestion_accepted. Visual patches use deterministic server rendering.',
       inputSchema: {
         runId: z.string().uuid(),
         stemId: z.string().uuid(),
@@ -1224,10 +1031,9 @@ export function registerUcatMcpTools(
     },
     async (input, extra) => executeTool(
       extra.authInfo?.token,
-      (client) => acceptUcatMcpAssessmentSuggestion(client, input),
+      (client) => changeUcatMcpAssessmentSuggestion(client, input),
     ),
-    )
-  }
+  )
 
   server.registerTool(
     'generate_ucat_image',

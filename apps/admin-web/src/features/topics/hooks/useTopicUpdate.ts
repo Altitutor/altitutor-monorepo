@@ -152,13 +152,27 @@ export function useTopicUpdate() {
       topicFiles: Array<Tables<'topics_files'> & { file: Tables<'files'> }>
     ): Promise<void> => {
       for (const link of solutionLinks) {
-        // Find the target file to get its type
         const targetFile = topicFiles.find((f) => f.id === link.targetFileId);
+        const previousSolutions = topicFiles.filter(
+          (f) =>
+            f.is_solutions &&
+            f.is_solutions_of_id === link.targetFileId &&
+            f.id !== link.solutionFileId
+        );
+
+        for (const previous of previousSolutions) {
+          await mutateSilently(updateTopicFile, {
+            id: previous.id,
+            data: {
+              is_solutions_of_id: null,
+            },
+          });
+        }
+
         await mutateSilently(updateTopicFile, {
           id: link.solutionFileId,
           data: {
             is_solutions_of_id: link.targetFileId,
-            // Update solution type to match target file type
             type: targetFile?.type,
           },
         });

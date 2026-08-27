@@ -27,6 +27,7 @@ export function getAdelaideDateString(isoTimestamp: string): string {
 export function formatSessionDate(startAt: string): string {
   try {
     const date = new Date(startAt);
+    if (Number.isNaN(date.getTime())) return startAt;
     // Format in Australia/Adelaide timezone
     return date.toLocaleString('en-AU', {
       timeZone: 'Australia/Adelaide',
@@ -56,7 +57,7 @@ interface ClassLike {
 
 interface SubjectLike {
   curriculum?: string | null;
-  year_level?: number | null;
+  year_level?: string | number | null;
   name?: string | null;
 }
 
@@ -207,4 +208,3 @@ export function generateInvoiceItemIdempotencyKey(
   const effectiveTimestamp = timestamp ?? Date.now();
   return `invoice_item_fee_${studentId}_${invoiceDate}_${item.amount_cents}_${effectiveTimestamp}`;
 }
-

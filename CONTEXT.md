@@ -538,8 +538,8 @@
 - **UCAT content access scope** — The access rule for published question stems, question sets, mock exams, and learning module **lessons**: **public** content may appear in the relevant student pool or Learn catalog, while **private** content is accessible only through an explicit learning-module or session link. Access scope has no student-facing effect until the content is published. A public parent cannot contain a private child. Learning module **folders** do not use access scope for student visibility; a folder appears when it has at least one accessible descendant lesson.
   _Avoid_: Publication status, approval, visibility
 
-- **UCAT authoring MCP** — The remote, Supabase OAuth-authenticated Codex interface for reading UCAT authoring content and creating or editing draft/in-review learning module lessons, question-stem bundles, sets, and mocks. It is an additional authoring client alongside tutor-web, cannot publish or mutate published/top-level-deleted content, and attributes every mutation to the acting UCAT tutor.
-  _Avoid_: Tutor-web replacement, service-role authoring API, autonomous publisher
+- **UCAT authoring MCP** — The single remote, Supabase OAuth-authenticated Codex interface for reading and changing UCAT authoring content. It may create or edit draft and in-review content and apply recoverable changes to published content, but cannot publish, unpublish, hard-delete, or delete published content; every mutation is attributed to the acting UCAT tutor.
+  _Avoid_: Production maintenance MCP, tutor-web replacement, service-role authoring API, autonomous publisher
 
 - **UCAT authoring revision** — An opaque concurrency token returned with every MCP aggregate read and required by MCP updates or review submissions. The database checks it while holding the aggregate lock and rejects stale writes, requiring Codex to re-read and reconcile.
   _Avoid_: Content version, publication revision, updated-at timestamp
@@ -610,7 +610,10 @@
 - **UCAT content change** — A recoverable mutation of a saved UCAT aggregate recorded with its exact base and resulting revisions, before-and-after content, operations, provenance, and reversal relationship. Reversal restores the prior content only when doing so cannot overwrite later work.
   _Avoid_: Browser undo, branching version, activity event
 
-- **UCAT audit run** — A durable, named quality-audit of a frozen set of UCAT aggregates. It is selecting while targets are still being added, active while agents claim them, then completed or cancelled. Cancelled runs remain stored but are not current catalog review membership.
+- **Pending UCAT content change** — A proposed exact-revision UCAT content change that has not yet been applied or rejected. It is shared staff work visible in the AI Content Changes queue and is distinct from an AI assessment suggestion.
+  _Avoid_: Audit suggestion, draft edit, AI assessment suggestion
+
+- **UCAT audit run** — A durable, named quality-audit of a frozen set of UCAT aggregates. It is selecting while targets are still being added, active while agents claim them, then completed or cancelled; by default it may apply valid changes to its frozen targets, while an explicitly proposal-only run creates pending UCAT content changes instead.
   _Avoid_: AI assessment run, AI assessment audit record, question stem review queue
 
 - **Audit run target** — One aggregate assigned to a UCAT audit run, most often a question stem. Its status in that run is pending, in progress, completed, failed, or skipped, independently of the aggregate's content status and of any other run it belongs to.
@@ -862,6 +865,18 @@
   _Avoid_: Guaranteed target path, sample personalised data, indefinite extrapolation
 
 - **Study plan** — An optional personalised calendar of UCAT study tasks generated through the student's test date from their UCAT preparation goal, score projection, available study days, and preferred mock day. It adapts session composition and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed. A student without a Study plan does not see its calendar or navigation entry.
+
+- **Study-planning eligibility** — Whether an enabled Study plan may receive scheduled recalculation. Eligibility requires completed setup, an Altitutor UCAT Online product relationship, and a preparation cycle that has not ended; it is independent of subscription tier and recent engagement. An exact test date ends eligibility after that date, while year-only timing remains eligible through the end of the whole configured testing window or, when no window is configured, through the end of that calendar year.
+  _Avoid_: Active Student, paid Student, Study plan enabled
+
+- **Recent UCAT engagement** — An authenticated visit to Altitutor UCAT within the preceding fourteen days. It determines whether scheduled maintenance is currently worthwhile, not whether the Student owns an Online product relationship or may access their persisted Study plan.
+  _Avoid_: Active Student, last login, subscription activity
+
+- **Active Study-plan generation** — The sole current generated schedule presented to and reconciled for a Student. Earlier generations are superseded historical records and must not independently trigger current-plan maintenance.
+  _Avoid_: Latest plan row, enabled Study plan, active Student
+
+- **Abandoned Study-plan draft task** — Future work from a superseded Study-plan generation that was invalidated before becoming due and has no start, completion, skip, partial-progress, or matched-activity evidence. It is disposable schedule material rather than Student preparation history.
+  _Avoid_: Missed task, historical task, incomplete task
   _Avoid_: Score projection, fixed timetable, target guarantee
 
 - **Study guidance orb** — The compact guide that is available throughout UCAT study except during an active attempt. It expands from the same unobtrusive orb on mobile and desktop and shows a primary next step plus a less prominent secondary step. It follows today's scheduled work when a Study plan is enabled and follows Next-step guidance otherwise. A dismissible prompt may announce changed guidance without removing that guidance from the expanded orb.

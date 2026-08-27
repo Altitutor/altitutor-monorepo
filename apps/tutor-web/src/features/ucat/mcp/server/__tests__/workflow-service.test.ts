@@ -3,10 +3,12 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   getUcatMcpAggregate,
   getUcatMcpAggregates,
+  updateUcatMcpQuestionStem,
 } from '@/features/ucat/mcp/server/service'
 import { encodeAuthoringRevision } from '@/features/ucat/mcp/server/revision'
 import {
   applyUcatMcpPendingChange,
+  changeUcatMcpQuestionStem,
   claimUcatMcpAuditTargets,
   listUcatMcpAuditRuns,
 } from '@/features/ucat/mcp/server/workflow-service'
@@ -16,6 +18,10 @@ jest.mock('@/features/ucat/mcp/server/service', () => ({
   getUcatMcpAggregate: jest.fn(),
   getUcatMcpAggregates: jest.fn(),
   getUcatMcpAiAssessment: jest.fn(),
+  updateUcatMcpLearningModule: jest.fn(),
+  updateUcatMcpMock: jest.fn(),
+  updateUcatMcpQuestionSet: jest.fn(),
+  updateUcatMcpQuestionStem: jest.fn(),
 }))
 jest.mock('@/features/ucat/questions/lib/ai-generation/server-content-blocks', () => ({
   generatedVisualBlockToImageNodeServer: jest.fn(),
@@ -176,6 +182,68 @@ describe('UCAT MCP pending audit changes', () => {
         p_existing_change_id: CHANGE_ID,
         p_audit_run_id: RUN_ID,
       }),
+    )
+  })
+})
+
+describe('UCAT MCP lifecycle-aware changes', () => {
+  beforeEach(() => {
+    jest.resetAllMocks()
+  })
+
+  it('applies an editable stem through the ordinary authoring path', async () => {
+    jest.mocked(updateUcatMcpQuestionStem).mockResolvedValue({
+      id: STEM_ID,
+      status: 'draft',
+      revision: 'next-revision',
+    })
+
+    await expect(changeUcatMcpQuestionStem(
+      rpcClient(),
+      STEM_ID,
+      'current-revision',
+      [],
+      { summary: 'Fix wording' },
+    )).resolves.toMatchObject({
+      effect: 'applied',
+      aggregate: { revision: 'next-revision' },
+    })
+  })
+
+  it('stages a published stem after the editable path rejects it', async () => {
+    const revision = encodeAuthoringRevision(STEM_ID, '2026-08-27T01:00:00.000Z')
+    jest.mocked(updateUcatMcpQuestionStem).mockRejectedValue(
+      new Error('Published content requires a dedicated published-change tool.'),
+    )
+    jest.mocked(getUcatMcpAggregate).mockResolvedValue({
+      id: STEM_ID,
+      revision,
+      section_id: '60000000-0000-0000-0000-000000000006',
+      question_stem_category_id: null,
+      stem_text: { type: 'doc', content: [] },
+      access_scope: 'public',
+      tutor_source_note: null,
+      questions: [],
+    })
+    const rpc = jest.fn().mockResolvedValue({
+      data: { id: CHANGE_ID, status: 'pending' },
+      error: null,
+    })
+    const client = { rpc } as unknown as SupabaseClient<Database>
+
+    await expect(changeUcatMcpQuestionStem(
+      client,
+      STEM_ID,
+      revision,
+      [],
+      { summary: 'Fix wording' },
+    )).resolves.toMatchObject({
+      effect: 'staged',
+      changeId: CHANGE_ID,
+    })
+    expect(rpc).toHaveBeenCalledWith(
+      'tutor_ucat_mcp_create_content_change',
+      expect.objectContaining({ p_target_id: STEM_ID, p_summary: 'Fix wording' }),
     )
   })
 })
