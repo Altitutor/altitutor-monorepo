@@ -123,6 +123,11 @@ test("release verification is parallel, branch-scoped, and independently cached"
 
 test("UCAT production verification executes every system test boundary", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
+  const ucatE2eStart = workflow.indexOf("  ucat-e2e:");
+  const ucatE2eJob = workflow.slice(
+    ucatE2eStart,
+    workflow.indexOf("\n  build:", ucatE2eStart),
+  );
 
   assert.match(
     workflow,
@@ -148,6 +153,14 @@ test("UCAT production verification executes every system test boundary", async (
     workflow,
     /supabase test db/u,
     "UCAT database contracts must be release-gated",
+  );
+  const renderTemplatesStep = ucatE2eJob.indexOf(
+    "bash supabase/scripts/render-email-templates.sh",
+  );
+  const startSupabaseStep = ucatE2eJob.indexOf("supabase start");
+  assert.ok(
+    renderTemplatesStep >= 0 && renderTemplatesStep < startSupabaseStep,
+    "UCAT verification must render gitignored Auth email templates before starting Supabase",
   );
   assert.match(
     workflow,
