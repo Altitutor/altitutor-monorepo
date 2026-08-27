@@ -153,25 +153,6 @@ export function useUcatTags() {
   return useQuery({ queryKey: ucatKeys.tags(), queryFn: ucatQuestionsApi.getTags })
 }
 
-export function useUcatQuestionStemListIndex() {
-  return useQuery({
-    queryKey: ucatKeys.questionStemListIndex(),
-    queryFn: () => ucatQuestionsApi.getStemListIndex(),
-  })
-}
-
-/** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
-export function useUcatStemTagIds() {
-  const query = useUcatQuestionStemListIndex()
-  return { ...query, data: query.data?.tagIds }
-}
-
-/** @deprecated Prefer useUcatQuestionStemListIndex — shares the same cached fetch. */
-export function useUcatQuestionSearchTexts() {
-  const query = useUcatQuestionStemListIndex()
-  return { ...query, data: query.data?.searchTexts }
-}
-
 export type UcatStemCatalogItem = {
   id: string
   text: string
@@ -214,30 +195,20 @@ export function useUcatQuestionCatalog(enabled: boolean) {
       const items: UcatQuestionCatalogItem[] = []
 
       for (const row of rows) {
-        if (!row.id) continue
         const stemText = proseMirrorToPlainText(row.stem_text)
         const stemPreview = stemText.length > 36 ? `${stemText.slice(0, 33)}…` : stemText
-        const questions = Array.isArray(row.questions)
-          ? (row.questions as Array<{
-              id?: string
-              deleted_at?: string | null
-              response_type?: string | null
-              answer_scheme?: string | null
-              index?: number | null
-            }>)
-          : []
+        const questions = row.questions ?? []
 
         for (const question of questions) {
-          if (!question.id || question.deleted_at) continue
-          const questionIndex = question.index ?? 0
+          const questionIndex = question.index
           items.push({
             id: question.id,
-            label: `${stemPreview} · Q${questionIndex + 1} (${question.answer_scheme ?? 'unknown'})`,
+            label: `${stemPreview} · Q${questionIndex + 1} (${question.answer_scheme})`,
             stemId: row.id,
             questionIndex,
-            sectionName: row.section_name ?? 'Unknown section',
-            responseType: question.response_type === 'drag_and_drop' ? 'drag_and_drop' : 'multiple_choice',
-            answerScheme: question.answer_scheme ?? 'unknown',
+            sectionName: row.section_name,
+            responseType: question.response_type,
+            answerScheme: question.answer_scheme,
           })
         }
       }
@@ -259,63 +230,16 @@ export function useUcatStemCatalog(
     queryFn: async () => {
       const rows = await ucatQuestionsApi.getStemCatalog({ publishedOnly })
       return rows.map((row) => {
-        const activeQuestions = Array.isArray(row.questions)
-          ? (row.questions as Array<{
-              deleted_at?: string | null
-              response_type?: string | null
-              answer_scheme?: string | null
-              id?: string | null
-              question_text?: Json | null
-              tags?: Array<{ id?: string | null }> | null
-              answer_options?: Array<{ id?: string | null; deleted_at?: string | null }> | null
-            }>).filter((q) => !q.deleted_at)
-          : []
-        const tagIds = new Set<string>()
-        const questionTexts: string[] = []
-        const answerOptionTexts: string[] = []
-        for (const question of activeQuestions) {
-          const tags = Array.isArray(question.tags) ? question.tags : []
-          for (const tag of tags) {
-            if (tag.id) tagIds.add(tag.id)
-          }
-          if (!lite) {
-            const questionText = proseMirrorToPlainText(question.question_text)
-            if (questionText) questionTexts.push(questionText)
-            const answerOptions = Array.isArray(
-              (question as { answer_options?: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
-                .answer_options,
-            )
-              ? (question as { answer_options: Array<{ deleted_at?: string | null; answer_text?: Json | null }> })
-                  .answer_options
-              : []
-            for (const option of answerOptions) {
-              if (option.deleted_at) continue
-              const answerText = proseMirrorToPlainText(option.answer_text)
-              if (answerText) answerOptionTexts.push(answerText)
-            }
-          }
-        }
+        const activeQuestions = row.questions ?? []
         const responseTypes = Array.from(new Set(activeQuestions.flatMap((question) => (
-          question.response_type === 'multiple_choice' || question.response_type === 'drag_and_drop'
-            ? [question.response_type]
-            : []
+          [question.response_type]
         )))) as ('multiple_choice' | 'drag_and_drop')[]
-        const answerSchemes = Array.from(new Set(activeQuestions.flatMap((question) => (
-          typeof question.answer_scheme === 'string' ? [question.answer_scheme] : []
-        ))))
+        const answerSchemes = Array.from(new Set(activeQuestions.map((question) => question.answer_scheme)))
         const blueprintQuestions: BlueprintStem['questions'] = activeQuestions.flatMap((question, questionIndex) => {
-          if (
-            question.answer_scheme !== 'single_choice'
-            && question.answer_scheme !== 'situational_judgement_rating'
-            && question.answer_scheme !== 'decision_making_binary_placement'
-            && question.answer_scheme !== 'situational_judgement_most_least'
-          ) return []
-          const optionIds = (question.answer_options ?? [])
-            .filter(option => !option.deleted_at)
-            .map((option, optionIndex) => option.id ?? `${row.id}-q${questionIndex}-o${optionIndex}`)
+          const optionIds = question.option_ids ?? []
           const presentation = getAnswerSchemePresentation(question.answer_scheme, optionIds)
           return [{
-            id: question.id ?? `${row.id}-question-${questionIndex}`,
+            id: question.id || `${row.id}-question-${questionIndex}`,
             answerScheme: question.answer_scheme,
             optionCount: optionIds.length,
             requiredPlacementCount: presentation.kind === 'placement' ? presentation.requiredPlacements : 0,
@@ -325,12 +249,12 @@ export function useUcatStemCatalog(
         const setNames = parseStemCatalogSetNames((row as { set_names?: unknown }).set_names)
 
         return {
-          id: row.id ?? '',
+          id: row.id,
           text: proseMirrorToPlainText(row.stem_text),
-          questionsCount: activeQuestions.length,
-          sectionName: row.section_name ?? 'Unknown section',
-          sectionNumber: row.section_number ?? 0,
-          sectionId: row.section_id ?? null,
+          questionsCount: row.question_count,
+          sectionName: row.section_name,
+          sectionNumber: row.section_number,
+          sectionId: row.section_id,
           categoryId: row.question_stem_category_id ?? null,
           categoryName: row.category_name ?? null,
           accessScope: row.access_scope,
@@ -339,10 +263,10 @@ export function useUcatStemCatalog(
           responseTypes,
           answerSchemes,
           blueprintQuestions,
-          tagIds: Array.from(tagIds),
+          tagIds: row.tag_ids,
           createdAt: row.created_at ?? null,
-          questionSearchText: questionTexts.join(' '),
-          answerOptionSearchText: answerOptionTexts.join(' '),
+          questionSearchText: lite ? '' : row.question_search_text,
+          answerOptionSearchText: lite ? '' : row.answer_option_search_text,
           setIds,
           setNames,
           typeSummary: answerSchemes.length > 0 ? answerSchemes.join(', ') : '-',

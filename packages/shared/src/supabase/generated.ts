@@ -38136,6 +38136,14 @@ export type Database = {
         }
         Returns: Json
       }
+      tutor_ucat_list_stem_picker_catalog: {
+        Args: {
+          p_after_id?: string
+          p_limit?: number
+          p_published_only?: boolean
+        }
+        Returns: Json
+      }
       tutor_ucat_match_import_stems: {
         Args: { p_drafts: Json; p_similarity_threshold?: number }
         Returns: Json
@@ -38411,6 +38419,10 @@ export type Database = {
           id: string
           last_name: string
         }[]
+      }
+      tutor_ucat_reconciliation_content_issues: {
+        Args: { p_feedback_question_ids?: string[] }
+        Returns: Json
       }
       tutor_ucat_reorder_learning_modules: {
         Args: { p_items: Json }
