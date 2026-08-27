@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(14);
+SELECT plan(16);
 
 SELECT public.enqueue_ucat_preparation_refresh(
   '10000000-0000-0000-0000-000000000010',
@@ -29,14 +29,15 @@ SELECT ok(
   'coalesced request retains every reason'
 );
 
+CREATE TEMP TABLE claimed_refresh AS
+SELECT *
+FROM public.claim_ucat_preparation_refreshes(
+  1,
+  '10000000-0000-0000-0000-000000000010'
+);
+
 SELECT is(
-  (
-    SELECT count(*)::bigint
-    FROM public.claim_ucat_preparation_refreshes(
-      1,
-      '10000000-0000-0000-0000-000000000010'
-    )
-  ),
+  (SELECT count(*)::bigint FROM claimed_refresh),
   1::bigint,
   'the pending Student refresh is claimed once'
 );
@@ -53,6 +54,27 @@ SELECT is(
   'an active claim cannot fan out into a duplicate refresh'
 );
 
+UPDATE public.ucat_student_preparation_refresh_requests
+SET processing_started_at = clock_timestamp() - interval '11 minutes'
+WHERE student_id = '10000000-0000-0000-0000-000000000010';
+
+CREATE TEMP TABLE replacement_claim AS
+SELECT *
+FROM public.claim_ucat_preparation_refreshes(
+  1,
+  '10000000-0000-0000-0000-000000000010'
+);
+
+SELECT is(
+  public.complete_ucat_preparation_refresh(
+    '10000000-0000-0000-0000-000000000010',
+    (SELECT claim_token FROM claimed_refresh),
+    NULL
+  ),
+  FALSE,
+  'an expired worker cannot acknowledge a newer fenced claim'
+);
+
 SELECT public.enqueue_ucat_preparation_refresh(
   '10000000-0000-0000-0000-000000000010',
   'new_activity_during_refresh'
@@ -60,6 +82,7 @@ SELECT public.enqueue_ucat_preparation_refresh(
 
 SELECT public.complete_ucat_preparation_refresh(
   '10000000-0000-0000-0000-000000000010',
+  (SELECT claim_token FROM replacement_claim),
   NULL
 );
 
@@ -81,20 +104,22 @@ SELECT ok(
   'an event arriving during a refresh is not cleared by that refresh'
 );
 
+TRUNCATE claimed_refresh;
+INSERT INTO claimed_refresh
+SELECT * FROM public.claim_ucat_preparation_refreshes(
+  1,
+  '10000000-0000-0000-0000-000000000010'
+);
+
 SELECT is(
-  (
-    SELECT count(*)::bigint
-    FROM public.claim_ucat_preparation_refreshes(
-      1,
-      '10000000-0000-0000-0000-000000000010'
-    )
-  ),
+  (SELECT count(*)::bigint FROM claimed_refresh),
   1::bigint,
   'an event arriving during a refresh remains pending for the next worker'
 );
 
 SELECT public.complete_ucat_preparation_refresh(
   '10000000-0000-0000-0000-000000000010',
+  (SELECT claim_token FROM claimed_refresh),
   'deterministic failure'
 );
 
@@ -138,17 +163,20 @@ SELECT is(
 );
 
 DO $$
+DECLARE v_claim_token UUID;
 BEGIN
   FOR retry IN 2..5 LOOP
     UPDATE public.ucat_student_preparation_refresh_requests
     SET next_attempt_at = clock_timestamp()
     WHERE student_id = '10000000-0000-0000-0000-000000000010';
-    PERFORM * FROM public.claim_ucat_preparation_refreshes(
+    SELECT claim_token INTO v_claim_token
+    FROM public.claim_ucat_preparation_refreshes(
       1,
       '10000000-0000-0000-0000-000000000010'
     );
     PERFORM public.complete_ucat_preparation_refresh(
       '10000000-0000-0000-0000-000000000010',
+      v_claim_token,
       'deterministic failure'
     );
   END LOOP;
@@ -231,6 +259,28 @@ SELECT ok(
     WHERE student_id = '10000000-0000-0000-0000-000000000008'
   ),
   'Skill-trainer completion enqueues immediate Study-plan reconciliation'
+);
+
+SELECT public.enqueue_ucat_preparation_refresh(
+  '10000000-0000-0000-0000-000000000004',
+  'rollout_compatibility'
+);
+CREATE TEMP TABLE legacy_claim AS
+SELECT * FROM public.claim_ucat_preparation_refreshes(
+  1,
+  '10000000-0000-0000-0000-000000000004'
+);
+SELECT public.complete_ucat_preparation_refresh(
+  '10000000-0000-0000-0000-000000000004',
+  NULL
+);
+SELECT ok(
+  (
+    SELECT processing_started_at < clock_timestamp() - interval '10 minutes'
+    FROM public.ucat_student_preparation_refresh_requests
+    WHERE student_id = '10000000-0000-0000-0000-000000000004'
+  ),
+  'the legacy completion overload releases its unfenced lease for immediate retry'
 );
 
 SELECT * FROM finish();

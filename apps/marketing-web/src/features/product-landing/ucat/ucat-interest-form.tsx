@@ -246,7 +246,7 @@ export function UcatInterestForm({
   return (
     <form
       onSubmit={submit}
-      className={`grid ${formHeightClass(kind)} content-start gap-4`}
+      className={`grid relative ${formHeightClass(kind)} content-start gap-4`}
       aria-label={copy.formLabel}
     >
       <div className="grid gap-4 sm:grid-cols-2">
@@ -317,7 +317,7 @@ export function UcatInterestForm({
           />
         </label>
       ) : null}
-      <label className="absolute -left-[10000px]" aria-hidden="true">
+      <label className="sr-only" aria-hidden="true">
         Website
         <input name="website" tabIndex={-1} autoComplete="off" />
       </label>

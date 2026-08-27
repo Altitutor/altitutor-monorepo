@@ -865,6 +865,18 @@
   _Avoid_: Guaranteed target path, sample personalised data, indefinite extrapolation
 
 - **Study plan** — An optional personalised calendar of UCAT study tasks generated through the student's test date from their UCAT preparation goal, score projection, available study days, and preferred mock day. It adapts session composition and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed. A student without a Study plan does not see its calendar or navigation entry.
+
+- **Study-planning eligibility** — Whether an enabled Study plan may receive scheduled recalculation. Eligibility requires completed setup, an Altitutor UCAT Online product relationship, and a preparation cycle that has not ended; it is independent of subscription tier and recent engagement. An exact test date ends eligibility after that date, while year-only timing remains eligible through the end of the whole configured testing window or, when no window is configured, through the end of that calendar year.
+  _Avoid_: Active Student, paid Student, Study plan enabled
+
+- **Recent UCAT engagement** — An authenticated visit to Altitutor UCAT within the preceding fourteen days. It determines whether scheduled maintenance is currently worthwhile, not whether the Student owns an Online product relationship or may access their persisted Study plan.
+  _Avoid_: Active Student, last login, subscription activity
+
+- **Active Study-plan generation** — The sole current generated schedule presented to and reconciled for a Student. Earlier generations are superseded historical records and must not independently trigger current-plan maintenance.
+  _Avoid_: Latest plan row, enabled Study plan, active Student
+
+- **Abandoned Study-plan draft task** — Future work from a superseded Study-plan generation that was invalidated before becoming due and has no start, completion, skip, partial-progress, or matched-activity evidence. It is disposable schedule material rather than Student preparation history.
+  _Avoid_: Missed task, historical task, incomplete task
   _Avoid_: Score projection, fixed timetable, target guarantee
 
 - **Study guidance orb** — The compact guide that is available throughout UCAT study except during an active attempt. It expands from the same unobtrusive orb on mobile and desktop and shows a primary next step plus a less prominent secondary step. It follows today's scheduled work when a Study plan is enabled and follows Next-step guidance otherwise. A dismissible prompt may announce changed guidance without removing that guidance from the expanded orb.

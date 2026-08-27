@@ -1379,11 +1379,13 @@ async function persistGeneration(
   reason: StudyPlanReason,
   completedMockCount: number,
   signals: StudyPlanSectionSignal[],
+  today: string,
+  refreshRequestVersion?: number,
 ): Promise<void> {
   const admin = requireAdmin();
   const result = preparation.plan;
   const generatedAt = preparation.generatedAt;
-  const preserveThrough = reason === "onboarding" ? null : todayIso();
+  const preserveThrough = reason === "onboarding" ? null : today;
   if (preserveThrough) {
     const { data: activeGeneration, error: generationError } = await admin
       .from("ucat_student_study_plan_generations")
@@ -1428,12 +1430,12 @@ async function persistGeneration(
     launch_config: task.launchConfig,
     source_task_id: task.sourceTaskId,
   }));
-  const { error } = await admin.rpc("replace_ucat_study_plan_generation", {
+  const replacementParams = {
     p_student_id: studentId,
     p_profile_id: profile.id,
     p_reason: reason,
     p_planning_date: planningDate,
-    p_starts_on: todayIso(),
+    p_starts_on: today,
     p_ends_on: result.endsOn,
     p_input_snapshot: {
       seed: preparation.seed,
@@ -1458,10 +1460,17 @@ async function persistGeneration(
     },
     p_capacity_risk: result.capacityRisk as unknown as Json,
     p_tasks: taskRows as unknown as Json,
-    p_next_weekly_replan_on: addDays(todayIso(), 7),
+    p_next_weekly_replan_on: addDays(today, 7),
     p_setup_completed_at: profile.setup_completed_at ?? generatedAt,
     p_preserve_through: preserveThrough ?? undefined,
-  });
+  };
+  const { error } = refreshRequestVersion
+    ? await admin.rpc("replace_ucat_study_plan_generation_for_refresh", {
+        ...replacementParams,
+        p_preserve_through: preserveThrough ?? today,
+        p_refresh_request_version: refreshRequestVersion,
+      })
+    : await admin.rpc("replace_ucat_study_plan_generation", replacementParams);
   if (error) throw error;
 }
 
@@ -1614,6 +1623,7 @@ async function generateForProfile(
   studentId: string,
   profile: ProfileRow,
   reason: StudyPlanReason,
+  refreshRequestVersion?: number,
 ): Promise<void> {
   const { planningDate } = await planningDateFor(profile);
   const inputs = await loadGenerationInputs(
@@ -1622,7 +1632,13 @@ async function generateForProfile(
     profile.test_year,
   );
   const now = new Date();
-  const today = todayIso(now);
+  const { data: student, error: studentError } = await requireAdmin()
+    .from("students")
+    .select("timezone")
+    .eq("id", studentId)
+    .single();
+  if (studentError) throw studentError;
+  const today = todayIso(now, student.timezone || "Australia/Adelaide");
   const generatedPreparation = await runCanonicalPreparation({
     supabase,
     studentId,
@@ -1658,6 +1674,8 @@ async function generateForProfile(
     reason,
     inputs.completedMockCount,
     inputs.signals,
+    today,
+    refreshRequestVersion,
   );
 }
 
@@ -2067,18 +2085,65 @@ export async function reconcileStudyPlanAfterActivity(
  */
 export async function regenerateStudyPlanDuringScheduledMaintenance(
   studentId: string,
+  refreshRequestVersion: number,
 ): Promise<void> {
   const admin = requireAdmin();
-  const profileResult = await admin
-    .from("ucat_student_study_plan_profiles")
-    .select("*")
-    .eq("student_id", studentId)
-    .maybeSingle();
+  const [profileResult, existingResult, relationshipResult, studentResult] =
+    await Promise.all([
+      admin
+        .from("ucat_student_study_plan_profiles")
+        .select("*")
+        .eq("student_id", studentId)
+        .maybeSingle(),
+      admin
+        .from("ucat_student_study_plan_generations")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("refresh_request_version", refreshRequestVersion)
+        .maybeSingle(),
+      admin
+        .from("student_online_product_relationships")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("product", "UCAT_WEB")
+        .is("closed_at", null)
+        .maybeSingle(),
+      admin.from("students").select("timezone").eq("id", studentId).single(),
+    ]);
   if (profileResult.error) throw profileResult.error;
+  if (existingResult.error) throw existingResult.error;
+  if (relationshipResult.error) throw relationshipResult.error;
+  if (studentResult.error) throw studentResult.error;
+  if (existingResult.data) return;
   const profile = profileResult.data;
-  if (!profile?.study_plan_enabled) return;
+  if (
+    !profile?.study_plan_enabled ||
+    !profile.setup_completed_at ||
+    !relationshipResult.data
+  ) {
+    return;
+  }
+  const timezone = studentResult.data.timezone || "Australia/Adelaide";
+  const today = todayIso(new Date(), timezone);
+  let cycleEndsOn = profile.test_date;
+  if (!cycleEndsOn) {
+    const { data: testWindow, error: testWindowError } = await admin
+      .from("ucat_study_plan_test_windows")
+      .select("testing_ends_on")
+      .eq("test_year", profile.test_year)
+      .maybeSingle();
+    if (testWindowError) throw testWindowError;
+    cycleEndsOn = testWindow?.testing_ends_on ?? `${profile.test_year}-12-31`;
+  }
+  if (today > cycleEndsOn) return;
   const studentClient = await loadScheduledStudentClient(studentId);
-  await generateForProfile(studentClient, studentId, profile, "weekly");
+  await generateForProfile(
+    studentClient,
+    studentId,
+    profile,
+    "weekly",
+    refreshRequestVersion,
+  );
 }
 
 function mapTask(row: TaskRow): StudyPlanTask {
@@ -2910,21 +2975,35 @@ export async function getStudyPlan(
   const student = await resolveStudent(userId);
   const studentId = student.id;
   const today = todayIso(new Date(), student.timezone);
-  const [profileResult, initialGenerationResult] = await Promise.all([
-    admin
-      .from("ucat_student_study_plan_profiles")
-      .select("*")
-      .eq("student_id", studentId)
-      .maybeSingle(),
-    admin
-      .from("ucat_student_study_plan_generations")
-      .select("*")
-      .eq("student_id", studentId)
-      .is("superseded_at", null)
-      .maybeSingle(),
-  ]);
+  const [profileResult, initialGenerationResult, refreshRequestResult] =
+    await Promise.all([
+      admin
+        .from("ucat_student_study_plan_profiles")
+        .select("*")
+        .eq("student_id", studentId)
+        .maybeSingle(),
+      admin
+        .from("ucat_student_study_plan_generations")
+        .select("*")
+        .eq("student_id", studentId)
+        .is("superseded_at", null)
+        .maybeSingle(),
+      admin
+        .from("ucat_student_preparation_refresh_requests")
+        .select("requested_at,completed_at,dead_lettered_at")
+        .eq("student_id", studentId)
+        .maybeSingle(),
+    ]);
   if (profileResult.error) throw profileResult.error;
   if (initialGenerationResult.error) throw initialGenerationResult.error;
+  if (refreshRequestResult.error) throw refreshRequestResult.error;
+  const refreshPending = Boolean(
+    refreshRequestResult.data &&
+      !refreshRequestResult.data.dead_lettered_at &&
+      (!refreshRequestResult.data.completed_at ||
+        refreshRequestResult.data.requested_at >
+          refreshRequestResult.data.completed_at),
+  );
   let profile = profileResult.data;
   if (!profile) {
     return {
@@ -2934,6 +3013,7 @@ export async function getStudyPlan(
       nextSteps: [],
       today,
       todayTasks: [],
+      refreshPending,
       completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
     };
   }
@@ -3124,6 +3204,7 @@ export async function getStudyPlan(
     nextSteps,
     today,
     todayTasks: tasks.filter((task) => task.scheduledDate === today),
+    refreshPending,
     completion: {
       completed,
       scheduledThroughToday,
@@ -3248,12 +3329,21 @@ export async function completeStudyPlanReviewForAttempt(
         ? "mock_attempt"
         : null;
 
+  const { data: activeGeneration, error: generationError } = await admin
+    .from("ucat_student_study_plan_generations")
+    .select("id")
+    .eq("student_id", studentId)
+    .is("superseded_at", null)
+    .maybeSingle();
+  if (generationError) throw generationError;
+  if (!activeGeneration) return;
+
   const { data: tasks, error } = await admin
     .from("ucat_student_study_plan_tasks")
     .select(
       "id, matched_activity_id, matched_activity_type, launch_path, status",
     )
-    .eq("student_id", studentId)
+    .eq("generation_id", activeGeneration.id)
     .eq("task_type", "review")
     .in("status", ["planned", "in_progress", "partial"]);
   if (error) throw error;

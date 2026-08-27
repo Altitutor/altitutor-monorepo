@@ -289,11 +289,7 @@ export function SetDetailPage({
       </motion.div>
 
       {attempts.length > 0 ? (
-        <motion.section
-          aria-labelledby={attemptsHeadingId}
-          className="space-y-4"
-          variants={itemVariants}
-        >
+        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -358,7 +354,7 @@ export function SetDetailPage({
                 : `Show all ${attempts.length} attempts`}
             </Button>
           ) : null}
-        </motion.section>
+        </section>
       ) : null}
 
       <ExamAttemptConflictDialog

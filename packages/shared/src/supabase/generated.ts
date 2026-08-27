@@ -36790,10 +36790,19 @@ export type Database = {
         }
         Returns: Json
       }
-      complete_ucat_preparation_refresh: {
-        Args: { p_claim_token: string; p_error?: string; p_student_id: string }
-        Returns: boolean
-      }
+      complete_ucat_preparation_refresh:
+        | {
+            Args: {
+              p_claim_token: string
+              p_error?: string
+              p_student_id: string
+            }
+            Returns: boolean
+          }
+        | {
+            Args: { p_error?: string; p_student_id: string }
+            Returns: undefined
+          }
       compute_staff_tier_metrics: {
         Args: { p_staff_id: string }
         Returns: Json

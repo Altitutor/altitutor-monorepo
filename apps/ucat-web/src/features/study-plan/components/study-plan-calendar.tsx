@@ -318,7 +318,7 @@ export function StudyPlanCalendar({
           data-tour={!selectedTasks.length ? "study-plan-task" : undefined}
           className="scroll-mt-24"
         >
-          {selectedTasks.length ? (
+          {selectedTasks.length || showExtraStudy ? (
             <div className="space-y-3">
               {selectedDate === plan.today && carryOverTasks.length ? (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
@@ -333,6 +333,7 @@ export function StudyPlanCalendar({
               <StudyPlanTaskList
                 tasks={selectedTasks}
                 today={plan.today}
+                revealKey={selectedDate}
                 afterTasks={
                   showExtraStudy ? (
                     <StudyPlanExtraStudy
@@ -342,18 +343,9 @@ export function StudyPlanCalendar({
                   ) : null
                 }
                 previewMode={previewMode}
-                tourFirstTask
+                tourFirstTask={selectedTasks.length > 0}
               />
             </div>
-          ) : showExtraStudy ? (
-            <StudyPlanTaskList
-              tasks={[]}
-              today={plan.today}
-              afterTasks={
-                <StudyPlanExtraStudy plan={plan} interactive={!previewMode} />
-              }
-              previewMode={previewMode}
-            />
           ) : (
             <div className="rounded-2xl border border-dashed border-border/70 bg-muted/20 px-6 py-10 text-center">
               <p className="font-medium">No Study plan tasks</p>

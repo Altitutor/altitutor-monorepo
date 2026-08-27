@@ -121,8 +121,11 @@ export default function MarketingRoute({ params }: PageProps) {
         </nav>
       </header>
       {page.path === MEDICAL_INTERVIEW_PREPARATION_PATH ? (
-        <main className="legacy-wordpress-page">
-          <div dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }} />
+        <main>
+          <div
+            className="legacy-wordpress-page"
+            dangerouslySetInnerHTML={{ __html: getRenderableHtml(page) }}
+          />
           <MedicalInterviewWaitlistSection />
         </main>
       ) : (
