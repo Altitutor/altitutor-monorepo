@@ -1096,6 +1096,16 @@ test.describe("personalised Study plan", () => {
         target_units: 5,
     });
     if (missedTaskError) throw missedTaskError;
+    const { error: missedWorkWindowError } = await admin
+      .from("ucat_student_study_plan_profiles")
+      .update({ last_missed_work_replan_on: null })
+      .eq("student_id", studentId);
+    if (missedWorkWindowError) throw missedWorkWindowError;
+    const { error: maintenanceWatermarkError } = await admin.rpc(
+      "recompute_ucat_study_plan_maintenance_at",
+      { p_student_id: studentId },
+    );
+    if (maintenanceWatermarkError) throw maintenanceWatermarkError;
     await runPreparationMaintenance(page);
     const missedResponse = await page.request.get("/api/ucat/study-plan");
     expect(missedResponse.ok()).toBe(true);

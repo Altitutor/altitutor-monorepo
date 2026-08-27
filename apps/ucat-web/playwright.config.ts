@@ -111,8 +111,11 @@ export default defineConfig({
     ...compatibilityProjects,
   ],
   webServer: {
-    command:
-      "pnpm exec next build && pnpm exec next start -p 3014 -H 127.0.0.1",
+    command: [
+      "pnpm --workspace-root exec turbo run build --filter=ucat-web^...",
+      "pnpm exec next build",
+      "pnpm exec next start -p 3014 -H 127.0.0.1",
+    ].join(" && "),
     url: baseURL,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,

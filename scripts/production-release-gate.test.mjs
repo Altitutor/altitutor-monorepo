@@ -24,6 +24,7 @@ const ucatJestConfigPath = new URL(
   "../apps/ucat-web/jest.config.js",
   import.meta.url,
 );
+const uiTsconfigPath = new URL("../packages/ui/tsconfig.json", import.meta.url);
 const emailDispatchSecretSyncPath = new URL(
   "../supabase/scripts/sync-ucat-email-dispatch-secret.sql",
   import.meta.url,
@@ -175,8 +176,26 @@ test("UCAT production verification executes every system test boundary", async (
 });
 
 test("UCAT browser verification exercises production mode and supported engines", async () => {
-  const config = await readFile(ucatPlaywrightConfigPath, "utf8");
+  const [config, uiTsconfigSource] = await Promise.all([
+    readFile(ucatPlaywrightConfigPath, "utf8"),
+    readFile(uiTsconfigPath, "utf8"),
+  ]);
+  const uiTsconfig = JSON.parse(uiTsconfigSource);
 
+  const buildDependenciesStep = config.indexOf(
+    "pnpm --workspace-root exec turbo run build --filter=ucat-web^...",
+  );
+  const buildApplicationStep = config.indexOf("pnpm exec next build");
+  assert.ok(
+    buildDependenciesStep >= 0 && buildDependenciesStep < buildApplicationStep,
+    "Playwright must build UCAT workspace dependencies before Next.js on a clean checkout",
+  );
+  assert.equal(
+    uiTsconfig.compilerOptions.noEmit,
+    false,
+    "@altitutor/ui must emit the dist files declared by its package exports",
+  );
+  assert.equal(uiTsconfig.compilerOptions.rootDir, "src");
   assert.match(config, /pnpm exec next build/u);
   assert.match(config, /name: "desktop-chromium"/u);
   assert.match(config, /name: "desktop-chrome"/u);

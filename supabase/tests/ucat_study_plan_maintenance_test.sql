@@ -164,10 +164,17 @@ WHERE student_id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002'
 );
-UPDATE public.ucat_student_study_plan_profiles
-SET last_missed_work_replan_on = current_date,
+UPDATE public.ucat_student_study_plan_profiles AS profile
+SET last_missed_work_replan_on = (
+      clock_timestamp() AT TIME ZONE coalesce(
+        nullif(student.timezone, ''),
+        'Australia/Adelaide'
+      )
+    )::DATE,
     next_maintenance_at = clock_timestamp() - interval '1 minute'
-WHERE student_id = '10000000-0000-0000-0000-000000000002';
+FROM public.students AS student
+WHERE profile.student_id = '10000000-0000-0000-0000-000000000002'
+  AND student.id = profile.student_id;
 SELECT is(
   public.enqueue_due_ucat_study_plan_rebalances(10),
   0,
