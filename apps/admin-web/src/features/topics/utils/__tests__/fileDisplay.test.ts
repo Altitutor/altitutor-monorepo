@@ -2,6 +2,7 @@ import {
   groupFilesByType,
   getNonSolutionFiles,
   findLinkedSolution,
+  getTopicFileDisplayRows,
   type TopicFileWithFile,
 } from '../fileDisplay';
 import type { Tables, Enums } from '@altitutor/shared';
@@ -204,6 +205,63 @@ describe('fileDisplay utilities', () => {
       expect(result).not.toBeNull();
       expect(result?.id).toBe('2');
       expect(result?.is_solutions_of_id).toBe(targetFileId);
+    });
+  });
+
+  describe('getTopicFileDisplayRows', () => {
+    it('pairs each file with its linked solution and lists unlinked solutions after', () => {
+      const files: TopicFileWithFile[] = [
+        createMockTopicFile('test-1', 'TEST', 1, false),
+        createMockTopicFile('sol-1', 'TEST', 1, true, 'test-1'),
+        createMockTopicFile('sol-orphan', 'TEST', 2, true, null),
+        createMockTopicFile('test-2', 'TEST', 2, false),
+      ];
+
+      const result = getTopicFileDisplayRows(files);
+
+      expect(result).toEqual([
+        {
+          kind: 'paired',
+          file: expect.objectContaining({ id: 'test-1' }),
+          solution: expect.objectContaining({ id: 'sol-1' }),
+        },
+        {
+          kind: 'paired',
+          file: expect.objectContaining({ id: 'test-2' }),
+          solution: null,
+        },
+        {
+          kind: 'unlinked-solution',
+          solution: expect.objectContaining({ id: 'sol-orphan' }),
+        },
+      ]);
+    });
+
+    it('does not list a linked solution as its own row', () => {
+      const files: TopicFileWithFile[] = [
+        createMockTopicFile('1', 'NOTES', 1, false),
+        createMockTopicFile('2', 'NOTES', 1, true, '1'),
+      ];
+
+      const result = getTopicFileDisplayRows(files);
+
+      expect(result).toHaveLength(1);
+      expect(result[0]).toMatchObject({ kind: 'paired', file: { id: '1' } });
+    });
+
+    it('returns only unlinked solution rows when a type has no parent files', () => {
+      const files: TopicFileWithFile[] = [
+        createMockTopicFile('orphan', 'TEST', 1, true, null),
+      ];
+
+      const result = getTopicFileDisplayRows(files);
+
+      expect(result).toEqual([
+        {
+          kind: 'unlinked-solution',
+          solution: expect.objectContaining({ id: 'orphan' }),
+        },
+      ]);
     });
   });
 });

@@ -391,6 +391,54 @@ describe('useTopicUpdate', () => {
       expect(updateResult.success).toBe(true);
       expect(updateResult.changes).toContain('Solution links');
     });
+
+    it('detaches the previous solution when linking another to the same file', async () => {
+      const currentTopic = createMockTopic();
+      const previousSolution = createMockTopicFile('old-sol', 'NOTES', true);
+      previousSolution.is_solutions_of_id = 'file-1';
+      const topicFiles = [
+        createMockTopicFile('file-1', 'NOTES'),
+        previousSolution,
+        createMockTopicFile('new-sol', 'NOTES', true),
+      ];
+
+      const { result } = renderHook(() => useTopicUpdate(), { wrapper });
+
+      const updateResult = await result.current.updateTopic({
+        topicId: 'topic-1',
+        currentTopic,
+        formData: {
+          name: currentTopic.name,
+          subject_id: currentTopic.subject_id,
+          parent_id: currentTopic.parent_id,
+        },
+        reorderedChildren: [],
+        reorderedFiles: [],
+        solutionLinks: [{ solutionFileId: 'new-sol', targetFileId: 'file-1' }],
+        solutionUnlinks: [],
+        currentTopicFiles: topicFiles,
+      });
+
+      expect(updateResult.success).toBe(true);
+      const fileMutate = mockMutations.useUpdateTopicFile.mock.results.at(-1)?.value
+        .mutate as jest.Mock;
+      expect(fileMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'old-sol',
+          data: { is_solutions_of_id: null },
+        }),
+        expect.anything()
+      );
+      expect(fileMutate).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'new-sol',
+          data: expect.objectContaining({
+            is_solutions_of_id: 'file-1',
+          }),
+        }),
+        expect.anything()
+      );
+    });
   });
 
   describe('file type updates', () => {
