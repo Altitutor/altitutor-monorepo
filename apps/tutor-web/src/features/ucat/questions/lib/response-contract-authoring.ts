@@ -12,6 +12,10 @@ export type AnswerSchemeKind = AnswerScheme['kind']
 export type AnswerKeyValue = 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 export type AuthoredQuestion = UcatQuestionStemFormValues['questions'][number]
 
+type AuthoredQuestionInput = Omit<AuthoredQuestion, 'options'> & {
+  options?: AuthoredQuestion['options'] | null
+}
+
 export type SuggestedResponseContract = {
   responseType: ResponseType
   answerScheme: AnswerSchemeKind
@@ -97,15 +101,15 @@ export function responseContractForType(
   }
 }
 
-function authoredOptions(question: AuthoredQuestion): AuthoredQuestion['options'] {
+function authoredOptions(question: AuthoredQuestionInput): AuthoredQuestion['options'] {
   return question.options ?? []
 }
 
-function optionId(question: AuthoredQuestion, index: number): string {
+function optionId(question: AuthoredQuestionInput, index: number): string {
   return authoredOptions(question)[index]?.id ?? `draft-option-${index}`
 }
 
-function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
+function answerSchemeDefinition(question: AuthoredQuestionInput): AnswerScheme {
   const { answerScheme: kind } = authoredResponseContract(question)
   const keyed = authoredOptions(question).map((option, index) => ({
     id: optionId(question, index),
@@ -135,7 +139,7 @@ function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
   }
 }
 
-export function responseContractIssues(question: AuthoredQuestion): readonly ContractIssue[] {
+export function responseContractIssues(question: AuthoredQuestionInput): readonly ContractIssue[] {
   const { responseType } = authoredResponseContract(question)
   const result = compileResponseContract({
     questionId: question.id ?? 'draft-question',
