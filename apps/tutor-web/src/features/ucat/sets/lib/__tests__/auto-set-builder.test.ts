@@ -51,6 +51,7 @@ describe('2026 blueprint set creation', () => {
     ]
     expect(
       blueprintPreferredCategoryTargets({
+        blueprint: UCAT_ANZ_2026_V1,
         sectionNumber: 1,
         categories: [
           { id: 'reading', name: 'Reading Comprehension' },
@@ -72,7 +73,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -102,7 +103,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -130,7 +131,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -182,7 +183,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -208,7 +209,7 @@ describe('2026 blueprint set creation', () => {
     ].map((item) => ({ ...item, setIds: ['set-1'] }))
     const initial = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -289,7 +290,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 5,
       categoryTargets: {},
       categoryRanges: {
@@ -319,7 +319,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 20,
       categoryTargets: {},
       categoryRanges: {
@@ -348,7 +347,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 10,
       categoryTargets: {},
       categoryRanges: {
@@ -383,7 +381,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 10,
       categoryTargets: {},
       categoryRanges: {
@@ -414,7 +411,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 10,
       categoryTargets: {},
       categoryRanges: {
@@ -449,6 +445,7 @@ describe('Total + category ranges', () => {
     ]
     expect(
       blueprintCategoryRanges({
+        blueprint: UCAT_ANZ_2026_V1,
         sectionNumber: 1,
         categories: [
           { id: 'reading', name: 'Reading Comprehension' },
@@ -463,7 +460,7 @@ describe('Total + category ranges', () => {
 
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 44,
       categoryTargets: {},
       categoryRanges: {

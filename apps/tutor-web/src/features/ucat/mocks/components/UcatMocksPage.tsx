@@ -28,7 +28,7 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { CheckCircle2, FilePenLine, ListChecks, Pencil, RotateCcw, Send, Trash2 } from 'lucide-react'
-import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useSetUcatMockStatus, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useSetUcatMockStatus, useUcatMockBlueprints, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { useUcatMocksTable, type MockRow } from '@/features/ucat/mocks/hooks/useUcatMocksTable'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -94,6 +94,13 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'updated_at', label: 'Updated' },
 ]
 
+type MockBlueprintOption = {
+  id: string | null
+  code: string | null
+  test_year: number | null
+  version: number | null
+}
+
 export function UcatMocksPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
@@ -105,6 +112,7 @@ export function UcatMocksPage() {
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const createMock = useCreateUcatMock()
+  const blueprintsQuery = useUcatMockBlueprints()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
   const setStatus = useSetUcatMockStatus()
@@ -116,6 +124,7 @@ export function UcatMocksPage() {
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
   const [instructionsText, setInstructionsText] = useState<RichTextJson | null>(null)
+  const [createBlueprintId, setCreateBlueprintId] = useState<string | null>(null)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
@@ -450,12 +459,14 @@ export function UcatMocksPage() {
       accessScope: isPrivate ? 'private' : 'public',
       setIds: [],
       instructionsText: instructionsText ?? undefined,
+      blueprintId: createBlueprintId,
     })
     const mockName = name.trim() || 'Untitled'
     setOpenCreate(false)
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
+    setCreateBlueprintId(null)
     if (result.id) setEditingMockId(result.id)
     toast({
       title: `Mock ${mockName} created`,
@@ -476,6 +487,7 @@ export function UcatMocksPage() {
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
+    setCreateBlueprintId(null)
   }
 
   if (access.isLoading || mocks.isLoading) return <UcatPageSkeleton rows={8} />
@@ -659,7 +671,7 @@ export function UcatMocksPage() {
         subtitle="Create a new UCAT mock"
         onSave={onCreate}
         saveLabel="Create"
-        saveDisabled={createMock.isPending}
+        saveDisabled={createMock.isPending || !createBlueprintId}
         isSaving={createMock.isPending}
       >
         <div className="p-6 overflow-y-auto h-full space-y-4">
@@ -679,6 +691,21 @@ export function UcatMocksPage() {
               getItemLabel={(item) => item.label}
               getItemId={(item) => item.value}
             />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Mock blueprint</span>
+            <SearchableSelect<MockBlueprintOption>
+              items={(blueprintsQuery.data ?? []) as MockBlueprintOption[]}
+              value={((blueprintsQuery.data ?? []) as MockBlueprintOption[]).find((blueprint) => blueprint.id === createBlueprintId) ?? null}
+              onValueChange={(blueprint) => setCreateBlueprintId(blueprint?.id ?? null)}
+              getItemLabel={(blueprint) => `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}`}
+              getItemId={(blueprint) => blueprint.id ?? ''}
+              placeholder="Select a blueprint"
+              searchPlaceholder="Search blueprints..."
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              The selected immutable version supplies this mock's section totals, timings, and composition rules.
+            </p>
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Instructions</span>

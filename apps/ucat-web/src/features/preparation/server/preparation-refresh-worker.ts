@@ -15,6 +15,33 @@ type RefreshRequest = {
   claim_token: string;
 };
 
+type RefreshStage =
+  | "score_projection"
+  | "study_plan_reconciliation"
+  | "study_plan_regeneration";
+
+function errorText(error: unknown, field: string): string | undefined {
+  if (error == null || typeof error !== "object") return undefined;
+  const value = (error as Record<string, unknown>)[field];
+  return typeof value === "string" && value.length > 0 ? value : undefined;
+}
+
+function describeRefreshFailure(error: unknown, stage: RefreshStage) {
+  const message =
+    (error instanceof Error ? error.message : errorText(error, "message")) ??
+    (typeof error === "string" ? error : undefined) ??
+    "Unknown preparation refresh failure.";
+  return {
+    stage,
+    message,
+    ...(errorText(error, "code") ? { code: errorText(error, "code") } : {}),
+    ...(errorText(error, "details")
+      ? { details: errorText(error, "details") }
+      : {}),
+    ...(errorText(error, "hint") ? { hint: errorText(error, "hint") } : {}),
+  };
+}
+
 function requireAdmin() {
   if (!supabaseAdmin) throw new Error("Supabase admin client is unavailable.");
   return supabaseAdmin;
@@ -87,6 +114,7 @@ export async function processPendingPreparationRefreshes(
   let failed = 0;
 
   for (const request of requests) {
+    let stage: RefreshStage = "score_projection";
     try {
       await refreshStudentScoreProjection(request.student_id);
       const requiresFullRebalance = request.requested_reasons.some((reason) =>
@@ -96,9 +124,11 @@ export async function processPendingPreparationRefreshes(
         requiresFullRebalance ||
         request.requested_reasons.includes("activity_completed")
       ) {
+        stage = "study_plan_reconciliation";
         await reconcileStudyPlanAfterActivity(request.student_id);
       }
       if (requiresFullRebalance) {
+        stage = "study_plan_regeneration";
         await regenerateStudyPlanDuringScheduledMaintenance(
           request.student_id,
           request.request_version,
@@ -111,19 +141,20 @@ export async function processPendingPreparationRefreshes(
       );
       if (acknowledged) completed += 1;
     } catch (error) {
-      const message = error instanceof Error ? error.message : String(error);
-      captureException(error, {
-        tags: { subsystem: "ucat_preparation_refresh" },
+      const failure = describeRefreshFailure(error, stage);
+      captureException(new Error(failure.message), {
+        tags: { subsystem: "ucat_preparation_refresh", stage },
         extra: {
           studentId: request.student_id,
           reasons: request.requested_reasons,
           requestVersion: request.request_version,
+          dependencyError: failure,
         },
       });
       const acknowledged = await completeRequest(
         request.student_id,
         request.claim_token,
-        message,
+        JSON.stringify(failure),
       );
       if (acknowledged) {
         await reportDeadLetterIfNeeded(request.student_id);

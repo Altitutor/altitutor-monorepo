@@ -37309,6 +37309,10 @@ export type Database = {
         Args: { p_section_number: number }
         Returns: Json
       }
+      get_student_ucat_study_plan_forecast_history: {
+        Args: { p_student_id: string; p_today: string }
+        Returns: Json
+      }
       get_student_ucat_study_plan_generation_bundle: {
         Args: { p_student_id: string }
         Returns: Json
@@ -38149,6 +38153,16 @@ export type Database = {
           p_member_ids?: string[]
         }
         Returns: Json
+      }
+      tutor_ucat_create_mock_blueprint_version: {
+        Args: {
+          p_altitutor_policy_label: string
+          p_official_facts_label: string
+          p_sections: Json
+          p_source_blueprint_id: string
+          p_test_year: number
+        }
+        Returns: string
       }
       tutor_ucat_delete_mock: {
         Args: { p_mock_id: string }

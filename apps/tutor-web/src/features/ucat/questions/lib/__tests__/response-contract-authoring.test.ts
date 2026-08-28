@@ -103,4 +103,16 @@ describe('UCAT response-contract authoring', () => {
       expect.arrayContaining(['wrong_option_count', 'missing_key_option']),
     )
   })
+
+  it('does not throw when an authored question is missing its options array', () => {
+    const question = {
+      ...buildEmptyStemFormValues().questions[0]!,
+      options: undefined,
+    }
+
+    expect(() => responseContractIssues(question)).not.toThrow()
+    expect(responseContractIssues(question).map((issue) => issue.code)).toEqual(
+      expect.arrayContaining(['wrong_option_count']),
+    )
+  })
 })

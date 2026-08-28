@@ -125,6 +125,61 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     ]))
   })
 
+  it('matches managed category rules by canonical id after a category is renamed', () => {
+    const blueprint: UcatBlueprint = {
+      id: 'managed-blueprint',
+      testYear: 2027,
+      version: 1,
+      official: {
+        label: 'Test facts',
+        sections: [{
+          section: 'decision_making',
+          questionCount: 1,
+          answeringTimeSeconds: 60,
+          instructionTimeSeconds: 30,
+        }],
+      },
+      altitutorPolicy: {
+        label: 'Test policy',
+        sectionRules: [{
+          section: 'decision_making',
+          categoryRules: [{
+            categoryId: 'category-1',
+            category: 'Original category name',
+            unit: 'questions',
+            min: 1,
+            max: 1,
+          }],
+        }],
+      },
+    }
+
+    const result = evaluateBlueprint(blueprint, {
+      purpose: 'full_mock',
+      sections: [{
+        section: 'decision_making',
+        answeringTimeSeconds: 60,
+        instructionTimeSeconds: 30,
+        stems: [{
+          id: 'stem-1',
+          categoryId: 'category-1',
+          category: 'Renamed category',
+          questions: [{
+            id: 'question-1',
+            answerScheme: 'single_choice',
+            optionCount: 4,
+            requiredPlacementCount: 0,
+          }],
+        }],
+      }],
+    })
+
+    expect(result.compliant).toBe(true)
+    expect(result.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Original category name', actual: 1, compliant: true }),
+    ]))
+  })
+
   it('accepts every allowed-range boundary', () => {
     const composition = passingComposition()
     const dm = composition.sections[1]
