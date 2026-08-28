@@ -121,6 +121,7 @@ export function catalogStemToBlueprintStem(stem: UcatStemCatalogItem): Blueprint
   return {
     id: stem.id,
     category: stem.categoryName ?? 'Uncategorised',
+    categoryId: stem.categoryId ?? undefined,
     questions: stem.blueprintQuestions ?? [],
   }
 }

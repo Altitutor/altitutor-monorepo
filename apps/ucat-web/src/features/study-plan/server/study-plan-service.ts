@@ -1482,42 +1482,21 @@ async function loadForecastEvidence(
   sections: StudyPlanSection[],
 ) {
   const admin = requireAdmin();
-  // A generation can contribute tasks for at most its 21-day horizon. Include
-  // that lead-in before the six-week behavior window, plus the active plan even
-  // if it has not been regenerated recently.
-  const generationHistoryStart = `${addDays(today, -63)}T00:00:00.000Z`;
-  const [generationResult, preparationHistory] = await Promise.all([
-    admin
-      .from("ucat_student_study_plan_generations")
-      .select("id, generated_at, superseded_at, projection_snapshot")
-      .eq("student_id", studentId)
-      .or(`generated_at.gte.${generationHistoryStart},superseded_at.is.null`)
-      .order("generated_at", { ascending: false }),
+  const [historyResult, preparationHistory] = await Promise.all([
+    admin.rpc("get_student_ucat_study_plan_forecast_history", {
+      p_student_id: studentId,
+      p_today: today,
+    }),
     loadPreparationSnapshotHistory(supabase),
   ]);
-  const { data: generations, error: generationError } = generationResult;
-  if (generationError) throw generationError;
+  if (historyResult.error) throw historyResult.error;
+  const history = readForecastHistoryBundle(historyResult.data);
+  const generations = history.generations;
+  const tasks = history.tasks;
 
-  const activeGeneration = (generations ?? []).find(
+  const activeGeneration = generations.find(
     (generation) => generation.superseded_at == null,
   );
-  let tasks: Array<{
-    generation_id: string;
-    scheduled_date: string;
-    status: string;
-    launch_config: Json;
-  }> = [];
-  const generationIds = (generations ?? []).map((generation) => generation.id);
-  if (generationIds.length > 0) {
-    const { data: taskRows, error: tasksError } = await admin
-      .from("ucat_student_study_plan_tasks")
-      .select("generation_id, status, scheduled_date, launch_config")
-      .in("generation_id", generationIds)
-      .gte("scheduled_date", addDays(today, -41))
-      .lte("scheduled_date", today);
-    if (tasksError) throw tasksError;
-    tasks = taskRows ?? [];
-  }
 
   return derivePreparationForecastEvidence({
     today,
@@ -1529,7 +1508,7 @@ async function loadForecastEvidence(
         }
       : null,
     historySnapshots: [
-      ...(generations ?? []).map((generation) => ({
+      ...generations.map((generation) => ({
         generatedAt: generation.generated_at,
         projectionSnapshot: generation.projection_snapshot,
       })),
@@ -1539,7 +1518,7 @@ async function loadForecastEvidence(
       scheduledDate: task.scheduled_date,
       status: taskStatus(task.status),
       generationId: task.generation_id,
-      generationGeneratedAt: generations?.find(
+      generationGeneratedAt: generations.find(
         (generation) => generation.id === task.generation_id,
       )?.generated_at,
       optional:
@@ -1555,6 +1534,76 @@ async function loadForecastEvidence(
         .map((section) => section.id),
     ),
   });
+}
+
+type ForecastHistoryGeneration = {
+  id: string;
+  generated_at: string;
+  superseded_at: string | null;
+  projection_snapshot: Json;
+};
+
+type ForecastHistoryTask = {
+  generation_id: string;
+  scheduled_date: string;
+  status: string;
+  launch_config: Json;
+};
+
+function readForecastHistoryBundle(value: unknown): {
+  generations: ForecastHistoryGeneration[];
+  tasks: ForecastHistoryTask[];
+} {
+  if (value == null || typeof value !== "object" || Array.isArray(value)) {
+    throw new Error("Study plan forecast history returned an invalid payload.");
+  }
+  const record = value as Record<string, unknown>;
+  if (!Array.isArray(record.generations) || !Array.isArray(record.tasks)) {
+    throw new Error("Study plan forecast history returned an invalid payload.");
+  }
+  const generations = record.generations.map((generation) => {
+    if (
+      generation == null ||
+      typeof generation !== "object" ||
+      Array.isArray(generation)
+    ) {
+      throw new Error("Study plan forecast history included an invalid generation.");
+    }
+    const row = generation as Record<string, unknown>;
+    if (
+      typeof row.id !== "string" ||
+      typeof row.generated_at !== "string" ||
+      (row.superseded_at !== null && typeof row.superseded_at !== "string")
+    ) {
+      throw new Error("Study plan forecast history included an invalid generation.");
+    }
+    return {
+      id: row.id,
+      generated_at: row.generated_at,
+      superseded_at: row.superseded_at,
+      projection_snapshot: (row.projection_snapshot ?? null) as Json,
+    };
+  });
+  const tasks = record.tasks.map((task) => {
+    if (task == null || typeof task !== "object" || Array.isArray(task)) {
+      throw new Error("Study plan forecast history included an invalid task.");
+    }
+    const row = task as Record<string, unknown>;
+    if (
+      typeof row.generation_id !== "string" ||
+      typeof row.scheduled_date !== "string" ||
+      typeof row.status !== "string"
+    ) {
+      throw new Error("Study plan forecast history included an invalid task.");
+    }
+    return {
+      generation_id: row.generation_id,
+      scheduled_date: row.scheduled_date,
+      status: row.status,
+      launch_config: (row.launch_config ?? null) as Json,
+    };
+  });
+  return { generations, tasks };
 }
 
 type CanonicalPreparationInputs = {
@@ -3004,6 +3053,7 @@ export async function getStudyPlan(
         refreshRequestResult.data.requested_at >
           refreshRequestResult.data.completed_at),
   );
+  const refreshFailed = Boolean(refreshRequestResult.data?.dead_lettered_at);
   let profile = profileResult.data;
   if (!profile) {
     return {
@@ -3014,6 +3064,7 @@ export async function getStudyPlan(
       today,
       todayTasks: [],
       refreshPending,
+      refreshFailed,
       completion: { completed: 0, scheduledThroughToday: 0, percent: 0 },
     };
   }
@@ -3205,6 +3256,7 @@ export async function getStudyPlan(
     today,
     todayTasks: tasks.filter((task) => task.scheduledDate === today),
     refreshPending,
+    refreshFailed,
     completion: {
       completed,
       scheduledThroughToday,

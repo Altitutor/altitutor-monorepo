@@ -5,6 +5,7 @@ import {
   regenerateStudyPlanDuringScheduledMaintenance,
 } from "@/features/study-plan/server/study-plan-service";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { captureException } from "@sentry/nextjs";
 
 jest.mock("server-only", () => ({}));
 jest.mock("@sentry/nextjs", () => ({
@@ -23,6 +24,10 @@ jest.mock("@/lib/supabase/admin", () => ({
 }));
 
 describe("preparation refresh worker", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+  });
+
   it("reconciles coalesced activity and rebalance reasons once and fences completion", async () => {
     jest.mocked(supabaseAdmin!.rpc).mockImplementation((name) => {
       if (name === "claim_ucat_preparation_refreshes") {
@@ -58,6 +63,68 @@ describe("preparation refresh worker", () => {
         p_claim_token: "claim-1",
         p_error: null,
       },
+    );
+  });
+
+  it("records a structured stage-specific Supabase failure", async () => {
+    jest.mocked(supabaseAdmin!.rpc).mockImplementation((name) => {
+      if (name === "claim_ucat_preparation_refreshes") {
+        return Promise.resolve({
+          data: [
+            {
+              student_id: "student-1",
+              requested_reasons: ["scheduled_rebalance"],
+              request_version: 42,
+              claim_token: "claim-1",
+            },
+          ],
+          error: null,
+        }) as never;
+      }
+      return Promise.resolve({ data: true, error: null }) as never;
+    });
+    jest.mocked(supabaseAdmin!.from).mockReturnValue({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: () =>
+            Promise.resolve({ data: { dead_lettered_at: null }, error: null }),
+        }),
+      }),
+    } as never);
+    jest.mocked(refreshStudentScoreProjection).mockResolvedValue();
+    jest.mocked(reconcileStudyPlanAfterActivity).mockResolvedValue();
+    jest
+      .mocked(regenerateStudyPlanDuringScheduledMaintenance)
+      .mockRejectedValue({
+        code: "PGRST100",
+        message: "Bad Request",
+        details: "Request URI is too long",
+        hint: "Use a bounded server-side query",
+      });
+
+    await expect(
+      processPendingPreparationRefreshes({ limit: 1 }),
+    ).resolves.toEqual({ claimed: 1, completed: 0, failed: 1 });
+
+    expect(supabaseAdmin!.rpc).toHaveBeenLastCalledWith(
+      "complete_ucat_preparation_refresh",
+      expect.objectContaining({
+        p_error: JSON.stringify({
+          stage: "study_plan_regeneration",
+          message: "Bad Request",
+          code: "PGRST100",
+          details: "Request URI is too long",
+          hint: "Use a bounded server-side query",
+        }),
+      }),
+    );
+    expect(captureException).toHaveBeenCalledWith(
+      expect.objectContaining({ message: "Bad Request" }),
+      expect.objectContaining({
+        tags: expect.objectContaining({
+          stage: "study_plan_regeneration",
+        }),
+      }),
     );
   });
 });

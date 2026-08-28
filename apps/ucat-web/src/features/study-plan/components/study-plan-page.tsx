@@ -272,6 +272,20 @@ export function StudyPlanPage({
         </motion.div>
       ) : null}
 
+      {!previewMode && plan?.refreshFailed ? (
+        <motion.div variants={itemVariants}>
+          <Alert>
+            <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />
+            <AlertTitle>Study plan update delayed</AlertTitle>
+            <AlertDescription>
+              Your current plan is ready to use, but we could not apply the
+              latest background update. We will retry automatically after your
+              next activity or authenticated visit.
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      ) : null}
+
       {plan && !plan.profile ? (
         <motion.div variants={itemVariants}>
           <Card className={UCAT_CARD_CHROME}>

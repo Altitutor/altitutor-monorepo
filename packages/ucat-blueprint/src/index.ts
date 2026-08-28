@@ -26,6 +26,7 @@ export interface BlueprintQuestion {
 export interface BlueprintStem {
   id: string
   category: string
+  categoryId?: string
   questions: BlueprintQuestion[]
 }
 
@@ -48,7 +49,7 @@ interface Range {
 }
 
 type CategoryRule = Range & { unit: 'questions' | 'stems' } & (
-  | { category: string; answerScheme?: never; label?: string; requiredAnswerScheme?: BlueprintAnswerScheme }
+  | { category: string; categoryId?: string; answerScheme?: never; label?: string; requiredAnswerScheme?: BlueprintAnswerScheme }
   | { category?: never; answerScheme: BlueprintAnswerScheme; label: string }
 )
 
@@ -455,7 +456,11 @@ export function evaluateBlueprint(
       const label = rule.label ?? rule.category ?? 'Answer-scheme questions'
       const matchingCategoryStems = rule.category === undefined
         ? []
-        : section.stems.filter(stem => stem.category === rule.category)
+        : section.stems.filter(stem =>
+            rule.categoryId !== undefined
+              ? stem.categoryId === rule.categoryId
+              : stem.category === rule.category,
+          )
       const actual = rule.answerScheme === undefined
         ? rule.unit === 'stems' ? matchingCategoryStems.length : totalQuestions(matchingCategoryStems)
         : section.stems.reduce(

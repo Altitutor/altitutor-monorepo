@@ -11,7 +11,6 @@ import {
   Textarea,
   useToast,
 } from '@altitutor/ui'
-import { UCAT_ANZ_2026_V1 } from '@altitutor/ucat-blueprint'
 import { useUcatCategories, useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet, useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -23,7 +22,6 @@ import {
   buildAutoSetPreviewAsync,
   parseCategoryRange,
   positiveIntFromInput,
-  type AutoBlueprintSource,
   type AutoCategoryRangeInput,
   type AutoCategoryRow,
   type AutoSetMode,
@@ -38,7 +36,8 @@ import {
   type SetTimeLimitSource,
 } from '@/features/ucat/sets/lib/set-time-limit'
 import { UcatBlueprintCompliancePanel } from '@/features/ucat/mocks/components/UcatBlueprintCompliancePanel'
-import { blueprintSectionCode } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { blueprintRowToModel, blueprintSectionCode } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
@@ -52,11 +51,6 @@ const AUTO_MODE_OPTIONS: Array<{ value: AutoSetMode; label: string }> = [
   { value: 'total', label: 'Total only' },
   { value: 'category', label: 'By category' },
   { value: 'range', label: 'Total + category ranges' },
-]
-
-const BLUEPRINT_SOURCE_OPTIONS: Array<{ value: AutoBlueprintSource; label: string }> = [
-  { value: 'manual', label: 'Manual' },
-  { value: '2026', label: '2026 full-mock blueprint' },
 ]
 
 const STEM_VISIBILITY_OPTIONS: Array<{ value: AutoStemVisibility; label: string }> = [
@@ -85,6 +79,7 @@ export function UcatCreateSetDialog({
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categoriesQuery = useUcatCategories()
+  const blueprintsQuery = useUcatMockBlueprints()
 
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -97,7 +92,7 @@ export function UcatCreateSetDialog({
   const [autoCriteriaEnabled, setAutoCriteriaEnabled] = useState(false)
   const [autoSectionId, setAutoSectionId] = useState<string | null>(null)
   const [autoMode, setAutoMode] = useState<AutoSetMode>('range')
-  const [autoBlueprintSource, setAutoBlueprintSource] = useState<AutoBlueprintSource>('2026')
+  const [autoBlueprintId, setAutoBlueprintId] = useState<string | null>(null)
   const [autoTargetTotal, setAutoTargetTotal] = useState('')
   const [autoCategoryTargets, setAutoCategoryTargets] = useState<Record<string, string>>({})
   const [autoCategoryRanges, setAutoCategoryRanges] = useState<Record<string, AutoCategoryRangeInput>>({})
@@ -121,7 +116,25 @@ export function UcatCreateSetDialog({
       : null
 
   const autoSection = sections.find((section) => section.id === autoSectionId)
-  const autoBlueprintSection = blueprintSectionCode(autoSection?.section_number)
+  const autoBlueprint = useMemo(
+    () => blueprintRowToModel((blueprintsQuery.data ?? []).find((row) => row.id === autoBlueprintId) ?? {
+      code: null,
+      test_year: null,
+      version: null,
+      official_facts_label: null,
+      altitutor_policy_label: null,
+      sections: null,
+    }),
+    [autoBlueprintId, blueprintsQuery.data],
+  )
+  const blueprintSourceOptions = useMemo(() => [
+    { value: 'manual', label: 'Manual' },
+    ...(blueprintsQuery.data ?? []).flatMap((blueprint) =>
+      blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
+        ? [{ value: blueprint.id, label: `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}` }]
+        : [],
+    ),
+  ], [blueprintsQuery.data])
   const autoSectionCategories = useMemo(
     () =>
       ((categoriesQuery.data ?? []) as AutoCategoryRow[])
@@ -152,14 +165,15 @@ export function UcatCreateSetDialog({
   }, [autoOnlyNotInAnotherSet, autoSectionId, autoStemVisibility, stemCatalog])
 
   const autoBlueprintPreferredTargets = useMemo(() => {
-    if (autoBlueprintSource !== '2026' || autoMode !== 'category' || !autoSectionId) return {}
+    if (!autoBlueprint || autoMode !== 'category' || !autoSectionId) return {}
     return blueprintPreferredCategoryTargets({
+      blueprint: autoBlueprint,
       sectionNumber: autoSection?.section_number,
       categories: autoNamedCategories,
       eligibleStems: autoEligibleStems,
     })
   }, [
-    autoBlueprintSource,
+    autoBlueprint,
     autoEligibleStems,
     autoMode,
     autoNamedCategories,
@@ -168,14 +182,15 @@ export function UcatCreateSetDialog({
   ])
 
   const autoBlueprintRanges = useMemo(() => {
-    if (autoBlueprintSource !== '2026' || autoMode !== 'range' || !autoSectionId) return {}
+    if (!autoBlueprint || autoMode !== 'range' || !autoSectionId) return {}
     return blueprintCategoryRanges({
+      blueprint: autoBlueprint,
       sectionNumber: autoSection?.section_number,
       categories: autoNamedCategories,
       eligibleStems: autoEligibleStems,
     })
   }, [
-    autoBlueprintSource,
+    autoBlueprint,
     autoEligibleStems,
     autoMode,
     autoNamedCategories,
@@ -183,14 +198,23 @@ export function UcatCreateSetDialog({
     autoSectionId,
   ])
 
-  function applyBlueprintSource(source: AutoBlueprintSource, mode: AutoSetMode = autoMode) {
-    setAutoBlueprintSource(source)
-    if (source !== '2026') {
+  function applyBlueprintSource(blueprintId: string | null, mode: AutoSetMode = autoMode) {
+    setAutoBlueprintId(blueprintId)
+    const blueprint = blueprintRowToModel((blueprintsQuery.data ?? []).find((row) => row.id === blueprintId) ?? {
+      code: null,
+      test_year: null,
+      version: null,
+      official_facts_label: null,
+      altitutor_policy_label: null,
+      sections: null,
+    })
+    if (!blueprint) {
       setAutoSeed((prev) => prev + 1)
       return
     }
     if (mode === 'category') {
       const preferred = blueprintPreferredCategoryTargets({
+        blueprint,
         sectionNumber: autoSection?.section_number,
         categories: autoNamedCategories,
         eligibleStems: autoEligibleStems,
@@ -198,12 +222,14 @@ export function UcatCreateSetDialog({
       setAutoCategoryTargets(preferred)
     } else if (mode === 'range') {
       const ranges = blueprintCategoryRanges({
+        blueprint,
         sectionNumber: autoSection?.section_number,
         categories: autoNamedCategories,
         eligibleStems: autoEligibleStems,
       })
-      const officialTotal = autoBlueprintSection
-        ? (UCAT_ANZ_2026_V1.official.sections.find((section) => section.section === autoBlueprintSection)?.questionCount ?? 0)
+      const sectionCode = blueprintSectionCode(autoSection?.section_number)
+      const officialTotal = sectionCode
+        ? (blueprint.official.sections.find((section) => section.section === sectionCode)?.questionCount ?? 0)
         : 0
       setAutoTargetTotal(officialTotal > 0 ? String(officialTotal) : '')
       setAutoCategoryRanges(
@@ -230,7 +256,7 @@ export function UcatCreateSetDialog({
       return [{ name: category.name ?? 'Untitled category', ...parsed }]
     })
     if (optedIn.length === 0) {
-      return autoBlueprintSource === '2026' && Object.keys(autoBlueprintRanges).length === 0
+      return autoBlueprint != null && Object.keys(autoBlueprintRanges).length === 0
         ? null
         : 'Enter min and max for at least one category.'
     }
@@ -250,7 +276,7 @@ export function UcatCreateSetDialog({
     return null
   }, [
     autoBlueprintRanges,
-    autoBlueprintSource,
+    autoBlueprint,
     autoCategoryRanges,
     autoMode,
     autoSectionCategories,
@@ -277,12 +303,12 @@ export function UcatCreateSetDialog({
   }, [autoNameEnabled, autoSection?.name, autoSectionId, open, setsQuery.data])
 
   useEffect(() => {
-    if (!open || !autoCriteriaEnabled || autoBlueprintSource !== '2026' || !autoSectionId) return
+    if (!open || !autoCriteriaEnabled || !autoBlueprintId || !autoBlueprint || !autoSectionId) return
     if (autoMode === 'total') return
-    applyBlueprintSource('2026', autoMode)
+    applyBlueprintSource(autoBlueprintId, autoMode)
     // Re-apply only when the source inputs change; applyBlueprintSource uses the latest snapshot.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [autoBlueprintSource, autoCriteriaEnabled, autoMode, autoNamedCategories, autoSectionId, open, stemCatalogLoading])
+  }, [autoBlueprint, autoBlueprintId, autoCriteriaEnabled, autoMode, autoNamedCategories, autoSectionId, open, stemCatalogLoading])
 
   useEffect(() => {
     if (!open || !autoCriteriaEnabled) {
@@ -305,7 +331,7 @@ export function UcatCreateSetDialog({
     setAutoPreviewLoading(true)
     void buildAutoSetPreviewAsync({
       mode: autoMode,
-      blueprintSource: autoBlueprintSource,
+      blueprint: autoBlueprint,
       targetTotal: positiveIntFromInput(autoTargetTotal),
       categoryTargets: autoCategoryTargets,
       categoryRanges: autoCategoryRanges,
@@ -332,7 +358,7 @@ export function UcatCreateSetDialog({
       cancelled = true
     }
   }, [
-    autoBlueprintSource,
+    autoBlueprint,
     autoCategoryRanges,
     autoCategoryTargets,
     autoCriteriaEnabled,
@@ -509,9 +535,9 @@ export function UcatCreateSetDialog({
                           if (!item) return
                           setAutoMode(item.value)
                           if (item.value === 'total') {
-                            setAutoBlueprintSource('manual')
-                          } else if (autoBlueprintSource === '2026') {
-                            applyBlueprintSource('2026', item.value)
+                            setAutoBlueprintId(null)
+                          } else if (autoBlueprintId) {
+                            applyBlueprintSource(autoBlueprintId, item.value)
                             return
                           }
                           setAutoSeed((prev) => prev + 1)
@@ -523,12 +549,12 @@ export function UcatCreateSetDialog({
 
                     {autoMode === 'category' || autoMode === 'range' ? (
                       <UcatSetPropertyRow label="Target source">
-                        <SearchableSelect<(typeof BLUEPRINT_SOURCE_OPTIONS)[number]>
-                          items={BLUEPRINT_SOURCE_OPTIONS}
-                          value={BLUEPRINT_SOURCE_OPTIONS.find((item) => item.value === autoBlueprintSource) ?? null}
+                        <SearchableSelect<(typeof blueprintSourceOptions)[number]>
+                          items={blueprintSourceOptions}
+                          value={blueprintSourceOptions.find((item) => item.value === (autoBlueprintId ?? 'manual')) ?? null}
                           onValueChange={(item) => {
                             if (!item) return
-                            applyBlueprintSource(item.value)
+                            applyBlueprintSource(item.value === 'manual' ? null : item.value)
                           }}
                           getItemLabel={(item) => item.label}
                           getItemId={(item) => item.value}
@@ -554,9 +580,9 @@ export function UcatCreateSetDialog({
                     {autoMode === 'category' ? (
                       <div className="space-y-2 py-1.5">
                         <div className="text-sm text-muted-foreground">Questions by category</div>
-                        {autoBlueprintSource === '2026' ? (
+                        {autoBlueprint ? (
                           <p className="text-xs text-muted-foreground">
-                            Prefills preferred counts from the 2026 full-mock blueprint
+                            Prefills preferred counts from {autoBlueprint.testYear} v{autoBlueprint.version}
                             {Object.keys(autoBlueprintPreferredTargets).length === 0
                               ? ' (this section uses the official question total only).'
                               : '; values stay editable.'}
@@ -564,7 +590,7 @@ export function UcatCreateSetDialog({
                         ) : null}
                         {autoSectionCategories.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No categories are configured for this section.</p>
-                        ) : autoBlueprintSource === '2026' && Object.keys(autoBlueprintPreferredTargets).length === 0 ? (
+                        ) : autoBlueprint && Object.keys(autoBlueprintPreferredTargets).length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             Official target: {autoTargetQuestions} questions.
                           </p>
@@ -610,9 +636,9 @@ export function UcatCreateSetDialog({
                           Enter both min and max to include a category. Categories can trade off as long as the
                           global total is hit.
                         </p>
-                        {autoBlueprintSource === '2026' ? (
+                        {autoBlueprint ? (
                           <p className="text-xs text-muted-foreground">
-                            Prefills official total and policy min/max from the 2026 full-mock blueprint
+                            Prefills official total and policy min/max from {autoBlueprint.testYear} v{autoBlueprint.version}
                             {Object.keys(autoBlueprintRanges).length === 0
                               ? ' (this section has no category bands; total only).'
                               : '; values stay editable.'}
@@ -620,7 +646,7 @@ export function UcatCreateSetDialog({
                         ) : null}
                         {autoSectionCategories.length === 0 ? (
                           <p className="text-xs text-muted-foreground">No categories are configured for this section.</p>
-                        ) : autoBlueprintSource === '2026' && Object.keys(autoBlueprintRanges).length === 0 ? (
+                        ) : autoBlueprint && Object.keys(autoBlueprintRanges).length === 0 ? (
                           <p className="text-xs text-muted-foreground">
                             Official target: {autoTargetQuestions} questions.
                           </p>
@@ -739,7 +765,7 @@ export function UcatCreateSetDialog({
                 <p className="text-xs text-muted-foreground">Fix the range validation error to preview stems.</p>
               ) : autoPreviewLoading ? (
                 <p className="text-xs text-muted-foreground">
-                  {autoBlueprintSource === '2026' ? 'Building 2026 blueprint preview...' : 'Building preview...'}
+                  {autoBlueprint ? `Building ${autoBlueprint.testYear} v${autoBlueprint.version} blueprint preview...` : 'Building preview...'}
                 </p>
               ) : autoPreview ? (
                 <div className="space-y-2 text-sm">
@@ -763,7 +789,7 @@ export function UcatCreateSetDialog({
                       ))}
                     </div>
                   ) : null}
-                  {autoBlueprintSource === '2026' && autoPreview.blueprintCompliance ? (
+                  {autoBlueprint && autoPreview.blueprintCompliance ? (
                     <UcatBlueprintCompliancePanel compliance={autoPreview.blueprintCompliance} />
                   ) : null}
                   {autoPreview.selectedStems.length > 0 ? (

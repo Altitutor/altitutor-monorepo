@@ -1,8 +1,8 @@
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
   evaluateBlueprint,
-  UCAT_ANZ_2026_V1,
   type BlueprintSectionCode,
+  type UcatBlueprint,
 } from '@altitutor/ucat-blueprint'
 import {
   blueprintSectionCode,
@@ -12,7 +12,6 @@ import {
 } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 export type AutoSetMode = 'total' | 'category' | 'range'
-export type AutoBlueprintSource = 'manual' | '2026'
 export type AutoStemVisibility = 'either' | 'public' | 'private'
 
 export type AutoCategoryRangeInput = {
@@ -148,7 +147,7 @@ function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions
 }
 
 type CategoryPolicyRule = NonNullable<
-  (typeof UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules)[number]['categoryRules']
+  UcatBlueprint['altitutorPolicy']['sectionRules'][number]['categoryRules']
 >[number]
 
 function categoryRulePreferred(rule: CategoryPolicyRule): number {
@@ -178,20 +177,19 @@ function toQuestionBounds(
   return { min: rule.min, max: rule.max, preferred }
 }
 
-/**
- * Map the 2026 full-mock blueprint into the same per-category question targets
- * used by "By category" mode (stem-unit rules convert via typical questions/stem).
- */
+/** Map a selected full-mock blueprint into per-category question targets. */
 export function blueprintPreferredCategoryTargets({
+  blueprint,
   sectionNumber,
   categories,
   eligibleStems,
 }: {
+  blueprint: UcatBlueprint
   sectionNumber?: number | null
   categories: Array<{ id: string; name: string }>
   eligibleStems: UcatStemCatalogItem[]
 }): Record<string, string> {
-  const ranges = blueprintCategoryRanges({ sectionNumber, categories, eligibleStems })
+  const ranges = blueprintCategoryRanges({ blueprint, sectionNumber, categories, eligibleStems })
   const targets: Record<string, string> = {}
   for (const [categoryId, range] of Object.entries(ranges)) {
     const min = Number.parseInt(range.min, 10)
@@ -211,14 +209,14 @@ export type BlueprintCategoryRange = {
   preferred?: string
 }
 
-/**
- * Map 2026 policy category rules into question min/max (and preferred) for range mode.
- */
+/** Map selected policy category rules into question min/max for range mode. */
 export function blueprintCategoryRanges({
+  blueprint,
   sectionNumber,
   categories,
   eligibleStems,
 }: {
+  blueprint: UcatBlueprint
   sectionNumber?: number | null
   categories: Array<{ id: string; name: string }>
   eligibleStems: UcatStemCatalogItem[]
@@ -226,7 +224,7 @@ export function blueprintCategoryRanges({
   const section = blueprintSectionCode(sectionNumber)
   if (!section) return {}
 
-  const policy = UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules.find((rule) => rule.section === section)
+  const policy = blueprint.altitutorPolicy.sectionRules.find((rule) => rule.section === section)
   if (!policy?.categoryRules?.length) return {}
 
   const targets: Record<string, BlueprintCategoryRange> = {}
@@ -234,7 +232,8 @@ export function blueprintCategoryRanges({
   const schemeOnlyRules = policy.categoryRules.filter((rule) => rule.answerScheme !== undefined && !rule.category)
 
   for (const rule of namedRules) {
-    const category = categories.find((row) => row.name === rule.category)
+    const categoryId = 'categoryId' in rule ? rule.categoryId : undefined
+    const category = categories.find((row) => row.id === categoryId || (!categoryId && row.name === rule.category))
     if (!category) continue
     const categoryStems = eligibleStems.filter((stem) => stem.categoryId === category.id)
     const bounds = toQuestionBounds(rule, categoryStems)
@@ -303,11 +302,12 @@ export function blueprintCategoryRanges({
 }
 
 function blueprintPreviewCompliance(
+  blueprint: UcatBlueprint,
   section: BlueprintSectionCode,
   selectedStems: UcatStemCatalogItem[],
 ): StoredBlueprintCompliance {
-  const official = UCAT_ANZ_2026_V1.official.sections.find((rule) => rule.section === section)
-  const selectedEvaluation = evaluateBlueprint(UCAT_ANZ_2026_V1, {
+  const official = blueprint.official.sections.find((rule) => rule.section === section)
+  const selectedEvaluation = evaluateBlueprint(blueprint, {
     purpose: 'full_mock',
     sections: official
       ? [{
@@ -697,15 +697,15 @@ function buildRangePreview({
   }
 }
 
-function officialQuestionCount(sectionNumber?: number | null): number {
+function officialQuestionCount(blueprint: UcatBlueprint, sectionNumber?: number | null): number {
   const section = blueprintSectionCode(sectionNumber)
   if (!section) return 0
-  return UCAT_ANZ_2026_V1.official.sections.find((rule) => rule.section === section)?.questionCount ?? 0
+  return blueprint.official.sections.find((rule) => rule.section === section)?.questionCount ?? 0
 }
 
 export function buildAutoSetPreview({
   mode,
-  blueprintSource = 'manual',
+  blueprint = null,
   targetTotal,
   categoryTargets,
   categoryRanges = {},
@@ -718,7 +718,7 @@ export function buildAutoSetPreview({
   seed,
 }: {
   mode: AutoSetMode
-  blueprintSource?: AutoBlueprintSource
+  blueprint?: UcatBlueprint | null
   targetTotal: number
   categoryTargets: Record<string, string>
   categoryRanges?: Record<string, AutoCategoryRangeInput>
@@ -748,12 +748,13 @@ export function buildAutoSetPreview({
     return true
   })
 
-  const useBlueprint = blueprintSource === '2026'
+  const useBlueprint = blueprint != null
   const section = blueprintSectionCode(sectionNumber)
 
   if (mode === 'range') {
     const preferredFromBlueprint = useBlueprint
       ? blueprintCategoryRanges({
+          blueprint,
           sectionNumber,
           categories: sectionCategories,
           eligibleStems,
@@ -770,7 +771,7 @@ export function buildAutoSetPreview({
     const effectiveTotal = targetTotal > 0
       ? targetTotal
       : useBlueprint && Object.keys(categoryRanges).length === 0
-        ? officialQuestionCount(sectionNumber)
+        ? officialQuestionCount(blueprint, sectionNumber)
         : 0
     const effectiveRanges = Object.keys(categoryRanges).length > 0
       ? categoryRanges
@@ -800,7 +801,7 @@ export function buildAutoSetPreview({
         targetQuestions: effectiveTotal,
         byCategory: [],
         warnings,
-        blueprintCompliance: section ? blueprintPreviewCompliance(section, selectedStems) : undefined,
+        blueprintCompliance: section ? blueprintPreviewCompliance(blueprint, section, selectedStems) : undefined,
       }
     }
 
@@ -819,7 +820,7 @@ export function buildAutoSetPreview({
     return {
       ...preview,
       blueprintCompliance: useBlueprint && section
-        ? blueprintPreviewCompliance(section, preview.selectedStems)
+        ? blueprintPreviewCompliance(blueprint, section, preview.selectedStems)
         : undefined,
     }
   }
@@ -831,6 +832,7 @@ export function buildAutoSetPreview({
         ? categoryTargets
         : useBlueprint && Object.keys(categoryTargets).length === 0
           ? blueprintPreferredCategoryTargets({
+              blueprint,
               sectionNumber,
               categories: sectionCategories,
               eligibleStems,
@@ -841,7 +843,7 @@ export function buildAutoSetPreview({
 
     if (useBlueprint && !hasCategoryPreset) {
       // QR-style: structure-only — fall back to official total path.
-      const officialTotal = officialQuestionCount(sectionNumber)
+      const officialTotal = officialQuestionCount(blueprint, sectionNumber)
       const shuffled = shuffleWithSeed(
         eligibleStems,
         `blueprint-total:${sectionId}:${officialTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
@@ -860,7 +862,7 @@ export function buildAutoSetPreview({
         targetQuestions: officialTotal,
         byCategory: [],
         warnings,
-        blueprintCompliance: section ? blueprintPreviewCompliance(section, selectedStems) : undefined,
+        blueprintCompliance: section ? blueprintPreviewCompliance(blueprint, section, selectedStems) : undefined,
       }
     }
 
@@ -877,7 +879,7 @@ export function buildAutoSetPreview({
     return {
       ...preview,
       blueprintCompliance: useBlueprint && section
-        ? blueprintPreviewCompliance(section, preview.selectedStems)
+        ? blueprintPreviewCompliance(blueprint, section, preview.selectedStems)
         : undefined,
     }
   }

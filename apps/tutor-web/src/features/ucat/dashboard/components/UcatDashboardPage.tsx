@@ -13,6 +13,7 @@ import {
   ShieldCheck,
   Tag,
   Dumbbell,
+  DraftingCompass,
   type LucideIcon,
   Users,
 } from 'lucide-react'
@@ -101,6 +102,12 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
         description: 'Review, apply, or reject staged changes to live content',
         href: '/ucat/content-changes',
         icon: FileDiff,
+      },
+      {
+        title: 'Mock blueprints',
+        description: 'Manage versioned full-mock totals, timings, and category ranges',
+        href: '/ucat/mock-blueprints',
+        icon: DraftingCompass,
       },
       {
         title: 'Reconciliation',

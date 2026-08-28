@@ -152,9 +152,10 @@ function PlacementPreviewBody({
   placementSnapshot?: Record<string, PlacementValue> | null
 }) {
   const answerScheme = question.answerScheme ?? 'decision_making_binary_placement'
+  const options = question.options ?? []
   const presentation = getAnswerSchemePresentation(
     answerScheme,
-    [...question.options]
+    [...options]
       .sort((left, right) => left.index - right.index)
       .map((option) => option.id),
   )

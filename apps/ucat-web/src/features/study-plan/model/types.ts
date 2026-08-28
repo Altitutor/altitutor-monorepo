@@ -333,6 +333,7 @@ export type StudyPlanResponse = {
   today: string;
   todayTasks: StudyPlanTask[];
   refreshPending?: boolean;
+  refreshFailed?: boolean;
   completion: {
     completed: number;
     scheduledThroughToday: number;

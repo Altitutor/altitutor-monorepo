@@ -128,6 +128,7 @@ function createDatabaseHarness(
     recentTimingEvidence?: boolean;
     completedMockCount?: number;
     taskType?: "practice" | "review";
+    refreshDeadLetteredAt?: string;
   } = {},
 ) {
   const updates: RecordedUpdate[] = [];
@@ -180,6 +181,21 @@ function createDatabaseHarness(
     if (table === "ucat_student_study_plan_generations" && single) {
       return {
         data: replacementPersisted ? replacementGeneration : activeGeneration,
+        error: null,
+      };
+    }
+    if (
+      table === "ucat_student_preparation_refresh_requests" &&
+      single
+    ) {
+      return {
+        data: options.refreshDeadLetteredAt
+          ? {
+              requested_at: "2026-08-11T00:00:00.000Z",
+              completed_at: "2026-08-10T00:00:00.000Z",
+              dead_lettered_at: options.refreshDeadLetteredAt,
+            }
+          : null,
         error: null,
       };
     }
@@ -347,6 +363,22 @@ function createDatabaseHarness(
     }
     if (name === "get_student_ucat_completed_benchmark_sections") {
       return { data: [], error: null };
+    }
+    if (name === "get_student_ucat_study_plan_forecast_history") {
+      return {
+        data: {
+          generations: [
+            {
+              id: activeGeneration.id,
+              generated_at: activeGeneration.generated_at,
+              superseded_at: activeGeneration.superseded_at,
+              projection_snapshot: activeGeneration.projection_snapshot,
+            },
+          ],
+          tasks: [],
+        },
+        error: null,
+      };
     }
     if (name === "batch_update_ucat_study_plan_tasks") {
       const updates = (args as { p_updates?: unknown[] })?.p_updates ?? [];
@@ -521,6 +553,21 @@ describe("Study plan persistence orchestration", () => {
           ([table]) => (table as string) === "ucat_student_study_plan_profiles",
         ),
     ).toBe(false);
+  });
+
+  it("reports a dead-lettered refresh separately from an in-progress refresh", async () => {
+    const { studentClient } = createDatabaseHarness({
+      currentPolicy: true,
+      refreshDeadLetteredAt: "2026-08-11T01:00:00.000Z",
+    });
+
+    const plan = await getStudyPlan(studentClient, "user-1", {
+      allowAutomaticReplan: false,
+      reconcileTasks: false,
+    });
+
+    expect(plan.refreshPending).toBe(false);
+    expect(plan.refreshFailed).toBe(true);
   });
 
   it("persists review completion without advancing future work from scheduling", async () => {
