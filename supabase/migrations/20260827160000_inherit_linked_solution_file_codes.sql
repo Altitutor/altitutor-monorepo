@@ -1,5 +1,6 @@
 -- Linked solution files must share the parent file's number (2T.1 -> 2T.1_SOL).
 -- Unlinked solutions keep a separate sequence that does not occupy a linked number.
+-- If two solutions share a parent, only the earliest inherits that number.
 
 CREATE OR REPLACE FUNCTION public.calculate_topic_file_code(p_topic_file_id UUID)
 RETURNS TEXT
@@ -244,23 +245,32 @@ BEGIN
     ) sub
     WHERE topics_files.id = sub.id;
 
+    -- At most one solution per parent can inherit that parent's number.
     UPDATE public.topics_files tf
-    SET index = parent.index
-    FROM public.topics_files parent
-    WHERE tf.topic_id = p_topic_id
-      AND tf.type = p_type
-      AND tf.is_solutions
-      AND tf.is_solutions_of_id = parent.id;
+    SET index = chosen.parent_index
+    FROM (
+      SELECT DISTINCT ON (sol.is_solutions_of_id)
+        sol.id,
+        parent.index AS parent_index
+      FROM public.topics_files sol
+      JOIN public.topics_files parent ON parent.id = sol.is_solutions_of_id
+      WHERE sol.topic_id = p_topic_id
+        AND sol.type = p_type
+        AND sol.is_solutions
+        AND sol.is_solutions_of_id IS NOT NULL
+      ORDER BY sol.is_solutions_of_id, sol.created_at ASC, sol.id ASC
+    ) chosen
+    WHERE tf.id = chosen.id;
 
-    WITH linked AS (
-      SELECT parent.index
+    WITH taken AS (
+      SELECT tf.index
       FROM public.topics_files tf
-      JOIN public.topics_files parent ON parent.id = tf.is_solutions_of_id
       WHERE tf.topic_id = p_topic_id
         AND tf.type = p_type
         AND tf.is_solutions
+        AND tf.index > 0
     ),
-    unlinked AS (
+    leftover AS (
       SELECT
         tf.id,
         ROW_NUMBER() OVER (ORDER BY tf.created_at ASC, tf.id ASC) AS rn
@@ -268,7 +278,7 @@ BEGIN
       WHERE tf.topic_id = p_topic_id
         AND tf.type = p_type
         AND tf.is_solutions
-        AND tf.is_solutions_of_id IS NULL
+        AND tf.index < 0
     ),
     slots AS (
       SELECT
@@ -276,18 +286,18 @@ BEGIN
         ROW_NUMBER() OVER (ORDER BY gs) AS rn
       FROM generate_series(
         1,
-        COALESCE((SELECT MAX(index) FROM linked), 0)
-          + COALESCE((SELECT COUNT(*) FROM unlinked), 0)
+        COALESCE((SELECT MAX(index) FROM taken), 0)
+          + COALESCE((SELECT COUNT(*) FROM leftover), 0)
       ) AS gs
       WHERE NOT EXISTS (
-        SELECT 1 FROM linked linked_row WHERE linked_row.index = gs
+        SELECT 1 FROM taken taken_row WHERE taken_row.index = gs
       )
     )
     UPDATE public.topics_files tf
     SET index = slots.index
-    FROM unlinked
-    JOIN slots ON slots.rn = unlinked.rn
-    WHERE tf.id = unlinked.id;
+    FROM leftover
+    JOIN slots ON slots.rn = leftover.rn
+    WHERE tf.id = leftover.id;
   ELSE
     SELECT ARRAY_AGG(id ORDER BY index ASC, created_at ASC)
     INTO v_file_ids
