@@ -169,20 +169,25 @@ function stemSnapshot(draft: QuestionStemDraft): Record<string, unknown> {
 
 function setSnapshot(draft: QuestionSetDraft): Record<string, unknown> {
   return {
-    name: draft.name,
+    authoringNote: draft.authoringNote,
     description: draft.description,
-    timeLimitSeconds: draft.timeLimitSeconds,
+    timingMode: draft.timingMode,
+    paceMultiplier: draft.paceMultiplier,
+    fixedTimeLimitSeconds: draft.fixedTimeLimitSeconds,
+    setFormat: draft.setFormat,
     accessScope: draft.accessScope,
     sectionId: draft.sectionId,
+    referenceBlueprintId: draft.referenceBlueprintId,
     stemIds: draft.stemIds,
   }
 }
 
 function mockSnapshot(draft: MockDraft): Record<string, unknown> {
   return {
-    name: draft.name,
+    authoringNote: draft.authoringNote,
     instructionsText: draft.instructionsText,
     accessScope: draft.accessScope,
+    blueprintId: draft.blueprintId,
     setIds: draft.setIds,
   }
 }

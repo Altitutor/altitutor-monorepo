@@ -115,11 +115,10 @@ SELECT set_config(
 );
 
 SELECT lives_ok(
-  $$SELECT public.tutor_ucat_upsert_mock(
+  $$SELECT public.tutor_ucat_upsert_mock_v2(
     NULL,
     'Blueprint-selected draft',
     'private'::public.ucat_access_scope,
-    '[]'::jsonb,
     NULL,
     '54100000-0000-4000-8000-000000000001'
   )$$,

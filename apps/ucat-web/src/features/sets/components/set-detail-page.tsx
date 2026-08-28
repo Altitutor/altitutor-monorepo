@@ -126,7 +126,7 @@ export function SetDetailPage({
     kind: "set",
     resourceId: setId,
     title:
-      (set && extractTextFromRichJson(set.name as JsonLike)) || "Question set",
+      set?.display_name || (set && extractTextFromRichJson(set.name as JsonLike)) || "Question set",
     exitHref: backHref,
   });
   const launchPreflight = useExamAttemptLaunchPreflight({
@@ -212,7 +212,7 @@ export function SetDetailPage({
   }
 
   const title =
-    extractTextFromRichJson(set.name as JsonLike) ||
+    set.display_name || extractTextFromRichJson(set.name as JsonLike) ||
     extractTextFromRichJson(set.description as JsonLike) ||
     "Question set";
 

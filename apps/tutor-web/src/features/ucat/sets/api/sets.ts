@@ -17,7 +17,9 @@ export const ucatSetsApi = {
       supabase
         .from('vtutor_ucat_question_sets')
         .select('*')
-        .order('updated_at', { ascending: false })
+        .order('section_number')
+        .order('set_format')
+        .order('catalog_index', { nullsFirst: false })
         .order('id')
         .range(from, to)
     )
@@ -52,6 +54,15 @@ export const ucatSetsApi = {
     })
     if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to update set')
     return response.json() as Promise<{ id: string }>
+  },
+
+  async reorder(sectionId: string, setFormat: UcatQuestionSetPayload['setFormat'], setIds: string[]) {
+    const response = await fetch('/api/ucat/question-sets/order', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sectionId, setFormat, setIds }),
+    })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to reorder sets')
   },
 
   async setStatus(setId: string, status: UcatContentStatus) {
@@ -120,11 +131,15 @@ export const ucatSetsApi = {
     const existingStemIds = stems.map((s) => s.stem_id)
     const merged = [...new Set([...existingStemIds, ...stemIds])]
     const payload: UcatQuestionSetPayload = {
-      name: detail.name,
+      authoringNote: detail.authoring_note,
       description: proseMirrorToPlainText(detail.description) ?? '',
-      timeLimitSeconds: detail.time_limit_seconds ?? null,
+      timingMode: detail.timing_mode ?? 'pace',
+      paceMultiplier: detail.pace_multiplier,
+      fixedTimeLimitSeconds: detail.fixed_time_limit_seconds,
+      setFormat: detail.set_format ?? 'partial_section',
       accessScope: detail.access_scope ?? 'public',
       sectionId: requireSetSectionId(detail),
+      referenceBlueprintId: requireReferenceBlueprintId(detail),
       stemIds: merged,
     }
     return this.update(setId, payload)
@@ -137,11 +152,15 @@ export const ucatSetsApi = {
     const removeIds = new Set(stemIds)
     const nextStemIds = stems.map((s) => s.stem_id).filter((stemId) => !removeIds.has(stemId))
     const payload: UcatQuestionSetPayload = {
-      name: detail.name,
+      authoringNote: detail.authoring_note,
       description: proseMirrorToPlainText(detail.description) ?? '',
-      timeLimitSeconds: detail.time_limit_seconds ?? null,
+      timingMode: detail.timing_mode ?? 'pace',
+      paceMultiplier: detail.pace_multiplier,
+      fixedTimeLimitSeconds: detail.fixed_time_limit_seconds,
+      setFormat: detail.set_format ?? 'partial_section',
       accessScope: detail.access_scope ?? 'public',
       sectionId: requireSetSectionId(detail),
+      referenceBlueprintId: requireReferenceBlueprintId(detail),
       stemIds: nextStemIds,
     }
     return this.update(setId, payload)
@@ -156,11 +175,15 @@ function serialize(payload: UcatQuestionSetPayload) {
 
   return {
     id: payload.id ?? null,
-    name: payload.name ?? null,
+    authoringNote: payload.authoringNote ?? null,
     description,
-    timeLimitSeconds: payload.timeLimitSeconds ?? null,
+    timingMode: payload.timingMode,
+    paceMultiplier: payload.paceMultiplier ?? null,
+    fixedTimeLimitSeconds: payload.fixedTimeLimitSeconds ?? null,
+    setFormat: payload.setFormat,
     accessScope: payload.accessScope,
     sectionId: payload.sectionId,
+    referenceBlueprintId: payload.referenceBlueprintId,
     stemIds: payload.stemIds,
   }
 }
@@ -168,4 +191,9 @@ function serialize(payload: UcatQuestionSetPayload) {
 function requireSetSectionId(detail: { section_id?: string | null }): string {
   if (!detail.section_id) throw new Error('Set section is required')
   return detail.section_id
+}
+
+function requireReferenceBlueprintId(detail: { reference_blueprint_id?: string | null }): string {
+  if (!detail.reference_blueprint_id) throw new Error('Set reference blueprint is required')
+  return detail.reference_blueprint_id
 }

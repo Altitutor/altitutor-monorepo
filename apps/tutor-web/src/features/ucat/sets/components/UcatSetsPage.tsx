@@ -27,7 +27,8 @@ import { useDeleteUcatSet, useRestoreUcatSet, useSetUcatSetStatus, useUcatSets, 
 import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { getUcatContentStatusTransitionOptions, type UcatContentStatus } from '@/features/ucat/shared/types'
+import { getUcatContentStatusTransitionOptions, type UcatContentStatus, type UcatQuestionSetFormat } from '@/features/ucat/shared/types'
+import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatPdfExportDialog, type UcatPdfExportSource } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
@@ -95,6 +96,7 @@ export function UcatSetsPage() {
   const router = useRouter()
   const pathname = usePathname()
   const activeStatus = parseStatusTab(searchParams.get('tab'))
+  const viewMode = searchParams.get('view') === 'order' ? 'order' : 'table'
   const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeStatus), [activeStatus])
   const queryClient = useQueryClient()
   const access = useUcatAccess()
@@ -116,6 +118,8 @@ export function UcatSetsPage() {
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [mockFilterSearch, setMockFilterSearch] = useState('')
+  const [orderSectionId, setOrderSectionId] = useState<string | null>(null)
+  const [orderFormat, setOrderFormat] = useState<UcatQuestionSetFormat>('full_section')
   const updateSetMutation = useUpdateUcatSet()
   const mocksQuery = useUcatMocks()
 
@@ -123,6 +127,18 @@ export function UcatSetsPage() {
     const editId = searchParams.get('edit')
     if (editId) setEditingSetId(editId)
   }, [searchParams])
+
+  useEffect(() => {
+    if (!orderSectionId && sections[0]?.id) setOrderSectionId(sections[0].id)
+  }, [orderSectionId, sections])
+
+  function setViewMode(value: 'table' | 'order') {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'order') params.set('view', 'order')
+    else params.delete('view')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   const mockFilterOptions = useMemo(() => {
     const list = (mocksQuery.data ?? []) as Array<{
@@ -458,6 +474,55 @@ export function UcatSetsPage() {
   if (access.isLoading || sets.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
+  if (viewMode === 'order') {
+    const orderRows = (sets.data ?? [])
+      .filter((set) => set.deleted_at == null && set.mock_id == null)
+      .filter((set) => set.section_id === orderSectionId && set.set_format === orderFormat)
+      .sort((a, b) => (a.catalog_index ?? 0) - (b.catalog_index ?? 0))
+      .flatMap((set) => set.id ? [{
+        id: set.id,
+        displayName: set.display_name ?? set.compact_display_name ?? set.id,
+        authoringNote: set.authoring_note,
+      }] : [])
+    return (
+      <div className="space-y-6 py-8 md:py-10">
+        <UcatPageHeader
+          title="UCAT Sets"
+          description="Set deterministic display order within a section and format"
+          backHref="/ucat"
+          breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets' }]}
+          actions={<SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />}
+        />
+        <div className="grid gap-3 sm:grid-cols-2">
+          <SearchableSelect<(typeof sections)[number]>
+            items={sections}
+            value={sections.find((section) => section.id === orderSectionId) ?? null}
+            onValueChange={(section) => setOrderSectionId(section?.id ?? null)}
+            getItemLabel={(section) => section.name ?? 'Untitled section'}
+            getItemId={(section) => section.id ?? ''}
+            placeholder="Select section"
+          />
+          <SearchableSelect<{ value: UcatQuestionSetFormat; label: string }>
+            items={[{ value: 'full_section', label: 'Full section' }, { value: 'partial_section', label: 'Partial section' }]}
+            value={orderFormat === 'full_section' ? { value: 'full_section', label: 'Full section' } : { value: 'partial_section', label: 'Partial section' }}
+            onValueChange={(format) => format && setOrderFormat(format.value)}
+            getItemLabel={(format) => format.label}
+            getItemId={(format) => format.value}
+          />
+        </div>
+        <UcatCatalogOrderEditor
+          rows={orderRows}
+          onSave={async (ids) => {
+            if (!orderSectionId) return
+            await ucatSetsApi.reorder(orderSectionId, orderFormat, ids)
+            await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+            toast({ title: 'Set order saved' })
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
@@ -465,11 +530,10 @@ export function UcatSetsPage() {
         description="Draft, review, and publish UCAT question sets"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets' }]}
-        actions={
-          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
-            Add Set
-          </Button>
-        }
+        actions={<div className="flex items-center gap-2">
+          <SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="table" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>Add Set</Button>
+        </div>}
       />
 
       <SegmentedControl

@@ -822,17 +822,21 @@ export function BulkImportQuestionStemsModal({
       setParseError('Please select a set or create a new one.')
       return
     }
-    if (addToSetEnabled && addToSetConfig?.mode === 'create' && !addToSetConfig.name.trim()) {
-      setParseError('Please enter a name for the new set.')
+    if (
+      addToSetEnabled
+      && addToSetConfig?.mode === 'create'
+      && !addToSetConfig.referenceBlueprintId
+    ) {
+      setParseError('Please select a reference blueprint for the new set.')
       return
     }
     if (
       addToSetEnabled &&
       addToSetConfig?.mode === 'create' &&
-      addToSetConfig.isTimed &&
-      (addToSetConfig.timeLimitSeconds == null || addToSetConfig.timeLimitSeconds <= 0)
+      addToSetConfig.timingMode === 'fixed' &&
+      (addToSetConfig.fixedTimeLimitSeconds == null || addToSetConfig.fixedTimeLimitSeconds <= 0)
     ) {
-      setParseError('Please enter a time limit greater than 0 for timed sets.')
+      setParseError('Please enter a time limit greater than 0 for fixed-time sets.')
       return
     }
 
@@ -1075,6 +1079,10 @@ export function BulkImportQuestionStemsModal({
         <div className="space-y-4">
           <Step4CreateSet
             sectionId={sectionId ?? ''}
+            questionCount={importDecisions.selectedStems.reduce(
+              (total, stem) => total + stem.values.questions.length,
+              0,
+            )}
             addToSetEnabled={addToSetEnabled}
             onAddToSetEnabledChange={setAddToSetEnabled}
             addToSetConfig={addToSetConfig}
@@ -1258,12 +1266,12 @@ export function BulkImportQuestionStemsModal({
                   (addToSetEnabled && !addToSetConfig) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
-                    !addToSetConfig.name.trim()) ||
+                    !addToSetConfig.referenceBlueprintId) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
-                    addToSetConfig.isTimed &&
-                    (addToSetConfig.timeLimitSeconds == null ||
-                      addToSetConfig.timeLimitSeconds <= 0))
+                    addToSetConfig.timingMode === 'fixed' &&
+                    (addToSetConfig.fixedTimeLimitSeconds == null ||
+                      addToSetConfig.fixedTimeLimitSeconds <= 0))
                 }
               >
                 Import stems

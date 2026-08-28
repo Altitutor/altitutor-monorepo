@@ -10,14 +10,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { data, error } = await client.rpc('tutor_ucat_upsert_question_set', {
+    const { data, error } = await client.rpc('tutor_ucat_upsert_question_set_v2', {
       p_set_id: null,
-      p_name: body.name ?? null,
+      p_authoring_note: body.authoringNote ?? null,
       p_description: body.description ?? {},
-      p_time_limit_seconds: body.timeLimitSeconds ?? null,
+      p_timing_mode: body.timingMode,
+      p_pace_multiplier: body.paceMultiplier ?? null,
+      p_fixed_time_limit_seconds: body.fixedTimeLimitSeconds ?? null,
+      p_set_format: body.setFormat,
       p_access_scope: body.accessScope ?? 'public',
       p_stem_ids: body.stemIds ?? [],
       p_section_id: body.sectionId,
+      p_reference_blueprint_id: body.referenceBlueprintId,
     })
 
     if (error) {

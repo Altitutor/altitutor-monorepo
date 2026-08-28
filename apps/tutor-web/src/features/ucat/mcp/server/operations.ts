@@ -51,18 +51,23 @@ export type QuestionStemDraft = {
 }
 
 export type QuestionSetDraft = {
-  name: Json | null
+  authoringNote: string | null
   description: Json
-  timeLimitSeconds: number | null
+  timingMode: 'pace' | 'fixed' | 'untimed'
+  paceMultiplier: number | null
+  fixedTimeLimitSeconds: number | null
+  setFormat: 'full_section' | 'partial_section'
   accessScope: AccessScope
   sectionId: string
+  referenceBlueprintId: string
   stemIds: string[]
 }
 
 export type MockDraft = {
-  name: string
+  authoringNote: string | null
   instructionsText: Json | null
   accessScope: AccessScope
+  blueprintId: string
   setIds: string[]
 }
 
@@ -460,11 +465,15 @@ export function applyQuestionStemOperations(
 export function questionSetDraftFromDetail(detail: Record<string, unknown>): QuestionSetDraft {
   const stems = Array.isArray(detail.stems) ? detail.stems : []
   return {
-    name: asJson(detail.name, null),
+    authoringNote: asNullableString(detail.authoring_note),
     description: asJson(detail.description, {}),
-    timeLimitSeconds: asNullableNumber(detail.time_limit_seconds),
+    timingMode: detail.timing_mode === 'fixed' || detail.timing_mode === 'untimed' ? detail.timing_mode : 'pace',
+    paceMultiplier: asNullableNumber(detail.pace_multiplier),
+    fixedTimeLimitSeconds: asNullableNumber(detail.fixed_time_limit_seconds),
+    setFormat: detail.set_format === 'full_section' ? 'full_section' : 'partial_section',
     accessScope: asAccessScope(detail.access_scope),
     sectionId: asString(detail.section_id, 'Section id'),
+    referenceBlueprintId: asString(detail.reference_blueprint_id, 'Reference blueprint id'),
     stemIds: stems
       .filter(isRecord)
       .map((stem) => asNullableString(stem.stem_id))
@@ -486,15 +495,17 @@ export function applyQuestionSetOperations(
   const next = cloneSerializable(draft)
   for (const operation of operations) {
     if (operation.type === 'set_metadata') {
-      if (operation.name !== undefined) next.name = toRichTextJson(operation.name)
+      if (operation.authoringNote !== undefined) next.authoringNote = operation.authoringNote
       if (operation.description !== undefined) {
         next.description = toRichTextJson(operation.description) ?? {}
       }
-      if (operation.timeLimitSeconds !== undefined) {
-        next.timeLimitSeconds = operation.timeLimitSeconds
-      }
+      if (operation.timingMode !== undefined) next.timingMode = operation.timingMode
+      if (operation.paceMultiplier !== undefined) next.paceMultiplier = operation.paceMultiplier
+      if (operation.fixedTimeLimitSeconds !== undefined) next.fixedTimeLimitSeconds = operation.fixedTimeLimitSeconds
+      if (operation.setFormat !== undefined) next.setFormat = operation.setFormat
       if (operation.accessScope !== undefined) next.accessScope = operation.accessScope
       if (operation.sectionId !== undefined) next.sectionId = operation.sectionId
+      if (operation.referenceBlueprintId !== undefined) next.referenceBlueprintId = operation.referenceBlueprintId
     } else if (operation.type === 'add_stem') {
       if (next.stemIds.includes(operation.stemId)) {
         throw new Error(`Stem ${operation.stemId} is already in this set`)
@@ -514,9 +525,10 @@ export function applyQuestionSetOperations(
 export function mockDraftFromDetail(detail: Record<string, unknown>): MockDraft {
   const sets = Array.isArray(detail.sets) ? detail.sets : []
   return {
-    name: typeof detail.name === 'string' ? detail.name : 'Untitled Mock',
+    authoringNote: asNullableString(detail.authoring_note),
     instructionsText: asJson(detail.instructions_text, null),
     accessScope: asAccessScope(detail.access_scope),
+    blueprintId: asString(detail.blueprint_id, 'Blueprint id'),
     setIds: sets
       .filter(isRecord)
       .map((set) => asNullableString(set.id))
@@ -528,11 +540,12 @@ export function applyMockOperations(draft: MockDraft, operations: MockOperation[
   const next = cloneSerializable(draft)
   for (const operation of operations) {
     if (operation.type === 'set_metadata') {
-      if (operation.name !== undefined) next.name = operation.name
+      if (operation.authoringNote !== undefined) next.authoringNote = operation.authoringNote
       if (operation.instructionsText !== undefined) {
         next.instructionsText = toRichTextJson(operation.instructionsText)
       }
       if (operation.accessScope !== undefined) next.accessScope = operation.accessScope
+      if (operation.blueprintId !== undefined) next.blueprintId = operation.blueprintId
     } else if (operation.type === 'add_set') {
       if (next.setIds.includes(operation.setId)) {
         throw new Error(`Set ${operation.setId} is already in this mock`)

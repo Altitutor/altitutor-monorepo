@@ -150,11 +150,15 @@ export const QuestionStemOperationSchema = z.discriminatedUnion('type', [
 export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('set_metadata'),
-    name: NullableRichTextSchema.optional(),
+    authoringNote: z.string().trim().max(1000).nullable().optional(),
     description: RichTextSchema.optional(),
-    timeLimitSeconds: z.number().int().positive().nullable().optional(),
+    timingMode: z.enum(['pace', 'fixed', 'untimed']).optional(),
+    paceMultiplier: z.number().positive().max(10).nullable().optional(),
+    fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
+    setFormat: z.enum(['full_section', 'partial_section']).optional(),
     accessScope: UcatAccessScopeSchema.optional(),
     sectionId: z.string().uuid().optional(),
+    referenceBlueprintId: z.string().uuid().optional(),
   }),
   z.object({
     type: z.literal('add_stem'),
@@ -175,9 +179,10 @@ export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
 export const MockOperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('set_metadata'),
-    name: z.string().trim().min(1).max(300).optional(),
+    authoringNote: z.string().trim().max(1000).nullable().optional(),
     instructionsText: NullableRichTextSchema.optional(),
     accessScope: UcatAccessScopeSchema.optional(),
+    blueprintId: z.string().uuid().optional(),
   }),
   z.object({
     type: z.literal('add_set'),

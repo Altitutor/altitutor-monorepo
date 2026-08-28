@@ -12,14 +12,19 @@ FROM public.ucat_sections section
 WHERE section.section_number = 2
 LIMIT 1;
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+INSERT INTO public.question_sets (
+  id, name, status, access_scope, section_id, set_format, timing_mode,
+  pace_multiplier, fixed_time_limit_seconds, reference_blueprint_id, catalog_index
+)
 SELECT
   'c1300000-0000-4000-8000-000000000010',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"In-review set"}]}]}'::jsonb,
-  240,
   'in_review',
   'private',
-  section.id
+  section.id,
+  'partial_section', 'fixed', NULL, 240,
+  '54100000-0000-4000-8000-000000000001',
+  99
 FROM public.ucat_sections section
 WHERE section.section_number = 2
 LIMIT 1;
@@ -79,8 +84,8 @@ SELECT is(
     FROM public.ucat_question_catalog_projection projection
     WHERE projection.stem_id = 'c1300000-0000-4000-8000-000000000001'
   ),
-  'renamed set',
-  'renaming a set updates catalog set names without a full stem rebuild'
+  lower(public.ucat_question_set_catalog_name('c1300000-0000-4000-8000-000000000010', false)),
+  'legacy name edits cannot change the deterministic catalog name'
 );
 
 SELECT is(

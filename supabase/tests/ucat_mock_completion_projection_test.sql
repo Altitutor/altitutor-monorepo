@@ -1,18 +1,48 @@
 BEGIN;
 SELECT plan(6);
 
+INSERT INTO public.staff_subjects (staff_id, subject_id)
+SELECT '00000000-0000-0000-0000-000000000010', id
+FROM public.subjects WHERE name = 'UCAT'
+ON CONFLICT DO NOTHING;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',
+  true
+);
+
+CREATE TEMP TABLE projection_mock AS
+SELECT public.tutor_ucat_upsert_mock_v2(
+  NULL, 'Projection test', 'public', NULL,
+  '54100000-0000-4000-8000-000000000001'
+) AS id;
+
+INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
+SELECT source_member.question_stem_id, component.id, 1
+FROM public.question_sets component
+JOIN projection_mock mock ON mock.id = component.mock_id
+JOIN public.ucat_sections section ON section.id = component.section_id AND section.section_number = 1
+CROSS JOIN LATERAL (
+  SELECT member.question_stem_id
+  FROM public.question_stems_question_sets member
+  JOIN public.question_stems stem ON stem.id = member.question_stem_id
+  WHERE stem.section_id = component.section_id
+  LIMIT 1
+) source_member;
+
 CREATE TEMP TABLE mock_projection_question AS
 SELECT
-  membership.ucat_mock_id AS mock_id,
-  membership.question_set_id AS set_id,
+  component.mock_id,
+  component.id AS set_id,
   question.id AS question_id
-FROM public.question_sets_ucat_mocks membership
+FROM public.question_sets component
 JOIN public.question_stems_question_sets stem_membership
-  ON stem_membership.question_set_id = membership.question_set_id
+  ON stem_membership.question_set_id = component.id
 JOIN public.ucat_questions question
   ON question.question_stem_id = stem_membership.question_stem_id
  AND question.deleted_at IS NULL
-ORDER BY membership.ucat_mock_id, membership.index, question.index
+WHERE component.mock_id = (SELECT id FROM projection_mock)
+ORDER BY component.mock_id, question.index
 LIMIT 1;
 
 INSERT INTO public.student_ucat_mock_attempts (

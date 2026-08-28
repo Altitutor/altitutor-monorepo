@@ -1,9 +1,9 @@
 'use client'
 
-import { DndContext, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { DndContext, KeyboardSensor, PointerSensor, useSensor, useSensors, closestCenter } from '@dnd-kit/core'
+import { SortableContext, verticalListSortingStrategy, useSortable, arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { GripVertical, Minus, Pencil } from 'lucide-react'
+import { ArrowDown, ArrowUp, GripVertical, Minus, Pencil } from 'lucide-react'
 import { Button } from '@altitutor/ui'
 import { cn } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorCardCn } from '@/shared/lib/tutor-visual'
@@ -38,16 +38,21 @@ export function UcatSortableList({
   onEdit,
   disableReorder = false,
   flatCard = false,
+  showMoveButtons = false,
 }: {
   ids: string[]
   renderLabel: (id: string, index: number) => React.ReactNode
   onChange: (ids: string[]) => void
-  onRemove: (id: string) => void
+  onRemove?: (id: string) => void
   onEdit?: (id: string) => void
   disableReorder?: boolean
   flatCard?: boolean
+  showMoveButtons?: boolean
 }) {
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  )
 
   if (disableReorder) {
     return (
@@ -56,7 +61,7 @@ export function UcatSortableList({
           <ListRow
             key={id}
             label={renderLabel(id, index)}
-            onRemove={() => onRemove(id)}
+            onRemove={onRemove ? () => onRemove(id) : undefined}
             onEdit={onEdit ? () => onEdit(id) : undefined}
             showDragHandle={false}
             flatCard={flatCard}
@@ -86,7 +91,9 @@ export function UcatSortableList({
               key={id}
               id={id}
               label={renderLabel(id, index)}
-              onRemove={() => onRemove(id)}
+              onRemove={onRemove ? () => onRemove(id) : undefined}
+              onMoveUp={showMoveButtons && index > 0 ? () => onChange(arrayMove(ids, index, index - 1)) : undefined}
+              onMoveDown={showMoveButtons && index < ids.length - 1 ? () => onChange(arrayMove(ids, index, index + 1)) : undefined}
               onEdit={onEdit ? () => onEdit(id) : undefined}
               flatCard={flatCard}
             />
@@ -101,6 +108,8 @@ function ListRow({
   label,
   onRemove,
   onEdit,
+  onMoveUp,
+  onMoveDown,
   removeButtonVariant = 'outline',
   showDragHandle,
   dragHandleProps,
@@ -110,8 +119,10 @@ function ListRow({
   flatCard = false,
 }: {
   label: React.ReactNode
-  onRemove: () => void
+  onRemove?: () => void
   onEdit?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
   removeButtonVariant?: 'outline' | 'destructive'
   showDragHandle: boolean
   dragHandleProps?: {
@@ -137,6 +148,7 @@ function ListRow({
         {showDragHandle ? (
           <button
             type="button"
+            aria-label="Drag to reorder"
             className="mt-0.5 shrink-0 cursor-grab text-muted-foreground"
             {...dragHandleProps?.attributes}
             {...dragHandleProps?.listeners}
@@ -159,22 +171,26 @@ function ListRow({
               <Pencil className="h-4 w-4" />
             </Button>
           ) : null}
-          <Button
-            type="button"
-            variant={removeButtonVariant === 'destructive' ? 'destructive' : 'outline'}
-            size="icon"
-            className={
-              removeButtonVariant === 'outline'
-                ? cn(
-                    tutorBtnIconOutline,
-                    '!text-destructive ring-destructive/35 hover:!text-destructive hover:bg-destructive/10',
-                  )
-                : undefined
-            }
-            onClick={onRemove}
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
+          {onMoveUp ? <Button type="button" variant="outline" size="icon" className={tutorBtnIconOutline} onClick={onMoveUp} aria-label="Move up"><ArrowUp className="h-4 w-4" /></Button> : null}
+          {onMoveDown ? <Button type="button" variant="outline" size="icon" className={tutorBtnIconOutline} onClick={onMoveDown} aria-label="Move down"><ArrowDown className="h-4 w-4" /></Button> : null}
+          {onRemove ? (
+            <Button
+              type="button"
+              variant={removeButtonVariant === 'destructive' ? 'destructive' : 'outline'}
+              size="icon"
+              className={
+                removeButtonVariant === 'outline'
+                  ? cn(
+                      tutorBtnIconOutline,
+                      '!text-destructive ring-destructive/35 hover:!text-destructive hover:bg-destructive/10',
+                    )
+                  : undefined
+              }
+              onClick={onRemove}
+            >
+              <Minus className="h-4 w-4" />
+            </Button>
+          ) : null}
         </div>
       </div>
     </div>
@@ -186,13 +202,17 @@ export function SortableRow({
   label,
   onRemove,
   onEdit,
+  onMoveUp,
+  onMoveDown,
   removeButtonVariant = 'outline',
   flatCard = false,
 }: {
   id: string
   label: React.ReactNode
-  onRemove: () => void
+  onRemove?: () => void
   onEdit?: () => void
+  onMoveUp?: () => void
+  onMoveDown?: () => void
   removeButtonVariant?: 'outline' | 'destructive'
   flatCard?: boolean
 }) {
@@ -207,6 +227,8 @@ export function SortableRow({
       label={label}
       onRemove={onRemove}
       onEdit={onEdit}
+      onMoveUp={onMoveUp}
+      onMoveDown={onMoveDown}
       removeButtonVariant={removeButtonVariant}
       showDragHandle
       dragHandleProps={{ attributes, listeners }}

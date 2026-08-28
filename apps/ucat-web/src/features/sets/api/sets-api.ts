@@ -9,6 +9,8 @@ export type SetSectionJson = {
 export type StudentSetRow = {
   id: string;
   name?: unknown;
+  display_name?: string | null;
+  compact_display_name?: string | null;
   description: unknown;
   time_limit_seconds: number | null;
   sections: SetSectionJson[] | null;
@@ -25,13 +27,16 @@ export type SetsFilters = {
 };
 
 const STUDENT_SET_COLUMNS =
-  "id,name,description,time_limit_seconds,sections,section_number,created_at,updated_at";
+  "id,name,display_name,compact_display_name,description,time_limit_seconds,sections,section_number,created_at,updated_at";
 
 export async function getAccessibleStudentSets(): Promise<StudentSetRow[]> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_question_sets")
-    .select(STUDENT_SET_COLUMNS);
+    .select(STUDENT_SET_COLUMNS)
+    .order("section_number")
+    .order("set_format")
+    .order("catalog_index");
   if (error) throw new Error(error.message ?? "Failed to load sets");
   return (data ?? []) as StudentSetRow[];
 }
@@ -41,7 +46,10 @@ export async function getStudentSets(): Promise<StudentSetRow[]> {
   const { data, error } = await supabase
     .from("vstudent_ucat_question_sets")
     .select(STUDENT_SET_COLUMNS)
-    .eq("is_available_in_sets_library", true);
+    .eq("is_available_in_sets_library", true)
+    .order("section_number")
+    .order("set_format")
+    .order("catalog_index");
   if (error) throw new Error(error.message ?? "Failed to load sets");
   return (data ?? []) as StudentSetRow[];
 }
@@ -136,7 +144,7 @@ export function filterSets(
   return sets.filter((set) => {
     if (filters.search?.trim()) {
       const searchLower = filters.search.trim().toLowerCase();
-      const nameText = getText(set.name) ?? "";
+      const nameText = set.display_name ?? getText(set.name) ?? "";
       const descText = getText(set.description) ?? "";
       const combined = `${nameText} ${descText}`.toLowerCase();
       if (!combined.includes(searchLower)) return false;

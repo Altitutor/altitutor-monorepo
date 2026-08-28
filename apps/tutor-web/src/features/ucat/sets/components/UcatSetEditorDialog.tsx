@@ -6,9 +6,9 @@ import { useRouter } from 'next/navigation'
 import { useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
-  plainTextToProseMirror,
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
+import { setDetailToUpdatePayload } from '@/features/ucat/sets/lib/set-payload-mappers'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
 import { isSetTimeLimitValid, resolveSetTimeLimitSeconds, type SetTimeLimitSource } from '@/features/ucat/sets/lib/set-time-limit'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
@@ -23,7 +23,7 @@ import {
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
-import type { RichTextJson } from '@/features/ucat/shared/types'
+import type { RichTextJson, UcatQuestionSetFormat } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -87,6 +87,8 @@ export function UcatSetEditorDialog({
   const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<SetTimeLimitSource>('custom')
   const [draftTimeLimitSpeed, setDraftTimeLimitSpeed] = useState(1)
   const [draftPrivate, setDraftPrivate] = useState(false)
+  const [draftSetFormat, setDraftSetFormat] = useState<UcatQuestionSetFormat>('partial_section')
+  const [draftReferenceBlueprintId, setDraftReferenceBlueprintId] = useState('')
   const [draftSectionId, setDraftSectionId] = useState('')
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
@@ -106,23 +108,27 @@ export function UcatSetEditorDialog({
     const stems = (current.stems as SetDetailStem[] | null) ?? []
     const stemIds = stems.map((s) => s.stem_id)
 
-    setDraftName(proseMirrorToPlainText(current.name ?? null))
+    setDraftName(current.authoring_note ?? '')
     setDraftDescription((current.description ?? null) as RichTextJson | null)
-    const sec = current.time_limit_seconds ?? 0
+    const sec = current.fixed_time_limit_seconds ?? 0
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
-    setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
-    setDraftTimeLimitSpeed(1)
+    setDraftTimeLimitSource(current.timing_mode === 'pace' ? 'paced' : current.timing_mode === 'fixed' ? 'custom' : 'untimed')
+    setDraftTimeLimitSpeed(current.pace_multiplier ?? 1)
     setDraftPrivate(current.access_scope === 'private')
+    setDraftSetFormat(current.set_format ?? 'partial_section')
+    setDraftReferenceBlueprintId(current.reference_blueprint_id ?? '')
     setDraftSectionId(current.section_id ?? '')
     setDraftStemIds(stemIds)
     setBaseline(
       snapshotSetDetail({
-        name: proseMirrorToPlainText(current.name ?? null),
+        name: current.authoring_note ?? '',
         description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
         accessScope: current.access_scope ?? 'public',
         sectionId: current.section_id ?? '',
+        setFormat: current.set_format ?? 'partial_section',
+        referenceBlueprintId: current.reference_blueprint_id ?? '',
         stemIds,
       })
     )
@@ -212,10 +218,12 @@ export function UcatSetEditorDialog({
       time: timeLimitSeconds,
       accessScope: draftPrivate ? 'private' : 'public',
       sectionId: draftSectionId,
+      setFormat: draftSetFormat,
+      referenceBlueprintId: draftReferenceBlueprintId,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftSectionId, draftStemIds, timeLimitSeconds])
+  }, [baseline, draftDescription, draftName, draftPrivate, draftReferenceBlueprintId, draftSectionId, draftSetFormat, draftStemIds, timeLimitSeconds])
 
   const filterDefinitions = useMemo(
     () => {
@@ -283,13 +291,19 @@ export function UcatSetEditorDialog({
       await updateSet.mutateAsync({
         setId,
         payload: {
+          ...setDetailToUpdatePayload(detail.data ?? {}, {
+            authoringNote: draftName,
+            description: draftDescription,
+            timingMode: draftTimeLimitSource === 'paced' ? 'pace' : draftTimeLimitSource === 'custom' ? 'fixed' : 'untimed',
+            paceMultiplier: draftTimeLimitSource === 'paced' ? draftTimeLimitSpeed : null,
+            fixedTimeLimitSeconds: draftTimeLimitSource === 'custom' ? timeLimitSeconds : null,
+            accessScope: draftPrivate ? 'private' : 'public',
+            sectionId: draftSectionId,
+            setFormat: draftSetFormat,
+            referenceBlueprintId: draftReferenceBlueprintId,
+            stemIds: draftStemIds,
+          }),
           id: setId,
-          name: plainTextToProseMirror(draftName),
-          description: draftDescription,
-          timeLimitSeconds,
-          accessScope: draftPrivate ? 'private' : 'public',
-          sectionId: draftSectionId,
-          stemIds: draftStemIds,
         },
       })
       onClose()
@@ -381,6 +395,8 @@ export function UcatSetEditorDialog({
               draftTimeLimitSource={draftTimeLimitSource}
               draftTimeLimitSpeed={draftTimeLimitSpeed}
               draftPrivate={draftPrivate}
+              draftSetFormat={draftSetFormat}
+              draftReferenceBlueprintId={draftReferenceBlueprintId}
               draftSectionId={draftSectionId}
               onChangeSectionId={setDraftSectionId}
               draftStemIds={draftStemIds}
@@ -408,6 +424,14 @@ export function UcatSetEditorDialog({
               onChangeTimeLimitSource={setDraftTimeLimitSource}
               onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
               onChangePrivate={(value) => setDraftPrivate(value)}
+              onChangeSetFormat={setDraftSetFormat}
+              onChangeReferenceBlueprintId={setDraftReferenceBlueprintId}
+              blueprintOptions={(blueprintsQuery.data ?? []).flatMap((blueprint) =>
+                blueprint.id
+                  ? [{ id: blueprint.id, label: `${blueprint.code ?? 'Blueprint'} (${blueprint.test_year ?? '—'} v${blueprint.version ?? '—'})` }]
+                  : [],
+              )}
+              isMockSet={detail.data?.mock_id != null}
             onActiveTextEditorChange={setActiveTextEditor}
             linkedBlueprintReports={linkedBlueprintReports}
             onViewMock={setViewingMockId}
