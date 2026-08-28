@@ -240,7 +240,6 @@ async function loadAssessmentDetailRow(
     .from('question_stems')
     .select('id,section_id,question_stem_category_id,status,source_channel,status_changed_at,status_changed_by,updated_by,updated_at,tutor_source_note,access_scope,stem_text')
     .eq('id', stemId)
-    .is('deleted_at', null)
     .maybeSingle()
   if (stemError) throw stemError
   if (!stemData) return null
