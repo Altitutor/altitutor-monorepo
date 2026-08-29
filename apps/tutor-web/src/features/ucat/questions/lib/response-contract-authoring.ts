@@ -151,7 +151,7 @@ export function responseContractIssues(question: AuthoredQuestionInput): readonl
 }
 
 function optionForTransform(
-  question: AuthoredQuestion,
+  question: AuthoredQuestionInput,
   index: number,
   answerKeyValue: AnswerKeyValue,
 ): AuthoredQuestion['options'][number] {
@@ -163,7 +163,7 @@ function optionForTransform(
 }
 
 export function transformResponseContract(
-  question: AuthoredQuestion,
+  question: AuthoredQuestionInput,
   target: SuggestedResponseContract,
 ): AuthoredQuestion {
   const existingOptions = authoredOptions(question)

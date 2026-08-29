@@ -43,6 +43,7 @@ import {
 import { IssuePill } from '@/features/issues';
 import { formatTime } from '@/shared/utils/datetime';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
+import { defaultCheckInSessionsStaffType } from '@altitutor/shared/pay-tiers';
 import { Loader2 } from 'lucide-react';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
@@ -443,7 +444,11 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onMeetingAddStaff={!allowAddParticipants ? undefined : async (staffMember) => {
                       if (!sessionId) return;
                       const staffType =
-                        session.type === 'CHECK_IN' ? 'CHECK_IN_RECEIVER' : 'MAIN_TUTOR';
+                        session.type === 'CHECK_IN'
+                          ? defaultCheckInSessionsStaffType(
+                              studentsData.length > 0 || parentsData.length > 0
+                            )
+                          : 'MAIN_TUTOR';
                       await addStaffMutation.mutateAsync({
                         sessionId,
                         staffId: staffMember.id,

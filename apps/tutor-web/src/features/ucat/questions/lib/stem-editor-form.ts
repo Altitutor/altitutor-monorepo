@@ -34,7 +34,30 @@ export function stemDetailToFormValues(
   initial: StemDetailRow | null | undefined,
   fallbackSectionId = '',
 ): UcatQuestionStemFormValues {
-  if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
+  const empty = buildEmptyStemFormValues(fallbackSectionId)
+  if (!initial) return empty
+
+  const questions = (initial.questions ?? []).map((question) => ({
+    id: question.id,
+    questionText: (question.question_text ?? EMPTY_DOC) as Json,
+    answerExplanation: (question.answer_explanation ?? null) as Json | null,
+    responseType: question.response_type,
+    answerScheme: question.answer_scheme,
+    difficulty: question.difficulty,
+    timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
+    tagIds: (question.tags ?? []).map((tag) => tag.id),
+    sourceChannel: question.source_channel ?? initial.source_channel ?? null,
+    aiGenerationMetadata: question.ai_generation_metadata ?? null,
+    options:
+      (question.answer_options ?? []).length > 0
+        ? (question.answer_options ?? []).map((option) => ({
+            id: option.id,
+            answerText: (option.answer_text ?? EMPTY_DOC) as Json,
+            answerExplanation: (option.answer_explanation ?? null) as Json | null,
+            answerKeyValue: option.answer_key_value,
+          }))
+        : [...DEFAULT_OPTIONS],
+  }))
 
   return {
     sectionId: initial.section_id,
@@ -43,27 +66,9 @@ export function stemDetailToFormValues(
     accessScope: initial.access_scope,
     tutorSourceNote: initial.tutor_source_note ?? '',
     status: (initial.status ?? 'published') as UcatContentStatus,
-    questions: (initial.questions ?? []).map((question) => ({
-      id: question.id,
-      questionText: (question.question_text ?? EMPTY_DOC) as Json,
-      answerExplanation: (question.answer_explanation ?? null) as Json | null,
-      responseType: question.response_type,
-      answerScheme: question.answer_scheme,
-      difficulty: question.difficulty,
-      timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
-      tagIds: (question.tags ?? []).map((tag) => tag.id),
-      sourceChannel: question.source_channel ?? initial.source_channel ?? null,
-      aiGenerationMetadata: question.ai_generation_metadata ?? null,
-      options:
-        (question.answer_options ?? []).length > 0
-          ? (question.answer_options ?? []).map((option) => ({
-              id: option.id,
-              answerText: (option.answer_text ?? EMPTY_DOC) as Json,
-              answerExplanation: (option.answer_explanation ?? null) as Json | null,
-              answerKeyValue: option.answer_key_value,
-            }))
-          : [...DEFAULT_OPTIONS],
-    })),
+    // A deleted stem currently arrives with questions=null (nested rows are also
+    // soft-deleted). Keep a renderable options array so the editor cannot crash.
+    questions: questions.length > 0 ? questions : empty.questions,
   }
 }
 

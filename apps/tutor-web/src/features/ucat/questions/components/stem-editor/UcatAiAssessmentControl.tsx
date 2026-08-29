@@ -253,11 +253,11 @@ function patchPreviewRows(
     case 'replace_option_and_key':
       return [
         { label: 'Answer option', before: patch.beforeAnswerText, after: patch.answerText },
-        { label: 'Correct answer', before: optionText(question?.options.find((item) => item.answerKeyValue === 'correct')?.id), after: patch.answerText },
+        { label: 'Correct answer', before: optionText((question?.options ?? []).find((item) => item.answerKeyValue === 'correct')?.id), after: patch.answerText },
         ...(patch.answerExplanation !== undefined
           ? [{
               label: 'Option explanation',
-              before: proseMirrorToPlainText(question?.options.find((item) => item.id === patch.optionId)?.answerExplanation ?? null),
+              before: proseMirrorToPlainText((question?.options ?? []).find((item) => item.id === patch.optionId)?.answerExplanation ?? null),
               after: patch.answerExplanation ?? 'None',
             }]
           : []),

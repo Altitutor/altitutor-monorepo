@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(22);
+SELECT plan(24);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', id
@@ -20,6 +20,26 @@ SELECT is(public.ucat_question_set_catalog_name(
 SELECT is(public.ucat_question_set_catalog_name(
   'f3000000-0000-4000-8000-000000000001', true
 ), 'VR Full Set 1', 'standalone compact names are deterministic');
+
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"10000000-0000-0000-0000-000000000003","role":"authenticated"}',
+  true
+);
+SET LOCAL ROLE authenticated;
+SELECT is((SELECT name FROM public.vstudent_ucat_mocks
+  WHERE id = 'f4000000-0000-4000-8000-000000000001'),
+  'Mock 1', 'Student mock views expose deterministic names under authenticated RLS');
+SELECT is((SELECT display_name FROM public.vstudent_ucat_question_sets
+  WHERE id = 'f3000000-0000-4000-8000-000000000001'),
+  'Verbal Reasoning Full Set 1',
+  'Student Set views expose deterministic names under authenticated RLS');
+RESET ROLE;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',
+  true
+);
 
 UPDATE public.question_sets
 SET timing_mode = 'pace', pace_multiplier = 0.7, fixed_time_limit_seconds = NULL
@@ -53,7 +73,7 @@ SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
   WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 4,
   'creating a mock atomically creates all four component sets');
 SELECT is(public.ucat_mock_catalog_name((SELECT id FROM test_catalog_ids WHERE kind = 'mock')),
-  'Mock 1', 'mock numbering is global and independent of blueprint year');
+  'Mock 3', 'mock numbering follows the two deterministic Study plan fixtures');
 SELECT is((SELECT count(DISTINCT section_id)::INTEGER FROM public.question_sets
   WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 4,
   'the generated component slots follow the four-section blueprint');
@@ -73,10 +93,10 @@ WHERE component.mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
 
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
-), 'Mock 1 Verbal Reasoning', 'component sets have expanded mock-relative names');
+), 'Mock 3 Verbal Reasoning', 'component sets have expanded mock-relative names');
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM test_catalog_ids WHERE kind = 'component'), true
-), 'Mock 1 VR', 'component sets have compact mock-relative names');
+), 'Mock 3 VR', 'component sets have compact mock-relative names');
 
 SELECT lives_ok(format(
   'SELECT public.tutor_ucat_detach_mock_set(%L::uuid)',

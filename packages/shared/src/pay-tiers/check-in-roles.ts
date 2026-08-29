@@ -42,3 +42,49 @@ export function formatCheckInStaffRole(type: string | null | undefined): string 
   if (isCheckInReceiverRole(type)) return formatCheckInReceiverLabel();
   return null;
 }
+
+export type CheckInUiStaffRole = 'host' | 'receiver';
+
+/** Default booking UI role: conducting when students/parents are present, otherwise receiving. */
+export function defaultCheckInStaffUiRole(hasStudentsOrParents: boolean): CheckInUiStaffRole {
+  return hasStudentsOrParents ? 'host' : 'receiver';
+}
+
+export function defaultCheckInSessionsStaffType(hasStudentsOrParents: boolean): CheckInStaffRole {
+  return hasStudentsOrParents ? CHECK_IN_HOST : CHECK_IN_RECEIVER;
+}
+
+export function checkInStaffingError(input: {
+  hostCount: number;
+  receiverCount: number;
+  hasStudentsOrParents: boolean;
+}): string | null {
+  if (input.hostCount + input.receiverCount === 0 || input.hostCount === 0) {
+    return 'At least one conducting staff member is required for a check-in';
+  }
+  if (!input.hasStudentsOrParents && input.receiverCount === 0) {
+    return 'At least one receiving staff member is required for a staff check-in';
+  }
+  return null;
+}
+
+export const CHECK_IN_LOG_FORBIDDEN_MESSAGE =
+  'Only a conducting staff member can log a check-in';
+
+/** Who may submit the tutor log. Check-ins are logged only by conducting staff. */
+export function staffMaySubmitTutorLog(
+  sessionType: string | null | undefined,
+  assignmentType: string | null | undefined
+): boolean {
+  if (sessionType !== 'CHECK_IN') return true;
+  return isCheckInHostRole(assignmentType);
+}
+
+export function filterSessionsStaffMayLog<T extends { id: string; type?: string | null }>(
+  sessions: T[],
+  assignmentTypeBySessionId: Readonly<Record<string, string | null | undefined>>
+): T[] {
+  return sessions.filter((session) =>
+    staffMaySubmitTutorLog(session.type, assignmentTypeBySessionId[session.id])
+  );
+}

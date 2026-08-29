@@ -14,20 +14,22 @@ const data: ImageOcclusionData = {
   ],
 };
 
+function occlusionRoles(html: string): string[] {
+  return [...html.matchAll(/data-occlusion-role="([^"]+)"/g)].map((match) => match[1]);
+}
+
 describe('ImageOcclusionViewer', () => {
-  it('masks every group on the question', () => {
+  it('highlights the active group on the question while keeping every box covered', () => {
     const html = renderToStaticMarkup(
       <ImageOcclusionViewer imageUrl="/diagram.png" alt="Diagram" data={data} activeClozeIndex={1} showAnswer={false} />,
     );
-    expect(html.match(/bg-slate-600/g)).toHaveLength(3);
-    expect(html).not.toContain('border-amber-500');
+    expect(occlusionRoles(html)).toEqual(['prompt', 'prompt', 'other']);
   });
 
   it('reveals every box in the active group while keeping other groups masked', () => {
     const html = renderToStaticMarkup(
       <ImageOcclusionViewer imageUrl="/diagram.png" alt="Diagram" data={data} activeClozeIndex={1} showAnswer />,
     );
-    expect(html.match(/border-amber-500/g)).toHaveLength(2);
-    expect(html.match(/bg-slate-600/g)).toHaveLength(1);
+    expect(occlusionRoles(html)).toEqual(['answer', 'answer', 'other']);
   });
 });

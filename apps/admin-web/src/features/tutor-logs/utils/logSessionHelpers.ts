@@ -90,7 +90,7 @@ export function calculateInitialStep(
   _initialStaffId?: string,
   flow: LogSessionWizardFlow = 'class'
 ): number {
-  if (adminMode && initialSessionId) {
+  if (adminMode && initialSessionId && flow !== 'meeting') {
     return 1;
   }
   if (!adminMode && initialSessionId && flow === 'meeting') {

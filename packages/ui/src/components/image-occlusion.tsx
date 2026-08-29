@@ -30,6 +30,26 @@ function maskStyle(mask: ImageOcclusionMask): React.CSSProperties {
   };
 }
 
+type OcclusionMaskRole = 'prompt' | 'answer' | 'other';
+
+function occlusionMaskRole(
+  mask: ImageOcclusionMask,
+  activeClozeIndex: number,
+  showAnswer: boolean,
+): OcclusionMaskRole {
+  if (mask.clozeIndex !== activeClozeIndex) return 'other';
+  return showAnswer ? 'answer' : 'prompt';
+}
+
+const occlusionMaskClassName: Record<OcclusionMaskRole, string> = {
+  prompt:
+    'absolute rounded-sm border-2 border-amber-400 bg-amber-500 shadow-[0_0_0_1px_rgba(0,0,0,0.35)] dark:border-amber-300 dark:bg-amber-400',
+  answer:
+    'absolute rounded-sm border-2 border-amber-500 bg-transparent shadow-[0_0_0_1px_rgba(0,0,0,0.25)]',
+  other:
+    'absolute rounded-sm border border-slate-900/60 bg-slate-600 shadow-sm dark:border-slate-100/70 dark:bg-slate-300',
+};
+
 export function ImageOcclusionViewer({
   imageUrl,
   alt,
@@ -60,14 +80,13 @@ export function ImageOcclusionViewer({
       />
       <div className="pointer-events-none absolute inset-0" aria-hidden="true">
         {data.masks.map((mask) => {
-          const revealed = showAnswer && mask.clozeIndex === activeClozeIndex;
+          const role = occlusionMaskRole(mask, activeClozeIndex, showAnswer);
           return (
             <div
               key={mask.id}
+              data-occlusion-role={role}
               style={maskStyle(mask)}
-              className={revealed
-                ? 'absolute rounded-sm border-2 border-amber-500 bg-transparent shadow-[0_0_0_1px_rgba(0,0,0,0.25)]'
-                : 'absolute rounded-sm border border-slate-900/60 bg-slate-600 shadow-sm dark:border-slate-100/70 dark:bg-slate-300'}
+              className={occlusionMaskClassName[role]}
             />
           );
         })}

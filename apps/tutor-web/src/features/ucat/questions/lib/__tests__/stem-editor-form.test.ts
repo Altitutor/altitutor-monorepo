@@ -148,7 +148,8 @@ describe('persistStemFormValues', () => {
       questions: null as never,
     })
 
-    expect(values.questions.every((question) => Array.isArray(question.options))).toBe(true)
+    expect(values.questions).toHaveLength(1)
+    expect(values.questions[0]?.options.length).toBeGreaterThan(0)
   })
 
   it('preserves an unkeyed Most/Least action', () => {

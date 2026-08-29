@@ -2,6 +2,8 @@ import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/sh
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export type ParentSearchField = 'name' | 'email' | 'phone';
+
 /**
  * Parents API client for working with parent data
  */
@@ -12,6 +14,7 @@ export const parentsApi = {
    */
   list: async (params: {
     search?: string;
+    searchFields?: ParentSearchField[];
     limit?: number;
     offset?: number;
     orderBy?: keyof Tables<'parents'>;
@@ -20,6 +23,7 @@ export const parentsApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const {
       search = '',
+      searchFields = ['name', 'email', 'phone'],
       limit = 50,
       offset = 0,
       orderBy = 'last_name',
@@ -36,6 +40,7 @@ export const parentsApi = {
       p_offset: offset,
       p_order_by: orderBy as string,
       p_ascending: ascending,
+      p_search_fields: searchFields,
     });
 
     if (rpcError) throw rpcError;
