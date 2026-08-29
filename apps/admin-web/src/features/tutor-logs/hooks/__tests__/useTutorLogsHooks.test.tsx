@@ -49,6 +49,26 @@ const createWrapper = () => {
   return Wrapper;
 };
 
+function mockUnloggedFromQueries(
+  mockSupabase: ReturnType<typeof createMockSupabaseClient>,
+  existingLogs: Array<{ session_id: string }>,
+  assignments: Array<{ session_id: string; type: string }> = []
+) {
+  (mockSupabase.from as jest.Mock).mockImplementation((table: string) => {
+    if (table === 'tutor_logs') {
+      return { select: jest.fn().mockResolvedValue({ data: existingLogs, error: null }) };
+    }
+    if (table === 'sessions_staff') {
+      return {
+        select: jest.fn().mockReturnThis(),
+        eq: jest.fn().mockReturnThis(),
+        in: jest.fn().mockResolvedValue({ data: assignments, error: null }),
+      };
+    }
+    return { select: jest.fn().mockResolvedValue({ data: [], error: null }) };
+  });
+}
+
 describe('Tutor Logs Hooks', () => {
   let mockSupabase: ReturnType<typeof createMockSupabaseClient>;
 
@@ -236,21 +256,12 @@ describe('Tutor Logs Hooks', () => {
         { session_id: 'session-3' },
       ];
 
-      // Mock RPC call
       (mockSupabase.rpc as jest.Mock).mockResolvedValue({
         data: mockRpcResult,
         error: null,
       });
 
-      // Mock tutor_logs query
-      const mockLogsQuery = {
-        select: jest.fn().mockResolvedValue({
-          data: mockExistingLogs,
-          error: null,
-        }),
-      };
-
-      (mockSupabase.from as jest.Mock).mockReturnValue(mockLogsQuery);
+      mockUnloggedFromQueries(mockSupabase, mockExistingLogs);
 
       const { result } = renderHook(() => useUnloggedSessionsForStaff('staff-1'), {
         wrapper: createWrapper(),
@@ -285,14 +296,7 @@ describe('Tutor Logs Hooks', () => {
         error: null,
       });
 
-      const mockLogsQuery = {
-        select: jest.fn().mockResolvedValue({
-          data: mockExistingLogs,
-          error: null,
-        }),
-      };
-
-      (mockSupabase.from as jest.Mock).mockReturnValue(mockLogsQuery);
+      mockUnloggedFromQueries(mockSupabase, mockExistingLogs);
 
       const { result } = renderHook(() => useUnloggedSessionsForStaff('staff-1'), {
         wrapper: createWrapper(),
@@ -303,6 +307,43 @@ describe('Tutor Logs Hooks', () => {
       // Should filter out session-1 since it has a log
       expect(result.current.data?.sessions).toHaveLength(1);
       expect(result.current.data?.sessions[0].id).toBe('session-2');
+    });
+
+    it('should omit check-ins the staff member is only receiving', async () => {
+      const mockRpcResult = {
+        sessions: [
+          { id: 'class-1', type: 'CLASS', start_at: '2024-01-01T10:00:00Z' },
+          { id: 'check-in-host', type: 'CHECK_IN', start_at: '2024-01-02T10:00:00Z' },
+          { id: 'check-in-receiver', type: 'CHECK_IN', start_at: '2024-01-03T10:00:00Z' },
+        ],
+        sessionStudents: {},
+        sessionStaff: {},
+        classesById: {},
+        subjectsById: {},
+        total: 3,
+      };
+
+      (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+        data: mockRpcResult,
+        error: null,
+      });
+
+      mockUnloggedFromQueries(mockSupabase, [], [
+        { session_id: 'class-1', type: 'MAIN_TUTOR' },
+        { session_id: 'check-in-host', type: 'CHECK_IN_HOST' },
+        { session_id: 'check-in-receiver', type: 'CHECK_IN_RECEIVER' },
+      ]);
+
+      const { result } = renderHook(() => useUnloggedSessionsForStaff('staff-1'), {
+        wrapper: createWrapper(),
+      });
+
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+
+      expect(result.current.data?.sessions.map((s) => s.id)).toEqual([
+        'class-1',
+        'check-in-host',
+      ]);
     });
 
     it('should not fetch when staffId is null', () => {

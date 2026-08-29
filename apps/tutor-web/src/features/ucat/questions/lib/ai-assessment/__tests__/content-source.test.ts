@@ -123,4 +123,67 @@ describe('assessment snapshot source', () => {
     expect(calls).toContain('question_stems')
     expect(calls).not.toContain('vtutor_ucat_question_stem_detail')
   })
+
+  it('still loads nested questions and options for a soft-deleted stem', async () => {
+    const stemId = '00000000-0000-0000-0000-000000000011'
+    const sectionId = '00000000-0000-0000-0000-000000000012'
+    const questionId = '00000000-0000-0000-0000-000000000014'
+    const optionId = '00000000-0000-0000-0000-000000000015'
+    const deletedAt = '2026-08-25T13:21:59.900Z'
+    const rows: Record<string, FakeRow[]> = {
+      question_stems: [{
+        id: stemId,
+        section_id: sectionId,
+        question_stem_category_id: null,
+        status: 'draft',
+        access_scope: 'public',
+        stem_text: plainTextToProseMirror(
+          'Should a prime minister require political experience before leading the country?',
+        ),
+        deleted_at: deletedAt,
+      }],
+      ucat_sections: [{
+        id: sectionId,
+        section_number: 2,
+        name: 'Decision Making',
+        display_columns: 1,
+      }],
+      ucat_questions: [{
+        id: questionId,
+        question_stem_id: stemId,
+        question_text: plainTextToProseMirror('Select the strongest argument from the statements below:'),
+        answer_explanation: null,
+        index: 0,
+        difficulty: null,
+        time_burden_seconds: null,
+        response_type: 'multiple_choice',
+        answer_scheme: 'single_choice',
+      }],
+      question_answer_options: [{
+        id: optionId,
+        question_id: questionId,
+        answer_text: plainTextToProseMirror('Yes, because experience produces better decisions.'),
+        answer_explanation: null,
+        index: 0,
+        answer_key_value: 'correct',
+      }],
+      questions_question_tags: [],
+      question_tags: [],
+    }
+    const client = {
+      from(table: string) {
+        return new FakeQuery(rows[table] ?? [])
+      },
+    } as unknown as SupabaseClient<Database>
+
+    const result = await loadUcatAssessmentSnapshot(client, stemId)
+
+    expect(result).toMatchObject({
+      stemId,
+      questions: [{
+        id: questionId,
+        options: [{ id: optionId, answerKeyValue: 'correct' }],
+      }],
+    })
+  })
 })
