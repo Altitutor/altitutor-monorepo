@@ -849,7 +849,7 @@ export function StemFiltersPanel({
       </div>
       </div>
 
-      <div className="mt-10 flex min-h-10 items-center justify-end">
+      <div className="mt-10 flex min-h-10 items-center justify-end pr-16 sm:pr-0">
         {step < summaryStep ? (
           <Button
             type="button"

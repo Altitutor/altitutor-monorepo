@@ -18,6 +18,20 @@ function localAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 
+async function activeStudyPlanGenerationId(
+  admin: ReturnType<typeof localAdmin>,
+  studentId: string,
+) {
+  const { data, error } = await admin
+    .from("ucat_student_study_plan_generations")
+    .select("id")
+    .eq("student_id", studentId)
+    .is("superseded_at", null)
+    .single();
+  if (error) throw error;
+  return data.id;
+}
+
 async function signIn(page: Page, email: string) {
   const admin = localAdmin();
   const { data: student, error: studentError } = await admin
@@ -557,6 +571,10 @@ test.describe("personalised Study plan", () => {
       .from("ucat_student_study_plan_tasks")
       .select("scheduled_date,title")
       .eq("student_id", studentId)
+      .eq(
+        "generation_id",
+        await activeStudyPlanGenerationId(admin, studentId),
+      )
       .eq("task_type", "mock")
       .order("scheduled_date")
       .limit(1)
@@ -914,6 +932,10 @@ test.describe("personalised Study plan", () => {
 
     await signIn(page, "fiona.harris@student.test");
     await generateSeededStudyPlan(page, studentId);
+    const activeGenerationId = await activeStudyPlanGenerationId(
+      admin,
+      studentId,
+    );
     await expect
       .poll(
         async () => {
@@ -921,6 +943,7 @@ test.describe("personalised Study plan", () => {
             .from("ucat_student_study_plan_tasks")
             .select("id, title, scheduled_date")
             .eq("student_id", studentId)
+            .eq("generation_id", activeGenerationId)
             .eq("task_type", "practice")
             .order("scheduled_date")
             .order("sort_order")
@@ -936,6 +959,7 @@ test.describe("personalised Study plan", () => {
       .from("ucat_student_study_plan_tasks")
       .select("id, title, scheduled_date")
       .eq("student_id", studentId)
+      .eq("generation_id", activeGenerationId)
       .eq("task_type", "practice")
       .order("scheduled_date")
       .order("sort_order")
