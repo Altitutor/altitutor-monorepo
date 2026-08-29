@@ -57,6 +57,7 @@ import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
+import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
 import {
   firstUcatBulkStatusFailureError,
   lifecycleErrorToast,
@@ -106,6 +107,7 @@ export function UcatMocksPage() {
   const router = useRouter()
   const pathname = usePathname()
   const activeStatus = parseStatusTab(searchParams.get('tab'))
+  const viewMode = searchParams.get('view') === 'order' ? 'order' : 'table'
   const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeStatus), [activeStatus])
   const access = useUcatAccess()
   const mocks = useUcatMocks()
@@ -139,6 +141,14 @@ export function UcatMocksPage() {
     const editId = searchParams.get('edit')
     if (editId) setEditingMockId(editId)
   }, [searchParams])
+
+  function setViewMode(value: 'table' | 'order') {
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'order') params.set('view', 'order')
+    else params.delete('view')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   const { rows, visibleColumns, tableState, showDeleted, setShowDeleted } = useUcatMocksTable({
     data: mocks.data,
@@ -318,13 +328,13 @@ export function UcatMocksPage() {
         for (const mockId of ids) {
           const detail = await ucatMocksApi.detail(mockId)
           if (!detail) continue
-          const setIds = (detail.sets as Array<{ id: string }> | null)?.map((set) => set.id) ?? []
           await updateMockMutation.mutateAsync({
             mockId,
             payload: {
-              name: detail.name ?? 'Untitled',
+              authoringNote: detail.authoring_note,
               accessScope,
-              setIds,
+              instructionsText: detail.instructions_text,
+              blueprintId: detail.blueprint_id ?? '',
             },
           })
         }
@@ -455,13 +465,11 @@ export function UcatMocksPage() {
 
   async function onCreate() {
     const result = await createMock.mutateAsync({
-      name,
+      authoringNote: name,
       accessScope: isPrivate ? 'private' : 'public',
-      setIds: [],
       instructionsText: instructionsText ?? undefined,
-      blueprintId: createBlueprintId,
+      blueprintId: createBlueprintId ?? '',
     })
-    const mockName = name.trim() || 'Untitled'
     setOpenCreate(false)
     setName('')
     setIsPrivate(false)
@@ -469,7 +477,7 @@ export function UcatMocksPage() {
     setCreateBlueprintId(null)
     if (result.id) setEditingMockId(result.id)
     toast({
-      title: `Mock ${mockName} created`,
+      title: 'Mock created',
       description: (
         <button
           type="button"
@@ -493,6 +501,36 @@ export function UcatMocksPage() {
   if (access.isLoading || mocks.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
+  if (viewMode === 'order') {
+    const orderRows = (mocks.data ?? [])
+      .filter((mock) => mock.deleted_at == null)
+      .sort((a, b) => (a.catalog_index ?? 0) - (b.catalog_index ?? 0))
+      .flatMap((mock) => mock.id ? [{
+        id: mock.id,
+        displayName: mock.display_name ?? mock.name ?? mock.id,
+        authoringNote: mock.authoring_note,
+      }] : [])
+    return (
+      <div className="space-y-6 py-8 md:py-10">
+        <UcatPageHeader
+          title="UCAT Mocks"
+          description="Set the global mock display order"
+          backHref="/ucat"
+          breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
+          actions={<SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />}
+        />
+        <UcatCatalogOrderEditor
+          rows={orderRows}
+          onSave={async (ids) => {
+            await ucatMocksApi.reorder(ids)
+            await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+            toast({ title: 'Mock order saved' })
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
@@ -500,11 +538,10 @@ export function UcatMocksPage() {
         description="Draft, review, and publish full mock exams"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
-        actions={
-          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
-            Add Mock
-          </Button>
-        }
+        actions={<div className="flex items-center gap-2">
+          <SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="table" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>Add Mock</Button>
+        </div>}
       />
 
       <SegmentedControl
@@ -676,8 +713,8 @@ export function UcatMocksPage() {
       >
         <div className="p-6 overflow-y-auto h-full space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
+            <span className="mb-1 block font-medium">Tutor note</span>
+            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Optional internal note" />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>

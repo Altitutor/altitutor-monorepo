@@ -192,12 +192,14 @@ export async function getAttemptedMockIds(): Promise<Set<string>> {
 export type MockSetTiming = {
   id: string;
   name: string;
+  compactName: string;
   timeLimitSeconds: number | null;
 };
 
 export type StudentMockRow = {
   id: string;
   name: string | null;
+  display_name: string | null;
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
@@ -218,6 +220,7 @@ export type MocksFilters = {
 type MockListRow = {
   id: string;
   name: string | null;
+  display_name: string | null;
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
@@ -228,6 +231,8 @@ type MockListRow = {
 type MockDetailSetJson = {
   id?: string;
   name?: unknown;
+  display_name?: string | null;
+  compact_display_name?: string | null;
   time_limit_seconds?: number | null;
 };
 
@@ -237,7 +242,8 @@ function parseMockSetTimings(sets: unknown): MockSetTiming[] {
     .filter((set): set is MockDetailSetJson & { id: string } => Boolean(set?.id))
     .map((set) => ({
       id: set.id,
-      name: extractTextFromRichJson(set.name as JsonLike) || "Set",
+      name: set.display_name || extractTextFromRichJson(set.name as JsonLike) || "Set",
+      compactName: set.compact_display_name || set.display_name || extractTextFromRichJson(set.name as JsonLike) || "Set",
       timeLimitSeconds: set.time_limit_seconds ?? null,
     }));
 }
@@ -255,8 +261,9 @@ export async function getStudentMocks(): Promise<StudentMockRow[]> {
   const { data, error } = await supabase
     .from("vstudent_ucat_mocks")
     .select(
-      "id,name,created_at,updated_at,created_by,set_count,has_timed_sets",
-    );
+      "id,name,display_name,created_at,updated_at,created_by,set_count,has_timed_sets,catalog_index",
+    )
+    .order("catalog_index");
   if (error) throw new Error(error.message ?? "Failed to load mocks");
 
   const mocks = (data ?? []) as MockListRow[];
@@ -344,7 +351,7 @@ export function filterMocks(
   return mocks.filter((mock) => {
     if (filters.search?.trim()) {
       const searchLower = filters.search.trim().toLowerCase();
-      const nameText = (mock.name ?? "").toLowerCase();
+      const nameText = (mock.display_name ?? mock.name ?? "").toLowerCase();
       if (!nameText.includes(searchLower)) return false;
     }
     if (filters.timed === "timed" && !mock.has_timed_sets) {

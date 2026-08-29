@@ -122,15 +122,19 @@ async function completeStudentMockAttempt(
   const now = new Date();
 
   const { data: mockSets, error: mockSetsError } = await admin
-    .from("question_sets_ucat_mocks")
-    .select("question_set_id, index")
-    .eq("ucat_mock_id", attempt.ucat_mock_id)
-    .order("index");
+    .from("question_sets")
+    .select("id, section:ucat_sections!inner(section_number)")
+    .eq("mock_id", attempt.ucat_mock_id)
+    .is("deleted_at", null);
 
   if (mockSetsError) throw new Error(mockSetsError.message);
 
   const configuredSetIds = (mockSets ?? [])
-    .map((row) => row.question_set_id)
+    .toSorted(
+      (left, right) =>
+        left.section[0].section_number - right.section[0].section_number,
+    )
+    .map((row) => row.id)
     .filter((id): id is string => Boolean(id));
 
   if (configuredSetIds.length === 0) {

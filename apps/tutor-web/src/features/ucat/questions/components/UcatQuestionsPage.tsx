@@ -82,10 +82,7 @@ import {
 } from '@/features/ucat/questions/components/approval-queue/UcatQuestionStemApprovalQueue'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import {
-  plainTextToProseMirror,
-  proseMirrorToPlainText,
-} from '@/features/ucat/shared/lib/rich-text'
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
@@ -722,16 +719,23 @@ export function UcatQuestionsPage() {
     if (args.addToSet && ids.length > 0) {
       if (args.addToSet.mode === 'create') {
         const { id } = await createSetMutation.mutateAsync({
-          name: plainTextToProseMirror(args.addToSet.name),
+          authoringNote: args.addToSet.authoringNote,
           description: args.addToSet.description,
-          timeLimitSeconds: args.addToSet.timeLimitSeconds,
+          timingMode: args.addToSet.timingMode,
+          paceMultiplier: args.addToSet.paceMultiplier,
+          fixedTimeLimitSeconds: args.addToSet.fixedTimeLimitSeconds,
+          setFormat: args.addToSet.setFormat,
           accessScope: args.addToSet.isPrivate ? 'private' : 'public',
           sectionId: args.sectionId,
+          referenceBlueprintId: args.addToSet.referenceBlueprintId,
           stemIds: ids,
         })
         await queryClient.invalidateQueries({ queryKey: ucatKeys.set(id) })
         targetSetId = id
-        targetSetName = args.addToSet.name.trim() || 'Untitled'
+        const createdSet = await ucatSetsApi.detail(id)
+        targetSetName = createdSet?.display_name
+          ?? proseMirrorToPlainText(createdSet?.name ?? null)
+          ?? 'new set'
       } else {
         const setDetail = await ucatSetsApi.detail(args.addToSet.setId)
         if (setDetail) {

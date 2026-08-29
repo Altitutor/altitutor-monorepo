@@ -10,6 +10,8 @@ export type RichTextJson = Json
 
 export type UcatContentStatus = 'draft' | 'in_review' | 'published'
 export type UcatAccessScope = 'public' | 'private'
+export type UcatQuestionSetFormat = 'full_section' | 'partial_section'
+export type UcatQuestionSetTimingMode = 'pace' | 'fixed' | 'untimed'
 
 export const UCAT_CONTENT_STATUS_OPTIONS: Array<{ value: UcatContentStatus; label: string }> = [
   { value: 'draft', label: 'Draft' },
@@ -67,19 +69,22 @@ export type UcatQuestionStemBundlePayload = {
 
 export type UcatQuestionSetPayload = {
   id?: string | null
-  name?: RichTextJson | null
+  authoringNote?: string | null
   description: string | RichTextJson
-  timeLimitSeconds?: number | null
+  timingMode: UcatQuestionSetTimingMode
+  paceMultiplier?: number | null
+  fixedTimeLimitSeconds?: number | null
+  setFormat: UcatQuestionSetFormat
   accessScope: UcatAccessScope
   sectionId: string
+  referenceBlueprintId: string
   stemIds: string[]
 }
 
 export type UcatMockPayload = {
   id?: string | null
-  name: string
+  authoringNote?: string | null
   accessScope: UcatAccessScope
-  setIds: string[]
   instructionsText?: RichTextJson | null
-  blueprintId?: string | null
+  blueprintId: string
 }

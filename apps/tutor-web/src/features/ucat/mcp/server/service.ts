@@ -88,19 +88,23 @@ type CreateQuestionStemInput = {
 }
 
 type CreateQuestionSetInput = {
-  name?: string | Record<string, unknown> | null
+  authoringNote?: string | null
   description: string | Record<string, unknown>
-  timeLimitSeconds?: number | null
+  timingMode: 'pace' | 'fixed' | 'untimed'
+  paceMultiplier?: number | null
+  fixedTimeLimitSeconds?: number | null
+  setFormat: 'full_section' | 'partial_section'
   accessScope: UcatMcpAccessScope
   sectionId: string
+  referenceBlueprintId: string
   stemIds: string[]
 }
 
 type CreateMockInput = {
-  name: string
+  authoringNote?: string | null
   instructionsText?: string | Record<string, unknown> | null
   accessScope: UcatMcpAccessScope
-  setIds: string[]
+  blueprintId: string
 }
 
 type CreateLearningModuleInput = {
@@ -721,22 +725,30 @@ export async function createUcatMcpQuestionSet(
   input: CreateQuestionSetInput,
 ): Promise<Record<string, unknown>> {
   const draft: QuestionSetDraft = {
-    name: toRichTextJson(input.name ?? null),
+    authoringNote: input.authoringNote ?? null,
     description: toRichTextJson(input.description) ?? {},
-    timeLimitSeconds: input.timeLimitSeconds ?? null,
+    timingMode: input.timingMode,
+    paceMultiplier: input.paceMultiplier ?? null,
+    fixedTimeLimitSeconds: input.fixedTimeLimitSeconds ?? null,
+    setFormat: input.setFormat,
     accessScope: input.accessScope,
     sectionId: input.sectionId,
+    referenceBlueprintId: input.referenceBlueprintId,
     stemIds: [...input.stemIds],
   }
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_set', {
     p_set_id: null,
     p_expected_updated_at: null,
-    p_name: draft.name,
+    p_authoring_note: draft.authoringNote,
     p_description: draft.description,
-    p_time_limit_seconds: draft.timeLimitSeconds,
+    p_timing_mode: draft.timingMode,
+    p_pace_multiplier: draft.paceMultiplier,
+    p_fixed_time_limit_seconds: draft.fixedTimeLimitSeconds,
+    p_set_format: draft.setFormat,
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,
     p_section_id: draft.sectionId,
+    p_reference_blueprint_id: draft.referenceBlueprintId,
     p_operation_kinds: ['create'],
   }, {
     contentType: 'set',
@@ -758,12 +770,16 @@ export async function updateUcatMcpQuestionSet(
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_question_set', {
     p_set_id: id,
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
-    p_name: draft.name,
+    p_authoring_note: draft.authoringNote,
     p_description: draft.description,
-    p_time_limit_seconds: draft.timeLimitSeconds,
+    p_timing_mode: draft.timingMode,
+    p_pace_multiplier: draft.paceMultiplier,
+    p_fixed_time_limit_seconds: draft.fixedTimeLimitSeconds,
+    p_set_format: draft.setFormat,
     p_access_scope: draft.accessScope,
     p_stem_ids: draft.stemIds,
     p_section_id: draft.sectionId,
+    p_reference_blueprint_id: draft.referenceBlueprintId,
     p_operation_kinds: operationKinds(operations),
   }, {
     contentType: 'set',
@@ -779,24 +795,26 @@ export async function createUcatMcpMock(
   input: CreateMockInput,
 ): Promise<Record<string, unknown>> {
   const draft: MockDraft = {
-    name: input.name,
+    authoringNote: input.authoringNote ?? null,
     instructionsText: toRichTextJson(input.instructionsText ?? null),
     accessScope: input.accessScope,
-    setIds: [...input.setIds],
+    blueprintId: input.blueprintId,
+    setIds: [],
   }
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_mock', {
     p_mock_id: null,
     p_expected_updated_at: null,
-    p_name: draft.name,
+    p_authoring_note: draft.authoringNote,
     p_access_scope: draft.accessScope,
-    p_set_ids: draft.setIds,
     p_instructions_text: draft.instructionsText,
+    p_blueprint_id: draft.blueprintId,
+    p_set_ids: null,
     p_operation_kinds: ['create'],
   }, {
     contentType: 'mock',
     contentId: NIL_AUTHORING_ID,
     accessScope: draft.accessScope,
-    memberIds: draft.setIds,
+    memberIds: [],
   })
   return getMock(client, result.id)
 }
@@ -812,10 +830,11 @@ export async function updateUcatMcpMock(
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_mock', {
     p_mock_id: id,
     p_expected_updated_at: decodeAuthoringRevision(revision, id),
-    p_name: draft.name,
+    p_authoring_note: draft.authoringNote,
     p_access_scope: draft.accessScope,
     p_set_ids: draft.setIds,
     p_instructions_text: draft.instructionsText,
+    p_blueprint_id: draft.blueprintId,
     p_operation_kinds: operationKinds(operations),
   }, {
     contentType: 'mock',

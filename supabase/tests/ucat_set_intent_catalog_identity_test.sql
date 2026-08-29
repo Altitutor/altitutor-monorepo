@@ -1,0 +1,130 @@
+BEGIN;
+SELECT plan(22);
+
+INSERT INTO public.staff_subjects (staff_id, subject_id)
+SELECT '00000000-0000-0000-0000-000000000010', id
+FROM public.subjects WHERE name = 'UCAT'
+ON CONFLICT DO NOTHING;
+SELECT set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',
+  true
+);
+
+SELECT is(to_regclass('public.question_sets_ucat_mocks'), NULL,
+  'the obsolete mock membership junction is absent');
+
+SELECT is(public.ucat_question_set_catalog_name(
+  'f3000000-0000-4000-8000-000000000001', false
+), 'Verbal Reasoning Full Set 1', 'standalone expanded names are deterministic');
+SELECT is(public.ucat_question_set_catalog_name(
+  'f3000000-0000-4000-8000-000000000001', true
+), 'VR Full Set 1', 'standalone compact names are deterministic');
+
+UPDATE public.question_sets
+SET timing_mode = 'pace', pace_multiplier = 0.7, fixed_time_limit_seconds = NULL
+WHERE id = 'f3000000-0000-4000-8000-000000000001';
+SELECT is((SELECT time_limit_seconds FROM public.question_sets
+  WHERE id = 'f3000000-0000-4000-8000-000000000001'), 1886,
+  '0.7x pace grants more time and rounds the resolved seconds up');
+
+UPDATE public.question_sets
+SET timing_mode = 'fixed', pace_multiplier = NULL, fixed_time_limit_seconds = 333
+WHERE id = 'f3000000-0000-4000-8000-000000000001';
+SELECT is((SELECT time_limit_seconds FROM public.question_sets
+  WHERE id = 'f3000000-0000-4000-8000-000000000001'), 333,
+  'fixed timing resolves to its explicit duration');
+
+UPDATE public.question_sets
+SET timing_mode = 'untimed', pace_multiplier = NULL, fixed_time_limit_seconds = NULL
+WHERE id = 'f3000000-0000-4000-8000-000000000001';
+SELECT is((SELECT time_limit_seconds FROM public.question_sets
+  WHERE id = 'f3000000-0000-4000-8000-000000000001'), NULL,
+  'untimed intent resolves to no time limit');
+
+CREATE TEMP TABLE test_catalog_ids (kind TEXT PRIMARY KEY, id UUID NOT NULL);
+INSERT INTO test_catalog_ids(kind, id)
+SELECT 'mock', public.tutor_ucat_upsert_mock_v2(
+  NULL, 'Internal benchmark note', 'public', NULL,
+  '54100000-0000-4000-8000-000000000001'
+);
+
+SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
+  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 4,
+  'creating a mock atomically creates all four component sets');
+SELECT is(public.ucat_mock_catalog_name((SELECT id FROM test_catalog_ids WHERE kind = 'mock')),
+  'Mock 1', 'mock numbering is global and independent of blueprint year');
+SELECT is((SELECT count(DISTINCT section_id)::INTEGER FROM public.question_sets
+  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 4,
+  'the generated component slots follow the four-section blueprint');
+SELECT is((SELECT bool_and(
+    set_format = 'full_section' AND timing_mode = 'pace' AND pace_multiplier = 1
+    AND reference_blueprint_id = '54100000-0000-4000-8000-000000000001'
+  ) FROM public.question_sets
+  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), TRUE,
+  'component sets carry exact full-section exam-pace intent');
+
+INSERT INTO test_catalog_ids(kind, id)
+SELECT 'component', component.id
+FROM public.question_sets component
+JOIN public.ucat_sections section ON section.id = component.section_id
+WHERE component.mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
+  AND section.section_number = 1;
+
+SELECT is(public.ucat_question_set_catalog_name(
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
+), 'Mock 1 Verbal Reasoning', 'component sets have expanded mock-relative names');
+SELECT is(public.ucat_question_set_catalog_name(
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component'), true
+), 'Mock 1 VR', 'component sets have compact mock-relative names');
+
+SELECT lives_ok(format(
+  'SELECT public.tutor_ucat_detach_mock_set(%L::uuid)',
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component')
+), 'a draft component can be detached without deleting it');
+SELECT is((SELECT mock_id FROM public.question_sets
+  WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'component')), NULL,
+  'detachment turns the same set into a standalone set');
+SELECT is(public.ucat_question_set_catalog_name(
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
+), 'Verbal Reasoning Full Set 3', 'detachment appends to its standalone ordering scope');
+SELECT ok(
+  public.ucat_content_publication_issues(
+    'set', (SELECT id FROM test_catalog_ids WHERE kind = 'component')
+  ) @> '[{"code":"full_section_question_count_mismatch"}]'::JSONB,
+  'full-section intent validates the exact blueprint question count before publication'
+);
+
+SELECT lives_ok(format(
+  'SELECT public.tutor_ucat_attach_mock_set(%L::uuid, %L::uuid)',
+  (SELECT id FROM test_catalog_ids WHERE kind = 'mock'),
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component')
+), 'the detached set can be attached back to its owning mock');
+SELECT is((SELECT reference_blueprint_id FROM public.question_sets
+  WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'component')),
+  '54100000-0000-4000-8000-000000000001'::UUID,
+  'attachment rebases the set reference to the mock blueprint');
+
+SELECT lives_ok($$SELECT public.tutor_ucat_reorder_question_sets(
+  (SELECT id FROM public.ucat_sections WHERE section_number = 1),
+  'full_section',
+  ARRAY[
+    'f3000000-0000-4000-8000-000000000002'::UUID,
+    'f3000000-0000-4000-8000-000000000001'::UUID
+  ]
+)$$, 'standalone sets can be reordered within section and format');
+SELECT is((SELECT catalog_index FROM public.question_sets
+  WHERE id = 'f3000000-0000-4000-8000-000000000002'), 1,
+  'reordering updates deterministic numbering');
+
+SELECT lives_ok(format(
+  'SELECT public.tutor_ucat_delete_mock(%L::uuid)',
+  (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
+), 'a mock with no session dependencies can be soft deleted');
+SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
+  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
+    AND deleted_at IS NULL), 4,
+  'soft deleting a mock preserves its attached component sets');
+
+SELECT * FROM finish();
+ROLLBACK;

@@ -102,11 +102,12 @@ export function UcatMockEditorDialog({
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
       .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
+      .filter((set) => set.mock_id == null || set.mock_id === mockId)
       .map((set) => {
         const parsed = parseSetSections(set.sections ?? null)
         return {
           id: set.id ?? '',
-          name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+          name: set.display_name ?? (proseMirrorToPlainText(set.name ?? null) || 'Untitled'),
           sectionDisplay: formatSectionsDisplay(set.sections ?? null),
           sectionCount: parsed.sectionCount,
           firstSectionNumber: parsed.firstSectionNumber,
@@ -116,7 +117,7 @@ export function UcatMockEditorDialog({
           stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
-  }, [sets.data])
+  }, [mockId, sets.data])
   const blueprints = useMemo(() => (blueprintsQuery.data ?? []).flatMap(blueprint =>
     blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
       ? [{ id: blueprint.id, code: blueprint.code, test_year: blueprint.test_year, version: blueprint.version }]
@@ -131,6 +132,7 @@ export function UcatMockEditorDialog({
     setCatalog,
     stemCatalog: stemCatalogQuery.data ?? [],
   })
+  const displayName = (detail.data as { display_name?: string | null } | null)?.display_name ?? 'Mock'
 
   useEffect(() => {
     if (!open) {
@@ -259,7 +261,7 @@ export function UcatMockEditorDialog({
       <UcatPdfExportDialog
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
-        source={{ kind: 'mock', title: name.trim() || 'Untitled mock', setIds: draftSetIds }}
+        source={{ kind: 'mock', title: displayName, setIds: draftSetIds }}
       />
     </UcatDialogShell>
   )

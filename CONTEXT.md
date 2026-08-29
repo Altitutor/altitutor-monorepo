@@ -365,7 +365,7 @@
 
 - **UCAT insight rule** — A stable evidence-to-guidance decision representing one coaching intent; its identity persists across dynamic values and wording revisions so the same intent can be previewed, verified, and rated together. _Avoid_: insight title, preview case, wording version
 
-- **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience. It is created against an explicitly selected UCAT exam blueprint and occupies a contiguous catalog position within that blueprint's test year; current catalog positions may change when mocks are reordered or removed, while attempt history keeps its captured name. Soft deletion preserves its attached component sets for faithful restoration; only explicit detachment promotes a component set to the standalone catalog.
+- **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience. It is created against an explicitly selected UCAT exam blueprint and occupies one global contiguous mock-catalog position independent of blueprint version or test year; current catalog positions may change when mocks are reordered or removed, while attempt history keeps its captured name. Soft deletion preserves its attached component sets for faithful restoration; only explicit detachment promotes a component set to the standalone catalog.
 
 - **UCAT exam attempt start** — The moment a student confirms **Ready to Begin** and enters the first timed or untimed exam segment (instructions or questions). This is when a set attempt, mock attempt, or practice session is considered started for quota, progress, and resume — not when they open the launch screen and not when they submit their first answer. Instructions time (when configured) is part of the attempt from this point.
   _Avoid_: Launch click, first answer, session created
@@ -568,13 +568,19 @@
 - **UCAT question set pace** — The authored working speed for a timed UCAT question set relative to exam pace. `1×` is exam pace, below `1×` is slower and therefore allows more time, and above `1×` is faster and therefore allows less time.
   _Avoid_: Time multiplier, percentage of exam time, derived student speed
 
+- **UCAT question set timing intent** — The authored timing rule for a standalone UCAT question set: exam-relative pace, fixed answering duration, or untimed. Exam-relative answering time is resolved from the set's reference blueprint when an attempt starts as `(blueprint section answering time ÷ blueprint section question total) × actual set question count ÷ pace`; the resulting segment deadline is captured for the attempt. Mock component sets always use their mock blueprint's exact section timing rather than a proportional standalone calculation.
+  _Avoid_: Mutable attempt duration, pace as time allowance, unexplained seconds
+
+- **UCAT question set blueprint reference** — The immutable UCAT exam blueprint version used as a standalone set's timing and composition provenance, not as part of its catalog identity. Every set has one reference. Attaching a set whose existing reference differs from the mock's blueprint is allowed only after it passes the target blueprint's slot-compliance rules, then explicitly rebases the reference to the mock blueprint; detaching retains that reference.
+  _Avoid_: Catalog year, implicit current blueprint, nullable blueprint provenance
+
 - **UCAT question set placement** — A UCAT question set is either standalone or belongs to exactly one UCAT mock. Detaching a mock set makes it standalone; simultaneous membership in multiple mocks is not supported.
   _Avoid_: Shared mock set, many-mock membership, permanent mock ownership
 
 - **Standalone UCAT question set position** — The mutable contiguous position of a standalone set within its UCAT section and format. Full-section and partial-section sets have independent sequences; attaching removes the set from that sequence, while detaching appends it to the applicable standalone sequence.
   _Avoid_: Permanent set number, cross-format sequence, hidden mock-set position
 
-- **Mock component set** — A UCAT question set currently attached to one mock for one blueprint section. It uses full-section intent and `1×` blueprint pace while attached; detaching preserves its content as a standalone set and gives it a standalone catalog position.
+- **Mock component set** — A UCAT question set currently attached to one mock for one blueprint section. It uses full-section intent, the mock's exact blueprint timing, and the same blueprint reference as its mock while attached; detaching preserves its content and blueprint reference as a standalone set and gives it a standalone catalog position.
   _Avoid_: Shared mock set, partial mock section, reusable simultaneous membership
 
 - **Mock section slot** — One blueprint section position in a UCAT mock. Draft mocks may have an empty slot after explicit detachment, but publication requires exactly one compliant Mock component set in every slot; section order is fixed by the blueprint.
@@ -589,7 +595,7 @@
 - **Stem available in the question pool** — A published public question stem that is not included in any published, non-deleted question set. Draft and in-review sets do not reserve their stems from the pool.
   _Avoid_: Unused question, not attempted, not in any set
 
-- **Set available in the sets pool** — A published public question set that is not included in any published, non-deleted mock exam. Draft and in-review mocks do not reserve their sets from the pool.
+- **Set available in the sets pool** — A published public standalone UCAT question set. Any mock attachment makes a set a Mock component set and excludes it from the standalone pool, independent of the mock's publication status.
   _Avoid_: Unused set, not attempted, not in any mock
 
 - **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying or reversing edits, and either publishing or returning each stem to draft. AI-generated, eligible bulk-imported, and tutor-submitted stems enter this queue automatically.

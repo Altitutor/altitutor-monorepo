@@ -13,7 +13,7 @@ import {
 } from '@altitutor/ui'
 import { useUcatCategories, useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
-import { useCreateUcatSet, useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
+import { useCreateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatSetPropertyRow } from '@/features/ucat/sets/components/UcatSetPropertyRow'
 import { UcatSetTimeLimitFields } from '@/features/ucat/sets/components/UcatSetTimeLimitFields'
 import {
@@ -28,7 +28,6 @@ import {
   type AutoSetPreview,
   type AutoStemVisibility,
 } from '@/features/ucat/sets/lib/auto-set-builder'
-import { nextAutoSetName } from '@/features/ucat/sets/lib/next-auto-set-name'
 import {
   PACED_SPEED_DEFAULT,
   isSetTimeLimitValid,
@@ -41,11 +40,9 @@ import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatVisibilityFieldLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
-import { plainTextToProseMirror, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import type { UcatQuestionSetPayload } from '@/features/ucat/shared/types'
+import type { UcatQuestionSetFormat, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
-import type { Json } from '@altitutor/shared'
 
 const AUTO_MODE_OPTIONS: Array<{ value: AutoSetMode; label: string }> = [
   { value: 'total', label: 'Total only' },
@@ -57,6 +54,11 @@ const STEM_VISIBILITY_OPTIONS: Array<{ value: AutoStemVisibility; label: string 
   { value: 'either', label: 'Either' },
   { value: 'public', label: 'Public' },
   { value: 'private', label: 'Private' },
+]
+
+const SET_FORMAT_OPTIONS: Array<{ value: UcatQuestionSetFormat; label: string }> = [
+  { value: 'full_section', label: 'Full section' },
+  { value: 'partial_section', label: 'Partial section' },
 ]
 
 type UcatCreateSetDialogProps = {
@@ -75,15 +77,14 @@ export function UcatCreateSetDialog({
   const { toast } = useToast()
   const router = useRouter()
   const createSet = useCreateUcatSet()
-  const setsQuery = useUcatSets()
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categoriesQuery = useUcatCategories()
   const blueprintsQuery = useUcatMockBlueprints()
 
-  const [name, setName] = useState('')
+  const [authoringNote, setAuthoringNote] = useState('')
   const [description, setDescription] = useState('')
-  const [autoNameEnabled, setAutoNameEnabled] = useState(true)
+  const [setFormat, setSetFormat] = useState<UcatQuestionSetFormat>('full_section')
   const [timeLimitSource, setTimeLimitSource] = useState<SetTimeLimitSource>('paced')
   const [timeLimitSpeed, setTimeLimitSpeed] = useState(PACED_SPEED_DEFAULT)
   const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
@@ -127,14 +128,12 @@ export function UcatCreateSetDialog({
     }),
     [autoBlueprintId, blueprintsQuery.data],
   )
-  const blueprintSourceOptions = useMemo(() => [
-    { value: 'manual', label: 'Manual' },
-    ...(blueprintsQuery.data ?? []).flatMap((blueprint) =>
+  const blueprintSourceOptions = useMemo(() =>
+    (blueprintsQuery.data ?? []).flatMap((blueprint) =>
       blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
         ? [{ value: blueprint.id, label: `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}` }]
         : [],
-    ),
-  ], [blueprintsQuery.data])
+    ), [blueprintsQuery.data])
   const autoSectionCategories = useMemo(
     () =>
       ((categoriesQuery.data ?? []) as AutoCategoryRow[])
@@ -287,20 +286,11 @@ export function UcatCreateSetDialog({
     || (!!autoSectionId && autoTargetQuestions > 0 && !autoRangeValidationError)
 
   useEffect(() => {
-    if (!open || !autoNameEnabled) return
-    const existingNamesNewestFirst = (setsQuery.data ?? [])
-      .filter((set) => set.deleted_at == null && (set.section_id ?? null) === autoSectionId && autoSectionId)
-      .sort((a, b) => (b.created_at ?? '').localeCompare(a.created_at ?? ''))
-      .map((set) => proseMirrorToPlainText((set.name ?? null) as Json | null))
-    setName(
-      autoSectionId
-        ? nextAutoSetName({
-            existingNamesNewestFirst,
-            sectionName: autoSection?.name ?? null,
-          })
-        : '',
-    )
-  }, [autoNameEnabled, autoSection?.name, autoSectionId, open, setsQuery.data])
+    if (!open || autoBlueprintId || blueprintSourceOptions.length === 0) return
+    applyBlueprintSource(blueprintSourceOptions[0].value)
+    // Default only when opening with no explicit selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoBlueprintId, blueprintSourceOptions, open])
 
   useEffect(() => {
     if (!open || !autoCriteriaEnabled || !autoBlueprintId || !autoBlueprint || !autoSectionId) return
@@ -399,26 +389,31 @@ export function UcatCreateSetDialog({
     customMinutes: timeLimitMinutes,
     customSeconds: timeLimitSeconds,
   })
-  const timeLimitInvalid = !isSetTimeLimitValid(timeLimitSource, resolvedTimeLimitSeconds)
+  const timeLimitInvalid =
+    timeLimitSource === 'custom' && !isSetTimeLimitValid(timeLimitSource, resolvedTimeLimitSeconds)
 
   function handleClose() {
     onClose()
   }
 
   async function onCreate() {
-    if (!autoSectionId) return
+    if (!autoSectionId || !autoBlueprintId) return
     const stemIds = autoCriteriaEnabled ? (autoPreview?.selectedStems.map((stem) => stem.id) ?? []) : []
     const payload: UcatQuestionSetPayload = {
-      name: plainTextToProseMirror(name),
+      authoringNote,
       description,
-      timeLimitSeconds: resolvedTimeLimitSeconds,
+      timingMode: timeLimitSource === 'paced' ? 'pace' : timeLimitSource === 'custom' ? 'fixed' : 'untimed',
+      paceMultiplier: timeLimitSource === 'paced' ? timeLimitSpeed : null,
+      fixedTimeLimitSeconds: timeLimitSource === 'custom' ? resolvedTimeLimitSeconds : null,
+      setFormat,
       accessScope: isPrivate ? 'private' : 'public',
       sectionId: autoSectionId,
+      referenceBlueprintId: autoBlueprintId,
       stemIds,
     }
     try {
       const result = await createSet.mutateAsync(payload)
-      const setName = name.trim() || 'Untitled'
+      const setName = `${autoSection?.name ?? 'UCAT'} ${setFormat === 'full_section' ? 'Full' : 'Partial'} Set`
       onClose()
       onCreated(result.id, setName)
     } catch (error) {
@@ -437,6 +432,7 @@ export function UcatCreateSetDialog({
       saveDisabled={
         createSet.isPending ||
         !autoSectionId ||
+        !autoBlueprintId ||
         autoCreateDisabled ||
         timeLimitInvalid
       }
@@ -445,17 +441,11 @@ export function UcatCreateSetDialog({
       <div className={cn('flex h-full min-h-0 flex-col md:flex-row')}>
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
           <div className={tutorCardCn('space-y-1 px-3 py-2')}>
-            <UcatSetPropertyRow label="Automatically name the set">
-              <div className="flex h-10 items-center">
-                <Switch checked={autoNameEnabled} onCheckedChange={setAutoNameEnabled} />
-              </div>
-            </UcatSetPropertyRow>
-            <UcatSetPropertyRow label="Name">
+            <UcatSetPropertyRow label="Tutor note">
               <Input
-                value={name}
-                onChange={(event) => setName(event.target.value)}
-                placeholder={autoNameEnabled ? 'Select a section' : 'Set name'}
-                disabled={autoNameEnabled}
+                value={authoringNote}
+                onChange={(event) => setAuthoringNote(event.target.value)}
+                placeholder="Optional internal note"
               />
             </UcatSetPropertyRow>
             <UcatSetPropertyRow label="Section">
@@ -471,6 +461,25 @@ export function UcatCreateSetDialog({
                 getItemLabel={(section) => section.name ?? 'Untitled'}
                 getItemId={(section) => section.id ?? ''}
                 placeholder="Select section"
+              />
+            </UcatSetPropertyRow>
+            <UcatSetPropertyRow label="Format">
+              <SearchableSelect<(typeof SET_FORMAT_OPTIONS)[number]>
+                items={SET_FORMAT_OPTIONS}
+                value={SET_FORMAT_OPTIONS.find((item) => item.value === setFormat) ?? null}
+                onValueChange={(item) => item && setSetFormat(item.value)}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+              />
+            </UcatSetPropertyRow>
+            <UcatSetPropertyRow label="Reference blueprint">
+              <SearchableSelect<(typeof blueprintSourceOptions)[number]>
+                items={blueprintSourceOptions}
+                value={blueprintSourceOptions.find((item) => item.value === autoBlueprintId) ?? null}
+                onValueChange={(item) => item && applyBlueprintSource(item.value)}
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+                placeholder="Select blueprint"
               />
             </UcatSetPropertyRow>
             <UcatSetPropertyRow label="Description">
@@ -534,9 +543,7 @@ export function UcatCreateSetDialog({
                         onValueChange={(item) => {
                           if (!item) return
                           setAutoMode(item.value)
-                          if (item.value === 'total') {
-                            setAutoBlueprintId(null)
-                          } else if (autoBlueprintId) {
+                          if (item.value !== 'total' && autoBlueprintId) {
                             applyBlueprintSource(autoBlueprintId, item.value)
                             return
                           }
@@ -546,21 +553,6 @@ export function UcatCreateSetDialog({
                         getItemId={(item) => item.value}
                       />
                     </UcatSetPropertyRow>
-
-                    {autoMode === 'category' || autoMode === 'range' ? (
-                      <UcatSetPropertyRow label="Target source">
-                        <SearchableSelect<(typeof blueprintSourceOptions)[number]>
-                          items={blueprintSourceOptions}
-                          value={blueprintSourceOptions.find((item) => item.value === (autoBlueprintId ?? 'manual')) ?? null}
-                          onValueChange={(item) => {
-                            if (!item) return
-                            applyBlueprintSource(item.value === 'manual' ? null : item.value)
-                          }}
-                          getItemLabel={(item) => item.label}
-                          getItemId={(item) => item.value}
-                        />
-                      </UcatSetPropertyRow>
-                    ) : null}
 
                     {autoMode === 'total' || autoMode === 'range' ? (
                       <UcatSetPropertyRow label="Total questions">

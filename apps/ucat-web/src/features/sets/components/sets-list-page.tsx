@@ -46,6 +46,7 @@ export type SetsListPageProps = {
 
 function setDisplayName(set: StudentSetRow): string {
   return (
+    set.display_name ||
     extractTextFromRichJson(set.name as JsonLike) ||
     extractTextFromRichJson(set.description as JsonLike) ||
     ""

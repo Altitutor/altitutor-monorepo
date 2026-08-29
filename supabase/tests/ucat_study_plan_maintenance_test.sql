@@ -1,5 +1,14 @@
 BEGIN;
-SELECT plan(15);
+SELECT plan(16);
+
+SELECT ok(
+  has_function_privilege(
+    'service_role',
+    'public.recompute_ucat_study_plan_maintenance_at(uuid)',
+    'EXECUTE'
+  ),
+  'the preparation worker can recompute the Study-plan maintenance watermark'
+);
 
 DELETE FROM public.ucat_student_preparation_refresh_requests
 WHERE student_id IN (

@@ -473,14 +473,18 @@ export function registerUcatMcpTools(
     {
       title: 'Create a draft UCAT question set',
       description:
-        'Create a draft set that belongs to one UCAT section, with an ordered initial stem membership. An empty set is allowed while drafting. Member stems must belong to the same section.',
+        'Create a deterministically named draft set for one UCAT section. Timing is stored as pace, fixed duration, or untimed intent against an explicit database blueprint. An empty set is allowed while drafting.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
-        name: NullableRichTextSchema.optional(),
+        authoringNote: z.string().trim().max(1000).nullable().optional(),
         description: RichTextSchema,
-        timeLimitSeconds: z.number().int().positive().nullable().optional(),
+        timingMode: z.enum(['pace', 'fixed', 'untimed']).default('pace'),
+        paceMultiplier: z.number().positive().max(10).nullable().optional(),
+        fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
+        setFormat: z.enum(['full_section', 'partial_section']),
         accessScope: UcatAccessScopeSchema.default('public'),
         sectionId: z.string().uuid(),
+        referenceBlueprintId: z.string().uuid(),
         stemIds: z.array(z.string().uuid()).default([]),
       },
       outputSchema: StructuredObjectOutputSchema,
@@ -524,13 +528,13 @@ export function registerUcatMcpTools(
     {
       title: 'Create a draft UCAT mock exam',
       description:
-        'Create a draft mock with ordered initial set membership. An empty mock is allowed while drafting.',
+        'Create a deterministically named draft mock against an explicit database blueprint. The four section component sets are created and linked atomically.',
       inputSchema: {
         idempotencyKey: IdempotencyKeySchema,
-        name: z.string().trim().min(1).max(300),
+        authoringNote: z.string().trim().max(1000).nullable().optional(),
         instructionsText: NullableRichTextSchema.optional(),
         accessScope: UcatAccessScopeSchema.default('public'),
-        setIds: z.array(z.string().uuid()).default([]),
+        blueprintId: z.string().uuid(),
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,

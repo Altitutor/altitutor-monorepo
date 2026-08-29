@@ -65,12 +65,26 @@ SELECT lives_ok(
   'a published VR stem can be made public without satisfying publication gates'
 );
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+INSERT INTO public.ucat_mocks (
+  id, name, status, access_scope, blueprint_id, catalog_index
+)
+VALUES (
+  '54540000-0000-4000-8000-000000000001', '', 'published', 'public',
+  '54100000-0000-4000-8000-000000000001', 99
+);
+
+INSERT INTO public.question_sets (
+  id, name, status, access_scope, section_id, set_format, timing_mode,
+  pace_multiplier, fixed_time_limit_seconds, reference_blueprint_id, mock_id
+)
 VALUES (
   '54530000-0000-4000-8000-000000000001',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"Public set"}]}]}'::jsonb,
-  60, 'published', 'public',
-  'f659f363-ffcc-4ade-ad2f-8a9dd3a4dfcc'
+  'published', 'public',
+  'f659f363-ffcc-4ade-ad2f-8a9dd3a4dfcc',
+  'full_section', 'pace', 1, NULL,
+  '54100000-0000-4000-8000-000000000001',
+  '54540000-0000-4000-8000-000000000001'
 );
 
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
@@ -99,12 +113,6 @@ SELECT ok(
   )),
   'the visibility blocker names the public parent set'
 );
-
-INSERT INTO public.ucat_mocks (id, name, status, access_scope)
-VALUES ('54540000-0000-4000-8000-000000000001', 'Public mock', 'published', 'public');
-
-INSERT INTO public.question_sets_ucat_mocks (question_set_id, ucat_mock_id, index)
-VALUES ('54530000-0000-4000-8000-000000000001', '54540000-0000-4000-8000-000000000001', 1);
 
 SELECT throws_ok(
   $$SELECT public.tutor_ucat_set_content_access(

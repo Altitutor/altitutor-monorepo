@@ -262,8 +262,8 @@ export function UcatMockEditorContent({
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
             <Accordion type="multiple" defaultValue={['mock', 'blueprint', 'sets']} className="space-y-4">
               <PropertiesCard value="mock" title="Mock properties">
-                <MockPropertyRow label="Name">
-                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <MockPropertyRow label="Tutor note">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional internal note" />
                 </MockPropertyRow>
                 <MockPropertyRow label={<UcatVisibilityFieldLabel />}>
                   <SearchableSelect<{ value: string; label: string }>

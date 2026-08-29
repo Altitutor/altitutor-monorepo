@@ -386,7 +386,9 @@ BEGIN
       INSERT INTO public.question_sets (
         id, name, description, sections, time_limit_seconds,
         time_limit_at_exam_speed_seconds, speed, status, access_scope,
-        status_changed_at, published_at, deleted_at, section_id
+        status_changed_at, published_at, deleted_at, section_id,
+        authoring_note, set_format, timing_mode, pace_multiplier,
+        fixed_time_limit_seconds, reference_blueprint_id, mock_id, catalog_index
       ) VALUES (
         set_id,
         jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', set_name))))),
@@ -400,7 +402,15 @@ BEGIN
         NOW(),
         NOW(),
         NULL,
-        section_record.id
+        section_record.id,
+        set_name,
+        'full_section',
+        'pace',
+        1,
+        NULL,
+        '54100000-0000-4000-8000-000000000001',
+        NULL,
+        version_number
       )
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -414,6 +424,14 @@ BEGIN
         published_at = NOW(),
         deleted_at = NULL,
         section_id = EXCLUDED.section_id,
+        authoring_note = EXCLUDED.authoring_note,
+        set_format = 'full_section',
+        timing_mode = 'pace',
+        pace_multiplier = 1,
+        fixed_time_limit_seconds = NULL,
+        reference_blueprint_id = '54100000-0000-4000-8000-000000000001',
+        mock_id = NULL,
+        catalog_index = EXCLUDED.catalog_index,
         updated_at = NOW();
 
       DELETE FROM public.question_stems_question_sets WHERE question_set_id = set_id;
@@ -448,35 +466,3 @@ BEGIN
     END LOOP;
   END LOOP;
 END $$;
-
-INSERT INTO public.ucat_mocks (
-  id, name, status, access_scope, status_changed_at, published_at, deleted_at
-)
-VALUES
-  ('f4000000-0000-4000-8000-000000000001', 'Study plan golden mock 1', 'published', 'public', NOW(), NOW(), NULL),
-  ('f4000000-0000-4000-8000-000000000002', 'Study plan golden mock 2', 'published', 'public', NOW(), NOW(), NULL)
-ON CONFLICT (id) DO UPDATE SET
-  name = EXCLUDED.name,
-  status = 'published',
-  access_scope = 'public',
-  published_at = NOW(),
-  deleted_at = NULL,
-  updated_at = NOW();
-
-DELETE FROM public.question_sets_ucat_mocks
-WHERE ucat_mock_id IN (
-  'f4000000-0000-4000-8000-000000000001',
-  'f4000000-0000-4000-8000-000000000002'
-);
-
-INSERT INTO public.question_sets_ucat_mocks (
-  id, question_set_id, ucat_mock_id, index
-)
-VALUES
-  (md5('golden-mock-1-vr')::UUID, 'f3000000-0000-4000-8000-000000000001', 'f4000000-0000-4000-8000-000000000001', 0),
-  (md5('golden-mock-1-dm')::UUID, 'f3000000-0000-4000-8000-000000000003', 'f4000000-0000-4000-8000-000000000001', 1),
-  (md5('golden-mock-1-qr')::UUID, 'f3000000-0000-4000-8000-000000000005', 'f4000000-0000-4000-8000-000000000001', 2),
-  (md5('golden-mock-2-vr')::UUID, 'f3000000-0000-4000-8000-000000000002', 'f4000000-0000-4000-8000-000000000002', 0),
-  (md5('golden-mock-2-dm')::UUID, 'f3000000-0000-4000-8000-000000000004', 'f4000000-0000-4000-8000-000000000002', 1),
-  (md5('golden-mock-2-qr')::UUID, 'f3000000-0000-4000-8000-000000000006', 'f4000000-0000-4000-8000-000000000002', 2)
-ON CONFLICT (id) DO UPDATE SET index = EXCLUDED.index;
