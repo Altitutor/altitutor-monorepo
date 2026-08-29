@@ -154,6 +154,18 @@ export const StaffTableRow = memo(function StaffTableRow({
           <StaffRoleBadge value={(staff.role === 'ADMIN' || staff.role === 'TUTOR' || staff.role === 'ADMINSTAFF') ? staff.role : null} />
         </TableCell>
       )}
+      {visibleColumns.includes('staff') && (
+        <TableCell>
+          <div className="font-medium">
+            {`${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim() || 'Unnamed Staff'}
+          </div>
+          {(staff.email || staff.phone_number) ? (
+            <div className="text-xs text-muted-foreground">
+              {[staff.email, staff.phone_number].filter(Boolean).join(' · ')}
+            </div>
+          ) : null}
+        </TableCell>
+      )}
       {visibleColumns.includes('first_name') && (
         <TableCell className="font-medium">
           {staff.first_name || '-'}

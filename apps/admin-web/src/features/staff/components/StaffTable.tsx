@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, memo, useEffect, useMemo } from 'react';
+import { useState, useCallback, memo, useMemo } from 'react';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
 import {
   Table,
@@ -16,6 +16,7 @@ import {
 import { ArrowUpDown } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { useStaffMinimalPaginated, useCurrentStaff } from '../hooks/useStaffQuery';
+import type { StaffSearchField } from '../api/staff';
 import { AddStaffModal } from './AddStaffModal';
 import { ViewStaffModal } from './modal';
 import { ViewClassModal } from '@/features/classes';
@@ -35,9 +36,10 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const { data: quickFilters = [] } = useQuickFilters('staff');
   const { data: allSubjects = [] } = useSubjects();
   
+  const [searchFields, setSearchFields] = useState<StaffSearchField[]>(['name', 'email', 'phone']);
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['status', 'role', 'first_name', 'last_name', 'classes'], []);
+  const defaultVisibleColumns = useMemo(() => ['status', 'role', 'staff', 'classes'], []);
 
   const {
     state,
@@ -64,6 +66,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     isFetching 
   } = useStaffMinimalPaginated({
     search: state.search,
+    searchFields,
     roles: state.filters.role as string[],
     statuses: state.filters.status as string[],
     subjectIds: state.filters.subject as string[],
@@ -111,6 +114,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'status', label: 'Status' },
     { key: 'role', label: 'Role' },
+    { key: 'staff', label: 'Staff member' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
     { key: 'email', label: 'Email' },
@@ -133,12 +137,6 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
 
-  // Reset to page 1 when search term or filters change
-  useEffect(() => {
-    setPage(1);
-  }, [state.search, state.filters, setPage]);
-
-  // Event handlers
   const handleStaffClick = useCallback((id: string) => {
     setSelectedStaffId(id);
     setIsViewModalOpen(true);
@@ -170,7 +168,14 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters}
-          searchPlaceholder="Search staff..."
+          searchPlaceholder="Search name, email or phone..."
+          searchFromOptions={[
+            { label: 'Name', value: 'name' },
+            { label: 'Email', value: 'email' },
+            { label: 'Phone', value: 'phone' },
+          ]}
+          searchFromValue={searchFields}
+          onSearchFromChange={(values) => setSearchFields(values as StaffSearchField[])}
           isLoading={true}
         />
         
@@ -214,7 +219,14 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}
-        searchPlaceholder="Search staff..."
+        searchPlaceholder="Search name, email or phone..."
+        searchFromOptions={[
+          { label: 'Name', value: 'name' },
+          { label: 'Email', value: 'email' },
+          { label: 'Phone', value: 'phone' },
+        ]}
+        searchFromValue={searchFields}
+        onSearchFromChange={(values) => setSearchFields(values as StaffSearchField[])}
         isLoading={isFetching}
       />
 
@@ -247,6 +259,20 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                     <ArrowUpDown className={cn(
                       "ml-2 h-4 w-4",
                       state.sortBy === 'role' ? "opacity-100" : "opacity-40"
+                    )} />
+                  </div>
+                </TableHead>
+              )}
+              {state.visibleColumns.includes('staff') && (
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
+                  onClick={() => setSort('last_name', state.sortBy === 'last_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
+                >
+                  <div className="flex items-center">
+                    Staff member
+                    <ArrowUpDown className={cn(
+                      "ml-2 h-4 w-4",
+                      state.sortBy === 'last_name' ? "opacity-100" : "opacity-40"
                     )} />
                   </div>
                 </TableHead>
