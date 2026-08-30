@@ -9,7 +9,7 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      activity_events: {
+      activity_events_legacy: {
         Row: {
           changed_fields: Json | null
           class_id: string | null
@@ -537,8 +537,10 @@ export type Database = {
           claimed_at: string | null
           completed_at: string | null
           created_at: string
+          domain_event_id: string | null
           entity_id: string
           entity_type: string
+          event_name: string | null
           event_type: string
           id: string
           last_error: string | null
@@ -556,8 +558,10 @@ export type Database = {
           claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
+          domain_event_id?: string | null
           entity_id: string
           entity_type: string
+          event_name?: string | null
           event_type: string
           id?: string
           last_error?: string | null
@@ -575,8 +579,10 @@ export type Database = {
           claimed_at?: string | null
           completed_at?: string | null
           created_at?: string
+          domain_event_id?: string | null
           entity_id?: string
           entity_type?: string
+          event_name?: string | null
           event_type?: string
           id?: string
           last_error?: string | null
@@ -593,7 +599,21 @@ export type Database = {
             foreignKeyName: "automation_executions_activity_event_id_fkey"
             columns: ["activity_event_id"]
             isOneToOne: false
-            referencedRelation: "activity_events"
+            referencedRelation: "activity_events_legacy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_domain_event_id_fkey"
+            columns: ["domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "domain_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "automation_executions_domain_event_id_fkey"
+            columns: ["domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_domain_event_feed"
             referencedColumns: ["id"]
           },
           {
@@ -775,7 +795,7 @@ export type Database = {
           description: string | null
           enabled: boolean | null
           entity_type: string
-          event_types: string[]
+          event_names: string[]
           id: string
           name: string
           priority: number | null
@@ -790,7 +810,7 @@ export type Database = {
           description?: string | null
           enabled?: boolean | null
           entity_type: string
-          event_types: string[]
+          event_names?: string[]
           id?: string
           name: string
           priority?: number | null
@@ -805,7 +825,7 @@ export type Database = {
           description?: string | null
           enabled?: boolean | null
           entity_type?: string
-          event_types?: string[]
+          event_names?: string[]
           id?: string
           name?: string
           priority?: number | null
@@ -2492,6 +2512,119 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      domain_event_entities: {
+        Row: {
+          domain_event_id: string
+          entity_id: string
+          entity_type: string
+          role: string
+        }
+        Insert: {
+          domain_event_id: string
+          entity_id: string
+          entity_type: string
+          role?: string
+        }
+        Update: {
+          domain_event_id?: string
+          entity_id?: string
+          entity_type?: string
+          role?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_event_entities_domain_event_id_fkey"
+            columns: ["domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "domain_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "domain_event_entities_domain_event_id_fkey"
+            columns: ["domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_domain_event_feed"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      domain_events: {
+        Row: {
+          actor_staff_id: string | null
+          correlation_id: string | null
+          effective_at: string
+          event_name: string
+          event_version: number
+          id: string
+          idempotency_key: string | null
+          is_backfilled: boolean
+          payload: Json
+          recorded_at: string
+          source: string
+          subject_id: string
+          subject_type: string
+        }
+        Insert: {
+          actor_staff_id?: string | null
+          correlation_id?: string | null
+          effective_at?: string
+          event_name: string
+          event_version?: number
+          id?: string
+          idempotency_key?: string | null
+          is_backfilled?: boolean
+          payload?: Json
+          recorded_at?: string
+          source?: string
+          subject_id: string
+          subject_type: string
+        }
+        Update: {
+          actor_staff_id?: string | null
+          correlation_id?: string | null
+          effective_at?: string
+          event_name?: string
+          event_version?: number
+          id?: string
+          idempotency_key?: string | null
+          is_backfilled?: boolean
+          payload?: Json
+          recorded_at?: string
+          source?: string
+          subject_id?: string
+          subject_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
         ]
@@ -4981,6 +5114,7 @@ export type Database = {
           created_by_staff_id: string | null
           dedupe_key: string | null
           dismissed_at: string | null
+          domain_event_id: string | null
           expires_at: string | null
           id: string
           metadata: Json
@@ -5002,6 +5136,7 @@ export type Database = {
           created_by_staff_id?: string | null
           dedupe_key?: string | null
           dismissed_at?: string | null
+          domain_event_id?: string | null
           expires_at?: string | null
           id?: string
           metadata?: Json
@@ -5023,6 +5158,7 @@ export type Database = {
           created_by_staff_id?: string | null
           dedupe_key?: string | null
           dismissed_at?: string | null
+          domain_event_id?: string | null
           expires_at?: string | null
           id?: string
           metadata?: Json
@@ -5040,7 +5176,7 @@ export type Database = {
             foreignKeyName: "notifications_activity_event_id_fkey"
             columns: ["activity_event_id"]
             isOneToOne: false
-            referencedRelation: "activity_events"
+            referencedRelation: "activity_events_legacy"
             referencedColumns: ["id"]
           },
           {
@@ -5069,6 +5205,20 @@ export type Database = {
             columns: ["created_by_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_domain_event_id_fkey"
+            columns: ["domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "domain_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notifications_domain_event_id_fkey"
+            columns: ["domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_domain_event_feed"
             referencedColumns: ["id"]
           },
           {
@@ -11504,6 +11654,7 @@ export type Database = {
       }
       students: {
         Row: {
+          account_class: string
           active_at: string | null
           availability_friday: boolean | null
           availability_monday: boolean | null
@@ -11533,7 +11684,6 @@ export type Database = {
           school: string | null
           status: string | null
           timezone: string
-          ucat_analytics_account_class: string
           ucat_initial_familiarity: string | null
           ucat_onboarding_completed_at: string | null
           ucat_online_tier_override: string
@@ -11545,6 +11695,7 @@ export type Database = {
           year_level: number | null
         }
         Insert: {
+          account_class?: string
           active_at?: string | null
           availability_friday?: boolean | null
           availability_monday?: boolean | null
@@ -11574,7 +11725,6 @@ export type Database = {
           school?: string | null
           status?: string | null
           timezone?: string
-          ucat_analytics_account_class?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
@@ -11586,6 +11736,7 @@ export type Database = {
           year_level?: number | null
         }
         Update: {
+          account_class?: string
           active_at?: string | null
           availability_friday?: boolean | null
           availability_monday?: boolean | null
@@ -11615,7 +11766,6 @@ export type Database = {
           school?: string | null
           status?: string | null
           timezone?: string
-          ucat_analytics_account_class?: string
           ucat_initial_familiarity?: string | null
           ucat_onboarding_completed_at?: string | null
           ucat_online_tier_override?: string
@@ -12201,6 +12351,7 @@ export type Database = {
           project_id: string | null
           search_vector: unknown
           source_activity_id: string | null
+          source_domain_event_id: string | null
           source_rule_id: string | null
           status: string
           title: string
@@ -12221,6 +12372,7 @@ export type Database = {
           project_id?: string | null
           search_vector?: unknown
           source_activity_id?: string | null
+          source_domain_event_id?: string | null
           source_rule_id?: string | null
           status?: string
           title: string
@@ -12241,6 +12393,7 @@ export type Database = {
           project_id?: string | null
           search_vector?: unknown
           source_activity_id?: string | null
+          source_domain_event_id?: string | null
           source_rule_id?: string | null
           status?: string
           title?: string
@@ -12349,7 +12502,21 @@ export type Database = {
             foreignKeyName: "tasks_source_activity_id_fkey"
             columns: ["source_activity_id"]
             isOneToOne: false
-            referencedRelation: "activity_events"
+            referencedRelation: "activity_events_legacy"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_domain_event_id_fkey"
+            columns: ["source_domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "domain_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tasks_source_domain_event_id_fkey"
+            columns: ["source_domain_event_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_domain_event_feed"
             referencedColumns: ["id"]
           },
           {
@@ -21378,6 +21545,55 @@ export type Database = {
           },
         ]
       }
+      vadmin_domain_event_feed: {
+        Row: {
+          actor_staff_id: string | null
+          correlation_id: string | null
+          effective_at: string | null
+          event_name: string | null
+          event_version: number | null
+          id: string | null
+          is_backfilled: boolean | null
+          linked_entity_id: string | null
+          linked_entity_role: string | null
+          linked_entity_type: string | null
+          payload: Json | null
+          recorded_at: string | null
+          source: string | null
+          subject_id: string | null
+          subject_type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "domain_events_actor_staff_id_fkey"
+            columns: ["actor_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       vadmin_reconciliation_students_without_payment_method: {
         Row: {
           billing_created_at: string | null
@@ -23277,7 +23493,7 @@ export type Database = {
             foreignKeyName: "notifications_activity_event_id_fkey"
             columns: ["activity_event_id"]
             isOneToOne: false
-            referencedRelation: "activity_events"
+            referencedRelation: "activity_events_legacy"
             referencedColumns: ["id"]
           },
           {
@@ -25574,12 +25790,12 @@ export type Database = {
       }
       vstudent_ucat_my_access: {
         Row: {
+          account_class: string | null
           has_in_person_access: boolean | null
           has_online_access: boolean | null
           has_ucat_access: boolean | null
           is_quota_exempt: boolean | null
           online_tier: string | null
-          ucat_analytics_account_class: string | null
           ucat_onboarding_completed_at: string | null
           ucat_signup_completed_at: string | null
           ucat_signup_step: number | null
@@ -29504,7 +29720,7 @@ export type Database = {
             foreignKeyName: "notifications_activity_event_id_fkey"
             columns: ["activity_event_id"]
             isOneToOne: false
-            referencedRelation: "activity_events"
+            referencedRelation: "activity_events_legacy"
             referencedColumns: ["id"]
           },
           {
@@ -30645,6 +30861,7 @@ export type Database = {
       }
       vtutor_students: {
         Row: {
+          account_class: string | null
           availability_friday: boolean | null
           availability_monday: boolean | null
           availability_saturday_am: boolean | null
@@ -36029,6 +36246,7 @@ export type Database = {
       }
       vtutor_ucat_student_progress_summary: {
         Row: {
+          account_class: string | null
           avg_scaled_score: number | null
           avg_score_points: number | null
           last_attempted_at: string | null
@@ -36038,6 +36256,7 @@ export type Database = {
           total_sets_attempted: number | null
         }
         Insert: {
+          account_class?: string | null
           avg_scaled_score?: never
           avg_score_points?: never
           last_attempted_at?: never
@@ -36047,6 +36266,7 @@ export type Database = {
           total_sets_attempted?: never
         }
         Update: {
+          account_class?: string | null
           avg_scaled_score?: never
           avg_score_points?: never
           last_attempted_at?: never
@@ -36762,8 +36982,10 @@ export type Database = {
           claimed_at: string | null
           completed_at: string | null
           created_at: string
+          domain_event_id: string | null
           entity_id: string
           entity_type: string
+          event_name: string | null
           event_type: string
           id: string
           last_error: string | null
@@ -37131,6 +37353,19 @@ export type Database = {
         Returns: Json
       }
       dispatch_due_automation_executions: { Args: never; Returns: number }
+      domain_entity_display_name: {
+        Args: { p_entity_id: string; p_entity_type: string }
+        Returns: string
+      }
+      domain_event_entity: {
+        Args: {
+          p_entity_id: string
+          p_entity_type: string
+          p_name?: string
+          p_role?: string
+        }
+        Returns: Json
+      }
       enqueue_automation_execution: {
         Args: {
           p_activity_event_id: string
@@ -37699,6 +37934,10 @@ export type Database = {
         Returns: boolean
       }
       is_student: { Args: never; Returns: boolean }
+      is_student_peer_visible: {
+        Args: { p_account_class: string; p_student_id: string }
+        Returns: boolean
+      }
       is_tutor: { Args: never; Returns: boolean }
       is_ucat_in_person_student: { Args: never; Returns: boolean }
       is_ucat_online_quota_exempt: {
@@ -37726,24 +37965,6 @@ export type Database = {
           anomaly: string
           student_id: string
         }[]
-      }
-      log_activity_event: {
-        Args: {
-          p_changed_fields?: Json
-          p_class_id?: string
-          p_entity_id: string
-          p_entity_type: string
-          p_event_type: string
-          p_issue_id?: string
-          p_metadata?: Json
-          p_parent_id?: string
-          p_project_id?: string
-          p_session_id?: string
-          p_staff_id?: string
-          p_student_id?: string
-          p_task_id?: string
-        }
-        Returns: string
       }
       log_staff_absences: {
         Args: { logged_by_staff_id: string; operations: Json }
@@ -37842,6 +38063,22 @@ export type Database = {
           recorded: boolean
           refresh_pending: boolean
         }[]
+      }
+      record_domain_event: {
+        Args: {
+          p_actor_staff_id?: string
+          p_correlation_id?: string
+          p_dispatch_automations?: boolean
+          p_effective_at?: string
+          p_entities?: Json
+          p_event_name: string
+          p_idempotency_key?: string
+          p_payload?: Json
+          p_source?: string
+          p_subject_id: string
+          p_subject_type: string
+        }
+        Returns: string
       }
       record_ucat_resend_email_event: {
         Args: {

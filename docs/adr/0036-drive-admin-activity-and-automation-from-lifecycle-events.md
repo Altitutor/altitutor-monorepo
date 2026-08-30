@@ -1,0 +1,7 @@
+# Drive admin activity and automation from lifecycle events
+
+Admin activity feeds and event-driven automations use immutable, explicitly named lifecycle events rather than a generic ledger of database row changes. One event is stored once and linked to every directly affected core entity, with separate recorded and effective times; Parent feeds contain only events directly linked to the Parent and do not inherit linked Students' histories. Relative-time automations remain scheduled triggers rather than synthetic lifecycle events.
+
+The database exposes one transactional event-recording interface that owns persistence, entity links, deduplication, display snapshots, and durable automation enqueueing. Table-specific capture code emits only the approved domain transitions, suppresses cascade and synchronization noise, and keeps routine row changes out of the feed. This is an activity and automation model, not event sourcing or a complete audit log.
+
+Production cuts over without dual writing: recognizable legacy activity is backfilled without dispatching automations, the old ledger is removed from core Admin activity and automation paths, disabled and actionless rules are discarded, and the thirteen functioning production automations retain their rule/action identities while being retargeted to lifecycle event names. The renamed legacy table remains only as a technical audit sink for unrelated security/content functions until those concerns receive their own store.

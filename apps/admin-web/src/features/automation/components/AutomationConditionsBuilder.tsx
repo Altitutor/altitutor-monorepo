@@ -3,7 +3,7 @@
 import { Button, Input, SearchableSelect } from '@altitutor/ui';
 import { Plus, X } from 'lucide-react';
 import type {
-  ActivityEventType,
+  DomainEventName,
   AutomationCondition,
   AutomationConditionExpression,
   AutomationConditionGroup,
@@ -12,7 +12,7 @@ import type {
 
 interface AutomationConditionsBuilderProps {
   conditions: AutomationConditionExpression | null;
-  eventTypes: ActivityEventType[];
+  eventTypes: DomainEventName[];
   entityType: string;
   onChange: (condition: AutomationConditionExpression | null) => void;
   inline?: boolean;

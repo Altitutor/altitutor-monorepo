@@ -174,16 +174,5 @@ export async function POST(request: Request) {
     }
   }
 
-  await auth.admin.from('activity_events').insert({
-    entity_type: 'form_responses',
-    entity_id: response.id,
-    event_type: 'CREATED',
-    session_id: body.sessionId ?? null,
-    student_id: respondentType === 'student' ? body.respondentId : null,
-    parent_id: respondentType === 'parent' ? body.respondentId : null,
-    staff_id: respondentType === 'staff' ? body.respondentId : null,
-    performed_by: auth.staffId,
-    metadata: { form_id: form.id, form_name: form.name, form_response_id: response.id, recorded_on_behalf: true },
-  });
   return NextResponse.json({ responseId: response.id });
 }

@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Badge, Separator, Button, Input, Label, SearchableSelect, SmartDatePickerField } from '@altitutor/ui';
+import {
+  AccountClassBadge,
+  Badge,
+  Separator,
+  Button,
+  Input,
+  Label,
+  SearchableSelect,
+  SmartDatePickerField,
+} from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -16,15 +25,7 @@ import { getSubjectColorStyle, formatSessionType, getSessionTypeBadgeColor } fro
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { formatTime } from '@/shared/utils/datetime';
 import { openAdminInvoiceModal } from '../utils/openAdminInvoiceModal';
-import {
-  SessionInfoGrid,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
+import { SessionInfoGrid, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -100,7 +101,15 @@ type SessionDetailsTabProps = {
     student: Tables<'students'>;
     sessionsStudentsId: string | null;
     rescheduledSessionsStudentsId: string | null;
-    plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned';
+    plannedStatus:
+      | 'attending'
+      | 'attending-extra'
+      | 'attending-trial'
+      | 'attending-extra-trial'
+      | 'absent'
+      | 'rescheduled'
+      | 'credited'
+      | 'unplanned';
     actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
     rescheduledDate: string;
     rescheduledSessionId?: string;
@@ -263,8 +272,7 @@ export function SessionDetailsTab({
         ? (session.class?.subject as Tables<'subjects'>)
         : null);
   const displayClass =
-    selectedClass ??
-    (formClassId && session?.class?.id === formClassId ? (session?.class as MinimalClass) : null);
+    selectedClass ?? (formClassId && session?.class?.id === formClassId ? (session?.class as MinimalClass) : null);
 
   useEffect(() => {
     if (formType !== 'CLASS') {
@@ -280,14 +288,17 @@ export function SessionDetailsTab({
       const classId = session.class_id ?? null;
       const subjectForReset = session.subject ?? session.class?.subject ?? null;
       const classForReset = session.class as MinimalClass | null;
-      form.reset({
-        type,
-        date: toLocalDateString(session.start_at ?? null),
-        startTime: toLocalTimeString(session.start_at ?? null),
-        endTime: toLocalTimeString(session.end_at ?? null),
-        subjectId,
-        classId,
-      }, { keepDefaultValues: false });
+      form.reset(
+        {
+          type,
+          date: toLocalDateString(session.start_at ?? null),
+          startTime: toLocalTimeString(session.start_at ?? null),
+          endTime: toLocalTimeString(session.end_at ?? null),
+          subjectId,
+          classId,
+        },
+        { keepDefaultValues: false }
+      );
       setSelectedSubject(subjectForReset as Tables<'subjects'> | null);
       setSelectedClass(classForReset);
       hasResetRef.current = true;
@@ -296,7 +307,18 @@ export function SessionDetailsTab({
     }
     // session refs above are sufficient; including full session would reset form on every session field change
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, session?.id, session?.start_at, session?.end_at, session?.type, session?.subject_id, session?.class_id, session?.subject?.id, session?.class?.subject?.id, form]);
+  }, [
+    isEditing,
+    session?.id,
+    session?.start_at,
+    session?.end_at,
+    session?.type,
+    session?.subject_id,
+    session?.class_id,
+    session?.subject?.id,
+    session?.class?.subject?.id,
+    form,
+  ]);
 
   if (!session) return null;
 
@@ -305,9 +327,7 @@ export function SessionDetailsTab({
       {/* Session Information */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-semibold">
-            {isEditing ? 'Edit Session' : 'Session Information'}
-          </h3>
+          <h3 className="text-lg font-semibold">{isEditing ? 'Edit Session' : 'Session Information'}</h3>
           {!isEditing && onEdit && (
             <Button variant="outline" size="sm" onClick={onEdit}>
               <Pencil className="h-4 w-4 mr-2" />
@@ -324,176 +344,162 @@ export function SessionDetailsTab({
             })}
             className="space-y-4"
           >
-            <div>
+            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
               <Label htmlFor="session-type">Type</Label>
-              <Controller
-                control={form.control}
-                name="type"
-                render={({ field }) => (
-                  <SearchableSelect<{ id: string; label: string }>
-                    items={SESSION_TYPE_ITEMS}
-                    value={SESSION_TYPE_ITEMS.find((t) => t.id === field.value) ?? null}
-                    onValueChange={(v) => v && field.onChange(v.id)}
-                    getItemId={(item) => item.id}
-                    getItemLabel={(item) => item.label}
-                    placeholder="Session type"
-                    disabled={isUpdating}
-                    trigger={
-                      <Button variant="outline" className="w-full justify-start font-normal" id="session-type">
-                        {SESSION_TYPE_ITEMS.find((t) => t.id === field.value)?.label ?? 'Session type'}
-                      </Button>
-                    }
-                  />
-                )}
-              />
-            </div>
-            <div>
-              <Label htmlFor="session-date">Date</Label>
-              <Controller
-                control={form.control}
-                name="date"
-                render={({ field }) => (
-                  <SmartDatePickerField
-                    value={field.value}
-                    onChange={(value) => field.onChange(value ?? '')}
-                    onBlur={field.onBlur}
-                    className={isUpdating ? 'pointer-events-none opacity-50' : undefined}
-                  />
-                )}
-              />
-              {form.formState.errors.date && (
-                <p className="text-sm text-destructive mt-0.5">{form.formState.errors.date.message}</p>
-              )}
-            </div>
-            <div className="grid grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="session-start-time">Start time</Label>
+                <Controller
+                  control={form.control}
+                  name="type"
+                  render={({ field }) => (
+                    <SearchableSelect<{ id: string; label: string }>
+                      items={SESSION_TYPE_ITEMS}
+                      value={SESSION_TYPE_ITEMS.find((t) => t.id === field.value) ?? null}
+                      onValueChange={(v) => v && field.onChange(v.id)}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      placeholder="Session type"
+                      disabled={isUpdating}
+                      trigger={
+                        <Button variant="outline" className="w-full justify-start font-normal" id="session-type">
+                          {SESSION_TYPE_ITEMS.find((t) => t.id === field.value)?.label ?? 'Session type'}
+                        </Button>
+                      }
+                    />
+                  )}
+                />
+              </div>
+              <Label htmlFor="session-date">Date</Label>
+              <div>
+                <Controller
+                  control={form.control}
+                  name="date"
+                  render={({ field }) => (
+                    <SmartDatePickerField
+                      value={field.value}
+                      onChange={(value) => field.onChange(value ?? '')}
+                      onBlur={field.onBlur}
+                      className={isUpdating ? 'pointer-events-none opacity-50' : undefined}
+                    />
+                  )}
+                />
+                {form.formState.errors.date && (
+                  <p className="text-sm text-destructive mt-0.5">{form.formState.errors.date.message}</p>
+                )}
+              </div>
+              <Label htmlFor="session-start-time">Start time</Label>
+              <div>
                 <Controller
                   control={form.control}
                   name="startTime"
-                  render={({ field }) => (
-                    <Input
-                      id="session-start-time"
-                      type="time"
-                      {...field}
-                      disabled={isUpdating}
-                    />
-                  )}
+                  render={({ field }) => <Input id="session-start-time" type="time" {...field} disabled={isUpdating} />}
                 />
                 {form.formState.errors.startTime && (
                   <p className="text-sm text-destructive mt-0.5">{form.formState.errors.startTime.message}</p>
                 )}
               </div>
+              <Label htmlFor="session-end-time">End time</Label>
               <div>
-                <Label htmlFor="session-end-time">End time</Label>
                 <Controller
                   control={form.control}
                   name="endTime"
-                  render={({ field }) => (
-                    <Input
-                      id="session-end-time"
-                      type="time"
-                      {...field}
-                      disabled={isUpdating}
-                    />
-                  )}
+                  render={({ field }) => <Input id="session-end-time" type="time" {...field} disabled={isUpdating} />}
                 />
                 {form.formState.errors.endTime && (
                   <p className="text-sm text-destructive mt-0.5">{form.formState.errors.endTime.message}</p>
                 )}
               </div>
-            </div>
-            {formType === 'CLASS' && (
-              <>
-                <div>
+              {formType === 'CLASS' && (
+                <>
                   <Label htmlFor="session-subject">Subject</Label>
-                  <Controller
-                    control={form.control}
-                    name="subjectId"
-                    render={({ field }) => (
-                      <SubjectSelectPopover
-                        selectedSubject={displaySubject}
-                        onSelectSubject={(s) => {
-                          setSelectedSubject(s);
-                          field.onChange(s?.id ?? null);
-                          setSelectedClass(null);
-                          form.setValue('classId', null, { shouldValidate: false });
-                        }}
-                        placeholder="Select subject"
-                        trigger={
-                          <Button variant="outline" className="w-full justify-start" disabled={isUpdating}>
-                            {displaySubject?.long_name ?? 'Select subject'}
-                          </Button>
-                        }
-                      />
-                    )}
-                  />
-                </div>
-                <div>
+                  <div>
+                    <Controller
+                      control={form.control}
+                      name="subjectId"
+                      render={({ field }) => (
+                        <SubjectSelectPopover
+                          selectedSubject={displaySubject}
+                          onSelectSubject={(s) => {
+                            setSelectedSubject(s);
+                            field.onChange(s?.id ?? null);
+                            setSelectedClass(null);
+                            form.setValue('classId', null, {
+                              shouldValidate: false,
+                            });
+                          }}
+                          placeholder="Select subject"
+                          trigger={
+                            <Button variant="outline" className="w-full justify-start" disabled={isUpdating}>
+                              {displaySubject?.long_name ?? 'Select subject'}
+                            </Button>
+                          }
+                        />
+                      )}
+                    />
+                  </div>
                   <Label htmlFor="session-class">Class</Label>
-                  <Controller
-                    control={form.control}
-                    name="classId"
-                    render={({ field }) => (
-                      <ClassSelectPopover
-                        selectedClass={displayClass}
-                        onSelectClass={(c) => {
-                          setSelectedClass(c);
-                          field.onChange(c?.id ?? null);
-                        }}
-                        subjectId={formSubjectId ?? null}
-                        placeholder="Select class"
-                        disabled={isUpdating}
-                      />
-                    )}
-                  />
-                </div>
-              </>
-            )}
+                  <div>
+                    <Controller
+                      control={form.control}
+                      name="classId"
+                      render={({ field }) => (
+                        <ClassSelectPopover
+                          selectedClass={displayClass}
+                          onSelectClass={(c) => {
+                            setSelectedClass(c);
+                            field.onChange(c?.id ?? null);
+                          }}
+                          subjectId={formSubjectId ?? null}
+                          placeholder="Select class"
+                          disabled={isUpdating}
+                        />
+                      )}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
           </form>
         ) : (
-        <SessionInfoGrid
-          day={session.start_at ? formatSessionDate(session.start_at) : '—'}
-          time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
-          timeSubline={
-            session.type ? (
-              <Badge variant="secondary" className={getSessionTypeBadgeColor(session.type)}>
-                {formatSessionType(session.type)}
-              </Badge>
-            ) : undefined
-          }
-          subjectNode={
-            session.type === 'CLASS'
-              ? subject
-                ? (() => {
-                    const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);
-                    const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                    return (
-                      <Badge
-                        className={defaultClass || textColorClass}
-                        style={style.backgroundColor ? style : undefined}
-                      >
-                        {subject?.long_name ?? ''}
-                      </Badge>
-                    );
-                  })()
-                : '—'
-              : undefined
-          }
-          classNode={
-            session.type === 'CLASS' && classData && session.class_id
-              ? (
-                  <button
-                    type="button"
-                    onClick={() => onOpenClass(session.class_id!)}
-                    className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
-                  >
-                    {(classData as { long_name?: string | null }).long_name?.trim() ?? ''}
-                  </button>
-                )
-              : undefined
-          }
-        />
+          <SessionInfoGrid
+            day={session.start_at ? formatSessionDate(session.start_at) : '—'}
+            time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
+            timeSubline={
+              session.type ? (
+                <Badge variant="secondary" className={getSessionTypeBadgeColor(session.type)}>
+                  {formatSessionType(session.type)}
+                </Badge>
+              ) : undefined
+            }
+            subjectNode={
+              session.type === 'CLASS'
+                ? subject
+                  ? (() => {
+                      const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);
+                      const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                      return (
+                        <Badge
+                          className={defaultClass || textColorClass}
+                          style={style.backgroundColor ? style : undefined}
+                        >
+                          {subject?.long_name ?? ''}
+                        </Badge>
+                      );
+                    })()
+                  : '—'
+                : undefined
+            }
+            classNode={
+              session.type === 'CLASS' && classData && session.class_id ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenClass(session.class_id!)}
+                  className="text-accent-foreground hover:text-accent-foreground/80 hover:underline font-medium text-left"
+                >
+                  {(classData as { long_name?: string | null }).long_name?.trim() ?? ''}
+                </button>
+              ) : undefined
+            }
+          />
         )}
       </div>
 
@@ -524,9 +530,7 @@ export function SessionDetailsTab({
               </div>
             </div>
             {studentsData.length === 0 ? (
-              <div className="text-center py-4 text-sm text-muted-foreground">
-                No students planned
-              </div>
+              <div className="text-center py-4 text-sm text-muted-foreground">No students planned</div>
             ) : (
               <div className="border rounded-lg overflow-hidden">
                 <Table>
@@ -549,13 +553,16 @@ export function SessionDetailsTab({
                     {studentsData.map((data) => (
                       <TableRow key={data.student.id}>
                         <TableCell>
-                          <button
-                            type="button"
-                            onClick={() => onOpenStudent(data.student.id)}
-                            className="text-left hover:underline font-medium"
-                          >
-                            {data.student.first_name} {data.student.last_name}
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => onOpenStudent(data.student.id)}
+                              className="text-left hover:underline font-medium"
+                            >
+                              {data.student.first_name} {data.student.last_name}
+                            </button>
+                            <AccountClassBadge accountClass={data.student.account_class} />
+                          </div>
                         </TableCell>
                         {allowAbsenceLogging ? (
                           <>
@@ -567,7 +574,8 @@ export function SessionDetailsTab({
                                     ? {
                                         type: 'session',
                                         id: data.rescheduledSessionId,
-                                        onClick: () => data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
+                                        onClick: () =>
+                                          data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
                                       }
                                     : undefined
                                 }
@@ -628,7 +636,8 @@ export function SessionDetailsTab({
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();
-                                    const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                    const studentName =
+                                      `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
                                     onUndoLogAbsenceStudent({
                                       studentId: data.student.id,
                                       studentName: studentName || 'Student',
@@ -659,19 +668,38 @@ export function SessionDetailsTab({
                               ) : null}
                               <DropdownMenuItem
                                 className={
-                                  !(!hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession)
+                                  !(
+                                    !hasTutorLog &&
+                                    !data.hasInvoiceItems &&
+                                    (data.plannedStatus === 'attending-extra' ||
+                                      data.plannedStatus === 'attending-extra-trial') &&
+                                    onRemoveStudentFromSession
+                                  )
                                     ? 'opacity-60 text-muted-foreground'
                                     : '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
                                 }
                                 onClick={(e) => {
                                   e.stopPropagation();
-                                  const canRemove = !hasTutorLog && !data.hasInvoiceItems && (data.plannedStatus === 'attending-extra' || data.plannedStatus === 'attending-extra-trial') && onRemoveStudentFromSession;
+                                  const canRemove =
+                                    !hasTutorLog &&
+                                    !data.hasInvoiceItems &&
+                                    (data.plannedStatus === 'attending-extra' ||
+                                      data.plannedStatus === 'attending-extra-trial') &&
+                                    onRemoveStudentFromSession;
                                   if (canRemove) {
-                                    const studentName = `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
+                                    const studentName =
+                                      `${data.student.first_name || ''} ${data.student.last_name || ''}`.trim();
                                     onRemoveStudentFromSession(data.student.id, studentName || 'Student');
                                   } else {
                                     toast({
-                                      description: hasTutorLog ? 'Session has a tutor log; cannot remove student.' : data.hasInvoiceItems ? 'Student has an invoice item for this session.' : (data.plannedStatus !== 'attending-extra' && data.plannedStatus !== 'attending-extra-trial') ? 'Only extra or trial students can be removed.' : 'Remove from session is not available.',
+                                      description: hasTutorLog
+                                        ? 'Session has a tutor log; cannot remove student.'
+                                        : data.hasInvoiceItems
+                                          ? 'Student has an invoice item for this session.'
+                                          : data.plannedStatus !== 'attending-extra' &&
+                                              data.plannedStatus !== 'attending-extra-trial'
+                                            ? 'Only extra or trial students can be removed.'
+                                            : 'Remove from session is not available.',
                                       variant: 'destructive',
                                     });
                                   }
@@ -718,9 +746,7 @@ export function SessionDetailsTab({
           </div>
         </div>
         {staffData.length === 0 ? (
-          <div className="text-center py-4 text-sm text-muted-foreground">
-            No staff planned
-          </div>
+          <div className="text-center py-4 text-sm text-muted-foreground">No staff planned</div>
         ) : (
           <div className="border rounded-lg overflow-hidden">
             <Table>
@@ -754,9 +780,7 @@ export function SessionDetailsTab({
                     </TableCell>
                     {isCheckInSession ? (
                       <TableCell>
-                        <Badge variant="outline">
-                          {formatCheckInStaffRole(data.sessionsStaffType) ?? '—'}
-                        </Badge>
+                        <Badge variant="outline">{formatCheckInStaffRole(data.sessionsStaffType) ?? '—'}</Badge>
                       </TableCell>
                     ) : null}
                     {allowAbsenceLogging ? (
@@ -777,17 +801,26 @@ export function SessionDetailsTab({
                           />
                         </TableCell>
                         <TableCell>
-                          <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
+                          <AttendanceCell
+                            status={data.actualStatus}
+                            staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
+                          />
                         </TableCell>
                       </>
                     ) : (
                       <TableCell>
-                        <AttendanceCell status={data.actualStatus} staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined} />
+                        <AttendanceCell
+                          status={data.actualStatus}
+                          staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
+                        />
                       </TableCell>
                     )}
                     {allowAbsenceLogging && (
                       <TableCell>
-                        {tutorLog && tutorLog.created_by_staff && tutorLog.created_by_staff.first_name && tutorLog.created_by_staff.last_name ? (
+                        {tutorLog &&
+                        tutorLog.created_by_staff &&
+                        tutorLog.created_by_staff.first_name &&
+                        tutorLog.created_by_staff.last_name ? (
                           <TutorLogAvatar
                             firstName={tutorLog.created_by_staff.first_name}
                             lastName={tutorLog.created_by_staff.last_name}
@@ -865,7 +898,9 @@ export function SessionDetailsTab({
                                 onRemoveStaffFromSession(data.staff.id, staffName || 'Staff');
                               } else {
                                 toast({
-                                  description: hasTutorLog ? 'Session has a tutor log; cannot remove staff.' : 'Remove from session is not available.',
+                                  description: hasTutorLog
+                                    ? 'Session has a tutor log; cannot remove staff.'
+                                    : 'Remove from session is not available.',
                                   variant: 'destructive',
                                 });
                               }
@@ -927,7 +962,12 @@ export function SessionDetailsTab({
                         <TableCell>
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="icon" className="h-8 w-8" onClick={(e) => e.stopPropagation()}>
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                onClick={(e) => e.stopPropagation()}
+                              >
                                 <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -1003,11 +1043,11 @@ export function SessionDetailsTab({
             <div className="space-y-4">
               {tutorLog.topics.map((topicData) => {
                 // Find the complete topic record from allTopics to ensure we have parent_id and index
-                const topic = allTopics.find(t => t.id === topicData.topic?.id) || topicData.topic;
+                const topic = allTopics.find((t) => t.id === topicData.topic?.id) || topicData.topic;
                 const topicCode = topic?.code || '';
                 const students = topicData.students || [];
                 const files = topicData.files || [];
-                
+
                 return (
                   <div key={topicData.id} className="border rounded-lg p-4 space-y-3">
                     <div>
@@ -1019,7 +1059,7 @@ export function SessionDetailsTab({
                         {topicCode} {topic?.name}
                       </button>
                     </div>
-                    
+
                     {files.length > 0 && (
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
@@ -1027,10 +1067,10 @@ export function SessionDetailsTab({
                           {files.map((fileData) => {
                             const topicFile = fileData.topics_file;
                             if (!topicFile) return null;
-                            
+
                             const fileCode = topicFile.code || '';
                             const fileId = topicFile.file?.id;
-                            
+
                             return (
                               <button
                                 key={fileData.id}
@@ -1046,7 +1086,7 @@ export function SessionDetailsTab({
                         </div>
                       </div>
                     )}
-                    
+
                     {students.length > 0 && (
                       <div>
                         <div className="text-xs font-medium text-muted-foreground mb-1">Students:</div>
@@ -1079,9 +1119,7 @@ export function SessionDetailsTab({
       {/* No Tutor Log Message */}
       {!hasTutorLog && (
         <div className="text-center py-4">
-          <p className="text-sm text-muted-foreground">
-            This session has not been logged yet.
-          </p>
+          <p className="text-sm text-muted-foreground">This session has not been logged yet.</p>
         </div>
       )}
     </div>

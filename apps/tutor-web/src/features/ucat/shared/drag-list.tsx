@@ -39,6 +39,7 @@ export function UcatSortableList({
   disableReorder = false,
   flatCard = false,
   showMoveButtons = false,
+  renderActions,
 }: {
   ids: string[]
   renderLabel: (id: string, index: number) => React.ReactNode
@@ -48,6 +49,7 @@ export function UcatSortableList({
   disableReorder?: boolean
   flatCard?: boolean
   showMoveButtons?: boolean
+  renderActions?: (id: string, index: number) => React.ReactNode
 }) {
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
@@ -65,6 +67,7 @@ export function UcatSortableList({
             onEdit={onEdit ? () => onEdit(id) : undefined}
             showDragHandle={false}
             flatCard={flatCard}
+            actions={renderActions?.(id, index)}
           />
         ))}
       </div>
@@ -96,6 +99,7 @@ export function UcatSortableList({
               onMoveDown={showMoveButtons && index < ids.length - 1 ? () => onChange(arrayMove(ids, index, index + 1)) : undefined}
               onEdit={onEdit ? () => onEdit(id) : undefined}
               flatCard={flatCard}
+              actions={renderActions?.(id, index)}
             />
           ))}
         </div>
@@ -117,6 +121,7 @@ function ListRow({
   setNodeRef,
   style,
   flatCard = false,
+  actions,
 }: {
   label: React.ReactNode
   onRemove?: () => void
@@ -133,6 +138,7 @@ function ListRow({
   setNodeRef?: (node: HTMLElement | null) => void
   style?: React.CSSProperties
   flatCard?: boolean
+  actions?: React.ReactNode
 }) {
   return (
     <div
@@ -191,6 +197,7 @@ function ListRow({
               <Minus className="h-4 w-4" />
             </Button>
           ) : null}
+          {actions}
         </div>
       </div>
     </div>
@@ -206,6 +213,7 @@ export function SortableRow({
   onMoveDown,
   removeButtonVariant = 'outline',
   flatCard = false,
+  actions,
 }: {
   id: string
   label: React.ReactNode
@@ -215,6 +223,7 @@ export function SortableRow({
   onMoveDown?: () => void
   removeButtonVariant?: 'outline' | 'destructive'
   flatCard?: boolean
+  actions?: React.ReactNode
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
   const style = {
@@ -236,6 +245,7 @@ export function SortableRow({
       setNodeRef={setNodeRef}
       style={style}
       flatCard={flatCard}
+      actions={actions}
     />
   )
 }

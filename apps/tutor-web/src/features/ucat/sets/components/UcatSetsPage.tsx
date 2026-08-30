@@ -28,11 +28,14 @@ import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
 import { getUcatContentStatusTransitionOptions, type UcatContentStatus, type UcatQuestionSetFormat } from '@/features/ucat/shared/types'
-import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatPdfExportDialog, type UcatPdfExportSource } from '@/features/ucat/shared/components/UcatPdfExportDialog'
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 import { UcatCreateSetDialog } from '@/features/ucat/sets/components/UcatCreateSetDialog'
+import {
+  UcatSetCatalogOrderView,
+  type SetCatalogOrderRow,
+} from '@/features/ucat/sets/components/UcatSetCatalogOrderView'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
@@ -60,6 +63,7 @@ import {
   lifecycleStatusSuccessToast,
   type UcatLifecycleEntityType,
 } from '@/features/ucat/shared/lifecycle-errors'
+import { confirmDiscardUnsavedOrder } from '@/features/ucat/shared/components/UcatOrderSaveToolbar'
 function parseStatusTab(value: string | null): UcatContentStatus {
   return value === 'in_review' || value === 'published' ? value : 'draft'
 }
@@ -118,8 +122,9 @@ export function UcatSetsPage() {
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
   const [mockFilterSearch, setMockFilterSearch] = useState('')
-  const [orderSectionId, setOrderSectionId] = useState<string | null>(null)
-  const [orderFormat, setOrderFormat] = useState<UcatQuestionSetFormat>('full_section')
+  const [createSectionId, setCreateSectionId] = useState<string | null>(null)
+  const [createSetFormat, setCreateSetFormat] = useState<UcatQuestionSetFormat>('full_section')
+  const [orderDirty, setOrderDirty] = useState(false)
   const updateSetMutation = useUpdateUcatSet()
   const mocksQuery = useUcatMocks()
 
@@ -128,11 +133,8 @@ export function UcatSetsPage() {
     if (editId) setEditingSetId(editId)
   }, [searchParams])
 
-  useEffect(() => {
-    if (!orderSectionId && sections[0]?.id) setOrderSectionId(sections[0].id)
-  }, [orderSectionId, sections])
-
   function setViewMode(value: 'table' | 'order') {
+    if (!confirmDiscardUnsavedOrder(orderDirty)) return
     const params = new URLSearchParams(searchParams.toString())
     if (value === 'order') params.set('view', 'order')
     else params.delete('view')
@@ -281,7 +283,7 @@ export function UcatSetsPage() {
     })
   }
 
-  async function openSetPdfExport(row: SetRow) {
+  async function openSetPdfExport(row: Pick<SetRow, 'id' | 'name'>) {
     try {
       const detail = await ucatSetsApi.detail(row.id)
       if (!detail) throw new Error('Set not found')
@@ -475,49 +477,115 @@ export function UcatSetsPage() {
   if (!access.data) return <UcatAccessDenied />
 
   if (viewMode === 'order') {
-    const orderRows = (sets.data ?? [])
+    const orderRows: SetCatalogOrderRow[] = (sets.data ?? [])
       .filter((set) => set.deleted_at == null && set.mock_id == null)
-      .filter((set) => set.section_id === orderSectionId && set.set_format === orderFormat)
-      .sort((a, b) => (a.catalog_index ?? 0) - (b.catalog_index ?? 0))
-      .flatMap((set) => set.id ? [{
+      .flatMap((set) => set.id && set.section_id && set.set_format ? [{
         id: set.id,
         displayName: set.display_name ?? set.compact_display_name ?? set.id,
-        authoringNote: set.authoring_note,
+        authoringNote: set.authoring_note ?? null,
+        sectionId: set.section_id,
+        sectionName: set.section_name ?? 'Unknown section',
+        sectionNumber: set.section_number ?? null,
+        setFormat: set.set_format,
+        catalogIndex: set.catalog_index ?? null,
+        status: set.status ?? 'draft',
+        timingMode: set.timing_mode ?? 'untimed',
+        paceMultiplier: set.pace_multiplier ?? null,
+        timeLimitSeconds: set.time_limit_seconds ?? null,
+        questionCount: set.question_count ?? 0,
       }] : [])
     return (
       <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="UCAT Sets"
-          description="Set deterministic display order within a section and format"
+          description="Set deterministic published order within each section and format"
           backHref="/ucat"
           breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Sets' }]}
-          actions={<SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />}
+          actions={<div className="flex items-center gap-2">
+            <SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />
+            <Button
+              className={tutorBtnPrimary}
+              onClick={() => {
+                setCreateSectionId(null)
+                setCreateSetFormat('full_section')
+                setOpenCreate(true)
+              }}
+            >
+              Add Set
+            </Button>
+          </div>}
         />
-        <div className="grid gap-3 sm:grid-cols-2">
-          <SearchableSelect<(typeof sections)[number]>
-            items={sections}
-            value={sections.find((section) => section.id === orderSectionId) ?? null}
-            onValueChange={(section) => setOrderSectionId(section?.id ?? null)}
-            getItemLabel={(section) => section.name ?? 'Untitled section'}
-            getItemId={(section) => section.id ?? ''}
-            placeholder="Select section"
-          />
-          <SearchableSelect<{ value: UcatQuestionSetFormat; label: string }>
-            items={[{ value: 'full_section', label: 'Full section' }, { value: 'partial_section', label: 'Partial section' }]}
-            value={orderFormat === 'full_section' ? { value: 'full_section', label: 'Full section' } : { value: 'partial_section', label: 'Partial section' }}
-            onValueChange={(format) => format && setOrderFormat(format.value)}
-            getItemLabel={(format) => format.label}
-            getItemId={(format) => format.value}
-          />
-        </div>
-        <UcatCatalogOrderEditor
+        <UcatSetCatalogOrderView
           rows={orderRows}
-          onSave={async (ids) => {
-            if (!orderSectionId) return
-            await ucatSetsApi.reorder(orderSectionId, orderFormat, ids)
+          sections={sections.flatMap((section) => section.id ? [{
+            id: section.id,
+            name: section.name ?? 'Untitled section',
+            sectionNumber: section.section_number ?? null,
+          }] : [])}
+          onDirtyChange={setOrderDirty}
+          onSave={async (scopes) => {
+            await Promise.all(scopes.map((scope) =>
+              ucatSetsApi.reorder(scope.sectionId, scope.setFormat, scope.ids)
+            ))
             await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
-            toast({ title: 'Set order saved' })
           }}
+          onCreate={(sectionId, setFormat) => {
+            setCreateSectionId(sectionId)
+            setCreateSetFormat(setFormat)
+            setOpenCreate(true)
+          }}
+          onView={setEditingSetId}
+          onExportPdf={(setId) => {
+            const row = orderRows.find((candidate) => candidate.id === setId)
+            if (row) void openSetPdfExport({ id: row.id, name: row.displayName })
+          }}
+          onStatusChange={(row, status) => {
+            if (!confirmDiscardUnsavedOrder(orderDirty)) return
+            changeSetStatus(row.id, status, row.status, 'Cannot change set status')
+          }}
+          onDelete={setDeletingSetId}
+        />
+
+        <UcatCreateSetDialog
+          key={openCreate ? `open:${createSectionId ?? 'none'}:${createSetFormat}` : 'closed'}
+          open={openCreate}
+          initialSectionId={createSectionId}
+          initialSetFormat={createSetFormat}
+          onClose={() => setOpenCreate(false)}
+          onCreated={(setId, setName) => {
+            setEditingSetId(setId)
+            toast({ title: `Set ${setName} created` })
+          }}
+          onOpenLifecycleEntity={openLifecycleEntity}
+        />
+        <UcatSetEditorDialog
+          open={!!editingSetId}
+          setId={editingSetId}
+          onClose={() => setEditingSetId(null)}
+          onDelete={editingSetId ? () => setDeletingSetId(editingSetId) : undefined}
+        />
+        {pdfExportSource ? (
+          <UcatPdfExportDialog open onClose={() => setPdfExportSource(null)} source={pdfExportSource} />
+        ) : null}
+        <UcatDeleteConfirmDialog
+          open={!!deletingSetId}
+          onOpenChange={(open) => !open && setDeletingSetId(null)}
+          title="Delete set?"
+          description="The set will be hidden from students. You can restore it later from the deleted list."
+          onConfirm={async () => {
+            if (!deletingSetId) return
+            setSingleDeletePending(true)
+            try {
+              await deleteSetsWithMockRemoval([deletingSetId])
+              setEditingSetId((previous) => previous === deletingSetId ? null : previous)
+              setDeletingSetId(null)
+            } catch (error) {
+              toast(lifecycleErrorToast(error, 'Cannot delete', router.push, openLifecycleEntity))
+            } finally {
+              setSingleDeletePending(false)
+            }
+          }}
+          isPending={singleDeletePending}
         />
       </div>
     )
@@ -793,6 +861,8 @@ export function UcatSetsPage() {
       <UcatCreateSetDialog
         key={openCreate ? 'open' : 'closed'}
         open={openCreate}
+        initialSectionId={null}
+        initialSetFormat="full_section"
         onClose={() => setOpenCreate(false)}
         onCreated={(setId, setName) => {
           setEditingSetId(setId)
@@ -836,7 +906,6 @@ export function UcatSetsPage() {
         mockId={editingMockId}
         onClose={() => setEditingMockId(null)}
         onEditSet={(setId) => {
-          setEditingMockId(null)
           setEditingSetId(setId)
         }}
       />

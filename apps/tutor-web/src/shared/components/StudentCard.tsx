@@ -1,6 +1,6 @@
 'use client';
 
-import { Badge } from '@altitutor/ui';
+import { AccountClassBadge, Badge } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils';
 
@@ -12,10 +12,11 @@ interface StudentCardProps {
     year_level: number | null;
     school: string | null;
     curriculum?: string | null;
+    account_class?: string | null;
   };
   subjects?: Tables<'subjects'>[];
   onClick?: () => void;
-  
+
   // Visual states
   isSelecting?: boolean;
   isSelected?: boolean;
@@ -28,7 +29,7 @@ export function StudentCard({
   onClick,
   isSelecting = false,
   isSelected = false,
-  showSubjects = true
+  showSubjects = true,
 }: StudentCardProps) {
   const initials = `${student.first_name?.[0] || ''}${student.last_name?.[0] || ''}`.toUpperCase();
 
@@ -40,8 +41,8 @@ export function StudentCard({
             ? 'border-primary bg-primary/5'
             : 'hover:bg-muted/50 cursor-pointer'
           : onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : 'bg-background'
+            ? 'hover:bg-muted/50 cursor-pointer'
+            : 'bg-background'
       }`}
       onClick={isSelecting || onClick ? onClick : undefined}
     >
@@ -50,38 +51,35 @@ export function StudentCard({
           {initials}
         </div>
       </div>
-      
+
       <div className="flex-1 min-w-0">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm">
-              {student.first_name} {student.last_name}
-            </h4>
+            <div className="flex flex-wrap items-center gap-2">
+              <h4 className="font-semibold text-sm">
+                {student.first_name} {student.last_name}
+              </h4>
+              <AccountClassBadge accountClass={student.account_class} />
+            </div>
             <div className="flex items-center gap-2 mt-1">
-              {student.year_level && (
-                <span className="text-xs text-muted-foreground">
-                  Year {student.year_level}
-                </span>
-              )}
+              {student.year_level && <span className="text-xs text-muted-foreground">Year {student.year_level}</span>}
               {student.school && (
                 <>
                   {student.year_level && <span className="text-xs text-muted-foreground">•</span>}
-                  <span className="text-xs text-muted-foreground truncate">
-                    {student.school}
-                  </span>
+                  <span className="text-xs text-muted-foreground truncate">{student.school}</span>
                 </>
               )}
             </div>
           </div>
         </div>
-        
+
         {/* Subjects */}
         {showSubjects && subjects.length > 0 && (
           <div className="flex flex-wrap gap-1 mt-2">
             {subjects.map((subject) => {
               const { style, textColorClass } = getSubjectColorStyle(subject);
               const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-              
+
               return (
                 <Badge
                   key={subject.id}
@@ -99,4 +97,3 @@ export function StudentCard({
     </div>
   );
 }
-

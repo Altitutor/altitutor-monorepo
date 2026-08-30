@@ -6,7 +6,7 @@ import { Loader2 } from 'lucide-react';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
 import type { Tables } from '@altitutor/shared';
 import type { AutomationCondition, AutomationConditionExpression, AutomationAction, ActionConfig } from '../../types';
-import { ENTITY_TYPES_DISPLAY, EVENT_TYPES_DISPLAY } from '../../constants';
+import { ENTITY_TYPES_DISPLAY, EVENT_NAMES_DISPLAY } from '../../constants';
 
 interface Step4ReviewProps {
   formData: WizardFormData;
@@ -132,7 +132,7 @@ export function Step4Review({ formData, ruleId, templates: _templates }: Step4Re
               <span>
                 {formData.trigger_kind === 'RELATIVE_TIME'
                   ? `${formData.trigger_config.offset_minutes / 60} hours before a session starts`
-                  : `${ENTITY_TYPES_DISPLAY[formData.entity_type] || formData.entity_type} is ${formData.event_types.map(et => EVENT_TYPES_DISPLAY[et] || et).join(', ')}`}
+                  : `${ENTITY_TYPES_DISPLAY[formData.entity_type] || formData.entity_type} is ${formData.event_names.map(et => EVENT_NAMES_DISPLAY[et] || et).join(', ')}`}
               </span>
             </div>
             {formData.conditions && (

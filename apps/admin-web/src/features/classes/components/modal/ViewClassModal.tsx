@@ -26,8 +26,7 @@ import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { ClassInfoTab } from './tabs/ClassInfoTab';
-import { ClassStudentsTab } from './tabs/ClassStudentsTab';
-import { ClassStaffTab } from './tabs/ClassStaffTab';
+import { ClassPeopleTab } from './tabs/ClassPeopleTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
 import { IssuePill } from '@/features/issues';
@@ -200,8 +199,8 @@ export function ViewClassModal({
                     <SheetTitle>
                       {isEditing ? 'Edit Class' : 'Class Details'}
                     </SheetTitle>
-                    <SheetDescription className="text-lg font-medium">
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <SheetDescription asChild>
+                      <div className="flex flex-wrap items-center gap-2 text-lg font-medium text-muted-foreground">
                         {classData.long_name?.trim() ?? ''}
                         <IssuePill
                           entityType="class"
@@ -231,8 +230,6 @@ export function ViewClassModal({
                 onValueChange={setActiveTab}
                 options={[
                   { value: 'details', label: 'Details' },
-                  { value: 'students', label: 'Students' },
-                  { value: 'staff', label: 'Staff' },
                   { value: 'sessions', label: 'Sessions' },
                   { value: 'activity', label: 'Activity' },
                 ]}
@@ -244,7 +241,7 @@ export function ViewClassModal({
           <div className="flex-1 min-h-0 relative">
             <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6">
-                <ClassInfoTab
+                    <ClassInfoTab
                   classData={classData}
                   subject={subject}
                   subjects={allSubjects}
@@ -257,38 +254,23 @@ export function ViewClassModal({
                     void invalidateClassSurfaces(queryClient, classData.id);
                     onClassUpdated();
                     toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
-                  }}
-                />
-              </div>
-            </SegmentedTabPanelContent>
-
-            <SegmentedTabPanelContent when="students" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-              <div className="p-6">
-                <ClassStudentsTab
-                  classData={classData}
-                  classSubject={subject || undefined}
-                  classStaff={classStaff}
-                  classStudents={classStudents}
-                  allStudents={allStudentsData}
-                  loadingStudents={false}
-                  onStudentsUpdated={() => {}}
-                />
-              </div>
-            </SegmentedTabPanelContent>
-
-            <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-              <div className="p-6">
-                <ClassStaffTab
-                  classData={classData}
-                  classSubject={subject || undefined}
-                  classStaff={classStaff}
-                  allStaff={allStaffData}
-                  loadingStaff={false}
-                  onAssignStaff={handleAssignStaff}
-                  onRemoveStaff={handleRemoveStaff}
-                />
-              </div>
-            </SegmentedTabPanelContent>
+                      }}
+                    />
+                    <div className="mt-6 border-t pt-6">
+                      <ClassPeopleTab
+                        classData={classData}
+                        classSubject={subject || undefined}
+                        classStaff={classStaff}
+                        classStudents={classStudents}
+                        allStudents={allStudentsData}
+                        allStaff={allStaffData}
+                        onStudentsUpdated={() => {}}
+                        onAssignStaff={handleAssignStaff}
+                        onRemoveStaff={handleRemoveStaff}
+                      />
+                    </div>
+                  </div>
+                </SegmentedTabPanelContent>
 
             <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
               <div className="h-full p-6">

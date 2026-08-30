@@ -119,7 +119,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_signup_step: 0,
     birthday: null,
     ucat_initial_familiarity: null,
-    ucat_analytics_account_class: 'external',
+    account_class: 'external',
   },
   {
     id: 'student-2',
@@ -160,7 +160,7 @@ const mockStudents: Tables<'students'>[] = [
     ucat_signup_step: 0,
     birthday: null,
     ucat_initial_familiarity: null,
-    ucat_analytics_account_class: 'external',
+    account_class: 'external',
   },
 ];
 
@@ -346,7 +346,7 @@ describe('ParentDetailsTab', () => {
       expect(screen.getByLabelText(/first name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/last name/i)).toBeInTheDocument();
       expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-      expect(screen.getByLabelText(/phone/i)).toBeInTheDocument();
+      expect(screen.getByLabelText(/^phone$/i)).toBeInTheDocument();
     });
 
     it('should prefill form with parent data', () => {

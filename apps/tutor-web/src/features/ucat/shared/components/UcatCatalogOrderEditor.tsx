@@ -1,9 +1,13 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { Button, useToast } from '@altitutor/ui'
+import { useToast } from '@altitutor/ui'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
-import { tutorBtnOutline, tutorBtnPrimary, tutorCardCn } from '@/shared/lib/tutor-visual'
+import { tutorCardCn } from '@/shared/lib/tutor-visual'
+import {
+  UcatOrderSaveToolbar,
+  useUnsavedOrderWarning,
+} from '@/features/ucat/shared/components/UcatOrderSaveToolbar'
 
 type CatalogOrderRow = {
   id: string
@@ -14,26 +18,39 @@ type CatalogOrderRow = {
 export function UcatCatalogOrderEditor({
   rows,
   onSave,
+  onDirtyChange,
 }: {
   rows: CatalogOrderRow[]
   onSave: (ids: string[]) => Promise<void>
+  onDirtyChange?: (dirty: boolean) => void
 }) {
   const sourceIds = useMemo(() => rows.map((row) => row.id), [rows])
   const sourceSignature = sourceIds.join(':')
+  const [baselineIds, setBaselineIds] = useState(sourceIds)
   const [orderedIds, setOrderedIds] = useState(sourceIds)
   const [saving, setSaving] = useState(false)
   const { toast } = useToast()
 
-  useEffect(() => setOrderedIds(sourceIds), [sourceIds, sourceSignature])
+  useEffect(() => {
+    setBaselineIds(sourceIds)
+    setOrderedIds(sourceIds)
+  }, [sourceIds, sourceSignature])
 
   const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
-  const dirty = orderedIds.join(':') !== sourceSignature
+  const dirty = orderedIds.join(':') !== baselineIds.join(':')
+
+  useUnsavedOrderWarning(dirty)
+
+  useEffect(() => {
+    onDirtyChange?.(dirty)
+    return () => onDirtyChange?.(false)
+  }, [dirty, onDirtyChange])
 
   async function save() {
     setSaving(true)
     try {
       await onSave(orderedIds)
-      toast({ title: 'Display order saved' })
+      setBaselineIds(orderedIds)
     } catch (error) {
       toast({
         title: 'Could not save display order',
@@ -46,18 +63,17 @@ export function UcatCatalogOrderEditor({
   }
 
   return (
-    <div className={tutorCardCn('space-y-4 p-4')}>
+    <div className={tutorCardCn('space-y-4 p-4 pb-24')}>
       <div>
         <h2 className="font-semibold">Display order</h2>
         <p className="text-sm text-muted-foreground">
-          Drag rows, use the keyboard drag handle, or use the arrow buttons. Saving renumbers the catalog contiguously.
+          Drag rows or use the keyboard drag handle. Saving renumbers the catalog contiguously.
         </p>
       </div>
       {orderedIds.length ? (
         <UcatSortableList
           ids={orderedIds}
           onChange={setOrderedIds}
-          showMoveButtons
           renderLabel={(id, index) => {
             const row = rowById.get(id)
             return (
@@ -71,14 +87,12 @@ export function UcatCatalogOrderEditor({
       ) : (
         <p className="text-sm text-muted-foreground">Nothing is available in this ordering scope.</p>
       )}
-      <div className="flex justify-end gap-2">
-        <Button className={tutorBtnOutline} variant="outline" disabled={!dirty || saving} onClick={() => setOrderedIds(sourceIds)}>
-          Cancel
-        </Button>
-        <Button className={tutorBtnPrimary} disabled={!dirty || saving} onClick={() => void save()}>
-          {saving ? 'Saving…' : 'Save order'}
-        </Button>
-      </div>
+      <UcatOrderSaveToolbar
+        isDirty={dirty}
+        isSaving={saving}
+        onCancel={() => setOrderedIds(baselineIds)}
+        onSave={() => void save()}
+      />
     </div>
   )
 }

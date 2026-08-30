@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(24);
+SELECT plan(27);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', id
@@ -70,26 +70,31 @@ SELECT 'mock', public.tutor_ucat_upsert_mock_v2(
 );
 
 SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
-  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 4,
-  'creating a mock atomically creates all four component sets');
+  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 0,
+  'creating a mock does not materialize empty component sets');
 SELECT is(public.ucat_mock_catalog_name((SELECT id FROM test_catalog_ids WHERE kind = 'mock')),
   'Mock 3', 'mock numbering follows the two deterministic Study plan fixtures');
-SELECT is((SELECT count(DISTINCT section_id)::INTEGER FROM public.question_sets
-  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 4,
-  'the generated component slots follow the four-section blueprint');
+
+INSERT INTO test_catalog_ids(kind, id)
+SELECT 'component', public.tutor_ucat_upsert_question_set_v2(
+  NULL, NULL, '{}'::JSONB, 'pace', 1, NULL, 'full_section', 'public', '[]'::JSONB,
+  (SELECT id FROM public.ucat_sections WHERE section_number = 1),
+  '54100000-0000-4000-8000-000000000001'
+);
+SELECT public.tutor_ucat_attach_mock_set(
+  (SELECT id FROM test_catalog_ids WHERE kind = 'mock'),
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component')
+);
+
+SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
+  WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 1,
+  'a component set can be created separately and attached to the mock');
 SELECT is((SELECT bool_and(
     set_format = 'full_section' AND timing_mode = 'pace' AND pace_multiplier = 1
     AND reference_blueprint_id = '54100000-0000-4000-8000-000000000001'
   ) FROM public.question_sets
   WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), TRUE,
   'component sets carry exact full-section exam-pace intent');
-
-INSERT INTO test_catalog_ids(kind, id)
-SELECT 'component', component.id
-FROM public.question_sets component
-JOIN public.ucat_sections section ON section.id = component.section_id
-WHERE component.mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
-  AND section.section_number = 1;
 
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
@@ -107,7 +112,23 @@ SELECT is((SELECT mock_id FROM public.question_sets
   'detachment turns the same set into a standalone set');
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
-), 'Verbal Reasoning Full Set 3', 'detachment appends to its standalone ordering scope');
+), 'Verbal Reasoning Full Set', 'an unpublished detached set has no catalog number');
+SELECT is((SELECT catalog_index FROM public.question_sets
+  WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'component')), NULL,
+  'an unpublished standalone set does not consume a catalog index');
+UPDATE public.question_sets
+SET status = 'published'
+WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'component');
+SELECT is((SELECT catalog_index FROM public.question_sets
+  WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'component')), 3,
+  'publishing a standalone set appends it to the published ordering scope');
+SELECT is(public.ucat_question_set_catalog_name(
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
+), 'Verbal Reasoning Full Set 3',
+  'published standalone names use the published-only index');
+UPDATE public.question_sets
+SET status = 'draft'
+WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'component');
 SELECT ok(
   public.ucat_content_publication_issues(
     'set', (SELECT id FROM test_catalog_ids WHERE kind = 'component')
@@ -143,7 +164,7 @@ SELECT lives_ok(format(
 ), 'a mock with no session dependencies can be soft deleted');
 SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
   WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
-    AND deleted_at IS NULL), 4,
+    AND deleted_at IS NULL), 1,
   'soft deleting a mock preserves its attached component sets');
 
 SELECT * FROM finish();

@@ -963,8 +963,11 @@ export async function getLeaderboard(
 
   let query = supabase
     .from("student_skill_trainer_attempts")
-    .select("student_id, score, completed_at, students(first_name, last_name)")
+    .select(
+      "student_id, score, completed_at, students!inner(first_name, last_name)",
+    )
     .eq("skill_trainer_id", trainer.id)
+    .eq("students.account_class", "external")
     .not("completed_at", "is", null)
     .order("score", { ascending: false })
     .order("completed_at", { ascending: true });

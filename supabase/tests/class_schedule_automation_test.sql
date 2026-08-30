@@ -43,15 +43,16 @@ SELECT is(
 SELECT is(
   (
     SELECT COUNT(*)::INTEGER
-    FROM public.activity_events ae
-    JOIN public.sessions s ON s.id = ae.session_id
+    FROM public.domain_events event
+    JOIN public.domain_event_entities session_entity
+      ON session_entity.domain_event_id = event.id
+     AND session_entity.entity_type = 'session'
+    JOIN public.sessions s ON s.id = session_entity.entity_id
     WHERE s.class_id = '90000000-0000-0000-0000-000000000008'
-      AND ae.entity_type = 'sessions_staff'
-      AND ae.event_type = 'CREATED'
-      AND ae.metadata->>'assignment_source' IS DISTINCT FROM 'class_staff_sync'
+      AND event.event_name = 'session.staff_added'
   ),
   0,
-  'generated per-Session tutor assignments are marked to suppress notification noise'
+  'generated per-Session tutor assignments do not emit lifecycle or notification noise'
 );
 
 SELECT * FROM finish();

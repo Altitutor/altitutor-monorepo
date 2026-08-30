@@ -25,18 +25,18 @@ import { useUpdateAutomationRule } from '../api/mutations';
 import { useAutomationRule } from '../api/queries';
 import { useMessageTemplates } from '@/features/messages/api/templates';
 import { useStaffMinimal } from '@/features/staff/hooks/useStaffQuery';
-import type { AutomationRuleWithActions, ActivityEntityType, ActivityEventType } from '../types';
+import type { AutomationRuleWithActions, ActivityEntityType, DomainEventName } from '../types';
 import { AutomationActionsList } from './AutomationActionsList';
 import { AutomationConditionsBuilder } from './AutomationConditionsBuilder';
 import type { AutomationConditionExpression } from '../types';
-import { ENTITY_TYPES, EVENT_TYPES } from '../constants';
+import { EVENT_NAMES } from '../constants';
 import { AdminDialogShell } from '@/shared/components';
 
 const ruleFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string().optional().default(''),
   entity_type: z.string().min(1, 'Entity type is required'),
-  event_types: z.array(z.string()).min(1, 'At least one event type is required'),
+  event_names: z.array(z.string()),
   trigger_kind: z.enum(['EVENT', 'RELATIVE_TIME']),
   trigger_config: z.object({
     anchor: z.literal('session.start_at'),
@@ -44,7 +44,15 @@ const ruleFormSchema = z.object({
   }),
   enabled: z.boolean(),
   priority: z.number().int().min(0),
-  conditions: z.any().optional().nullable(),
+  conditions: z.custom<AutomationConditionExpression | null>().optional().nullable(),
+}).superRefine((value, context) => {
+  if (value.trigger_kind === 'EVENT' && value.event_names.length === 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['event_names'],
+      message: 'A lifecycle event is required',
+    });
+  }
 });
 
 interface EditAutomationRuleDialogProps {
@@ -74,7 +82,7 @@ export function EditAutomationRuleDialog({
       name: '',
       description: '',
       entity_type: 'tasks',
-      event_types: ['CREATED'],
+      event_names: ['task.created'],
       trigger_kind: 'EVENT' as const,
       trigger_config: { anchor: 'session.start_at' as const, offset_minutes: 1440 },
       enabled: true,
@@ -98,7 +106,7 @@ export function EditAutomationRuleDialog({
         name: existingRule.name,
         description: existingRule.description || '',
         entity_type: existingRule.entity_type as ActivityEntityType,
-        event_types: existingRule.event_types as ActivityEventType[],
+        event_names: existingRule.event_names as DomainEventName[],
         trigger_kind: existingRule.trigger_kind === 'RELATIVE_TIME' ? 'RELATIVE_TIME' : 'EVENT',
         trigger_config: { anchor: 'session.start_at', offset_minutes: offsetMinutes },
         enabled: existingRule.enabled ?? true,
@@ -109,7 +117,7 @@ export function EditAutomationRuleDialog({
     }
   }, [isOpen, existingRule, form]);
 
-  const selectedEventTypes = form.watch('event_types');
+  const selectedEventTypes = form.watch('event_names');
   const triggerKind = form.watch('trigger_kind');
 
   const onSubmit = async (data: z.infer<typeof ruleFormSchema>) => {
@@ -120,12 +128,12 @@ export function EditAutomationRuleDialog({
           name: data.name,
           description: data.description || null,
           entity_type: data.entity_type,
-          event_types: data.event_types,
+          event_names: data.trigger_kind === 'EVENT' ? data.event_names : [],
           trigger_kind: data.trigger_kind,
           trigger_config: data.trigger_config,
           enabled: data.enabled,
           priority: data.priority,
-          conditions: data.conditions || null,
+          conditions: (data.conditions ?? null) as AutomationRuleWithActions['conditions'],
         },
       });
     } catch (error) {
@@ -289,9 +297,10 @@ export function EditAutomationRuleDialog({
                                 field.onChange(next);
                                 if (next === 'RELATIVE_TIME') {
                                   form.setValue('entity_type', 'sessions');
-                                  form.setValue('event_types', ['SCHEDULED']);
-                                } else if (form.getValues('event_types')[0] === 'SCHEDULED') {
-                                  form.setValue('event_types', ['CREATED']);
+                                  form.setValue('event_names', []);
+                                } else if (form.getValues('event_names').length === 0) {
+                                  form.setValue('entity_type', 'students');
+                                  form.setValue('event_names', ['student.created']);
                                 }
                               }}
                               getItemId={(option) => option.value}
@@ -327,47 +336,22 @@ export function EditAutomationRuleDialog({
 
                   {triggerKind === 'EVENT' && (
                   <div className="flex flex-wrap items-center gap-2 text-base">
-                    <span>When a</span>
+                    <span>When</span>
 
                     <FormField
                       control={form.control}
-                      name="entity_type"
-                      render={({ field }) => {
-                        const selected = ENTITY_TYPES.find((t) => t.value === field.value) ?? null;
-                        return (
-                          <FormItem className="w-[180px]">
-                            <FormControl>
-                              <SearchableSelect<typeof ENTITY_TYPES[number]>
-                                items={[...ENTITY_TYPES]}
-                                value={selected}
-                                onValueChange={(item) => field.onChange(item?.value)}
-                                getItemLabel={(t) => t.label}
-                                getItemId={(t) => t.value}
-                                placeholder="Entity"
-                                triggerClassName="h-9"
-                              />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        );
-                      }}
-                    />
-
-                    <span>is</span>
-
-                    <FormField
-                      control={form.control}
-                      name="event_types"
+                      name="event_names"
                       render={() => {
-                        const selected = EVENT_TYPES.find((t) => t.value === selectedEventTypes[0]) ?? null;
+                        const selected = EVENT_NAMES.find((t) => t.value === selectedEventTypes[0]) ?? null;
                         return (
-                          <FormItem className="w-[140px]">
+                          <FormItem className="w-[320px]">
                             <FormControl>
-                              <SearchableSelect<typeof EVENT_TYPES[number]>
-                                items={[...EVENT_TYPES]}
+                              <SearchableSelect<typeof EVENT_NAMES[number]>
+                                items={[...EVENT_NAMES]}
                                 value={selected}
                                 onValueChange={(item) => {
-                                  form.setValue('event_types', item ? [item.value] : []);
+                                  form.setValue('event_names', item ? [item.value] : []);
+                                  if (item) form.setValue('entity_type', item.entityType);
                                 }}
                                 getItemLabel={(t) => t.label}
                                 getItemId={(t) => t.value}
@@ -381,7 +365,7 @@ export function EditAutomationRuleDialog({
                       }}
                     />
 
-                    {(selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED' || selectedEventTypes[0] === 'SCHEDULED') && (
+                    {selectedEventTypes.length > 0 && (
                       <FormField
                         control={form.control}
                         name="conditions"
@@ -390,8 +374,8 @@ export function EditAutomationRuleDialog({
                             <FormLabel>Conditions</FormLabel>
                             <FormControl>
                               <AutomationConditionsBuilder
-                                conditions={field.value}
-                                eventTypes={selectedEventTypes as ActivityEventType[]}
+                                conditions={field.value ?? null}
+                                eventTypes={selectedEventTypes as DomainEventName[]}
                                 entityType={form.watch('entity_type')}
                                 onChange={field.onChange}
                               />
@@ -413,8 +397,8 @@ export function EditAutomationRuleDialog({
                           <FormLabel>Conditions</FormLabel>
                           <FormControl>
                             <AutomationConditionsBuilder
-                              conditions={field.value}
-                              eventTypes={['SCHEDULED']}
+                              conditions={field.value ?? null}
+                              eventTypes={[]}
                               entityType="sessions"
                               onChange={field.onChange}
                             />

@@ -45,6 +45,7 @@ export function UcatDialogShell({
   footerActions,
   headerControls,
   headerActions,
+  headerBadge,
   warningPills,
   defaultExpanded = false,
   mobileFullscreen = false,
@@ -66,6 +67,8 @@ export function UcatDialogShell({
   /** Primary mode controls shown immediately before the expand button. */
   headerControls?: ReactNode
   headerActions?: ReactNode
+  /** Lifecycle or other compact metadata shown beside the dialog title. */
+  headerBadge?: ReactNode
   warningPills?: string[]
   defaultExpanded?: boolean
   /** Make dense authoring workspaces use the whole viewport on phones. */
@@ -110,7 +113,10 @@ export function UcatDialogShell({
                 <X className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <DialogTitle>{title}</DialogTitle>
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle>{title}</DialogTitle>
+                  {headerBadge ?? null}
+                </div>
                 <DialogDescription className={cn(!subtitle && 'sr-only', subtitle && 'mt-1')}>
                   {subtitle ?? title}
                 </DialogDescription>

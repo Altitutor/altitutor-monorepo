@@ -15,6 +15,9 @@ export type MinimalClass = Pick<
   staff?: Tables<'staff'>[];
 };
 
+export type ClassStudent = Tables<'students'> & { enrolled_at: string };
+export type ClassStaff = Tables<'staff'> & { assigned_at: string };
+
 export interface ClassDeleteImpact {
   futureSessionCount: number;
   historicalSessionCount: number;
@@ -483,8 +486,8 @@ export const classesApi = {
   getClassWithDetails: async (classId: string): Promise<{
     class: Tables<'classes'> | null;
     subject: Tables<'subjects'> | null;
-    students: Tables<'students'>[];
-    staff: Tables<'staff'>[];
+    students: ClassStudent[];
+    staff: ClassStaff[];
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
@@ -525,6 +528,7 @@ export const classesApi = {
       const { data: staffData, error: staffError } = await supabase
         .from('classes_staff')
         .select(`
+          assigned_at,
           staff:staff!class_assignments_staff_id_fkey(*)
         `)
         .eq('class_id', classId)
@@ -535,13 +539,13 @@ export const classesApi = {
       // Transform the data
       const cls = classData as Tables<'classes'>;
       const subject = (classData as { subject_details?: Tables<'subjects'> } | null)?.subject_details ?? null;
-      const students = ((studentsData as Array<{ student: Tables<'students'> | null }> | null) ?? [])
-        .map((row) => row.student)
-        .filter(Boolean) as Tables<'students'>[];
-      const staffRows: Array<{ staff: Tables<'staff'> | null }> = staffData ? ((staffData as unknown) as Array<{ staff: Tables<'staff'> | null }>) : [];
+      const students = ((studentsData as Array<{ enrolled_at: string; student: Tables<'students'> | null }> | null) ?? [])
+        .filter((row): row is { enrolled_at: string; student: Tables<'students'> } => row.student != null)
+        .map((row) => ({ ...row.student, enrolled_at: row.enrolled_at }));
+      const staffRows: Array<{ assigned_at: string; staff: Tables<'staff'> | null }> = staffData ? ((staffData as unknown) as Array<{ assigned_at: string; staff: Tables<'staff'> | null }>) : [];
       const staff = staffRows
-        .map((row) => row.staff)
-        .filter(Boolean) as Tables<'staff'>[];
+        .filter((row): row is { assigned_at: string; staff: Tables<'staff'> } => row.staff != null)
+        .map((row) => ({ ...row.staff, assigned_at: row.assigned_at }));
       
       return { class: cls, subject, students, staff };
       
@@ -558,8 +562,8 @@ export const classesApi = {
   getClassDetails: async (classId: string): Promise<{
     class: Tables<'classes'> | null;
     subject: Tables<'subjects'> | null;
-    students: (Tables<'students'> & { subjects?: Tables<'subjects'>[] })[];
-    staff: Tables<'staff'>[];
+    students: (ClassStudent & { subjects?: Tables<'subjects'>[] })[];
+    staff: ClassStaff[];
     upcomingSessions: Tables<'sessions'>[];
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);

@@ -24,6 +24,8 @@ import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfEx
 import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { useUcatMockBlueprintCandidate } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
+import { UcatCreateSetDialog } from '@/features/ucat/sets/components/UcatCreateSetDialog'
 
 export type SetOption = {
   id: string
@@ -72,6 +74,7 @@ export function UcatMockEditorDialog({
   const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [createSetSectionId, setCreateSetSectionId] = useState<string | null>(null)
   const stemCatalogQuery = useUcatStemCatalog(open)
   const blueprintsQuery = useUcatMockBlueprints()
 
@@ -133,12 +136,24 @@ export function UcatMockEditorDialog({
     stemCatalog: stemCatalogQuery.data ?? [],
   })
   const displayName = (detail.data as { display_name?: string | null } | null)?.display_name ?? 'Mock'
+  const mockStatus = detail.data?.status
+
+  useEffect(() => {
+    if (!open || !detail.isSuccess || detail.data) return
+    toast({
+      title: 'Mock unavailable',
+      description: 'This mock may have been deleted. It cannot be edited.',
+      variant: 'destructive',
+    })
+    onClose()
+  }, [detail.data, detail.isSuccess, onClose, open, toast])
 
   useEffect(() => {
     if (!open) {
       setEditorMode('edit')
       setShowAnswer(false)
       setExportDialogOpen(false)
+      setCreateSetSectionId(null)
     }
   }, [open])
 
@@ -220,6 +235,7 @@ export function UcatMockEditorDialog({
         />
       }
       headerActions={headerActions}
+      headerBadge={mockStatus ? <UcatContentStatusBadge status={mockStatus} /> : undefined}
       warningPills={warningPills}
       hideCancel
       defaultExpanded
@@ -245,6 +261,7 @@ export function UcatMockEditorDialog({
             setCatalogLoading={sets.isLoading}
             sections={sections}
             onEditSet={onEditSet}
+            onCreateSet={setCreateSetSectionId}
             blueprints={blueprints}
             blueprintCandidate={blueprintCandidate}
           />
@@ -262,6 +279,26 @@ export function UcatMockEditorDialog({
         open={exportDialogOpen}
         onClose={() => setExportDialogOpen(false)}
         source={{ kind: 'mock', title: displayName, setIds: draftSetIds }}
+      />
+      <UcatCreateSetDialog
+        key={createSetSectionId ? `mock-set:${createSetSectionId}` : 'mock-set:closed'}
+        open={createSetSectionId != null}
+        initialSectionId={createSetSectionId}
+        initialSetFormat="full_section"
+        initialReferenceBlueprintId={blueprintId}
+        onClose={() => setCreateSetSectionId(null)}
+        onCreated={(setId, setName) => {
+          if (!draftSetIds.includes(setId)) setDraftSetIds([...draftSetIds, setId])
+          toast({
+            title: `${setName} created`,
+            description: 'The set has been added to this mock draft.',
+          })
+        }}
+        onOpenLifecycleEntity={(entityType, entityId) => {
+          if (entityType !== 'set' || !onEditSet) return false
+          onEditSet(entityId)
+          return true
+        }}
       />
     </UcatDialogShell>
   )

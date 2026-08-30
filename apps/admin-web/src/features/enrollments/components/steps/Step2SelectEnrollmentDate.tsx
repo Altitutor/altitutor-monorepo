@@ -3,8 +3,8 @@
 import { useMemo } from 'react';
 import { SearchableSelect } from '@altitutor/ui';
 import { formatDate, cn } from '@/shared/utils';
-import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { EnrollmentContext } from '../../types/enrollment';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
@@ -47,36 +47,35 @@ export function Step2SelectEnrollmentDate({
     }
   }, [context, selectedClass, classData, classSubject]);
 
-  // Generate list of future session dates (next 16 weeks worth)
+  const today = getMidnightAdelaide(new Date());
+  const rangeStart = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Australia/Adelaide', year: 'numeric', month: '2-digit', day: '2-digit',
+  }).format(today);
+  const classId = classForValidation?.id;
+  const { data: classSessionsData, isLoading: isLoadingClassSessions } = useSessionsWithDetails({
+    classId,
+    rangeStart,
+    rangeEnd: classForValidation?.session_end_date ?? undefined,
+    includeInactive: false,
+    orderBy: 'start_at',
+    ascending: true,
+  }, { enabled: !!classId });
+
+  // Use the generated Sessions so multi-day and fortnightly Classes are represented accurately.
   const futureSessionDates = useMemo(() => {
-    if (!classForValidation || classForValidation.day_of_week === null || classForValidation.day_of_week === undefined) {
-      return [];
-    }
-
-    const today = getMidnightAdelaide(new Date());
-    const firstSession = calculateFirstSessionDate(
-      { ...classForValidation, start_time: classForValidation.start_time || '09:00' },
-      today
-    );
-
+    const seenDates = new Set<string>();
     const dates: Array<{ value: string; label: string }> = [];
-    const currentDate = new Date(firstSession);
-    
-    // Generate dates for the next 16 weeks (16 sessions)
-    for (let i = 0; i < 16; i++) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      const formattedDate = formatDate(currentDate);
-      dates.push({
-        value: dateStr,
-        label: formattedDate,
-      });
-      
-      // Move to next week (add 7 days)
-      currentDate.setDate(currentDate.getDate() + 7);
+    for (const session of classSessionsData?.sessions ?? []) {
+      if (!session.start_at) continue;
+      const sessionDate = new Intl.DateTimeFormat('en-CA', {
+        timeZone: 'Australia/Adelaide', year: 'numeric', month: '2-digit', day: '2-digit',
+      }).format(new Date(session.start_at));
+      if (seenDates.has(sessionDate)) continue;
+      seenDates.add(sessionDate);
+      dates.push({ value: sessionDate, label: formatDate(new Date(`${sessionDate}T12:00:00`)) });
     }
-
     return dates;
-  }, [classForValidation]);
+  }, [classSessionsData?.sessions]);
 
   // Get student name for info card
   const studentName = selectedStudent
@@ -121,7 +120,9 @@ export function Step2SelectEnrollmentDate({
           </span>{' '}
           starting on{' '}
           <span className="inline-flex items-center">
-            {futureSessionDates.length > 0 ? (
+            {isLoadingClassSessions ? (
+              <span className="px-2 py-1 text-sm text-muted-foreground">Loading Sessions…</span>
+            ) : futureSessionDates.length > 0 ? (
               <SearchableSelect<{ value: string; label: string }>
                 items={futureSessionDates}
                 value={
@@ -142,7 +143,7 @@ export function Step2SelectEnrollmentDate({
               />
             ) : (
               <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
-                choose class
+                {classForValidation ? 'No future Sessions' : 'choose class'}
               </span>
             )}
           </span>
