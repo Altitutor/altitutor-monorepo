@@ -1,7 +1,12 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import type { UcatContentStatus, UcatQuestionSetPayload } from '@/features/ucat/shared/types'
+
+function invalidateSetMembershipCatalogQueries(queryClient: QueryClient) {
+  void queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
+  void queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
+}
 
 export function useUcatSets() {
   return useQuery({ queryKey: ucatKeys.sets(), queryFn: ucatSetsApi.list })
@@ -19,7 +24,10 @@ export function useCreateUcatSet() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (payload: UcatQuestionSetPayload) => ucatSetsApi.create(payload),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      invalidateSetMembershipCatalogQueries(queryClient)
+    },
   })
 }
 
@@ -29,8 +37,9 @@ export function useUpdateUcatSet() {
     mutationFn: ({ setId, payload }: { setId: string; payload: UcatQuestionSetPayload }) =>
       ucatSetsApi.update(setId, payload),
     onSuccess: (_, variables) => {
-      queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.set(variables.setId) })
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.set(variables.setId) })
+      invalidateSetMembershipCatalogQueries(queryClient)
     },
   })
 }
@@ -52,7 +61,10 @@ export function useDeleteUcatSet() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (setId: string) => ucatSetsApi.remove(setId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      invalidateSetMembershipCatalogQueries(queryClient)
+    },
   })
 }
 
@@ -60,6 +72,9 @@ export function useRestoreUcatSet() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (setId: string) => ucatSetsApi.restore(setId),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ucatKeys.sets() }),
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+      invalidateSetMembershipCatalogQueries(queryClient)
+    },
   })
 }

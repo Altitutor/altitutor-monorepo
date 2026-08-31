@@ -133,7 +133,9 @@ export function UcatCreateSetDialog({
     return [...byId.values()]
   }, [existingStems, stemCatalogQuery.data])
   const existingStemIds = useMemo(() => existingStems.map((stem) => stem.id), [existingStems])
-  const stemCatalogLoading = stemCatalogQuery.isPending && !stemCatalogQuery.data
+  const stemCatalogLoading =
+    stemCatalogQuery.isPending ||
+    (stemCatalogQuery.isFetching && stemCatalogQuery.isStale)
   const stemCatalogError =
     stemCatalogQuery.isError
       ? stemCatalogQuery.error instanceof Error
