@@ -600,7 +600,7 @@
 - **Mock component set** — A UCAT question set currently attached to one mock for one blueprint section. It uses full-section intent, the mock's exact blueprint timing, and the same blueprint reference as its mock while attached; detaching preserves its content and blueprint reference as an unnumbered standalone set until publication.
   _Avoid_: Shared mock set, partial mock section, reusable simultaneous membership
 
-- **Mock section slot** — One blueprint section position in a UCAT mock. Draft mocks may have an empty slot after explicit detachment, but publication requires exactly one compliant Mock component set in every slot; section order is fixed by the blueprint.
+- **Mock section slot** — One blueprint section position in a UCAT mock. Draft mocks may have an empty slot after explicit detachment, but publication requires exactly one Mock component set in every slot whose official question total and answering time match the selected blueprint; category ranges and questions-per-stem are warnings rather than publication blockers. Section order is fixed by the blueprint.
   _Avoid_: Tutor-defined section order, permanent empty section, arbitrary extra set
 
 - **UCAT authoring note** — Optional tutor-only text attached to a UCAT question set or mock for internal identification or editorial context. It never supplies student-facing identity.
@@ -795,7 +795,7 @@
 - **UCAT response inference** — The authoring classification process that independently infers Question stem category, Response type, Answer scheme, and answer key from structural content and answer evidence, then reconciles the results. Certain evidence may prefill a value; strong evidence requires review confirmation, weak or missing evidence requires selection, and conflicting evidence blocks import until resolved.
   _Avoid_: Category-to-type inference, answer-pattern category inference, silent fallback
 
-- **UCAT exam blueprint** — A versioned, test-year-specific composition policy for a full UCAT mock, defining its fixed section order, section question totals, timings, stem or question-unit targets, and optional category composition ranges. Blueprint constraints apply to full mocks rather than focused practice sets and distinguish official test-level requirements from Altitutor-authored composition policy.
+- **UCAT exam blueprint** — A versioned, test-year-specific composition policy for a full UCAT mock, defining its fixed section order, section question totals, timings, stem or question-unit targets, and optional category composition ranges. Official question totals and answering times are publication blockers; category ranges and questions-per-stem remain visible warnings. Blueprint constraints apply to full mocks rather than focused practice sets and distinguish official test-level requirements from Altitutor-authored composition policy.
   _Avoid_: Category quota, universal set rule, timeless UCAT format
 
 - **UCAT exam blueprint version** — An immutable snapshot of one UCAT exam blueprint. Revising a version creates the next version for that test year; existing mocks and compliance audits retain the version they explicitly selected. A category composition constraint may be omitted, but when present it defines a minimum and maximum plus an optional ideal count for one canonical section category.
