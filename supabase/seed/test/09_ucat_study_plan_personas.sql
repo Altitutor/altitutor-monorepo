@@ -5,7 +5,7 @@
 -- These are post-onboarding product personas. Keep them out of the signup
 -- wizard so browser tests land on the Study plan surface they are exercising.
 UPDATE public.students
-SET ucat_signup_step = 4,
+SET ucat_signup_step = 5,
     ucat_signup_completed_at = COALESCE(ucat_signup_completed_at, NOW()),
     ucat_onboarding_completed_at = COALESCE(ucat_onboarding_completed_at, NOW()),
     onboarding_progress = COALESCE(onboarding_progress, '{}'::jsonb) || jsonb_build_object(

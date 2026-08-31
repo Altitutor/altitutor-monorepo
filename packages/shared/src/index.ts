@@ -16,6 +16,7 @@ export * from "./ucat/progress-aggregation";
 export * from "./ucat/question-difficulty";
 export * from "./ucat/question-time-burden";
 export * from "./ucat/catalog-name";
+export * from "./ucat/acquisition-attribution";
 export * from "./types/ucat-subscription";
 export * from "./types/ucat-skill-trainer";
 export * from "./utils/quick-filters";

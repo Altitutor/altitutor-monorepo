@@ -9961,6 +9961,99 @@ export type Database = {
           },
         ]
       }
+      student_product_acquisition_attributions: {
+        Row: {
+          created_at: string
+          first_landing_path: string | null
+          first_referrer_domain: string | null
+          first_touch_captured_at: string | null
+          first_utm_campaign: string | null
+          first_utm_content: string | null
+          first_utm_medium: string | null
+          first_utm_source: string | null
+          first_utm_term: string | null
+          id: string
+          product: string
+          self_reported_at: string | null
+          self_reported_other: string | null
+          self_reported_sources: string[] | null
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          first_landing_path?: string | null
+          first_referrer_domain?: string | null
+          first_touch_captured_at?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_medium?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
+          id?: string
+          product: string
+          self_reported_at?: string | null
+          self_reported_other?: string | null
+          self_reported_sources?: string[] | null
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          first_landing_path?: string | null
+          first_referrer_domain?: string | null
+          first_touch_captured_at?: string | null
+          first_utm_campaign?: string | null
+          first_utm_content?: string | null
+          first_utm_medium?: string | null
+          first_utm_source?: string | null
+          first_utm_term?: string | null
+          id?: string
+          product?: string
+          self_reported_at?: string | null
+          self_reported_other?: string | null
+          self_reported_sources?: string[] | null
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_product_acquisition_attributions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_product_acquisition_attributions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_product_acquisition_attributions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_product_acquisition_attributions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_product_acquisition_attributions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       student_question_attempts: {
         Row: {
           answer_snapshot: Json | null
