@@ -138,10 +138,13 @@ async function selectCalendarDate(page: Page, dateKey: string) {
   const calendar = page.getByRole("region", { name: "Study plan calendar" });
   await expect(calendar).toBeVisible({ timeout: 30_000 });
   const targetMonth = dateKey.slice(0, 7);
+  const targetDate = calendar.locator(`[data-study-plan-date="${dateKey}"]`);
 
   for (let attempt = 0; attempt < 48; attempt += 1) {
+    // The responsive calendar can render two months at once. Check the actual
+    // date before navigating because data-visible-month identifies the first.
+    if ((await targetDate.count()) > 0) break;
     const visibleMonth = await calendar.getAttribute("data-visible-month");
-    if (visibleMonth === targetMonth) break;
     const direction =
       visibleMonth && visibleMonth > targetMonth
         ? "Previous month"
@@ -157,7 +160,7 @@ async function selectCalendarDate(page: Page, dateKey: string) {
     );
   }
 
-  const targetDate = calendar.locator(`[data-study-plan-date="${dateKey}"]`);
+  await expect(targetDate).toBeVisible();
   if ((await targetDate.getAttribute("aria-pressed")) !== "true") {
     await targetDate.click();
   }

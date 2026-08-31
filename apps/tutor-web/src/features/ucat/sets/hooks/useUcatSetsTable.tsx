@@ -15,12 +15,12 @@ import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableU
 import { formatSetTimeLimit } from '@/features/ucat/shared/lib/time-utils'
 import { formatSetSectionsDisplay, getSetSectionStatus, parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import type { Json } from '@altitutor/shared'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { UcatVisibilityBadge } from '@/features/ucat/shared/components/UcatVisibilityBadge'
 import { UcatVisibilityTableHeaderLabel } from '@/features/ucat/shared/components/UcatVisibilityInfoTooltip'
 import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { UCAT_FILTER_NOT_IN_ANY_MOCK } from '@/features/ucat/shared/lib/table-filter-sentinel'
 import { parseJsonUuidArray } from '@/features/ucat/shared/lib/parse-json-uuid-array'
+import { resolveSetTableName } from '@/features/ucat/sets/lib/set-table-name'
 
 type SetRow = {
   id: string
@@ -65,6 +65,9 @@ type UseUcatSetsTableParams<T> = {
 type SetRowInput = {
   id?: string | null
   name?: unknown
+  display_name?: string | null
+  compact_display_name?: string | null
+  authoring_note?: string | null
   time_limit_seconds?: number | null
   access_scope?: 'public' | 'private' | null
   status?: 'draft' | 'in_review' | 'published' | null
@@ -124,7 +127,7 @@ export function useUcatSetsTable<T extends SetRowInput>({
           : formatSetSectionsDisplay(r.sections ?? null)
         return {
           id: row.id ?? '',
-          name: proseMirrorToPlainText((row.name ?? null) as Json | null) || '—',
+          name: resolveSetTableName(row),
           time_limit_seconds: row.time_limit_seconds ?? null,
           access_scope: row.access_scope ?? 'public',
           status: row.status ?? 'draft',

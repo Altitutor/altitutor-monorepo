@@ -29,7 +29,7 @@ import type { CategoryOption, TagOption } from '@/features/ucat/questions/compon
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions, getDefaultStemCatalogFiltersForSetStatus } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import { Trash2 } from 'lucide-react'
+import { Sparkles, Trash2 } from 'lucide-react'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
@@ -46,6 +46,8 @@ import {
   parseLinkedMockBlueprintCompliance,
   recalculateLinkedMockBlueprintCompliance,
 } from '@/features/ucat/mocks/lib/blueprint-compliance'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
+import { UcatCreateSetDialog } from '@/features/ucat/sets/components/UcatCreateSetDialog'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -96,6 +98,7 @@ export function UcatSetEditorDialog({
   const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
   const [showAnswer, setShowAnswer] = useState(false)
   const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [autoFillOpen, setAutoFillOpen] = useState(false)
   const storedLinkedBlueprintReports = useMemo(() => {
     const row = (setsQuery.data ?? []).find(candidate => candidate.id === setId)
     return parseLinkedMockBlueprintCompliance(row?.linked_mock_blueprint_compliance)
@@ -144,6 +147,7 @@ export function UcatSetEditorDialog({
       setEditorMode('edit')
       setShowAnswer(false)
       setExportDialogOpen(false)
+      setAutoFillOpen(false)
       setFilters({})
       setSearch('')
       setSetFilterSearch('')
@@ -333,10 +337,27 @@ export function UcatSetEditorDialog({
         )
       : null
 
+  const existingAutoFillStems = draftStemIds.flatMap((stemId) => {
+    const stem = stemCatalog.find((candidate) => candidate.id === stemId)
+    return stem ? [stem] : []
+  })
+  const autoFillReady =
+    !!draftSectionId &&
+    !!draftReferenceBlueprintId &&
+    existingAutoFillStems.length === draftStemIds.length
+
   const headerActions = setId != null ? (
         <UcatRowActions
           actions={[
             ...(copyIdAction ? [copyIdAction] : []),
+            ...(autoFillReady
+              ? [{
+                  label: 'Auto-fill questions',
+                  description: 'Keep current stems and fill the remaining target',
+                  icon: <Sparkles className="h-4 w-4" />,
+                  onClick: () => setAutoFillOpen(true),
+                }]
+              : []),
             buildUcatPdfExportAction(() => setExportDialogOpen(true)),
             {
               label: 'Open in page',
@@ -379,6 +400,7 @@ export function UcatSetEditorDialog({
           />
         }
         headerActions={headerActions}
+        headerBadge={setDetailStatus ? <UcatContentStatusBadge status={setDetailStatus} /> : undefined}
         warningPills={warningPills}
         hideCancel
         defaultExpanded
@@ -489,6 +511,31 @@ export function UcatSetEditorDialog({
           stemIds: draftStemIds,
         }}
       />
+
+      {autoFillOpen ? (
+        <UcatCreateSetDialog
+          key={`fill:${setId ?? 'set'}`}
+          open
+          variant="fill"
+          initialSectionId={draftSectionId}
+          initialSetFormat={draftSetFormat}
+          initialReferenceBlueprintId={draftReferenceBlueprintId}
+          existingStems={existingAutoFillStems}
+          onClose={() => setAutoFillOpen(false)}
+          onCreated={() => undefined}
+          onFilled={(stemIds) => {
+            const addedCount = stemIds.filter((stemId) => !draftStemIds.includes(stemId)).length
+            setDraftStemIds(stemIds)
+            toast({
+              title: addedCount > 0
+                ? `${addedCount} ${addedCount === 1 ? 'stem' : 'stems'} added`
+                : 'Set is already filled',
+              description: addedCount > 0 ? 'Save the set to keep these changes.' : undefined,
+            })
+          }}
+          onOpenLifecycleEntity={openLifecycleEntity}
+        />
+      ) : null}
     </>
   )
 }

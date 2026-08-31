@@ -53,6 +53,7 @@ export interface SessionStudent {
   first_name: string;
   last_name: string;
   year_level: number | null;
+  account_class?: 'external' | 'internal_test';
   session_student_id?: string;
   planned_absence?: boolean;
   is_rescheduled?: boolean;
@@ -90,27 +91,27 @@ export function getSessionTitle(session: SessionWithDetails | FlattenedSessionDe
     if (flatSession.subject_curriculum) {
       parts.push(flatSession.subject_curriculum);
     }
-    
+
     // Add year level
     if (flatSession.subject_year_level != null) {
       parts.push(`Year ${flatSession.subject_year_level}`);
     }
-    
+
     // Add subject name
     if (flatSession.subject_name) {
       parts.push(flatSession.subject_name);
     }
-    
+
     // Add class level
     if (flatSession.class_level) {
       parts.push(flatSession.class_level);
     }
-    
+
     // Add day name
     if (flatSession.day_of_week != null) {
       parts.push(DAY_NAMES[flatSession.day_of_week]);
     }
-    
+
     // Add time range
     if (flatSession.start_time && flatSession.end_time) {
       parts.push(`${flatSession.start_time} - ${flatSession.end_time}`);
@@ -120,38 +121,37 @@ export function getSessionTitle(session: SessionWithDetails | FlattenedSessionDe
     const nestedSession = session as SessionWithDetails;
     const classData = nestedSession.class;
     const subject = classData?.subject;
-    
+
     // Add curriculum
     if (subject?.curriculum) {
       parts.push(subject.curriculum);
     }
-    
+
     // Add year level
     if (subject?.year_level != null) {
       parts.push(`Year ${subject.year_level}`);
     }
-    
+
     // Add subject name
     if (subject?.name) {
       parts.push(subject.name);
     }
-    
+
     // Add class level
     if (classData?.level) {
       parts.push(classData.level);
     }
-    
+
     // Add day name
     if (classData?.day_of_week != null) {
       parts.push(DAY_NAMES[classData.day_of_week]);
     }
-    
+
     // Add time range
     if (classData?.start_time && classData?.end_time) {
       parts.push(`${classData.start_time} - ${classData.end_time}`);
     }
   }
-  
+
   return parts.join(' ');
 }
-

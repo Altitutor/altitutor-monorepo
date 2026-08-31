@@ -254,7 +254,7 @@ SET LOCAL ROLE service_role;
 SELECT ok(
   NOT EXISTS (
     SELECT 1
-    FROM public.activity_events
+    FROM public.activity_events_legacy
     WHERE changed_fields::text LIKE '%fd000000-0000-4000-8000-000000000010%'
        OR changed_fields::text LIKE '%fd000000-0000-4000-8000-000000000011%'
        OR changed_fields::text LIKE '%fd000000-0000-4000-8000-000000000012%'

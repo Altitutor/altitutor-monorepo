@@ -24,6 +24,14 @@ const REQUIRED_PERSONAS = [
   "imminent-exam",
 ] as const;
 
+const PRODUCTION_SKILL_TRAINER_KEYS = [
+  "find_word",
+  "quick_syllogism",
+  "mental_maths",
+  "calculator_maths",
+  "numpad_speed",
+] as const;
+
 describe("Preparation policy sandbox", () => {
   it("groups every release persona into a human-readable journey checkpoint", () => {
     const checkpointKeys = PREPARATION_SANDBOX_JOURNEYS.flatMap((journey) =>
@@ -65,6 +73,30 @@ describe("Preparation policy sandbox", () => {
         ),
       ).toHaveLength(run.result.activityCandidates.length);
     }
+  });
+
+  it("supplies the enabled production skill-trainer catalog to every preview persona", () => {
+    for (const key of REQUIRED_PERSONAS) {
+      expect(
+        PREPARATION_SANDBOX_PERSONAS[key].input.content.skillTrainers.map(
+          (trainer) => trainer.key,
+        ),
+      ).toEqual(PRODUCTION_SKILL_TRAINER_KEYS);
+    }
+  });
+
+  it("exercises section-relevant warm-ups across VR, DM and QR", () => {
+    const scheduledSections = new Set(
+      Object.values(PREPARATION_SANDBOX_PERSONAS).flatMap((fixture) =>
+        runPreparationSandboxCase(fixture).result.plan.tasks.flatMap((task) =>
+          task.taskType === "skill_trainer" && task.sectionId
+            ? [task.sectionId]
+            : [],
+        ),
+      ),
+    );
+
+    expect([...scheduledSections].sort()).toEqual(["dm", "qr", "vr"]);
   });
 
   it("exports stable JSON that replays to the identical canonical result", () => {

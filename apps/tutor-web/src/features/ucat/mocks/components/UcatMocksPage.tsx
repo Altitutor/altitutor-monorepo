@@ -58,6 +58,7 @@ import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
+import { confirmDiscardUnsavedOrder } from '@/features/ucat/shared/components/UcatOrderSaveToolbar'
 import {
   firstUcatBulkStatusFailureError,
   lifecycleErrorToast,
@@ -133,6 +134,7 @@ export function UcatMocksPage() {
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
+  const [orderDirty, setOrderDirty] = useState(false)
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
   const { toast } = useToast()
@@ -143,6 +145,7 @@ export function UcatMocksPage() {
   }, [searchParams])
 
   function setViewMode(value: 'table' | 'order') {
+    if (!confirmDiscardUnsavedOrder(orderDirty)) return
     const params = new URLSearchParams(searchParams.toString())
     if (value === 'order') params.set('view', 'order')
     else params.delete('view')
@@ -521,6 +524,7 @@ export function UcatMocksPage() {
         />
         <UcatCatalogOrderEditor
           rows={orderRows}
+          onDirtyChange={setOrderDirty}
           onSave={async (ids) => {
             await ucatMocksApi.reorder(ids)
             await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })

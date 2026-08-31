@@ -4,6 +4,7 @@ import type { KeyboardEvent } from 'react';
 import { useEffect, useState } from 'react';
 import { Users } from 'lucide-react';
 import {
+  AccountClassBadge,
   ClickableCardIcon,
   ClickableCardRevealChevron,
   Tooltip,
@@ -43,6 +44,7 @@ interface StudentMember {
   last_name: string;
   year_level?: number;
   planned_absence?: boolean;
+  account_class?: string | null;
 }
 
 export type TutorDashboardSessionCardProps = {
@@ -97,12 +99,9 @@ export function TutorDashboardSessionCard({
     subjectParts.push(session.class_level);
   }
   const subjectDisplay =
-    subjectParts.length > 0
-      ? subjectParts.join(' ')
-      : formatSessionType(session.session_type ?? '');
+    subjectParts.length > 0 ? subjectParts.join(' ') : formatSessionType(session.session_type ?? '');
 
-  const subjectDisplayShort =
-    session.subject_name || formatSessionType(session.session_type ?? '');
+  const subjectDisplayShort = session.subject_name || formatSessionType(session.session_type ?? '');
 
   const timeRange =
     session.start_at && session.end_at
@@ -125,13 +124,9 @@ export function TutorDashboardSessionCard({
         })()
       : '';
 
-  const subjectForColor = session.subject_color
-    ? ({ color: session.subject_color } as Tables<'subjects'>)
-    : null;
+  const subjectForColor = session.subject_color ? ({ color: session.subject_color } as Tables<'subjects'>) : null;
   const subjectColorHex = getSubjectColorHex(subjectForColor);
-  const defaultBorderClass = !subjectColorHex
-    ? 'ring-1 ring-black/[0.06] dark:ring-white/10'
-    : '';
+  const defaultBorderClass = !subjectColorHex ? 'ring-1 ring-black/[0.06] dark:ring-white/10' : '';
 
   const dateLabel = session.start_at ? formatSessionDate(session.start_at) : '';
 
@@ -153,13 +148,17 @@ export function TutorDashboardSessionCard({
         onOpen
           ? cn(
               'group cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring',
-              clickableCardHoverCn,
+              clickableCardHoverCn
             )
-          : '',
+          : ''
       )}
       style={{
         ...(subjectColorHex
-          ? { borderLeftWidth: 4, borderLeftColor: subjectColorHex, borderLeftStyle: 'solid' }
+          ? {
+              borderLeftWidth: 4,
+              borderLeftColor: subjectColorHex,
+              borderLeftStyle: 'solid',
+            }
           : {}),
       }}
       role={onOpen ? 'button' : undefined}
@@ -206,9 +205,7 @@ export function TutorDashboardSessionCard({
               <div className="flex flex-wrap gap-1">
                 {staff.map((staffMember) => {
                   const fullName = `${staffMember.first_name} ${staffMember.last_name}`;
-                  const display = showFullNames
-                    ? fullName
-                    : getInitials(staffMember.first_name, staffMember.last_name);
+                  const display = showFullNames ? fullName : getInitials(staffMember.first_name, staffMember.last_name);
                   return (
                     <TooltipProvider key={staffMember.id} delayDuration={100}>
                       <Tooltip>
@@ -216,7 +213,7 @@ export function TutorDashboardSessionCard({
                           <span
                             className={cn(
                               'rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-                              shouldUseCompact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs',
+                              shouldUseCompact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs'
                             )}
                           >
                             {display}
@@ -238,9 +235,7 @@ export function TutorDashboardSessionCard({
               <div className="flex flex-wrap gap-1">
                 {students.map((student) => {
                   const fullName = `${student.first_name} ${student.last_name}`;
-                  const display = showFullNames
-                    ? fullName
-                    : getInitials(student.first_name, student.last_name);
+                  const display = showFullNames ? fullName : getInitials(student.first_name, student.last_name);
                   const isAbsent = Boolean(student.planned_absence);
                   return (
                     <TooltipProvider key={student.id} delayDuration={100}>
@@ -252,17 +247,24 @@ export function TutorDashboardSessionCard({
                               isAbsent
                                 ? 'bg-red-100 text-red-600 line-through dark:bg-red-900/30 dark:text-red-400'
                                 : 'bg-muted text-muted-foreground',
-                              shouldUseCompact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs',
+                              shouldUseCompact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs'
                             )}
                           >
                             {display}
+                            <AccountClassBadge
+                              accountClass={student.account_class}
+                              className="ml-1 px-1 py-0 text-[9px]"
+                            />
                           </span>
                         </TooltipTrigger>
                         <TooltipContent>
-                          <p>
-                            {fullName}
-                            {isAbsent ? ' (absent)' : ''}
-                          </p>
+                          <div className="flex items-center gap-2">
+                            <p>
+                              {fullName}
+                              {isAbsent ? ' (absent)' : ''}
+                            </p>
+                            <AccountClassBadge accountClass={student.account_class} />
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>

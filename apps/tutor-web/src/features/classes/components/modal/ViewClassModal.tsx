@@ -6,6 +6,7 @@ import {
   SheetDescription,
   SheetHeader,
   SheetTitle,
+  AccountClassBadge,
   SessionInfoGrid,
   Badge,
   ClassStatusBadge,
@@ -35,12 +36,7 @@ interface ViewClassModalProps {
   onClassUpdated?: () => void;
 }
 
-export function ViewClassModal({
-  isOpen,
-  classId,
-  onClose,
-  onClassUpdated: _onClassUpdated,
-}: ViewClassModalProps) {
+export function ViewClassModal({ isOpen, classId, onClose, onClassUpdated: _onClassUpdated }: ViewClassModalProps) {
   const { students, staff, classData, subject, isLoading } = useClassModalData({
     isOpen,
     classId,
@@ -52,7 +48,7 @@ export function ViewClassModal({
         <SheetContent
           className={cn(
             'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
-            tutorSheetContentClass,
+            tutorSheetContentClass
           )}
         >
           <div className="flex-1 overflow-y-auto p-6">
@@ -73,17 +69,14 @@ export function ViewClassModal({
   }
 
   const classTitle =
-    classData.long_name?.trim() ||
-    classData.short_name?.trim() ||
-    classData.level?.trim() ||
-    'Class Details';
+    classData.long_name?.trim() || classData.short_name?.trim() || classData.level?.trim() || 'Class Details';
 
   const sortedStudents = [...students].sort((a, b) =>
-    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`),
+    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
   );
 
   const sortedStaff = [...staff].sort((a, b) =>
-    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`),
+    `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`)
   );
 
   return (
@@ -91,7 +84,7 @@ export function ViewClassModal({
       <SheetContent
         className={cn(
           'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
-          tutorSheetContentClass,
+          tutorSheetContentClass
         )}
       >
         <div className="flex-1 overflow-y-auto p-6">
@@ -108,8 +101,15 @@ export function ViewClassModal({
             <div>
               <h3 className="mb-4 text-lg font-semibold">Class Information</h3>
               <SessionInfoGrid
-                day={classData.schedule_weekdays.length > 0 ? classData.schedule_weekdays.map(getDayOfWeek).join(', ') : getDayOfWeek(classData.day_of_week)}
-                time={classData.schedule_summary_long || `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}
+                day={
+                  classData.schedule_weekdays.length > 0
+                    ? classData.schedule_weekdays.map(getDayOfWeek).join(', ')
+                    : getDayOfWeek(classData.day_of_week)
+                }
+                time={
+                  classData.schedule_summary_long ||
+                  `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`
+                }
                 subjectNode={
                   subject
                     ? (() => {
@@ -146,9 +146,7 @@ export function ViewClassModal({
                 <h3 className="text-lg font-semibold">Students ({sortedStudents.length})</h3>
               </div>
               {sortedStudents.length === 0 ? (
-                <div className="py-4 text-center text-sm text-muted-foreground">
-                  No students enrolled
-                </div>
+                <div className="py-4 text-center text-sm text-muted-foreground">No students enrolled</div>
               ) : (
                 <div className={tutorTableShell}>
                   <Table>
@@ -160,8 +158,13 @@ export function ViewClassModal({
                     <TableBody>
                       {sortedStudents.map((student) => (
                         <TableRow key={student.id} className={tutorTableBodyRow}>
-                          <TableCell className="font-medium">
-                            {student.first_name} {student.last_name}
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-2 font-medium">
+                              <span>
+                                {student.first_name} {student.last_name}
+                              </span>
+                              <AccountClassBadge accountClass={student.account_class} />
+                            </div>
                           </TableCell>
                         </TableRow>
                       ))}

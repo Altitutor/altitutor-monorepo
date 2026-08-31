@@ -41,14 +41,25 @@ interface TutorLog {
   student_attendance?: TutorLogStudentAttendance[];
   staff_attendance?: TutorLogStaffAttendance[];
   topics?: Array<{ id: string; name: string; subject_id: string }>;
-  files?: Array<{ id: string; topic_id: string; code?: string; filename?: string }>;
+  files?: Array<{
+    id: string;
+    topic_id: string;
+    code?: string;
+    filename?: string;
+  }>;
 }
 
 function parseSessionStudentsFromJson(json: unknown): SessionStudent[] | undefined {
   if (!Array.isArray(json)) return undefined;
   const out: SessionStudent[] = [];
   for (const item of json) {
-    if (typeof item !== 'object' || item === null || !('id' in item) || !('first_name' in item) || !('last_name' in item)) {
+    if (
+      typeof item !== 'object' ||
+      item === null ||
+      !('id' in item) ||
+      !('first_name' in item) ||
+      !('last_name' in item)
+    ) {
       continue;
     }
     const row: SessionStudent = {
@@ -59,6 +70,7 @@ function parseSessionStudentsFromJson(json: unknown): SessionStudent[] | undefin
         'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
           ? (item.year_level as number | null)
           : null,
+      account_class: 'account_class' in item && item.account_class === 'internal_test' ? 'internal_test' : 'external',
       planned_absence: 'planned_absence' in item ? Boolean(item.planned_absence) : false,
       is_rescheduled: 'is_rescheduled' in item ? Boolean(item.is_rescheduled) : false,
       is_credited: 'is_credited' in item ? Boolean(item.is_credited) : false,
@@ -79,10 +91,10 @@ export interface UseSessionModalDataReturn {
   studentsData: ProcessedStudent[];
   staffData: ProcessedStaff[];
   subject: Tables<'subjects'> | null;
-  
+
   // State
   isLoading: boolean;
-  
+
   // Actions
   refresh: () => Promise<void>;
 }
@@ -91,10 +103,7 @@ export interface UseSessionModalDataReturn {
  * Hook for loading and processing session modal data
  * Handles fetching session, tutor log, topics, and processing attendance data
  */
-export function useSessionModalData({
-  isOpen,
-  sessionId,
-}: UseSessionModalDataProps): UseSessionModalDataReturn {
+export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataProps): UseSessionModalDataReturn {
   const [data, setData] = useState<FlattenedSessionDetail | null>(null);
   const [tutorLog, setTutorLog] = useState<TutorLog | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -112,7 +121,14 @@ export function useSessionModalData({
           if (!Array.isArray(json)) return undefined;
           const result: SessionStaff[] = [];
           for (const item of json) {
-            if (typeof item === 'object' && item !== null && 'id' in item && 'first_name' in item && 'last_name' in item && 'role' in item) {
+            if (
+              typeof item === 'object' &&
+              item !== null &&
+              'id' in item &&
+              'first_name' in item &&
+              'last_name' in item &&
+              'role' in item
+            ) {
               const staff: SessionStaff = {
                 id: String(item.id),
                 first_name: String(item.first_name),
@@ -126,7 +142,10 @@ export function useSessionModalData({
                 const subjects: Array<{ id: string; name: string }> = [];
                 for (const subj of item.subjects) {
                   if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
-                    subjects.push({ id: String(subj.id), name: String(subj.name) });
+                    subjects.push({
+                      id: String(subj.id),
+                      name: String(subj.name),
+                    });
                   }
                 }
                 if (subjects.length > 0) {
@@ -171,7 +190,7 @@ export function useSessionModalData({
           }
           return result.length > 0 ? result : undefined;
         };
-        
+
         const parseStaffAttendance = (json: unknown): TutorLogStaffAttendance[] | undefined => {
           if (!Array.isArray(json)) return undefined;
           const result: TutorLogStaffAttendance[] = [];
@@ -186,10 +205,14 @@ export function useSessionModalData({
           }
           return result.length > 0 ? result : undefined;
         };
-        
+
         const parseTopics = (json: unknown): Array<{ id: string; name: string; subject_id: string }> | undefined => {
           if (!Array.isArray(json)) return undefined;
-          const result: Array<{ id: string; name: string; subject_id: string }> = [];
+          const result: Array<{
+            id: string;
+            name: string;
+            subject_id: string;
+          }> = [];
           for (const item of json) {
             if (typeof item === 'object' && item !== null && 'id' in item && 'name' in item && 'subject_id' in item) {
               result.push({
@@ -201,10 +224,24 @@ export function useSessionModalData({
           }
           return result.length > 0 ? result : undefined;
         };
-        
-        const parseFiles = (json: unknown): Array<{ id: string; topic_id: string; code?: string; filename?: string }> | undefined => {
+
+        const parseFiles = (
+          json: unknown
+        ):
+          | Array<{
+              id: string;
+              topic_id: string;
+              code?: string;
+              filename?: string;
+            }>
+          | undefined => {
           if (!Array.isArray(json)) return undefined;
-          const result: Array<{ id: string; topic_id: string; code?: string; filename?: string }> = [];
+          const result: Array<{
+            id: string;
+            topic_id: string;
+            code?: string;
+            filename?: string;
+          }> = [];
           for (const item of json) {
             if (typeof item === 'object' && item !== null && 'id' in item && 'topic_id' in item) {
               result.push({
@@ -217,11 +254,12 @@ export function useSessionModalData({
           }
           return result.length > 0 ? result : undefined;
         };
-        
+
         setTutorLog({
           id: logResult.tutor_log_id,
           tutor_log_id: logResult.tutor_log_id,
-          created_by: 'created_by' in logResult && typeof logResult.created_by === 'string' ? logResult.created_by : null,
+          created_by:
+            'created_by' in logResult && typeof logResult.created_by === 'string' ? logResult.created_by : null,
           student_attendance: parseStudentAttendance(logResult.student_attendance),
           staff_attendance: parseStaffAttendance(logResult.staff_attendance),
           topics: parseTopics(logResult.topics),
@@ -230,7 +268,7 @@ export function useSessionModalData({
       } else {
         setTutorLog(null);
       }
-      
+
       // Fetch all topics for the subject to derive topic codes
       // Use session's subject_id from result
       const subjectId = result?.subject_id;
@@ -238,27 +276,40 @@ export function useSessionModalData({
         const { topicsApi } = await import('@/features/topics/api');
         const topicsData = await topicsApi.getTopicsBySubject(subjectId);
         // Filter to ensure valid topics
-        const validTopics = (topicsData || []).filter((t): t is Tables<'topics'> => 
-          t !== null && typeof t === 'object' && 'id' in t && 'name' in t &&
-          typeof t.id === 'string' && typeof t.name === 'string'
+        const validTopics = (topicsData || []).filter(
+          (t): t is Tables<'topics'> =>
+            t !== null &&
+            typeof t === 'object' &&
+            'id' in t &&
+            'name' in t &&
+            typeof t.id === 'string' &&
+            typeof t.name === 'string'
         );
         setAllTopics(validTopics);
       }
-      
+
       // Also fetch topics if tutor log exists and has topics with subject_id
       if (logResult?.topics && Array.isArray(logResult.topics) && logResult.topics.length > 0) {
         const firstTopic = logResult.topics[0];
         // Type guard to check if topic has subject_id
-        const topicSubjectId = typeof firstTopic === 'object' && firstTopic !== null && 'subject_id' in firstTopic
-          ? typeof firstTopic.subject_id === 'string' ? firstTopic.subject_id : undefined
-          : undefined;
+        const topicSubjectId =
+          typeof firstTopic === 'object' && firstTopic !== null && 'subject_id' in firstTopic
+            ? typeof firstTopic.subject_id === 'string'
+              ? firstTopic.subject_id
+              : undefined
+            : undefined;
         if (topicSubjectId && topicSubjectId !== subjectId) {
           // If different subject, fetch those topics too
           const { topicsApi } = await import('@/features/topics/api');
           const topicsData = await topicsApi.getTopicsBySubject(topicSubjectId);
-          const validTopics = (topicsData || []).filter((t): t is Tables<'topics'> => 
-            t !== null && typeof t === 'object' && 'id' in t && 'name' in t &&
-            typeof t.id === 'string' && typeof t.name === 'string'
+          const validTopics = (topicsData || []).filter(
+            (t): t is Tables<'topics'> =>
+              t !== null &&
+              typeof t === 'object' &&
+              'id' in t &&
+              'name' in t &&
+              typeof t.id === 'string' &&
+              typeof t.name === 'string'
           );
           // Merge with existing topics
           setAllTopics((prev) => {
@@ -299,7 +350,14 @@ export function useSessionModalData({
           if (!Array.isArray(json)) return undefined;
           const result: SessionStaff[] = [];
           for (const item of json) {
-            if (typeof item === 'object' && item !== null && 'id' in item && 'first_name' in item && 'last_name' in item && 'role' in item) {
+            if (
+              typeof item === 'object' &&
+              item !== null &&
+              'id' in item &&
+              'first_name' in item &&
+              'last_name' in item &&
+              'role' in item
+            ) {
               const staff: SessionStaff = {
                 id: String(item.id),
                 first_name: String(item.first_name),
@@ -313,7 +371,10 @@ export function useSessionModalData({
                 const subjects: Array<{ id: string; name: string }> = [];
                 for (const subj of item.subjects) {
                   if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
-                    subjects.push({ id: String(subj.id), name: String(subj.name) });
+                    subjects.push({
+                      id: String(subj.id),
+                      name: String(subj.name),
+                    });
                   }
                 }
                 if (subjects.length > 0) {
@@ -386,9 +447,9 @@ export function useSessionModalData({
     const attendance: Record<string, { attended: boolean; was_trial?: boolean }> = {};
     if (tutorLog?.student_attendance) {
       tutorLog.student_attendance.forEach((att) => {
-        attendance[att.student_id] = { 
+        attendance[att.student_id] = {
           attended: att.attended,
-          was_trial: att.was_trial ?? false
+          was_trial: att.was_trial ?? false,
         };
       });
     }
@@ -411,18 +472,18 @@ export function useSessionModalData({
   // Process students with attendance status
   const studentsData = useMemo(() => {
     return sessionsStudents.map((ss) => {
-      const plannedStatus: 'attending' | 'absent' = ss.planned_absence 
-        ? 'absent' 
-        : 'attending';
+      const plannedStatus: 'attending' | 'absent' = ss.planned_absence ? 'absent' : 'attending';
       const studentId = ss.student_id || (ss.student && 'id' in ss.student ? String(ss.student.id) : '');
       const actualAttendance = studentId ? actualStudentAttendance[studentId] : undefined;
       const wasTrialActual = actualAttendance?.was_trial ?? false;
       const actualStatus = !hasTutorLog
-        ? 'not-logged' as const
+        ? ('not-logged' as const)
         : actualAttendance?.attended
-        ? (wasTrialActual ? 'attended' as const : 'attended' as const)
-        : 'did-not-attend' as const;
-      
+          ? wasTrialActual
+            ? ('attended' as const)
+            : ('attended' as const)
+          : ('did-not-attend' as const);
+
       return {
         student: ss.student,
         plannedStatus,
@@ -437,11 +498,11 @@ export function useSessionModalData({
       const plannedStatus: 'attending' = 'attending' as const;
       const actualAttendance = actualStaffAttendance[sf.staff_id];
       const actualStatus = !hasTutorLog
-        ? 'not-logged' as const
+        ? ('not-logged' as const)
         : actualAttendance?.attended
-        ? 'attended' as const
-        : 'did-not-attend' as const;
-      
+          ? ('attended' as const)
+          : ('did-not-attend' as const);
+
       return {
         staff: sf.staff,
         plannedStatus,

@@ -29,7 +29,12 @@ export const ucatMocksApi = {
 
   async detail(mockId: string) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_mock_detail').select('*').eq('id', mockId).maybeSingle()
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_detail')
+      .select('*')
+      .eq('id', mockId)
+      .is('deleted_at', null)
+      .maybeSingle()
     if (error) throw error
     return data
   },

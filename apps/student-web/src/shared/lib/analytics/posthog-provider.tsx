@@ -1,14 +1,16 @@
-'use client';
+"use client";
 
-import { Suspense, useEffect, useRef, useState } from 'react';
-import { usePathname, useSearchParams } from 'next/navigation';
-import { PostHogProvider as PHProvider } from 'posthog-js/react';
-import { useAuth } from '@/features/auth/providers';
+import { Suspense, useEffect, useRef, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
+import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { useAuth } from "@/features/auth/providers";
 import {
   getStudentAnalyticsSurface,
   posthog,
+  sanitizeStudentAnalyticsPathname,
+  sanitizeStudentAnalyticsUrl,
   STUDENT_ANALYTICS_CONTEXT,
-} from './posthog';
+} from "./posthog";
 
 let initialized = false;
 
@@ -18,13 +20,19 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    const query = searchParams.toString();
-    const currentUrl = `${window.location.origin}${pathname}${query ? `?${query}` : ''}`;
+    const safePathname = sanitizeStudentAnalyticsPathname(pathname);
+    const safeQuery = new URLSearchParams();
+    const step = searchParams.get("step");
+    if (step && /^\d+$/.test(step)) safeQuery.set("step", step);
+    const query = safeQuery.toString();
+    const currentUrl = sanitizeStudentAnalyticsUrl(
+      `${window.location.origin}${safePathname}${query ? `?${query}` : ""}`,
+    );
 
-    posthog.capture('$pageview', {
+    posthog.capture("$pageview", {
       $current_url: currentUrl,
       ...STUDENT_ANALYTICS_CONTEXT,
-      surface: getStudentAnalyticsSurface(pathname),
+      surface: getStudentAnalyticsSurface(safePathname),
     });
   }, [enabled, pathname, searchParams]);
 
@@ -41,7 +49,7 @@ export function StudentPostHogIdentity() {
 
     if (userId) {
       posthog.identify(userId, {
-        active_product: 'online-learning',
+        active_product: "online-learning",
       });
       previousUserId.current = userId;
       return;
@@ -56,7 +64,11 @@ export function StudentPostHogIdentity() {
   return null;
 }
 
-export function StudentPostHogProvider({ children }: { children: React.ReactNode }) {
+export function StudentPostHogProvider({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const [ready, setReady] = useState(initialized);
 
   useEffect(() => {
@@ -66,14 +78,14 @@ export function StudentPostHogProvider({ children }: { children: React.ReactNode
     if (!initialized) {
       posthog.init(token, {
         api_host:
-          process.env.NEXT_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com',
-        defaults: '2026-05-30',
+          process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
+        defaults: "2026-05-30",
         capture_pageview: false,
         capture_pageleave: true,
         autocapture: false,
         capture_dead_clicks: false,
         cross_subdomain_cookie: true,
-        person_profiles: 'identified_only',
+        person_profiles: "identified_only",
         disable_session_recording: true,
         disable_surveys: true,
       });
@@ -82,7 +94,7 @@ export function StudentPostHogProvider({ children }: { children: React.ReactNode
         environment:
           process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT ??
           process.env.NODE_ENV ??
-          'development',
+          "development",
       });
       initialized = true;
     }

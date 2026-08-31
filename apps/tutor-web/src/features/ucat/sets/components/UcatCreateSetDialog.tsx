@@ -11,7 +11,11 @@ import {
   Textarea,
   useToast,
 } from '@altitutor/ui'
-import { useUcatCategories, useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import {
+  useUcatCategories,
+  useUcatStemCatalog,
+  type UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useCreateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatSetPropertyRow } from '@/features/ucat/sets/components/UcatSetPropertyRow'
@@ -61,17 +65,31 @@ const SET_FORMAT_OPTIONS: Array<{ value: UcatQuestionSetFormat; label: string }>
   { value: 'partial_section', label: 'Partial section' },
 ]
 
+const EMPTY_EXISTING_STEMS: UcatStemCatalogItem[] = []
+
 type UcatCreateSetDialogProps = {
   open: boolean
+  initialSectionId?: string | null
+  initialSetFormat?: UcatQuestionSetFormat
+  initialReferenceBlueprintId?: string | null
+  variant?: 'create' | 'fill'
+  existingStems?: UcatStemCatalogItem[]
   onClose: () => void
   onCreated: (setId: string, name: string) => void
+  onFilled?: (stemIds: string[]) => void
   onOpenLifecycleEntity: (entityType: UcatLifecycleEntityType, entityId: string) => boolean
 }
 
 export function UcatCreateSetDialog({
   open,
+  initialSectionId = null,
+  initialSetFormat = 'full_section',
+  initialReferenceBlueprintId = null,
+  variant = 'create',
+  existingStems = EMPTY_EXISTING_STEMS,
   onClose,
   onCreated,
+  onFilled,
   onOpenLifecycleEntity,
 }: UcatCreateSetDialogProps) {
   const { toast } = useToast()
@@ -84,16 +102,16 @@ export function UcatCreateSetDialog({
 
   const [authoringNote, setAuthoringNote] = useState('')
   const [description, setDescription] = useState('')
-  const [setFormat, setSetFormat] = useState<UcatQuestionSetFormat>('full_section')
+  const [setFormat, setSetFormat] = useState<UcatQuestionSetFormat>(initialSetFormat)
   const [timeLimitSource, setTimeLimitSource] = useState<SetTimeLimitSource>('paced')
   const [timeLimitSpeed, setTimeLimitSpeed] = useState(PACED_SPEED_DEFAULT)
   const [timeLimitMinutes, setTimeLimitMinutes] = useState('')
   const [timeLimitSeconds, setTimeLimitSeconds] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
-  const [autoCriteriaEnabled, setAutoCriteriaEnabled] = useState(false)
-  const [autoSectionId, setAutoSectionId] = useState<string | null>(null)
+  const [autoCriteriaEnabled, setAutoCriteriaEnabled] = useState(variant === 'fill')
+  const [autoSectionId, setAutoSectionId] = useState<string | null>(initialSectionId)
   const [autoMode, setAutoMode] = useState<AutoSetMode>('range')
-  const [autoBlueprintId, setAutoBlueprintId] = useState<string | null>(null)
+  const [autoBlueprintId, setAutoBlueprintId] = useState<string | null>(initialReferenceBlueprintId)
   const [autoTargetTotal, setAutoTargetTotal] = useState('')
   const [autoCategoryTargets, setAutoCategoryTargets] = useState<Record<string, string>>({})
   const [autoCategoryRanges, setAutoCategoryRanges] = useState<Record<string, AutoCategoryRangeInput>>({})
@@ -107,7 +125,14 @@ export function UcatCreateSetDialog({
     publishedOnly: true,
     lite: true,
   })
-  const stemCatalog = useMemo(() => stemCatalogQuery.data ?? [], [stemCatalogQuery.data])
+  const stemCatalog = useMemo(() => {
+    const byId = new Map<string, UcatStemCatalogItem>(
+      (stemCatalogQuery.data ?? []).map((stem) => [stem.id, stem]),
+    )
+    for (const stem of existingStems) byId.set(stem.id, stem)
+    return [...byId.values()]
+  }, [existingStems, stemCatalogQuery.data])
+  const existingStemIds = useMemo(() => existingStems.map((stem) => stem.id), [existingStems])
   const stemCatalogLoading = stemCatalogQuery.isPending && !stemCatalogQuery.data
   const stemCatalogError =
     stemCatalogQuery.isError
@@ -331,6 +356,7 @@ export function UcatCreateSetDialog({
       onlyNotInAnotherSet: autoOnlyNotInAnotherSet,
       categories: (categoriesQuery.data ?? []) as AutoCategoryRow[],
       stems: stemCatalog,
+      existingStemIds: variant === 'fill' ? existingStemIds : undefined,
       seed: autoSeed,
     }).then((preview) => {
       if (!cancelled) {
@@ -362,10 +388,12 @@ export function UcatCreateSetDialog({
     autoTargetQuestions,
     autoTargetTotal,
     categoriesQuery.data,
+    existingStemIds,
     open,
     stemCatalog,
     stemCatalogError,
     stemCatalogLoading,
+    variant,
   ])
 
   const autoPrivateStemCount =
@@ -378,7 +406,8 @@ export function UcatCreateSetDialog({
       !!autoRangeValidationError ||
       !autoPreview ||
       autoPreview.selectedStems.length === 0 ||
-      autoPreview.totalQuestions <= 0)
+      autoPreview.totalQuestions <= 0 ||
+      (variant === 'fill' && autoPreview.selectedStems.every((stem) => existingStemIds.includes(stem.id))))
 
   const createQuestionCount = autoCriteriaEnabled ? (autoPreview?.totalQuestions ?? 0) : 0
   const resolvedTimeLimitSeconds = resolveSetTimeLimitSeconds({
@@ -398,6 +427,12 @@ export function UcatCreateSetDialog({
 
   async function onCreate() {
     if (!autoSectionId || !autoBlueprintId) return
+    if (variant === 'fill') {
+      if (!autoPreview) return
+      onFilled?.(autoPreview.selectedStems.map((stem) => stem.id))
+      onClose()
+      return
+    }
     const stemIds = autoCriteriaEnabled ? (autoPreview?.selectedStems.map((stem) => stem.id) ?? []) : []
     const payload: UcatQuestionSetPayload = {
       authoringNote,
@@ -425,22 +460,24 @@ export function UcatCreateSetDialog({
     <UcatDialogShell
       open={open}
       onClose={handleClose}
-      title="Create Set"
-      subtitle="Create a new UCAT set"
+      title={variant === 'fill' ? 'Auto-fill Set' : 'Create Set'}
+      subtitle={variant === 'fill' ? 'Preserve current questions and fill the remaining target' : 'Create a new UCAT set'}
       onSave={() => void onCreate()}
-      saveLabel="Create"
+      saveLabel={variant === 'fill' ? 'Add questions' : 'Create'}
       saveDisabled={
-        createSet.isPending ||
+        (variant === 'create' && createSet.isPending) ||
         !autoSectionId ||
         !autoBlueprintId ||
         autoCreateDisabled ||
-        timeLimitInvalid
+        (variant === 'create' && timeLimitInvalid)
       }
-      isSaving={createSet.isPending}
+      isSaving={variant === 'create' && createSet.isPending}
     >
       <div className={cn('flex h-full min-h-0 flex-col md:flex-row')}>
         <div className="min-h-0 flex-1 overflow-y-auto p-6">
           <div className={tutorCardCn('space-y-1 px-3 py-2')}>
+            {variant === 'create' ? (
+              <>
             <UcatSetPropertyRow label="Tutor note">
               <Input
                 value={authoringNote}
@@ -515,7 +552,15 @@ export function UcatCreateSetDialog({
                 getItemId={(item) => item.value}
               />
             </UcatSetPropertyRow>
-            <UcatSetPropertyRow label="Automatically add questions based on criteria">
+              </>
+            ) : (
+              <div className="px-1 py-2 text-sm text-muted-foreground">
+                {existingStemIds.length} existing {existingStemIds.length === 1 ? 'stem is' : 'stems are'} preserved.
+                The preview adds only what is needed to best match the selected targets.
+              </div>
+            )}
+            {variant === 'create' ? (
+              <UcatSetPropertyRow label="Automatically add questions based on criteria">
               <div className="space-y-1">
                 <div className="flex h-10 items-center">
                   <Switch
@@ -530,7 +575,8 @@ export function UcatCreateSetDialog({
                   Selects whole approved stems. Exact question totals may not be possible.
                 </p>
               </div>
-            </UcatSetPropertyRow>
+              </UcatSetPropertyRow>
+            ) : null}
 
             {autoCriteriaEnabled ? (
               <>

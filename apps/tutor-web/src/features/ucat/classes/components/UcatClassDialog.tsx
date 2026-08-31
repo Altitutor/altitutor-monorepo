@@ -1,7 +1,7 @@
-"use client";
+'use client';
 
-import { useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   DndContext,
   PointerSensor,
@@ -12,14 +12,11 @@ import {
   closestCenter,
   type DragEndEvent,
   type DragStartEvent,
-} from "@dnd-kit/core";
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
-  SortableContext,
-  verticalListSortingStrategy,
-  useSortable,
-} from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import {
+  AccountClassBadge,
   Button,
   ListToolbar,
   SegmentedControl,
@@ -30,93 +27,73 @@ import {
   TableHeader,
   TableRow,
   useToast,
-} from "@altitutor/ui";
-import {
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from "@/shared/components/segmented-tab-panel";
-import {
-  tutorTableBodyRow,
-  tutorTableHeaderRow,
-  tutorTableShell,
-  tutorToolbarProps,
-} from "@/shared/lib/tutor-visual";
-import { Eye, GripVertical, Trash2 } from "lucide-react";
-import { format } from "date-fns";
-import { UcatDialogShell } from "@/features/ucat/shared/dialog-shell";
-import { useUcatCopyId } from "@/features/ucat/shared/hooks/useUcatCopyId";
-import { buildCopyIdRowAction } from "@/features/ucat/shared/lib/copy-id-actions";
-import { UcatRowActions } from "@/features/ucat/shared/row-actions";
-import { useUcatClassSessions } from "@/features/ucat/classes/hooks/useUcatClassSessions";
-import { useUcatSets } from "@/features/ucat/sets/hooks/useUcatSets";
-import { useUcatMocks } from "@/features/ucat/mocks/hooks/useUcatMocks";
-import { useUcatLearningModules } from "@/features/ucat/learning-modules/hooks/useUcatLearningModules";
-import { ucatQuestionsApi } from "@/features/ucat/questions/api/questions";
-import { ucatKeys } from "@/features/ucat/shared/lib/query-keys";
+} from '@altitutor/ui';
+import { SegmentedTabPanel, SegmentedTabPanelContent } from '@/shared/components/segmented-tab-panel';
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell, tutorToolbarProps } from '@/shared/lib/tutor-visual';
+import { Eye, GripVertical, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell';
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId';
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions';
+import { UcatRowActions } from '@/features/ucat/shared/row-actions';
+import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions';
+import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets';
+import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks';
+import { useUcatLearningModules } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules';
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions';
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys';
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
   applyRangeFilter,
   applySort,
-} from "@/features/ucat/shared/hooks/useUcatTableState";
-import type {
-  DataTableColumnDefinition,
-  DataTableFilterDefinition,
-  Json,
-} from "@altitutor/shared";
-import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
-import type { UcatSessionWithResources } from "@/features/ucat/classes/api/classes";
+} from '@/features/ucat/shared/hooks/useUcatTableState';
+import type { DataTableColumnDefinition, DataTableFilterDefinition, Json } from '@altitutor/shared';
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text';
+import type { UcatSessionWithResources } from '@/features/ucat/classes/api/classes';
 import {
   type DraftResource,
   useUcatClassResourceDrafts,
-} from "@/features/ucat/classes/hooks/useUcatClassResourceDrafts";
-import {
-  useUcatClassStudentIds,
-  useUcatStudentProgressSummary,
-} from "@/features/ucat/students/hooks/useUcatStudents";
-import { UcatPredictedScoreCell } from "@/features/ucat/students/components/UcatPredictedScoreCell";
+} from '@/features/ucat/classes/hooks/useUcatClassResourceDrafts';
+import { useUcatClassStudentIds, useUcatStudentProgressSummary } from '@/features/ucat/students/hooks/useUcatStudents';
+import { UcatPredictedScoreCell } from '@/features/ucat/students/components/UcatPredictedScoreCell';
 
 /** Stable empty array so useEffect([open, sessions]) does not re-run when query is disabled (data undefined). */
 const EMPTY_SESSIONS: UcatSessionWithResources[] = [];
 
-const STUDENT_DEFAULT_VISIBLE_COLUMNS = [
-  "student_name",
-  "predicted_score",
-  "delivery_mode",
-  "online_tier",
-];
+const STUDENT_DEFAULT_VISIBLE_COLUMNS = ['student_name', 'predicted_score', 'delivery_mode', 'online_tier'];
 
 const STUDENT_COLUMN_DEFINITIONS: DataTableColumnDefinition[] = [
-  { key: "student_name", label: "Student", visibleByDefault: true },
+  { key: 'student_name', label: 'Student', visibleByDefault: true },
   {
-    key: "total_questions",
-    label: "Question attempts",
+    key: 'total_questions',
+    label: 'Question attempts',
     visibleByDefault: false,
   },
   {
-    key: "total_sets_attempted",
-    label: "Set attempts",
+    key: 'total_sets_attempted',
+    label: 'Set attempts',
     visibleByDefault: false,
   },
   {
-    key: "total_mocks_attempted",
-    label: "Mock attempts",
+    key: 'total_mocks_attempted',
+    label: 'Mock attempts',
     visibleByDefault: false,
   },
-  { key: "predicted_score", label: "Predicted score", visibleByDefault: true },
-  { key: "delivery_mode", label: "Delivery", visibleByDefault: true },
-  { key: "online_tier", label: "Online plan", visibleByDefault: true },
+  { key: 'predicted_score', label: 'Predicted score', visibleByDefault: true },
+  { key: 'delivery_mode', label: 'Delivery', visibleByDefault: true },
+  { key: 'online_tier', label: 'Online plan', visibleByDefault: true },
 ];
 
 function sessionTitle(startAt: string | null): string {
-  if (!startAt) return "—";
+  if (!startAt) return '—';
   const d = new Date(startAt);
-  return format(d, "EEE, d MMM");
+  return format(d, 'EEE, d MMM');
 }
 
 function sectionSubtitle(section_index: number, section_name: string): string {
   if (section_name) return `${section_index}. ${section_name}`;
-  return "";
+  return '';
 }
 
 function DroppableSessionWithDraft({
@@ -130,9 +107,7 @@ function DroppableSessionWithDraft({
 }: {
   session: UcatSessionWithResources;
   draftResources: DraftResource[];
-  setLookup: (
-    id: string,
-  ) => {
+  setLookup: (id: string) => {
     name: string;
     section_index: number;
     section_name: string;
@@ -151,15 +126,10 @@ function DroppableSessionWithDraft({
   return (
     <div
       ref={setNodeRef}
-      className={`rounded-2xl border-0 p-3 ring-1 ring-black/[0.06] dark:ring-white/10 ${isOver ? "ring-2 ring-primary/50 bg-primary/5" : "bg-muted/30"}`}
+      className={`rounded-2xl border-0 p-3 ring-1 ring-black/[0.06] dark:ring-white/10 ${isOver ? 'ring-2 ring-primary/50 bg-primary/5' : 'bg-muted/30'}`}
     >
-      <div className="font-medium text-sm">
-        {sessionTitle(session.start_at)}
-      </div>
-      <SortableContext
-        items={sortableIds}
-        strategy={verticalListSortingStrategy}
-      >
+      <div className="font-medium text-sm">{sessionTitle(session.start_at)}</div>
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
         <div className="mt-2 space-y-1.5 text-xs">
           {draftResources.map((r) => (
             <DraftResourceRow
@@ -187,9 +157,7 @@ function DraftResourceRow({
   onRemove,
 }: {
   resource: DraftResource;
-  setLookup: (
-    id: string,
-  ) => {
+  setLookup: (id: string) => {
     name: string;
     section_index: number;
     section_name: string;
@@ -200,83 +168,51 @@ function DraftResourceRow({
   lessonLookup: (id: string) => { name: string; block_count: number } | null;
   onRemove: () => void;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `res-${resource.draftId}`,
   });
   const style = { transform: CSS.Transform.toString(transform), transition };
 
-  const setInfo =
-    resource.type === "set" ? setLookup(resource.resource_id) : null;
-  const mockInfo =
-    resource.type === "mock" ? mockLookup(resource.resource_id) : null;
-  const stemInfo =
-    resource.type === "stem" ? stemLookup(resource.resource_id) : null;
-  const lessonInfo =
-    resource.type === "lesson" ? lessonLookup(resource.resource_id) : null;
+  const setInfo = resource.type === 'set' ? setLookup(resource.resource_id) : null;
+  const mockInfo = resource.type === 'mock' ? mockLookup(resource.resource_id) : null;
+  const stemInfo = resource.type === 'stem' ? stemLookup(resource.resource_id) : null;
+  const lessonInfo = resource.type === 'lesson' ? lessonLookup(resource.resource_id) : null;
 
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded border border-border/60 bg-background px-2 py-1.5 ${isDragging ? "opacity-60" : ""}`}
+      className={`flex items-center gap-2 rounded border border-border/60 bg-background px-2 py-1.5 ${isDragging ? 'opacity-60' : ''}`}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground shrink-0"
-        {...attributes}
-        {...listeners}
-      >
+      <button type="button" className="cursor-grab text-muted-foreground shrink-0" {...attributes} {...listeners}>
         <GripVertical className="h-3.5 w-3.5" />
       </button>
       <div className="min-w-0 flex-1">
-        {resource.type === "set" && setInfo ? (
+        {resource.type === 'set' && setInfo ? (
           <>
             <div>{setInfo.name}</div>
-            <div className="text-muted-foreground">
-              {sectionSubtitle(setInfo.section_index, setInfo.section_name)}
-            </div>
+            <div className="text-muted-foreground">{sectionSubtitle(setInfo.section_index, setInfo.section_name)}</div>
           </>
-        ) : resource.type === "mock" && mockInfo ? (
+        ) : resource.type === 'mock' && mockInfo ? (
           <div>{mockInfo.name}</div>
-        ) : resource.type === "stem" && stemInfo ? (
+        ) : resource.type === 'stem' && stemInfo ? (
           <div>{stemInfo.name}</div>
-        ) : resource.type === "lesson" && lessonInfo ? (
+        ) : resource.type === 'lesson' && lessonInfo ? (
           <div>{lessonInfo.name}</div>
         ) : (
           <div className="text-muted-foreground">{resource.resource_id}</div>
         )}
       </div>
-      {resource.type === "set" && setInfo ? (
-        <span className="shrink-0 text-muted-foreground">
-          {setInfo.question_count} q
-        </span>
-      ) : resource.type === "mock" && mockInfo ? (
-        <span className="shrink-0 text-muted-foreground">
-          {mockInfo.set_count} sets
-        </span>
-      ) : resource.type === "stem" && stemInfo ? (
-        <span className="shrink-0 text-muted-foreground">
-          {stemInfo.question_count} q
-        </span>
-      ) : resource.type === "lesson" && lessonInfo ? (
-        <span className="shrink-0 text-muted-foreground">
-          {lessonInfo.block_count} blocks
-        </span>
+      {resource.type === 'set' && setInfo ? (
+        <span className="shrink-0 text-muted-foreground">{setInfo.question_count} q</span>
+      ) : resource.type === 'mock' && mockInfo ? (
+        <span className="shrink-0 text-muted-foreground">{mockInfo.set_count} sets</span>
+      ) : resource.type === 'stem' && stemInfo ? (
+        <span className="shrink-0 text-muted-foreground">{stemInfo.question_count} q</span>
+      ) : resource.type === 'lesson' && lessonInfo ? (
+        <span className="shrink-0 text-muted-foreground">{lessonInfo.block_count} blocks</span>
       ) : null}
-      <Button
-        type="button"
-        variant="ghost"
-        size="icon"
-        className="h-6 w-6 shrink-0"
-        onClick={onRemove}
-      >
+      <Button type="button" variant="ghost" size="icon" className="h-6 w-6 shrink-0" onClick={onRemove}>
         <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
       </Button>
     </div>
@@ -296,69 +232,43 @@ function DraggableSetItem({
   sectionName: string;
   questionCount: number;
 }) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `set-${id}`,
-      data: { type: "set", setId: id },
-    });
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `set-${id}`,
+    data: { type: 'set', setId: id },
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   const subtitle = sectionSubtitle(sectionIndex, sectionName);
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? "opacity-60" : ""}`}
+      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? 'opacity-60' : ''}`}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground"
-        {...attributes}
-        {...listeners}
-      >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="min-w-0 flex-1">
         <div>{name}</div>
-        {subtitle ? (
-          <div className="text-muted-foreground text-xs">{subtitle}</div>
-        ) : null}
+        {subtitle ? <div className="text-muted-foreground text-xs">{subtitle}</div> : null}
       </div>
       <span className="shrink-0 text-muted-foreground">{questionCount} q</span>
     </div>
   );
 }
 
-function DraggableMockItem({
-  id,
-  name,
-  setCount,
-}: {
-  id: string;
-  name: string;
-  setCount: number;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `mock-${id}`,
-      data: { type: "mock", mockId: id },
-    });
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
+function DraggableMockItem({ id, name, setCount }: { id: string; name: string; setCount: number }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `mock-${id}`,
+    data: { type: 'mock', mockId: id },
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? "opacity-60" : ""}`}
+      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? 'opacity-60' : ''}`}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground"
-        {...attributes}
-        {...listeners}
-      >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="min-w-0 flex-1">{name}</div>
@@ -367,74 +277,40 @@ function DraggableMockItem({
   );
 }
 
-function DraggableLessonItem({
-  id,
-  name,
-  blockCount,
-}: {
-  id: string;
-  name: string;
-  blockCount: number;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `lesson-${id}`,
-      data: { type: "lesson", lessonId: id },
-    });
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
+function DraggableLessonItem({ id, name, blockCount }: { id: string; name: string; blockCount: number }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `lesson-${id}`,
+    data: { type: 'lesson', lessonId: id },
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? "opacity-60" : ""}`}
+      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? 'opacity-60' : ''}`}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground"
-        {...attributes}
-        {...listeners}
-      >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="min-w-0 flex-1">{name}</div>
-      <span className="shrink-0 text-muted-foreground">
-        {blockCount} blocks
-      </span>
+      <span className="shrink-0 text-muted-foreground">{blockCount} blocks</span>
     </div>
   );
 }
 
-function DraggableStemItem({
-  id,
-  name,
-  questionCount,
-}: {
-  id: string;
-  name: string;
-  questionCount: number;
-}) {
-  const { attributes, listeners, setNodeRef, transform, isDragging } =
-    useDraggable({
-      id: `stem-${id}`,
-      data: { type: "stem", stemId: id },
-    });
-  const style = transform
-    ? { transform: CSS.Translate.toString(transform) }
-    : undefined;
+function DraggableStemItem({ id, name, questionCount }: { id: string; name: string; questionCount: number }) {
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
+    id: `stem-${id}`,
+    data: { type: 'stem', stemId: id },
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
     <div
       ref={setNodeRef}
       style={style}
-      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? "opacity-60" : ""}`}
+      className={`flex items-center gap-2 rounded border px-2 py-1.5 text-sm ${isDragging ? 'opacity-60' : ''}`}
     >
-      <button
-        type="button"
-        className="cursor-grab text-muted-foreground"
-        {...attributes}
-        {...listeners}
-      >
+      <button type="button" className="cursor-grab text-muted-foreground" {...attributes} {...listeners}>
         <GripVertical className="h-4 w-4" />
       </button>
       <div className="min-w-0 flex-1">{name}</div>
@@ -455,11 +331,8 @@ export function UcatClassDialog({
   onSaved?: () => void;
 }) {
   const { toast } = useToast();
-  const [dialogTab, setDialogTab] = useState<"sessions" | "students">(
-    "sessions",
-  );
-  const { data: sessionsData, isLoading: sessionsLoading } =
-    useUcatClassSessions(open ? classId : null);
+  const [dialogTab, setDialogTab] = useState<'sessions' | 'students'>('sessions');
+  const { data: sessionsData, isLoading: sessionsLoading } = useUcatClassSessions(open ? classId : null);
   const sessions = sessionsData ?? EMPTY_SESSIONS;
   const classStudentIds = useUcatClassStudentIds(open ? classId : null);
   const studentProgress = useUcatStudentProgressSummary();
@@ -471,7 +344,7 @@ export function UcatClassDialog({
     enabled: open,
   });
   const { data: lessonsList = [] } = useUcatLearningModules({
-    kind: "lesson",
+    kind: 'lesson',
     enabled: open,
   });
   const { copyId } = useUcatCopyId();
@@ -484,8 +357,8 @@ export function UcatClassDialog({
           deleted_at?: string | null;
           status?: string | null;
         }>
-      ).filter((row) => row.deleted_at == null && row.status === "published"),
-    [setsList],
+      ).filter((row) => row.deleted_at == null && row.status === 'published'),
+    [setsList]
   );
   const activeMocksList = useMemo(
     () =>
@@ -494,8 +367,8 @@ export function UcatClassDialog({
           deleted_at?: string | null;
           status?: string | null;
         }>
-      ).filter((row) => row.deleted_at == null && row.status === "published"),
-    [mocksList],
+      ).filter((row) => row.deleted_at == null && row.status === 'published'),
+    [mocksList]
   );
   const activeStemsList = useMemo(
     () =>
@@ -504,38 +377,26 @@ export function UcatClassDialog({
           deleted_at?: string | null;
           status?: string | null;
         }>
-      ).filter((row) => row.deleted_at == null && row.status === "published"),
-    [stemsList],
+      ).filter((row) => row.deleted_at == null && row.status === 'published'),
+    [stemsList]
   );
 
-  const [searchSessions, setSearchSessions] = useState("");
-  const [searchSets, setSearchSets] = useState("");
-  const [searchMocks, setSearchMocks] = useState("");
-  const [searchStems, setSearchStems] = useState("");
-  const [searchLessons, setSearchLessons] = useState("");
-  const [searchStudents, setSearchStudents] = useState("");
-  const [studentVisibleColumns, setStudentVisibleColumns] = useState<string[]>(
-    STUDENT_DEFAULT_VISIBLE_COLUMNS,
-  );
-  const [resourceTab, setResourceTab] = useState<
-    "sets" | "mocks" | "stems" | "lessons"
-  >("sets");
-  const [filtersSessions, setFiltersSessions] = useState<
-    Record<string, unknown[]>
-  >(() => ({
-    from: [format(new Date(), "yyyy-MM-dd")],
+  const [searchSessions, setSearchSessions] = useState('');
+  const [searchSets, setSearchSets] = useState('');
+  const [searchMocks, setSearchMocks] = useState('');
+  const [searchStems, setSearchStems] = useState('');
+  const [searchLessons, setSearchLessons] = useState('');
+  const [searchStudents, setSearchStudents] = useState('');
+  const [studentVisibleColumns, setStudentVisibleColumns] = useState<string[]>(STUDENT_DEFAULT_VISIBLE_COLUMNS);
+  const [resourceTab, setResourceTab] = useState<'sets' | 'mocks' | 'stems' | 'lessons'>('sets');
+  const [filtersSessions, setFiltersSessions] = useState<Record<string, unknown[]>>(() => ({
+    from: [format(new Date(), 'yyyy-MM-dd')],
   }));
-  const [sortSessionBy, setSortSessionBy] = useState<string | null>("start_at");
-  const [sortSessionDirection, setSortSessionDirection] = useState<
-    "asc" | "desc"
-  >("asc");
+  const [sortSessionBy, setSortSessionBy] = useState<string | null>('start_at');
+  const [sortSessionDirection, setSortSessionDirection] = useState<'asc' | 'desc'>('asc');
   const [filtersSets, setFiltersSets] = useState<Record<string, unknown[]>>({});
-  const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>(
-    {},
-  );
-  const [filtersStems, setFiltersStems] = useState<Record<string, unknown[]>>(
-    {},
-  );
+  const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>({});
+  const [filtersStems, setFiltersStems] = useState<Record<string, unknown[]>>({});
   const [, setActiveId] = useState<string | null>(null);
   const {
     draftBySession,
@@ -551,83 +412,80 @@ export function UcatClassDialog({
 
   const sessionFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
-      { key: "from", label: "From date", type: "date" },
-      { key: "to", label: "To date", type: "date" },
+      { key: 'from', label: 'From date', type: 'date' },
+      { key: 'to', label: 'To date', type: 'date' },
     ],
-    [],
+    []
   );
-  const sessionSortOptions = useMemo(
-    () => [{ key: "start_at", label: "Date" }],
-    [],
-  );
+  const sessionSortOptions = useMemo(() => [{ key: 'start_at', label: 'Date' }], []);
 
   const setFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
       {
-        key: "visibility",
-        label: "Visibility",
+        key: 'visibility',
+        label: 'Visibility',
         options: [
-          { label: "Public", value: "public" },
-          { label: "Private", value: "private" },
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
         ],
       },
       {
-        key: "time_limit",
-        label: "Time limit (s)",
-        type: "number-range",
-        minKey: "time_limit_min",
-        maxKey: "time_limit_max",
-        nullOptionLabel: "Untimed",
+        key: 'time_limit',
+        label: 'Time limit (s)',
+        type: 'number-range',
+        minKey: 'time_limit_min',
+        maxKey: 'time_limit_max',
+        nullOptionLabel: 'Untimed',
       },
       {
-        key: "stem_count",
-        label: "Question stems",
-        type: "number-range",
-        minKey: "stem_count_min",
-        maxKey: "stem_count_max",
+        key: 'stem_count',
+        label: 'Question stems',
+        type: 'number-range',
+        minKey: 'stem_count_min',
+        maxKey: 'stem_count_max',
       },
       {
-        key: "question_count",
-        label: "Questions",
-        type: "number-range",
-        minKey: "question_count_min",
-        maxKey: "question_count_max",
+        key: 'question_count',
+        label: 'Questions',
+        type: 'number-range',
+        minKey: 'question_count_min',
+        maxKey: 'question_count_max',
       },
     ],
-    [],
+    []
   );
 
   const mockFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
       {
-        key: "visibility",
-        label: "Visibility",
+        key: 'visibility',
+        label: 'Visibility',
         options: [
-          { label: "Public", value: "public" },
-          { label: "Private", value: "private" },
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
         ],
       },
     ],
-    [],
+    []
   );
 
   const stemFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
       {
-        key: "visibility",
-        label: "Visibility",
+        key: 'visibility',
+        label: 'Visibility',
         options: [
-          { label: "Public", value: "public" },
-          { label: "Private", value: "private" },
+          { label: 'Public', value: 'public' },
+          { label: 'Private', value: 'private' },
         ],
       },
     ],
-    [],
+    []
   );
 
   useEffect(() => {
     if (open) {
-      setDialogTab("sessions");
+      setDialogTab('sessions');
       setStudentVisibleColumns(STUDENT_DEFAULT_VISIBLE_COLUMNS);
     }
   }, [open, classId]);
@@ -659,18 +517,13 @@ export function UcatClassDialog({
       if (!row.id) continue;
       const name = proseMirrorToPlainText(row.name as Json | undefined);
       let section_index = 1;
-      let section_name = "";
-      if (
-        Array.isArray(row.sections) &&
-        row.sections[0] &&
-        typeof row.sections[0] === "object"
-      ) {
+      let section_name = '';
+      if (Array.isArray(row.sections) && row.sections[0] && typeof row.sections[0] === 'object') {
         const first = row.sections[0] as {
           section_number?: number;
           name?: Json;
         };
-        section_index =
-          typeof first.section_number === "number" ? first.section_number : 1;
+        section_index = typeof first.section_number === 'number' ? first.section_number : 1;
         section_name = proseMirrorToPlainText(first.name);
       }
       map.set(row.id, {
@@ -692,7 +545,7 @@ export function UcatClassDialog({
     }>) {
       if (row.id)
         map.set(row.id, {
-          name: row.name ?? "Untitled",
+          name: row.name ?? 'Untitled',
           set_count: row.set_count ?? 0,
         });
     }
@@ -715,9 +568,7 @@ export function UcatClassDialog({
       question_count: number | null;
     }>) {
       if (!row.id) continue;
-      const raw =
-        proseMirrorToPlainText(row.stem_text as Json | undefined).trim() ||
-        "Question stem";
+      const raw = proseMirrorToPlainText(row.stem_text as Json | undefined).trim() || 'Question stem';
       const name = raw.length > 60 ? `${raw.slice(0, 57)}…` : raw;
       map.set(row.id, { name, question_count: row.question_count ?? 0 });
     }
@@ -730,10 +581,10 @@ export function UcatClassDialog({
     for (const [sessionId, resources] of Object.entries(draftBySession)) {
       out[sessionId] = resources.filter(
         (r) =>
-          (r.type === "set" && setLookup(r.resource_id) !== null) ||
-          (r.type === "mock" && mockLookup(r.resource_id) !== null) ||
-          (r.type === "stem" && stemLookup(r.resource_id) !== null) ||
-          (r.type === "lesson" && lessonLookup(r.resource_id) !== null),
+          (r.type === 'set' && setLookup(r.resource_id) !== null) ||
+          (r.type === 'mock' && mockLookup(r.resource_id) !== null) ||
+          (r.type === 'stem' && stemLookup(r.resource_id) !== null) ||
+          (r.type === 'lesson' && lessonLookup(r.resource_id) !== null)
       );
     }
     return out;
@@ -745,16 +596,14 @@ export function UcatClassDialog({
     const toVal = (filtersSessions.to as string[])?.[0];
     if (fromVal || toVal) {
       list = list.filter((s) => {
-        const d = s.start_at ? s.start_at.slice(0, 10) : "";
+        const d = s.start_at ? s.start_at.slice(0, 10) : '';
         if (fromVal && d < fromVal) return false;
         if (toVal && d > toVal) return false;
         return true;
       });
     }
     if (searchSessions.trim()) {
-      list = list.filter((s) =>
-        applyCoreStringFilter(sessionTitle(s.start_at), searchSessions),
-      );
+      list = list.filter((s) => applyCoreStringFilter(sessionTitle(s.start_at), searchSessions));
     }
     return list;
   }, [sessions, filtersSessions, searchSessions]);
@@ -762,9 +611,9 @@ export function UcatClassDialog({
   const sortedSessions = useMemo(
     () =>
       applySort(filteredSessions, sortSessionBy, sortSessionDirection, {
-        start_at: (s) => s.start_at ?? "",
+        start_at: (s) => s.start_at ?? '',
       }),
-    [filteredSessions, sortSessionBy, sortSessionDirection],
+    [filteredSessions, sortSessionBy, sortSessionDirection]
   );
 
   const setsTableState = useMemo(
@@ -772,13 +621,13 @@ export function UcatClassDialog({
       search: searchSets,
       filters: filtersSets,
       sortBy: null,
-      sortDirection: "desc" as const,
+      sortDirection: 'desc' as const,
       groupBy: null,
       page: 1,
       pageSize: 20,
       visibleColumns: [],
     }),
-    [searchSets, filtersSets],
+    [searchSets, filtersSets]
   );
 
   const filteredSets = useMemo(() => {
@@ -788,52 +637,35 @@ export function UcatClassDialog({
       sections: unknown;
       question_count: number | null;
       time_limit_seconds: number | null;
-      access_scope: "public" | "private" | null;
+      access_scope: 'public' | 'private' | null;
       stem_count?: number;
     }>;
     return list.filter((row) => {
       const name = proseMirrorToPlainText(row.name as Json | undefined);
       const sectionName = Array.isArray(row.sections)
         ? proseMirrorToPlainText((row.sections[0] as { name?: Json })?.name)
-        : "";
+        : '';
       const searchHit =
-        !searchSets.trim() ||
-        applyCoreStringFilter(name, searchSets) ||
-        applyCoreStringFilter(sectionName, searchSets);
-      const visibilityHit = applyBooleanTextFilter(
-        setsTableState,
-        "visibility",
-        row.access_scope === "private",
-      );
+        !searchSets.trim() || applyCoreStringFilter(name, searchSets) || applyCoreStringFilter(sectionName, searchSets);
+      const visibilityHit = applyBooleanTextFilter(setsTableState, 'visibility', row.access_scope === 'private');
       const timeLimitHit = applyRangeFilter(
         setsTableState,
-        "time_limit_min",
-        "time_limit_max",
+        'time_limit_min',
+        'time_limit_max',
         row.time_limit_seconds ?? null,
         {
-          nullFilterKey: "time_limit",
+          nullFilterKey: 'time_limit',
           treatNonPositiveAsNull: true,
-        },
+        }
       );
-      const stemCountHit = applyRangeFilter(
-        setsTableState,
-        "stem_count_min",
-        "stem_count_max",
-        row.stem_count ?? null,
-      );
+      const stemCountHit = applyRangeFilter(setsTableState, 'stem_count_min', 'stem_count_max', row.stem_count ?? null);
       const questionCountHit = applyRangeFilter(
         setsTableState,
-        "question_count_min",
-        "question_count_max",
-        row.question_count ?? null,
+        'question_count_min',
+        'question_count_max',
+        row.question_count ?? null
       );
-      return (
-        searchHit &&
-        visibilityHit &&
-        timeLimitHit &&
-        stemCountHit &&
-        questionCountHit
-      );
+      return searchHit && visibilityHit && timeLimitHit && stemCountHit && questionCountHit;
     });
   }, [activeSetsList, searchSets, setsTableState]);
 
@@ -842,13 +674,13 @@ export function UcatClassDialog({
       search: searchMocks,
       filters: filtersMocks,
       sortBy: null,
-      sortDirection: "desc" as const,
+      sortDirection: 'desc' as const,
       groupBy: null,
       page: 1,
       pageSize: 20,
       visibleColumns: [],
     }),
-    [searchMocks, filtersMocks],
+    [searchMocks, filtersMocks]
   );
 
   const filteredMocks = useMemo(() => {
@@ -856,17 +688,11 @@ export function UcatClassDialog({
       id: string | null;
       name: string | null;
       set_count?: number;
-      access_scope?: "public" | "private" | null;
+      access_scope?: 'public' | 'private' | null;
     }>;
     return list.filter((row) => {
-      const searchHit =
-        !searchMocks.trim() ||
-        applyCoreStringFilter(row.name ?? "", searchMocks);
-      const visibilityHit = applyBooleanTextFilter(
-        mocksTableState,
-        "visibility",
-        row.access_scope === "private",
-      );
+      const searchHit = !searchMocks.trim() || applyCoreStringFilter(row.name ?? '', searchMocks);
+      const visibilityHit = applyBooleanTextFilter(mocksTableState, 'visibility', row.access_scope === 'private');
       return searchHit && visibilityHit;
     });
   }, [activeMocksList, searchMocks, mocksTableState]);
@@ -876,13 +702,13 @@ export function UcatClassDialog({
       search: searchStems,
       filters: filtersStems,
       sortBy: null,
-      sortDirection: "desc" as const,
+      sortDirection: 'desc' as const,
       groupBy: null,
       page: 1,
       pageSize: 20,
       visibleColumns: [],
     }),
-    [searchStems, filtersStems],
+    [searchStems, filtersStems]
   );
 
   const filteredStems = useMemo(() => {
@@ -891,39 +717,30 @@ export function UcatClassDialog({
       stem_text: unknown;
       section_name?: string | null;
       question_count: number | null;
-      access_scope?: "public" | "private" | null;
+      access_scope?: 'public' | 'private' | null;
     }>;
     return list.filter((row) => {
       const plain = proseMirrorToPlainText(row.stem_text as Json | undefined);
       const searchHit =
         !searchStems.trim() ||
         applyCoreStringFilter(plain, searchStems) ||
-        applyCoreStringFilter(row.section_name ?? "", searchStems);
-      const visibilityHit = applyBooleanTextFilter(
-        stemsTableState,
-        "visibility",
-        row.access_scope === "private",
-      );
+        applyCoreStringFilter(row.section_name ?? '', searchStems);
+      const visibilityHit = applyBooleanTextFilter(stemsTableState, 'visibility', row.access_scope === 'private');
       return searchHit && visibilityHit;
     });
   }, [activeStemsList, searchStems, stemsTableState]);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 8 } }),
-  );
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
   const classStudents = useMemo(() => {
     const allowedIds = new Set(classStudentIds.data ?? []);
     const query = searchStudents.trim().toLowerCase();
     return (studentProgress.data?.students ?? []).filter(
-      (student) =>
-        allowedIds.has(student.student_id) &&
-        (!query || student.student_name.toLowerCase().includes(query)),
+      (student) => allowedIds.has(student.student_id) && (!query || student.student_name.toLowerCase().includes(query))
     );
   }, [classStudentIds.data, searchStudents, studentProgress.data?.students]);
 
-  const handleDragStart = (event: DragStartEvent) =>
-    setActiveId(String(event.active.id));
+  const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id));
 
   const handleDragEnd = (event: DragEndEvent) => {
     const { active, over } = event;
@@ -933,36 +750,36 @@ export function UcatClassDialog({
     const activeStr = String(active.id);
     const overStr = String(over.id);
 
-    if (activeStr.startsWith("res-")) {
-      if (!overStr.startsWith("res-")) return;
-      const activeDraftId = activeStr.replace("res-", "");
-      const overDraftId = overStr.replace("res-", "");
+    if (activeStr.startsWith('res-')) {
+      if (!overStr.startsWith('res-')) return;
+      const activeDraftId = activeStr.replace('res-', '');
+      const overDraftId = overStr.replace('res-', '');
       moveResourceByDraftIds(activeDraftId, overDraftId);
       return;
     }
 
     if (
-      (activeStr.startsWith("set-") ||
-        activeStr.startsWith("mock-") ||
-        activeStr.startsWith("stem-") ||
-        activeStr.startsWith("lesson-")) &&
-      overStr.startsWith("session-")
+      (activeStr.startsWith('set-') ||
+        activeStr.startsWith('mock-') ||
+        activeStr.startsWith('stem-') ||
+        activeStr.startsWith('lesson-')) &&
+      overStr.startsWith('session-')
     ) {
-      const sessionId = overStr.replace("session-", "");
-      const type = activeStr.startsWith("set-")
-        ? "set"
-        : activeStr.startsWith("mock-")
-          ? "mock"
-          : activeStr.startsWith("lesson-")
-            ? "lesson"
-            : "stem";
-      const resource_id = activeStr.startsWith("set-")
-        ? activeStr.replace("set-", "")
-        : activeStr.startsWith("mock-")
-          ? activeStr.replace("mock-", "")
-          : activeStr.startsWith("lesson-")
-            ? activeStr.replace("lesson-", "")
-            : activeStr.replace("stem-", "");
+      const sessionId = overStr.replace('session-', '');
+      const type = activeStr.startsWith('set-')
+        ? 'set'
+        : activeStr.startsWith('mock-')
+          ? 'mock'
+          : activeStr.startsWith('lesson-')
+            ? 'lesson'
+            : 'stem';
+      const resource_id = activeStr.startsWith('set-')
+        ? activeStr.replace('set-', '')
+        : activeStr.startsWith('mock-')
+          ? activeStr.replace('mock-', '')
+          : activeStr.startsWith('lesson-')
+            ? activeStr.replace('lesson-', '')
+            : activeStr.replace('stem-', '');
       appendResourceToSession(sessionId, type, resource_id);
     }
   };
@@ -980,12 +797,9 @@ export function UcatClassDialog({
       onClose();
     } catch (error) {
       toast({
-        title: "Could not save session resources",
-        description:
-          error instanceof Error
-            ? error.message
-            : "Failed to save session resources",
-        variant: "destructive",
+        title: 'Could not save session resources',
+        description: error instanceof Error ? error.message : 'Failed to save session resources',
+        variant: 'destructive',
       });
     }
   };
@@ -995,24 +809,21 @@ export function UcatClassDialog({
       ? buildCopyIdRowAction(
           [
             {
-              label: "Class",
+              label: 'Class',
               id: classId,
-              description: `${sessions.length} session${sessions.length === 1 ? "" : "s"}`,
+              description: `${sessions.length} session${sessions.length === 1 ? '' : 's'}`,
             },
             ...sessions.map((session, index) => ({
               label: sessionTitle(session.start_at) || `Session ${index + 1}`,
               id: session.session_id,
-              description: `${session.resources.length} resource${session.resources.length === 1 ? "" : "s"}`,
+              description: `${session.resources.length} resource${session.resources.length === 1 ? '' : 's'}`,
             })),
           ],
-          copyId,
+          copyId
         )
       : null;
 
-  const headerActions =
-    classId != null && copyIdAction != null ? (
-      <UcatRowActions actions={[copyIdAction]} />
-    ) : null;
+  const headerActions = classId != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null;
 
   return (
     <UcatDialogShell
@@ -1020,9 +831,9 @@ export function UcatClassDialog({
       onClose={onClose}
       title="Class details"
       subtitle={
-        dialogTab === "sessions"
-          ? "Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list."
-          : "View the UCAT students enrolled in this class and open their progress."
+        dialogTab === 'sessions'
+          ? 'Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list.'
+          : 'View the UCAT students enrolled in this class and open their progress.'
       }
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
@@ -1032,8 +843,8 @@ export function UcatClassDialog({
           value={dialogTab}
           onValueChange={setDialogTab}
           options={[
-            { value: "sessions", label: "Sessions" },
-            { value: "students", label: "Students" },
+            { value: 'sessions', label: 'Sessions' },
+            { value: 'students', label: 'Students' },
           ]}
           aria-label="Class detail view"
           fullWidth={false}
@@ -1041,7 +852,7 @@ export function UcatClassDialog({
       }
       headerActions={headerActions}
     >
-      {dialogTab === "sessions" ? (
+      {dialogTab === 'sessions' ? (
         <DndContext
           sensors={sensors}
           collisionDetection={closestCenter}
@@ -1068,22 +879,16 @@ export function UcatClassDialog({
                 }}
               />
               {sessionsLoading ? (
-                <p className="text-sm text-muted-foreground">
-                  Loading sessions...
-                </p>
+                <p className="text-sm text-muted-foreground">Loading sessions...</p>
               ) : sortedSessions.length === 0 ? (
-                <p className="text-sm text-muted-foreground">
-                  No sessions match your filters.
-                </p>
+                <p className="text-sm text-muted-foreground">No sessions match your filters.</p>
               ) : (
                 <div className="space-y-3">
                   {sortedSessions.map((session) => (
                     <DroppableSessionWithDraft
                       key={session.session_id}
                       session={session}
-                      draftResources={
-                        visibleDraftBySession[session.session_id] ?? []
-                      }
+                      draftResources={visibleDraftBySession[session.session_id] ?? []}
                       setLookup={setLookup}
                       mockLookup={mockLookup}
                       stemLookup={stemLookup}
@@ -1098,23 +903,15 @@ export function UcatClassDialog({
             <aside className="w-96 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
               <SegmentedTabPanel
                 value={resourceTab}
-                onValueChange={(value) =>
-                  setResourceTab(
-                    value as "sets" | "mocks" | "stems" | "lessons",
-                  )
-                }
+                onValueChange={(value) => setResourceTab(value as 'sets' | 'mocks' | 'stems' | 'lessons')}
                 options={[
-                  { value: "sets", label: "Sets" },
-                  { value: "mocks", label: "Mocks" },
-                  { value: "stems", label: "Stems" },
-                  { value: "lessons", label: "Lessons" },
+                  { value: 'sets', label: 'Sets' },
+                  { value: 'mocks', label: 'Mocks' },
+                  { value: 'stems', label: 'Stems' },
+                  { value: 'lessons', label: 'Lessons' },
                 ]}
               >
-                <SegmentedTabPanelContent
-                  when="sets"
-                  activeTab={resourceTab}
-                  className="m-0 mt-3 space-y-2 pt-4"
-                >
+                <SegmentedTabPanelContent when="sets" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                   <ListToolbar
                     search={searchSets}
                     onSearchChange={setSearchSets}
@@ -1126,25 +923,16 @@ export function UcatClassDialog({
                   />
                   <div className="space-y-1.5 max-h-96 overflow-auto">
                     {filteredSets.map((row) => {
-                      const id = row.id ?? "";
-                      const name = proseMirrorToPlainText(
-                        row.name as Json | undefined,
-                      );
+                      const id = row.id ?? '';
+                      const name = proseMirrorToPlainText(row.name as Json | undefined);
                       let sectionIndex = 1;
-                      let sectionName = "";
-                      if (
-                        Array.isArray(row.sections) &&
-                        row.sections[0] &&
-                        typeof row.sections[0] === "object"
-                      ) {
+                      let sectionName = '';
+                      if (Array.isArray(row.sections) && row.sections[0] && typeof row.sections[0] === 'object') {
                         const first = row.sections[0] as {
                           section_number?: number;
                           name?: Json;
                         };
-                        sectionIndex =
-                          typeof first.section_number === "number"
-                            ? first.section_number
-                            : 1;
+                        sectionIndex = typeof first.section_number === 'number' ? first.section_number : 1;
                         sectionName = proseMirrorToPlainText(first.name);
                       }
                       return (
@@ -1160,11 +948,7 @@ export function UcatClassDialog({
                     })}
                   </div>
                 </SegmentedTabPanelContent>
-                <SegmentedTabPanelContent
-                  when="mocks"
-                  activeTab={resourceTab}
-                  className="m-0 mt-3 space-y-2 pt-4"
-                >
+                <SegmentedTabPanelContent when="mocks" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                   <ListToolbar
                     search={searchMocks}
                     onSearchChange={setSearchMocks}
@@ -1177,19 +961,15 @@ export function UcatClassDialog({
                   <div className="space-y-1.5 max-h-96 overflow-auto">
                     {filteredMocks.map((row) => (
                       <DraggableMockItem
-                        key={row.id ?? ""}
-                        id={row.id ?? ""}
-                        name={row.name ?? "Untitled"}
+                        key={row.id ?? ''}
+                        id={row.id ?? ''}
+                        name={row.name ?? 'Untitled'}
                         setCount={row.set_count ?? 0}
                       />
                     ))}
                   </div>
                 </SegmentedTabPanelContent>
-                <SegmentedTabPanelContent
-                  when="stems"
-                  activeTab={resourceTab}
-                  className="m-0 mt-3 space-y-2 pt-4"
-                >
+                <SegmentedTabPanelContent when="stems" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                   <ListToolbar
                     search={searchStems}
                     onSearchChange={setSearchStems}
@@ -1201,24 +981,20 @@ export function UcatClassDialog({
                   />
                   <div className="space-y-1.5 max-h-96 overflow-auto">
                     {filteredStems.map((row) => {
-                      const id = row.id ?? "";
+                      const id = row.id ?? '';
                       const info = stemLookup(id);
                       return (
                         <DraggableStemItem
                           key={id}
                           id={id}
-                          name={info?.name ?? "Question stem"}
+                          name={info?.name ?? 'Question stem'}
                           questionCount={row.question_count ?? 0}
                         />
                       );
                     })}
                   </div>
                 </SegmentedTabPanelContent>
-                <SegmentedTabPanelContent
-                  when="lessons"
-                  activeTab={resourceTab}
-                  className="m-0 mt-3 space-y-2 pt-4"
-                >
+                <SegmentedTabPanelContent when="lessons" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
                   <ListToolbar
                     search={searchLessons}
                     onSearchChange={setSearchLessons}
@@ -1233,12 +1009,7 @@ export function UcatClassDialog({
                         return applyCoreStringFilter(row.title, searchLessons);
                       })
                       .map((row) => (
-                        <DraggableLessonItem
-                          key={row.id}
-                          id={row.id}
-                          name={row.title}
-                          blockCount={row.block_count}
-                        />
+                        <DraggableLessonItem key={row.id} id={row.id} name={row.title} blockCount={row.block_count} />
                       ))}
                   </div>
                 </SegmentedTabPanelContent>
@@ -1253,7 +1024,7 @@ export function UcatClassDialog({
               <h2 className="font-semibold">Students</h2>
               <p className="text-sm text-muted-foreground">
                 {classStudentIds.data?.length ?? 0} enrolled student
-                {(classStudentIds.data?.length ?? 0) === 1 ? "" : "s"}
+                {(classStudentIds.data?.length ?? 0) === 1 ? '' : 's'}
               </p>
             </div>
             <ListToolbar
@@ -1270,27 +1041,19 @@ export function UcatClassDialog({
               <Table>
                 <TableHeader className="[&_tr]:border-b-0">
                   <TableRow className={tutorTableHeaderRow}>
-                    {studentVisibleColumns.includes("student_name") ? (
-                      <TableHead>Student</TableHead>
-                    ) : null}
-                    {studentVisibleColumns.includes("total_questions") ? (
+                    {studentVisibleColumns.includes('student_name') ? <TableHead>Student</TableHead> : null}
+                    {studentVisibleColumns.includes('total_questions') ? (
                       <TableHead>Question attempts</TableHead>
                     ) : null}
-                    {studentVisibleColumns.includes("total_sets_attempted") ? (
+                    {studentVisibleColumns.includes('total_sets_attempted') ? (
                       <TableHead>Set attempts</TableHead>
                     ) : null}
-                    {studentVisibleColumns.includes("total_mocks_attempted") ? (
+                    {studentVisibleColumns.includes('total_mocks_attempted') ? (
                       <TableHead>Mock attempts</TableHead>
                     ) : null}
-                    {studentVisibleColumns.includes("predicted_score") ? (
-                      <TableHead>Predicted score</TableHead>
-                    ) : null}
-                    {studentVisibleColumns.includes("delivery_mode") ? (
-                      <TableHead>Delivery</TableHead>
-                    ) : null}
-                    {studentVisibleColumns.includes("online_tier") ? (
-                      <TableHead>Online plan</TableHead>
-                    ) : null}
+                    {studentVisibleColumns.includes('predicted_score') ? <TableHead>Predicted score</TableHead> : null}
+                    {studentVisibleColumns.includes('delivery_mode') ? <TableHead>Delivery</TableHead> : null}
+                    {studentVisibleColumns.includes('online_tier') ? <TableHead>Online plan</TableHead> : null}
                     <TableHead className="w-16" />
                   </TableRow>
                 </TableHeader>
@@ -1310,68 +1073,45 @@ export function UcatClassDialog({
                         colSpan={studentVisibleColumns.length + 1}
                         className="py-10 text-center text-muted-foreground"
                       >
-                        {searchStudents
-                          ? "No students match your search."
-                          : "No students are enrolled in this class."}
+                        {searchStudents ? 'No students match your search.' : 'No students are enrolled in this class.'}
                       </TableCell>
                     </TableRow>
                   ) : (
                     classStudents.map((student) => (
-                      <TableRow
-                        key={student.student_id}
-                        className={tutorTableBodyRow}
-                      >
-                        {studentVisibleColumns.includes("student_name") ? (
-                          <TableCell className="font-medium">
-                            {student.student_name}
-                          </TableCell>
-                        ) : null}
-                        {studentVisibleColumns.includes("total_questions") ? (
-                          <TableCell className="tabular-nums">
-                            {student.total_questions}
-                          </TableCell>
-                        ) : null}
-                        {studentVisibleColumns.includes(
-                          "total_sets_attempted",
-                        ) ? (
-                          <TableCell className="tabular-nums">
-                            {student.total_sets_attempted}
-                          </TableCell>
-                        ) : null}
-                        {studentVisibleColumns.includes(
-                          "total_mocks_attempted",
-                        ) ? (
-                          <TableCell className="tabular-nums">
-                            {student.total_mocks_attempted}
-                          </TableCell>
-                        ) : null}
-                        {studentVisibleColumns.includes("predicted_score") ? (
+                      <TableRow key={student.student_id} className={tutorTableBodyRow}>
+                        {studentVisibleColumns.includes('student_name') ? (
                           <TableCell>
-                            <UcatPredictedScoreCell
-                              student={student}
-                              sections={studentProgress.data?.sections ?? []}
-                            />
+                            <div className="flex flex-wrap items-center gap-2 font-medium">
+                              <span>{student.student_name}</span>
+                              <AccountClassBadge accountClass={student.account_class} />
+                            </div>
                           </TableCell>
                         ) : null}
-                        {studentVisibleColumns.includes("delivery_mode") ? (
+                        {studentVisibleColumns.includes('total_questions') ? (
+                          <TableCell className="tabular-nums">{student.total_questions}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('total_sets_attempted') ? (
+                          <TableCell className="tabular-nums">{student.total_sets_attempted}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('total_mocks_attempted') ? (
+                          <TableCell className="tabular-nums">{student.total_mocks_attempted}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('predicted_score') ? (
                           <TableCell>
-                            {student.delivery_mode === "in_person"
-                              ? "In person"
-                              : "Online"}
+                            <UcatPredictedScoreCell student={student} sections={studentProgress.data?.sections ?? []} />
                           </TableCell>
                         ) : null}
-                        {studentVisibleColumns.includes("online_tier") ? (
-                          <TableCell>
-                            {student.online_tier === "unlimited"
-                              ? "Unlimited"
-                              : "Free"}
-                          </TableCell>
+                        {studentVisibleColumns.includes('delivery_mode') ? (
+                          <TableCell>{student.delivery_mode === 'in_person' ? 'In person' : 'Online'}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('online_tier') ? (
+                          <TableCell>{student.online_tier === 'unlimited' ? 'Unlimited' : 'Free'}</TableCell>
                         ) : null}
                         <TableCell className="text-right">
                           <UcatRowActions
                             actions={[
                               {
-                                label: "View progress",
+                                label: 'View progress',
                                 icon: <Eye className="h-4 w-4" />,
                                 href: `/ucat/students/${student.student_id}`,
                               },

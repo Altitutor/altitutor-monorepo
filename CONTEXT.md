@@ -577,10 +577,10 @@
 - **UCAT question set placement** — A UCAT question set is either standalone or belongs to exactly one UCAT mock. Detaching a mock set makes it standalone; simultaneous membership in multiple mocks is not supported.
   _Avoid_: Shared mock set, many-mock membership, permanent mock ownership
 
-- **Standalone UCAT question set position** — The mutable contiguous position of a standalone set within its UCAT section and format. Full-section and partial-section sets have independent sequences; attaching removes the set from that sequence, while detaching appends it to the applicable standalone sequence.
+- **Standalone UCAT question set position** — The mutable contiguous position of a published standalone set within its UCAT section and format. Full-section and partial-section sets have independent sequences; draft and in-review sets remain unnumbered, and publication appends a set to the applicable sequence.
   _Avoid_: Permanent set number, cross-format sequence, hidden mock-set position
 
-- **Mock component set** — A UCAT question set currently attached to one mock for one blueprint section. It uses full-section intent, the mock's exact blueprint timing, and the same blueprint reference as its mock while attached; detaching preserves its content and blueprint reference as a standalone set and gives it a standalone catalog position.
+- **Mock component set** — A UCAT question set currently attached to one mock for one blueprint section. It uses full-section intent, the mock's exact blueprint timing, and the same blueprint reference as its mock while attached; detaching preserves its content and blueprint reference as an unnumbered standalone set until publication.
   _Avoid_: Shared mock set, partial mock section, reusable simultaneous membership
 
 - **Mock section slot** — One blueprint section position in a UCAT mock. Draft mocks may have an empty slot after explicit detachment, but publication requires exactly one compliant Mock component set in every slot; section order is fixed by the blueprint.
@@ -1138,3 +1138,14 @@
 
 - **Scheduled subscription downgrade** — A tier decrease from UCAT Pro to UCAT Unlimited on the same billing interval. The student may request it at any time; Pro entitlements and billing continue until the end of the current billing cycle, then Unlimited takes effect. No proration or partial refunds.
   _Avoid_: Immediate downgrade, prorated refund
+
+## Admin activity and automation
+
+- **Lifecycle event** — An immutable record that a business-significant transition occurred, named for the domain outcome and linked to every directly affected core entity. It records when Altitutor learned about the transition separately from when the transition took effect; it is not a reconstruction of arbitrary table changes or a complete audit log.
+  _Avoid_: Row-change event, database audit entry, event-sourced state
+
+- **Activity feed** — The chronological projection of Lifecycle events directly linked to one core admin entity. A Parent Activity feed contains Parent forms and Parent–Student link changes but does not inherit the histories of currently linked Students.
+  _Avoid_: Change log, Parent Student roll-up, table history
+
+- **Event automation trigger** — An automation trigger that matches an exact Lifecycle event name and may apply conditions to its stable event or live entity context. A relative-time trigger remains a separate scheduled trigger anchored to a Session start and is not represented as a Lifecycle event.
+  _Avoid_: Row trigger, changed-column automation, scheduled event

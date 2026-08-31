@@ -1,10 +1,16 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { RegistrationFlow } from '@/features/auth/components/RegistrationFlow';
-import { useToast } from '@altitutor/ui';
-import { SkeletonRegistrationFlow } from '@altitutor/ui';
+import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { RegistrationFlow } from "@/features/auth/components/RegistrationFlow";
+import { useToast } from "@altitutor/ui";
+import { SkeletonRegistrationFlow } from "@altitutor/ui";
+import {
+  clearRegistrationObservability,
+  captureRegistrationEvent,
+  captureRegistrationOperationalError,
+  initializeRegistrationObservability,
+} from "@/features/registration/lib/registration-observability";
 
 type RegistrationData = {
   student: {
@@ -35,66 +41,100 @@ type RegistrationData = {
   }>;
 };
 
-export default function RegisterPage({ params }: { params: { token: string } }) {
+export default function RegisterPage({
+  params,
+}: {
+  params: { token: string };
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(true);
-  const [registrationData, setRegistrationData] = useState<RegistrationData | null>(null);
+  const [registrationData, setRegistrationData] =
+    useState<RegistrationData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [skipPassword, setSkipPassword] = useState(false);
   const [currentStep, setCurrentStep] = useState(() => {
-    const stepParam = searchParams.get('step');
+    const stepParam = searchParams.get("step");
     return stepParam ? parseInt(stepParam, 10) : 0;
   });
 
   // Validate token and fetch registration data
   useEffect(() => {
+    let active = true;
     const validateToken = async () => {
+      captureRegistrationEvent("student_registration_opened");
       try {
         setIsLoading(true);
         setError(null);
 
-        const response = await fetch(`/api/register/validate?token=${params.token}`);
+        const response = await fetch(
+          `/api/register/validate?token=${params.token}`,
+        );
         const data = await response.json();
 
         if (!response.ok || !data.valid) {
+          captureRegistrationEvent("student_registration_load_failed", {
+            http_status: response.status,
+            result_code: data.alreadyRegistered
+              ? "already_registered"
+              : "invalid_registration_link",
+          });
           if (data.alreadyRegistered) {
             // Student already registered - redirect to login
             toast({
-              title: 'Already Registered',
-              description: 'You already have an account. Please log in.',
-              variant: 'default',
+              title: "Already Registered",
+              description: "You already have an account. Please log in.",
+              variant: "default",
             });
-            router.push('/login');
+            router.push("/login");
             return;
           }
-          setError(data.error || 'This registration link is invalid');
+          setError(data.error || "This registration link is invalid");
           return;
         }
 
+        await initializeRegistrationObservability(data.student.id);
+        if (!active) return;
         setRegistrationData({
           student: data.student,
           parents: data.parents || [],
           subjects: data.subjects || [],
         });
         setSkipPassword(data.skipPassword || data.hasAccount || false);
+        captureRegistrationEvent("student_registration_loaded", {
+          skip_password: data.skipPassword || data.hasAccount || false,
+        });
       } catch (err) {
-        console.error('Failed to validate token:', err);
-        setError('Failed to load registration form. Please try again.');
+        console.error("Failed to validate token:", err);
+        captureRegistrationEvent("student_registration_load_failed", {
+          result_code: "validation_request_failed",
+        });
+        captureRegistrationOperationalError(
+          err,
+          "load",
+          "validation_request_failed",
+        );
+        setError("Failed to load registration form. Please try again.");
       } finally {
         setIsLoading(false);
       }
     };
 
     validateToken();
+    return () => {
+      active = false;
+      clearRegistrationObservability();
+    };
   }, [params.token, router, toast]);
 
   // Sync query params with step state
   useEffect(() => {
     const urlParams = new URLSearchParams();
-    urlParams.set('step', currentStep.toString());
-    router.replace(`/register/${params.token}?${urlParams.toString()}`, { scroll: false });
+    urlParams.set("step", currentStep.toString());
+    router.replace(`/register/${params.token}?${urlParams.toString()}`, {
+      scroll: false,
+    });
   }, [currentStep, router, params.token]);
 
   if (isLoading) {
@@ -112,7 +152,7 @@ export default function RegisterPage({ params }: { params: { token: string } }) 
           <h1 className="text-2xl font-bold mb-4">Registration Error</h1>
           <p className="text-muted-foreground mb-6">{error}</p>
           <button
-            onClick={() => router.push('/login')}
+            onClick={() => router.push("/login")}
             className="text-primary hover:underline"
           >
             Go to Login

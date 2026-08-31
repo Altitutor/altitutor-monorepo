@@ -3,6 +3,13 @@ import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 
+function blueprintAuditError(message: string) {
+  if (message.includes('mock_not_found')) {
+    return NextResponse.json({ error: 'This mock no longer exists.' }, { status: 404 })
+  }
+  return NextResponse.json({ error: message }, { status: 400 })
+}
+
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -13,7 +20,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     p_mock_id: params.id,
     p_blueprint_id: body.blueprintId,
   })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return blueprintAuditError(error.message)
   return NextResponse.json({ auditId: data })
 }
 
@@ -32,6 +39,6 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   if (auditError) return NextResponse.json({ error: auditError.message }, { status: 400 })
   if (!audit) return NextResponse.json({ error: 'Blueprint audit not found for this mock' }, { status: 404 })
   const { data, error } = await client.rpc('tutor_ucat_confirm_mock_blueprint_audit', { p_audit_id: body.auditId })
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) return blueprintAuditError(error.message)
   return NextResponse.json({ auditId: data })
 }

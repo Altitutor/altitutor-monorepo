@@ -53,7 +53,7 @@ describe('formatStudentDisplay', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -99,7 +99,7 @@ describe('formatStudentDisplay', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');

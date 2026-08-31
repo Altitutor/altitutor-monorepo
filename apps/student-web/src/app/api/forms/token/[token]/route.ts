@@ -266,21 +266,5 @@ export async function POST(request: Request, { params }: { params: { token: stri
     if (answersError) return captureApiErrorResponse(answersError, "/api/forms/token/[token]", NextResponse.json({ error: answersError.message }, { status: 500 }));
   }
 
-  if (sessionContext) {
-    await admin.from('activity_events').insert({
-      entity_type: 'form_responses',
-      entity_id: response.id,
-      event_type: 'CREATED',
-      session_id: sessionContext.sessionId,
-      student_id: sessionContext.studentId,
-      metadata: {
-        form_id: tokenRow.form_id,
-        form_name: tokenRow.forms?.name ?? 'Form',
-        form_response_id: response.id,
-        recorded_on_behalf: false,
-      },
-    });
-  }
-
   return NextResponse.json({ ok: true });
 }

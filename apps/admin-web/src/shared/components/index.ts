@@ -21,7 +21,6 @@ export type { SettingsDataTableColumn } from './settings-data-table';
 export { SettingsPageHeader } from './settings-page-header';
 export { SettingsTableActions } from './settings-table-actions';
 export type { SettingsTableAction } from './settings-table-actions';
-
 // Logout confirmation modal
 export { LogoutConfirmationModal } from './logout-confirmation-modal';
 

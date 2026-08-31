@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { Users } from 'lucide-react';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import { AccountClassBadge, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
@@ -44,6 +44,7 @@ interface StudentMember {
   last_name: string;
   year_level?: number;
   planned_absence?: boolean;
+  account_class?: string | null;
 }
 
 interface SessionCardProps {
@@ -70,19 +71,19 @@ export function SessionCard({
   onClick,
   isCalendarView = false,
   cardHeight,
-  cardWidth
+  cardWidth,
 }: SessionCardProps) {
   // Measure actual card dimensions using ResizeObserver
   const [cardRef, cardSize] = useElementSize<HTMLDivElement>();
-  
+
   // Use actual measured size if available, otherwise fall back to props
   const actualWidth = cardSize.width > 0 ? cardSize.width : (cardWidth ?? Infinity);
   const actualHeight = cardSize.height > 0 ? cardSize.height : (cardHeight ?? Infinity);
-  
+
   // Progressive responsive breakpoints
   const showIcon = actualWidth >= 200 && actualHeight >= 60;
   const [iconVisible, setIconVisible] = useState(false);
-  
+
   useEffect(() => {
     if (showIcon && actualWidth >= 210 && actualHeight >= 65) {
       setIconVisible(true);
@@ -90,10 +91,10 @@ export function SessionCard({
       setIconVisible(false);
     }
   }, [showIcon, actualWidth, actualHeight]);
-  
-  const showFullNames = actualWidth >= 150 && (staff.length + students.length) <= 5;
+
+  const showFullNames = actualWidth >= 150 && staff.length + students.length <= 5;
   const shouldUseCompact = !iconVisible;
-  
+
   // Build subject display from flattened fields
   const subjectParts: string[] = [];
   if (session.subject_curriculum) {
@@ -108,12 +109,10 @@ export function SessionCard({
   if (session.class_level) {
     subjectParts.push(session.class_level);
   }
-  const subjectDisplay = subjectParts.length > 0 
-    ? subjectParts.join(' ') 
-    : formatSessionType(session.session_type);
-  
+  const subjectDisplay = subjectParts.length > 0 ? subjectParts.join(' ') : formatSessionType(session.session_type);
+
   const subjectDisplayShort = session.subject_name || formatSessionType(session.session_type);
-  
+
   const timeRange =
     session.start_at && session.end_at
       ? (() => {
@@ -134,20 +133,14 @@ export function SessionCard({
           return `${startTime} - ${endTime}`;
         })()
       : '';
-  
-  // Get subject color for the card - create a minimal subject-like object
-  const subjectForColor = session.subject_color 
-    ? { color: session.subject_color } as Tables<'subjects'>
-    : null;
-  const subjectColorHex = getSubjectColorHex(subjectForColor);
-  const defaultBorderClass = !subjectColorHex
-    ? 'ring-1 ring-black/[0.06] dark:ring-white/10'
-    : '';
 
-  const iconBackgroundColor = subjectColorHex
-    ? { backgroundColor: subjectColorHex }
-    : undefined;
-  
+  // Get subject color for the card - create a minimal subject-like object
+  const subjectForColor = session.subject_color ? ({ color: session.subject_color } as Tables<'subjects'>) : null;
+  const subjectColorHex = getSubjectColorHex(subjectForColor);
+  const defaultBorderClass = !subjectColorHex ? 'ring-1 ring-black/[0.06] dark:ring-white/10' : '';
+
+  const iconBackgroundColor = subjectColorHex ? { backgroundColor: subjectColorHex } : undefined;
+
   // Icon stroke color (adapts to background luminance)
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
@@ -172,11 +165,15 @@ export function SessionCard({
         defaultBorderClass,
         onClick
           ? 'cursor-pointer hover:bg-muted/45 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
-          : '',
+          : ''
       )}
       style={{
         ...(subjectColorHex
-          ? { borderLeftWidth: 4, borderLeftColor: subjectColorHex, borderLeftStyle: 'solid' }
+          ? {
+              borderLeftWidth: 4,
+              borderLeftColor: subjectColorHex,
+              borderLeftStyle: 'solid',
+            }
           : {}),
       }}
       onClick={onClick}
@@ -184,21 +181,18 @@ export function SessionCard({
       <div className={cn('flex items-start', shouldUseCompact ? 'gap-1.5' : 'gap-3')}>
         {iconVisible && (
           <div className="flex-shrink-0">
-            <div 
+            <div
               className={cn(
                 'h-10 w-10 rounded-lg flex items-center justify-center',
                 iconBackgroundColor ? '' : 'bg-muted text-muted-foreground'
               )}
               style={iconBackgroundColor}
             >
-              <Users 
-                className="h-5 w-5" 
-                style={iconBackgroundColor ? { stroke: iconStrokeColor } : undefined}
-              />
+              <Users className="h-5 w-5" style={iconBackgroundColor ? { stroke: iconStrokeColor } : undefined} />
             </div>
           </div>
         )}
-        
+
         <div className={cn('flex-1 min-w-0', isCalendarView ? 'overflow-visible' : 'overflow-hidden')}>
           <div className="flex items-start justify-between gap-2">
             <div className={cn('flex-1 min-w-0', isCalendarView ? 'overflow-visible' : 'overflow-hidden')}>
@@ -211,10 +205,10 @@ export function SessionCard({
                   <TooltipProvider delayDuration={100}>
                     <Tooltip>
                       <TooltipTrigger asChild>
-                        <span className={cn(
-                          'font-semibold',
-                          isCalendarView ? 'text-xs break-words' : 'text-sm truncate'
-                        )} title={subjectDisplay}>
+                        <span
+                          className={cn('font-semibold', isCalendarView ? 'text-xs break-words' : 'text-sm truncate')}
+                          title={subjectDisplay}
+                        >
                           {subjectDisplay}
                         </span>
                       </TooltipTrigger>
@@ -237,35 +231,33 @@ export function SessionCard({
               </p>
             </div>
           </div>
-          
+
           {/* Staff */}
           {staff.length > 0 && (
             <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
               <div className="flex flex-wrap gap-1">
                 {staff.map((staffMember) => {
                   const fullName = `${staffMember.first_name} ${staffMember.last_name}`;
-                  const display = !showFullNames ? getInitials(staffMember.first_name, staffMember.last_name) : fullName;
-                  
+                  const display = !showFullNames
+                    ? getInitials(staffMember.first_name, staffMember.last_name)
+                    : fullName;
+
                   const badge = (
                     <span
                       key={staffMember.id}
                       className={cn(
                         'rounded bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300',
-                        shouldUseCompact 
-                          ? 'text-[10px] px-1 py-0.5' 
-                          : 'text-xs px-2 py-0.5'
+                        shouldUseCompact ? 'text-[10px] px-1 py-0.5' : 'text-xs px-2 py-0.5'
                       )}
                     >
                       {display}
                     </span>
                   );
-                  
+
                   return (
                     <TooltipProvider key={staffMember.id} delayDuration={100}>
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          {badge}
-                        </TooltipTrigger>
+                        <TooltipTrigger asChild>{badge}</TooltipTrigger>
                         <TooltipContent>
                           <p>{fullName}</p>
                         </TooltipContent>
@@ -276,7 +268,7 @@ export function SessionCard({
               </div>
             </div>
           )}
-          
+
           {/* Students */}
           {students.length > 0 && (
             <div className={cn('flex items-center gap-2 flex-wrap', shouldUseCompact ? 'mt-1' : 'mt-2')}>
@@ -285,7 +277,7 @@ export function SessionCard({
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
                   const isAbsent = Boolean(student.planned_absence);
-                  
+
                   const badge = (
                     <span
                       key={student.id}
@@ -294,23 +286,26 @@ export function SessionCard({
                         isAbsent
                           ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 line-through'
                           : 'bg-muted text-muted-foreground',
-                        shouldUseCompact
-                          ? 'text-[10px] px-1 py-0.5'
-                          : 'text-xs px-2 py-0.5'
+                        shouldUseCompact ? 'text-[10px] px-1 py-0.5' : 'text-xs px-2 py-0.5'
                       )}
                     >
                       {display}
+                      <AccountClassBadge accountClass={student.account_class} className="ml-1 px-1 py-0 text-[9px]" />
                     </span>
                   );
-                  
+
                   return (
                     <TooltipProvider key={student.id} delayDuration={100}>
                       <Tooltip>
-                        <TooltipTrigger asChild>
-                          {badge}
-                        </TooltipTrigger>
+                        <TooltipTrigger asChild>{badge}</TooltipTrigger>
                         <TooltipContent>
-                          <p>{fullName}{isAbsent ? ' (absent)' : ''}</p>
+                          <div className="flex items-center gap-2">
+                            <p>
+                              {fullName}
+                              {isAbsent ? ' (absent)' : ''}
+                            </p>
+                            <AccountClassBadge accountClass={student.account_class} />
+                          </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -324,4 +319,3 @@ export function SessionCard({
     </div>
   );
 }
-

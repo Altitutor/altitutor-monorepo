@@ -1,21 +1,20 @@
 import { useState, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
-import { Loader2, UserCheck, Plus } from "lucide-react";
+import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@altitutor/ui";
+import { Eye, Loader2, MessageSquare, MoreVertical, Plus, UserMinus } from "lucide-react";
 import { ViewStaffModal } from '@/features/staff';
-import { StaffCard } from '@/shared/components/StaffCard';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { useToast } from "@altitutor/ui";
 import { getErrorMessage } from '@/shared/utils';
 import { AssignStaffModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/shared/hooks';
+import type { ClassStaff } from '@/features/classes/api/classes';
 
 interface ClassStaffTabProps {
   classData: Tables<'classes'>;
   classSubject?: Tables<'subjects'>;
-  classStaff: Tables<'staff'>[];
+  classStaff: ClassStaff[];
   allStaff: Tables<'staff'>[];
   loadingStaff: boolean;
   onAssignStaff: (staffId: string) => void;
@@ -26,7 +25,7 @@ export function ClassStaffTab({
   classData,
   classSubject,
   classStaff,
-  allStaff,
+  allStaff: _allStaff,
   loadingStaff,
   onAssignStaff,
   onRemoveStaff
@@ -144,8 +143,7 @@ export function ClassStaffTab({
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
       ) : classStaff.length === 0 && assigningStaff.size === 0 ? (
-        <div className="flex-1 flex flex-col justify-center items-center">
-          <UserCheck className="h-12 w-12 text-muted-foreground mb-2" />
+          <div className="rounded-md border p-6 text-center">
           <p className="text-sm text-muted-foreground mb-4">No staff assigned</p>
           {currentStaff && (
             <Button 
@@ -158,47 +156,32 @@ export function ClassStaffTab({
           )}
         </div>
       ) : (
-        <ScrollArea className="flex-1 min-h-0">
-          <div className="space-y-2 pr-4">
-            {/* Show currently assigning staff at the top */}
-            {Array.from(assigningStaff).map(staffId => {
-              const staff = allStaff.find(s => s.id === staffId);
-              if (!staff) return null;
-              
-              return (
-                <div 
-                  key={`assigning-${staff.id}`}
-                  className="flex items-center justify-between p-3 rounded-md border border-dashed bg-muted/50"
-                >
-                  <div className="flex-1">
-                    <div className="font-medium text-muted-foreground">
-                      {staff.first_name} {staff.last_name}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Assigning...</div>
-                  </div>
-                  
-                  <div className="flex space-x-1">
-                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                  </div>
-                </div>
-              );
-            })}
-            
-            {/* Show assigned staff */}
-            {classStaff
-              .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
-              .map((staff) => (
-                <StaffCard
-                  key={staff.id}
-                  staff={staff}
-                  showSubjects={false}
-                  onClick={() => handleViewStaff(staff.id)}
-                  onRemoveStaff={() => handleRemoveStaff(staff.id)}
-                  onMessage={() => handleMessageStaff(staff.id)}
-                />
-              ))}
-          </div>
-        </ScrollArea>
+        <div className="overflow-hidden rounded-lg border">
+          <Table>
+            <TableHeader><TableRow><TableHead>Staff</TableHead><TableHead>Assigned on</TableHead><TableHead className="w-14">Actions</TableHead></TableRow></TableHeader>
+            <TableBody>
+              {[...classStaff]
+                .sort((a, b) => `${a.last_name} ${a.first_name}`.localeCompare(`${b.last_name} ${b.first_name}`))
+                .map((staff) => (
+                  <TableRow key={staff.id}>
+                    <TableCell><button type="button" className="font-medium hover:underline" onClick={() => handleViewStaff(staff.id)}>{staff.first_name} {staff.last_name}</button></TableCell>
+                    <TableCell>{new Date(staff.assigned_at).toLocaleDateString('en-AU', { timeZone: 'Australia/Adelaide', dateStyle: 'medium' })}</TableCell>
+                    <TableCell>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild><Button type="button" variant="outline" size="icon" className="h-8 w-8" aria-label={`Actions for ${staff.first_name} ${staff.last_name}`}><MoreVertical className="h-4 w-4" /></Button></DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuItem onClick={() => handleViewStaff(staff.id)}><Eye className="mr-2 h-4 w-4" />View staff</DropdownMenuItem>
+                          <DropdownMenuItem onClick={() => handleMessageStaff(staff.id)}><MessageSquare className="mr-2 h-4 w-4" />Message</DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem className="text-destructive focus:text-destructive" onClick={() => handleRemoveStaff(staff.id)}><UserMinus className="mr-2 h-4 w-4" />Remove from Class</DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    </TableCell>
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </div>
       )}
       
       {/* Staff Modal */}
@@ -233,4 +216,4 @@ export function ClassStaffTab({
       )}
     </div>
   );
-} 
+}

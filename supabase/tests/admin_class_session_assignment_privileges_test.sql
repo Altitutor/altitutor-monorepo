@@ -9,17 +9,14 @@ SELECT is(
     JOIN pg_namespace namespace ON namespace.oid = procedure.pronamespace
     WHERE namespace.nspname = 'public'
       AND procedure.proname IN (
-        'extract_activity_fks_classes_staff',
-        'extract_activity_fks_sessions_staff',
-        'extract_activity_fks_tutor_logs_staff_attendance',
-        'extract_activity_fks_admin_shifts_staff'
+        'capture_core_domain_event'
       )
       AND procedure.prosecdef
       AND procedure.proconfig @> ARRAY['search_path=public']::TEXT[]
       AND NOT has_function_privilege('authenticated', procedure.oid, 'EXECUTE')
   ),
-  4,
-  'staff activity triggers use private fixed-path security-definer boundaries'
+  1,
+  'staff domain-event triggers use a private fixed-path security-definer boundary'
 );
 
 -- Seed rows used by the removal checks while still running as the database owner.

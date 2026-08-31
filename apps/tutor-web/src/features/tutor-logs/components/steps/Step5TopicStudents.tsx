@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { X, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { Button, SearchableSelect } from '@altitutor/ui';
+import { AccountClassBadge, Button, SearchableSelect } from '@altitutor/ui';
 import { useTutorLogStep5Data } from '../../hooks/useTutorLogStep5Data';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
@@ -19,16 +19,9 @@ type Step5TopicStudentsProps = {
   onUpdate: (topics: TopicItem[]) => void;
 };
 
-export function Step5TopicStudents({
-  topics,
-  attendedStudentIds,
-  onUpdate,
-}: Step5TopicStudentsProps) {
+export function Step5TopicStudents({ topics, attendedStudentIds, onUpdate }: Step5TopicStudentsProps) {
   const topicIds = topics.map((t) => t.topicId);
-  const { topicsData, studentsData, isLoading } = useTutorLogStep5Data(
-    topicIds,
-    attendedStudentIds
-  );
+  const { topicsData, studentsData, isLoading } = useTutorLogStep5Data(topicIds, attendedStudentIds);
 
   // Initialize with all students for all topics when data loads (only if any topic has empty studentIds)
   useEffect(() => {
@@ -37,8 +30,7 @@ export function Step5TopicStudents({
       if (!needsInit) return;
       const updatedTopics = topics.map((topic) => ({
         ...topic,
-        studentIds:
-          topic.studentIds.length > 0 ? topic.studentIds : attendedStudentIds,
+        studentIds: topic.studentIds.length > 0 ? topic.studentIds : attendedStudentIds,
       }));
       onUpdate(updatedTopics);
     }
@@ -48,9 +40,7 @@ export function Step5TopicStudents({
   const handleRemoveStudent = (topicId: string, studentId: string) => {
     onUpdate(
       topics.map((t) =>
-        t.topicId === topicId
-          ? { ...t, studentIds: t.studentIds.filter((id) => id !== studentId) }
-          : t
+        t.topicId === topicId ? { ...t, studentIds: t.studentIds.filter((id) => id !== studentId) } : t
       )
     );
   };
@@ -88,15 +78,16 @@ export function Step5TopicStudents({
                   if (!student) return null;
 
                   return (
-                    <div
-                      key={studentId}
-                      className="flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-md text-sm"
-                    >
-                      <span>
-                        {student.first_name} {student.last_name}
+                    <div key={studentId} className="flex items-center gap-1 px-2 py-1 bg-primary/10 rounded-md text-sm">
+                      <span className="flex items-center gap-2">
+                        <span>
+                          {student.first_name} {student.last_name}
+                        </span>
+                        <AccountClassBadge accountClass={student.account_class} />
                       </span>
                       <button
                         type="button"
+                        aria-label={`Remove ${student.first_name} ${student.last_name}`}
                         onClick={() => handleRemoveStudent(topic.topicId, studentId)}
                         className="ml-1 hover:text-destructive"
                       >
@@ -113,40 +104,41 @@ export function Step5TopicStudents({
                   if (studentsToAdd.length === 0) return null;
                   return (
                     <div className="basis-full mt-3 w-full min-w-0">
-                    <SearchableSelect<Tables<'students'>>
-                      items={studentsToAdd}
-                      value={null}
-                      onValueChange={(student) => {
-                        if (student) handleAddStudent(topic.topicId, student.id);
-                      }}
-                      getItemId={(s) => s.id}
-                      getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
-                      getItemValue={(s) =>
-                        `${s.first_name} ${s.last_name} ${s.email ?? ''} ${s.year_level ?? ''}`.toLowerCase()
-                      }
-                      searchPlaceholder="Find student..."
-                      emptyMessage="All attending students are assigned to this topic"
-                      trigger={
-                        <Button variant="outline" size="sm" className={cn(tutorBtnOutline, 'border-dashed')}>
-                          <Plus className="h-3 w-3 mr-1" />
-                          Add student
-                        </Button>
-                      }
-                      align="start"
-                      contentWidth="min(320px, 90vw)"
-                      renderItem={(student) => (
-                        <div className="flex w-full items-center justify-between gap-2 min-w-0">
-                          <span className="min-w-0 truncate">
-                            {student.first_name} {student.last_name}
-                          </span>
-                          {student.year_level != null && (
-                            <span className="text-sm text-muted-foreground shrink-0">
-                              Year {student.year_level}
+                      <SearchableSelect<Tables<'students'>>
+                        items={studentsToAdd}
+                        value={null}
+                        onValueChange={(student) => {
+                          if (student) handleAddStudent(topic.topicId, student.id);
+                        }}
+                        getItemId={(s) => s.id}
+                        getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+                        getItemValue={(s) =>
+                          `${s.first_name} ${s.last_name} ${s.email ?? ''} ${s.year_level ?? ''}`.toLowerCase()
+                        }
+                        searchPlaceholder="Find student..."
+                        emptyMessage="All attending students are assigned to this topic"
+                        trigger={
+                          <Button variant="outline" size="sm" className={cn(tutorBtnOutline, 'border-dashed')}>
+                            <Plus className="h-3 w-3 mr-1" />
+                            Add student
+                          </Button>
+                        }
+                        align="start"
+                        contentWidth="min(320px, 90vw)"
+                        renderItem={(student) => (
+                          <div className="flex w-full min-w-0 items-center justify-between gap-2">
+                            <span className="flex min-w-0 items-center gap-2">
+                              <span className="truncate">
+                                {student.first_name} {student.last_name}
+                              </span>
+                              <AccountClassBadge accountClass={student.account_class} />
                             </span>
-                          )}
-                        </div>
-                      )}
-                    />
+                            {student.year_level != null && (
+                              <span className="text-sm text-muted-foreground shrink-0">Year {student.year_level}</span>
+                            )}
+                          </div>
+                        )}
+                      />
                     </div>
                   );
                 })()}
@@ -158,5 +150,3 @@ export function Step5TopicStudents({
     </div>
   );
 }
-
-

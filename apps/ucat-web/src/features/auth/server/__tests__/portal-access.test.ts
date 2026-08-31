@@ -31,7 +31,7 @@ const accessPayload = {
   ucat_signup_completed_at: "2026-08-01T00:00:00Z",
   ucat_signup_step: 4,
   unlimited_trial_eligible: false,
-  ucat_analytics_account_class: "external",
+  account_class: "external",
   ucat_test_year: 2027,
   ucat_test_date: "2027-07-01",
 };
