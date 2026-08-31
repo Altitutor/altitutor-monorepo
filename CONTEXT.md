@@ -50,6 +50,23 @@
 - **Online product entitlement** — The access level currently granted within an Online product relationship, such as Altitutor UCAT free or a paid plan. Entitlement and subscription state may change without activating or ending the Student's relationship with the Product app.
   _Avoid_: Online student status, student lifecycle, active Student
 
+## UCAT acquisition and conversion
+
+- **Observed acquisition attribution** — The first measurable campaign context through which a Student reached Altitutor UCAT, such as a tagged Reddit link or business-card QR code. It is immutable first-touch evidence and remains distinct from what the Student remembers or reports.
+  _Avoid_: Marketing source, latest touch, self-reported source
+
+- **Self-reported acquisition source** — One or more channels a Student says first made them aware of Altitutor UCAT during Online product signup. It records the Student's recollection, including uncertainty, without replacing Observed acquisition attribution.
+  _Avoid_: Observed source, UTM source, inferred source
+
+- **Paid acquisition conversion** — The first successful positive-value subscription payment for a Student's Altitutor UCAT subscription. Creating an account, beginning checkout, provisioning a trial, receiving a referral-funded period, or activating unpaid access is not a Paid acquisition conversion.
+  _Avoid_: Checkout completion, subscription provisioning, trial activation, Unlimited entitlement
+
+- **Subscription cancellation scheduled** — A Student's recorded intent to end a subscription at a future billing boundary while paid entitlement remains available until that boundary.
+  _Avoid_: Subscription cancelled, access ended
+
+- **Subscription cancelled** — The terminal subscription state after Stripe ends the subscription and its paid entitlement. It is distinct from a scheduled cancellation that has not yet taken effect.
+  _Avoid_: Cancellation requested, cancellation scheduled
+
 - **UCAT preparation cycle** — The period in which a Student is preparing for a particular UCAT sitting, identified by a test year and optionally a test date. Passing the test date ends that preparation cycle but does not end the Altitutor UCAT relationship, close the account, remove free access, or erase attempts and study history. A Student may later prepare for another sitting.
   _Avoid_: UCAT account lifecycle, discontinued UCAT student, expired online student
 
@@ -595,7 +612,7 @@
 - **Stem available in the question pool** — A published public question stem that is not included in any published, non-deleted question set. Draft and in-review sets do not reserve their stems from the pool.
   _Avoid_: Unused question, not attempted, not in any set
 
-- **Set available in the sets pool** — A published public standalone UCAT question set. Any mock attachment makes a set a Mock component set and excludes it from the standalone pool, independent of the mock's publication status.
+- **Set available in the sets pool** — A published public UCAT question set that is not attached to any published, non-deleted mock. Draft and in-review mocks do not reserve their sets from the pool.
   _Avoid_: Unused set, not attempted, not in any mock
 
 - **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying or reversing edits, and either publishing or returning each stem to draft. AI-generated, eligible bulk-imported, and tutor-submitted stems enter this queue automatically.
@@ -943,13 +960,28 @@
 - **Study plan Situational Judgement goal** — The automatically managed standard used to prescribe Situational Judgement learning and practice without adding another onboarding input. It uses Situational Judgement performance evidence and a system-configured readiness standard, but neither contributes to nor competes with the Study plan target.
   _Avoid_: Overall-score contribution, student-entered SJ target, ignored section
 
-- **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or overload a later available study day. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Equivalent completed activity is reconciled after activity completion, while missed-work rebalancing and the full future calendar follow scheduled or event-driven recalculation. Opening the Study plan is read-only and never performs either mutation.
+- **Study plan rebalancing** — The bounded adjustment made by a weekly or material-event generation from current readiness, completed activity, and Missed exposure debt. Rollover records missed work when the next planned study day begins without regenerating the future calendar, while opening the Study plan remains read-only.
   _Avoid_: Backlog rollover, catch-up workload, plan failure
+
+- **Missed exposure debt** — A capped planning signal created by missed non-optional Practice, expressed against its section or category rather than as unfinished task volume. Replacement scheduling reduces it and equivalent completed Practice reduces it further; it never becomes a carried task backlog or independently triggers full generation.
+  _Avoid_: Missed-task backlog, overdue workload, automatic catch-up task
+
+- **Carry-over study task** — Incomplete work from the most recent planned study day that remains actionable through intervening rest days. It is retired into missed-work history only when the next day containing planned work begins, so completing it on a rest day prevents Missed exposure debt without moving its scheduled date.
+  _Avoid_: Rescheduled task, next-day backlog, extra-study task
+
+- **Practice prescription** — The Study plan's scheduled intent for a Practice task: its section or category objective, dose, and pace. It may consult compact global availability to avoid impossible prescriptions, but it does not load Student-specific catalogue inventory or preselect exact Question stems.
+  _Avoid_: Preselected question list, practice-session snapshot, catalogue bundle
+
+- **Practice launch fulfilment** — Selection of the best currently accessible whole Question stems when a Student starts a Practice prescription, including unanswered or incorrect preference and bounded fallbacks. The resulting exact stem snapshot belongs to the resumable Practice session, not to future Study-plan generation.
+  _Avoid_: Plan generation, future question reservation, per-plan catalogue inventory
+
+- **Learning task ownership** — Learning progress launched from a Study-plan task belongs only to that task identifier. Progress started outside the Study plan may reconcile only the earliest applicable active task for the same module; completing the module skips other untouched future copies rather than completing them all.
+  _Avoid_: Module-wide task completion, progress copied to future tasks, generation-wide learning match
 
 - **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.
   _Avoid_: Any activity counts, plan-only activity, duplicate required practice
 
-- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The completed work contributes to progress evidence and plan recalculation, but the task remains visibly partial and its remainder does not automatically become next-day study debt. A mock or benchmark is complete only when its required attempt is finalized.
+- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The task remains visibly partial; when overdue, only the uncompleted portion of non-optional Practice may contribute bounded Missed exposure debt rather than becoming a carried task. A mock or benchmark is complete only when its required attempt is finalized.
   _Avoid_: Failed task, automatic completion, remaining-work rollover
 
 - **Study plan task controls** — The intentionally limited actions available on a generated study task: start the prescribed activity or skip it for automatic Study plan rebalancing. Students edit planning inputs such as availability, test date, and target score rather than manually moving, rewriting, or swapping generated tasks. This preserves the student-facing promise that the plan decides what to do next.
@@ -991,7 +1023,7 @@
 - **Mock readiness** — The Study plan's evidence-based judgement that a student is sufficiently familiar with all sections to benefit from a full UCAT mock. It is normally established through Full-section benchmarks across every section, but a credible completed mock or other equivalent historical evidence may satisfy that requirement without forcing the student through learning and short-loop practice. Test proximity may override incomplete readiness when a mock has become the most useful available baseline.
   _Avoid_: Minimum accuracy gate, mandatory lesson sequence, preferred mock day alone
 
-- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. Incomplete Essential lessons are completed in authored order; Recommended lessons follow in authored order only while their section remains in Learning; Optional and Excluded lessons are not automatically prescribed. Selection uses this metadata and stable lesson references rather than hard-coded lesson IDs or titles.
+- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. While a section remains in Learning, incomplete Essential lessons remain strongly prioritised in authored order and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended lessons follow only after the Essential tier, while Optional and Excluded lessons are not automatically prescribed.
   _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
 
 - **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
