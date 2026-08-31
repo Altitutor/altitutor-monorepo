@@ -876,9 +876,6 @@ export function generateStudyPlan(
     0,
   );
   const schedulableSectionEquivalents = nonMockDayCount * 2;
-  const hasTiming = readiness.sections.some(
-    (section) => section.mode !== "learning",
-  );
   const demandPerNonMockDay =
     outstandingSectionEquivalents / Math.max(1, nonMockDayCount);
   const ordinaryCoreSlots = 2;
@@ -893,7 +890,7 @@ export function generateStudyPlan(
     isMock: mocks.has(scheduledDate),
     coreSlotCount: mocks.has(scheduledDate) ? 1 : justifiedCoreSlots,
     includeWarmup:
-      !mocks.has(scheduledDate) && hasTiming && input.skillTrainers.length > 0,
+      !mocks.has(scheduledDate) && input.skillTrainers.length > 0,
   }));
   const useCounts = new Map<string, number>();
   const sectionEquivalentUse = new Map<string, number>();
@@ -1312,6 +1309,9 @@ export function generateStudyPlan(
     let sortOrder = 0;
     let scheduledWarmupMinutes = 0;
     const firstSectionId = candidatesForDay[0]?.sectionId;
+    const firstSectionMode = firstSectionId
+      ? readinessBySection.get(firstSectionId)?.mode
+      : null;
     const warmupCandidate = rankedActivities.find(
       (activity) =>
         activity.kind === "optional_warmup" &&
@@ -1321,6 +1321,7 @@ export function generateStudyPlan(
     if (
       warmupCandidate?.skillTrainerId &&
       envelope.includeWarmup &&
+      (firstSectionMode === "timing" || firstSectionMode === "exam") &&
       candidatesForDay.every((activity) => activity.kind !== "calibration")
     ) {
       const trainer = input.skillTrainers.find(
