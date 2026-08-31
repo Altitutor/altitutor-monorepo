@@ -17,6 +17,18 @@ SELECT public.tutor_ucat_upsert_mock_v2(
   '54100000-0000-4000-8000-000000000001'
 ) AS id;
 
+CREATE TEMP TABLE projection_component AS
+SELECT public.tutor_ucat_upsert_question_set_v2(
+  NULL, NULL, '{}'::JSONB, 'pace', 1, NULL, 'full_section', 'public', '[]'::JSONB,
+  (SELECT id FROM public.ucat_sections WHERE section_number = 1),
+  '54100000-0000-4000-8000-000000000001'
+) AS id;
+
+SELECT public.tutor_ucat_attach_mock_set(
+  (SELECT id FROM projection_mock),
+  (SELECT id FROM projection_component)
+);
+
 INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_id, index)
 SELECT source_member.question_stem_id, component.id, 1
 FROM public.question_sets component

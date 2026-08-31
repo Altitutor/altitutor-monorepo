@@ -17,10 +17,24 @@ SELECT public.tutor_ucat_upsert_mock_v2(
   '54100000-0000-4000-8000-000000000001'
 ) AS id;
 
+CREATE TEMP TABLE shape_components AS
+SELECT
+  section.section_number,
+  public.tutor_ucat_upsert_question_set_v2(
+    NULL, NULL, '{}'::JSONB, 'pace', 1, NULL, 'full_section', 'public', '[]'::JSONB,
+    section.id, '54100000-0000-4000-8000-000000000001'
+  ) AS id
+FROM public.ucat_sections section
+WHERE section.section_number BETWEEN 1 AND 4;
+
+SELECT public.tutor_ucat_attach_mock_set((SELECT id FROM shape_mock), component.id)
+FROM shape_components component
+ORDER BY component.section_number;
+
 SELECT is(
   (public.ucat_mock_blueprint_compliance((SELECT id FROM shape_mock))->>'compliant')::BOOLEAN,
   FALSE,
-  'an empty generated full mock is not blueprint compliant'
+  'an empty composed full mock is not blueprint compliant'
 );
 
 SELECT ok(
@@ -36,7 +50,7 @@ SELECT is(
      AND timing_mode = 'pace'
      AND pace_multiplier = 1),
   4,
-  'generated mock components have full-section exam-pace intent'
+  'explicitly attached mock components have full-section exam-pace intent'
 );
 
 SELECT is(
