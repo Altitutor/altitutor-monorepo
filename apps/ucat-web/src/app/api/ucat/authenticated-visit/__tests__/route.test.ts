@@ -61,6 +61,7 @@ describe("authenticated UCAT visit route", () => {
     await expect(response.json()).resolves.toEqual({
       recorded: true,
       refreshPending: true,
+      planChanged: false,
     });
     expect(rpc).toHaveBeenCalledWith("record_current_ucat_authenticated_visit");
   });

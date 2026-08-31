@@ -12,6 +12,7 @@ import {
   useMocks,
 } from "@/features/mocks/hooks/use-mocks";
 import {
+  compareStudentMocksByCatalog,
   filterMocks,
   type StudentMockRow,
 } from "@/features/mocks/api/mocks-api";
@@ -59,11 +60,7 @@ export function MocksListPage() {
       ...effectiveFilters,
       search: search.trim() || undefined,
     });
-    return [...filtered].sort((a, b) =>
-      (a.name ?? "").localeCompare(b.name ?? "", undefined, {
-        sensitivity: "base",
-      }),
-    );
+    return [...filtered].sort(compareStudentMocksByCatalog);
   }, [mocks, effectiveFilters, search]);
 
   const handleFiltersChange = useCallback(

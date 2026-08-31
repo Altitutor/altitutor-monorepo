@@ -51,6 +51,7 @@ export async function POST() {
     return NextResponse.json({
       recorded: visit?.recorded ?? false,
       refreshPending: visit?.refresh_pending ?? false,
+      planChanged: visit?.plan_changed ?? false,
     });
   } catch (error) {
     captureApiError(error, "/api/ucat/authenticated-visit");

@@ -10,6 +10,7 @@ export type {
   ActivityCandidateSelection,
   ActivityRankingInput,
   ActivityTagSignal,
+  MissedExposureDebtSignal,
   PreparationActivityCandidate,
   PreparationActivityKind,
   PreparationActivityObjective,

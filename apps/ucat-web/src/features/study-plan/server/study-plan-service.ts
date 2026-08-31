@@ -14,6 +14,7 @@ import {
   type PreparationEngineResult,
   type PreparationEngineInput,
   type ActivityTagSignal,
+  type MissedExposureDebtSignal,
   type RepresentativeScoreEvidence,
 } from "@/features/preparation";
 import {
@@ -21,9 +22,7 @@ import {
   mergeCurrentPreparationHistory,
 } from "@/features/preparation/lib/forecast-evidence";
 import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
-import {
-  loadPreparationSnapshotHistory,
-} from "@/features/preparation/server/preparation-snapshot";
+import { loadPreparationSnapshotHistory } from "@/features/preparation/server/preparation-snapshot";
 import { normalizeSjtPreference } from "@/features/preparation/lib/sjt-allocation-policy";
 import type {
   BenchmarkMockAsset,
@@ -55,10 +54,6 @@ import {
 import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import { expandQuestionTagIds } from "@/features/study-plan/lib/tag-hierarchy";
 import {
-  countPracticeQuestionsByCategory,
-  deriveActivityTagSignals,
-} from "@/features/study-plan/lib/practice-inventory";
-import {
   needsPreparationVersionReplacement,
   planProfileTransition,
   prepareStudyPlanTasks,
@@ -74,6 +69,7 @@ import {
 import {
   matchLearningModuleProgress,
   matchPracticeSession,
+  selectLearningTaskOwner,
   shouldReconcileStudyPlanTask,
 } from "@/features/study-plan/lib/reconciliation";
 import type {
@@ -229,10 +225,7 @@ type PreloadedQuery = {
   eq: (column: string, value: unknown) => PreloadedQuery;
   neq: (column: string, value: unknown) => PreloadedQuery;
   not: (column: string, operator: string, value: unknown) => PreloadedQuery;
-  order: (
-    column: string,
-    options?: { ascending?: boolean },
-  ) => PreloadedQuery;
+  order: (column: string, options?: { ascending?: boolean }) => PreloadedQuery;
   range: (from: number, to: number) => PreloadedQuery;
   limit: (limit: number) => PreloadedQuery;
   maybeSingle: () => Promise<{ data: PreloadedRow | null; error: null }>;
@@ -266,10 +259,11 @@ export function createPreloadedStudentClient(
         },
         order: (column, options) => {
           const direction = options?.ascending === false ? -1 : 1;
-          rows.sort((left, right) =>
-            String(left[column] ?? "").localeCompare(
-              String(right[column] ?? ""),
-            ) * direction,
+          rows.sort(
+            (left, right) =>
+              String(left[column] ?? "").localeCompare(
+                String(right[column] ?? ""),
+              ) * direction,
           );
           return query;
         },
@@ -307,7 +301,11 @@ async function loadScheduledStudentClient(
     { p_student_id: studentId },
   );
   if (result.error) throw new Error(result.error.message);
-  if (!result.data || typeof result.data !== "object" || Array.isArray(result.data)) {
+  if (
+    !result.data ||
+    typeof result.data !== "object" ||
+    Array.isArray(result.data)
+  ) {
     throw new Error("Scheduled Study plan bundle is unavailable");
   }
   const bundle: Record<string, PreloadedRow[]> = {};
@@ -437,7 +435,10 @@ async function loadGenerationInputs(
   supabase: SupabaseClient<Database>,
   studentId: string,
   testYear: number,
-  options: { includeScoreEvidence?: boolean } = {},
+  options: {
+    includeScoreEvidence?: boolean;
+    includePracticeSelectionData?: boolean;
+  } = {},
 ): Promise<{
   sections: StudyPlanSection[];
   signals: StudyPlanSectionSignal[];
@@ -448,10 +449,11 @@ async function loadGenerationInputs(
   scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
   tagSignals: ActivityTagSignal[];
+  missedExposureDebt: MissedExposureDebtSignal[];
   benchmarkSets: BenchmarkSetAsset[];
   benchmarkMocks: BenchmarkMockAsset[];
   lastLearningModuleServedAtBySection: Record<string, string>;
-  practiceSelectionData: NonNullable<PickStemsOptions["preloaded"]>;
+  practiceSelectionData?: NonNullable<PickStemsOptions["preloaded"]>;
 }> {
   const admin = requireAdmin();
   const aggregateClient = admin as unknown as {
@@ -469,6 +471,21 @@ async function loadGenerationInputs(
       params: { p_student_id: string },
     ) => Promise<{
       data: { section_id: string }[] | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const compactPlanningClient = admin as unknown as {
+    rpc: (
+      name: "get_student_ucat_activity_tag_weakness_signals",
+      params: { p_student_id: string },
+    ) => Promise<{
+      data: Array<{
+        tag_id: string;
+        section_id: string;
+        category_id: string;
+        independent_session_count: number;
+        weakness_score: number;
+      }> | null;
       error: { message: string } | null;
     }>;
   };
@@ -511,6 +528,9 @@ async function loadGenerationInputs(
     practiceInventoryRes,
     lastLearningTasksRes,
     practiceAttemptsRes,
+    categoryCountsRes,
+    tagSignalsRes,
+    missedExposureDebtRes,
   ] = await runWithConcurrency(
     [
       scoreEvidenceQuery,
@@ -580,15 +600,17 @@ async function loadGenerationInputs(
           .order("completed_at", { ascending: false })
           .limit(512),
       () =>
-        collectPagedResult((from, to) =>
-          supabase
-            .from("vstudent_ucat_practice_stem_index")
-            .select(
-              "id, section_id, question_stem_category_id, question_ids, question_tag_ids",
+        options.includePracticeSelectionData
+          ? collectPagedResult((from, to) =>
+              supabase
+                .from("vstudent_ucat_practice_stem_index")
+                .select(
+                  "id, section_id, question_stem_category_id, question_ids, question_tag_ids",
+                )
+                .order("id")
+                .range(from, to),
             )
-            .order("id")
-            .range(from, to),
-        ),
+          : Promise.resolve({ data: [], error: null }),
       () =>
         admin
           .from("ucat_student_study_plan_tasks")
@@ -598,15 +620,31 @@ async function loadGenerationInputs(
           .in("status", ["in_progress", "completed"])
           .not("section_id", "is", null),
       () =>
-        collectPagedResult((from, to) =>
-          supabase
-            .from("vstudent_ucat_my_question_attempts")
-            .select(
-              "id, question_id, score, is_submitted, student_practice_session_id, student_question_set_attempt_id",
+        options.includePracticeSelectionData
+          ? collectPagedResult((from, to) =>
+              supabase
+                .from("vstudent_ucat_my_question_attempts")
+                .select(
+                  "id, question_id, score, is_submitted, student_practice_session_id, student_question_set_attempt_id",
+                )
+                .order("id")
+                .range(from, to),
             )
-            .order("id")
-            .range(from, to),
+          : Promise.resolve({ data: [], error: null }),
+      () =>
+        admin
+          .from("ucat_public_question_counts_cache")
+          .select("section_id, question_stem_category_id, total_questions"),
+      () =>
+        compactPlanningClient.rpc(
+          "get_student_ucat_activity_tag_weakness_signals",
+          { p_student_id: studentId },
         ),
+      () =>
+        admin
+          .from("ucat_student_study_plan_exposure_debts")
+          .select("section_id, question_stem_category_id, debt_units")
+          .eq("student_id", studentId),
     ],
     6,
   );
@@ -636,6 +674,9 @@ async function loadGenerationInputs(
     ["practice inventory", practiceInventoryRes],
     ["learning history", lastLearningTasksRes],
     ["practice attempts", practiceAttemptsRes],
+    ["category counts", categoryCountsRes],
+    ["tag weakness signals", tagSignalsRes],
+    ["missed exposure debt", missedExposureDebtRes],
   ] as const) {
     if (result.error) {
       throw new Error(
@@ -773,8 +814,12 @@ async function loadGenerationInputs(
       pacePolicyVersion: graduation?.pace_policy_version ?? null,
     };
   });
-  const categoryCounts = countPracticeQuestionsByCategory(
-    practiceInventoryRes.data ?? [],
+  const categoryCounts = new Map(
+    (categoryCountsRes.data ?? []).flatMap((row) =>
+      row.question_stem_category_id
+        ? [[row.question_stem_category_id, row.total_questions ?? 0] as const]
+        : [],
+    ),
   );
   const categoryProgress = new Map(
     (categoryProgressRes.data ?? []).flatMap((row) =>
@@ -966,24 +1011,28 @@ async function loadGenerationInputs(
             Number.MAX_SAFE_INTEGER,
           categoryIds,
           questionTagIds,
-          targetedPracticeInventory: {
-            strictStemCount: strictStems.length,
-            strictQuestionCount: strictStems.reduce(
-              (sum, stem) => sum + (stem.question_ids?.length ?? 0),
-              0,
-            ),
-            preferredTagStemCount: preferredTagStems.length,
-            preferredTagQuestionCount: preferredTagStems.reduce(
-              (sum, stem) => sum + (stem.question_ids?.length ?? 0),
-              0,
-            ),
-            strictSelectableQuestionCount: maximumTieredWholeStemDose(
-              tierQuestionCounts,
-              requestedQuestionCount,
-            ),
-            preferredTagSelectableQuestionCount:
-              selectedDoseByTier[0] + selectedDoseByTier[2],
-          },
+          ...(options.includePracticeSelectionData
+            ? {
+                targetedPracticeInventory: {
+                  strictStemCount: strictStems.length,
+                  strictQuestionCount: strictStems.reduce(
+                    (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+                    0,
+                  ),
+                  preferredTagStemCount: preferredTagStems.length,
+                  preferredTagQuestionCount: preferredTagStems.reduce(
+                    (sum, stem) => sum + (stem.question_ids?.length ?? 0),
+                    0,
+                  ),
+                  strictSelectableQuestionCount: maximumTieredWholeStemDose(
+                    tierQuestionCounts,
+                    requestedQuestionCount,
+                  ),
+                  preferredTagSelectableQuestionCount:
+                    selectedDoseByTier[0] + selectedDoseByTier[2],
+                },
+              }
+            : {}),
           relevanceScore: categoryScores.length
             ? categoryScores.reduce((sum, score) => sum + score, 0) /
               categoryScores.length
@@ -1049,10 +1098,23 @@ async function loadGenerationInputs(
       },
     ];
   });
-  const tagSignals: ActivityTagSignal[] = deriveActivityTagSignals(
-    practiceInventoryRes.data ?? [],
-    practiceAttemptsRes.data ?? [],
+  const tagSignals: ActivityTagSignal[] = (tagSignalsRes.data ?? []).map(
+    (row) => ({
+      id: row.tag_id,
+      sectionId: row.section_id,
+      categoryId: row.category_id,
+      availableQuestionCount: null,
+      independentSessionCount: row.independent_session_count,
+      weaknessScore: Number(row.weakness_score),
+    }),
   );
+  const missedExposureDebt: MissedExposureDebtSignal[] = (
+    missedExposureDebtRes.data ?? []
+  ).map((row) => ({
+    sectionId: row.section_id,
+    categoryId: row.question_stem_category_id,
+    debtUnits: Number(row.debt_units),
+  }));
   const benchmarkSets: BenchmarkSetAsset[] = (setCatalogRes.data ?? []).flatMap(
     (set) => {
       if (
@@ -1152,42 +1214,47 @@ async function loadGenerationInputs(
     timingSessions,
     scoreEvidence,
     tagSignals,
+    missedExposureDebt,
     completedMockCount: mockRes.count ?? 0,
     benchmarkSets,
     benchmarkMocks,
     lastLearningModuleServedAtBySection,
-    practiceSelectionData: {
-      sections: sections.map((section) => ({
-        id: section.id,
-        section_number: section.sectionNumber,
-        time_per_question: section.timePerQuestionSeconds,
-        number_of_questions: section.questionCount,
-      })),
-      stems: (practiceInventoryRes.data ?? []).flatMap((stem) =>
-        stem.id && stem.section_id
-          ? [
-              {
-                id: stem.id,
-                section_id: stem.section_id,
-                question_stem_category_id: stem.question_stem_category_id,
-                question_ids: stem.question_ids,
-                question_tag_ids: stem.question_tag_ids,
-              },
-            ]
-          : [],
-      ),
-      attempts: (practiceAttemptsRes.data ?? []).flatMap((attempt) =>
-        attempt.question_id
-          ? [
-              {
-                question_id: attempt.question_id,
-                score: attempt.score,
-                is_submitted: attempt.is_submitted === true,
-              },
-            ]
-          : [],
-      ),
-    },
+    ...(options.includePracticeSelectionData
+      ? {
+          practiceSelectionData: {
+            sections: sections.map((section) => ({
+              id: section.id,
+              section_number: section.sectionNumber,
+              time_per_question: section.timePerQuestionSeconds,
+              number_of_questions: section.questionCount,
+            })),
+            stems: (practiceInventoryRes.data ?? []).flatMap((stem) =>
+              stem.id && stem.section_id
+                ? [
+                    {
+                      id: stem.id,
+                      section_id: stem.section_id,
+                      question_stem_category_id: stem.question_stem_category_id,
+                      question_ids: stem.question_ids,
+                      question_tag_ids: stem.question_tag_ids,
+                    },
+                  ]
+                : [],
+            ),
+            attempts: (practiceAttemptsRes.data ?? []).flatMap((attempt) =>
+              attempt.question_id
+                ? [
+                    {
+                      question_id: attempt.question_id,
+                      score: attempt.score,
+                      is_submitted: attempt.is_submitted === true,
+                    },
+                  ]
+                : [],
+            ),
+          },
+        }
+      : {}),
   };
 }
 
@@ -1202,7 +1269,7 @@ export async function loadDevelopmentCatalogSandboxCase(
     supabase,
     student.id,
     base.input.goal.profile.testYear,
-    { includeScoreEvidence: false },
+    { includeScoreEvidence: false, includePracticeSelectionData: true },
   );
   const catalogCase: PreparationSandboxCase = {
     ...base,
@@ -1273,7 +1340,7 @@ export async function loadDevelopmentCatalogSandboxCase(
               {
                 allowOversizedFallback: false,
                 deterministic: true,
-                preloaded: inputs.practiceSelectionData,
+                preloaded: inputs.practiceSelectionData!,
               },
             ).then((result) => [module.id, result] as const),
           ];
@@ -1397,7 +1464,11 @@ async function persistGeneration(
     if (activeGeneration) {
       const { error: missedWorkError } = await admin
         .from("ucat_student_study_plan_tasks")
-        .update({ status: "skipped", skipped_at: generatedAt })
+        .update({
+          status: "skipped",
+          skipped_at: generatedAt,
+          skipped_reason: "rollover",
+        })
         .eq("generation_id", activeGeneration.id)
         .lt("scheduled_date", preserveThrough)
         .in("status", ["planned", "partial"]);
@@ -1567,7 +1638,9 @@ function readForecastHistoryBundle(value: unknown): {
       typeof generation !== "object" ||
       Array.isArray(generation)
     ) {
-      throw new Error("Study plan forecast history included an invalid generation.");
+      throw new Error(
+        "Study plan forecast history included an invalid generation.",
+      );
     }
     const row = generation as Record<string, unknown>;
     if (
@@ -1575,7 +1648,9 @@ function readForecastHistoryBundle(value: unknown): {
       typeof row.generated_at !== "string" ||
       (row.superseded_at !== null && typeof row.superseded_at !== "string")
     ) {
-      throw new Error("Study plan forecast history included an invalid generation.");
+      throw new Error(
+        "Study plan forecast history included an invalid generation.",
+      );
     }
     return {
       id: row.id,
@@ -1613,6 +1688,7 @@ type CanonicalPreparationInputs = {
   learningModules: StudyPlanLearningModule[];
   skillTrainers: StudyPlanSkillTrainer[];
   tagSignals?: ActivityTagSignal[];
+  missedExposureDebt?: MissedExposureDebtSignal[];
   timingSessions: StudyPlanTimingEvidenceSession[];
   scoreEvidence: RepresentativeScoreEvidence[];
   completedMockCount: number;
@@ -1659,6 +1735,7 @@ async function runCanonicalPreparation(input: {
       timingSessions: input.inputs.timingSessions,
       scoreEvidence: input.inputs.scoreEvidence,
       completedMockCount: input.inputs.completedMockCount,
+      missedExposureDebt: input.inputs.missedExposureDebt,
       lastLearningModuleServedAtBySection:
         input.inputs.lastLearningModuleServedAtBySection,
       forecast,
@@ -1837,18 +1914,26 @@ async function reconcileTasks(
   studentId: string,
   generation: GenerationRow,
   tasks: TaskRow[],
+  timezone: string,
+  options: { includeFutureLearning?: boolean } = {},
 ): Promise<void> {
   const admin = requireAdmin();
-  const today = todayIso();
-  const actionable = tasks.filter((task) =>
-    shouldReconcileStudyPlanTask(
-      {
-        scheduledDate: task.scheduled_date,
-        status: task.status as StudyPlanTask["status"],
-        taskType: task.task_type as StudyPlanTask["taskType"],
-      },
-      today,
-    ),
+  const today = todayIso(new Date(), timezone);
+  const actionable = tasks.filter(
+    (task) =>
+      shouldReconcileStudyPlanTask(
+        {
+          canCompleteBeforeScheduledDate:
+            (task.task_type === "section_benchmark" &&
+              task.question_set_id != null) ||
+            task.task_type === "mock",
+          scheduledDate: task.scheduled_date,
+          status: task.status as StudyPlanTask["status"],
+          taskType: task.task_type as StudyPlanTask["taskType"],
+        },
+        today,
+      ) ||
+      (options.includeFutureLearning === true && task.task_type === "learn"),
   );
   const patches = new Map<string, StudyPlanTaskPatch>();
   const addPatch = (patch: StudyPlanTaskPatch | null) => {
@@ -1909,7 +1994,9 @@ async function reconcileTasks(
     await Promise.all([
       admin
         .from("ucat_student_learning_module_progress")
-        .select("id, learning_module_id, completion_percent, completed_at")
+        .select(
+          "id, learning_module_id, completion_percent, completed_at, study_plan_task_id",
+        )
         .eq("student_id", studentId),
       admin
         .from("student_practice_sessions")
@@ -1954,6 +2041,65 @@ async function reconcileTasks(
     ),
   );
   const reconciledAt = new Date().toISOString();
+  const learningOwnerByModuleId = new Map(
+    (learningRes.data ?? []).flatMap((progress) => {
+      const owner = selectLearningTaskOwner(
+        tasks.map((task) => ({
+          id: task.id,
+          learningModuleId: task.learning_module_id,
+          scheduledDate: task.scheduled_date,
+          startedAt: task.started_at,
+          status: task.status as StudyPlanTaskStatus,
+        })),
+        progress.learning_module_id,
+        progress.study_plan_task_id,
+      );
+      return owner ? [[progress.learning_module_id, owner.id] as const] : [];
+    }),
+  );
+  const ownershipClaims = (learningRes.data ?? []).flatMap((progress) => {
+    const taskId = learningOwnerByModuleId.get(progress.learning_module_id);
+    return progress.study_plan_task_id == null && taskId
+      ? [{ progressId: progress.id, taskId }]
+      : [];
+  });
+  await runWithConcurrency(
+    ownershipClaims.map(
+      (claim) => async () => {
+        const { error } = await admin
+          .from("ucat_student_learning_module_progress")
+          .update({ study_plan_task_id: claim.taskId })
+          .eq("id", claim.progressId)
+          .is("study_plan_task_id", null);
+        if (error) throw error;
+      },
+    ),
+    4,
+  );
+  for (const progress of learningRes.data ?? []) {
+    if (
+      progress.completed_at == null &&
+      progress.completion_percent < 100
+    ) {
+      continue;
+    }
+    if (learningOwnerByModuleId.has(progress.learning_module_id)) continue;
+    for (const task of tasks) {
+      if (
+        task.learning_module_id === progress.learning_module_id &&
+        task.status !== "completed" &&
+        task.status !== "skipped" &&
+        task.started_at == null
+      ) {
+        addPatch({
+          id: task.id,
+          status: "skipped",
+          skipped_at: reconciledAt,
+          skipped_reason: "module_completed_elsewhere",
+        });
+      }
+    }
+  }
   for (const task of actionable) {
     let update:
       | Database["public"]["Tables"]["ucat_student_study_plan_tasks"]["Update"]
@@ -1967,15 +2113,18 @@ async function reconcileTasks(
       const progress = learningRes.data?.find(
         (item) => item.learning_module_id === task.learning_module_id,
       );
-      const match = progress
-        ? matchLearningModuleProgress(
-            {
-              completedAt: progress.completed_at,
-              completionPercent: progress.completion_percent,
-            },
-            reconciledAt,
-          )
-        : null;
+      const isOwner =
+        learningOwnerByModuleId.get(task.learning_module_id) === task.id;
+      const match =
+        progress && isOwner
+          ? matchLearningModuleProgress(
+              {
+                completedAt: progress.completed_at,
+                completionPercent: progress.completion_percent,
+              },
+              reconciledAt,
+            )
+          : null;
       if (match?.status === "completed") {
         update = {
           status: "completed",
@@ -1984,6 +2133,22 @@ async function reconcileTasks(
           matched_activity_type: "learning_module",
           matched_activity_id: progress!.id,
         };
+        for (const duplicate of tasks) {
+          if (
+            duplicate.id !== task.id &&
+            duplicate.learning_module_id === task.learning_module_id &&
+            duplicate.status !== "completed" &&
+            duplicate.status !== "skipped" &&
+            duplicate.started_at == null
+          ) {
+            addPatch({
+              id: duplicate.id,
+              status: "skipped",
+              skipped_at: reconciledAt,
+              skipped_reason: "module_completed_elsewhere",
+            });
+          }
+        }
       } else if (match?.status === "partial") {
         update = {
           status: "partial",
@@ -2117,14 +2282,24 @@ export async function reconcileStudyPlanAfterActivity(
   if (generationError) throw generationError;
   if (!generation) return;
 
-  const { data: tasks, error: tasksError } = await admin
-    .from("ucat_student_study_plan_tasks")
-    .select("*")
-    .eq("generation_id", generation.id)
-    .order("scheduled_date")
-    .order("sort_order");
-  if (tasksError) throw tasksError;
-  await reconcileTasks(studentId, generation, tasks ?? []);
+  const [tasksResult, studentResult] = await Promise.all([
+    admin
+      .from("ucat_student_study_plan_tasks")
+      .select("*")
+      .eq("generation_id", generation.id)
+      .order("scheduled_date")
+      .order("sort_order"),
+    admin.from("students").select("timezone").eq("id", studentId).single(),
+  ]);
+  if (tasksResult.error) throw tasksResult.error;
+  if (studentResult.error) throw studentResult.error;
+  await reconcileTasks(
+    studentId,
+    generation,
+    tasksResult.data ?? [],
+    studentResult.data.timezone || "Australia/Adelaide",
+    { includeFutureLearning: true },
+  );
 }
 
 /**
@@ -3084,24 +3259,12 @@ export async function getStudyPlan(
         CURRENT_PREPARATION_VERSIONS,
       )
     : false;
-  let missedWorkSinceGeneration = false;
-  if (generation && options.allowAutomaticReplan !== false) {
-    const { count, error } = await admin
-      .from("ucat_student_study_plan_tasks")
-      .select("id", { count: "exact", head: true })
-      .eq("generation_id", generation.id)
-      .lt("scheduled_date", today)
-      .in("status", ["planned", "partial"]);
-    if (error) throw error;
-    missedWorkSinceGeneration = (count ?? 0) > 0;
-  }
   if (
     profile.study_plan_enabled &&
     options.allowAutomaticReplan !== false &&
     (!generation ||
       mockCompletedSinceGeneration ||
       preparationVersionChanged ||
-      missedWorkSinceGeneration ||
       !profile.next_weekly_replan_on ||
       profile.next_weekly_replan_on <= today)
   ) {
@@ -3111,7 +3274,7 @@ export async function getStudyPlan(
       profile,
       !generation
         ? "onboarding"
-        : preparationVersionChanged || missedWorkSinceGeneration
+        : preparationVersionChanged
           ? "significant_activity"
           : mockCompletedSinceGeneration
             ? "mock_completed"
@@ -3146,7 +3309,7 @@ export async function getStudyPlan(
     if (taskResult.error) throw taskResult.error;
     taskRows = taskResult.data ?? [];
     if (options.reconcileTasks !== false) {
-      await reconcileTasks(studentId, generation, taskRows);
+      await reconcileTasks(studentId, generation, taskRows, student.timezone);
       const refreshed = await admin
         .from("ucat_student_study_plan_tasks")
         .select("*")
@@ -3296,15 +3459,21 @@ export async function updateStudyPlanTask(
   }
   const update =
     action === "start"
-      ? { status: "in_progress", started_at: now, skipped_at: null }
+      ? {
+          status: "in_progress",
+          started_at: now,
+          skipped_at: null,
+          skipped_reason: null,
+        }
       : action === "unskip"
         ? {
             status: task.started_at ? "in_progress" : "planned",
             skipped_at: null,
+            skipped_reason: null,
           }
         : action === "complete"
           ? { status: "completed", completed_at: now, completed_units: 1 }
-          : { status: "skipped", skipped_at: now };
+          : { status: "skipped", skipped_at: now, skipped_reason: "manual" };
   const { error } = await admin
     .from("ucat_student_study_plan_tasks")
     .update(update)
@@ -3321,7 +3490,11 @@ export async function updateStudyPlanTask(
     if (companion) {
       const { error: skipCompanionError } = await admin
         .from("ucat_student_study_plan_tasks")
-        .update({ status: "skipped", skipped_at: now })
+        .update({
+          status: "skipped",
+          skipped_at: now,
+          skipped_reason: "manual",
+        })
         .eq("id", companion.id);
       if (skipCompanionError) throw skipCompanionError;
     }
@@ -3340,27 +3513,10 @@ export async function updateStudyPlanTask(
         .update({
           status: companion.started_at ? "in_progress" : "planned",
           skipped_at: null,
+          skipped_reason: null,
         })
         .eq("id", companion.id);
       if (unskipCompanionError) throw unskipCompanionError;
-    }
-  }
-
-  if (action === "skip") {
-    const { data: profile, error: profileError } = await admin
-      .from("ucat_student_study_plan_profiles")
-      .select("*")
-      .eq("student_id", studentId)
-      .eq("study_plan_enabled", true)
-      .maybeSingle();
-    if (profileError) throw profileError;
-    if (profile) {
-      await generateForProfile(
-        supabase,
-        studentId,
-        profile,
-        "significant_activity",
-      );
     }
   }
 }

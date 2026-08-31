@@ -156,6 +156,50 @@ describe("canonical activity ranking", () => {
     ]);
   });
 
+  it("never schedules a learning module already completed independently", () => {
+    const input = rankingInput();
+    input.readiness = {
+      ...readiness,
+      mode: "learning",
+      sections: readiness.sections.map((section) => ({
+        ...section,
+        mode: "learning",
+      })),
+    };
+    input.learningModules = [
+      {
+        id: "completed-module",
+        title: "Already completed",
+        sectionId: "vr",
+        sectionNumber: 1,
+        priority: "essential",
+        estimatedMinutes: 10,
+        completionPercent: 100,
+        relevanceScore: 1,
+      },
+    ];
+
+    expect(
+      rankActivityCandidates(input).some(
+        (candidate) => candidate.learningModuleId === "completed-module",
+      ),
+    ).toBe(false);
+  });
+
+  it("uses missed exposure debt as a bounded future ranking signal", () => {
+    const input = rankingInput();
+    input.missedExposureDebt = [
+      { sectionId: "dm", categoryId: "dm-0", debtUnits: 35 },
+    ];
+
+    const debtCandidate = rankActivityCandidates(input).find(
+      (candidate) =>
+        candidate.sectionId === "dm" && candidate.categoryIds.includes("dm-0"),
+    );
+    expect(debtCandidate?.ranking.missedExposure).toBeGreaterThan(0);
+    expect(debtCandidate?.ranking.missedExposure).toBeLessThanOrEqual(20);
+  });
+
   it("returns complete candidate provenance and ranks milestones by section rather than taxonomy count", () => {
     const candidates = rankActivityCandidates(rankingInput());
     const firstRequired = candidates.find(
@@ -219,7 +263,9 @@ describe("canonical activity ranking", () => {
 
   it("uses the same preparation judgement for plan, guidance, alternatives and extra work", () => {
     const candidates = rankActivityCandidates(rankingInput());
-    const planned = selectActivityCandidates(candidates, { experience: "plan" });
+    const planned = selectActivityCandidates(candidates, {
+      experience: "plan",
+    });
     const guidance = selectActivityCandidates(candidates, {
       experience: "guidance",
     });

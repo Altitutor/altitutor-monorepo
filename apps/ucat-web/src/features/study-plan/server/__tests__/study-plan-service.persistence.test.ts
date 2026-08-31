@@ -184,10 +184,7 @@ function createDatabaseHarness(
         error: null,
       };
     }
-    if (
-      table === "ucat_student_preparation_refresh_requests" &&
-      single
-    ) {
+    if (table === "ucat_student_preparation_refresh_requests" && single) {
       return {
         data: options.refreshDeadLetteredAt
           ? {
@@ -364,6 +361,9 @@ function createDatabaseHarness(
     if (name === "get_student_ucat_completed_benchmark_sections") {
       return { data: [], error: null };
     }
+    if (name === "get_student_ucat_activity_tag_weakness_signals") {
+      return { data: [], error: null };
+    }
     if (name === "get_student_ucat_study_plan_forecast_history") {
       return {
         data: {
@@ -419,6 +419,7 @@ function mockReplacementPlan() {
         uncertainty: 0,
         targetGap: 0,
         tagSampling: 0,
+        missedExposure: 0,
         total: 3,
       },
     },
@@ -499,7 +500,7 @@ describe("Study plan persistence orchestration", () => {
     );
   });
 
-  it("regenerates future work through the replacement RPC after today's task is skipped", async () => {
+  it("records a manual skip without regenerating the canonical plan", async () => {
     const { admin, studentClient, updates } = createDatabaseHarness();
 
     await updateStudyPlanTask(studentClient, "user-1", "task-today", "skip");
@@ -512,26 +513,16 @@ describe("Study plan persistence orchestration", () => {
         }),
       ]),
     );
-    expect(
-      updates.some(
-        (update) =>
-          update.filters.get("generation_id") === "generation-old" &&
-          update.filters.get("scheduled_date:lt") === "2026-08-11" &&
-          update.payload.status === "skipped",
-      ),
-    ).toBe(true);
-    expect(admin.rpc).toHaveBeenCalledWith(
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload: expect.objectContaining({ skipped_reason: "manual" }),
+        }),
+      ]),
+    );
+    expect(admin.rpc).not.toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
-      expect.objectContaining({
-        p_reason: "significant_activity",
-        p_preserve_through: "2026-08-11",
-        p_tasks: [
-          expect.objectContaining({
-            scheduled_date: "2026-08-12",
-            title: "Regenerated future work",
-          }),
-        ],
-      }),
+      expect.anything(),
     );
   });
 
@@ -648,7 +639,7 @@ describe("Study plan persistence orchestration", () => {
     ).toBe(false);
   });
 
-  it("regenerates future work when an active generation contains missed work", async () => {
+  it("does not regenerate future work merely because the active generation contains missed work", async () => {
     const { admin, studentClient } = createDatabaseHarness({
       currentPolicy: true,
       missedWorkCount: 1,
@@ -656,9 +647,9 @@ describe("Study plan persistence orchestration", () => {
 
     await getStudyPlan(studentClient, "user-1", { reconcileTasks: false });
 
-    expect(admin.rpc).toHaveBeenCalledWith(
+    expect(admin.rpc).not.toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
-      expect.objectContaining({ p_reason: "significant_activity" }),
+      expect.anything(),
     );
   });
 

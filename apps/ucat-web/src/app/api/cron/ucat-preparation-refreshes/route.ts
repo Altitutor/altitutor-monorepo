@@ -42,8 +42,23 @@ export async function GET(request: NextRequest) {
         name: "list_ucat_study_plan_maintenance_anomalies",
         params: { p_limit: number },
       ): RpcResult<Array<{ student_id: string; anomaly: string }>>;
+      (
+        name: "rollover_due_ucat_study_plan_tasks",
+        params: { p_limit: number },
+      ): RpcResult<
+        Array<{ students_processed: number; tasks_skipped: number }>
+      >;
     };
   };
+  const rollover = await queueClient.rpc("rollover_due_ucat_study_plan_tasks", {
+    p_limit: 200,
+  });
+  if (rollover.error) {
+    return NextResponse.json(
+      { error: rollover.error.message },
+      { status: 500 },
+    );
+  }
   const [due, anomalies] = await Promise.all([
     queueClient.rpc("enqueue_due_ucat_study_plan_rebalances", { p_limit: 50 }),
     queueClient.rpc("list_ucat_study_plan_maintenance_anomalies", {
@@ -87,5 +102,12 @@ export async function GET(request: NextRequest) {
     }
     if (batchClaimed < batchSize) break;
   }
-  return NextResponse.json({ scheduled: due.data ?? 0, ...result });
+  return NextResponse.json({
+    rollover: rollover.data?.[0] ?? {
+      students_processed: 0,
+      tasks_skipped: 0,
+    },
+    scheduled: due.data ?? 0,
+    ...result,
+  });
 }

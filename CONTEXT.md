@@ -976,6 +976,7 @@
   _Avoid_: Plan generation, future question reservation, per-plan catalogue inventory
 
 - **Learning task ownership** — Learning progress launched from a Study-plan task belongs only to that task identifier. Progress started outside the Study plan may reconcile only the earliest applicable active task for the same module; completing the module skips other untouched future copies rather than completing them all.
+- **Study-plan task fulfilment** — One completed activity satisfies at most one planned prescription. Completing an exact Set or Mock early completes its matching task; completing a Learning module completes its owning task while untouched later prescriptions for that non-repeatable module become obsolete rather than creating duplicate completion credit.
   _Avoid_: Module-wide task completion, progress copied to future tasks, generation-wide learning match
 
 - **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.

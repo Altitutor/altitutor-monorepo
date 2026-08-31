@@ -24,6 +24,7 @@ SET study_plan_enabled = TRUE,
     test_date = current_date + 21,
     last_authenticated_visit_at = clock_timestamp(),
     next_weekly_replan_on = current_date - 1,
+    next_weekly_replan_at = clock_timestamp() - interval '1 minute',
     next_maintenance_at = clock_timestamp() - interval '1 minute',
     last_missed_work_replan_on = NULL
 WHERE student_id = '10000000-0000-0000-0000-000000000001';
@@ -94,6 +95,7 @@ UPDATE public.ucat_student_study_plan_profiles
 SET test_year = extract(year FROM current_date)::INTEGER + 1,
     test_date = NULL,
     next_weekly_replan_on = current_date - 1,
+    next_weekly_replan_at = clock_timestamp() - interval '1 minute',
     next_maintenance_at = clock_timestamp() - interval '1 minute'
 WHERE student_id = '10000000-0000-0000-0000-000000000001';
 SELECT is(
@@ -117,6 +119,7 @@ SET study_plan_enabled = TRUE,
     test_date = current_date + 30,
     last_authenticated_visit_at = clock_timestamp(),
     next_weekly_replan_on = current_date + 7,
+    next_weekly_replan_at = clock_timestamp() + interval '7 days',
     last_missed_work_replan_on = NULL
 WHERE student_id = '10000000-0000-0000-0000-000000000002';
 
@@ -156,16 +159,16 @@ SELECT public.recompute_ucat_study_plan_maintenance_at(
 );
 SELECT ok(
   (
-    SELECT next_maintenance_at <= clock_timestamp()
+    SELECT next_rollover_at > clock_timestamp()
     FROM public.ucat_student_study_plan_profiles
     WHERE student_id = '10000000-0000-0000-0000-000000000002'
   ),
-  'the indexed watermark becomes due for missed active-generation work'
+  'carry-over remains actionable until the next actual planned study day'
 );
 SELECT is(
   public.enqueue_due_ucat_study_plan_rebalances(10),
-  1,
-  'missed work in the active generation queues a rebalance'
+  0,
+  'missed work alone does not queue a full canonical rebalance'
 );
 
 DELETE FROM public.ucat_student_preparation_refresh_requests
@@ -173,22 +176,19 @@ WHERE student_id IN (
   '10000000-0000-0000-0000-000000000001',
   '10000000-0000-0000-0000-000000000002'
 );
-UPDATE public.ucat_student_study_plan_profiles AS profile
-SET last_missed_work_replan_on = (
-      clock_timestamp() AT TIME ZONE coalesce(
-        nullif(student.timezone, ''),
-        'Australia/Adelaide'
-      )
-    )::DATE,
-    next_maintenance_at = clock_timestamp() - interval '1 minute'
-FROM public.students AS student
-WHERE profile.student_id = '10000000-0000-0000-0000-000000000002'
-  AND student.id = profile.student_id;
+UPDATE public.ucat_student_study_plan_tasks
+SET scheduled_date = current_date
+WHERE id = 'e2000000-0000-4000-8000-000000000002';
 SELECT is(
-  public.enqueue_due_ucat_study_plan_rebalances(10),
-  0,
-  'missed-work full regeneration is limited to once per Student-local day'
+  public.rollover_ucat_study_plan_for_student(
+    '10000000-0000-0000-0000-000000000002'
+  ),
+  1,
+  'the next planned study day cheaply skips earlier carry-over work'
 );
+UPDATE public.ucat_student_study_plan_tasks
+SET scheduled_date = current_date + 2
+WHERE id = 'e2000000-0000-4000-8000-000000000002';
 
 UPDATE public.ucat_student_study_plan_generations
 SET superseded_at = clock_timestamp()
