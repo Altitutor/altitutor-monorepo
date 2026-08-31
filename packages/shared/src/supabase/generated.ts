@@ -39572,6 +39572,10 @@ export type Database = {
       }
       ucat_mock_catalog_name: { Args: { p_mock_id: string }; Returns: string }
       ucat_mock_content_snapshot: { Args: { p_mock_id: string }; Returns: Json }
+      ucat_mock_occupies_sets_pool: {
+        Args: { p_mock_id: string }
+        Returns: boolean
+      }
       ucat_mock_publication_shape_issues: {
         Args: { p_mock_id: string }
         Returns: Json
@@ -39675,6 +39679,10 @@ export type Database = {
       ucat_section_abbreviation: {
         Args: { p_section_name: string }
         Returns: string
+      }
+      ucat_sync_component_sets_for_mock_occupancy: {
+        Args: { p_mock_id: string }
+        Returns: undefined
       }
       ucat_unresolved_current_ai_assessment_findings: {
         Args: { p_stem_id: string }

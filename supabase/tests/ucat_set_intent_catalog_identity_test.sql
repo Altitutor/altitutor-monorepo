@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(27);
+SELECT plan(28);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', id
@@ -98,10 +98,12 @@ SELECT is((SELECT bool_and(
 
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
-), 'Mock 3 Verbal Reasoning', 'component sets have expanded mock-relative names');
+), 'Verbal Reasoning Full Set',
+  'a draft mock does not give an unpublished component a mock-relative name');
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM test_catalog_ids WHERE kind = 'component'), true
-), 'Mock 3 VR', 'component sets have compact mock-relative names');
+), 'VR Full Set',
+  'unpublished components keep unnumbered compact standalone names on a draft mock');
 
 SELECT lives_ok(format(
   'SELECT public.tutor_ucat_detach_mock_set(%L::uuid)',
@@ -166,6 +168,10 @@ SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
   WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
     AND deleted_at IS NULL), 1,
   'soft deleting a mock preserves its attached component sets');
+SELECT is(public.ucat_question_set_catalog_name(
+  (SELECT id FROM test_catalog_ids WHERE kind = 'component'), false
+), 'Verbal Reasoning Full Set',
+  'a deleted mock does not keep a mock-relative catalog name');
 
 SELECT * FROM finish();
 ROLLBACK;

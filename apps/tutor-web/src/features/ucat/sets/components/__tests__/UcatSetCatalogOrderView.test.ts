@@ -1,4 +1,5 @@
 import {
+  belongsInStandaloneCatalogOrder,
   buildPublishedSetOrders,
   getSetOrderStatusTransitions,
   type SetCatalogOrderRow,
@@ -51,6 +52,34 @@ describe('published Set catalog order', () => {
       'section-1:partial_section': ['partial-1'],
       'section-2:full_section': ['other-section'],
     })
+  })
+
+  it('keeps unpublished and numbered published sets in the standalone order list', () => {
+    expect(
+      belongsInStandaloneCatalogOrder({
+        status: 'draft',
+        catalogIndex: null,
+      }),
+    ).toBe(true)
+    expect(
+      belongsInStandaloneCatalogOrder({
+        status: 'published',
+        catalogIndex: 10,
+      }),
+    ).toBe(true)
+    expect(
+      belongsInStandaloneCatalogOrder({
+        status: 'published',
+        catalogIndex: null,
+      }),
+    ).toBe(false)
+    expect(
+      belongsInStandaloneCatalogOrder({
+        deletedAt: '2026-08-31T00:00:00Z',
+        status: 'published',
+        catalogIndex: 1,
+      }),
+    ).toBe(false)
   })
 
   it('offers lifecycle actions instead of positional move actions', () => {

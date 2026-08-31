@@ -26,6 +26,14 @@ export function setCatalogScopeKey(
   return `${sectionId}:${format}`
 }
 
+export function belongsInStandaloneCatalogOrder(set: {
+  deletedAt?: string | null
+  status: UcatContentStatus
+  catalogIndex: number | null
+}): boolean {
+  return set.deletedAt == null && (set.status !== 'published' || set.catalogIndex != null)
+}
+
 export function buildPublishedSetOrders(
   rows: SetCatalogOrderRow[],
 ): Record<string, string[]> {

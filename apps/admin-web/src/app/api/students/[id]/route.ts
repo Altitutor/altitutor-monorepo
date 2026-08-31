@@ -58,6 +58,19 @@ export async function PATCH(
       );
     }
 
+    const validAccountClasses = ['external', 'internal_test'] as const;
+    if (
+      body.account_class !== undefined &&
+      !validAccountClasses.includes(body.account_class)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Invalid account_class. Must be external or internal_test.',
+        },
+        { status: 400 }
+      );
+    }
+
     // Get current student record to get user_id for auth update
     const { data: currentStudent, error: fetchError} = await supabase
       .from('students')
@@ -141,6 +154,9 @@ export async function PATCH(
         availability_sunday_pm: body.availability_sunday_pm,
         ...(body.ucat_online_tier_override !== undefined
           ? { ucat_online_tier_override: body.ucat_online_tier_override }
+          : {}),
+        ...(body.account_class !== undefined
+          ? { account_class: body.account_class }
           : {}),
       })
       .eq('id', studentId)
