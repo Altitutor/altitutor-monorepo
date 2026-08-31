@@ -4,6 +4,7 @@ import {
   isUcatDeleteBlockedError,
   isUcatVisibilityBlockedError,
   parseUcatLifecycleBlockers,
+  publicationBlockedBlockers,
   readUcatBulkStatusResponse,
   throwUcatLifecycleResponseError,
   UcatLifecycleError,
@@ -181,6 +182,20 @@ describe('delete blockers', () => {
     expect(parseUcatLifecycleBlockers([blocker])[0]?.entity_id).toBe('set-1')
     expect(parseUcatLifecycleBlockers(JSON.stringify([blocker]))[0]?.entity_name).toBe('VR 1')
     expect(parseUcatLifecycleBlockers([{ code: 1 }])).toEqual([])
+  })
+
+  it('extracts publication blockers from a database exception', () => {
+    const blockers = publicationBlockedBlockers(
+      'publication_blocked:[{"code":"full_section_question_count_mismatch","message":"A full section set requires exactly 44 questions for its reference blueprint; found 0."}]',
+    )
+    expect(blockers).toEqual([{
+      code: 'full_section_question_count_mismatch',
+      message: 'A full section set requires exactly 44 questions for its reference blueprint; found 0.',
+      entity_type: null,
+      entity_id: null,
+      entity_name: null,
+    }])
+    expect(publicationBlockedBlockers('in_review_set_contains_draft_stem')).toEqual([])
   })
 
   it('uses the first blocker message for the delete payload', () => {

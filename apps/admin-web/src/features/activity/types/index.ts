@@ -1,9 +1,19 @@
 import type { Tables } from '@altitutor/shared';
 
+export interface ActivityEntityReference {
+  entityType: ActivityEntityType;
+  entityId: string;
+  role: string;
+  displayName?: string;
+}
+
 /**
  * Raw activity event from database
  */
-export type ActivityEvent = Tables<'domain_events'>;
+export type ActivityEvent = Tables<'domain_events'> & {
+  actorName?: string;
+  entities: ActivityEntityReference[];
+};
 
 /**
  * Entity type for activity events
@@ -84,6 +94,10 @@ export interface PerformedBy {
   avatar?: string;
 }
 
+export type ActivityMessagePart =
+  | { kind: 'text'; text: string }
+  | { kind: 'entity'; text: string; entity: ActivityEntityReference };
+
 /**
  * Activity event display object (translated for UI)
  */
@@ -92,6 +106,7 @@ export interface ActivityEventDisplay {
   icon: ActivityIconType;
   iconColor: ActivityIconColor;
   message: string;
+  messageParts?: ActivityMessagePart[];
   timestamp: string;
   performedAt: string; // ISO string for sorting
   performedBy: PerformedBy;

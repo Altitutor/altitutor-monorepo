@@ -2518,18 +2518,21 @@ export type Database = {
       }
       domain_event_entities: {
         Row: {
+          display_name: string | null
           domain_event_id: string
           entity_id: string
           entity_type: string
           role: string
         }
         Insert: {
+          display_name?: string | null
           domain_event_id: string
           entity_id: string
           entity_type: string
           role?: string
         }
         Update: {
+          display_name?: string | null
           domain_event_id?: string
           entity_id?: string
           entity_type?: string
@@ -21795,6 +21798,7 @@ export type Database = {
       }
       vadmin_domain_event_feed: {
         Row: {
+          actor_name: string | null
           actor_staff_id: string | null
           correlation_id: string | null
           effective_at: string | null
@@ -21802,6 +21806,7 @@ export type Database = {
           event_version: number | null
           id: string | null
           is_backfilled: boolean | null
+          linked_entities: Json | null
           linked_entity_id: string | null
           linked_entity_role: string | null
           linked_entity_type: string | null
@@ -38761,6 +38766,10 @@ export type Database = {
           p_historical: boolean
           p_message_id: string
         }
+        Returns: undefined
+      }
+      sync_invoice_domain_event_sessions: {
+        Args: { p_domain_event_id?: string; p_invoice_id: string }
         Returns: undefined
       }
       sync_ucat_practice_attempt_snapshot: {

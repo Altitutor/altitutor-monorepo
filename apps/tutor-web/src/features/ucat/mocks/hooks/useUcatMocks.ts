@@ -77,6 +77,7 @@ export function useSetUcatMockStatus() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.mock(variables.mockId) })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
     },
   })

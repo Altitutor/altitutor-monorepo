@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { getAdminMeetingActivityWindow } from '../lib/adminMeetingActivityWindow';
 import type {
   ActivityEntityType,
+  ActivityEntityReference,
   ActivityEvent,
   ActivityEventsParams,
   ActivityEventsResponse,
@@ -36,6 +37,26 @@ function resolveLinkedEntity(params: ActivityEventsParams): {
   return match ? { type: match[0], id: firstId(match[1]) } : {};
 }
 
+function parseEntityReferences(value: Json | null): ActivityEntityReference[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) return [];
+    const entityType = item.entity_type;
+    const entityId = item.entity_id;
+    const role = item.role;
+    const displayName = item.display_name;
+    if (typeof entityType !== 'string' || typeof entityId !== 'string' || typeof role !== 'string') {
+      return [];
+    }
+    return [{
+      entityType: entityType as ActivityEntityType,
+      entityId,
+      role,
+      displayName: typeof displayName === 'string' ? displayName : undefined,
+    }];
+  });
+}
+
 function toActivityEvent(row: DomainFeedRow): ActivityEvent | null {
   if (!row.id || !row.event_name || !row.subject_type || !row.subject_id) return null;
   const recordedAt = row.recorded_at || new Date(0).toISOString();
@@ -56,6 +77,8 @@ function toActivityEvent(row: DomainFeedRow): ActivityEvent | null {
     idempotency_key: null,
     source: row.source || 'application',
     is_backfilled: row.is_backfilled || false,
+    actorName: row.actor_name || undefined,
+    entities: parseEntityReferences(row.linked_entities),
   };
 }
 
@@ -71,8 +94,8 @@ export const activityApi = {
     let query = supabase
       .from('vadmin_domain_event_feed')
       .select('*')
-      .order('effective_at', { ascending: false })
       .order('recorded_at', { ascending: false })
+      .order('id', { ascending: false })
       .range(offset, offset + limit - 1);
 
     if (type && id) {
@@ -81,8 +104,8 @@ export const activityApi = {
     if (params.performedByIds?.length) {
       query = query.in('actor_staff_id', params.performedByIds);
     }
-    if (params.performedAtGte) query = query.gte('effective_at', params.performedAtGte);
-    if (params.performedAtLte) query = query.lte('effective_at', params.performedAtLte);
+    if (params.performedAtGte) query = query.gte('recorded_at', params.performedAtGte);
+    if (params.performedAtLte) query = query.lte('recorded_at', params.performedAtLte);
 
     const { data, error } = await query;
     if (error) throw error;

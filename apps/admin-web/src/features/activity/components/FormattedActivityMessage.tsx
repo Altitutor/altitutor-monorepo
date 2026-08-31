@@ -1,8 +1,13 @@
-import type { ActivityEventDisplay, ChangedField } from '../types';
+import type {
+  ActivityEntityReference,
+  ActivityEventDisplay,
+  ChangedField,
+} from '../types';
 import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
 
 interface FormattedActivityMessageProps {
   activity: ActivityEventDisplay;
+  onEntityClick?: (entity: ActivityEntityReference) => void;
 }
 
 function cleanValue(value: string | undefined): string {
@@ -69,12 +74,35 @@ function formatInlineMessage(messageWithoutName: string): JSX.Element {
 /**
  * Formats activity messages inline for the Linear-style feed.
  */
-export function FormattedActivityMessage({ activity }: FormattedActivityMessageProps) {
+export function FormattedActivityMessage({
+  activity,
+  onEntityClick,
+}: FormattedActivityMessageProps) {
   const message = activity.message;
   const performedByName = activity.performedBy.name;
 
   if (activity.isGrouped || activity.isCoalesced) {
     return <>{renderTextWithTagsAsPlainText(message)}</>;
+  }
+
+  if (activity.messageParts?.length && !activity.changedFields?.length) {
+    return (
+      <>
+        {activity.messageParts.map((part, index) => part.kind === 'entity' ? (
+          <button
+            key={`${part.entity.entityType}-${part.entity.entityId}-${index}`}
+            type="button"
+            className="font-medium underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            onClick={() => onEntityClick?.(part.entity)}
+            aria-label={`Open ${part.entity.entityType} ${part.text}`}
+          >
+            {part.text}
+          </button>
+        ) : (
+          <span key={`text-${index}`}>{part.text}</span>
+        ))}
+      </>
+    );
   }
 
   const messageWithoutName = message.replace(performedByName, '').trim();

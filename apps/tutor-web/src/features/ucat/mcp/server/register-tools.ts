@@ -657,7 +657,7 @@ export function registerUcatMcpTools(
     {
       title: 'Submit a UCAT draft for review',
       description:
-        'Move exactly one draft lesson, question stem, set, or mock to in_review after lifecycle-appropriate readiness validation. This tool cannot publish.',
+        'Move exactly one draft lesson, question stem, set, or mock to in_review after lifecycle-appropriate readiness validation. Submitting a mock also submits its remaining draft component sets first; if any of those submissions fail, the mock stays in draft. This tool cannot publish.',
       inputSchema: {
         contentType: AggregateTypeSchema,
         id: z.string().uuid(),
