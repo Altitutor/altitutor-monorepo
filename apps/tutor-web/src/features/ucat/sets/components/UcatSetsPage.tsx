@@ -36,6 +36,7 @@ import {
   UcatSetCatalogOrderView,
   type SetCatalogOrderRow,
 } from '@/features/ucat/sets/components/UcatSetCatalogOrderView'
+import { belongsInStandaloneCatalogOrder } from '@/features/ucat/sets/lib/set-catalog-order'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
@@ -478,7 +479,11 @@ export function UcatSetsPage() {
 
   if (viewMode === 'order') {
     const orderRows: SetCatalogOrderRow[] = (sets.data ?? [])
-      .filter((set) => set.deleted_at == null && set.mock_id == null)
+      .filter((set) => belongsInStandaloneCatalogOrder({
+        deletedAt: set.deleted_at,
+        status: set.status ?? 'draft',
+        catalogIndex: set.catalog_index ?? null,
+      }))
       .flatMap((set) => set.id && set.section_id && set.set_format ? [{
         id: set.id,
         displayName: set.display_name ?? set.compact_display_name ?? set.id,

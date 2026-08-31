@@ -4,6 +4,7 @@ import type {
 } from "@/features/study-plan/model/types";
 
 type ReconciliationCandidate = {
+  canCompleteBeforeScheduledDate: boolean;
   scheduledDate: string;
   status: StudyPlanTaskStatus;
   taskType: StudyPlanTaskType;
@@ -13,6 +14,39 @@ type LearningModuleProgress = {
   completedAt: string | null;
   completionPercent: number;
 };
+
+export type LearningTaskOwnershipCandidate = {
+  id: string;
+  learningModuleId: string | null;
+  scheduledDate: string;
+  startedAt: string | null;
+  status: StudyPlanTaskStatus;
+};
+
+export function selectLearningTaskOwner(
+  tasks: LearningTaskOwnershipCandidate[],
+  learningModuleId: string,
+  explicitTaskId: string | null,
+): LearningTaskOwnershipCandidate | null {
+  const active = tasks.filter(
+    (task) =>
+      task.learningModuleId === learningModuleId &&
+      task.status !== "completed" &&
+      task.status !== "skipped",
+  );
+  const explicit = explicitTaskId
+    ? active.find((task) => task.id === explicitTaskId)
+    : null;
+  if (explicitTaskId) return explicit ?? null;
+  return (
+    [...active].sort(
+      (left, right) =>
+        Number(right.startedAt != null) - Number(left.startedAt != null) ||
+        left.scheduledDate.localeCompare(right.scheduledDate) ||
+        left.id.localeCompare(right.id),
+    )[0] ?? null
+  );
+}
 
 export type LearningModuleTaskMatch = {
   completedAt: string | null;
@@ -40,7 +74,7 @@ export type PracticeTaskMatch = {
 };
 
 /**
- * Work that is due, uniquely identifiable learning work, or work the student
+ * Work that is due, an exact set or mock prescription, or work the student
  * explicitly started early can reconcile. Untouched future repeatable work is
  * deliberately excluded so one burst of extra practice does not consume weeks
  * of the future plan.
@@ -50,7 +84,19 @@ export function shouldReconcileStudyPlanTask(
   today: string,
 ): boolean {
   if (task.status === "completed" || task.status === "skipped") return false;
-  if (task.taskType === "learn") return true;
+  if (
+    task.canCompleteBeforeScheduledDate &&
+    (task.taskType === "section_benchmark" || task.taskType === "mock")
+  ) {
+    return true;
+  }
+  if (task.taskType === "learn") {
+    return (
+      task.status === "in_progress" ||
+      task.status === "partial" ||
+      task.scheduledDate <= today
+    );
+  }
   if (task.status === "in_progress" || task.status === "partial") return true;
   return task.scheduledDate <= today;
 }
@@ -114,14 +160,23 @@ export function matchPracticeSession(
   if (!session.completedAt || session.sectionId !== task.sectionId) return null;
   if (
     task.questionStemCategoryId &&
-    !categoryIdsFromFilters(session.filtersSnapshot).includes(task.questionStemCategoryId)
-  ) return null;
+    !categoryIdsFromFilters(session.filtersSnapshot).includes(
+      task.questionStemCategoryId,
+    )
+  )
+    return null;
 
   const completedUnits = Math.max(0, session.questionCount ?? 0);
   if (completedUnits === 0) return null;
   const targetUnits = Math.max(1, task.targetUnits ?? completedUnits);
-  const requestedUnits = numberFromFilters(session.filtersSnapshot, "questionCount");
-  const linkedTaskId = stringFromFilters(session.filtersSnapshot, "studyPlanTaskId");
+  const requestedUnits = numberFromFilters(
+    session.filtersSnapshot,
+    "questionCount",
+  );
+  const linkedTaskId = stringFromFilters(
+    session.filtersSnapshot,
+    "studyPlanTaskId",
+  );
   const fulfilsPlannedVolume =
     linkedTaskId === task.taskId ||
     (requestedUnits != null

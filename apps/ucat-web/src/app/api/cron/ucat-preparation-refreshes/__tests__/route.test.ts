@@ -18,6 +18,10 @@ describe("UCAT preparation refresh cron", () => {
   it("runs three bounded worker lanes and stops when a lane finds no work", async () => {
     jest
       .mocked(supabaseAdmin!.rpc)
+      .mockResolvedValueOnce({
+        data: [{ students_processed: 1, tasks_skipped: 2 }],
+        error: null,
+      } as never)
       .mockResolvedValueOnce({ data: 2, error: null } as never)
       .mockResolvedValueOnce({ data: [], error: null } as never);
     jest
@@ -32,6 +36,7 @@ describe("UCAT preparation refresh cron", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      rollover: { students_processed: 1, tasks_skipped: 2 },
       scheduled: 2,
       claimed: 2,
       completed: 1,

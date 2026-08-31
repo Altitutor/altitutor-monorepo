@@ -112,6 +112,13 @@ export function parseUcatLifecycleBlockers(data: unknown): UcatLifecycleBlocker[
   })
 }
 
+export function publicationBlockedBlockers(rawMessage: string): UcatLifecycleBlocker[] {
+  const marker = 'publication_blocked:'
+  const index = rawMessage.indexOf(marker)
+  if (index < 0) return []
+  return parseUcatLifecycleBlockers(rawMessage.slice(index + marker.length))
+}
+
 export function ucatDeleteBlockedPayload(
   blockers: UcatLifecycleBlocker[],
   contentType: UcatDeleteContentType,

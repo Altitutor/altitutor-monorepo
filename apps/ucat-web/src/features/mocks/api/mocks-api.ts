@@ -205,6 +205,7 @@ export type StudentMockRow = {
   created_by: string | null;
   set_count: number | null;
   has_timed_sets: boolean | null;
+  catalog_index: number | null;
   /** Ordered sets in the mock with time limits (from mock detail). */
   setTimings: MockSetTiming[];
   /** Sum of timed set limits; null when no timed sets. */
@@ -226,6 +227,7 @@ type MockListRow = {
   created_by: string | null;
   set_count: number | null;
   has_timed_sets: boolean | null;
+  catalog_index: number | null;
 };
 
 type MockDetailSetJson = {
@@ -342,6 +344,18 @@ export async function getMockQuestionCount(mockId: string): Promise<number> {
     (sum, set) => sum + countQuestionsFromStems(set.stems),
     0,
   );
+}
+
+export function compareStudentMocksByCatalog(
+  left: StudentMockRow,
+  right: StudentMockRow,
+): number {
+  const leftIndex = left.catalog_index;
+  const rightIndex = right.catalog_index;
+  if (leftIndex == null && rightIndex == null) return 0;
+  if (leftIndex == null) return 1;
+  if (rightIndex == null) return -1;
+  return leftIndex - rightIndex;
 }
 
 export function filterMocks(

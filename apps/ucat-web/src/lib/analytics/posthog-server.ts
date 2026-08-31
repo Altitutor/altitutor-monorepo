@@ -10,6 +10,10 @@ import {
   buildUcatActivationCompletedEvent,
   type UcatActivationCompletedInput,
 } from "./ucat-activation-event";
+import {
+  buildUcatSignupCompletedEvent,
+  type UcatSignupCompletedInput,
+} from "./ucat-signup-event";
 
 function postHogClient(token: string) {
   return new PostHog(token, {
@@ -69,6 +73,31 @@ export function captureUcatActivationCompletedInBackground(
   waitUntil(captureUcatActivationCompleted(input));
 }
 
+/** Records the first server-confirmed completion of UCAT product signup. */
+export async function captureUcatSignupCompleted(
+  input: UcatSignupCompletedInput,
+): Promise<void> {
+  const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  if (!token) return;
+
+  const client = postHogClient(token);
+  try {
+    client.capture(buildUcatSignupCompletedEvent(input));
+    await client.flush();
+  } catch (error) {
+    console.error(
+      "[posthog] Failed to capture UCAT signup event",
+      error instanceof Error ? error.message : "Unknown error",
+    );
+  }
+}
+
+export function captureUcatSignupCompletedInBackground(
+  input: UcatSignupCompletedInput,
+): void {
+  waitUntil(captureUcatSignupCompleted(input));
+}
+
 /**
  * Keeps analytics reliable on Vercel without making the student wait for it.
  * The underlying capture is fail-open and has a short network timeout.
@@ -81,3 +110,4 @@ export function captureUcatLearningActivityCompletedInBackground(
 
 export type { UcatLearningActivityCompletedInput } from "./ucat-retention-event";
 export type { UcatActivationCompletedInput } from "./ucat-activation-event";
+export type { UcatSignupCompletedInput } from "./ucat-signup-event";

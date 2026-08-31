@@ -15,6 +15,8 @@ export type StudentSetRow = {
   time_limit_seconds: number | null;
   sections: SetSectionJson[] | null;
   section_number?: number | null;
+  set_format?: "full_section" | "partial_section" | null;
+  catalog_index?: number | null;
   created_at: string | null;
   updated_at: string | null;
 };
@@ -27,7 +29,7 @@ export type SetsFilters = {
 };
 
 const STUDENT_SET_COLUMNS =
-  "id,name,display_name,compact_display_name,description,time_limit_seconds,sections,section_number,created_at,updated_at";
+  "id,name,display_name,compact_display_name,description,time_limit_seconds,sections,section_number,set_format,catalog_index,created_at,updated_at";
 
 export async function getAccessibleStudentSets(): Promise<StudentSetRow[]> {
   const supabase = getSupabaseBrowserClient();
@@ -131,6 +133,30 @@ export async function getAttemptedSetIds(): Promise<Set<string>> {
     if (row.question_set_id) ids.add(row.question_set_id);
   }
   return ids;
+}
+
+function compareNullableNumber(
+  left: number | null | undefined,
+  right: number | null | undefined,
+): number {
+  if (left == null && right == null) return 0;
+  if (left == null) return 1;
+  if (right == null) return -1;
+  return left - right;
+}
+
+/** Catalog order: section, then format, then published sequence. */
+export function compareStudentSetsByCatalog(
+  left: StudentSetRow,
+  right: StudentSetRow,
+): number {
+  const section =
+    (left.section_number ?? Number.POSITIVE_INFINITY) -
+    (right.section_number ?? Number.POSITIVE_INFINITY);
+  if (section !== 0) return section;
+  const format = (left.set_format ?? "").localeCompare(right.set_format ?? "");
+  if (format !== 0) return format;
+  return compareNullableNumber(left.catalog_index, right.catalog_index);
 }
 
 export function filterSets(

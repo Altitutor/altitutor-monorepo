@@ -60,7 +60,7 @@ async function signIn(page: Page, email: string) {
   const { error: progressError } = await admin
     .from("students")
     .update({
-      ucat_signup_step: 4,
+      ucat_signup_step: 5,
       ucat_signup_completed_at: completedAt,
       ucat_onboarding_completed_at: completedAt,
       onboarding_progress: { ...existingProgress, ...completedTutorials },

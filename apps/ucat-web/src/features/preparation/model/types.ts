@@ -14,6 +14,7 @@ import type {
 import type { RepresentativeScoreEvidence } from "@/features/preparation/lib/score-model";
 import type {
   ActivityTagSignal,
+  MissedExposureDebtSignal,
   PreparationActivityCandidate,
 } from "@/features/preparation/lib/activity-ranking";
 import type {
@@ -81,6 +82,7 @@ export type PreparationEngineInput = {
     timingSessions?: StudyPlanTimingEvidenceSession[];
     scoreEvidence?: RepresentativeScoreEvidence[];
     completedMockCount: number;
+    missedExposureDebt?: MissedExposureDebtSignal[];
     lastLearningModuleServedAtBySection?: Record<string, string>;
     forecast?: {
       previousSectionTargets?: Record<string, number>;

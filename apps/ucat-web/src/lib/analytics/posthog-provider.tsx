@@ -3,6 +3,7 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { captureUcatObservedFirstTouchInBrowser } from "@altitutor/shared";
 import { useAuth } from "@/features/auth";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import {
@@ -20,8 +21,12 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
   const query = searchParams.toString();
 
   useEffect(() => {
-    if (!enabled) return;
     const currentSearchParams = new URLSearchParams(query);
+    captureUcatObservedFirstTouchInBrowser({
+      pathname,
+      searchParams: currentSearchParams,
+    });
+    if (!enabled) return;
     const currentUrl = `${window.location.origin}${pathname}${query ? `?${query}` : ""}`;
 
     posthog.capture("$pageview", {

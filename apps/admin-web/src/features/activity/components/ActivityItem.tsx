@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import type { ActivityEventDisplay } from '../types';
+import type { ActivityEntityReference, ActivityEventDisplay } from '../types';
 import { ActivityTimelineMarker } from './ActivityTimelineMarker';
 import { ActivityPerformerAvatar } from './ActivityPerformerAvatar';
 import { FormattedActivityMessage } from './FormattedActivityMessage';
@@ -9,6 +9,24 @@ import { cn } from '@/shared/utils';
 import { Button } from '@altitutor/ui';
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
+import {
+  useEntityModals,
+  type EntityModalType,
+} from '@/shared/contexts/EntityModalContext';
+
+const ENTITY_MODAL_TYPES: Partial<Record<ActivityEntityReference['entityType'], EntityModalType>> = {
+  student: 'student',
+  parent: 'parent',
+  staff: 'staff',
+  class: 'class',
+  admin_shift: 'admin-shift',
+  session: 'session',
+  invoice: 'invoice',
+  task: 'task',
+  issue: 'issue',
+  project: 'project',
+  note: 'note',
+};
 
 interface ActivityItemProps {
   activity: ActivityEventDisplay;
@@ -24,6 +42,25 @@ export function ActivityItem({
   onOpenFormResponse,
 }: ActivityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
+  const { openEntity } = useEntityModals();
+
+  const openLinkedEntity = (entity: ActivityEntityReference) => {
+    const modalType = ENTITY_MODAL_TYPES[entity.entityType];
+    if (modalType) openEntity(modalType, entity.entityId);
+  };
+
+  const performerName = activity.performedBy.id ? (
+    <button
+      type="button"
+      className="truncate font-medium underline-offset-2 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+      onClick={() => openEntity('staff', activity.performedBy.id)}
+      aria-label={`Open staff ${activity.performedBy.name}`}
+    >
+      {activity.performedBy.name}
+    </button>
+  ) : (
+    <span className="truncate font-medium">{activity.performedBy.name}</span>
+  );
 
   const canExpand =
     (activity.isGrouped || activity.isCoalesced) &&
@@ -39,7 +76,7 @@ export function ActivityItem({
           <div className="rounded-lg border bg-muted/20">
             <div className="flex items-center gap-2 px-3 py-2">
               <ActivityPerformerAvatar name={activity.performedBy.name} />
-              <span className="truncate text-sm font-medium">{activity.performedBy.name}</span>
+              <span className="flex min-w-0 text-sm">{performerName}</span>
               <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                 {activity.timestamp}
               </span>
@@ -83,13 +120,19 @@ export function ActivityItem({
             <div className="min-w-0 flex-1 text-sm leading-6 text-foreground">
               {activity.isGrouped || activity.isCoalesced ? (
                 <>
-                  <FormattedActivityMessage activity={activity} />
+                  <FormattedActivityMessage
+                    activity={activity}
+                    onEntityClick={openLinkedEntity}
+                  />
                   <span className="text-muted-foreground"> • {activity.timestamp}</span>
                 </>
               ) : (
                 <>
-                  <span className="font-medium">{activity.performedBy.name}</span>{' '}
-                  <FormattedActivityMessage activity={activity} />
+                  {performerName}{' '}
+                  <FormattedActivityMessage
+                    activity={activity}
+                    onEntityClick={openLinkedEntity}
+                  />
                   <span className="text-muted-foreground"> • {activity.timestamp}</span>
                 </>
               )}

@@ -24,16 +24,24 @@ export function UcatAuthenticatedVisit() {
       .then(async (response) => {
         if (!response.ok)
           throw new Error("Authenticated visit was not recorded.");
-        return response.json() as Promise<{ refreshPending: boolean }>;
+        return response.json() as Promise<{
+          refreshPending: boolean;
+          planChanged: boolean;
+        }>;
       })
-      .then(({ refreshPending }) => {
+      .then(({ refreshPending, planChanged }) => {
         window.sessionStorage.setItem(VISIT_SESSION_KEY, "recorded");
-        if (!refreshPending) return;
-        const markPending = (data: StudyPlanResponse | undefined) =>
-          data ? { ...data, refreshPending: true } : data;
-        queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, markPending);
-        queryClient.setQueryData(DASHBOARD_STUDY_PLAN_QUERY_KEY, markPending);
+        if (refreshPending) {
+          const markPending = (data: StudyPlanResponse | undefined) =>
+            data ? { ...data, refreshPending: true } : data;
+          queryClient.setQueryData(STUDY_PLAN_QUERY_KEY, markPending);
+          queryClient.setQueryData(DASHBOARD_STUDY_PLAN_QUERY_KEY, markPending);
+        }
+        if (!refreshPending && !planChanged) return;
         void queryClient.invalidateQueries({ queryKey: STUDY_PLAN_QUERY_KEY });
+        void queryClient.invalidateQueries({
+          queryKey: DASHBOARD_STUDY_PLAN_QUERY_KEY,
+        });
       })
       .catch(() => {
         window.sessionStorage.removeItem(VISIT_SESSION_KEY);

@@ -19,7 +19,9 @@ function invalidateLearningAndStudyPlan(
   queryClient: ReturnType<typeof useQueryClient>,
   lessonId: string,
 ) {
-  void queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
+  void queryClient.invalidateQueries({
+    queryKey: learningKeys.lesson(lessonId),
+  });
   void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
   void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
 }
@@ -47,7 +49,7 @@ function updateLessonSummary(
     completion_percent: completionPercent,
     completed_at:
       blocks.length > 0 && completedBlocks === blocks.length
-        ? module.completed_at ?? now
+        ? (module.completed_at ?? now)
         : null,
   };
 }
@@ -59,7 +61,9 @@ function syncModuleListCache(
   queryClient.setQueryData<LearningModuleRow[] | undefined>(
     learningKeys.modules(),
     (current) =>
-      current?.map((module) => (module.id === nextModule.id ? nextModule : module)),
+      current?.map((module) =>
+        module.id === nextModule.id ? nextModule : module,
+      ),
   );
 }
 
@@ -99,15 +103,31 @@ export function useLearningModules() {
   });
 }
 
-export function useLearningLesson(lessonId: string | null) {
-  return useQuery({
-    queryKey: learningKeys.lesson(lessonId ?? ""),
-    queryFn: async () => {
-      await learningApi.startLesson(lessonId!);
-      return learningApi.getLesson(lessonId!);
-    },
+export function useLearningLesson(
+  lessonId: string | null,
+  studyPlanTaskId: string | null,
+) {
+  const start = useQuery({
+    queryKey: [
+      ...learningKeys.all,
+      "lesson-start",
+      lessonId ?? "",
+      studyPlanTaskId ?? "independent",
+    ],
+    queryFn: () => learningApi.startLesson(lessonId!, studyPlanTaskId),
     enabled: lessonId != null,
+    staleTime: Number.POSITIVE_INFINITY,
   });
+  const lesson = useQuery({
+    queryKey: learningKeys.lesson(lessonId ?? ""),
+    queryFn: () => learningApi.getLesson(lessonId!),
+    enabled: lessonId != null && start.isSuccess,
+  });
+  return {
+    ...lesson,
+    isLoading: start.isLoading || lesson.isLoading,
+    error: start.error ?? lesson.error,
+  };
 }
 
 export function useUpdateBlockProgress(lessonId: string) {
@@ -121,7 +141,9 @@ export function useUpdateBlockProgress(lessonId: string) {
       payload: BlockProgressPayload;
     }) => learningApi.updateBlockProgress(blockId, payload),
     onMutate: async ({ blockId, payload }) => {
-      await queryClient.cancelQueries({ queryKey: learningKeys.lesson(lessonId) });
+      await queryClient.cancelQueries({
+        queryKey: learningKeys.lesson(lessonId),
+      });
       await queryClient.cancelQueries({ queryKey: learningKeys.modules() });
 
       return patchLessonCache(queryClient, lessonId, (current) => {
@@ -129,7 +151,8 @@ export function useUpdateBlockProgress(lessonId: string) {
           block.id === blockId && payload.completed
             ? {
                 ...block,
-                block_completed_at: block.block_completed_at ?? new Date().toISOString(),
+                block_completed_at:
+                  block.block_completed_at ?? new Date().toISOString(),
               }
             : block,
         );
@@ -155,7 +178,9 @@ export function useMarkBlockComplete(lessonId: string) {
   return useMutation({
     mutationFn: (blockId: string) => learningApi.markBlockComplete(blockId),
     onMutate: async (blockId) => {
-      await queryClient.cancelQueries({ queryKey: learningKeys.lesson(lessonId) });
+      await queryClient.cancelQueries({
+        queryKey: learningKeys.lesson(lessonId),
+      });
       await queryClient.cancelQueries({ queryKey: learningKeys.modules() });
 
       return patchLessonCache(queryClient, lessonId, (current) => {
@@ -163,7 +188,8 @@ export function useMarkBlockComplete(lessonId: string) {
           block.id === blockId
             ? {
                 ...block,
-                block_completed_at: block.block_completed_at ?? new Date().toISOString(),
+                block_completed_at:
+                  block.block_completed_at ?? new Date().toISOString(),
               }
             : block,
         );
@@ -189,7 +215,9 @@ export function useMarkLessonComplete(lessonId: string) {
   return useMutation({
     mutationFn: () => learningApi.markLessonComplete(lessonId),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: learningKeys.lesson(lessonId) });
+      await queryClient.cancelQueries({
+        queryKey: learningKeys.lesson(lessonId),
+      });
       await queryClient.cancelQueries({ queryKey: learningKeys.modules() });
 
       return patchLessonCache(queryClient, lessonId, (current) => {
@@ -223,7 +251,9 @@ export function useResetLessonProgress(lessonId: string) {
   return useMutation({
     mutationFn: () => learningApi.resetLessonProgress(lessonId),
     onMutate: async () => {
-      await queryClient.cancelQueries({ queryKey: learningKeys.lesson(lessonId) });
+      await queryClient.cancelQueries({
+        queryKey: learningKeys.lesson(lessonId),
+      });
       await queryClient.cancelQueries({ queryKey: learningKeys.modules() });
 
       return patchLessonCache(queryClient, lessonId, (current) => {

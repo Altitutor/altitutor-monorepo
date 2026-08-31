@@ -370,6 +370,7 @@ describe("rolling next-step guidance", () => {
             uncertainty: 0,
             targetGap: 0,
             tagSampling: 0,
+            missedExposure: 0,
             total: 3,
           },
         },

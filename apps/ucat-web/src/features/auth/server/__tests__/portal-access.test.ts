@@ -29,7 +29,7 @@ const accessPayload = {
   is_quota_exempt: false,
   ucat_onboarding_completed_at: "2026-08-01T00:00:00Z",
   ucat_signup_completed_at: "2026-08-01T00:00:00Z",
-  ucat_signup_step: 4,
+  ucat_signup_step: 5,
   unlimited_trial_eligible: false,
   account_class: "external",
   ucat_test_year: 2027,

@@ -18,14 +18,14 @@ export function SignupStepIndicator({ step }: SignupStepIndicatorProps) {
   const activeUiStep = uiStepIndex(step);
 
   return (
-    <div className="mb-10 flex items-center gap-3">
+    <div className="mb-10 flex items-center gap-2 sm:gap-3">
       {Array.from({ length: SIGNUP_UI_STEP_COUNT }, (_, i) => {
         const s = i + 1;
         const isComplete = s < activeUiStep;
         const isActive = s === activeUiStep;
 
         return (
-          <div key={s} className="flex items-center gap-3">
+          <div key={s} className="flex items-center gap-2 sm:gap-3">
             <div
               className={cn(
                 `flex h-8 w-8 items-center justify-center rounded-full text-sm font-bold transition-all duration-300 ${typo.dataMono}`,
@@ -53,7 +53,7 @@ export function SignupStepIndicator({ step }: SignupStepIndicatorProps) {
             {s < SIGNUP_UI_STEP_COUNT ? (
               <div
                 className={cn(
-                  "h-px w-12 transition-colors duration-300",
+                  "h-px w-5 transition-colors duration-300 sm:w-12",
                   isComplete ? "bg-primary/40 dark:bg-accent/40" : "bg-border",
                 )}
               />

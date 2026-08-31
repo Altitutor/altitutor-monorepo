@@ -26,6 +26,8 @@ shared reads, media operations, assessments, or audits between connections.
   RLS behavior.
 - MCP may create drafts, change draft or in-review content, submit drafts for
   review, and soft-delete or restore eligible non-published content.
+- Submitting a mock for review also submits its remaining draft component sets;
+  if any of those submissions fail, the mock stays in draft.
 - MCP cannot publish, unpublish, hard-delete, or delete published content.
 - Published changes preserve `published` and remain recoverable.
 - Nested content is removed only through explicit typed operations; omission

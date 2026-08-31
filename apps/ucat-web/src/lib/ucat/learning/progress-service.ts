@@ -94,6 +94,7 @@ export async function ensureLessonStarted(
   supabase: AdminClient,
   studentId: string,
   lessonId: string,
+  studyPlanTaskId: string | null,
 ): Promise<{ created: boolean }> {
   const rpcClient = supabase as unknown as {
     rpc: (
@@ -104,6 +105,7 @@ export async function ensureLessonStarted(
   const { data, error } = await rpcClient.rpc("start_ucat_learning_module", {
     p_student_id: studentId,
     p_learning_module_id: lessonId,
+    p_study_plan_task_id: studyPlanTaskId,
   });
   if (error) throw new Error(error.message);
   const result = data as

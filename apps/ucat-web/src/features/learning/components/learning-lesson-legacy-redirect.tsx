@@ -8,8 +8,10 @@ import { learningModuleHref } from "@/features/learning/lib/learning-module-href
 
 export function LearningLessonLegacyRedirect({
   lessonId,
+  studyPlanTaskId,
 }: {
   lessonId: string;
+  studyPlanTaskId: string | null;
 }) {
   const router = useRouter();
   const { data: modules, isLoading } = useLearningModules();
@@ -17,12 +19,15 @@ export function LearningLessonLegacyRedirect({
   useEffect(() => {
     if (isLoading) return;
     const matchedModule = modules?.find((item) => item.id === lessonId);
+    const destination = matchedModule
+      ? learningModuleHref(lessonId, matchedModule.section_number)
+      : "/learn";
     router.replace(
-      matchedModule
-        ? learningModuleHref(lessonId, matchedModule.section_number)
-        : "/learn",
+      studyPlanTaskId && matchedModule
+        ? `${destination}?studyPlanTaskId=${encodeURIComponent(studyPlanTaskId)}`
+        : destination,
     );
-  }, [isLoading, lessonId, modules, router]);
+  }, [isLoading, lessonId, modules, router, studyPlanTaskId]);
 
   return <LearningLessonPageSkeleton />;
 }

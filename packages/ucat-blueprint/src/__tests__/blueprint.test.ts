@@ -210,6 +210,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     const second = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
     expect(first).toEqual(second)
+    expect(first.compliant).toBe(false)
     expect(first.reasons.slice(0, 3)).toEqual([
       expect.objectContaining({ code: 'ANSWERING_TIME_MISMATCH', section: 'decision_making' }),
       expect.objectContaining({ code: 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE', section: 'decision_making', actual: 35 }),
@@ -287,7 +288,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     ]))
   })
 
-  it('makes a failed scenario check fail the whole evaluation', () => {
+  it('treats questions-in-stem misses as warnings rather than publication blockers', () => {
     const composition = passingComposition()
     const sjt = composition.sections[3]
     if (!sjt) throw new Error('fixture is missing Situational Judgement')
@@ -295,9 +296,9 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
 
     const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
-    expect(result.compliant).toBe(false)
+    expect(result.compliant).toBe(true)
     expect(result.reasons).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', stemId: 'empty-scenario', minimum: 1 }),
+      expect.objectContaining({ code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', severity: 'warning', stemId: 'empty-scenario', minimum: 1 }),
     ]))
   })
 
@@ -321,7 +322,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     ]))
   })
 
-  it('rejects a Most/Least category question with the wrong Answer scheme', () => {
+  it('warns when a Most/Least category question uses the wrong Answer scheme', () => {
     const composition = passingComposition()
     const sjt = composition.sections[3]
     if (!sjt) throw new Error('fixture is missing Situational Judgement')
@@ -331,9 +332,9 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
 
     const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
-    expect(result.compliant).toBe(false)
+    expect(result.compliant).toBe(true)
     expect(result.reasons).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'CATEGORY_ANSWER_SCHEME_MISMATCH', questionId: question.id }),
+      expect.objectContaining({ code: 'CATEGORY_ANSWER_SCHEME_MISMATCH', severity: 'warning', questionId: question.id }),
     ]))
   })
 

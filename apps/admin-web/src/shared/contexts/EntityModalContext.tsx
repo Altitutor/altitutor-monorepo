@@ -16,7 +16,7 @@ import { ViewSubjectModal } from '@/features/subjects/components';
 import { FilePreviewModal, GenericFilePreviewModal, ViewTopicModal } from '@/features/topics/components';
 import { ViewAdminShiftModal } from '@/features/admin-shifts/components';
 
-type EntityModalType =
+export type EntityModalType =
   | 'student'
   | 'parent'
   | 'staff'
