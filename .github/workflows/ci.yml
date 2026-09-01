@@ -198,7 +198,10 @@ jobs:
   ucat-e2e:
     name: UCAT Browser and Database
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    # Supabase startup and the production browser matrix share this job. The
+    # timeout is a safety ceiling, not an expected duration; keep enough room
+    # for browser retries and diagnostic upload on slower hosted runners.
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
 
