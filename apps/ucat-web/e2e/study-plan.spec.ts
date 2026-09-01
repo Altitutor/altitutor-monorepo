@@ -1144,9 +1144,10 @@ test.describe("personalised Study plan", () => {
     await runPreparationMaintenance(page);
     const missedResponse = await page.request.get("/api/ucat/study-plan");
     expect(missedResponse.ok()).toBe(true);
-    const replanned = await missedResponse.json();
-    expect(replanned.generation.id).not.toBe(enabledPlan.generation.id);
-    expect(replanned.generation.reason).toBe("weekly");
+    const afterMissedMaintenance = await missedResponse.json();
+    expect(afterMissedMaintenance.generation.id).toBe(
+      enabledPlan.generation.id,
+    );
 
     const { error: scheduledRefreshError } = await admin.rpc(
       "enqueue_ucat_preparation_refresh",
@@ -1157,7 +1158,9 @@ test.describe("personalised Study plan", () => {
     const mockResponse = await page.request.get("/api/ucat/study-plan");
     expect(mockResponse.ok()).toBe(true);
     const mockReplanned = await mockResponse.json();
-    expect(mockReplanned.generation.id).not.toBe(replanned.generation.id);
+    expect(mockReplanned.generation.id).not.toBe(
+      afterMissedMaintenance.generation.id,
+    );
     expect(mockReplanned.generation.reason).toBe("weekly");
 
     const scoreResponse = await page.request.get("/api/ucat/score-projection");
