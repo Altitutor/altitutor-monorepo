@@ -69,6 +69,7 @@ export type MockDraft = {
   accessScope: AccessScope
   blueprintId: string
   setIds: string[]
+  sectionSets: Array<{ sectionId: string; setId: string }>
 }
 
 export type LearningModuleBlockDraft = {
@@ -513,10 +514,16 @@ export function applyQuestionSetOperations(
       insertAt(next.stemIds, operation.stemId, operation.toIndex)
     } else if (operation.type === 'move_stem') {
       moveMembership(next.stemIds, operation.stemId, operation.toIndex, 'Stem')
-    } else {
+    } else if (operation.type === 'remove_stem') {
       const index = next.stemIds.indexOf(operation.stemId)
       if (index < 0) throw new Error(`Stem ${operation.stemId} was not found`)
       next.stemIds.splice(index, 1)
+    } else {
+      const uniqueStemIds = [...new Set(operation.stemIds)]
+      if (uniqueStemIds.length !== operation.stemIds.length) {
+        throw new Error('Replacement stem membership contains duplicate ids')
+      }
+      next.stemIds = uniqueStemIds
     }
   }
   return next
@@ -524,15 +531,26 @@ export function applyQuestionSetOperations(
 
 export function mockDraftFromDetail(detail: Record<string, unknown>): MockDraft {
   const sets = Array.isArray(detail.sets) ? detail.sets : []
+  const sectionSets = sets
+    .filter(isRecord)
+    .map((set) => ({
+      sectionId: asNullableString(set.section_id),
+      setId: asNullableString(set.id),
+    }))
+    .filter((item): item is { sectionId: string; setId: string } => (
+      item.sectionId !== null && item.setId !== null
+    ))
+  const setIds = sets
+    .filter(isRecord)
+    .map((set) => asNullableString(set.id))
+    .filter((id): id is string => id !== null)
   return {
     authoringNote: asNullableString(detail.authoring_note),
     instructionsText: asJson(detail.instructions_text, null),
     accessScope: asAccessScope(detail.access_scope),
     blueprintId: asString(detail.blueprint_id, 'Blueprint id'),
-    setIds: sets
-      .filter(isRecord)
-      .map((set) => asNullableString(set.id))
-      .filter((id): id is string => id !== null),
+    setIds,
+    sectionSets,
   }
 }
 
@@ -553,10 +571,38 @@ export function applyMockOperations(draft: MockDraft, operations: MockOperation[
       insertAt(next.setIds, operation.setId, operation.toIndex)
     } else if (operation.type === 'move_set') {
       moveMembership(next.setIds, operation.setId, operation.toIndex, 'Set')
-    } else {
+    } else if (operation.type === 'remove_set') {
       const index = next.setIds.indexOf(operation.setId)
       if (index < 0) throw new Error(`Set ${operation.setId} was not found`)
       next.setIds.splice(index, 1)
+      next.sectionSets = next.sectionSets.filter((item) => item.setId !== operation.setId)
+    } else if (operation.type === 'set_section_set') {
+      const current = next.sectionSets.find((item) => item.sectionId === operation.sectionId)
+      if (current) {
+        next.setIds = next.setIds.filter((setId) => setId !== current.setId)
+      }
+      next.sectionSets = next.sectionSets.filter(
+        (item) => item.sectionId !== operation.sectionId,
+      )
+      if (operation.setId) {
+        next.setIds = next.setIds.filter((setId) => setId !== operation.setId)
+        next.setIds.push(operation.setId)
+        next.sectionSets.push({
+          sectionId: operation.sectionId,
+          setId: operation.setId,
+        })
+      }
+    } else {
+      const sectionIds = operation.sectionSets.map((item) => item.sectionId)
+      const setIds = operation.sectionSets.map((item) => item.setId)
+      if (new Set(sectionIds).size !== sectionIds.length) {
+        throw new Error('Replacement mock membership contains duplicate section ids')
+      }
+      if (new Set(setIds).size !== setIds.length) {
+        throw new Error('Replacement mock membership contains duplicate set ids')
+      }
+      next.sectionSets = operation.sectionSets.map((item) => ({ ...item }))
+      next.setIds = [...setIds]
     }
   }
   return next

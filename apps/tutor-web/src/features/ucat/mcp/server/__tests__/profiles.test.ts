@@ -31,6 +31,11 @@ describe('UCAT MCP tool catalogue', () => {
       'search_ucat_content',
       'get_ucat_content',
       'get_ucat_reference_data',
+      'get_ucat_mcp_capabilities',
+      'list_ucat_blueprints',
+      'get_ucat_blueprint',
+      'validate_question_set_composition',
+      'validate_mock_composition',
       'create_learning_module',
       'change_learning_module',
       'create_question_stem',
@@ -73,5 +78,13 @@ describe('UCAT MCP tool catalogue', () => {
         publishedWriteMode: { default: 'apply_valid_changes' },
       },
     })
+
+    const createSet = tools.find((tool) => tool.name === 'create_question_set')
+    expect(createSet?.inputSchema).toMatchObject({
+      required: expect.arrayContaining(['setFormat', 'sectionId', 'referenceBlueprintId']),
+    })
+    const createMock = tools.find((tool) => tool.name === 'create_mock')
+    expect(createMock?.description).toContain('No sets are created or linked')
+    expect(tools.find((tool) => tool.name === 'get_ucat_mcp_capabilities')).toBeDefined()
   })
 })

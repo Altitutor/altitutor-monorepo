@@ -48,6 +48,37 @@ Read tools:
 - `search_ucat_content`
 - `get_ucat_content`
 - `get_ucat_reference_data`
+- `get_ucat_mcp_capabilities`
+- `list_ucat_blueprints`, `get_ucat_blueprint`
+- `validate_question_set_composition`, `validate_mock_composition`
+
+`search_ucat_content` and `get_ucat_content` support three projections:
+
+- `catalogue`: compact identity and lifecycle metadata;
+- `composition`: ordered membership, counts, response contracts, timing intent,
+  blueprint references, publication blockers, and mock section slots;
+- `full`: complete authoring content, including rich text and referenced files.
+
+Search defaults to `catalogue`; direct reads default to `full`. Use
+`composition` when assembling sets or mocks to avoid downloading authored prose
+that is irrelevant to the composition decision.
+
+Call `get_ucat_mcp_capabilities` before a long authoring run when deployment
+drift is possible. It reports the overall contract version, mutation-schema
+versions, and feature flags for blueprint reads, composition projections,
+dry-run validation, blank mock creation, and explicit replacement operations.
+
+Blueprints are immutable database records. Set tools require both `setFormat`
+(`full_section` or `partial_section`) and `referenceBlueprintId`; mock tools
+require `blueprintId`. The blueprint read tools return the UCAT section UUID for
+each official section so callers do not need to infer IDs from labels or test
+years. `get_ucat_reference_data` also includes blueprints for clients that load
+all reference data in one request.
+
+The validation tools are read-only dry runs. Full sets and mocks receive the
+same official totals/timing checks and advisory Altitutor composition checks as
+the authoring domain. Partial sets are exempt from full-section totals but still
+check missing stems, duplicate membership, and section purity.
 
 Create and change tools:
 
@@ -64,6 +95,19 @@ The four change tools are lifecycle-aware:
   `effect: "applied"` with the updated aggregate;
 - published target or live learning folder: operations create a pending UCAT
   content change and return `effect: "staged"` with a `changeId`.
+
+Creating a mock creates only the blank mock record. It does not create template
+sets. Existing sets can then be assigned, or new sets created, one blueprint
+section at a time. For complete membership changes, use `replace_stems` on a
+set and `replace_section_sets` on a mock. For a single mock slot, use
+`set_section_set`. These replacement operations are intentionally explicit;
+omitting membership from another operation never removes it.
+
+The create/change set and mock tools register their MCP input contracts from the
+same Zod schemas used for runtime parsing and TypeScript inference. Contract
+tests convert those schemas to MCP JSON Schema and assert the required blueprint
+and format fields, preventing the exposed tool schema from drifting from the
+implementation again.
 
 Published content changes use:
 

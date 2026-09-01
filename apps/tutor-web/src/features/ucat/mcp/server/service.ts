@@ -1,4 +1,15 @@
 import type { Database, Json } from '@altitutor/shared'
+import {
+  evaluateBlueprint,
+  type BlueprintAnswerScheme,
+  type BlueprintComposition,
+  type BlueprintSectionCode,
+  type BlueprintStem,
+} from '@altitutor/ucat-blueprint'
+import {
+  getAnswerSchemePresentation,
+  type AnswerScheme,
+} from '@altitutor/ucat-response-contract'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import {
@@ -29,13 +40,22 @@ import {
   type QuestionStemDraft,
 } from '@/features/ucat/mcp/server/operations'
 import type {
+  CreateMockInput as CreateMockToolInput,
+  CreateQuestionSetInput as CreateQuestionSetToolInput,
   LearningModuleBlockInput,
   LearningModuleOperation,
   MockOperation,
   QuestionInput,
   QuestionSetOperation,
   QuestionStemOperation,
+  ValidateMockCompositionInput,
+  ValidateQuestionSetCompositionInput,
 } from '@/features/ucat/mcp/server/schemas'
+import {
+  blueprintRowToModel,
+  evaluationToStoredCompliance,
+  type BlueprintRow,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
 import {
   decodeAuthoringRevision,
   encodeAuthoringRevision,
@@ -76,6 +96,7 @@ type SearchInput = QuestionCatalogFilterFields & {
   includeDeleted?: boolean
   offset?: number
   limit?: number
+  projection?: 'catalogue' | 'composition' | 'full'
 }
 
 type CreateQuestionStemInput = {
@@ -87,25 +108,8 @@ type CreateQuestionStemInput = {
   questions: QuestionInput[]
 }
 
-type CreateQuestionSetInput = {
-  authoringNote?: string | null
-  description: string | Record<string, unknown>
-  timingMode: 'pace' | 'fixed' | 'untimed'
-  paceMultiplier?: number | null
-  fixedTimeLimitSeconds?: number | null
-  setFormat: 'full_section' | 'partial_section'
-  accessScope: UcatMcpAccessScope
-  sectionId: string
-  referenceBlueprintId: string
-  stemIds: string[]
-}
-
-type CreateMockInput = {
-  authoringNote?: string | null
-  instructionsText?: string | Record<string, unknown> | null
-  accessScope: UcatMcpAccessScope
-  blueprintId: string
-}
+type CreateQuestionSetInput = Omit<CreateQuestionSetToolInput, 'idempotencyKey'>
+type CreateMockInput = Omit<CreateMockToolInput, 'idempotencyKey'>
 
 type CreateLearningModuleInput = {
   kind: 'folder' | 'lesson'
@@ -129,6 +133,118 @@ function rpcClient(client: SupabaseClient<Database>): UcatMcpRpcClient {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && !Array.isArray(value)
+}
+
+const sectionCodeByNumber: Record<number, BlueprintSectionCode> = {
+  1: 'verbal_reasoning',
+  2: 'decision_making',
+  3: 'quantitative_reasoning',
+  4: 'situational_judgement',
+}
+
+const blueprintAnswerSchemes = new Set<BlueprintAnswerScheme>([
+  'single_choice',
+  'situational_judgement_rating',
+  'decision_making_binary_placement',
+  'situational_judgement_most_least',
+])
+
+function isBlueprintAnswerScheme(value: unknown): value is BlueprintAnswerScheme {
+  return typeof value === 'string'
+    && blueprintAnswerSchemes.has(value as BlueprintAnswerScheme)
+}
+
+function arrayOfRecords(value: unknown): Record<string, unknown>[] {
+  return Array.isArray(value) ? value.filter(isRecord) : []
+}
+
+function publicationIssueCodes(value: unknown): string[] {
+  return arrayOfRecords(value).flatMap((issue) => (
+    typeof issue.code === 'string' ? [issue.code] : []
+  ))
+}
+
+function blueprintStemFromDetail(row: Record<string, unknown>): BlueprintStem | null {
+  if (typeof row.id !== 'string') return null
+  const questions = arrayOfRecords(row.questions).flatMap((question) => {
+    if (typeof question.id !== 'string' || !isBlueprintAnswerScheme(question.answer_scheme)) {
+      return []
+    }
+    const optionIds = arrayOfRecords(question.answer_options).flatMap((option) => (
+      typeof option.id === 'string' ? [option.id] : []
+    ))
+    const presentation = getAnswerSchemePresentation(
+      question.answer_scheme as AnswerScheme['kind'],
+      optionIds,
+    )
+    return [{
+      id: question.id,
+      answerScheme: question.answer_scheme,
+      optionCount: optionIds.length,
+      requiredPlacementCount: presentation.kind === 'placement'
+        ? presentation.requiredPlacements
+        : 0,
+    }]
+  })
+  return {
+    id: row.id,
+    category: typeof row.category_name === 'string' ? row.category_name : 'Uncategorised',
+    categoryId: typeof row.question_stem_category_id === 'string'
+      ? row.question_stem_category_id
+      : undefined,
+    questions,
+  }
+}
+
+function stemCompositionProjection(
+  row: Record<string, unknown>,
+  catalog?: Record<string, unknown>,
+): Record<string, unknown> {
+  const questions = arrayOfRecords(row.questions)
+  const issueCodes = publicationIssueCodes(row.publication_issues)
+  return {
+    contentType: 'stem',
+    id: row.id,
+    revision: row.revision,
+    status: row.status,
+    accessScope: row.access_scope,
+    sectionId: row.section_id,
+    sectionName: row.section_name,
+    sectionNumber: row.section_number,
+    categoryId: row.question_stem_category_id,
+    categoryName: row.category_name,
+    questionCount: questions.length,
+    questionIds: questions.flatMap((question) => (
+      typeof question.id === 'string' ? [question.id] : []
+    )),
+    responseTypes: [...new Set(questions.flatMap((question) => (
+      typeof question.response_type === 'string' ? [question.response_type] : []
+    )))],
+    answerSchemes: [...new Set(questions.flatMap((question) => (
+      typeof question.answer_scheme === 'string' ? [question.answer_scheme] : []
+    )))],
+    difficultyMean: (() => {
+      const values = questions.flatMap((question) => (
+        typeof question.difficulty === 'number' ? [question.difficulty] : []
+      ))
+      return values.length > 0
+        ? values.reduce((total, value) => total + value, 0) / values.length
+        : null
+    })(),
+    timeBurdenSecondsTotal: questions.reduce((total, question) => (
+      total + (typeof question.time_burden_seconds === 'number'
+        ? question.time_burden_seconds
+        : 0)
+    ), 0),
+    publicationReady: issueCodes.length === 0,
+    publicationIssueCodes: issueCodes,
+    setIds: Array.isArray(catalog?.set_ids) ? catalog.set_ids : [],
+    isAvailableInQuestionPool: catalog?.is_available_in_question_pool ?? false,
+    contentFingerprint: catalog?.question_bundle_fingerprint ?? null,
+    comparisonFingerprint: catalog?.stem_comparison_hash ?? null,
+    deletedAt: row.deleted_at,
+    updatedAt: row.updated_at,
+  }
 }
 
 function requireRow(
@@ -285,15 +401,145 @@ async function getMock(
   }
 }
 
+async function getStemDetails(
+  client: SupabaseClient<Database>,
+  ids: string[],
+): Promise<Record<string, unknown>[]> {
+  if (ids.length === 0) return []
+  const { data, error } = await client
+    .from('vtutor_ucat_question_stem_detail')
+    .select('*')
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  const byId = new Map((data ?? []).flatMap((row) => (
+    row.id ? [[row.id, row as unknown as Record<string, unknown>] as const] : []
+  )))
+  return ids.flatMap((id) => {
+    const row = byId.get(id)
+    return row ? [row] : []
+  })
+}
+
+async function getStemCatalogRows(
+  client: SupabaseClient<Database>,
+  ids: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  if (ids.length === 0) return new Map()
+  const { data, error } = await client
+    .from('vtutor_ucat_question_catalog')
+    .select('id,set_ids,is_available_in_question_pool,question_bundle_fingerprint,stem_comparison_hash')
+    .in('id', ids)
+  if (error) throw new Error(error.message)
+  return new Map((data ?? []).flatMap((row) => (
+    row.id ? [[row.id, row as unknown as Record<string, unknown>] as const] : []
+  )))
+}
+
+function setStemIds(row: Record<string, unknown>): string[] {
+  return arrayOfRecords(row.stems).flatMap((stem) => (
+    typeof stem.stem_id === 'string' ? [stem.stem_id] : []
+  ))
+}
+
+async function setCompositionProjection(
+  client: SupabaseClient<Database>,
+  row: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const stemIds = setStemIds(row)
+  const [stems, catalogRows] = await Promise.all([
+    getStemDetails(client, stemIds),
+    getStemCatalogRows(client, stemIds),
+  ])
+  const issueCodes = publicationIssueCodes(row.publication_issues)
+  return {
+    contentType: 'set',
+    id: row.id,
+    revision: row.revision,
+    status: row.status,
+    accessScope: row.access_scope,
+    sectionId: row.section_id,
+    sectionName: row.section_name,
+    sectionNumber: row.section_number,
+    setFormat: row.set_format,
+    timingMode: row.timing_mode,
+    paceMultiplier: row.pace_multiplier,
+    fixedTimeLimitSeconds: row.fixed_time_limit_seconds,
+    timeLimitSeconds: row.time_limit_seconds,
+    referenceBlueprintId: row.reference_blueprint_id,
+    mockId: row.mock_id,
+    stemIds,
+    stemCount: stemIds.length,
+    questionCount: stems.reduce(
+      (total, stem) => total + arrayOfRecords(stem.questions).length,
+      0,
+    ),
+    stems: stems.map((stem) => stemCompositionProjection(
+      stem,
+      typeof stem.id === 'string' ? catalogRows.get(stem.id) : undefined,
+    )),
+    publicationReady: issueCodes.length === 0,
+    publicationIssueCodes: issueCodes,
+    deletedAt: row.deleted_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+async function mockCompositionProjection(
+  client: SupabaseClient<Database>,
+  row: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const sets = arrayOfRecords(row.sets)
+  return {
+    contentType: 'mock',
+    id: row.id,
+    revision: row.revision,
+    status: row.status,
+    accessScope: row.access_scope,
+    blueprintId: row.blueprint_id,
+    sectionSets: sets.map((set) => ({
+      sectionId: set.section_id,
+      setId: set.id,
+      setFormat: set.set_format,
+      referenceBlueprintId: set.reference_blueprint_id,
+      timingMode: set.timing_mode,
+      paceMultiplier: set.pace_multiplier,
+    })),
+    setCount: sets.length,
+    blueprintCompliance: row.blueprint_compliance,
+    publicationReady: publicationIssueCodes(row.publication_issues).length === 0,
+    publicationIssueCodes: publicationIssueCodes(row.publication_issues),
+    deletedAt: row.deleted_at,
+    updatedAt: row.updated_at,
+  }
+}
+
+export type UcatMcpReadProjection = 'catalogue' | 'composition' | 'full'
+
 export async function getUcatMcpAggregate(
   client: SupabaseClient<Database>,
   contentType: UcatMcpAggregateType,
   id: string,
+  projection: UcatMcpReadProjection = 'full',
 ): Promise<Record<string, unknown>> {
-  if (contentType === 'learning_module') return getLearningModule(client, id)
-  if (contentType === 'stem') return getStem(client, id)
-  if (contentType === 'set') return getSet(client, id)
-  return getMock(client, id)
+  const aggregate = contentType === 'learning_module'
+    ? await getLearningModule(client, id)
+    : contentType === 'stem'
+      ? await getStem(client, id)
+      : contentType === 'set'
+        ? await getSet(client, id)
+        : await getMock(client, id)
+  if (projection === 'full') return aggregate
+  if (projection === 'composition' && contentType === 'stem') {
+    const catalogRows = await getStemCatalogRows(client, [id])
+    return stemCompositionProjection(aggregate, catalogRows.get(id))
+  }
+  if (projection === 'composition' && contentType === 'set') {
+    return setCompositionProjection(client, aggregate)
+  }
+  if (projection === 'composition' && contentType === 'mock') {
+    return mockCompositionProjection(client, aggregate)
+  }
+  return searchSummary(contentType, aggregate)
 }
 
 export type UcatMcpAggregateTarget = {
@@ -309,6 +555,7 @@ type UcatMcpAggregateReadResult = UcatMcpAggregateTarget & (
 export async function getUcatMcpAggregates(
   client: SupabaseClient<Database>,
   targets: UcatMcpAggregateTarget[],
+  projection: UcatMcpReadProjection = 'full',
 ): Promise<{
   items: UcatMcpAggregateReadResult[]
   requestedCount: number
@@ -324,7 +571,12 @@ export async function getUcatMcpAggregates(
         items[offset + chunkIndex] = {
           ...target,
           ok: true,
-          content: await getUcatMcpAggregate(client, target.contentType, target.id),
+          content: await getUcatMcpAggregate(
+            client,
+            target.contentType,
+            target.id,
+            projection,
+          ),
         }
       } catch (error) {
         items[offset + chunkIndex] = {
@@ -423,11 +675,20 @@ async function searchUcatMcpQuestionStemsViaCatalog(
   const items = Array.isArray(payload.items) ? payload.items : []
   const total = typeof payload.total === 'number' ? payload.total : items.length
   const nextOffset = offset + items.length < total ? offset + items.length : null
+  const summaries = items
+    .filter((item): item is Record<string, unknown> => isRecord(item))
+    .map((item) => stemCatalogSearchSummary(item))
+  const projectedItems = input.projection && input.projection !== 'catalogue'
+    ? await Promise.all(summaries.map((summary) => getUcatMcpAggregate(
+        client,
+        'stem',
+        String(summary.id),
+        input.projection,
+      )))
+    : summaries
 
   return {
-    items: items
-      .filter((item): item is Record<string, unknown> => isRecord(item))
-      .map((item) => stemCatalogSearchSummary(item)),
+    items: projectedItems,
     nextOffset,
     matchedCount: total,
     truncatedSource: false,
@@ -491,8 +752,15 @@ export async function searchUcatMcpContent(
   const limit = Math.min(input.limit ?? 25, 100)
   const page = filtered.slice(offset, offset + limit)
   const nextOffset = offset + page.length < filtered.length ? offset + page.length : null
+  const items = input.projection && input.projection !== 'catalogue'
+    ? await Promise.all(page.flatMap((row) => (
+        typeof row.id === 'string'
+          ? [getUcatMcpAggregate(client, input.contentType, row.id, input.projection)]
+          : []
+      )))
+    : page.map((row) => searchSummary(input.contentType, row))
   return {
-    items: page.map((row) => searchSummary(input.contentType, row)),
+    items,
     nextOffset,
     matchedCount: filtered.length,
     truncatedSource: rows.length === fetchLimit,
@@ -502,7 +770,7 @@ export async function searchUcatMcpContent(
 export async function getUcatMcpReferenceData(
   client: SupabaseClient<Database>,
 ): Promise<Record<string, unknown>> {
-  const [sections, categories, tags, modelProfiles, skillTrainers] = await Promise.all([
+  const [sections, categories, tags, modelProfiles, skillTrainers, blueprints] = await Promise.all([
     client.from('vtutor_ucat_sections').select('*').order('section_number'),
     client.from('vtutor_ucat_question_stem_categories').select('*').order('name'),
     client.from('vtutor_ucat_question_tags').select('*').order('name'),
@@ -518,8 +786,13 @@ export async function getUcatMcpReferenceData(
       )
       .eq('is_enabled', true)
       .order('sort_order'),
+    client
+      .from('vtutor_ucat_mock_blueprints')
+      .select('*')
+      .order('test_year', { ascending: false })
+      .order('version', { ascending: false }),
   ])
-  for (const result of [sections, categories, tags, modelProfiles, skillTrainers]) {
+  for (const result of [sections, categories, tags, modelProfiles, skillTrainers, blueprints]) {
     if (result.error) throw new Error(result.error.message)
   }
   return {
@@ -528,6 +801,343 @@ export async function getUcatMcpReferenceData(
     tags: tags.data ?? [],
     generationModelProfiles: modelProfiles.data ?? [],
     skillTrainers: skillTrainers.data ?? [],
+    blueprints: blueprints.data ?? [],
+  }
+}
+
+type BlueprintRead = {
+  databaseId: string
+  code: string
+  testYear: number
+  version: number
+  officialFactsLabel: string
+  altitutorPolicyLabel: string
+  createdAt: string | null
+  sections: Array<Record<string, unknown>>
+}
+
+async function blueprintSectionReferences(
+  client: SupabaseClient<Database>,
+): Promise<Map<number, { sectionId: string; sectionName: string }>> {
+  const { data, error } = await client
+    .from('vtutor_ucat_sections')
+    .select('id,name,section_number')
+    .order('section_number')
+  if (error) throw new Error(error.message)
+  return new Map((data ?? []).flatMap((section) => (
+    section.id && section.name && section.section_number != null
+      ? [[section.section_number, {
+          sectionId: section.id,
+          sectionName: section.name,
+        }] as const]
+      : []
+  )))
+}
+
+function blueprintReadFromRow(
+  row: Record<string, unknown>,
+  sectionReferences: Map<number, { sectionId: string; sectionName: string }>,
+): BlueprintRead | null {
+  if (
+    typeof row.id !== 'string'
+    || typeof row.code !== 'string'
+    || typeof row.test_year !== 'number'
+    || typeof row.version !== 'number'
+    || typeof row.official_facts_label !== 'string'
+    || typeof row.altitutor_policy_label !== 'string'
+  ) return null
+  return {
+    databaseId: row.id,
+    code: row.code,
+    testYear: row.test_year,
+    version: row.version,
+    officialFactsLabel: row.official_facts_label,
+    altitutorPolicyLabel: row.altitutor_policy_label,
+    createdAt: typeof row.created_at === 'string' ? row.created_at : null,
+    sections: arrayOfRecords(row.sections).map((section) => {
+      const sectionIndex = typeof section.sectionIndex === 'number'
+        ? section.sectionIndex
+        : -1
+      return {
+        ...section,
+        ...(sectionReferences.get(sectionIndex + 1) ?? {
+          sectionId: null,
+          sectionName: null,
+        }),
+      }
+    }),
+  }
+}
+
+export async function listUcatMcpBlueprints(
+  client: SupabaseClient<Database>,
+  input: { testYear?: number; latestOnly?: boolean },
+): Promise<Record<string, unknown>> {
+  let query = client
+    .from('vtutor_ucat_mock_blueprints')
+    .select('*')
+    .order('test_year', { ascending: false })
+    .order('version', { ascending: false })
+  if (input.testYear != null) query = query.eq('test_year', input.testYear)
+  const [{ data, error }, sectionReferences] = await Promise.all([
+    query,
+    blueprintSectionReferences(client),
+  ])
+  if (error) throw new Error(error.message)
+  let items = (data ?? []).flatMap((row) => {
+    const blueprint = blueprintReadFromRow(
+      row as unknown as Record<string, unknown>,
+      sectionReferences,
+    )
+    return blueprint ? [blueprint] : []
+  })
+  if (input.latestOnly) {
+    const seen = new Set<string>()
+    items = items.filter((item) => {
+      const key = `${item.code}:${item.testYear}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+  return { items, count: items.length }
+}
+
+export async function getUcatMcpBlueprint(
+  client: SupabaseClient<Database>,
+  blueprintId: string,
+): Promise<Record<string, unknown>> {
+  const [{ data, error }, sectionReferences] = await Promise.all([
+    client
+      .from('vtutor_ucat_mock_blueprints')
+      .select('*')
+      .eq('id', blueprintId)
+      .maybeSingle(),
+    blueprintSectionReferences(client),
+  ])
+  const row = requireRow(data, error, 'UCAT blueprint')
+  const blueprint = blueprintReadFromRow(row, sectionReferences)
+  if (!blueprint) throw new Error('UCAT blueprint is malformed')
+  return blueprint
+}
+
+async function getBlueprintModel(
+  client: SupabaseClient<Database>,
+  blueprintId: string,
+): Promise<{
+  databaseId: string
+  model: NonNullable<ReturnType<typeof blueprintRowToModel>>
+}> {
+  const { data, error } = await client
+    .from('vtutor_ucat_mock_blueprints')
+    .select('*')
+    .eq('id', blueprintId)
+    .maybeSingle()
+  const row = requireRow(data, error, 'UCAT blueprint')
+  const model = blueprintRowToModel(row as unknown as BlueprintRow)
+  if (!model) throw new Error('UCAT blueprint is malformed')
+  return { databaseId: blueprintId, model }
+}
+
+async function getSectionReference(
+  client: SupabaseClient<Database>,
+  sectionId: string,
+): Promise<{ code: BlueprintSectionCode; name: string; number: number }> {
+  const { data, error } = await client
+    .from('vtutor_ucat_sections')
+    .select('name,section_number')
+    .eq('id', sectionId)
+    .maybeSingle()
+  const row = requireRow(data, error, 'UCAT section')
+  const number = typeof row.section_number === 'number' ? row.section_number : 0
+  const code = sectionCodeByNumber[number]
+  if (!code || typeof row.name !== 'string') throw new Error('UCAT section is malformed')
+  return { code, name: row.name, number }
+}
+
+function setAnsweringTimeSeconds(
+  input: ValidateQuestionSetCompositionInput,
+  officialQuestionCount: number,
+  officialAnsweringTimeSeconds: number,
+  actualQuestionCount: number,
+): number {
+  if (input.timingMode === 'fixed') return input.fixedTimeLimitSeconds ?? 0
+  if (input.timingMode === 'untimed') return 0
+  const examTime = officialAnsweringTimeSeconds * actualQuestionCount / officialQuestionCount
+  return Math.ceil(examTime / (input.paceMultiplier ?? 1))
+}
+
+export async function validateUcatMcpQuestionSetComposition(
+  client: SupabaseClient<Database>,
+  input: ValidateQuestionSetCompositionInput,
+): Promise<Record<string, unknown>> {
+  const [{ model }, section, stemRows] = await Promise.all([
+    getBlueprintModel(client, input.referenceBlueprintId),
+    getSectionReference(client, input.sectionId),
+    getStemDetails(client, input.stemIds),
+  ])
+  const missingStemIds = input.stemIds.filter(
+    (id) => !stemRows.some((row) => row.id === id),
+  )
+  const wrongSectionStemIds = stemRows.flatMap((row) => (
+    row.section_id !== input.sectionId && typeof row.id === 'string' ? [row.id] : []
+  ))
+  const duplicateStemIds = input.stemIds.filter(
+    (id, index) => input.stemIds.indexOf(id) !== index,
+  )
+  const stems = stemRows.flatMap((row) => {
+    const stem = blueprintStemFromDetail(row)
+    return stem ? [stem] : []
+  })
+  const official = model.official.sections.find((candidate) => candidate.section === section.code)
+  if (!official) throw new Error('Blueprint does not define the selected UCAT section')
+
+  if (input.setFormat === 'partial_section') {
+    const errors = [
+      ...missingStemIds.map((stemId) => ({
+        code: 'STEM_NOT_FOUND', severity: 'error', stemId,
+        message: `Stem ${stemId} was not found.`,
+      })),
+      ...wrongSectionStemIds.map((stemId) => ({
+        code: 'STEM_SECTION_MISMATCH', severity: 'error', stemId,
+        message: `Stem ${stemId} does not belong to ${section.name}.`,
+      })),
+      ...duplicateStemIds.map((stemId) => ({
+        code: 'DUPLICATE_STEM_ID', severity: 'error', stemId,
+        message: `Stem ${stemId} appears more than once.`,
+      })),
+    ]
+    return {
+      applicable: false,
+      compliant: errors.length === 0,
+      blueprintId: input.referenceBlueprintId,
+      sectionId: input.sectionId,
+      setFormat: input.setFormat,
+      totals: { stems: stems.length, questions: stems.reduce((sum, stem) => sum + stem.questions.length, 0) },
+      reasons: [
+        ...errors,
+        {
+          code: 'FOCUSED_PRACTICE_EXEMPT',
+          severity: 'information',
+          message: 'Partial sets are not required to match a complete exam section.',
+        },
+      ],
+      checks: [],
+    }
+  }
+
+  const actualQuestionCount = stems.reduce((sum, stem) => sum + stem.questions.length, 0)
+  const evaluation = evaluateBlueprint(model, {
+    purpose: 'full_mock',
+    sections: [{
+      section: section.code,
+      answeringTimeSeconds: setAnsweringTimeSeconds(
+        input,
+        official.questionCount,
+        official.answeringTimeSeconds,
+        actualQuestionCount,
+      ),
+      instructionTimeSeconds: official.instructionTimeSeconds,
+      stems,
+    }],
+  })
+  const compliance = evaluationToStoredCompliance(evaluation)
+  const reasons = (compliance.reasons ?? []).filter((reason) => (
+    reason.code !== 'SECTION_MISSING' && reason.code !== 'SECTION_ORDER_INVALID'
+  ))
+  const extraReasons = [
+    ...missingStemIds.map((stemId) => ({
+      code: 'STEM_NOT_FOUND', severity: 'error' as const, stemId,
+      message: `Stem ${stemId} was not found.`,
+    })),
+    ...wrongSectionStemIds.map((stemId) => ({
+      code: 'STEM_SECTION_MISMATCH', severity: 'error' as const, stemId,
+      message: `Stem ${stemId} does not belong to ${section.name}.`,
+    })),
+  ]
+  return {
+    ...compliance,
+    compliant: reasons.every((reason) => reason.severity !== 'error')
+      && extraReasons.length === 0,
+    blueprintId: input.referenceBlueprintId,
+    sectionId: input.sectionId,
+    setFormat: input.setFormat,
+    sections: compliance.sections.filter((candidate) => candidate.section === section.code),
+    reasons: [...reasons, ...extraReasons],
+  }
+}
+
+export async function validateUcatMcpMockComposition(
+  client: SupabaseClient<Database>,
+  input: ValidateMockCompositionInput,
+): Promise<Record<string, unknown>> {
+  const [{ model }, sectionReferences] = await Promise.all([
+    getBlueprintModel(client, input.blueprintId),
+    blueprintSectionReferences(client),
+  ])
+  const setIds = input.sectionSets.map((item) => item.setId)
+  const duplicateSectionIds = input.sectionSets.filter(
+    (item, index) => input.sectionSets.findIndex((candidate) => candidate.sectionId === item.sectionId) !== index,
+  ).map((item) => item.sectionId)
+  const duplicateSetIds = setIds.filter((id, index) => setIds.indexOf(id) !== index)
+  const setDetails = await Promise.all(setIds.map((id) => getSet(client, id)))
+  const bySectionId = new Map(input.sectionSets.map((item, index) => [
+    item.sectionId,
+    setDetails[index],
+  ]))
+  const compositionSections: BlueprintComposition['sections'] = []
+  const membershipReasons: Array<Record<string, unknown>> = []
+  for (const official of model.official.sections) {
+    const sectionNumber = Object.entries(sectionCodeByNumber).find(([, code]) => code === official.section)?.[0]
+    const sectionRef = sectionNumber ? sectionReferences.get(Number(sectionNumber)) : undefined
+    const set = sectionRef ? bySectionId.get(sectionRef.sectionId) : undefined
+    if (!set || !sectionRef) continue
+    if (set.section_id !== sectionRef.sectionId) {
+      membershipReasons.push({
+        code: 'SET_SECTION_MISMATCH', severity: 'error', setId: set.id,
+        sectionId: sectionRef.sectionId,
+        message: `Set ${String(set.id)} does not belong to ${sectionRef.sectionName}.`,
+      })
+    }
+    if (set.reference_blueprint_id !== input.blueprintId) {
+      membershipReasons.push({
+        code: 'SET_BLUEPRINT_MISMATCH', severity: 'error', setId: set.id,
+        message: `Set ${String(set.id)} references a different blueprint.`,
+      })
+    }
+    const stems = (await getStemDetails(client, setStemIds(set))).flatMap((row) => {
+      const stem = blueprintStemFromDetail(row)
+      return stem ? [stem] : []
+    })
+    compositionSections.push({
+      section: official.section,
+      answeringTimeSeconds: typeof set.time_limit_seconds === 'number'
+        ? set.time_limit_seconds
+        : 0,
+      instructionTimeSeconds: official.instructionTimeSeconds,
+      stems,
+    })
+  }
+  membershipReasons.push(
+    ...duplicateSectionIds.map((sectionId) => ({
+      code: 'DUPLICATE_SECTION_ID', severity: 'error', sectionId,
+      message: `Section ${sectionId} is assigned more than once.`,
+    })),
+    ...duplicateSetIds.map((setId) => ({
+      code: 'DUPLICATE_SET_ID', severity: 'error', setId,
+      message: `Set ${setId} is assigned more than once.`,
+    })),
+  )
+  const compliance = evaluationToStoredCompliance(evaluateBlueprint(model, {
+    purpose: 'full_mock',
+    sections: compositionSections,
+  }))
+  return {
+    ...compliance,
+    compliant: compliance.compliant && membershipReasons.length === 0,
+    blueprintId: input.blueprintId,
+    sectionSets: input.sectionSets,
+    reasons: [...(compliance.reasons ?? []), ...membershipReasons],
   }
 }
 
@@ -800,6 +1410,7 @@ export async function createUcatMcpMock(
     accessScope: input.accessScope,
     blueprintId: input.blueprintId,
     setIds: [],
+    sectionSets: [],
   }
   const result = await callMutationWithVisibility(client, 'tutor_ucat_mcp_upsert_mock', {
     p_mock_id: null,
