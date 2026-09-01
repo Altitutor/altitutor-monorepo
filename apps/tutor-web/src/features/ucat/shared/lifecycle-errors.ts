@@ -112,11 +112,62 @@ export function parseUcatLifecycleBlockers(data: unknown): UcatLifecycleBlocker[
   })
 }
 
-export function publicationBlockedBlockers(rawMessage: string): UcatLifecycleBlocker[] {
-  const marker = 'publication_blocked:'
+const PUBLISHED_CONTENT_INVALID_PREFIX = 'published_content_invalid:'
+
+function blockersFromPrefixedJson(rawMessage: string, marker: string): UcatLifecycleBlocker[] {
   const index = rawMessage.indexOf(marker)
   if (index < 0) return []
   return parseUcatLifecycleBlockers(rawMessage.slice(index + marker.length))
+}
+
+export function publicationBlockedBlockers(rawMessage: string): UcatLifecycleBlocker[] {
+  return blockersFromPrefixedJson(rawMessage, 'publication_blocked:')
+}
+
+export function publishedContentInvalidBlockers(rawMessage: string): UcatLifecycleBlocker[] {
+  return blockersFromPrefixedJson(rawMessage, PUBLISHED_CONTENT_INVALID_PREFIX)
+}
+
+function publishedContentKindLabel(entityType: UcatLifecycleEntityType | null | undefined): string {
+  switch (entityType) {
+    case 'set':
+      return 'set'
+    case 'mock':
+      return 'mock'
+    case 'learning_module':
+      return 'lesson'
+    default:
+      return 'question stem'
+  }
+}
+
+export function humanizePublishedContentError(rawMessage: string): string {
+  const blockers = publishedContentInvalidBlockers(rawMessage)
+  if (rawMessage.indexOf(PUBLISHED_CONTENT_INVALID_PREFIX) < 0) return rawMessage
+
+  const messages = Array.from(
+    new Set(blockers.map((blocker) => blocker.message.trim()).filter(Boolean)),
+  )
+  if (messages.length > 0) {
+    return `This published ${publishedContentKindLabel(blockers[0]?.entity_type)} still needs changes: ${messages.join(' ')}`
+  }
+  return `This published ${publishedContentKindLabel(undefined)} still needs changes before it can be saved.`
+}
+
+export function ucatPublishedContentInvalidPayload(blockers: UcatLifecycleBlocker[]) {
+  const messages = Array.from(
+    new Set(blockers.map((blocker) => blocker.message.trim()).filter(Boolean)),
+  )
+  return {
+    error: messages.length > 0
+      ? `This published ${publishedContentKindLabel(blockers[0]?.entity_type)} still needs changes: ${messages.join(' ')}`
+      : 'This published content still needs changes before it can be saved.',
+    blockers,
+  }
+}
+
+export function isUcatStatementTimeoutError(message: string): boolean {
+  return /statement timeout|57014|canceling statement/i.test(message)
 }
 
 export function ucatDeleteBlockedPayload(
@@ -155,7 +206,13 @@ export async function throwUcatLifecycleResponseError(response: Response, fallba
     error?: string
     blockers?: unknown
   }
-  throw new UcatLifecycleError(body.error ?? fallback, parseUcatLifecycleBlockers(body.blockers))
+  const rawMessage = body.error ?? fallback
+  const blockers = parseUcatLifecycleBlockers(body.blockers)
+  const publishedBlockers = blockers.length > 0 ? [] : publishedContentInvalidBlockers(rawMessage)
+  throw new UcatLifecycleError(
+    humanizePublishedContentError(rawMessage),
+    blockers.length > 0 ? blockers : publishedBlockers,
+  )
 }
 
 export async function readUcatBulkStatusResponse(
@@ -218,11 +275,16 @@ export function lifecycleErrorToast(
   navigate: (href: string) => void,
   openEntity?: (entityType: UcatLifecycleEntityType, entityId: string) => boolean,
 ) {
-  const blocker = error instanceof UcatLifecycleError ? error.blockers[0] : null
-  const action = blocker ? blockerAction(blocker) : null
-  const extraCount = error instanceof UcatLifecycleError ? Math.max(0, error.blockers.length - 1) : 0
   const rawMessage = error instanceof Error ? error.message : 'The lifecycle change could not be completed.'
-  const message = ucatSetSectionFallbackMessage(rawMessage)
+  const publishedBlockers = publishedContentInvalidBlockers(rawMessage)
+  const blocker = error instanceof UcatLifecycleError
+    ? (error.blockers[0] ?? publishedBlockers[0] ?? null)
+    : (publishedBlockers[0] ?? null)
+  const action = blocker ? blockerAction(blocker) : null
+  const extraCount = error instanceof UcatLifecycleError
+    ? Math.max(0, error.blockers.length - 1)
+    : Math.max(0, publishedBlockers.length - 1)
+  const message = ucatSetSectionFallbackMessage(humanizePublishedContentError(rawMessage))
 
   return {
     title,

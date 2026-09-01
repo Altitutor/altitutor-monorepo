@@ -2,9 +2,11 @@ import {
   failedUcatDeleteContentId,
   firstUcatBulkStatusFailureError,
   isUcatDeleteBlockedError,
+  isUcatStatementTimeoutError,
   isUcatVisibilityBlockedError,
   parseUcatLifecycleBlockers,
   publicationBlockedBlockers,
+  publishedContentInvalidBlockers,
   readUcatBulkStatusResponse,
   throwUcatLifecycleResponseError,
   UcatLifecycleError,
@@ -196,6 +198,75 @@ describe('delete blockers', () => {
       entity_name: null,
     }])
     expect(publicationBlockedBlockers('in_review_set_contains_draft_stem')).toEqual([])
+  })
+
+  it('extracts published-content blockers including the owning set', () => {
+    const raw =
+      'published_content_invalid:[{"code": "full_section_question_count_mismatch", "message": "A full section set requires exactly 35 questions for its reference blueprint; found 34.", "entity_id": "9c4d8767-fdc9-4ed7-a6e7-e8ba70b40885", "entity_type": "set"}]'
+
+    expect(publishedContentInvalidBlockers(raw)).toEqual([{
+      code: 'full_section_question_count_mismatch',
+      message: 'A full section set requires exactly 35 questions for its reference blueprint; found 34.',
+      entity_type: 'set',
+      entity_id: '9c4d8767-fdc9-4ed7-a6e7-e8ba70b40885',
+      entity_name: null,
+    }])
+    expect(publishedContentInvalidBlockers('question_stem_not_found')).toEqual([])
+  })
+
+  it('humanizes a published full-section set count mismatch from a raw API 400', async () => {
+    const raw =
+      'published_content_invalid:[{"code": "full_section_question_count_mismatch", "message": "A full section set requires exactly 35 questions for its reference blueprint; found 34.", "entity_id": "9c4d8767-fdc9-4ed7-a6e7-e8ba70b40885", "entity_type": "set"}]'
+    const response = {
+      json: async () => ({ error: raw }),
+    } as Response
+
+    const error = await throwUcatLifecycleResponseError(response, 'Failed to update set').catch(
+      (caught: unknown) => caught,
+    )
+
+    expect(error).toMatchObject({
+      name: 'UcatLifecycleError',
+      blockers: [{
+        code: 'full_section_question_count_mismatch',
+        entity_type: 'set',
+        entity_id: '9c4d8767-fdc9-4ed7-a6e7-e8ba70b40885',
+      }],
+    })
+    expect(error).toBeInstanceOf(Error)
+    expect((error as Error).message).toContain(
+      'A full section set requires exactly 35 questions for its reference blueprint; found 34.',
+    )
+    expect((error as Error).message).not.toContain('published_content_invalid')
+
+    const openEntity = jest.fn(() => true)
+    const toast = lifecycleErrorToast(error, 'Failed to save', jest.fn(), openEntity)
+    expect(toast.description).toContain('exactly 35 questions')
+    expect(toast.description).not.toContain('published_content_invalid')
+    expect(toast.action?.label).toBe('Edit set')
+    toast.action?.onClick()
+    expect(openEntity).toHaveBeenCalledWith('set', '9c4d8767-fdc9-4ed7-a6e7-e8ba70b40885')
+  })
+
+  it('humanizes a raw published-content exception even without a lifecycle error wrapper', () => {
+    const toast = lifecycleErrorToast(
+      new Error(
+        'published_content_invalid:[{"code": "full_section_question_count_mismatch", "message": "A full section set requires exactly 35 questions for its reference blueprint; found 34.", "entity_id": "d023b2ab-cf1b-4d6f-a288-85a4e4d0a17c", "entity_type": "set"}]',
+      ),
+      'Cannot merge',
+      jest.fn(),
+      jest.fn(() => true),
+    )
+
+    expect(toast.description).toContain('exactly 35 questions')
+    expect(toast.description).not.toContain('published_content_invalid')
+    expect(toast.action?.label).toBe('Edit set')
+  })
+
+  it('recognises statement timeouts that surface as blank blockers', () => {
+    expect(isUcatStatementTimeoutError('canceling statement due to statement timeout')).toBe(true)
+    expect(isUcatStatementTimeoutError('57014')).toBe(true)
+    expect(isUcatStatementTimeoutError('status_blocked_by_parent_mock')).toBe(false)
   })
 
   it('uses the first blocker message for the delete payload', () => {
