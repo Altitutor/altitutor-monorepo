@@ -169,6 +169,14 @@ async function selectCalendarDate(page: Page, dateKey: string) {
 test.describe("personalised Study plan", () => {
   test.describe.configure({ timeout: 120_000 });
 
+  test.afterEach(async () => {
+    const { error } = await localAdmin()
+      .from("ucat_student_study_plan_tasks")
+      .delete()
+      .eq("title", "E2E missed canonical work");
+    if (error) throw error;
+  });
+
   test("generates canonical practice and linked review tasks", async ({
     page,
   }) => {

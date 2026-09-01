@@ -17,19 +17,26 @@ import {
 import {
   AuditSelectorSchema,
   AuditTargetSchema,
+  ChangeMockInputSchema,
+  ChangeQuestionSetInputSchema,
   ContentChangeMetadataSchema,
+  CreateMockInputSchema,
+  CreateQuestionSetInputSchema,
+  GetUcatBlueprintInputSchema,
   LearningModuleBlockSchema,
   LearningModuleOperationSchema,
   IdempotencyKeySchema,
-  MockOperationSchema,
-  NullableRichTextSchema,
+  ListUcatBlueprintsInputSchema,
   QuestionInputSchema,
-  QuestionSetOperationSchema,
   QuestionStemOperationSchema,
   RichTextSchema,
   UcatAccessScopeSchema,
   UcatContentIdOrIdsSchema,
+  UCAT_MCP_CONTRACT_VERSION,
+  UcatReadProjectionSchema,
   UcatStatusSchema,
+  ValidateMockCompositionInputSchema,
+  ValidateQuestionSetCompositionInputSchema,
 } from '@/features/ucat/mcp/server/schemas'
 import { executeUcatMcpIdempotent } from '@/features/ucat/mcp/server/idempotency'
 import {
@@ -41,12 +48,16 @@ import {
   getUcatMcpAggregate,
   getUcatMcpAggregates,
   getUcatMcpAiAssessment,
+  getUcatMcpBlueprint,
   getUcatMcpGenerationRuns,
   getUcatMcpReferenceData,
+  listUcatMcpBlueprints,
   recordUcatMcpAuxiliaryActivity,
   restoreUcatMcpContent,
   searchUcatMcpContent,
   submitUcatMcpForReview,
+  validateUcatMcpMockComposition,
+  validateUcatMcpQuestionSetComposition,
 } from '@/features/ucat/mcp/server/service'
 import {
   createMcpImageContentFromDataUri,
@@ -286,6 +297,9 @@ export function registerUcatMcpTools(
         includeDeleted: z.boolean().default(false),
         offset: z.number().int().min(0).default(0),
         limit: z.number().int().min(1).max(100).default(25),
+        projection: UcatReadProjectionSchema.default('catalogue').describe(
+          'catalogue returns search summaries; composition returns compact assembly metadata; full returns complete authoring aggregates.',
+        ),
         filter: CatalogFilterExpressionSchema.optional().describe(
           'Stem-only composable predicate tree. Use all for AND, any for OR, and clause for atomic field predicates. Flat fields are AND-ed with filter when both are supplied.',
         ),
@@ -328,18 +342,20 @@ export function registerUcatMcpTools(
       inputSchema: {
         contentType: AggregateTypeSchema,
         id: UcatContentIdOrIdsSchema,
+        projection: UcatReadProjectionSchema.default('full'),
       },
       outputSchema: StructuredObjectOutputSchema,
       annotations: readOnlyAnnotations,
     },
-    async ({ contentType, id }, extra) => executeTool(
+    async ({ contentType, id, projection }, extra) => executeTool(
       extra.authInfo?.token,
       (client) => Array.isArray(id)
         ? getUcatMcpAggregates(
           client,
           id.map((contentId) => ({ contentType, id: contentId })),
+          projection,
         )
-        : getUcatMcpAggregate(client, contentType, id),
+        : getUcatMcpAggregate(client, contentType, id, projection),
     ),
   )
 
@@ -356,6 +372,102 @@ export function registerUcatMcpTools(
     async (_input, extra) => executeTool(
       extra.authInfo?.token,
       getUcatMcpReferenceData,
+    ),
+  )
+
+  server.registerTool(
+    'get_ucat_mcp_capabilities',
+    {
+      title: 'Read UCAT MCP contract capabilities',
+      description:
+        'Read the deployed authoring contract version and feature support. Use this to detect a stale deployment before planning set or mock mutations.',
+      inputSchema: {},
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async (_input, extra) => executeTool(
+      extra.authInfo?.token,
+      async () => ({
+        contractVersion: UCAT_MCP_CONTRACT_VERSION,
+        mutationSchemaVersions: {
+          create_question_set: 2,
+          change_question_set: 2,
+          create_mock: 2,
+          change_mock: 2,
+        },
+        features: {
+          databaseBlueprints: true,
+          blankMockCreation: true,
+          compositionProjection: true,
+          dryRunCompositionValidation: true,
+          explicitStemReplacement: true,
+          sectionAddressedMockMembership: true,
+        },
+      }),
+    ),
+  )
+
+  server.registerTool(
+    'list_ucat_blueprints',
+    {
+      title: 'List UCAT blueprint versions',
+      description:
+        'List immutable database blueprint versions, including official section totals and Altitutor composition policy. Section entries include the authoring section UUID required by set and mock tools.',
+      inputSchema: ListUcatBlueprintsInputSchema.shape,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async (input, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => listUcatMcpBlueprints(client, input),
+    ),
+  )
+
+  server.registerTool(
+    'get_ucat_blueprint',
+    {
+      title: 'Read a UCAT blueprint version',
+      description:
+        'Read one immutable database blueprint by UUID, with official timing/count facts, composition rules, and section UUIDs.',
+      inputSchema: GetUcatBlueprintInputSchema.shape,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async ({ blueprintId }, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => getUcatMcpBlueprint(client, blueprintId),
+    ),
+  )
+
+  server.registerTool(
+    'validate_question_set_composition',
+    {
+      title: 'Dry-run a UCAT set composition',
+      description:
+        'Validate proposed ordered stem membership, section, timing intent, and blueprint policy without writing. Partial sets are exempt from full-section totals but still validate references, duplicates, and section purity.',
+      inputSchema: ValidateQuestionSetCompositionInputSchema.shape,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async (input, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => validateUcatMcpQuestionSetComposition(client, input),
+    ),
+  )
+
+  server.registerTool(
+    'validate_mock_composition',
+    {
+      title: 'Dry-run a UCAT mock composition',
+      description:
+        'Validate proposed section-addressed set membership against a database blueprint without creating or changing a mock.',
+      inputSchema: ValidateMockCompositionInputSchema.shape,
+      outputSchema: StructuredObjectOutputSchema,
+      annotations: readOnlyAnnotations,
+    },
+    async (input, extra) => executeTool(
+      extra.authInfo?.token,
+      (client) => validateUcatMcpMockComposition(client, input),
     ),
   )
 
@@ -474,19 +586,7 @@ export function registerUcatMcpTools(
       title: 'Create a draft UCAT question set',
       description:
         'Create a deterministically named draft set for one UCAT section. Timing is stored as pace, fixed duration, or untimed intent against an explicit database blueprint. An empty set is allowed while drafting.',
-      inputSchema: {
-        idempotencyKey: IdempotencyKeySchema,
-        authoringNote: z.string().trim().max(1000).nullable().optional(),
-        description: RichTextSchema,
-        timingMode: z.enum(['pace', 'fixed', 'untimed']).default('pace'),
-        paceMultiplier: z.number().positive().max(10).nullable().optional(),
-        fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
-        setFormat: z.enum(['full_section', 'partial_section']),
-        accessScope: UcatAccessScopeSchema.default('public'),
-        sectionId: z.string().uuid(),
-        referenceBlueprintId: z.string().uuid(),
-        stemIds: z.array(z.string().uuid()).default([]),
-      },
+      inputSchema: CreateQuestionSetInputSchema.shape,
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
@@ -507,13 +607,8 @@ export function registerUcatMcpTools(
     {
       title: 'Change a UCAT question set',
       description:
-        'Apply explicit metadata and add/move/remove stem-membership operations to an editable set. For a published set, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(QuestionSetOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
+        'Apply explicit metadata and typed stem-membership operations to an editable set. Use replace_stems only for an intentional complete replacement. For a published set, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
+      inputSchema: ChangeQuestionSetInputSchema.shape,
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },
@@ -528,14 +623,8 @@ export function registerUcatMcpTools(
     {
       title: 'Create a draft UCAT mock exam',
       description:
-        'Create a deterministically named draft mock against an explicit database blueprint. The four section component sets are created and linked atomically.',
-      inputSchema: {
-        idempotencyKey: IdempotencyKeySchema,
-        authoringNote: z.string().trim().max(1000).nullable().optional(),
-        instructionsText: NullableRichTextSchema.optional(),
-        accessScope: UcatAccessScopeSchema.default('public'),
-        blueprintId: z.string().uuid(),
-      },
+        'Create a deterministically named blank draft mock against an explicit database blueprint. No sets are created or linked; add existing sets or create sets separately, then assign them by section.',
+      inputSchema: CreateMockInputSchema.shape,
       outputSchema: StructuredObjectOutputSchema,
       annotations: idempotentWriteAnnotations,
     },
@@ -556,13 +645,8 @@ export function registerUcatMcpTools(
     {
       title: 'Change a UCAT mock exam',
       description:
-        'Apply explicit metadata and add/move/remove set-membership operations to an editable mock. For a published mock, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
-      inputSchema: {
-        id: z.string().uuid(),
-        revision: z.string().min(1),
-        operations: z.array(MockOperationSchema).min(1).max(100),
-        ...ContentChangeMetadataSchema,
-      },
+        'Apply explicit metadata and section-addressed set-membership operations to an editable mock. Prefer set_section_set or replace_section_sets; the selected set must belong to that section. For a published mock, stage a durable pending content change instead of changing live content; pass its changeId to apply_ucat_content_changes. Omission never deletes.',
+      inputSchema: ChangeMockInputSchema.shape,
       outputSchema: StructuredObjectOutputSchema,
       annotations: writeAnnotations,
     },

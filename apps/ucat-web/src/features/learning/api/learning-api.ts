@@ -37,7 +37,7 @@ export const learningApi = {
   async startLesson(
     lessonId: string,
     studyPlanTaskId: string | null,
-  ): Promise<void> {
+  ): Promise<{ created: boolean }> {
     const response = await fetch(
       `/api/ucat/learning-modules/${lessonId}/start`,
       {
@@ -46,7 +46,7 @@ export const learningApi = {
         body: JSON.stringify({ studyPlanTaskId }),
       },
     );
-    await parseJson(response);
+    return parseJson<{ created: boolean }>(response);
   },
 
   async updateBlockProgress(

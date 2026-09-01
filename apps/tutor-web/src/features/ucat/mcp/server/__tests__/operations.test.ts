@@ -337,6 +337,59 @@ describe('UCAT MCP typed operations', () => {
     expect(updatedMock.setIds).toEqual([QUESTION_TWO])
   })
 
+  it('supports explicit complete set and section-addressed mock replacement', () => {
+    const sectionOne = '50000000-0000-0000-0000-000000000001'
+    const sectionTwo = '50000000-0000-0000-0000-000000000002'
+    const setDraft = questionSetDraftFromDetail({
+      authoring_note: null,
+      description: {},
+      timing_mode: 'untimed',
+      pace_multiplier: null,
+      fixed_time_limit_seconds: null,
+      set_format: 'partial_section',
+      reference_blueprint_id: BLUEPRINT_ID,
+      access_scope: 'private',
+      section_id: sectionOne,
+      stems: [{ stem_id: STEM_ID }],
+    })
+    expect(applyQuestionSetOperations(setDraft, [{
+      type: 'replace_stems',
+      stemIds: [QUESTION_ONE, QUESTION_TWO],
+    }]).stemIds).toEqual([QUESTION_ONE, QUESTION_TWO])
+    expect(() => applyQuestionSetOperations(setDraft, [{
+      type: 'replace_stems',
+      stemIds: [QUESTION_ONE, QUESTION_ONE],
+    }])).toThrow('duplicate ids')
+
+    const mockDraft = mockDraftFromDetail({
+      authoring_note: null,
+      instructions_text: null,
+      access_scope: 'private',
+      blueprint_id: BLUEPRINT_ID,
+      sets: [{ id: STEM_ID, section_id: sectionOne }],
+    })
+    const replaced = applyMockOperations(mockDraft, [{
+      type: 'replace_section_sets',
+      sectionSets: [
+        { sectionId: sectionOne, setId: QUESTION_ONE },
+        { sectionId: sectionTwo, setId: QUESTION_TWO },
+      ],
+    }])
+    expect(replaced.sectionSets).toEqual([
+      { sectionId: sectionOne, setId: QUESTION_ONE },
+      { sectionId: sectionTwo, setId: QUESTION_TWO },
+    ])
+    expect(replaced.setIds).toEqual([QUESTION_ONE, QUESTION_TWO])
+
+    const cleared = applyMockOperations(replaced, [{
+      type: 'set_section_set',
+      sectionId: sectionOne,
+      setId: null,
+    }])
+    expect(cleared.sectionSets).toEqual([{ sectionId: sectionTwo, setId: QUESTION_TWO }])
+    expect(cleared.setIds).toEqual([QUESTION_TWO])
+  })
+
   it('removes only the explicitly targeted lesson block', () => {
     const firstBlock = '60000000-0000-0000-0000-000000000001'
     const secondBlock = '60000000-0000-0000-0000-000000000002'

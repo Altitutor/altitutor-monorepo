@@ -39531,6 +39531,10 @@ export type Database = {
         Args: never
         Returns: number
       }
+      ucat_finish_content_status_catalog_effects: {
+        Args: { p_content_ids: string[]; p_content_type: string }
+        Returns: undefined
+      }
       ucat_is_valid_audit_catalog_filter: {
         Args: { p_filter: string }
         Returns: boolean
@@ -39689,6 +39693,7 @@ export type Database = {
         Args: { p_section_name: string }
         Returns: string
       }
+      ucat_set_catalog_compact_is_deferred: { Args: never; Returns: boolean }
       ucat_sync_component_sets_for_mock_occupancy: {
         Args: { p_mock_id: string }
         Returns: undefined

@@ -100,12 +100,15 @@ describe('UCAT MCP HTTP endpoints', () => {
         tools: expect.arrayContaining([
           expect.objectContaining({ name: 'create_question_stem' }),
           expect.objectContaining({ name: 'change_question_stem' }),
+          expect.objectContaining({ name: 'get_ucat_mcp_capabilities' }),
+          expect.objectContaining({ name: 'list_ucat_blueprints' }),
+          expect.objectContaining({ name: 'validate_mock_composition' }),
           expect.objectContaining({ name: 'apply_ucat_content_changes' }),
         ]),
       },
     })
     expect((payload as { result: { tools: unknown[] } }).result.tools)
-      .toHaveLength(37)
+      .toHaveLength(42)
 
     const tools = (payload as {
       result: { tools: Array<{ name: string; inputSchema: unknown }> }

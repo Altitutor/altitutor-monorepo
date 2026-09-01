@@ -125,7 +125,7 @@ export function useLearningLesson(
   });
   return {
     ...lesson,
-    isLoading: start.isLoading || lesson.isLoading,
+    isLoading: start.isPending || lesson.isPending,
     error: start.error ?? lesson.error,
   };
 }
