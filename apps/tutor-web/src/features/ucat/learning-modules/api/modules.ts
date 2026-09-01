@@ -10,10 +10,10 @@ import type {
 import { isLearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
 import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 import {
-  readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
   throwUcatLifecycleResponseError,
 } from '@/features/ucat/shared/lifecycle-errors'
+import { patchUcatContentStatus } from '@/features/ucat/shared/lib/content-status-request'
 
 export type UcatStemLearningModuleMembership = {
   moduleId: string
@@ -280,12 +280,12 @@ export const ucatLearningModulesApi = {
   },
 
   async bulkSetStatus(moduleIds: string[], status: UcatContentStatus) {
-    const response = await fetch('/api/ucat/content-status', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contentType: 'lesson', contentIds: moduleIds, status }),
+    return patchUcatContentStatus({
+      contentType: 'lesson',
+      contentIds: moduleIds,
+      status,
+      fallback: 'Failed to update lesson status',
     })
-    return readUcatBulkStatusResponse(response, 'Failed to update lesson status')
   },
 
   async bulkRestoreStatus(
@@ -293,17 +293,13 @@ export const ucatLearningModulesApi = {
     currentStatus: UcatContentStatus,
     previousStatus: UcatContentStatus,
   ) {
-    const response = await fetch('/api/ucat/content-status', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        contentType: 'lesson',
-        contentIds: moduleIds,
-        status: currentStatus,
-        previousStatus,
-      }),
+    return patchUcatContentStatus({
+      contentType: 'lesson',
+      contentIds: moduleIds,
+      status: currentStatus,
+      previousStatus,
+      fallback: 'Failed to restore lesson status',
     })
-    return readUcatBulkStatusResponse(response, 'Failed to restore lesson status')
   },
 
   async remove(moduleId: string): Promise<void> {

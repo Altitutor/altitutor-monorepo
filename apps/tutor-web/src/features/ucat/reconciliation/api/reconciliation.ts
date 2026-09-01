@@ -1,3 +1,8 @@
+import {
+  parseUcatLifecycleBlockers,
+  UcatLifecycleError,
+} from '@/features/ucat/shared/lifecycle-errors'
+
 export type StemWithNoCategory = {
   id: string;
   sectionId: string;
@@ -230,7 +235,10 @@ export async function mergePotentialDuplicateStems(
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body.error as string) ?? "Failed to merge question stems");
+    throw new UcatLifecycleError(
+      (body.error as string) ?? "Failed to merge question stems",
+      parseUcatLifecycleBlockers(body.blockers),
+    );
   }
   return res.json() as Promise<{
     ok: true;

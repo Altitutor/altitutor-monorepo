@@ -1,4 +1,5 @@
 BEGIN;
+SET LOCAL TIME ZONE 'Australia/Adelaide';
 SELECT plan(7);
 
 CREATE TEMP TABLE chosen_lesson AS

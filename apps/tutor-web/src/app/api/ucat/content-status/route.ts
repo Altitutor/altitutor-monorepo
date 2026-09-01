@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
 import {
+  isUcatStatementTimeoutError,
   parseUcatLifecycleBlockers,
   publicationBlockedBlockers,
   type UcatLifecycleBlocker,
@@ -37,6 +38,9 @@ function friendlyMessage(rawMessage: string, blockers: UcatLifecycleBlocker[]) {
   const match = Object.entries(FRIENDLY_FALLBACKS).find(([code]) => rawMessage.includes(code))
   if (match) return match[1]
   if (rawMessage.includes('publication_blocked')) return 'This content still has publication blockers.'
+  if (isUcatStatementTimeoutError(rawMessage)) {
+    return 'This bulk change took too long. Try fewer items at a time.'
+  }
   return 'The lifecycle change could not be completed.'
 }
 
@@ -81,6 +85,7 @@ export async function PATCH(request: NextRequest) {
       })
 
   if (error) {
+    console.error('UCAT content-status RPC failed', error.message)
     const blockerId = failedContentId(error.message, contentIds[0])
     const blockers = await loadStatusBlockers(
       client,

@@ -13,11 +13,11 @@ import type {
 import { fetchAllSupabaseRows } from "@/features/ucat/shared/lib/fetch-all-supabase-rows";
 import {
   parseUcatLifecycleBlockers,
-  readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
   throwUcatLifecycleResponseError,
   UcatLifecycleError,
 } from "@/features/ucat/shared/lifecycle-errors";
+import { patchUcatContentStatus } from "@/features/ucat/shared/lib/content-status-request";
 import { humanizeQuestionStemError } from "@/features/ucat/questions/lib/question-stem-error";
 import type {
   UcatAssessmentResponse,
@@ -1062,19 +1062,12 @@ export const ucatQuestionsApi = {
   },
 
   async bulkSetStatus(stemIds: string[], status: UcatContentStatus) {
-    const response = await fetch("/api/ucat/content-status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contentType: "stem",
-        contentIds: stemIds,
-        status,
-      }),
+    return patchUcatContentStatus({
+      contentType: "stem",
+      contentIds: stemIds,
+      status,
+      fallback: "Failed to update question status",
     });
-    return readUcatBulkStatusResponse(
-      response,
-      "Failed to update question status",
-    );
   },
 
   async bulkRestoreStatus(
@@ -1082,20 +1075,13 @@ export const ucatQuestionsApi = {
     currentStatus: UcatContentStatus,
     previousStatus: UcatContentStatus,
   ) {
-    const response = await fetch("/api/ucat/content-status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contentType: "stem",
-        contentIds: stemIds,
-        status: currentStatus,
-        previousStatus,
-      }),
+    return patchUcatContentStatus({
+      contentType: "stem",
+      contentIds: stemIds,
+      status: currentStatus,
+      previousStatus,
+      fallback: "Failed to restore question status",
     });
-    return readUcatBulkStatusResponse(
-      response,
-      "Failed to restore question status",
-    );
   },
 };
 
