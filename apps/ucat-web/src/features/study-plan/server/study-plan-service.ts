@@ -2066,11 +2066,14 @@ async function reconcileTasks(
   await runWithConcurrency(
     ownershipClaims.map(
       (claim) => async () => {
-        const { error } = await admin
-          .from("ucat_student_learning_module_progress")
-          .update({ study_plan_task_id: claim.taskId })
-          .eq("id", claim.progressId)
-          .is("study_plan_task_id", null);
+        const { error } = await admin.rpc(
+          "claim_ucat_study_plan_learning_ownership",
+          {
+            p_student_id: studentId,
+            p_progress_id: claim.progressId,
+            p_study_plan_task_id: claim.taskId,
+          },
+        );
         if (error) throw error;
       },
     ),

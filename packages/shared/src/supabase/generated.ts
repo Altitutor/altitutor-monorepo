@@ -37288,6 +37288,14 @@ export type Database = {
           student_id: string
         }[]
       }
+      claim_ucat_study_plan_learning_ownership: {
+        Args: {
+          p_progress_id: string
+          p_student_id: string
+          p_study_plan_task_id: string
+        }
+        Returns: boolean
+      }
       claim_ucat_transactional_emails: {
         Args: { p_limit?: number }
         Returns: {

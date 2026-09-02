@@ -1,6 +1,6 @@
 BEGIN;
 SET LOCAL TIME ZONE 'Australia/Adelaide';
-SELECT plan(7);
+SELECT plan(9);
 
 CREATE TEMP TABLE chosen_lesson AS
 SELECT id
@@ -96,6 +96,45 @@ SELECT throws_ok(
   '22023',
   'invalid_study_plan_learning_task',
   'a second untouched future copy cannot steal learning ownership'
+);
+
+UPDATE public.ucat_student_learning_module_progress
+SET study_plan_task_id = NULL
+WHERE student_id = '10000000-0000-0000-0000-000000000002'
+  AND learning_module_id = (SELECT id FROM chosen_lesson);
+
+SELECT ok(
+  public.claim_ucat_study_plan_learning_ownership(
+    '10000000-0000-0000-0000-000000000002',
+    (
+      SELECT id
+      FROM public.ucat_student_learning_module_progress
+      WHERE student_id = '10000000-0000-0000-0000-000000000002'
+        AND learning_module_id = (SELECT id FROM chosen_lesson)
+    ),
+    'ec000000-0000-4000-8000-000000000001'
+  ),
+  'reconciliation atomically claims an active learning task'
+);
+
+UPDATE public.ucat_student_learning_module_progress
+SET study_plan_task_id = NULL
+WHERE student_id = '10000000-0000-0000-0000-000000000002'
+  AND learning_module_id = (SELECT id FROM chosen_lesson);
+
+SELECT is(
+  public.claim_ucat_study_plan_learning_ownership(
+    '10000000-0000-0000-0000-000000000002',
+    (
+      SELECT id
+      FROM public.ucat_student_learning_module_progress
+      WHERE student_id = '10000000-0000-0000-0000-000000000002'
+        AND learning_module_id = (SELECT id FROM chosen_lesson)
+    ),
+    'ec000000-0000-4000-8000-000000000099'
+  ),
+  FALSE,
+  'reconciliation ignores a task that was replaced before ownership was claimed'
 );
 
 DELETE FROM public.ucat_student_study_plan_generations
