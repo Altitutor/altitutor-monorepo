@@ -6,6 +6,7 @@ import {
   UCAT_STUDY_ORB_INTRO_SEEN,
   UCAT_STUDY_PLAN_DECIDED,
 } from "@/features/onboarding/lib/activation-milestones";
+import { guidanceItemKey } from "@/features/study-plan/lib/next-step-guidance";
 
 const password = "test-password";
 const cronSecret = "local-playwright-cron-secret";
@@ -125,13 +126,49 @@ async function generateSeededStudyPlan(page: Page, studentId: string) {
   await page.reload();
 }
 
-async function runPreparationMaintenance(page: Page) {
-  const response = await page.request.get(
-    "/api/cron/ucat-preparation-refreshes",
-    { headers: { authorization: `Bearer ${cronSecret}` } },
-  );
-  const payload: unknown = await response.json();
-  expect(response.ok(), JSON.stringify(payload)).toBe(true);
+async function runPreparationMaintenance(page: Page, studentId: string) {
+  const admin = localAdmin();
+  for (let attempt = 0; attempt < 4; attempt += 1) {
+    const response = await page.request.get(
+      "/api/cron/ucat-preparation-refreshes",
+      { headers: { authorization: `Bearer ${cronSecret}` } },
+    );
+    const payload: unknown = await response.json();
+    expect(response.ok(), JSON.stringify(payload)).toBe(true);
+    expect(payload).toMatchObject({ claimed: expect.any(Number) });
+
+    await expect
+      .poll(
+        async () => {
+          const { data, error } = await admin
+            .from("ucat_student_preparation_refresh_requests")
+            .select("requested_at,completed_at,processing_started_at")
+            .eq("student_id", studentId)
+            .maybeSingle();
+          if (error) throw error;
+          if (!data) return "complete";
+          if (data.processing_started_at) return "processing";
+          return !data.completed_at ||
+            Date.parse(data.requested_at) > Date.parse(data.completed_at)
+            ? "pending"
+            : "complete";
+        },
+        { timeout: 30_000 },
+      )
+      .not.toBe("processing");
+    const { data, error } = await admin
+      .from("ucat_student_preparation_refresh_requests")
+      .select("requested_at,completed_at")
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (error) throw error;
+    const pending =
+      data &&
+      (!data.completed_at ||
+        Date.parse(data.requested_at) > Date.parse(data.completed_at));
+    if (!pending) return;
+  }
+  throw new Error("Student preparation refresh remained pending after 4 runs.");
 }
 
 async function selectCalendarDate(page: Page, dateKey: string) {
@@ -885,7 +922,7 @@ test.describe("personalised Study plan", () => {
       .update({ completed_at: completedAt })
       .eq("id", sessionId);
     if (sessionCompletionError) throw sessionCompletionError;
-    await runPreparationMaintenance(page);
+    await runPreparationMaintenance(page, studentId);
 
     await page.reload();
     await selectCalendarDate(page, linkedReview.scheduled_date);
@@ -1093,7 +1130,10 @@ test.describe("personalised Study plan", () => {
       "/api/ucat/study-plan/alternative",
       {
         data: {
-          excludedKeys: [],
+          excludedKeys: disabledPlan.nextSteps.map(
+            (step: Parameters<typeof guidanceItemKey>[0]) =>
+              guidanceItemKey(step),
+          ),
           currentTaskTypes: disabledPlan.nextSteps
             .slice(0, 6)
             .map((step: { taskType: string }) => step.taskType),
@@ -1141,7 +1181,7 @@ test.describe("personalised Study plan", () => {
       { p_student_id: studentId },
     );
     if (maintenanceWatermarkError) throw maintenanceWatermarkError;
-    await runPreparationMaintenance(page);
+    await runPreparationMaintenance(page, studentId);
     const missedResponse = await page.request.get("/api/ucat/study-plan");
     expect(missedResponse.ok()).toBe(true);
     const afterMissedMaintenance = await missedResponse.json();
@@ -1154,7 +1194,7 @@ test.describe("personalised Study plan", () => {
       { p_student_id: studentId, p_reason: "scheduled_rebalance" },
     );
     if (scheduledRefreshError) throw scheduledRefreshError;
-    await runPreparationMaintenance(page);
+    await runPreparationMaintenance(page, studentId);
     const mockResponse = await page.request.get("/api/ucat/study-plan");
     expect(mockResponse.ok()).toBe(true);
     const mockReplanned = await mockResponse.json();

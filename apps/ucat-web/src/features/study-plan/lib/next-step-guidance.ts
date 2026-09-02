@@ -259,6 +259,8 @@ export function guidanceItemKey(item: GuidanceIdentity): string {
   if (item.questionStemCategoryId)
     return `practice:${item.questionStemCategoryId}`;
   if (item.skillTrainerId) return `skill-trainer:${item.skillTrainerId}`;
+  if (item.taskType === "practice" && item.sectionId)
+    return `practice-section:${item.sectionId}`;
   if (item.taskType === "section_benchmark")
     return `timed-set:${item.sectionId ?? item.launchPath}`;
   if (item.mockId) return `mock:${item.mockId}`;
