@@ -69,9 +69,10 @@ function lastMessageFromConversation(conv: {
   return { id: conv.last_message_id, direction: conv.last_message_direction };
 }
 
-export async function fetchUnreadConversationCount(): Promise<number> {
+export async function fetchUnreadConversationCount(signal?: AbortSignal): Promise<number> {
   const supabase = getSupabaseClient();
-  const { data, error } = await supabase.rpc('get_unread_contact_conversation_count');
+  const rpc = supabase.rpc('get_unread_contact_conversation_count');
+  const { data, error } = await (signal ? rpc.abortSignal(signal) : rpc);
   if (error) throw error;
   return data ?? 0;
 }
@@ -79,7 +80,7 @@ export async function fetchUnreadConversationCount(): Promise<number> {
 export function useUnreadConversationCount() {
   return useQuery({
     queryKey: messagesKeys.unreadCount(),
-    queryFn: fetchUnreadConversationCount,
+    queryFn: ({ signal }) => fetchUnreadConversationCount(signal),
     staleTime: 1000 * 15,
     refetchOnWindowFocus: true,
     refetchInterval: 1000 * 30,
@@ -419,7 +420,8 @@ export function useAvailableSenders() {
 type ConversationWithLastMessage = ConversationRow;
 
 export async function fetchConversationList(
-  ownedNumberId?: string | null
+  ownedNumberId?: string | null,
+  signal?: AbortSignal
 ): Promise<ConversationListItem[]> {
   const supabase = getSupabaseClient();
 
@@ -447,7 +449,11 @@ export async function fetchConversationList(
       ),
       owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider),
       conversation_reads(id, last_read_message_id, last_read_at)
-    `)
+    `);
+  if (signal) {
+    query = query.abortSignal(signal);
+  }
+  query = query
     .in('status', ['OPEN', 'SNOOZED'])
     .order('last_message_at', { ascending: false })
     .limit(CONVERSATION_LIST_LIMIT);
@@ -549,9 +555,10 @@ export async function fetchConversationList(
 }
 
 export async function fetchConversationsByContact(
-  ownedNumberId?: string | null
+  ownedNumberId?: string | null,
+  signal?: AbortSignal
 ): Promise<AggregatedConversation[]> {
-  return (await fetchConversationList(ownedNumberId)).filter(isContactConversation);
+  return (await fetchConversationList(ownedNumberId, signal)).filter(isContactConversation);
 }
 
 export function useConversationsByContact(
@@ -560,7 +567,7 @@ export function useConversationsByContact(
 ) {
   return useQuery({
     queryKey: messagesKeys.conversationsByContact(ownedNumberId),
-    queryFn: () => fetchConversationsByContact(ownedNumberId),
+    queryFn: ({ signal }) => fetchConversationsByContact(ownedNumberId, signal),
     staleTime: 1000 * 15,
     refetchOnWindowFocus: true,
     enabled: options?.enabled ?? true,
@@ -573,7 +580,7 @@ export function useConversationList(
 ) {
   return useQuery({
     queryKey: [...messagesKeys.conversationsByContact(ownedNumberId), 'including-groups'],
-    queryFn: () => fetchConversationList(ownedNumberId),
+    queryFn: ({ signal }) => fetchConversationList(ownedNumberId, signal),
     staleTime: 1000 * 15,
     refetchOnWindowFocus: true,
     enabled: options?.enabled ?? true,

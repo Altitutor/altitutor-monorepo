@@ -15,17 +15,19 @@ import { ViewParentModal } from '@/features/students/components/ViewParentModal'
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useMessageSubscription } from '../hooks/useMessageSubscription';
-import { useConversationsByContact, useUnreadConversationCount, getContactIdFromConversation } from '../api/queries';
-import { useMarkRead, useMarkUnread } from '../api/mutations';
+import { useConversationsByContact, useUnreadConversationCount, getContactIdFromConversation, useAvailableSenders } from '../api/queries';
+import { useMarkRead, useMarkContactUnread } from '../api/mutations';
 import { useChatStore } from '../state/chatStore';
 import {
   getMessagingDraftKey,
+  useMessagingListFilters,
   useMessagingUiHydration,
   useMessagingUiStore,
   usePersistedConversationDraft,
 } from '../state/messagingUiStore';
 import { cn } from '@/shared/utils';
 import type { ConversationSelection } from '../types';
+import { useUnknownNumberLinking } from '../hooks/useUnknownNumberLinking';
 
 export function MessagesDropdown() {
   useMessagingUiHydration();
@@ -34,7 +36,7 @@ export function MessagesDropdown() {
   const setView = useMessagingUiStore((s) => s.setDropdownView);
   const dropdownSelection = useMessagingUiStore((s) => s.dropdownSelection);
   const setDropdownSelection = useMessagingUiStore((s) => s.setDropdownSelection);
-  const ownedNumberFilter = useMessagingUiStore((s) => s.ownedNumberFilter);
+  const { ownedNumberFilter, setOwnedNumberFilter } = useMessagingListFilters('dropdown');
   const activeContactId = dropdownSelection?.kind === 'contact' ? dropdownSelection.contactId : null;
 
   // When another part of the app (e.g. reconciliation Message button) calls openWindow(conversationId),
@@ -71,11 +73,12 @@ export function MessagesDropdown() {
   const { data: unreadCount = 0 } = useUnreadConversationCount();
   // Full contact aggregation only when the panel is open (thread header / mark read)
   const needsConversationDetails = isOpen && (view === 'thread' || !!activeContactId);
-  const { data: conversations } = useConversationsByContact(undefined, {
+  const { data: conversations } = useConversationsByContact(ownedNumberFilter, {
     enabled: needsConversationDetails,
   });
+  const { data: availableSenders = [] } = useAvailableSenders();
   const markRead = useMarkRead();
-  const markUnread = useMarkUnread();
+  const markContactUnread = useMarkContactUnread();
   
   const activeAggregated = useMemo(
     () => conversations?.find((c) => c.contactId === activeContactId) || null,
@@ -91,9 +94,7 @@ export function MessagesDropdown() {
         markRead.mutate({ contactId: activeContactId, lastMessageId });
       }
     } else {
-      activeAggregated.conversations.forEach((conv) => {
-        markUnread.mutate(conv.id);
-      });
+      markContactUnread.mutate(activeContactId);
     }
   };
   
@@ -122,6 +123,21 @@ export function MessagesDropdown() {
   });
   
   const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
+  const linking = useUnknownNumberLinking({
+    contactId: activeContactId,
+    contact: activeContact,
+    enabled: isOpen && view === 'thread',
+  });
+  const fromNumberOptions = availableSenders.map((sender) => ({
+    id: sender.id,
+    label:
+      sender.sender_type === 'ALPHANUMERIC'
+        ? (sender.alphanumeric_sender_id || sender.label || 'Unknown sender')
+        : (sender.phone_e164 || sender.label || 'Unknown sender'),
+  }));
+  const selectedFromNumberOption = fromNumberOptions.find(
+    (option) => option.id === ownedNumberFilter
+  ) ?? null;
   
   const handleBack = () => {
     setView('list');
@@ -196,6 +212,7 @@ export function MessagesDropdown() {
             {view === 'list' && (
               <div className="w-full h-full flex-shrink-0">
                 <ConversationList 
+                  filterScope="dropdown"
                   activeSelection={dropdownSelection}
                   onSelect={(selection: ConversationSelection) => {
                     if (selection.kind === 'contact') {
@@ -213,6 +230,7 @@ export function MessagesDropdown() {
               <div className="w-full h-full flex flex-col min-w-0">
                 <ConversationHeader 
                   title={conversationTitle}
+                  compactActions
                   onSearchToggle={() => setIsSearching(!isSearching)}
                   onTitleClick={activeContact ? handleTitleClick : undefined}
                   onBack={handleBack}
@@ -220,6 +238,20 @@ export function MessagesDropdown() {
                   isUnread={isActiveUnread}
                   onToggleRead={handleToggleReadHeader}
                   contact={activeContact}
+                  showUnknownNumberActions={linking.showUnknownNumberActions}
+                  isLinkingPhone={linking.isLinkingPhone}
+                  studentOptionsWithoutPhone={linking.studentOptionsWithoutPhone}
+                  parentOptionsWithoutPhone={linking.parentOptionsWithoutPhone}
+                  staffOptionsWithoutPhone={linking.staffOptionsWithoutPhone}
+                  onCreateStudent={linking.onCreateStudent}
+                  onCreateParent={linking.onCreateParent}
+                  onCreateStaff={linking.onCreateStaff}
+                  onAssignStudent={linking.onAssignStudent}
+                  onAssignParent={linking.onAssignParent}
+                  onAssignStaff={linking.onAssignStaff}
+                  fromNumberOptions={fromNumberOptions}
+                  selectedFromNumber={selectedFromNumberOption}
+                  onFromNumberChange={(option) => setOwnedNumberFilter(option?.id ?? null)}
                 />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   {activeContactId ? (
@@ -283,6 +315,7 @@ export function MessagesDropdown() {
           onParentUpdated={() => {}}
         />
       )}
+      {linking.linkingModals}
     </>
   );
 }

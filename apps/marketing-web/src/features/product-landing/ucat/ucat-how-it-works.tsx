@@ -27,7 +27,7 @@ const steps = [
   {
     number: "01",
     title: "Start free",
-    body: "Create an account, set your target score, and tell us how much time you have to study..",
+    body: "Create an account, set your target score, and tell us how much time you have to study.",
   },
   {
     number: "02",
@@ -110,7 +110,7 @@ export function UcatHowItWorks() {
         <div className="mx-auto max-w-3xl text-center">
           <p className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>How it works</p>
           <h2 className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}>Get a personalised study plan in minutes.</h2>
-          <p className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}>Answer a few questions, take a short diagnostic test, and we&apos;ll build map out your path to the score you want to get.</p>
+          <p className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}>Answer a few questions, take a short diagnostic test, and we&apos;ll map out your path to the score you want to get.</p>
         </div>
 
         <div className="mt-16 grid gap-5 lg:grid-cols-3">

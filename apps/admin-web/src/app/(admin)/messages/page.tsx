@@ -7,42 +7,35 @@ import { Composer } from '@/features/messages/components/Composer';
 import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useAvailableSenders, useConversationList } from '@/features/messages/api/queries';
-import { useMarkConversationRead, useMarkRead, useMarkUnread } from '@/features/messages/api/mutations';
+import {
+  useMarkConversationRead,
+  useMarkRead,
+  useMarkUnread,
+  useMarkContactUnread,
+} from '@/features/messages/api/mutations';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
-import { AddStudentModal } from '@/features/students/components/AddStudentModal';
-import { AddParentModal } from '@/features/parents/components/AddParentModal';
-import { AddStaffModal } from '@/features/staff/components/AddStaffModal';
-import { useStudents, useUpdateStudent } from '@/features/students/hooks/useStudentsQuery';
-import { useUpdateParent } from '@/features/parents/hooks/useParentsQuery';
-import { useStaff, useUpdateStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useToast } from '@altitutor/ui';
-import { messagesKeys } from '@/features/messages/api/queryKeys';
-import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { useUnknownNumberLinking } from '@/features/messages/hooks/useUnknownNumberLinking';
 import {
   isContactConversation,
   isGroupConversation,
   type ConversationListItem,
   type ConversationSelection,
 } from '@/features/messages/types';
-import { useImessageControl } from '@/features/messages/imessage/hooks';
 import { GroupConversationActions } from '@/features/messages/imessage/GroupConversationActions';
 import {
   getMessagingDraftKey,
-  useMessagingUiStore,
+  useMessagingListFilters,
   usePersistedConversationDraft,
 } from '@/features/messages/state/messagingUiStore';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { toast } = useToast();
   const conversationParam = searchParams.get('conversation'); // For backward compatibility
   const contactParam = searchParams.get('contact');
   const groupParam = searchParams.get('group');
@@ -51,8 +44,8 @@ export default function MessagesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const selectedOwnedNumberId = useMessagingUiStore((s) => s.ownedNumberFilter);
-  const setSelectedOwnedNumberId = useMessagingUiStore((s) => s.setOwnedNumberFilter);
+  const { ownedNumberFilter: selectedOwnedNumberId, setOwnedNumberFilter: setSelectedOwnedNumberId } =
+    useMessagingListFilters('page');
   const { draft: currentDraft, onDraftChange: handleDraftChange, onDraftClear: handleDraftClear } =
     usePersistedConversationDraft(
       getMessagingDraftKey(
@@ -66,36 +59,13 @@ export default function MessagesPage() {
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
   const [selectedParentId, setSelectedParentId] = useState<string | null>(null);
-  const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
-  const [isAddParentOpen, setIsAddParentOpen] = useState(false);
-  const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
-  const [prefillPhoneForModal, setPrefillPhoneForModal] = useState<string | null>(null);
-  const [isLinkingPhone, setIsLinkingPhone] = useState(false);
   const [composerSenderId, setComposerSenderId] = useState<string | null>(null);
   const { data: conversationsByContact } = useConversationList(selectedOwnedNumberId);
   const { data: availableSenders = [] } = useAvailableSenders();
-  const { data: students = [] } = useStudents();
-  const { data: staff = [] } = useStaff();
-  const { data: parentsWithoutPhone = [] } = useQuery({
-    queryKey: ['parents', 'without-phone'],
-    queryFn: async () => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const { data, error } = await supabase
-        .from('parents')
-        .select('id, first_name, last_name, phone')
-        .order('last_name', { ascending: true });
-      if (error) throw error;
-      return (data ?? []).filter((parent) => !parent.phone?.trim());
-    },
-  });
-
-  const updateStudent = useUpdateStudent();
-  const updateParent = useUpdateParent();
-  const updateStaff = useUpdateStaff();
   const markRead = useMarkRead();
   const markUnread = useMarkUnread();
+  const markContactUnread = useMarkContactUnread();
   const markConversationRead = useMarkConversationRead();
-  const imessageControl = useImessageControl();
 
   useEffect(() => {
     setComposerSenderId(null);
@@ -214,9 +184,7 @@ export default function MessagesPage() {
         markRead.mutate({ contactId: activeContactId, lastMessageId });
       }
     } else {
-      activeAggregated.conversations.forEach((conv) => {
-        markUnread.mutate(conv.id);
-      });
+      markContactUnread.mutate(activeContactId);
     }
   };
   
@@ -271,45 +239,10 @@ export default function MessagesPage() {
     }
   };
 
-  const hasLinkedEntity =
-    Boolean(activeContact?.students?.id) ||
-    Boolean(activeContact?.parents?.id) ||
-    Boolean(activeContact?.staff?.id);
-  const showUnknownNumberActions = Boolean(activeContact?.phone_e164 && !hasLinkedEntity);
-
-  const studentOptionsWithoutPhone = students
-    .filter((student) => !student.phone?.trim())
-    .map((student) => ({
-      id: student.id,
-      label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed student',
-    }));
-
-  const parentOptionsWithoutPhone = parentsWithoutPhone.map((parent) => ({
-    id: parent.id,
-    label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Unnamed parent',
-  }));
-
-  const staffOptionsWithoutPhone = staff
-    .filter((staffMember) => !staffMember.phone_number?.trim())
-    .map((staffMember) => ({
-      id: staffMember.id,
-      label: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Unnamed staff member',
-    }));
-
-  const handleOpenCreateStudent = () => {
-    setPrefillPhoneForModal(activeContact?.phone_e164 ?? null);
-    setIsAddStudentOpen(true);
-  };
-
-  const handleOpenCreateParent = () => {
-    setPrefillPhoneForModal(activeContact?.phone_e164 ?? null);
-    setIsAddParentOpen(true);
-  };
-
-  const handleOpenCreateStaff = () => {
-    setPrefillPhoneForModal(activeContact?.phone_e164 ?? null);
-    setIsAddStaffOpen(true);
-  };
+  const linking = useUnknownNumberLinking({
+    contactId: activeContactId,
+    contact: activeContact,
+  });
 
   const fromNumberOptions = availableSenders.map((sender) => ({
     id: sender.id,
@@ -322,102 +255,7 @@ export default function MessagesPage() {
   const selectedFromNumberOption = fromNumberOptions.find(
     (option) => option.id === selectedOwnedNumberId
   ) ?? null;
-  const imessageSenderIds = new Set(
-    availableSenders.filter((sender) => sender.provider === 'IMESSAGE').map((sender) => sender.id)
-  );
-  const activeIMessageConversationId =
-    activeGroup?.conversationId ??
-    activeAggregated?.conversations.find((conversation) =>
-      imessageSenderIds.has(conversation.owned_number_id)
-    )?.id ??
-    null;
 
-  const handleMarkIMessageRead = () => {
-    if (!activeIMessageConversationId) return;
-    imessageControl.mutate({
-      commandType: 'mark_chat_read',
-      conversationId: activeIMessageConversationId,
-    });
-  };
-
-  const linkConversationContact = async (
-    entityType: 'student' | 'parent' | 'staff',
-    entityId: string
-  ) => {
-    if (!activeContactId || !activeContact?.phone_e164) return;
-
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const updatePayload: {
-      contact_type: 'STUDENT' | 'PARENT' | 'STAFF';
-      student_id: string | null;
-      parent_id: string | null;
-      staff_id: string | null;
-    } = {
-      contact_type: entityType === 'student' ? 'STUDENT' : entityType === 'parent' ? 'PARENT' : 'STAFF',
-      student_id: entityType === 'student' ? entityId : null,
-      parent_id: entityType === 'parent' ? entityId : null,
-      staff_id: entityType === 'staff' ? entityId : null,
-    };
-
-    const { error } = await supabase
-      .from('contacts')
-      .update(updatePayload)
-      .eq('id', activeContactId);
-
-    if (error) throw error;
-  };
-
-  const handleAssignNumberToExisting = async (
-    entityType: 'student' | 'parent' | 'staff',
-    entityId: string
-  ) => {
-    if (!activeContact?.phone_e164 || !activeContactId) return;
-    const phoneNumber = activeContact.phone_e164;
-
-    setIsLinkingPhone(true);
-    try {
-      if (entityType === 'student') {
-        await updateStudent.mutateAsync({
-          id: entityId,
-          data: { phone: phoneNumber },
-        });
-      } else if (entityType === 'parent') {
-        await updateParent.mutateAsync({
-          id: entityId,
-          data: { phone: phoneNumber },
-        });
-      } else {
-        await updateStaff.mutateAsync({
-          id: entityId,
-          data: { phone_number: phoneNumber },
-        });
-      }
-
-      await linkConversationContact(entityType, entityId);
-
-      await Promise.all([
-        queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] }),
-        queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() }),
-        queryClient.invalidateQueries({ queryKey: ['students', 'list'] }),
-        queryClient.invalidateQueries({ queryKey: ['parents', 'list'] }),
-        queryClient.invalidateQueries({ queryKey: ['staff', 'list'] }),
-      ]);
-
-      toast({
-        title: 'Phone number linked',
-        description: `Saved ${phoneNumber} to the selected ${entityType}.`,
-      });
-    } catch (error) {
-      toast({
-        title: 'Failed to link phone number',
-        description: error instanceof Error ? error.message : 'Please try again.',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLinkingPhone(false);
-    }
-  };
-  
   return (
     <div className="p-0 h-full overflow-hidden">
       <div className="flex h-full">
@@ -432,6 +270,7 @@ export default function MessagesPage() {
           md:w-[320px]
         `}>
           <ConversationList 
+            filterScope="page"
             activeSelection={activeSelection}
             onSelect={handleConversationSelect}
           />
@@ -454,22 +293,20 @@ export default function MessagesPage() {
             isUnread={mobileView === 'thread' ? (activeGroup ? isActiveGroupUnread : isActiveUnread) : undefined}
             onToggleRead={mobileView === 'thread' ? handleToggleReadHeader : undefined}
             contact={activeContact}
-            showUnknownNumberActions={showUnknownNumberActions}
-            isLinkingPhone={isLinkingPhone}
-            studentOptionsWithoutPhone={studentOptionsWithoutPhone}
-            parentOptionsWithoutPhone={parentOptionsWithoutPhone}
-            staffOptionsWithoutPhone={staffOptionsWithoutPhone}
-            onCreateStudent={handleOpenCreateStudent}
-            onCreateParent={handleOpenCreateParent}
-            onCreateStaff={handleOpenCreateStaff}
-            onAssignStudent={(studentId) => handleAssignNumberToExisting('student', studentId)}
-            onAssignParent={(parentId) => handleAssignNumberToExisting('parent', parentId)}
-            onAssignStaff={(staffId) => handleAssignNumberToExisting('staff', staffId)}
+            showUnknownNumberActions={linking.showUnknownNumberActions}
+            isLinkingPhone={linking.isLinkingPhone}
+            studentOptionsWithoutPhone={linking.studentOptionsWithoutPhone}
+            parentOptionsWithoutPhone={linking.parentOptionsWithoutPhone}
+            staffOptionsWithoutPhone={linking.staffOptionsWithoutPhone}
+            onCreateStudent={linking.onCreateStudent}
+            onCreateParent={linking.onCreateParent}
+            onCreateStaff={linking.onCreateStaff}
+            onAssignStudent={linking.onAssignStudent}
+            onAssignParent={linking.onAssignParent}
+            onAssignStaff={linking.onAssignStaff}
             fromNumberOptions={fromNumberOptions}
             selectedFromNumber={selectedFromNumberOption}
             onFromNumberChange={(option) => setSelectedOwnedNumberId(option?.id ?? null)}
-            onMarkIMessageRead={activeIMessageConversationId ? handleMarkIMessageRead : undefined}
-            isMarkingIMessageRead={imessageControl.isPending}
             extraActions={
               activeGroup ? (
                 <GroupConversationActions
@@ -545,35 +382,7 @@ export default function MessagesPage() {
         />
       )}
 
-      <AddStudentModal
-        isOpen={isAddStudentOpen}
-        onClose={() => setIsAddStudentOpen(false)}
-        onStudentAdded={() => {
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-          queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] });
-        }}
-        initialPhone={prefillPhoneForModal}
-      />
-
-      <AddParentModal
-        isOpen={isAddParentOpen}
-        onClose={() => setIsAddParentOpen(false)}
-        onParentAdded={() => {
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-          queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] });
-        }}
-        initialPhone={prefillPhoneForModal}
-      />
-
-      <AddStaffModal
-        isOpen={isAddStaffOpen}
-        onClose={() => setIsAddStaffOpen(false)}
-        onStaffAdded={() => {
-          queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-          queryClient.invalidateQueries({ queryKey: ['contact', activeContactId] });
-        }}
-        initialPhone={prefillPhoneForModal}
-      />
+      {linking.linkingModals}
     </div>
   );
 }

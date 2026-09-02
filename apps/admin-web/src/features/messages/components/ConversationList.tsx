@@ -21,8 +21,8 @@ import { Plus, Mail, Filter, Search, X } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
-import { useMarkConversationRead, useMarkUnread, useMarkRead } from '../api/mutations';
-import { useMessagingUiStore, type ConversationListFilter } from '../state/messagingUiStore';
+import { useMarkConversationRead, useMarkUnread, useMarkRead, useMarkContactUnread } from '../api/mutations';
+import { useMessagingListFilters, type ConversationListFilter, type MessagingFilterScope } from '../state/messagingUiStore';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -42,16 +42,20 @@ const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
 interface Props {
   activeSelection?: ConversationSelection | null;
   onSelect: (selection: ConversationSelection) => void;
+  filterScope: MessagingFilterScope;
 }
 
 export function ConversationList({
   activeSelection,
   onSelect,
+  filterScope,
 }: Props) {
-  const selectedOwnedNumberId = useMessagingUiStore((s) => s.ownedNumberFilter);
-  const onOwnedNumberFilterChange = useMessagingUiStore((s) => s.setOwnedNumberFilter);
-  const activeFilter = useMessagingUiStore((s) => s.listFilter);
-  const setActiveFilter = useMessagingUiStore((s) => s.setListFilter);
+  const {
+    listFilter: activeFilter,
+    ownedNumberFilter: selectedOwnedNumberId,
+    setListFilter: setActiveFilter,
+    setOwnedNumberFilter: onOwnedNumberFilterChange,
+  } = useMessagingListFilters(filterScope);
   const { data } = useConversationList(selectedOwnedNumberId);
   const { data: senders = [] } = useAvailableSenders();
   const qc = useQueryClient();
@@ -59,6 +63,7 @@ export function ConversationList({
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
   const markUnreadMutation = useMarkUnread();
   const markReadMutation = useMarkRead();
+  const markContactUnreadMutation = useMarkContactUnread();
   const markConversationReadMutation = useMarkConversationRead();
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
   const channelNonce = useId().replace(/:/g, '');
@@ -372,7 +377,7 @@ export function ConversationList({
                       size="sm"
                       variant={aggregated.unreadCount > 0 ? 'default' : 'outline'}
                       className={cn(
-                        'absolute right-3 top-3 h-6 w-6 p-0',
+                        'absolute right-3 top-3 h-6 w-6 p-0 transition-none',
                         aggregated.unreadCount > 0 && 'bg-red-500 text-white hover:bg-red-600'
                       )}
                       title={aggregated.unreadCount > 0 ? 'Mark as read for me' : 'Mark as unread for me'}
@@ -408,9 +413,7 @@ export function ConversationList({
                   markReadMutation.mutate({ contactId: aggregated.contactId, lastMessageId });
                 }
               } else {
-                aggregated.conversations.forEach((conv) => {
-                  markUnreadMutation.mutate(conv.id);
-                });
+                markContactUnreadMutation.mutate(aggregated.contactId);
               }
             };
 
@@ -443,7 +446,7 @@ export function ConversationList({
                         size="sm"
                         variant={isUnreadConv ? 'default' : 'outline'}
                         className={cn(
-                          "h-6 w-6 p-0 shrink-0",
+                          "h-6 w-6 p-0 shrink-0 transition-none",
                           isUnreadConv && "bg-red-500 text-white hover:bg-red-600 border-transparent"
                         )}
                         onClick={handleToggleRead}
