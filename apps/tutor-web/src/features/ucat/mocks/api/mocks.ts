@@ -22,7 +22,7 @@ export const ucatMocksApi = {
 
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('catalog_index').order('id')
+    const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('catalog_index', { nullsFirst: false }).order('id')
     if (error) throw error
     return data ?? []
   },

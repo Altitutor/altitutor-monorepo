@@ -68,10 +68,10 @@ FROM public.ucat_questions question
 CROSS JOIN generate_series(1, 4) AS option(index)
 WHERE question.question_stem_id::text LIKE '54210000-0000-4000-8000-%';
 
-INSERT INTO public.ucat_mocks (id, name, status, access_scope, blueprint_id, catalog_index)
+INSERT INTO public.ucat_mocks (id, name, status, access_scope, blueprint_id)
 VALUES (
   '54240000-0000-4000-8000-000000000001', '', 'in_review', 'public',
-  '54200000-0000-4000-8000-000000000001', 99
+  '54200000-0000-4000-8000-000000000001'
 );
 
 INSERT INTO public.question_sets (
@@ -194,8 +194,7 @@ SELECT lives_ok(
 );
 
 UPDATE public.ucat_mocks
-SET deleted_at = NULL,
-    catalog_index = 99
+SET deleted_at = NULL
 WHERE id = '54240000-0000-4000-8000-000000000001';
 
 SELECT lives_ok(
