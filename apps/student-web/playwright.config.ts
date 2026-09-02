@@ -104,6 +104,7 @@ export default defineConfig({
     env: {
       ...readLocalSupabaseEnvironment(),
       NEXT_PUBLIC_ADMIN_PORTAL_URL: "http://localhost:3000",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_fake",
       NEXT_PUBLIC_TUTOR_PORTAL_URL: "http://localhost:3002",
       NEXT_DIST_DIR: ".next-e2e",
     },
