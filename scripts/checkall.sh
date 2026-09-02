@@ -13,8 +13,10 @@ section() {
 section "Release-gate contracts"
 node --test \
   scripts/production-release-gate.test.mjs \
+  scripts/production-web-smoke.test.mjs \
   scripts/ucat-system-test-paths.test.mjs \
-  scripts/ucat-production-smoke.test.mjs
+  scripts/ucat-production-smoke.test.mjs \
+  scripts/web-system-test-paths.test.mjs
 
 section "Generated email artifacts"
 pnpm email:check

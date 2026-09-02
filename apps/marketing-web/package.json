@@ -13,6 +13,7 @@
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "test": "jest",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "format": "prettier --write ."
   },
@@ -31,6 +32,7 @@
     "react-dom": "^18.2.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.56.1",
     "@swc/core": "^1.15.3",
     "@swc/jest": "^0.2.39",
     "@tailwindcss/typography": "^0.5.19",

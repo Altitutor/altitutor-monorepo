@@ -68,7 +68,7 @@ test("every main push runs the migration gate before Vercel production deploys",
     "path filtering could let an application-only release bypass the migration gate",
   );
   assert.match(workflow, /^  deploy-web:/mu);
-  assert.match(workflow, /^  smoke-ucat-production:/mu);
+  assert.match(workflow, /^  smoke-production:/mu);
   assert.match(workflow, /^  verify:/mu);
   assert.match(workflow, /^    uses: \.\/\.github\/workflows\/ci\.yml$/mu);
   assert.match(
@@ -79,7 +79,7 @@ test("every main push runs the migration gate before Vercel production deploys",
   assert.match(workflow, /^    needs: deploy$/mu);
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
-  assert.match(workflow, /node scripts\/ucat-production-smoke\.mjs/u);
+  assert.match(workflow, /node scripts\/production-web-smoke\.mjs/u);
 
   for (const app of APPS) {
     assert.match(workflow, new RegExp(`app: ${app}\\b`, "u"));
@@ -134,12 +134,12 @@ test("release verification is parallel, branch-scoped, and independently cached"
   );
 });
 
-test("UCAT production verification executes every system test boundary", async () => {
+test("production verification executes every system test boundary", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
-  const ucatE2eStart = workflow.indexOf("  ucat-e2e:");
-  const ucatE2eJob = workflow.slice(
-    ucatE2eStart,
-    workflow.indexOf("\n  build:", ucatE2eStart),
+  const webE2eStart = workflow.indexOf("  web-e2e:");
+  const webE2eJob = workflow.slice(
+    webE2eStart,
+    workflow.indexOf("\n  build:", webE2eStart),
   );
 
   assert.match(
@@ -159,8 +159,8 @@ test("UCAT production verification executes every system test boundary", async (
   );
   assert.match(
     workflow,
-    /^  ucat-e2e:/mu,
-    "CI must have a dedicated UCAT browser and database job",
+    /^  web-e2e:/mu,
+    "CI must have a dedicated web browser and database job",
   );
   assert.match(
     workflow,
@@ -169,35 +169,35 @@ test("UCAT production verification executes every system test boundary", async (
   );
   assert.match(
     workflow,
-    /^  ucat-system-tests-needed:/mu,
-    "UCAT browser and database tests must be skippable when the diff cannot affect them",
+    /^  web-system-tests-needed:/mu,
+    "browser and database tests must be skippable when the diff cannot affect them",
   );
   assert.match(
-    ucatE2eJob,
-    /^    needs: ucat-system-tests-needed$/mu,
+    webE2eJob,
+    /^    needs: web-system-tests-needed$/mu,
   );
   assert.match(
-    ucatE2eJob,
-    /needs\.ucat-system-tests-needed\.outputs\.run == 'true'/u,
+    webE2eJob,
+    /needs\.web-system-tests-needed\.outputs\.run == 'true'/u,
   );
-  const renderTemplatesStep = ucatE2eJob.indexOf(
+  const renderTemplatesStep = webE2eJob.indexOf(
     "bash supabase/scripts/render-email-templates.sh",
   );
-  const startSupabaseStep = ucatE2eJob.indexOf("supabase start");
+  const startSupabaseStep = webE2eJob.indexOf("supabase start");
   assert.ok(
     renderTemplatesStep >= 0 && renderTemplatesStep < startSupabaseStep,
     "UCAT verification must render gitignored Auth email templates before starting Supabase",
   );
   assert.doesNotMatch(
-    ucatE2eJob,
+    webE2eJob,
     /supabase db reset/u,
     "A fresh supabase start already applies migrations and seed; db reset would redo that work",
   );
   assert.match(
-    ucatE2eJob,
+    webE2eJob,
     /supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u,
   );
-  assert.match(ucatE2eJob, /Cache Supabase Docker images/u);
+  assert.match(webE2eJob, /Cache Supabase Docker images/u);
   assert.match(
     workflow,
     /pnpm --filter ucat-web test:e2e/u,
@@ -282,4 +282,108 @@ test("automatic seed excludes manual Dashboard pastes", async () => {
 
   assert.match(config, /sql_paths = \["\.\/seed\/test\/\*\.sql", "\.\/seed\/production\/\*\.sql"\]/u);
   assert.doesNotMatch(config, /seed\/\*\/\*\.sql/u);
+});
+
+test("every web app runs Playwright against a production build", async () => {
+  const appConfigs = await Promise.all(
+    APPS.map(async (app) => [
+      app,
+      await readFile(
+        new URL(`../apps/${app}/playwright.config.ts`, import.meta.url),
+        "utf8",
+      ),
+    ]),
+  );
+
+  for (const [app, config] of appConfigs) {
+    assert.match(config, /pnpm exec next build/u, `${app} must build for E2E`);
+    assert.match(config, /pnpm exec next start/u, `${app} must run production mode`);
+    assert.match(
+      config,
+      /forbidOnly: Boolean\(process\.env\.CI\)/u,
+      `${app} must reject focused tests in CI`,
+    );
+    assert.match(
+      config,
+      /failOnFlakyTests: process\.env\.CI_RELEASE_GATE === ["']true["']/u,
+      `${app} must reject flaky retries on the release gate`,
+    );
+    assert.match(
+      config,
+      /video: "retain-on-failure"|video: 'retain-on-failure'/u,
+      `${app} must retain failure video`,
+    );
+  }
+});
+
+test("data-backed portal E2E servers receive the local service-role key", async () => {
+  for (const app of ["admin-web", "student-web", "tutor-web", "ucat-web"]) {
+    const config = await readFile(
+      new URL(`../apps/${app}/playwright.config.ts`, import.meta.url),
+      "utf8",
+    );
+    assert.match(
+      config,
+      /SUPABASE_SERVICE_ROLE_KEY/u,
+      `${app} server routes need a service-role key from the local test stack`,
+    );
+  }
+});
+
+test("the main release gate runs every web app browser suite", async () => {
+  const workflow = await readFile(ciWorkflowPath, "utf8");
+
+  assert.match(workflow, /^  web-system-tests-needed:/mu);
+  assert.match(workflow, /node scripts\/web-system-test-paths\.mjs/u);
+  assert.match(workflow, /pnpm --filter ucat-web test:e2e:desktop/u);
+  for (const app of APPS.filter((app) => app !== "ucat-web")) {
+    assert.match(
+      workflow,
+      new RegExp(`pnpm --filter ${app} test:e2e`, "u"),
+      `${app} browser tests must be release-gated`,
+    );
+  }
+});
+
+test("UCAT treats retries as failures on the production gate", async () => {
+  const config = await readFile(ucatPlaywrightConfigPath, "utf8");
+
+  assert.match(config, /failOnFlakyTests: process\.env\.CI_RELEASE_GATE === "true"/u);
+  assert.match(config, /forbidOnly: Boolean\(process\.env\.CI\)/u);
+});
+
+test("production deployment fails closed and smokes every web surface", async () => {
+  const workflow = await readFile(workflowPath, "utf8");
+  const deployFunctions = workflow.slice(
+    workflow.indexOf("- name: Deploy edge functions"),
+    workflow.indexOf("- name: Install jq"),
+  );
+
+  assert.doesNotMatch(
+    deployFunctions,
+    /\|\| true/u,
+    "Edge Function deployment failures must block the release",
+  );
+  assert.match(workflow, /node scripts\/production-web-smoke\.mjs/u);
+  for (const origin of [
+    "https://admin.altitutor.com",
+    "https://altitutor.com",
+    "https://student.altitutor.com",
+    "https://tutor.altitutor.com",
+    "https://ucat.altitutor.com",
+  ]) {
+    assert.match(workflow, new RegExp(origin.replaceAll(".", "\\."), "u"));
+  }
+});
+
+test("the native student app has an executable unit-test baseline", async () => {
+  const packageJson = JSON.parse(
+    await readFile(
+      new URL("../apps/student-app/package.json", import.meta.url),
+      "utf8",
+    ),
+  );
+
+  assert.equal(packageJson.scripts.test, "tsx --test src/**/*.test.ts");
+  assert.equal(packageJson.devDependencies.tsx, "^4.20.6");
 });

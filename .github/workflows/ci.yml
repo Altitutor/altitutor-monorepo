@@ -56,7 +56,8 @@ jobs:
           cache: 'pnpm'
 
       - name: Check production release gate
-        run: node --test scripts/production-release-gate.test.mjs scripts/ucat-system-test-paths.test.mjs
+        run: |
+          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs
 
       - uses: actions/cache@v4
         with:
@@ -195,11 +196,17 @@ jobs:
       - name: Test Supabase Edge Function contracts
         run: deno test --config supabase/functions/deno.json --allow-env supabase/functions
 
-  ucat-system-tests-needed:
-    name: Detect UCAT system tests
+  web-system-tests-needed:
+    name: Detect web system tests
     runs-on: ubuntu-latest
     outputs:
       run: ${{ steps.detect.outputs.run }}
+      database: ${{ steps.detect.outputs.database }}
+      admin: ${{ steps.detect.outputs.admin }}
+      marketing: ${{ steps.detect.outputs.marketing }}
+      student: ${{ steps.detect.outputs.student }}
+      tutor: ${{ steps.detect.outputs.tutor }}
+      ucat: ${{ steps.detect.outputs.ucat }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -213,12 +220,12 @@ jobs:
         with:
           node-version: 24
 
-      - name: Decide whether UCAT browser and database tests are needed
+      - name: Decide which browser and database tests are needed
         id: detect
         run: |
           set -euo pipefail
           if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.full_run }}" = "true" ]; then
-            echo "run=true" >> "$GITHUB_OUTPUT"
+            node scripts/web-system-test-paths.mjs --all >> "$GITHUB_OUTPUT"
             exit 0
           fi
           if [ "${{ github.event_name }}" = "pull_request" ]; then
@@ -226,19 +233,14 @@ jobs:
           else
             range="HEAD^..HEAD"
           fi
-          run="$(node scripts/ucat-system-test-paths.mjs --git-diff "$range")"
-          echo "UCAT system tests needed: $run (range $range)"
-          echo "run=$run" >> "$GITHUB_OUTPUT"
+          node scripts/web-system-test-paths.mjs --git-diff "$range" | tee -a "$GITHUB_OUTPUT"
 
-  ucat-e2e:
-    name: UCAT Browser and Database
-    needs: ucat-system-tests-needed
-    if: needs.ucat-system-tests-needed.outputs.run == 'true'
+  web-e2e:
+    name: Web Browser and Database
+    needs: web-system-tests-needed
+    if: needs.web-system-tests-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
-    # Supabase startup and the production browser matrix share this job. The
-    # timeout is a safety ceiling, not an expected duration; keep enough room
-    # for browser retries and diagnostic upload on slower hosted runners.
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v4
 
@@ -297,24 +299,60 @@ jobs:
             | xargs docker save -o /tmp/supabase-docker-images.tar
 
       - name: Test database contracts
+        if: needs.web-system-tests-needed.outputs.database == 'true'
         run: supabase test db
 
-      - name: Run critical browser journeys
-        if: github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
-        run: pnpm --filter ucat-web test:e2e:critical
+      - name: Run admin browser journeys
+        if: needs.web-system-tests-needed.outputs.admin == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter admin-web test:e2e
 
-      - name: Run production browser matrix
-        if: github.ref_name == 'main' || github.event_name == 'workflow_dispatch'
+      - name: Run marketing browser journeys
+        if: needs.web-system-tests-needed.outputs.marketing == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          MARKETING_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter marketing-web test:e2e
+
+      - name: Run student browser journeys
+        if: needs.web-system-tests-needed.outputs.student == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          STUDENT_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter student-web test:e2e
+
+      - name: Run tutor browser journeys
+        if: needs.web-system-tests-needed.outputs.tutor == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter tutor-web test:e2e
+
+      - name: Run UCAT desktop browser journeys
+        if: needs.web-system-tests-needed.outputs.ucat == 'true' && github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
+        run: pnpm --filter ucat-web test:e2e:desktop
+
+      - name: Run UCAT production browser matrix
+        if: needs.web-system-tests-needed.outputs.ucat == 'true' && (github.ref_name == 'main' || github.event_name == 'workflow_dispatch')
         env:
           UCAT_E2E_FULL_BROWSER_MATRIX: "true"
+          CI_RELEASE_GATE: "true"
         run: pnpm --filter ucat-web test:e2e
 
       - name: Preserve Playwright diagnostics
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ucat-playwright-${{ github.run_id }}-${{ github.run_attempt }}
+          name: web-playwright-${{ github.run_id }}-${{ github.run_attempt }}
           path: |
+            apps/admin-web/playwright-report
+            apps/admin-web/test-results
+            apps/marketing-web/playwright-report
+            apps/marketing-web/test-results
+            apps/student-web/playwright-report
+            apps/student-web/test-results
+            apps/tutor-web/playwright-report
+            apps/tutor-web/test-results
             apps/ucat-web/playwright-report
             apps/ucat-web/test-results
           if-no-files-found: ignore
