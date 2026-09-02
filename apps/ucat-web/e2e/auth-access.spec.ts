@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { signInSeededStudent } from "./helpers/auth";
 
 test("an anonymous visitor is sent to login with return intent @critical @compat", async ({
   page,
@@ -16,14 +17,7 @@ test("an anonymous visitor is sent to login with return intent @critical @compat
 test("a seeded completed student can reach the protected dashboard @critical @compat", async ({
   page,
 }) => {
-  await page.goto("/login?redirect=/dashboard");
-  await page.getByLabel("Email address").fill("alice.williams@student.test");
-  await page.getByLabel("Password").fill("test-password");
-  await page.getByRole("button", { name: "Sign in" }).click();
-
-  await expect(page).toHaveURL((url) => url.pathname === "/dashboard", {
-    timeout: 20_000,
-  });
+  await signInSeededStudent(page);
   await expect(
     page.locator('[data-tour="dashboard-welcome-heading"]'),
   ).toContainText("Alice", { timeout: 30_000 });

@@ -44,8 +44,10 @@ export function LoginForm({
     useState<ReturnType<typeof getLastSignInMethod>>(null);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [hasHydrated, setHasHydrated] = useState(false);
 
   useEffect(() => {
+    setHasHydrated(true);
     setLastSignInMethod(getLastSignInMethod());
     if (accountExists && !initialEmail) {
       setEmail(takePendingLoginEmail() ?? "");
@@ -82,6 +84,7 @@ export function LoginForm({
   return (
     <form
       onSubmit={onSubmit}
+      data-hydrated={hasHydrated}
       className={cn(
         "space-y-5 rounded-3xl border border-border/80 bg-card p-8 text-card-foreground shadow-sm",
         typo.secondarySans,
@@ -137,6 +140,7 @@ export function LoginForm({
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@example.com"
+          readOnly={!hasHydrated}
           disabled={isSubmitting}
           className="h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
         />
@@ -163,6 +167,7 @@ export function LoginForm({
           autoFocus={accountExists}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
+          readOnly={!hasHydrated}
           disabled={isSubmitting}
           className="col-span-2 row-start-2 h-auto min-h-[48px] rounded-xl border-border px-4 py-3 text-base"
         />
@@ -177,7 +182,7 @@ export function LoginForm({
           ) : null}
           <Button
             type="submit"
-            disabled={isSubmitting}
+            disabled={!hasHydrated || isSubmitting}
             className={cn(
               "auth-submit h-auto w-full rounded-full py-3.5 text-base font-semibold",
               typo.headingSans,

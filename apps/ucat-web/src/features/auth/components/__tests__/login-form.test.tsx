@@ -45,6 +45,21 @@ describe("LoginForm", () => {
     expect(screen.getByText("Last used")).toBeInTheDocument();
   });
 
+  it("enables credentials after client hydration", async () => {
+    render(<LoginForm />);
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled(),
+    );
+    expect(screen.getByLabelText("Email address")).not.toHaveAttribute(
+      "readonly",
+    );
+    expect(screen.getByLabelText("Password")).not.toHaveAttribute("readonly");
+    expect(
+      screen.getByRole("button", { name: "Sign in" }).closest("form"),
+    ).toHaveAttribute("data-hydrated", "true");
+  });
+
   it("prefills a signup handoff email and focuses password", () => {
     savePendingLoginEmail("existing@example.com");
 
