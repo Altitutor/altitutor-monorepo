@@ -119,6 +119,9 @@ jobs:
               fn="${function_dir%/}"
               fn="${fn##*/}"
               case "$fn" in _*) continue ;; esac
+              if [ ! -f "${function_dir}index.ts" ]; then
+                continue
+              fi
               supabase functions deploy --no-verify-jwt "$fn" --project-ref "$SUPABASE_PROJECT_ID"
             done
           fi
