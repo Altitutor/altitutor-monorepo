@@ -167,6 +167,46 @@ describe("StudyPlanActivationPage", () => {
     expect(
       screen.getByRole("button", { name: "Not sure what to set?" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: /How much standalone Situational Judgement practice do you want/i,
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("explains why Next is blocked until a study preference is chosen", () => {
+    renderPage();
+
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+
+    expect(
+      screen.getByText("Choose how you’d like to organise your study first."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "How would you like to organise your study?",
+      }),
+    ).toBeInTheDocument();
+  });
+
+  it("explains why the destination step cannot continue without a UCAT year", () => {
+    renderPage();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Build me a Study plan/i }),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Choose my study week/i }),
+    );
+
+    expect(
+      screen.getByText("Select your UCAT year to continue."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", {
+        name: "What are you working towards?",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("lets the student type a low target before validating the complete score", () => {
@@ -362,16 +402,13 @@ describe("StudyPlanActivationPage", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /Choose my study week/i }),
     );
-    fireEvent.change(screen.getByLabelText("Soft mock weekday"), {
-      target: { value: "5" },
-    });
     fireEvent.click(
       screen.getByRole("button", { name: "Build my Study plan" }),
     );
 
     await waitFor(() =>
       expect(mockSaveStudyPlan).toHaveBeenCalledWith(
-        expect.objectContaining({ preferredMockWeekday: 5 }),
+        expect.objectContaining({ preferredMockWeekday: 6 }),
       ),
     );
 

@@ -58,6 +58,12 @@ import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
+import {
+  belongsInMockCatalogOrder,
+  buildPublishedMockOrder,
+  unpublishedMockOrderRows,
+  type MockCatalogOrderRow,
+} from '@/features/ucat/mocks/lib/mock-catalog-order'
 import { confirmDiscardUnsavedOrder } from '@/features/ucat/shared/components/UcatOrderSaveToolbar'
 import {
   firstUcatBulkStatusFailureError,
@@ -505,25 +511,42 @@ export function UcatMocksPage() {
   if (!access.data) return <UcatAccessDenied />
 
   if (viewMode === 'order') {
-    const orderRows = (mocks.data ?? [])
-      .filter((mock) => mock.deleted_at == null)
-      .sort((a, b) => (a.catalog_index ?? 0) - (b.catalog_index ?? 0))
+    const orderRows: MockCatalogOrderRow[] = (mocks.data ?? [])
+      .filter((mock) => belongsInMockCatalogOrder({ deletedAt: mock.deleted_at }))
       .flatMap((mock) => mock.id ? [{
         id: mock.id,
         displayName: mock.display_name ?? mock.name ?? mock.id,
         authoringNote: mock.authoring_note,
+        catalogIndex: mock.catalog_index ?? null,
+        status: mock.status ?? 'draft',
       }] : [])
+    const publishedIds = buildPublishedMockOrder(orderRows)
+    const rowById = new Map(orderRows.map((row) => [row.id, row]))
+    const publishedRows = publishedIds.flatMap((id) => {
+      const row = rowById.get(id)
+      return row ? [{
+        id: row.id,
+        displayName: row.displayName,
+        authoringNote: row.authoringNote,
+      }] : []
+    })
+    const unpublishedRows = unpublishedMockOrderRows(orderRows).map((row) => ({
+      id: row.id,
+      displayName: row.displayName,
+      authoringNote: row.authoringNote,
+    }))
     return (
       <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="UCAT Mocks"
-          description="Set the global mock display order"
+          description="Set the published mock display order"
           backHref="/ucat"
           breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
           actions={<SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />}
         />
         <UcatCatalogOrderEditor
-          rows={orderRows}
+          rows={publishedRows}
+          unpublishedRows={unpublishedRows}
           onDirtyChange={setOrderDirty}
           onSave={async (ids) => {
             await ucatMocksApi.reorder(ids)

@@ -17,10 +17,12 @@ type CatalogOrderRow = {
 
 export function UcatCatalogOrderEditor({
   rows,
+  unpublishedRows = [],
   onSave,
   onDirtyChange,
 }: {
   rows: CatalogOrderRow[]
+  unpublishedRows?: CatalogOrderRow[]
   onSave: (ids: string[]) => Promise<void>
   onDirtyChange?: (dirty: boolean) => void
 }) {
@@ -67,7 +69,8 @@ export function UcatCatalogOrderEditor({
       <div>
         <h2 className="font-semibold">Display order</h2>
         <p className="text-sm text-muted-foreground">
-          Drag rows or use the keyboard drag handle. Saving renumbers the catalog contiguously.
+          Published mocks are numbered globally. Unpublished mocks remain visible
+          at the end.
         </p>
       </div>
       {orderedIds.length ? (
@@ -85,8 +88,31 @@ export function UcatCatalogOrderEditor({
           }}
         />
       ) : (
-        <p className="text-sm text-muted-foreground">Nothing is available in this ordering scope.</p>
+        <p className="text-sm text-muted-foreground">No published mocks yet.</p>
       )}
+      {unpublishedRows.length ? (
+        <div className="space-y-2 border-t pt-4">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Unpublished
+          </p>
+          <UcatSortableList
+            ids={unpublishedRows.map((row) => row.id)}
+            onChange={() => undefined}
+            disableReorder
+            renderLabel={(id) => {
+              const row = unpublishedRows.find((item) => item.id === id)
+              return (
+                <div>
+                  <div className="font-medium">{row?.displayName ?? id}</div>
+                  {row?.authoringNote ? (
+                    <div className="text-xs text-muted-foreground">{row.authoringNote}</div>
+                  ) : null}
+                </div>
+              )
+            }}
+          />
+        </div>
+      ) : null}
       <UcatOrderSaveToolbar
         isDirty={dirty}
         isSaving={saving}

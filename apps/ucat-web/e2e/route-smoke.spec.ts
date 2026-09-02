@@ -31,13 +31,13 @@ test("supported authenticated route families load without a server or browser fa
     await test.step(path, async () => {
       const response = await page.goto(path);
       expect(
-        response?.status(),
-        `${path} returned a server error`,
-      ).toBeLessThan(500);
+        response?.ok(),
+        `${path} must return a successful document response (received ${response?.status() ?? "no response"})`,
+      ).toBe(true);
+      await expect(page.locator("main, [role=main], h1").first()).toBeVisible();
       await expect(page.locator("body")).not.toContainText(
         "Internal Server Error",
       );
-      await expect(page.locator("body")).not.toBeEmpty();
     });
   }
 

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ReactNode, useEffect, useMemo, useState } from "react";
+import React, { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { AnimatePresence, motion, useReducedMotion } from "motion/react";
 import { SearchableSelect, SmartDatePickerField } from "@altitutor/ui";
 import { AlertTriangle, Check } from "lucide-react";
@@ -25,6 +25,62 @@ export const STUDY_SETUP_PRIMARY_BUTTON_CLASS = UCAT_PRIMARY_ACTION_BUTTON;
 
 export const STUDY_SETUP_GHOST_BUTTON_CLASS =
   "rounded-ucatControl px-4 py-2 font-medium text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+
+export function StudyPlanContinueButton({
+  blockedReason,
+  pending = false,
+  children,
+  onClick,
+}: {
+  blockedReason: string | null;
+  pending?: boolean;
+  children: ReactNode;
+  onClick: () => void;
+}) {
+  const [revealedReason, setRevealedReason] = useState<string | null>(null);
+  const reasonId = `${useId()}-blocked-reason`;
+  const blocked = Boolean(blockedReason);
+  const inactive = blocked || pending;
+  const reasonToShow = blocked ? revealedReason : null;
+
+  useEffect(() => {
+    if (!blocked) setRevealedReason(null);
+  }, [blocked]);
+
+  return (
+    <div className="flex min-w-0 flex-col items-end gap-2">
+      {reasonToShow ? (
+        <p
+          id={reasonId}
+          role="status"
+          className="max-w-xs text-right text-sm text-foreground"
+        >
+          {reasonToShow}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        className={cn(
+          STUDY_SETUP_PRIMARY_BUTTON_CLASS,
+          inactive &&
+            "cursor-not-allowed opacity-60 hover:shadow-none motion-safe:hover:scale-100",
+        )}
+        aria-disabled={inactive}
+        aria-describedby={reasonToShow ? reasonId : undefined}
+        onClick={() => {
+          if (pending) return;
+          if (blockedReason) {
+            setRevealedReason(blockedReason);
+            return;
+          }
+          onClick();
+        }}
+      >
+        {children}
+      </button>
+    </div>
+  );
+}
 
 export function StudyPlanSetupShell({ children }: { children: ReactNode }) {
   return (
@@ -145,7 +201,7 @@ export function StudyPlanGoalFields({
 
   return (
     <div className={cn(UCAT_CARD_CHROME, "space-y-6 p-6 sm:p-8")}>
-      <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-center">
+      <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary dark:text-accent">
             Your working target
@@ -197,53 +253,103 @@ export function StudyPlanGoalFields({
           </AnimatePresence>
         </div>
 
-        <div className="rounded-2xl bg-muted/55 p-5">
-          <div className="relative pb-8 pt-5">
-            <div className="h-4 overflow-hidden rounded-full bg-gradient-to-r from-accent/35 via-accent/70 to-accent" />
-            <div
-              className="absolute top-0 -translate-x-1/2"
-              style={{ left: `${scoreProgress}%` }}
-            >
-              <div className="rounded-md bg-primary px-2 py-1 text-xs font-bold tabular-nums text-primary-foreground shadow dark:bg-accent dark:text-accent-foreground">
-                {targetScore}
+        <div className="space-y-4">
+          <div className="rounded-2xl bg-muted/55 p-5">
+            <div className="relative pb-8 pt-5">
+              <div className="h-4 overflow-hidden rounded-full bg-gradient-to-r from-accent/35 via-accent/70 to-accent" />
+              <div
+                className="absolute top-0 -translate-x-1/2"
+                style={{ left: `${scoreProgress}%` }}
+              >
+                <div className="rounded-md bg-primary px-2 py-1 text-xs font-bold tabular-nums text-primary-foreground shadow dark:bg-accent dark:text-accent-foreground">
+                  {targetScore}
+                </div>
+                <div className="mx-auto h-7 w-0.5 bg-primary dark:bg-accent" />
               </div>
-              <div className="mx-auto h-7 w-0.5 bg-primary dark:bg-accent" />
-            </div>
-            <input
-              type="range"
-              min={900}
-              max={2700}
-              step={10}
-              value={targetScore}
-              disabled={disabled}
-              onChange={(event) =>
-                onTargetScoreChange(Number(event.target.value))
-              }
-              aria-label="Target UCAT score"
-              className="absolute inset-x-0 top-3 h-7 w-full cursor-pointer opacity-0"
-            />
-            <div className="mt-3 grid grid-cols-3 text-[11px] font-semibold text-muted-foreground">
-              <span>
-                900
-                <br />
-                lowest total
-              </span>
-              <span className="text-center">
-                1800
-                <br />
-                scale midpoint
-              </span>
-              <span className="text-right">
-                2700
-                <br />
-                highest total
-              </span>
+              <input
+                type="range"
+                min={900}
+                max={2700}
+                step={10}
+                value={targetScore}
+                disabled={disabled}
+                onChange={(event) =>
+                  onTargetScoreChange(Number(event.target.value))
+                }
+                aria-label="Target UCAT score"
+                className="absolute inset-x-0 top-3 h-7 w-full cursor-pointer opacity-0"
+              />
+              <div className="mt-3 grid grid-cols-3 text-[11px] font-semibold text-muted-foreground">
+                <span>
+                  900
+                  <br />
+                  lowest total
+                </span>
+                <span className="text-center">1800</span>
+                <span className="text-right">
+                  2700
+                  <br />
+                  highest total
+                </span>
+              </div>
             </div>
           </div>
-          <p className="text-xs leading-relaxed text-muted-foreground">
-            Your total combines three cognitive subtests, each scored from 300
-            to 900. Choose a working goal now—you can change it later.
-          </p>
+
+          <div className="space-y-2 text-sm text-muted-foreground">
+            <span className="block">UCAT year</span>
+            <SearchableSelect<GoalYearOption>
+              items={yearOptions}
+              value={selectedYear}
+              onValueChange={(option) => {
+                onTestYearChange(option?.year ?? null);
+                onTestDateChange("");
+              }}
+              getItemLabel={(item) => String(item.year)}
+              getItemId={(item) => String(item.year)}
+              placeholder="Select your UCAT year"
+              ariaLabel="UCAT year"
+              searchPlaceholder="Search years…"
+              emptyMessage="No matching year."
+              disabled={disabled}
+              triggerClassName={selectTriggerClass}
+              contentWidth="var(--radix-popover-trigger-width)"
+            />
+          </div>
+
+          <AnimatePresence initial={false}>
+            {testYear != null ? (
+              <motion.div
+                initial={reduceMotion ? false : { opacity: 0, height: 0, y: -8 }}
+                animate={{ opacity: 1, height: "auto", y: 0 }}
+                exit={{ opacity: 0, height: 0, y: -8 }}
+                transition={{ duration: reduceMotion ? 0 : 0.24 }}
+                className="overflow-hidden"
+              >
+                <label
+                  className="block space-y-2 text-sm text-muted-foreground"
+                  htmlFor={`${idPrefix}-date`}
+                >
+                  <span>Exact date (optional)</span>
+                  <SmartDatePickerField
+                    value={testDate || null}
+                    onChange={(value) => onTestDateChange(value ?? "")}
+                    valueFormat="date"
+                    showPresets={false}
+                    anchorYear={testYear}
+                    minDate={testDateBoundsForYear?.minDate}
+                    maxDate={testDateBoundsForYear?.maxDate}
+                    placeholder={STUDY_PLAN_TEST_DATE_PLACEHOLDER}
+                    inputPlaceholder={STUDY_PLAN_TEST_DATE_INPUT_PLACEHOLDER}
+                    disabled={disabled}
+                    className={STUDY_SETUP_FIELD_CLASS}
+                  />
+                  <span className="block text-xs text-muted-foreground/75">
+                    Leave this blank if you do not know your date yet.
+                  </span>
+                </label>
+              </motion.div>
+            ) : null}
+          </AnimatePresence>
         </div>
       </div>
 
@@ -267,62 +373,6 @@ export function StudyPlanGoalFields({
               interview offers. Criteria vary by university and can change
               each year, so check the universities you plan to apply to.
             </p>
-          </motion.div>
-        ) : null}
-      </AnimatePresence>
-
-      <div className="space-y-2 text-sm text-muted-foreground">
-        <span className="block">UCAT year</span>
-        <SearchableSelect<GoalYearOption>
-          items={yearOptions}
-          value={selectedYear}
-          onValueChange={(option) => {
-            onTestYearChange(option?.year ?? null);
-            onTestDateChange("");
-          }}
-          getItemLabel={(item) => String(item.year)}
-          getItemId={(item) => String(item.year)}
-          placeholder="Select your UCAT year"
-          ariaLabel="UCAT year"
-          searchPlaceholder="Search years…"
-          emptyMessage="No matching year."
-          disabled={disabled}
-          triggerClassName={selectTriggerClass}
-          contentWidth="var(--radix-popover-trigger-width)"
-        />
-      </div>
-
-      <AnimatePresence initial={false}>
-        {testYear != null ? (
-          <motion.div
-            initial={reduceMotion ? false : { opacity: 0, height: 0, y: -8 }}
-            animate={{ opacity: 1, height: "auto", y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -8 }}
-            transition={{ duration: reduceMotion ? 0 : 0.24 }}
-            className="overflow-hidden"
-          >
-            <label
-              className="block space-y-2 text-sm text-muted-foreground"
-              htmlFor={`${idPrefix}-date`}
-            >
-              <span>Exact date (optional)</span>
-              <SmartDatePickerField
-                value={testDate || null}
-                onChange={(value) => onTestDateChange(value ?? "")}
-                valueFormat="date"
-                showPresets={false}
-                anchorYear={testYear}
-                minDate={testDateBoundsForYear?.minDate}
-                maxDate={testDateBoundsForYear?.maxDate}
-                placeholder={STUDY_PLAN_TEST_DATE_PLACEHOLDER}
-                inputPlaceholder={STUDY_PLAN_TEST_DATE_INPUT_PLACEHOLDER}
-                disabled={disabled}
-                className={STUDY_SETUP_FIELD_CLASS}
-              />
-              <span className="block text-xs text-muted-foreground/75">
-                Leave this blank if you do not know your date yet.
-              </span>
-            </label>
           </motion.div>
         ) : null}
       </AnimatePresence>

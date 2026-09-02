@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(12);
+SELECT plan(15);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', id
@@ -68,6 +68,13 @@ UPDATE public.ucat_mocks
 SET status = 'published'
 WHERE id = (SELECT id FROM pool_catalog_ids WHERE kind = 'mock');
 
+SELECT is((SELECT catalog_index FROM public.ucat_mocks
+  WHERE id = (SELECT id FROM pool_catalog_ids WHERE kind = 'mock')), 3,
+  'publishing a mock appends it to the published catalog sequence');
+SELECT is(public.ucat_mock_catalog_name(
+  (SELECT id FROM pool_catalog_ids WHERE kind = 'mock')
+), 'Mock 3', 'a published mock uses its published-only catalog index');
+
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM pool_catalog_ids WHERE kind = 'set'), false
 ), format(
@@ -87,6 +94,10 @@ SELECT is((SELECT is_available_in_sets_pool FROM public.vtutor_ucat_question_set
 UPDATE public.ucat_mocks
 SET status = 'draft'
 WHERE id = (SELECT id FROM pool_catalog_ids WHERE kind = 'mock');
+
+SELECT is((SELECT catalog_index FROM public.ucat_mocks
+  WHERE id = (SELECT id FROM pool_catalog_ids WHERE kind = 'mock')), NULL,
+  'withdrawing a mock releases its published catalog index');
 
 SELECT is(public.ucat_question_set_catalog_name(
   (SELECT id FROM pool_catalog_ids WHERE kind = 'set'), false

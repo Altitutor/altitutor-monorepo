@@ -31,4 +31,11 @@ REVOKE ALL ON public.ucat_public_question_counts_cache
 GRANT SELECT ON public.ucat_public_question_counts_cache
   TO service_role;
 
+-- Preserve the Study-plan exposure-debt reader boundary restored by
+-- 20260902130208_fix_ucat_study_plan_exposure_debt_reader.sql.
+REVOKE ALL ON public.ucat_student_study_plan_exposure_debts
+  FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON public.ucat_student_study_plan_exposure_debts
+  TO service_role;
+
 GRANT SELECT ON public.vmarketing_staff_profiles TO anon;

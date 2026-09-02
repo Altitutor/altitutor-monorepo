@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(3);
+SELECT plan(4);
 
 INSERT INTO public.ucat_sections (
   id, section_number, name, display_columns, time_limit_seconds, number_of_questions
@@ -43,35 +43,37 @@ SELECT is(
   'set compaction does not leave temporary displacement indices behind'
 );
 
-WITH next_indices AS (
-  SELECT COALESCE(max(catalog_index), 0) AS base_index
-  FROM public.ucat_mocks
-  WHERE deleted_at IS NULL
-)
 INSERT INTO public.ucat_mocks (
-  id, name, status, access_scope, blueprint_id, catalog_index
+  id, name, status, access_scope, blueprint_id
 )
-SELECT
-  fixture.id,
-  '',
-  'draft',
-  'public',
-  '54100000-0000-4000-8000-000000000001',
-  next_indices.base_index + fixture.position
-FROM next_indices
-CROSS JOIN (VALUES
-  ('ca720000-0000-4000-8000-000000000001'::UUID, 1),
-  ('ca720000-0000-4000-8000-000000000002'::UUID, 2)
-) fixture(id, position);
+VALUES
+  (
+    'ca720000-0000-4000-8000-000000000001', '', 'draft', 'public',
+    '54100000-0000-4000-8000-000000000001'
+  ),
+  (
+    'ca720000-0000-4000-8000-000000000002', '', 'published', 'public',
+    '54100000-0000-4000-8000-000000000001'
+  );
 
 SELECT public.ucat_compact_mock_catalog();
 
 SELECT is(
   (SELECT array_agg(catalog_index ORDER BY catalog_index)
    FROM public.ucat_mocks
-   WHERE deleted_at IS NULL),
-  ARRAY(SELECT generate_series(1, (SELECT count(*)::INTEGER FROM public.ucat_mocks WHERE deleted_at IS NULL))),
+   WHERE deleted_at IS NULL AND status = 'published'),
+  ARRAY(SELECT generate_series(
+    1,
+    (SELECT count(*)::INTEGER FROM public.ucat_mocks
+      WHERE deleted_at IS NULL AND status = 'published')
+  )),
   'mock compaction does not leave temporary displacement indices behind'
+);
+SELECT is(
+  (SELECT catalog_index FROM public.ucat_mocks
+    WHERE id = 'ca720000-0000-4000-8000-000000000001'),
+  NULL,
+  'unpublished mocks stay unnumbered through mock compaction'
 );
 
 SELECT * FROM finish();

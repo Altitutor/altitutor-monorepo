@@ -115,8 +115,14 @@ jobs:
         if: ${{ contains(github.event.head_commit.message, '[skip-functions]') == false }}
         run: |
           if [ -d "supabase/functions" ]; then
-            for fn in $(ls supabase/functions); do
-              supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
+            for function_dir in supabase/functions/*/; do
+              fn="${function_dir%/}"
+              fn="${fn##*/}"
+              case "$fn" in _*) continue ;; esac
+              if [ ! -f "${function_dir}index.ts" ]; then
+                continue
+              fi
+              supabase functions deploy --no-verify-jwt "$fn" --project-ref "$SUPABASE_PROJECT_ID"
             done
           fi
 
@@ -191,8 +197,8 @@ jobs:
             --token="$VERCEL_TOKEN")"
           echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
 
-  smoke-ucat-production:
-    name: Smoke UCAT production
+  smoke-production:
+    name: Smoke production web apps
     needs: deploy-web
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
@@ -204,7 +210,11 @@ jobs:
         with:
           node-version: 24
 
-      - name: Verify public UCAT production boundaries
-        run: node scripts/ucat-production-smoke.mjs
+      - name: Verify public production boundaries
+        run: node scripts/production-web-smoke.mjs
         env:
+          ADMIN_PRODUCTION_BASE_URL: https://admin.altitutor.com
+          MARKETING_PRODUCTION_BASE_URL: https://altitutor.com
+          STUDENT_PRODUCTION_BASE_URL: https://student.altitutor.com
+          TUTOR_PRODUCTION_BASE_URL: https://tutor.altitutor.com
           UCAT_PRODUCTION_BASE_URL: https://ucat.altitutor.com

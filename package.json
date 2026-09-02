@@ -16,7 +16,7 @@
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
     "check": "turbo run lint && turbo run typecheck && turbo run test",
-    "checkall": "turbo run lint && turbo run typecheck && turbo run test && turbo run build",
+    "checkall": "bash scripts/checkall.sh",
     "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm turbo run build --filter=@altitutor/shared",
     "db:email-templates": "pnpm --filter @altitutor/email generate:auth && bash supabase/scripts/render-email-templates.sh",
     "email:check": "pnpm --filter @altitutor/email check:auth",

@@ -94,6 +94,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
+  forbidOnly: Boolean(process.env.CI),
+  failOnFlakyTests: process.env.CI_RELEASE_GATE === "true",
   reporter: process.env.CI
     ? [["list"], ["html", { open: "never" }]]
     : [["list"]],

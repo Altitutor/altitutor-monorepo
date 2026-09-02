@@ -415,7 +415,7 @@ importers:
         version: link:../../packages/ui
       '@sentry/nextjs':
         specifier: 10.65.0
-        version: 10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.105.4(@swc/core@1.15.3(@swc/helpers@0.5.23)))
+        version: 10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))(next@14.2.35(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.105.4(@swc/core@1.15.3(@swc/helpers@0.5.23)))
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
@@ -441,6 +441,9 @@ importers:
         specifier: ^18.2.0
         version: 18.3.1(react@18.3.1)
     devDependencies:
+      '@playwright/test':
+        specifier: ^1.56.1
+        version: 1.56.1
       '@swc/core':
         specifier: ^1.15.3
         version: 1.15.3(@swc/helpers@0.5.23)
@@ -586,6 +589,9 @@ importers:
         specifier: 0.8.3
         version: 0.8.3(@babel/core@7.28.5)(@react-native/metro-config@0.85.3(@babel/core@7.28.5))(react-native@0.85.3(@babel/core@7.28.5)(@react-native/metro-config@0.85.3(@babel/core@7.28.5))(@types/react@19.2.15)(react@19.2.3))(react@19.2.3)
     devDependencies:
+      '@types/node':
+        specifier: ^20.19.24
+        version: 20.19.24
       '@types/react':
         specifier: ~19.2.2
         version: 19.2.15
@@ -619,6 +625,9 @@ importers:
       eslint-plugin-react-hooks:
         specifier: ^7.1.1
         version: 7.1.1(eslint@8.57.1)
+      tsx:
+        specifier: ^4.20.6
+        version: 4.21.0
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
@@ -15697,31 +15706,6 @@ snapshots:
       - supports-color
       - webpack
 
-  '@sentry/nextjs@10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))(next@14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.105.4(@swc/core@1.15.3(@swc/helpers@0.5.23)))':
-    dependencies:
-      '@opentelemetry/api': 1.9.1
-      '@rollup/plugin-commonjs': 28.0.1(rollup@4.59.0)
-      '@sentry/browser-utils': 10.65.0
-      '@sentry/bundler-plugin-core': 5.3.0
-      '@sentry/conventions': 0.15.1
-      '@sentry/core': 10.65.0
-      '@sentry/node': 10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))
-      '@sentry/opentelemetry': 10.65.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))
-      '@sentry/react': 10.65.0(react@18.3.1)
-      '@sentry/vercel-edge': 10.65.0
-      '@sentry/webpack-plugin': 5.4.0(rollup@4.59.0)(webpack@5.105.4(@swc/core@1.15.3(@swc/helpers@0.5.23)))
-      next: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
-      rollup: 4.59.0
-      stacktrace-parser: 0.1.11
-    transitivePeerDependencies:
-      - '@opentelemetry/core'
-      - '@opentelemetry/exporter-trace-otlp-http'
-      - '@opentelemetry/sdk-trace-base'
-      - encoding
-      - react
-      - supports-color
-      - webpack
-
   '@sentry/nextjs@10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))(next@14.2.35(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.105.4(@swc/core@1.14.0(@swc/helpers@0.5.23)))':
     dependencies:
       '@opentelemetry/api': 1.9.1
@@ -15735,6 +15719,31 @@ snapshots:
       '@sentry/react': 10.65.0(react@18.3.1)
       '@sentry/vercel-edge': 10.65.0
       '@sentry/webpack-plugin': 5.4.0(rollup@4.59.0)(webpack@5.105.4(@swc/core@1.14.0(@swc/helpers@0.5.23)))
+      next: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      rollup: 4.59.0
+      stacktrace-parser: 0.1.11
+    transitivePeerDependencies:
+      - '@opentelemetry/core'
+      - '@opentelemetry/exporter-trace-otlp-http'
+      - '@opentelemetry/sdk-trace-base'
+      - encoding
+      - react
+      - supports-color
+      - webpack
+
+  '@sentry/nextjs@10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))(next@14.2.35(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1))(react@18.3.1)(webpack@5.105.4(@swc/core@1.15.3(@swc/helpers@0.5.23)))':
+    dependencies:
+      '@opentelemetry/api': 1.9.1
+      '@rollup/plugin-commonjs': 28.0.1(rollup@4.59.0)
+      '@sentry/browser-utils': 10.65.0
+      '@sentry/bundler-plugin-core': 5.3.0
+      '@sentry/conventions': 0.15.1
+      '@sentry/core': 10.65.0
+      '@sentry/node': 10.65.0(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))
+      '@sentry/opentelemetry': 10.65.0(@opentelemetry/api@1.9.1)(@opentelemetry/core@2.9.0(@opentelemetry/api@1.9.1))(@opentelemetry/sdk-trace-base@2.9.0(@opentelemetry/api@1.9.1))
+      '@sentry/react': 10.65.0(react@18.3.1)
+      '@sentry/vercel-edge': 10.65.0
+      '@sentry/webpack-plugin': 5.4.0(rollup@4.59.0)(webpack@5.105.4(@swc/core@1.15.3(@swc/helpers@0.5.23)))
       next: 14.2.35(@babel/core@7.28.5)(@opentelemetry/api@1.9.1)(@playwright/test@1.56.1)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       rollup: 4.59.0
       stacktrace-parser: 0.1.11

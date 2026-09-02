@@ -8,7 +8,7 @@ async function signIn(page: Page, email: string) {
 }
 
 test.describe("student access", () => {
-  test("redirects an anonymous protected request with return intent", async ({
+  test("redirects an anonymous protected request with return intent @compat", async ({
     page,
   }) => {
     await page.goto("/classes?source=e2e");
@@ -21,7 +21,7 @@ test.describe("student access", () => {
     });
   });
 
-  test("allows a seeded student to load the dashboard", async ({ page }) => {
+  test("allows a seeded student to load the dashboard @compat", async ({ page }) => {
     await signIn(page, "alice.williams@student.test");
 
     await expect(page).toHaveURL((url) => url.pathname === "/dashboard", {

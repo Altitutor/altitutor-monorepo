@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(28);
+SELECT plan(32);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT '00000000-0000-0000-0000-000000000010', id
@@ -73,7 +73,30 @@ SELECT is((SELECT count(*)::INTEGER FROM public.question_sets
   WHERE mock_id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), 0,
   'creating a mock does not materialize empty component sets');
 SELECT is(public.ucat_mock_catalog_name((SELECT id FROM test_catalog_ids WHERE kind = 'mock')),
-  'Mock 3', 'mock numbering follows the two deterministic Study plan fixtures');
+  'Mock', 'a newly created mock is unnumbered until it is published');
+SELECT is((SELECT catalog_index FROM public.ucat_mocks
+  WHERE id = (SELECT id FROM test_catalog_ids WHERE kind = 'mock')), NULL,
+  'creating a mock does not consume a published catalog index');
+SELECT lives_ok($$SELECT public.tutor_ucat_reorder_mocks(
+  ARRAY[
+    'f4000000-0000-4000-8000-000000000002'::UUID,
+    'f4000000-0000-4000-8000-000000000001'::UUID
+  ]
+)$$, 'published mocks can be reordered without unpublished mocks');
+SELECT is((SELECT catalog_index FROM public.ucat_mocks
+  WHERE id = 'f4000000-0000-4000-8000-000000000002'), 1,
+  'reordering published mocks updates deterministic numbering');
+SELECT throws_ok(
+  format(
+    'SELECT public.tutor_ucat_reorder_mocks(ARRAY[%L::uuid, %L::uuid, %L::uuid])',
+    'f4000000-0000-4000-8000-000000000002',
+    'f4000000-0000-4000-8000-000000000001',
+    (SELECT id FROM test_catalog_ids WHERE kind = 'mock')
+  ),
+  'P0001',
+  'mock_catalog_order_must_include_every_published_mock_once',
+  'unpublished mocks cannot be included in the published mock order'
+);
 
 INSERT INTO test_catalog_ids(kind, id)
 SELECT 'component', public.tutor_ucat_upsert_question_set_v2(

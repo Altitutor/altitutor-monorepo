@@ -116,6 +116,23 @@ function build(
 }
 
 describe("rolling next-step guidance", () => {
+  it("keeps broad practice guidance distinct across sections", () => {
+    const verbalReasoning = guidanceItemKey({
+      taskType: "practice",
+      launchPath: "/practice",
+      sectionId: "section-vr",
+    });
+    const decisionMaking = guidanceItemKey({
+      taskType: "practice",
+      launchPath: "/practice",
+      sectionId: "section-dm",
+    });
+
+    expect(verbalReasoning).toBe("practice-section:section-vr");
+    expect(decisionMaking).toBe("practice-section:section-dm");
+    expect(verbalReasoning).not.toBe(decisionMaking);
+  });
+
   it.each([
     ["normally", 69],
     ["a_little", 35],
