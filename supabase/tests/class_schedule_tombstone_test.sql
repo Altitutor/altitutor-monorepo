@@ -6,8 +6,8 @@ CREATE TEMP TABLE tombstone_proposal AS
 SELECT jsonb_build_object(
   'class_id', '90000000-0000-0000-0000-000000000005',
   'subject_id', (SELECT id FROM public.subjects ORDER BY id LIMIT 1),
-  'schedule_type', 'RECURRING', 'start_date', '2026-09-01', 'end_date', '2026-09-01',
-  'frequency_weeks', 1, 'anchor_date', '2026-09-01',
+  'schedule_type', 'RECURRING', 'start_date', '2027-01-05', 'end_date', '2027-01-05',
+  'frequency_weeks', 1, 'anchor_date', '2027-01-05',
   'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 2, 'start_time', '13:00', 'end_time', '14:00'))
 ) AS proposal;
 
