@@ -189,7 +189,7 @@ export function useConversationDetails(conversationId: string | null) {
             id, phone_e164, contact_type,
             students (id, first_name, last_name),
             parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-            staff (id, first_name, last_name)
+            staff (id, first_name, last_name, role)
           )
         `)
         .eq('id', conversationId)
@@ -710,7 +710,7 @@ export async function getContactHeader(contactId: string) {
       contact_type,
       students (id, first_name, last_name),
       parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-      staff (id, first_name, last_name)
+      staff (id, first_name, last_name, role)
     `)
     .eq('id', contactId)
     .maybeSingle();

@@ -15,12 +15,14 @@ export interface StaffInterviewBookSessionModalProps {
   isOpen: boolean;
   onClose: () => void;
   onBookingCreated?: (sessionId: string) => void;
+  initialPhone?: string | null;
 }
 
 export function StaffInterviewBookSessionModal({
   isOpen,
   onClose,
   onBookingCreated,
+  initialPhone = null,
 }: StaffInterviewBookSessionModalProps) {
   const {
     currentStep,
@@ -54,6 +56,7 @@ export function StaffInterviewBookSessionModal({
     isOpen,
     onBookingCreated,
     onClose,
+    initialPhone,
   });
 
   const isMessageStep = !!createdSessionId;
@@ -85,6 +88,7 @@ export function StaffInterviewBookSessionModal({
             isCreatingStaff={isCreatingStaff}
             onToggleCreateStaff={() => setIsCreatingStaff((v) => !v)}
             onIntervieweeCreated={handleIntervieweeCreated}
+            initialPhone={initialPhone}
           />
         );
       case 'time':

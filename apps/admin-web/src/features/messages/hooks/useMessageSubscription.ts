@@ -63,7 +63,7 @@ export function useMessageSubscription() {
                 id, phone_e164, contact_type,
                 students (id, first_name, last_name),
                 parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-                staff (id, first_name, last_name)
+                staff (id, first_name, last_name, role)
               )
             `)
             .eq('id', row.conversation_id)

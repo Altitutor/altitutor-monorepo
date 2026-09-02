@@ -112,7 +112,7 @@ export function MessagesDropdown() {
           contact_type,
           students (id, first_name, last_name),
           parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-          staff (id, first_name, last_name)
+          staff (id, first_name, last_name, role)
         `)
         .eq('id', activeContactId)
         .maybeSingle();

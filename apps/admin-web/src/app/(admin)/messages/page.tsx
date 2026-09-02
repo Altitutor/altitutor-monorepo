@@ -5,6 +5,7 @@ import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
 import { useState, useEffect } from 'react';
+import { useMediaQuery } from '@altitutor/ui';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
@@ -42,6 +43,7 @@ export default function MessagesPage() {
   const [activeContactId, setActiveContactId] = useState<string | null>(contactParam);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(groupParam);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
+  const isDesktopSplitPane = useMediaQuery('(min-width: 768px)');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const { ownedNumberFilter: selectedOwnedNumberId, setOwnedNumberFilter: setSelectedOwnedNumberId } =
@@ -107,7 +109,7 @@ export default function MessagesPage() {
           contact_type,
           students (id, first_name, last_name),
           parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-          staff (id, first_name, last_name)
+          staff (id, first_name, last_name, role)
         `)
         .eq('id', activeContactId)
         .maybeSingle();
@@ -289,7 +291,8 @@ export default function MessagesPage() {
             onSearchToggle={() => setIsSearching(!isSearching)}
             onTitleClick={activeContact ? handleTitleClick : undefined}
             onBack={handleBack}
-            showBackButton={mobileView === 'thread'}
+            showBackButton={!isDesktopSplitPane && mobileView === 'thread'}
+            backButtonClassName="md:hidden"
             isUnread={mobileView === 'thread' ? (activeGroup ? isActiveGroupUnread : isActiveUnread) : undefined}
             onToggleRead={mobileView === 'thread' ? handleToggleReadHeader : undefined}
             contact={activeContact}

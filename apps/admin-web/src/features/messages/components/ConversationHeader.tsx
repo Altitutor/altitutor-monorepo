@@ -19,6 +19,8 @@ import {
 import { Search, ArrowLeft, Mail, Plus, Filter, MoreHorizontal } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { IssuePill } from '@/features/issues';
+import { BookMeetingMenu } from './BookMeetingMenu';
+import { getBookMeetingOptions } from '../utils/getBookMeetingOptions';
 
 interface EntityOption {
   id: string;
@@ -42,9 +44,9 @@ interface Props {
     id?: string;
     phone_e164?: string | null;
     contact_type: string;
-    students?: { id: string } | null;
-    parents?: { id: string } | null;
-    staff?: { id: string } | null;
+    students?: { id: string; first_name?: string | null; last_name?: string | null } | null;
+    parents?: { id: string; first_name?: string | null; last_name?: string | null } | null;
+    staff?: { id: string; first_name?: string | null; last_name?: string | null; role?: string | null } | null;
   } | null;
   showUnknownNumberActions?: boolean;
   isLinkingPhone?: boolean;
@@ -63,6 +65,7 @@ interface Props {
   extraActions?: ReactNode;
   extraMenuItems?: ReactNode;
   compactActions?: boolean;
+  backButtonClassName?: string;
 }
 
 const TITLE_MIN_WIDTH = 128;
@@ -72,6 +75,7 @@ const LABELED_WIDTHS = {
   fromNumber: 168,
   read: 152,
   extra: 100,
+  bookMeeting: 132,
   search: 92,
   link: 128,
 } as const;
@@ -122,6 +126,7 @@ export function ConversationHeader({
   extraActions,
   extraMenuItems,
   compactActions = false,
+  backButtonClassName,
 }: Props) {
   const [isLinkMenuOpen, setIsLinkMenuOpen] = useState(false);
   const [isFromNumberMenuOpen, setIsFromNumberMenuOpen] = useState(false);
@@ -150,6 +155,7 @@ export function ConversationHeader({
   const issuePillProps = getIssuePillProps();
   const hasUnknownPhone = Boolean(contact?.phone_e164);
   const canShowLinkActions = showUnknownNumberActions && hasUnknownPhone;
+  const hasBookMeeting = getBookMeetingOptions(contact).length > 0;
   const readLabel = isUnread ? 'Mark as read' : 'Mark as unread';
   const fromNumberLabel = selectedFromNumber ? `From: ${selectedFromNumber.label}` : 'From number';
 
@@ -158,16 +164,18 @@ export function ConversationHeader({
     if (onFromNumberChange) widths.push(LABELED_WIDTHS.fromNumber);
     if (onToggleRead) widths.push(LABELED_WIDTHS.read);
     if (extraActions) widths.push(LABELED_WIDTHS.extra);
+    if (hasBookMeeting) widths.push(LABELED_WIDTHS.bookMeeting);
     if (onSearchToggle) widths.push(LABELED_WIDTHS.search);
     if (canShowLinkActions) widths.push(LABELED_WIDTHS.link);
     if (widths.length === 0) return 0;
     return widths.reduce((sum, width) => sum + width, 0) + (widths.length - 1) * ACTION_GAP;
-  }, [onFromNumberChange, onToggleRead, extraActions, onSearchToggle, canShowLinkActions]);
+  }, [onFromNumberChange, onToggleRead, extraActions, hasBookMeeting, onSearchToggle, canShowLinkActions]);
 
   const hasOverflowActions = Boolean(
     onSearchToggle ||
     onFromNumberChange ||
     extraMenuItems ||
+    hasBookMeeting ||
     canShowLinkActions
   );
 
@@ -331,7 +339,7 @@ export function ConversationHeader({
       {/* Row 1: back | contact name (truncate) | actions */}
       <div ref={rowRef} className="flex items-center gap-2 min-w-0 flex-nowrap">
         {showBackButton && onBack && (
-          <Button variant="outline" size="icon" onClick={onBack} className="flex-shrink-0">
+          <Button variant="outline" size="icon" onClick={onBack} className={cn('flex-shrink-0', backButtonClassName)}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
         )}
@@ -395,6 +403,9 @@ export function ConversationHeader({
           isValidElement(extraActions)
             ? cloneElement(extraActions as ReactElement<{ expanded?: boolean }>, { expanded: showLabels })
             : extraActions
+        )}
+        {!compactActions && hasBookMeeting && (
+          <BookMeetingMenu contact={contact} expanded={showLabels} />
         )}
         {!compactActions && onSearchToggle && (
           <ActionLabel expanded={showLabels} label="Search">
@@ -462,6 +473,18 @@ export function ConversationHeader({
                 </DropdownMenuSub>
               )}
               {extraMenuItems}
+              {hasBookMeeting && (
+                <DropdownMenuSub>
+                  <DropdownMenuSubTrigger>Book meeting</DropdownMenuSubTrigger>
+                  <DropdownMenuSubContent className="w-56">
+                    <BookMeetingMenu
+                      contact={contact}
+                      variant="menu"
+                      onAction={() => setIsOverflowOpen(false)}
+                    />
+                  </DropdownMenuSubContent>
+                </DropdownMenuSub>
+              )}
               {canShowLinkActions && (
                 <DropdownMenuSub>
                   <DropdownMenuSubTrigger disabled={isLinkingPhone}>
