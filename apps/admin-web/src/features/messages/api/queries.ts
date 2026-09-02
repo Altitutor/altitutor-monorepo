@@ -351,6 +351,49 @@ async function ensureConversation(contactId: string, ownedNumberId: string): Pro
   return created?.id as string;
 }
 
+export async function fetchLastInboundOwnedNumberId(
+  contactId: string
+): Promise<string | null> {
+  const supabase = getSupabaseClient();
+  const { data: conversations, error: conversationsError } = await supabase
+    .from('conversations')
+    .select('id, owned_number_id')
+    .eq('contact_id', contactId)
+    .in('status', ['OPEN', 'SNOOZED']);
+
+  if (conversationsError) throw conversationsError;
+
+  const conversationIds = (conversations ?? []).map((conversation) => conversation.id);
+  if (conversationIds.length === 0) return null;
+
+  const ownedNumberByConversationId = new Map(
+    (conversations ?? []).map((conversation) => [conversation.id, conversation.owned_number_id])
+  );
+
+  const { data: lastInbound, error: messagesError } = await supabase
+    .from('messages')
+    .select('conversation_id')
+    .eq('direction', 'INBOUND')
+    .in('conversation_id', conversationIds)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (messagesError) throw messagesError;
+  if (!lastInbound?.conversation_id) return null;
+
+  return ownedNumberByConversationId.get(lastInbound.conversation_id) ?? null;
+}
+
+export function useLastInboundOwnedNumberId(contactId: string | null) {
+  return useQuery({
+    queryKey: messagesKeys.lastInboundOwnedNumber(contactId || ''),
+    queryFn: () => (contactId ? fetchLastInboundOwnedNumberId(contactId) : null),
+    enabled: !!contactId,
+    staleTime: 1000 * 15,
+  });
+}
+
 export function useAvailableSenders() {
   return useQuery({
     queryKey: ['owned_numbers', 'senders'],

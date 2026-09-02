@@ -4,7 +4,7 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -32,6 +32,11 @@ import {
 } from '@/features/messages/types';
 import { useImessageControl } from '@/features/messages/imessage/hooks';
 import { GroupConversationActions } from '@/features/messages/imessage/GroupConversationActions';
+import {
+  getMessagingDraftKey,
+  useMessagingUiStore,
+  usePersistedConversationDraft,
+} from '@/features/messages/state/messagingUiStore';
 
 export default function MessagesPage() {
   const searchParams = useSearchParams();
@@ -46,11 +51,16 @@ export default function MessagesPage() {
   const [mobileView, setMobileView] = useState<'list' | 'thread'>('list');
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Per-conversation draft messages (keyed by contactId)
-  const draftsRef = useRef<Map<string, string>>(new Map());
-  const [currentDraft, setCurrentDraft] = useState<string>('');
-  const currentDraftRef = useRef<string>(''); // Keep latest draft value for saving on switch
+  const selectedOwnedNumberId = useMessagingUiStore((s) => s.ownedNumberFilter);
+  const setSelectedOwnedNumberId = useMessagingUiStore((s) => s.setOwnedNumberFilter);
+  const { draft: currentDraft, onDraftChange: handleDraftChange, onDraftClear: handleDraftClear } =
+    usePersistedConversationDraft(
+      getMessagingDraftKey(
+        activeGroupId
+          ? { kind: 'group', conversationId: activeGroupId }
+          : { kind: 'contact', contactId: activeContactId }
+      )
+    );
   
   // Modal states
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -61,7 +71,6 @@ export default function MessagesPage() {
   const [isAddStaffOpen, setIsAddStaffOpen] = useState(false);
   const [prefillPhoneForModal, setPrefillPhoneForModal] = useState<string | null>(null);
   const [isLinkingPhone, setIsLinkingPhone] = useState(false);
-  const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string | null>(null);
   const [composerSenderId, setComposerSenderId] = useState<string | null>(null);
   const { data: conversationsByContact } = useConversationList(selectedOwnedNumberId);
   const { data: availableSenders = [] } = useAvailableSenders();
@@ -169,47 +178,6 @@ export default function MessagesPage() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
-  
-  // Track previous contactId to save draft when switching
-  const previousContactIdRef = useRef<string | null>(null);
-  
-  // Manage per-conversation drafts: save current draft when switching conversations
-  useEffect(() => {
-    // Save draft for previous conversation before switching (use ref to get latest value)
-    if (previousContactIdRef.current && previousContactIdRef.current !== activeContactId) {
-      draftsRef.current.set(previousContactIdRef.current, currentDraftRef.current);
-    }
-    
-    // Restore draft for new conversation
-    if (activeContactId) {
-      const savedDraft = draftsRef.current.get(activeContactId) || '';
-      setCurrentDraft(savedDraft);
-      currentDraftRef.current = savedDraft;
-    } else {
-      setCurrentDraft('');
-      currentDraftRef.current = '';
-    }
-    
-    previousContactIdRef.current = activeContactId;
-  }, [activeContactId]);
-  
-  // Handler to update draft for current conversation
-  const handleDraftChange = (newDraft: string) => {
-    setCurrentDraft(newDraft);
-    currentDraftRef.current = newDraft;
-    if (activeContactId) {
-      draftsRef.current.set(activeContactId, newDraft);
-    }
-  };
-  
-  // Handler to clear draft after sending (called from Composer)
-  const handleDraftClear = () => {
-    setCurrentDraft('');
-    currentDraftRef.current = '';
-    if (activeContactId) {
-      draftsRef.current.set(activeContactId, '');
-    }
-  };
   
   const activeAggregated = conversationsByContact?.find(
     (c): c is Extract<ConversationListItem, { kind: 'contact' }> =>
@@ -466,8 +434,6 @@ export default function MessagesPage() {
           <ConversationList 
             activeSelection={activeSelection}
             onSelect={handleConversationSelect}
-            selectedOwnedNumberId={selectedOwnedNumberId}
-            onOwnedNumberFilterChange={setSelectedOwnedNumberId}
           />
         </div>
         

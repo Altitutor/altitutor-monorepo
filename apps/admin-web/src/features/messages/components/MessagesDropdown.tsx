@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
 import { MessageCircle } from 'lucide-react';
@@ -18,14 +18,24 @@ import { useMessageSubscription } from '../hooks/useMessageSubscription';
 import { useConversationsByContact, useUnreadConversationCount, getContactIdFromConversation } from '../api/queries';
 import { useMarkRead, useMarkUnread } from '../api/mutations';
 import { useChatStore } from '../state/chatStore';
+import {
+  getMessagingDraftKey,
+  useMessagingUiHydration,
+  useMessagingUiStore,
+  usePersistedConversationDraft,
+} from '../state/messagingUiStore';
 import { cn } from '@/shared/utils';
 import type { ConversationSelection } from '../types';
 
 export function MessagesDropdown() {
+  useMessagingUiHydration();
   const [isOpen, setIsOpen] = useState(false);
-  const [view, setView] = useState<'list' | 'thread'>('list');
-  const [activeContactId, setActiveContactId] = useState<string | null>(null);
-  const [selectedOwnedNumberId, setSelectedOwnedNumberId] = useState<string | null>(null);
+  const view = useMessagingUiStore((s) => s.dropdownView);
+  const setView = useMessagingUiStore((s) => s.setDropdownView);
+  const dropdownSelection = useMessagingUiStore((s) => s.dropdownSelection);
+  const setDropdownSelection = useMessagingUiStore((s) => s.setDropdownSelection);
+  const ownedNumberFilter = useMessagingUiStore((s) => s.ownedNumberFilter);
+  const activeContactId = dropdownSelection?.kind === 'contact' ? dropdownSelection.contactId : null;
 
   // When another part of the app (e.g. reconciliation Message button) calls openWindow(conversationId),
   // open this dropdown and show that conversation
@@ -39,18 +49,15 @@ export function MessagesDropdown() {
   useEffect(() => {
     if (activeConversationId && contactIdFromStore) {
       setIsOpen(true);
-      setActiveContactId(contactIdFromStore);
+      setDropdownSelection({ kind: 'contact', contactId: contactIdFromStore });
       setView('thread');
       setActiveConversation(null); // consume intent so we don't re-open on next render
     }
-  }, [activeConversationId, contactIdFromStore, setActiveConversation]);
+  }, [activeConversationId, contactIdFromStore, setActiveConversation, setDropdownSelection, setView]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  
-  // Per-conversation draft messages (keyed by contactId)
-  const draftsRef = useRef<Map<string, string>>(new Map());
-  const [currentDraft, setCurrentDraft] = useState<string>('');
-  const currentDraftRef = useRef<string>('');
+  const { draft: currentDraft, onDraftChange: handleDraftChange, onDraftClear: handleDraftClear } =
+    usePersistedConversationDraft(getMessagingDraftKey(dropdownSelection));
   
   // Modal states
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
@@ -114,47 +121,6 @@ export function MessagesDropdown() {
     enabled: !!activeContactId,
   });
   
-  // Track previous contactId to save draft when switching
-  const previousContactIdRef = useRef<string | null>(null);
-  
-  // Manage per-conversation drafts: save current draft when switching conversations
-  useEffect(() => {
-    // Save draft for previous conversation before switching
-    if (previousContactIdRef.current && previousContactIdRef.current !== activeContactId) {
-      draftsRef.current.set(previousContactIdRef.current, currentDraftRef.current);
-    }
-    
-    // Restore draft for new conversation
-    if (activeContactId) {
-      const savedDraft = draftsRef.current.get(activeContactId) || '';
-      setCurrentDraft(savedDraft);
-      currentDraftRef.current = savedDraft;
-    } else {
-      setCurrentDraft('');
-      currentDraftRef.current = '';
-    }
-    
-    previousContactIdRef.current = activeContactId;
-  }, [activeContactId]);
-  
-  // Handler to update draft for current conversation
-  const handleDraftChange = (newDraft: string) => {
-    setCurrentDraft(newDraft);
-    currentDraftRef.current = newDraft;
-    if (activeContactId) {
-      draftsRef.current.set(activeContactId, newDraft);
-    }
-  };
-  
-  // Handler to clear draft after sending
-  const handleDraftClear = () => {
-    setCurrentDraft('');
-    currentDraftRef.current = '';
-    if (activeContactId) {
-      draftsRef.current.set(activeContactId, '');
-    }
-  };
-  
   const conversationTitle = activeContact ? formatContactName({ contacts: activeContact }) : 'Messages';
   
   const handleBack = () => {
@@ -186,21 +152,19 @@ export function MessagesDropdown() {
   };
   
   const handleConversationClick = (contactId: string) => {
-    setActiveContactId(contactId);
+    setDropdownSelection({ kind: 'contact', contactId });
     setView('thread');
   };
   
-  // When popover closes, reset to list view
   useEffect(() => {
     if (!isOpen) {
-      setView('list');
       setIsSearching(false);
     }
   }, [isOpen]);
   
   return (
     <>
-      <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <Popover open={isOpen} onOpenChange={setIsOpen} modal={false}>
         <PopoverTrigger asChild>
           <Button 
             variant="outline" 
@@ -232,7 +196,7 @@ export function MessagesDropdown() {
             {view === 'list' && (
               <div className="w-full h-full flex-shrink-0">
                 <ConversationList 
-                  activeSelection={activeContactId ? { kind: 'contact', contactId: activeContactId } : null}
+                  activeSelection={dropdownSelection}
                   onSelect={(selection: ConversationSelection) => {
                     if (selection.kind === 'contact') {
                       handleConversationClick(selection.contactId);
@@ -240,8 +204,6 @@ export function MessagesDropdown() {
                       window.location.assign(`/messages?group=${selection.conversationId}`);
                     }
                   }}
-                  selectedOwnedNumberId={selectedOwnedNumberId}
-                  onOwnedNumberFilterChange={setSelectedOwnedNumberId}
                 />
               </div>
             )}
@@ -265,7 +227,7 @@ export function MessagesDropdown() {
                       <div className="flex-1 min-h-0 overflow-hidden">
                         <MessageThread 
                           contactId={activeContactId} 
-                          ownedNumberId={selectedOwnedNumberId}
+                          ownedNumberId={ownedNumberFilter}
                           isSearching={isSearching}
                           searchTerm={searchTerm}
                           onSearchTermChange={setSearchTerm}

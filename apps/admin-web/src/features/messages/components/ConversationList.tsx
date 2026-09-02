@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useId } from 'react';
 import { useAvailableSenders, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -22,6 +22,7 @@ import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
 import { useMarkConversationRead, useMarkUnread, useMarkRead } from '../api/mutations';
+import { useMessagingUiStore, type ConversationListFilter } from '../state/messagingUiStore';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -30,7 +31,7 @@ import type {
   ConversationSelection,
 } from '../types';
 
-type FilterOption = 'all' | 'unread' | 'unreplied' | 'to_follow_up';
+type FilterOption = ConversationListFilter;
 const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'unread', label: 'Unread' },
@@ -41,31 +42,31 @@ const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
 interface Props {
   activeSelection?: ConversationSelection | null;
   onSelect: (selection: ConversationSelection) => void;
-  selectedOwnedNumberId: string | null;
-  onOwnedNumberFilterChange: (ownedNumberId: string | null) => void;
 }
 
 export function ConversationList({
   activeSelection,
   onSelect,
-  selectedOwnedNumberId,
-  onOwnedNumberFilterChange,
 }: Props) {
+  const selectedOwnedNumberId = useMessagingUiStore((s) => s.ownedNumberFilter);
+  const onOwnedNumberFilterChange = useMessagingUiStore((s) => s.setOwnedNumberFilter);
+  const activeFilter = useMessagingUiStore((s) => s.listFilter);
+  const setActiveFilter = useMessagingUiStore((s) => s.setListFilter);
   const { data } = useConversationList(selectedOwnedNumberId);
   const { data: senders = [] } = useAvailableSenders();
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'unreplied' | 'to_follow_up'>('all');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
   const markUnreadMutation = useMarkUnread();
   const markReadMutation = useMarkRead();
   const markConversationReadMutation = useMarkConversationRead();
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const channelNonce = useId().replace(/:/g, '');
 
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const channel = supabase
-      .channel('conversations-list')
+      .channel(`conversations-list-${channelNonce}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
         qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
         qc.invalidateQueries({ queryKey: messagesKeys.conversations() }); // Also invalidate old for backward compat
@@ -79,7 +80,7 @@ export function ConversationList({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, channelNonce]);
 
   // Check if aggregated conversation is unread (has unreadCount > 0)
   const isUnread = (aggregated: AggregatedConversation) => {

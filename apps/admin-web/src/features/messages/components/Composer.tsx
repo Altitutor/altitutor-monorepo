@@ -8,7 +8,8 @@ import { replaceVariablesForParent } from '../utils/variableReplacerParent';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses, getStaffClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/shared/hooks';
-import { useAvailableSenders, useContactForTemplate } from '../api/queries';
+import { useAvailableSenders, useContactForTemplate, useLastInboundOwnedNumberId } from '../api/queries';
+import { resolveComposerSenderId } from '../utils/resolveComposerSenderId';
 import { Button } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
@@ -64,6 +65,8 @@ export function Composer({
   const buttonRowRef = useRef<HTMLDivElement>(null);
   const { data: currentStaff } = useCurrentStaff();
   const { data: availableSenders } = useAvailableSenders();
+  const { data: lastInboundOwnedNumberId, isFetched: lastInboundFetched } =
+    useLastInboundOwnedNumberId(groupChatId ? null : contactId);
   const canExpand = useResponsiveButtons(buttonRowRef);
   const {
     attachments,
@@ -75,27 +78,34 @@ export function Composer({
     canAddMore,
   } = useMessageAttachments();
   
-  // Set default sender when senders load
   useEffect(() => {
-    if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
-      const compatibleSenders = groupChatId
-        ? availableSenders.filter((sender) => sender.provider === 'IMESSAGE')
-        : availableSenders;
-      const defaultSender = compatibleSenders.find(s => s.is_default) || compatibleSenders[0];
-      if (!defaultSender) return;
-      setSelectedSenderId(defaultSender.id);
-    }
-  }, [availableSenders, groupChatId, selectedSenderId]);
-
-  useEffect(() => {
-    setSelectedSenderId(initialSenderId ?? null);
-  }, [contactId, groupChatId, initialSenderId]);
+    setSelectedSenderId(initialSenderId ?? preferredSenderId ?? null);
+  }, [contactId, groupChatId, initialSenderId, preferredSenderId]);
 
   useEffect(() => {
     if (preferredSenderId) {
       setSelectedSenderId(preferredSenderId);
     }
   }, [preferredSenderId]);
+
+  useEffect(() => {
+    if (selectedSenderId || !availableSenders || availableSenders.length === 0) return;
+    if (!groupChatId && contactId && !lastInboundFetched) return;
+
+    const nextSenderId = resolveComposerSenderId({
+      availableSenders,
+      lastInboundOwnedNumberId: groupChatId ? null : lastInboundOwnedNumberId,
+      groupChatId,
+    });
+    if (nextSenderId) setSelectedSenderId(nextSenderId);
+  }, [
+    availableSenders,
+    contactId,
+    groupChatId,
+    lastInboundFetched,
+    lastInboundOwnedNumberId,
+    selectedSenderId,
+  ]);
 
   // Check if selected sender is iMessage
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
