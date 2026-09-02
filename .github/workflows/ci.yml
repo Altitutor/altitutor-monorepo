@@ -56,7 +56,7 @@ jobs:
           cache: 'pnpm'
 
       - name: Check production release gate
-        run: node --test scripts/production-release-gate.test.mjs
+        run: node --test scripts/production-release-gate.test.mjs scripts/ucat-system-test-paths.test.mjs
 
       - uses: actions/cache@v4
         with:
@@ -195,8 +195,45 @@ jobs:
       - name: Test Supabase Edge Function contracts
         run: deno test --config supabase/functions/deno.json --allow-env supabase/functions
 
+  ucat-system-tests-needed:
+    name: Detect UCAT system tests
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.detect.outputs.run }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch for path detection
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }} --no-tags
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Decide whether UCAT browser and database tests are needed
+        id: detect
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.full_run }}" = "true" ]; then
+            echo "run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="origin/${{ github.base_ref }}...HEAD"
+          else
+            range="HEAD^..HEAD"
+          fi
+          run="$(node scripts/ucat-system-test-paths.mjs --git-diff "$range")"
+          echo "UCAT system tests needed: $run (range $range)"
+          echo "run=$run" >> "$GITHUB_OUTPUT"
+
   ucat-e2e:
     name: UCAT Browser and Database
+    needs: ucat-system-tests-needed
+    if: needs.ucat-system-tests-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     # Supabase startup and the production browser matrix share this job. The
     # timeout is a safety ceiling, not an expected duration; keep enough room
@@ -219,21 +256,45 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Install critical browser
-        if: github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
-        run: pnpm --filter ucat-web exec playwright install --with-deps chromium
+      - name: Cache Supabase Docker images
+        id: supabase-docker-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-docker-images.tar
+          key: ${{ runner.os }}-supabase-docker-2.107.0-${{ hashFiles('supabase/config.toml') }}
 
-      - name: Install production browser matrix
-        if: github.ref_name == 'main' || github.event_name == 'workflow_dispatch'
-        run: pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge
+      - name: Load cached Supabase Docker images
+        if: steps.supabase-docker-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: docker load -i /tmp/supabase-docker-images.tar
 
       - name: Render email templates
         run: bash supabase/scripts/render-email-templates.sh
 
-      - name: Start and seed local Supabase
+      - name: Start local Supabase and install browsers
         run: |
-          supabase start
-          supabase db reset
+          set -euo pipefail
+          # A fresh `supabase start` applies migrations and seed. Do not follow
+          # it with `db reset` — that recreates the database and reapplies
+          # everything. Studio, image proxy, analytics, and mail UI are unused
+          # by pgTAP and Playwright.
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge &
+          else
+            pnpm --filter ucat-web exec playwright install --with-deps chromium &
+          fi
+          playwright_pid=$!
+          supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
+          wait "$playwright_pid"
+
+      - name: Save Supabase Docker images
+        if: steps.supabase-docker-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -i supabase \
+            | grep -v '<none>' \
+            | xargs docker save -o /tmp/supabase-docker-images.tar
 
       - name: Test database contracts
         run: supabase test db

@@ -51,11 +51,10 @@ max_client_conn = 100
 schema_paths = []
 
 [db.seed]
-# If enabled, seeds the database after migrations during a db reset.
+# If enabled, seeds the database after migrations on `supabase start` and `db reset`.
 enabled = true
-# Specifies an ordered list of seed files to load during db reset.
-# Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed/*/*.sql"]
+# Automatic seed only. `seed/manual` is for Dashboard paste, not CI or reset.
+sql_paths = ["./seed/test/*.sql", "./seed/production/*.sql"]
 
 [realtime]
 enabled = true

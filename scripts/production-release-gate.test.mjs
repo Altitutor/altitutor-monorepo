@@ -16,6 +16,8 @@ const workflowPath = new URL(
 );
 const ciWorkflowPath = new URL("../.github/workflows/ci.yml", import.meta.url);
 const turboConfigPath = new URL("../turbo.json", import.meta.url);
+const checkallScriptPath = new URL("../scripts/checkall.sh", import.meta.url);
+const supabaseConfigPath = new URL("../supabase/config.toml", import.meta.url);
 const ucatPlaywrightConfigPath = new URL(
   "../apps/ucat-web/playwright.config.ts",
   import.meta.url,
@@ -155,6 +157,19 @@ test("UCAT production verification executes every system test boundary", async (
     /supabase test db/u,
     "UCAT database contracts must be release-gated",
   );
+  assert.match(
+    workflow,
+    /^  ucat-system-tests-needed:/mu,
+    "UCAT browser and database tests must be skippable when the diff cannot affect them",
+  );
+  assert.match(
+    ucatE2eJob,
+    /^    needs: ucat-system-tests-needed$/mu,
+  );
+  assert.match(
+    ucatE2eJob,
+    /needs\.ucat-system-tests-needed\.outputs\.run == 'true'/u,
+  );
   const renderTemplatesStep = ucatE2eJob.indexOf(
     "bash supabase/scripts/render-email-templates.sh",
   );
@@ -163,6 +178,16 @@ test("UCAT production verification executes every system test boundary", async (
     renderTemplatesStep >= 0 && renderTemplatesStep < startSupabaseStep,
     "UCAT verification must render gitignored Auth email templates before starting Supabase",
   );
+  assert.doesNotMatch(
+    ucatE2eJob,
+    /supabase db reset/u,
+    "A fresh supabase start already applies migrations and seed; db reset would redo that work",
+  );
+  assert.match(
+    ucatE2eJob,
+    /supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u,
+  );
+  assert.match(ucatE2eJob, /Cache Supabase Docker images/u);
   assert.match(
     workflow,
     /pnpm --filter ucat-web test:e2e/u,
@@ -212,4 +237,39 @@ test("UCAT coverage includes unimported source and enforces a baseline", async (
   assert.match(config, /coverageProvider: "v8"/u);
   assert.match(config, /collectCoverageFrom:/u);
   assert.match(config, /coverageThreshold:/u);
+});
+
+test("pnpm checkall runs the same system suites as CI", async () => {
+  const [checkall, packageJsonSource] = await Promise.all([
+    readFile(checkallScriptPath, "utf8"),
+    readFile(new URL("../package.json", import.meta.url), "utf8"),
+  ]);
+  const packageJson = JSON.parse(packageJsonSource);
+
+  assert.equal(packageJson.scripts.checkall, "bash scripts/checkall.sh");
+  assert.match(checkall, /pnpm turbo run lint/u);
+  assert.match(checkall, /pnpm turbo run typecheck/u);
+  assert.match(checkall, /pnpm turbo run test/u);
+  assert.match(checkall, /pnpm turbo run build/u);
+  assert.match(checkall, /pnpm --filter ucat-web test:coverage/u);
+  assert.match(
+    checkall,
+    /deno test --config supabase\/functions\/deno\.json --allow-env supabase\/functions/u,
+  );
+  assert.match(checkall, /supabase test db/u);
+  assert.match(checkall, /pnpm --filter ucat-web test:e2e:critical/u);
+  assert.match(checkall, /supabase start/u);
+  assert.match(
+    checkall,
+    /supabase status/u,
+    "Local checkall must reset an already-running stack so schema matches CI",
+  );
+  assert.match(checkall, /supabase db reset/u);
+});
+
+test("automatic seed excludes manual Dashboard pastes", async () => {
+  const config = await readFile(supabaseConfigPath, "utf8");
+
+  assert.match(config, /sql_paths = \["\.\/seed\/test\/\*\.sql", "\.\/seed\/production\/\*\.sql"\]/u);
+  assert.doesNotMatch(config, /seed\/\*\/\*\.sql/u);
 });

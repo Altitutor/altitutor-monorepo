@@ -20,9 +20,9 @@ suspected.
   regressions below the checked-in coverage baseline.
 - Deno tests cover Supabase Edge Function contracts.
 - `supabase test db` covers migrations, database functions, and RLS behavior
-  against a reset local database.
-- Playwright runs against a production build and a freshly reset, deterministic
-  local Supabase instance.
+  against a local database started from migrations and seed.
+- Playwright runs against a production build and a deterministic local
+  Supabase instance.
 - A read-only post-deploy smoke check verifies the production login boundary and
   exact public billing configuration.
 
@@ -54,6 +54,10 @@ mischarge a customer. Keep lower-level permutations in Jest or database tests.
 From the repository root:
 
 ```sh
+# Full local CI (lint, types, unit tests, coverage, Edge contracts, build,
+# database contracts, UCAT critical browser journeys)
+pnpm checkall
+
 # Jest unit, component, and route tests only (all workspace packages)
 pnpm test
 
@@ -79,27 +83,36 @@ deno test --config supabase/functions/deno.json --allow-env supabase/functions
 those suites require browser binaries and/or local Supabase services and would
 make the normal unit-test loop slow and environment-dependent.
 
+`pnpm checkall` is the local equivalent of CI. It runs lint, typecheck, unit
+tests, UCAT coverage, Edge Function contracts, build, database contracts, and
+the `@critical` Chromium journeys. A fresh `supabase start` applies migrations
+and seed; if the local stack is already running, checkall resets it so the
+schema matches CI.
+
 Playwright requires a running local Supabase stack and installed browser
-binaries. CI starts and resets Supabase and installs the required browsers
-before executing these commands.
+binaries. CI starts Supabase (without a redundant `db reset`) and installs the
+required browsers before executing these commands.
 
 For a first local run, start Supabase and install Chromium once:
 
 ```sh
 supabase start
-supabase db reset
 pnpm --filter ucat-web exec playwright install chromium
 pnpm --filter ucat-web test:e2e:critical
 ```
 
-`supabase db reset` rebuilds and reseeds only the local development database.
+`supabase start` on a fresh stack applies every migration and the automatic
+seed. `supabase db reset` is only needed when the local database is already
+running and you want to rebuild it from scratch. `seed/manual` is not applied
+automatically; paste those files in the Dashboard when you need them.
 
 ## Continuous integration
 
-The `UCAT Browser and Database` job runs automatically for relevant pull
-requests and for the `develop` and `main` release workflows. Pull requests and
-`develop` run the release-critical Chromium journeys. `main` and manual CI runs
-execute the full Chrome, Edge, Firefox, WebKit/Safari, Android, and iOS matrix.
-The same job resets Supabase and runs every database contract before starting
-Playwright. The separate `UCAT Contracts` job enforces Jest coverage and runs
-all Deno Edge Function tests.
+The `UCAT Browser and Database` job runs for pull requests, `develop`, and
+`main` when the diff can affect UCAT or Supabase. Unrelated app-only changes
+skip it. Pull requests and `develop` run the release-critical Chromium
+journeys. `main` and manual CI runs execute the full Chrome, Edge, Firefox,
+WebKit/Safari, Android, and iOS matrix. The same job starts a fresh local
+Supabase (migrations and seed applied once) and runs every database contract
+before starting Playwright. The separate `UCAT Contracts` job enforces Jest
+coverage and runs all Deno Edge Function tests.
