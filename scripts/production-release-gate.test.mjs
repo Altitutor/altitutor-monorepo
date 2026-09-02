@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
+import { auditMigrationDirectory } from "./supabase-migration-privileges.mjs";
+
 const APPS = [
   "admin-web",
   "marketing-web",
@@ -31,6 +33,14 @@ const emailDispatchSecretSyncPath = new URL(
   "../supabase/scripts/sync-ucat-email-dispatch-secret.sql",
   import.meta.url,
 );
+
+test("new Supabase API objects declare explicit privilege contracts", async () => {
+  const violations = await auditMigrationDirectory(
+    new URL("../supabase/migrations/", import.meta.url),
+  );
+
+  assert.deepEqual(violations, []);
+});
 
 test("Vercel Git integration cannot bypass the production release gate", async () => {
   await Promise.all(

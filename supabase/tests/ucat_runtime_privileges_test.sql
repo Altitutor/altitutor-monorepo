@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(11);
+SELECT plan(12);
 
 SELECT ok(
   has_table_privilege('authenticated', 'public.vstudent_profile', 'SELECT'),
@@ -88,6 +88,18 @@ SELECT ok(
       'SELECT, INSERT, UPDATE, DELETE, TRUNCATE, REFERENCES, TRIGGER'
     ),
   'browser roles cannot access missed exposure debt directly'
+);
+
+SELECT ok(
+  NOT EXISTS (
+    SELECT 1
+    FROM pg_proc procedure
+    JOIN pg_namespace namespace ON namespace.oid = procedure.pronamespace
+    WHERE namespace.nspname = 'public'
+      AND procedure.prosecdef
+      AND has_function_privilege('anon', procedure.oid, 'EXECUTE')
+  ),
+  'anonymous callers cannot execute public SECURITY DEFINER functions'
 );
 
 SELECT * FROM finish();
