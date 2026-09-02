@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
+import { adelaideTimeToMinutes, combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from '@altitutor/ui';
 
@@ -62,9 +62,12 @@ function generateClassSessions(
       const enrollmentDateOnly = new Date(enrollmentDate.getFullYear(), enrollmentDate.getMonth(), enrollmentDate.getDate());
       
       if (dateOnly >= enrollmentDateOnly) {
-        // Build ISO timestamps
-        const startAt = `${dateStr}T${classData.start_time}:00`;
-        const endAt = `${dateStr}T${classData.end_time}:00`;
+        const startAt = combineLocalDateAndTime(dateStr, classData.start_time);
+        const endAt = combineLocalDateAndTime(dateStr, classData.end_time);
+        if (!startAt || !endAt) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          continue;
+        }
         
         sessions.push({
           id: `potential-${dateStr}-${classData.start_time}`,
@@ -176,8 +179,12 @@ export function EnrollmentWeekCalendar({
         
         // Only include sessions before changeover date
         if (dateOnly < changeoverDateOnly) {
-          const startAt = `${dateStr}T${oldClass.start_time}:00`;
-          const endAt = `${dateStr}T${oldClass.end_time}:00`;
+          const startAt = combineLocalDateAndTime(dateStr, oldClass.start_time);
+          const endAt = combineLocalDateAndTime(dateStr, oldClass.end_time);
+          if (!startAt || !endAt) {
+            currentDate.setDate(currentDate.getDate() + 1);
+            continue;
+          }
           
           sessions.push({
             id: `old-class-${dateStr}-${oldClass.start_time}`,
