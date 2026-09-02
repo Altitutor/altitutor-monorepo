@@ -30,6 +30,7 @@ import {
 } from "@/features/study-plan/components/study-plan-target-score-field";
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import { inferPreferredMockWeekday } from "@/features/study-plan/lib/activation";
 import { defaultSkippedGoalProfileInput } from "@/features/study-plan/lib/default-study-profile";
 import {
   isTestDateInBounds,
@@ -77,7 +78,6 @@ const SETTINGS_LEAVE_MESSAGE =
   "You have unsaved settings. Leave this page without saving?";
 
 type YearOption = { year: number };
-type WeekdayOption = (typeof WEEKDAYS)[number];
 
 function sortAvailability(
   days: StudyPlanAvailability[],
@@ -105,7 +105,6 @@ function snapshotFromProfile(profile: StudyPlanProfileInput) {
     testYear: profile.testYear,
     testDate: profile.testDate ?? "",
     availability: sortAvailability(profile.availableDays ?? []),
-    mockDay: profile.preferredMockWeekday,
   };
 }
 
@@ -141,7 +140,6 @@ export function SettingsStudyPlanPage() {
   const [testDate, setTestDate] = useState("");
   const [availability, setAvailability] =
     useState<StudyPlanAvailability[]>(DEFAULT_AVAILABILITY);
-  const [mockDay, setMockDay] = useState<StudyPlanWeekday>(6);
   const [saved, setSaved] = useState<ReturnType<
     typeof snapshotFromProfile
   > | null>(null);
@@ -169,7 +167,6 @@ export function SettingsStudyPlanPage() {
       setTestYear(snap.testYear);
       setTestDate(snap.testDate);
       setAvailability(snap.availability);
-      setMockDay(snap.mockDay);
       setSaved(snap);
     } finally {
       setHydrated(true);
@@ -182,18 +179,9 @@ export function SettingsStudyPlanPage() {
     return map;
   }, [availability]);
 
-  const mockDayOptions = useMemo(
-    () => WEEKDAYS.filter((day) => availabilityByDay.has(day.value)),
-    [availabilityByDay],
-  );
-
   const selectedYear =
     yearOptions.find((option) => option.year === testYear) ??
     yearOptions[0] ??
-    null;
-  const selectedMockDay =
-    mockDayOptions.find((day) => day.value === mockDay) ??
-    mockDayOptions[0] ??
     null;
   const testDateBoundsForYear = useMemo(
     () => testDateBounds(testYear),
@@ -206,7 +194,6 @@ export function SettingsStudyPlanPage() {
       studyPlanEnabled !== saved.studyPlanEnabled ||
       testYear !== saved.testYear ||
       testDate !== saved.testDate ||
-      mockDay !== saved.mockDay ||
       !availabilityEqual(availability, saved.availability));
   useLeaveGuard(isDirty, SETTINGS_LEAVE_MESSAGE);
 
@@ -220,9 +207,6 @@ export function SettingsStudyPlanPage() {
         ]);
       }
       const next = current.filter((item) => item.weekday !== day);
-      if (mockDay === day && next[0]) {
-        setMockDay(next[0].weekday);
-      }
       return next;
     });
   }
@@ -235,7 +219,6 @@ export function SettingsStudyPlanPage() {
     setTestYear(saved.testYear);
     setTestDate(saved.testDate);
     setAvailability(saved.availability);
-    setMockDay(saved.mockDay);
   }
 
   async function handleSave() {
@@ -258,10 +241,9 @@ export function SettingsStudyPlanPage() {
       });
       return;
     }
-    const preferredMockWeekday =
-      studyPlanEnabled && availability.some((day) => day.weekday === mockDay)
-        ? mockDay
-        : (availability[0]?.weekday ?? 6);
+    const preferredMockWeekday = studyPlanEnabled
+      ? inferPreferredMockWeekday(availability)
+      : 6;
 
     setSaving(true);
     try {
@@ -275,7 +257,6 @@ export function SettingsStudyPlanPage() {
       };
       await saveStudyPlan(next);
       const snap = snapshotFromProfile(next);
-      setMockDay(preferredMockWeekday);
       setSaved(snap);
       await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
     } catch (caught) {
@@ -364,7 +345,6 @@ export function SettingsStudyPlanPage() {
                   setStudyPlanEnabled(checked);
                   if (checked && availability.length === 0) {
                     setAvailability(DEFAULT_AVAILABILITY);
-                    setMockDay(DEFAULT_AVAILABILITY[0]!.weekday);
                   }
                 }}
                 aria-label="Use a Study plan"
@@ -406,32 +386,6 @@ export function SettingsStudyPlanPage() {
                     </div>
                   );
                 })}
-              </div>
-
-              <div className="mt-1 border-t border-border/60 pt-1">
-                <SettingsRow
-                  title="Preferred mock day"
-                  description="A soft preference for full mocks. The planner may use another available day when the cadence needs it."
-                  control={
-                    <SearchableSelect<WeekdayOption>
-                      items={
-                        mockDayOptions.length ? mockDayOptions : WEEKDAYS
-                      }
-                      value={selectedMockDay}
-                      onValueChange={(option) => {
-                        if (option) setMockDay(option.value);
-                      }}
-                      getItemLabel={(item) => item.label}
-                      getItemId={(item) => String(item.value)}
-                      placeholder="Select day"
-                      searchPlaceholder="Search days…"
-                      emptyMessage="No matching day."
-                      disabled={!mockDayOptions.length}
-                      triggerClassName={SELECT_TRIGGER}
-                      contentWidth={SELECT_CONTENT_WIDTH}
-                    />
-                  }
-                />
               </div>
             </div>
           </SidebarExpandablePanel>

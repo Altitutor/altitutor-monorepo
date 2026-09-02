@@ -743,7 +743,6 @@ function mockTask(
 function mockDates(
   dates: string[],
   readiness: StudyPlanReadinessSnapshot,
-  preferredWeekday: number,
   planningDate: string,
   lastCompletedMockDate: string | null,
 ): Set<string> {
@@ -782,13 +781,10 @@ function mockDates(
       .sort((a, b) => {
         const aIndex = eligible.indexOf(a);
         const bIndex = eligible.indexOf(b);
-        const aScore =
-          Math.abs(aIndex - ideal) * 3 -
-          (weekday(a) === preferredWeekday ? 1 : 0);
-        const bScore =
-          Math.abs(bIndex - ideal) * 3 -
-          (weekday(b) === preferredWeekday ? 1 : 0);
-        return aScore - bScore || a.localeCompare(b);
+        return (
+          Math.abs(aIndex - ideal) - Math.abs(bIndex - ideal) ||
+          a.localeCompare(b)
+        );
       })[0];
     if (candidate) picked.add(candidate);
   }
@@ -857,7 +853,6 @@ export function generateStudyPlan(
     ? mockDates(
         dates,
         readiness,
-        input.profile.preferredMockWeekday,
         input.planningDate,
         input.lastCompletedMockDate ?? null,
       )

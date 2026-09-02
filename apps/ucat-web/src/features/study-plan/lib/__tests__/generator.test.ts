@@ -1005,14 +1005,13 @@ describe("generateStudyPlan", () => {
     expect(result.tasks.some((task) => task.taskType === "mock")).toBe(true);
   });
 
-  it("treats the preferred mock weekday as a preference, not a restriction", () => {
+  it("spreads full mocks across available days when cadence needs it", () => {
     const result = generateStudyPlan({
       today: "2026-07-03",
       planningDate: "2026-07-25",
       profile: {
         ...profile,
         availableDays: [{ weekday: 5 }, { weekday: 6 }],
-        preferredMockWeekday: 6,
       },
       sections,
       signals: sections.map((section) => ({
