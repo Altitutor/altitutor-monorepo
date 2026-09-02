@@ -405,5 +405,57 @@ describe("contextual tutorial coach", () => {
     });
     expect(dialog.parentElement).toHaveClass("top-0");
     expect(screen.getByRole("button", { name: "Skip tutorial" })).toBeVisible();
+    expect(
+      screen.getByText("Use the highlighted control to continue"),
+    ).toBeVisible();
+  });
+
+  it("lets the last Study guidance step finish without forcing the next action", () => {
+    const panel = document.createElement("div");
+    panel.setAttribute("data-dashboard-guidance-panel", "");
+    document.body.appendChild(panel);
+
+    mockedUseNextStep.mockReturnValue({
+      currentStep: 9,
+      currentTour: "ucat-dashboard-intro",
+      setCurrentStep,
+      closeNextStep,
+      startNextStep: jest.fn(),
+      isNextStepVisible: true,
+    });
+    render(
+      <OnboardingCard
+        step={
+          {
+            icon: null,
+            title: "Start when you are ready",
+            content: (
+              <p>
+                Select it when you are ready, or finish this tutorial and come
+                back another time.
+              </p>
+            ),
+            selector: "[data-dashboard-guidance-panel]",
+            interactionSelector: "[data-dashboard-guidance-action]",
+            showControls: true,
+            showSkip: true,
+            optional: true,
+            completeOnInteraction: true,
+          } as ContextualTourStep
+        }
+        currentStep={9}
+        totalSteps={11}
+        nextStep={jest.fn()}
+        prevStep={jest.fn()}
+        skipTour={skipTour}
+        arrow={<span />}
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "Finish" })).toBeVisible();
+    expect(
+      screen.queryByText("Use the highlighted control to continue"),
+    ).not.toBeInTheDocument();
+    panel.remove();
   });
 });

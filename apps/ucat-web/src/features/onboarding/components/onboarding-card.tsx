@@ -80,7 +80,6 @@ export function OnboardingCard({
   if (!safeStep || typeof document === "undefined") return null;
 
   const isFirst = currentStep === 0;
-  const isLast = currentStep === totalSteps - 1;
   const isQuestionEngineTour =
     currentTour === UCAT_QUESTION_ENGINE_TOUR ||
     currentTour === UCAT_QUESTION_ENGINE_CONTROLS_TOUR;
@@ -260,7 +259,7 @@ export function OnboardingCard({
             aria-valuenow={displayedStep}
           />
 
-          {requiresInteraction ? (
+          {requiresInteraction && !safeStep.showControls ? (
             <div className="mt-5 flex items-center gap-2 rounded-xl bg-primary/[0.07] px-3 py-2.5 text-sm font-medium text-primary">
               <MousePointer2
                 className="h-4 w-4 shrink-0 motion-safe:animate-pulse"
@@ -304,8 +303,10 @@ export function OnboardingCard({
                   onClick={goNext}
                   className="gap-1"
                 >
-                  {isLast ? "Finish" : "Next"}
-                  {isLast ? null : <ChevronRight className="h-4 w-4" />}
+                  {isDisplayedLast ? "Finish" : "Next"}
+                  {isDisplayedLast ? null : (
+                    <ChevronRight className="h-4 w-4" />
+                  )}
                 </Button>
               </div>
             ) : null}
