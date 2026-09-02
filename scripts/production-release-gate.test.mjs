@@ -330,6 +330,19 @@ test("data-backed portal E2E servers receive the local service-role key", async 
   }
 });
 
+test("admin E2E keeps role redirects inside the local test boundary", async () => {
+  const config = await readFile(
+    new URL("../apps/admin-web/playwright.config.ts", import.meta.url),
+    "utf8",
+  );
+
+  assert.match(
+    config,
+    /NEXT_PUBLIC_TUTOR_PORTAL_URL:\s*["']http:\/\/localhost:3002["']/u,
+    "the production-mode admin build must not redirect seeded tutors to production",
+  );
+});
+
 test("the main release gate runs every web app browser suite", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
 

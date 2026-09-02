@@ -87,6 +87,7 @@ export default defineConfig({
     timeout: 300_000,
     env: {
       ...localSupabase,
+      NEXT_PUBLIC_TUTOR_PORTAL_URL: 'http://localhost:3002',
       NEXT_DIST_DIR: '.next-e2e',
     },
   },
