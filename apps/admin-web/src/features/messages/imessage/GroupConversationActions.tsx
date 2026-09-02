@@ -9,6 +9,9 @@ import {
   DropdownMenuTrigger,
   Input,
   Label,
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
 } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
 import { Users } from 'lucide-react';
@@ -26,11 +29,15 @@ type DestructiveAction =
 interface GroupConversationActionsProps {
   conversationId: string;
   currentName: string | null;
+  expanded?: boolean;
+  variant?: 'button' | 'menu';
 }
 
 export function GroupConversationActions({
   conversationId,
   currentName,
+  expanded = false,
+  variant = 'button',
 }: GroupConversationActionsProps) {
   const control = useImessageControl();
   const [editableAction, setEditableAction] = useState<EditableAction | null>(null);
@@ -87,23 +94,57 @@ export function GroupConversationActions({
 
   const destructiveCommand: ImessageCommandType | null = destructiveAction;
 
+  const menuItems = (
+    <>
+      <DropdownMenuItem onClick={() => openEditable('update_chat')}>Rename group</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => openEditable('add_participant')}>Add participant</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => openEditable('remove_participant')}>Remove participant</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setDestructiveAction('remove_group_icon')}>Remove group icon…</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setDestructiveAction('leave_chat')}>Leave group…</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setDestructiveAction('delete_chat')}>Delete chat…</DropdownMenuItem>
+    </>
+  );
+
+  const triggerButton = (
+    <Button
+      variant="outline"
+      size={expanded ? 'sm' : 'icon'}
+      className={expanded ? 'flex-shrink-0 gap-1.5' : 'flex-shrink-0'}
+      aria-label="Group details and actions"
+    >
+      <Users className="h-4 w-4" />
+      {expanded && <span>Group</span>}
+    </Button>
+  );
+
   return (
     <>
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" aria-label="Group details and actions">
-            <Users className="h-4 w-4" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={() => openEditable('update_chat')}>Rename group</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openEditable('add_participant')}>Add participant</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => openEditable('remove_participant')}>Remove participant</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setDestructiveAction('remove_group_icon')}>Remove group icon…</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setDestructiveAction('leave_chat')}>Leave group…</DropdownMenuItem>
-          <DropdownMenuItem onClick={() => setDestructiveAction('delete_chat')}>Delete chat…</DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
+      {variant === 'menu' ? (
+        menuItems
+      ) : expanded ? (
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            {triggerButton}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {menuItems}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      ) : (
+        <DropdownMenu>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <DropdownMenuTrigger asChild>
+                {triggerButton}
+              </DropdownMenuTrigger>
+            </TooltipTrigger>
+            <TooltipContent side="bottom">Group</TooltipContent>
+          </Tooltip>
+          <DropdownMenuContent align="end">
+            {menuItems}
+          </DropdownMenuContent>
+        </DropdownMenu>
+      )}
 
       <AdminDialogShell
         open={editableAction !== null}

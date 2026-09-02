@@ -14,6 +14,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import { calculateSessionPrice } from '@/shared/utils/pricing';
+import { combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
@@ -187,8 +188,9 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       // Create session start and end times using the class's actual times
       // Format: YYYY-MM-DDTHH:MM:SS (Adelaide local time, will be parsed correctly)
       const dateStr = targetDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
-      const sessionStart = `${dateStr}T${start_time}:00`;
-      const sessionEnd = `${dateStr}T${end_time}:00`;
+      const sessionStart = combineLocalDateAndTime(dateStr, start_time);
+      const sessionEnd = combineLocalDateAndTime(dateStr, end_time);
+      if (!sessionStart || !sessionEnd) return;
 
       const session = {
         billing_type: billing_type,

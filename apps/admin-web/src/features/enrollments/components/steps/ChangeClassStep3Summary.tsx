@@ -6,6 +6,7 @@ import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
 import { calculateFirstSessionDate, calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
 import { formatDate, cn } from '@/shared/utils';
+import { combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays } from 'date-fns';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
@@ -142,8 +143,11 @@ export function ChangeClassStep3Summary({
     }
 
     const dateStr = firstSessionNewClass.toISOString().split('T')[0];
-    const sessionStart = `${dateStr}T${selectedNewClass.start_time}:00`;
-    const sessionEnd = `${dateStr}T${selectedNewClass.end_time}:00`;
+    const sessionStart = combineLocalDateAndTime(dateStr, selectedNewClass.start_time);
+    const sessionEnd = combineLocalDateAndTime(dateStr, selectedNewClass.end_time);
+    if (!sessionStart || !sessionEnd) {
+      return null;
+    }
 
     const mockSession = {
       billing_type: 'CLASS' as const,

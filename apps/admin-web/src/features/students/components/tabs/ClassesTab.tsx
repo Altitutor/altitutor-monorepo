@@ -8,6 +8,16 @@ import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { Checkbox, Input, Label } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
@@ -96,6 +106,10 @@ export function ClassesTab({
   // Modal states for enrollment workflows
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isEnrollModalSubjectId, setIsEnrollModalSubjectId] = useState<string | null>(null);
+  const [pendingSameSubjectEnroll, setPendingSameSubjectEnroll] = useState<{
+    subjectId: string;
+    subjectName: string;
+  } | null>(null);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
   const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
@@ -163,6 +177,30 @@ export function ClassesTab({
   const openEnrollModal = (subjectId?: string) => {
     setIsEnrollModalSubjectId(subjectId || null);
     setIsEnrollModalOpen(true);
+  };
+
+  const handleAddClassClick = (subjectId: string, existingClassCount: number, subjectName: string) => {
+    if (student.status !== 'ACTIVE') {
+      toast({
+        title: 'Cannot Enroll',
+        description: 'Student must be active to be enrolled in classes',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (existingClassCount > 0) {
+      setPendingSameSubjectEnroll({ subjectId, subjectName });
+      return;
+    }
+
+    openEnrollModal(subjectId);
+  };
+
+  const handleSameSubjectEnrollProceed = () => {
+    if (!pendingSameSubjectEnroll) return;
+    openEnrollModal(pendingSameSubjectEnroll.subjectId);
+    setPendingSameSubjectEnroll(null);
   };
 
   const openChangeClassModal = (classId: string) => {
@@ -564,54 +602,48 @@ export function ClassesTab({
                         </Badge>
                       </div>
                       
-                      {/* Class Cards - Show all classes for this subject stacked */}
+                      {/* Class Cards - Show all classes for this subject stacked, with add class below */}
                       <div className="flex-1 space-y-2">
-                        {subjectClasses.length > 0 ? (
-                          subjectClasses.map(classData => (
-                            <ClassCard
-                              key={classData.class.id}
-                              class={classData.class}
-                              subject={classData.subject}
-                              staff={classData.staff}
-                              students={classData.students}
-                              onClick={() => handleClassClick(classData.class.id)}
-                              onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
-                              onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
-                              onSendUnenrollmentLink={isEditMode ? () => openUnenrollmentLink(classData.class.id) : undefined}
-                              hideActions={!isEditMode}
-                              compact={useCompactCards}
-                            />
-                          ))
-                        ) : (
-                          <div
-                            className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
-                              student.status === 'ACTIVE' 
-                                ? 'hover:border-primary/50 cursor-pointer' 
-                                : 'opacity-50 cursor-not-allowed'
-                            }`}
-                            onClick={() => {
-                              if (student.status === 'ACTIVE') {
-                                openEnrollModal(subjectId);
-                              } else {
-                                toast({
-                                  title: 'Cannot Enroll',
-                                  description: 'Student must be active to be enrolled in classes',
-                                  variant: 'destructive',
-                                });
-                              }
-                            }}
+                        {subjectClasses.map(classData => (
+                          <ClassCard
+                            key={classData.class.id}
+                            class={classData.class}
+                            subject={classData.subject}
+                            staff={classData.staff}
+                            students={classData.students}
+                            onClick={() => handleClassClick(classData.class.id)}
+                            onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
+                            onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
+                            onSendUnenrollmentLink={isEditMode ? () => openUnenrollmentLink(classData.class.id) : undefined}
+                            hideActions={!isEditMode}
+                            compact={useCompactCards}
+                          />
+                        ))}
+                        <div
+                          className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
+                            student.status === 'ACTIVE' 
+                              ? 'hover:border-primary/50 cursor-pointer' 
+                              : 'opacity-50 cursor-not-allowed'
+                          }`}
+                          onClick={() => {
+                            handleAddClassClick(
+                              subjectId,
+                              subjectClasses.length,
+                              subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
+                            );
+                          }}
+                        >
+                          <Button 
+                            type="button"
+                            variant="ghost" 
+                            size="sm" 
+                            className="flex items-center gap-2"
+                            disabled={student.status !== 'ACTIVE'}
                           >
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
-                              className="flex items-center gap-2"
-                              disabled={student.status !== 'ACTIVE'}
-                            >
-                              <Plus className="h-4 w-4" />
-                              <span>Add Class</span>
-                            </Button>
-                          </div>
-                        )}
+                            <Plus className="h-4 w-4" />
+                            <span>Add Class</span>
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -759,6 +791,28 @@ export function ClassesTab({
           onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
         />
       )}
+
+      <AlertDialog
+        open={pendingSameSubjectEnroll !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSameSubjectEnroll(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Student Already Enrolled</AlertDialogTitle>
+            <AlertDialogDescription>
+              This student is already enrolled in a class for {pendingSameSubjectEnroll?.subjectName}. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSameSubjectEnrollProceed}>
+              Proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

@@ -207,10 +207,15 @@ const dashboardTour: ContextualTour = {
       icon: <BrainCircuit className={iconClassName} />,
       title: "Open your Study guidance",
       content: (
-        <p>
-          The orb keeps your recommended next activity close by. Open it now to
-          see what it suggests; you can return to it throughout your study.
-        </p>
+        <div className="space-y-2">
+          <p>
+            The orb keeps your recommended next activity close by. You can
+            return to it throughout your study.
+          </p>
+          <p className="font-medium">
+            Click the Study orb in the bottom right of the screen to continue.
+          </p>
+        </div>
       ),
       selector: "[data-tour='study-guidance-orb']",
       interactionSelector: "[data-tour='study-guidance-orb']",
@@ -223,12 +228,11 @@ const dashboardTour: ContextualTour = {
     },
     {
       icon: <BrainCircuit className={iconClassName} />,
-      title: "Start with your Study guidance",
+      title: "Start when you are ready",
       content: (
         <p>
-          Your best next action appears here. Select it now to set up your Study
-          plan or begin the first recommended task, or dismiss this tutorial to
-          return later.
+          Your best next action appears here. Select it when you are ready, or
+          finish this tutorial and come back another time.
         </p>
       ),
       selector: "[data-dashboard-guidance-panel]",
@@ -238,24 +242,23 @@ const dashboardTour: ContextualTour = {
       ...fixedViewport,
       side: "left",
       ...standardStep,
-      showControls: false,
       optional: true,
       completeOnInteraction: true,
     },
     {
       icon: <Navigation className={iconClassName} />,
-      title: "Start with your next step",
+      title: "Start when you are ready",
       content: (
         <p>
           Study guidance is hidden, so your best next action appears here
-          instead. Select it now, or dismiss this tutorial to return later.
+          instead. Select it when you are ready, or finish this tutorial and
+          come back another time.
         </p>
       ),
       selector: "[data-dashboard-guidance-fallback]",
       interactionSelector: "[data-dashboard-guidance-action]",
       side: "left",
       ...standardStep,
-      showControls: false,
       optional: true,
     },
   ],

@@ -6,7 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
-import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
+import { adelaideTimeToMinutes, combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { cn } from '@/shared/utils';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { AssignStaffContext } from '../types/enrollment';
@@ -38,8 +38,12 @@ function generateClassSessions(
       const assignmentDateOnly = new Date(assignmentDate.getFullYear(), assignmentDate.getMonth(), assignmentDate.getDate());
 
       if (dateOnly >= assignmentDateOnly) {
-        const startAt = `${dateStr}T${classData.start_time}:00`;
-        const endAt = `${dateStr}T${classData.end_time}:00`;
+        const startAt = combineLocalDateAndTime(dateStr, classData.start_time);
+        const endAt = combineLocalDateAndTime(dateStr, classData.end_time);
+        if (!startAt || !endAt) {
+          currentDate.setDate(currentDate.getDate() + 1);
+          continue;
+        }
         sessions.push({
           id: `potential-${dateStr}-${classData.start_time}`,
           start_at: startAt,

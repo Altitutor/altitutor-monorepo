@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useId } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useToast } from '@altitutor/ui';
@@ -20,6 +20,7 @@ export function useMessageSubscription() {
   const { toast } = useToast();
   const hasWindow = useChatStore(s => s.hasWindow);
   const incrementUnread = useChatStore(s => s.incrementUnread);
+  const channelNonce = useId().replace(/:/g, '');
 
   // Extract function references using useRef to prevent re-subscriptions
   const hasWindowRef = useRef(hasWindow);
@@ -34,7 +35,7 @@ export function useMessageSubscription() {
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const channel = supabase
-      .channel('messages-inbound')
+      .channel(`messages-inbound-${channelNonce}`)
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, async (payload) => {
         const row = payload.new as Database['public']['Tables']['messages']['Row'];
         if (!row?.conversation_id) return;
@@ -62,7 +63,7 @@ export function useMessageSubscription() {
                 id, phone_e164, contact_type,
                 students (id, first_name, last_name),
                 parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
-                staff (id, first_name, last_name)
+                staff (id, first_name, last_name, role)
               )
             `)
             .eq('id', row.conversation_id)
@@ -135,5 +136,5 @@ export function useMessageSubscription() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [toast, queryClient]);
+  }, [toast, queryClient, channelNonce]);
 }

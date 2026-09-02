@@ -248,7 +248,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         stemText:
           "Mina, a medical student, notices that another student has posted a photograph from a teaching ward on social media. A patient’s name is visible on a board in the background. Mina privately tells the student, who says the post will disappear after 24 hours and refuses to remove it.",
         questionText:
-          "How appropriate is it for Mina to raise the matter promptly with her supervising clinician?",
+          "How appropriate is the following action for Mina to take?\n\Raise the matter promptly with her supervising clinician.",
         responseType: "multiple_choice",
         answerScheme: "situational_judgement_rating",
         options: [
@@ -266,7 +266,7 @@ export const GUIDED_SAMPLER_SECTIONS: GuidedSamplerSection[] = [
         stemText:
           "Mina, a medical student, notices that another student has posted a photograph from a teaching ward on social media. A patient’s name is visible on a board in the background. Mina privately tells the student, who says the post will disappear after 24 hours and refuses to remove it.",
         questionText:
-          "How important is the fact that the post will disappear after 24 hours when deciding what Mina should do?",
+          "How important is this consideration for Mina when deciding what to do?\n\nThat the post will disappear after 24 hours",
         responseType: "multiple_choice",
         answerScheme: "situational_judgement_rating",
         options: [

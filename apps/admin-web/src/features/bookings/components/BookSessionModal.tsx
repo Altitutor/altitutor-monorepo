@@ -32,6 +32,10 @@ export interface BookSessionModalProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   onBookingCreated?: (sessionId: string) => void;
   initialStudentId?: string;
+  initialCreateStudent?: {
+    phone: string;
+    phoneOwner: 'student' | 'parent';
+  } | null;
   originalSessionId?: string | null;
   originalSubjectId?: string | null;
 }
@@ -42,6 +46,7 @@ export function BookSessionModal({
   sessionType,
   onBookingCreated,
   initialStudentId,
+  initialCreateStudent = null,
   originalSessionId = null,
   originalSubjectId = null,
 }: BookSessionModalProps) {
@@ -97,6 +102,7 @@ export function BookSessionModal({
     isOpen,
     sessionType,
     initialStudentId,
+    initialCreateStudent,
     originalSessionId,
     originalSubjectId,
     onBookingCreated,

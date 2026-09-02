@@ -116,15 +116,25 @@ describe("contextual tutorial page behavior", () => {
   });
 
   it("keeps expanded Study guidance separate from the hidden-guidance fallback", () => {
+    expect(getTourStep(UCAT_DASHBOARD_TOUR, 8)).toEqual(
+      expect.objectContaining({
+        selector: "[data-tour='study-guidance-orb']",
+        interactionSelector: "[data-tour='study-guidance-orb']",
+        showControls: false,
+      }),
+    );
     expect(getTourStep(UCAT_DASHBOARD_TOUR, 9)).toEqual(
       expect.objectContaining({
         selector: "[data-dashboard-guidance-panel]",
         backInteractionAdvanceDelayMs: 300,
+        showControls: true,
+        completeOnInteraction: true,
       }),
     );
     expect(getTourStep(UCAT_DASHBOARD_TOUR, 10)).toEqual(
       expect.objectContaining({
         selector: "[data-dashboard-guidance-fallback]",
+        showControls: true,
       }),
     );
   });

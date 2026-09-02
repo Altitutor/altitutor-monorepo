@@ -9,6 +9,8 @@ import {
   dateStringToUtcStart,
   dateStringToUtcEnd,
   formatActivityTimestamp,
+  combineLocalDateAndTime,
+  adelaideTimeToMinutes,
 } from '../datetime';
 
 describe('datetime utilities', () => {
@@ -232,6 +234,31 @@ describe('datetime utilities', () => {
       const date = new Date('2024-01-15T14:34:00Z'); // Monday
       const result = formatActivityTimestamp(date);
       expect(result).toMatch(/(Sun|Mon|Tue|Wed|Thu|Fri|Sat)/);
+    });
+  });
+
+  describe('combineLocalDateAndTime', () => {
+    it('builds a valid local datetime from HH:mm class times', () => {
+      const combined = combineLocalDateAndTime('2026-09-02', '17:45');
+      expect(combined).toBe('2026-09-02T17:45:00');
+      expect(Number.isNaN(new Date(combined).getTime())).toBe(false);
+    });
+
+    it('does not append a second :00 onto HH:mm:ss class times', () => {
+      const combined = combineLocalDateAndTime('2026-09-02', '17:45:00');
+      expect(combined).toBe('2026-09-02T17:45:00');
+      expect(Number.isNaN(new Date(combined).getTime())).toBe(false);
+    });
+
+    it('returns empty string when date or time is missing', () => {
+      expect(combineLocalDateAndTime('', '17:45')).toBe('');
+      expect(combineLocalDateAndTime('2026-09-02', '')).toBe('');
+    });
+  });
+
+  describe('adelaideTimeToMinutes', () => {
+    it('does not throw RangeError on the invalid timestamp produced by appending :00 to HH:mm:ss', () => {
+      expect(() => adelaideTimeToMinutes('2026-09-02T17:45:00:00')).not.toThrow();
     });
   });
 });

@@ -33,20 +33,18 @@ export function getSessionTypeLabel(sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 
  */
 export function getBookingSteps(
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW',
-  originalSessionId?: string | null
+  originalSessionId?: string | null,
+  options?: { allowCreateStudent?: boolean }
 ): Array<{ id: string; title: string }> {
   const baseSteps = [];
 
-  // For TRIAL_SESSION, start with a step that allows selecting an existing student
-  // or creating a new one on the spot.
-  if (sessionType === 'TRIAL_SESSION') {
-    // Step 0: Select or create student
+  // Trial always allows select-or-create. Subsidy does too when launched with a new-student prefill.
+  if (sessionType === 'TRIAL_SESSION' || options?.allowCreateStudent) {
     baseSteps.push({
       id: 'trial-contact',
       title: 'Select or Create Student',
     });
   } else {
-    // Step 0: Select Student (for DRAFTING and SUBSIDY_INTERVIEW)
     baseSteps.push({
       id: 'student',
       title: 'Select Student',

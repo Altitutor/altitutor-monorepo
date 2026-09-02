@@ -19,6 +19,8 @@ export const messagesKeys = {
     [...messagesKeys.all, 'messages-for-contact', contactId] as const,
   messagesForContact: (contactId: string, ownedNumberId?: string | null) =>
     [...messagesKeys.messagesForContactBase(contactId), ownedNumberId ?? 'all'] as const,
+  lastInboundOwnedNumber: (contactId: string) =>
+    [...messagesKeys.all, 'last-inbound-owned-number', contactId] as const,
   templates: () => [...messagesKeys.all, 'templates'] as const,
   studentClasses: (studentId: string) => [...messagesKeys.all, 'student-classes', studentId] as const,
   staffClasses: (staffId: string) => [...messagesKeys.all, 'staff-classes', staffId] as const,

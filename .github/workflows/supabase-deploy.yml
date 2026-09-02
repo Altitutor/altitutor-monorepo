@@ -26,6 +26,8 @@ jobs:
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
       UCAT_EMAIL_DISPATCH_SECRET_KEY: ${{ secrets.UCAT_EMAIL_DISPATCH_SECRET_KEY }}
+      POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+      POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
       # deploy-config.sh uses this to pick default portal URLs and localhost auth redirects
       SUPABASE_CONFIG_ENV: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     steps:
@@ -62,6 +64,18 @@ jobs:
             exit 1
           fi
 
+      - name: Require production PostHog capture configuration
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "$POSTHOG_PROJECT_TOKEN" ]; then
+            echo "POSTHOG_PROJECT_TOKEN is required in the production GitHub Environment." >&2
+            exit 1
+          fi
+          if [ -z "$POSTHOG_HOST" ]; then
+            echo "POSTHOG_HOST is required in the production GitHub Environment." >&2
+            exit 1
+          fi
+
       - name: Push migrations
         timeout-minutes: 35
         # --include-all applies local migrations inserted before the remote's
@@ -85,6 +99,14 @@ jobs:
             "$migration_db_url" \
             --set=dispatch_secret="$UCAT_EMAIL_DISPATCH_SECRET_KEY" \
             --file=supabase/scripts/sync-ucat-email-dispatch-secret.sql
+
+      - name: Synchronize PostHog capture configuration
+        if: env.POSTHOG_PROJECT_TOKEN != '' && env.POSTHOG_HOST != ''
+        run: |
+          supabase secrets set \
+            --project-ref "$SUPABASE_PROJECT_ID" \
+            POSTHOG_PROJECT_TOKEN="$POSTHOG_PROJECT_TOKEN" \
+            POSTHOG_HOST="$POSTHOG_HOST"
 
       - name: Lint remote schema (post-push)
         run: supabase db lint --linked --level error --fail-on error

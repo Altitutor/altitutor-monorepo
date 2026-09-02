@@ -40,6 +40,7 @@ export interface StaffIntervieweeStepProps {
   isCreatingStaff: boolean;
   onToggleCreateStaff: () => void;
   onIntervieweeCreated: (staffId: string) => void;
+  initialPhone?: string | null;
 }
 
 export function StaffIntervieweeStep({
@@ -50,6 +51,7 @@ export function StaffIntervieweeStep({
   isCreatingStaff,
   onToggleCreateStaff,
   onIntervieweeCreated,
+  initialPhone = null,
 }: StaffIntervieweeStepProps) {
   const createStaffMutation = useCreateStaff();
 
@@ -76,7 +78,7 @@ export function StaffIntervieweeStep({
       firstName: '',
       lastName: '',
       email: '',
-      phoneNumber: '',
+      phoneNumber: initialPhone ?? '',
     },
   });
 

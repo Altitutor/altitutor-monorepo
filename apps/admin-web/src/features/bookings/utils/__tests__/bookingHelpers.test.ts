@@ -191,6 +191,13 @@ describe('getBookingSteps', () => {
     expect(steps[3].id).toBe('confirm');
   });
 
+  it('should use the create-student step for subsidy when allowCreateStudent is set', () => {
+    const steps = getBookingSteps('SUBSIDY_INTERVIEW', null, { allowCreateStudent: true });
+
+    expect(steps[0].id).toBe('trial-contact');
+    expect(steps[0].title).toBe('Select or Create Student');
+  });
+
   it('should show "Confirm Reschedule" when originalSessionId is provided', () => {
     const steps = getBookingSteps('DRAFTING', 'session-1');
     

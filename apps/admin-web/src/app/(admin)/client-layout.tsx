@@ -467,6 +467,7 @@ function AdminLayoutContent({
   const {
     bookingSessionType,
     isBookingModalOpen,
+    bookingPrefill,
     closeBookingModal,
     isCreateTaskDialogOpen,
     closeCreateTaskDialog,
@@ -541,6 +542,7 @@ function AdminLayoutContent({
                   isOpen={isBookingModalOpen}
                   onClose={closeBookingModal}
                   onBookingCreated={closeBookingModal}
+                  initialPhone={bookingPrefill?.initialStaffPhone}
                 />
               ) : (
                 bookingSessionType && (
@@ -549,6 +551,8 @@ function AdminLayoutContent({
                     onClose={closeBookingModal}
                     sessionType={bookingSessionType}
                     onBookingCreated={closeBookingModal}
+                    initialStudentId={bookingPrefill?.initialStudentId}
+                    initialCreateStudent={bookingPrefill?.createNewStudent}
                   />
                 )
               )}
