@@ -9,12 +9,12 @@ SELECT jsonb_build_object(
   'cohort_label', 'Revision A',
   'status', 'ACTIVE',
   'schedule_type', 'RECURRING',
-  'start_date', '2026-09-01',
-  'end_date', '2026-09-23',
-  'effective_from', '2026-09-01',
+  'start_date', '2027-01-05',
+  'end_date', '2027-01-27',
+  'effective_from', '2027-01-05',
   'timezone', 'Australia/Adelaide',
   'frequency_weeks', 1,
-  'anchor_date', '2026-09-01',
+  'anchor_date', '2027-01-05',
   'recurring_rows', jsonb_build_array(
     jsonb_build_object('day_of_week', 2, 'start_time', '13:00', 'end_time', '14:00', 'position', 0),
     jsonb_build_object('day_of_week', 3, 'start_time', '14:00', 'end_time', '15:00', 'position', 1)
@@ -32,7 +32,7 @@ SET
   is_schedule_exception = TRUE,
   schedule_origin = 'EXCEPTION'
 WHERE class_id = '90000000-0000-0000-0000-000000000002'
-  AND (start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2026-09-09';
+  AND (start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2027-01-13';
 
 INSERT INTO public.sessions_students (
   id,
@@ -49,13 +49,13 @@ SELECT
   '00000000-0000-0000-0000-000000000001'
 FROM public.sessions s
 WHERE s.class_id = '90000000-0000-0000-0000-000000000002'
-  AND (s.start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2026-09-16';
+  AND (s.start_at AT TIME ZONE 'Australia/Adelaide')::DATE = DATE '2027-01-20';
 
 SELECT is(
   (
     SELECT (public.preview_class_schedule(proposal || jsonb_build_object(
-      'end_date', '2026-09-15',
-      'effective_from', '2026-09-08'
+      'end_date', '2027-01-19',
+      'effective_from', '2027-01-12'
     ))->'counts'->>'cancel')::INTEGER
     FROM initial_schedule
   ),
@@ -84,12 +84,12 @@ SELECT jsonb_build_object(
   'cohort_label', 'Revision A',
   'status', 'ACTIVE',
   'schedule_type', 'RECURRING',
-  'start_date', '2026-09-01',
-  'end_date', '2026-09-23',
-  'effective_from', '2026-09-08',
+  'start_date', '2027-01-05',
+  'end_date', '2027-01-27',
+  'effective_from', '2027-01-12',
   'timezone', 'Australia/Adelaide',
   'frequency_weeks', 1,
-  'anchor_date', '2026-09-01',
+  'anchor_date', '2027-01-05',
   'recurring_rows', jsonb_build_array(
     jsonb_build_object('day_of_week', 2, 'start_time', '13:00', 'end_time', '14:00', 'position', 0)
   )
