@@ -21,6 +21,8 @@ export interface TablePaginationProps {
   showPageSizeSelector?: boolean;
   /** When false, hides the "Page n of n • n total" summary. Defaults to true. */
   showPageSummary?: boolean;
+  /** Replaces the default "{total} total" fragment after the page numbers. */
+  countSummary?: string;
   className?: string;
   /** @deprecated Use default nav-style active page. Override only for exceptional theming. */
   activePageButtonClassName?: string;
@@ -39,6 +41,7 @@ export function TablePagination({
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
   showPageSizeSelector = true,
   showPageSummary = true,
+  countSummary,
   className,
   activePageButtonClassName,
 }: TablePaginationProps) {
@@ -104,7 +107,7 @@ export function TablePagination({
         {showPageSummary ? (
           <div className="flex shrink-0 items-center gap-2">
             <span className="whitespace-nowrap">
-              Page {currentPage} of {pageCount} • {total} total
+              Page {currentPage} of {pageCount} • {countSummary ?? `${total} total`}
             </span>
             {isFetching && <span className="text-xs">(Refreshing...)</span>}
           </div>

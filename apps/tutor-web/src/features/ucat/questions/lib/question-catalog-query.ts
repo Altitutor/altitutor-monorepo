@@ -170,3 +170,14 @@ export function serializeQuestionCatalogQuery(query: QuestionCatalogQuery): stri
   params.set('pageSize', String(query.pageSize))
   return params.toString()
 }
+
+function pluralizeCount(count: number, singular: string, plural: string): string {
+  return `${count} ${count === 1 ? singular : plural}`
+}
+
+export function formatQuestionCatalogCountSummary(input: {
+  stemCount: number
+  questionCount: number
+}): string {
+  return `${pluralizeCount(input.stemCount, 'stem', 'stems')} • ${pluralizeCount(input.questionCount, 'question', 'questions')}`
+}

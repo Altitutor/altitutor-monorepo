@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
 
   const payload = data && typeof data === 'object' && !Array.isArray(data)
     ? data as Record<string, unknown>
-    : { items: [], total: 0, page: 1, pageSize: 20 }
+    : { items: [], total: 0, questionTotal: 0, page: 1, pageSize: 20 }
 
   if (!aiReviewEnabled && Array.isArray(payload.items)) {
     payload.items = payload.items.map((item) => {
@@ -167,7 +167,11 @@ export async function GET(request: NextRequest) {
   }
 
   return NextResponse.json(
-    { ...payload, aiReviewEnabled },
+    {
+      ...payload,
+      questionTotal: typeof payload.questionTotal === 'number' ? payload.questionTotal : 0,
+      aiReviewEnabled,
+    },
     { headers: { 'Cache-Control': 'private, no-store' } },
   )
 }
