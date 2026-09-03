@@ -40,6 +40,7 @@ import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 type LearningLessonPageProps = {
   lessonId: string;
   sectionNumber: number | null;
+  studyPlanTaskId: string | null;
 };
 
 function getVideoEmbedUrl(url: string): string | null {
@@ -235,9 +236,13 @@ function LessonBlockContent({
 export function LearningLessonPage({
   lessonId,
   sectionNumber,
+  studyPlanTaskId,
 }: LearningLessonPageProps) {
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useLearningLesson(lessonId);
+  const { data, isLoading, error } = useLearningLesson(
+    lessonId,
+    studyPlanTaskId,
+  );
   const { data: allModules } = useLearningModules();
   const updateProgress = useUpdateBlockProgress(lessonId);
   const markBlockComplete = useMarkBlockComplete(lessonId);

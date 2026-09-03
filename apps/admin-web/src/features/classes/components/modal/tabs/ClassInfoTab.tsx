@@ -10,6 +10,7 @@ import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 import { useApplyClassSchedule, useClassSchedule, usePreviewClassSchedule } from '../../../hooks/useClassesQuery';
 import type { ClassSchedulePlan, ClassScheduleProposal, ClassScheduleRow } from '../../../types/schedule';
 import { buildClassScheduleProposal, resolveClassScheduleRows, validateClassScheduleRows } from '../../../utils/classScheduleForm';
+import { GeneratedTimetablePreview } from '../../GeneratedTimetablePreview';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((label, value) => ({ label, value }));
 const FREQUENCIES = [{ label: 'Every week', value: 1 as const }, { label: 'Every fortnight', value: 2 as const }];
@@ -124,11 +125,11 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
           <div className="space-y-3 border-t pt-6">
             <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this Class runs. Changes only reconcile future Sessions.</p></div>
             {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
-              <div className="space-y-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} /></div>
+              <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} /></div>
               <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
               <div className="space-y-2"><Label>End</Label><Input type="time" value={row.endTime} disabled={busy} onChange={(event) => updateRow(row.id, { endTime: event.target.value })} /></div>
               <div className="space-y-2"><Label>Room</Label><Input value={row.room} disabled={busy} onChange={(event) => updateRow(row.id, { room: event.target.value })} /></div>
-              <div className="flex items-end"><Button type="button" size="icon" variant="ghost" aria-label={`Remove schedule row ${index + 1}`} disabled={busy || rows.length === 1} onClick={() => { setRows((current) => current.filter((item) => item.id !== row.id)); markChanged(); }}><Trash2 className="h-4 w-4" /></Button></div>
+              <div className="flex items-end"><Button type="button" size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Remove schedule row ${index + 1}`} disabled={busy || rows.length === 1} onClick={() => { setRows((current) => current.filter((item) => item.id !== row.id)); markChanged(); }}><Trash2 className="h-4 w-4" /></Button></div>
             </div>)}
             <Button type="button" variant="outline" disabled={busy} onClick={() => { setRows((current) => [...current, { id: crypto.randomUUID(), dayOfWeek: 1, startTime: '16:00', endTime: '17:30', room: '' }]); markChanged(); }}><Plus className="mr-2 h-4 w-4" />Add day / time</Button>
           </div>
@@ -137,6 +138,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
           <div className="grid grid-cols-3 gap-3"><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.create}</strong><span className="text-sm text-muted-foreground">create</span></div><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.cancel}</strong><span className="text-sm text-muted-foreground">remove</span></div><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.protected}</strong><span className="text-sm text-muted-foreground">protected</span></div></div>
           {plan.counts.protected > 0 && <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4 shrink-0" />Exceptional or enriched Sessions will remain unchanged.</div>}
           {plan.conflicts.length > 0 && <div className="rounded-md border border-amber-300 p-3 text-sm"><div className="font-medium">Warnings</div>{plan.conflicts.map((conflict) => <p key={conflict.message}>{conflict.message}</p>)}</div>}
+          <GeneratedTimetablePreview occurrences={plan.occurrences} />
           {plan.removals.length > 0 && <div className="max-h-64 divide-y overflow-y-auto rounded-md border">{plan.removals.map((removal) => <div key={removal.session_id} className="flex justify-between p-3 text-sm"><span>{new Date(removal.start_at).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })}</span><span>{removal.action.toLowerCase()}</span></div>)}</div>}
           <Button type="button" variant="outline" disabled={busy} onClick={() => { setPlan(null); setProposal(null); }}>Back to editing</Button>
         </div>}
@@ -155,7 +157,12 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
     <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Class Information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
       <div className="text-sm font-medium">Level:</div><div>{classData.level || '-'}</div>
-      <div className="text-sm font-medium">Schedule:</div><div>{classData.schedule_summary_long || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}</div>
+      <div className="text-sm font-medium">Schedule:</div>
+      <div className="space-y-1">
+        {(classData.schedule_summary_long || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`)
+          .split(',')
+          .map((occurrence) => <div key={occurrence.trim()}>{occurrence.trim()}</div>)}
+      </div>
       <div className="text-sm font-medium">Status:</div><div><ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} /></div>
       <div className="text-sm font-medium">Subject:</div><div>{subject ? (() => { const { style, textColorClass } = getSubjectColorStyle(subject); return <Badge className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass} style={style.backgroundColor ? style : undefined}>{subject.long_name ?? ''}</Badge>; })() : '-'}</div>
       <div className="text-sm font-medium">Session Start Date:</div><div>{classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'Not set'}</div>

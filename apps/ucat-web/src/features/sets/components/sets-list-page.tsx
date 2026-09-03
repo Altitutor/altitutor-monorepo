@@ -8,7 +8,11 @@ import type { DataTableFilterDefinition } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useAttemptedSetIds, useSets } from "@/features/sets/hooks/use-sets";
-import { filterSets, type StudentSetRow } from "@/features/sets/api/sets-api";
+import {
+  compareStudentSetsByCatalog,
+  filterSets,
+  type StudentSetRow,
+} from "@/features/sets/api/sets-api";
 import {
   formatSetSections,
   SECTION_NUMBER_TO_NAME,
@@ -46,6 +50,7 @@ export type SetsListPageProps = {
 
 function setDisplayName(set: StudentSetRow): string {
   return (
+    set.display_name ||
     extractTextFromRichJson(set.name as JsonLike) ||
     extractTextFromRichJson(set.description as JsonLike) ||
     ""
@@ -79,11 +84,7 @@ export function SetsListPage({
       attemptedSetIds,
       (v) => extractTextFromRichJson(v as JsonLike),
     );
-    return [...filtered].sort((a, b) =>
-      setDisplayName(a).localeCompare(setDisplayName(b), undefined, {
-        sensitivity: "base",
-      }),
-    );
+    return [...filtered].sort(compareStudentSetsByCatalog);
   }, [sets, effectiveFilters, search, attemptedSetIds]);
 
   const handleFiltersChange = useCallback(

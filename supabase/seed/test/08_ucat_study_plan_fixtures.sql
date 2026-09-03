@@ -142,8 +142,8 @@ ON CONFLICT (id) DO UPDATE SET
   updated_at = NOW();
 
 -- A compact synthetic bank makes the fixture self-contained. Counts are just
--- large enough for one official-length cognitive benchmark plus short SJ
--- add-ons; hosted dev can additionally use its real authored corpus.
+-- large enough for one official-length benchmark in every section; hosted dev
+-- can additionally use its real authored corpus.
 DO $$
 DECLARE
   category_record RECORD;
@@ -168,6 +168,7 @@ BEGIN
       WHEN 1 THEN 22
       WHEN 2 THEN 7
       WHEN 3 THEN 6
+      WHEN 4 THEN 23
       ELSE 5
     END;
     SELECT id INTO tag_id
@@ -353,8 +354,9 @@ ON CONFLICT (id) DO UPDATE SET
   deleted_at = NULL,
   updated_at = NOW();
 
--- Build two deterministic official-length cognitive sets from the available
--- published pool. Stems may differ between environments; fixture IDs do not.
+-- Build two deterministic official-length standalone sets per section from the
+-- available published pool. Stems may differ between environments; fixture IDs
+-- do not.
 DO $$
 DECLARE
   section_record RECORD;
@@ -369,7 +371,7 @@ BEGIN
   FOR section_record IN
     SELECT id, name, section_number, number_of_questions, time_per_question
     FROM public.ucat_sections
-    WHERE section_number <= 3
+    WHERE section_number <= 4
     ORDER BY section_number
   LOOP
     FOR version_number IN 1..2 LOOP
@@ -377,7 +379,8 @@ BEGIN
         CASE section_record.section_number
           WHEN 1 THEN CASE version_number WHEN 1 THEN 'f3000000-0000-4000-8000-000000000001' ELSE 'f3000000-0000-4000-8000-000000000002' END
           WHEN 2 THEN CASE version_number WHEN 1 THEN 'f3000000-0000-4000-8000-000000000003' ELSE 'f3000000-0000-4000-8000-000000000004' END
-          ELSE CASE version_number WHEN 1 THEN 'f3000000-0000-4000-8000-000000000005' ELSE 'f3000000-0000-4000-8000-000000000006' END
+          WHEN 3 THEN CASE version_number WHEN 1 THEN 'f3000000-0000-4000-8000-000000000005' ELSE 'f3000000-0000-4000-8000-000000000006' END
+          ELSE CASE version_number WHEN 1 THEN 'f3000000-0000-4000-8000-000000000007' ELSE 'f3000000-0000-4000-8000-000000000008' END
         END
       )::UUID;
       target_questions := COALESCE(section_record.number_of_questions, CASE section_record.section_number WHEN 1 THEN 44 WHEN 2 THEN 35 ELSE 36 END);
@@ -386,7 +389,9 @@ BEGIN
       INSERT INTO public.question_sets (
         id, name, description, sections, time_limit_seconds,
         time_limit_at_exam_speed_seconds, speed, status, access_scope,
-        status_changed_at, published_at, deleted_at, section_id
+        status_changed_at, published_at, deleted_at, section_id,
+        authoring_note, set_format, timing_mode, pace_multiplier,
+        fixed_time_limit_seconds, reference_blueprint_id, mock_id, catalog_index
       ) VALUES (
         set_id,
         jsonb_build_object('type', 'doc', 'content', jsonb_build_array(jsonb_build_object('type', 'paragraph', 'content', jsonb_build_array(jsonb_build_object('type', 'text', 'text', set_name))))),
@@ -400,7 +405,15 @@ BEGIN
         NOW(),
         NOW(),
         NULL,
-        section_record.id
+        section_record.id,
+        set_name,
+        'full_section',
+        'pace',
+        1,
+        NULL,
+        '54100000-0000-4000-8000-000000000001',
+        NULL,
+        version_number
       )
       ON CONFLICT (id) DO UPDATE SET
         name = EXCLUDED.name,
@@ -414,6 +427,14 @@ BEGIN
         published_at = NOW(),
         deleted_at = NULL,
         section_id = EXCLUDED.section_id,
+        authoring_note = EXCLUDED.authoring_note,
+        set_format = 'full_section',
+        timing_mode = 'pace',
+        pace_multiplier = 1,
+        fixed_time_limit_seconds = NULL,
+        reference_blueprint_id = '54100000-0000-4000-8000-000000000001',
+        mock_id = NULL,
+        catalog_index = EXCLUDED.catalog_index,
         updated_at = NOW();
 
       DELETE FROM public.question_stems_question_sets WHERE question_set_id = set_id;
@@ -449,34 +470,114 @@ BEGIN
   END LOOP;
 END $$;
 
+-- Mock component sets have their own identity in the structured catalog. Keep
+-- the standalone benchmark sets above available in the Sets library and clone
+-- their synthetic content into two complete mock catalog fixtures. Dedicated
+-- database tests exercise strict production-blueprint compliance separately.
 INSERT INTO public.ucat_mocks (
-  id, name, status, access_scope, status_changed_at, published_at, deleted_at
+  id, name, authoring_note, status, access_scope,
+  status_changed_at, published_at, deleted_at, blueprint_id, catalog_index
 )
 VALUES
-  ('f4000000-0000-4000-8000-000000000001', 'Study plan golden mock 1', 'published', 'public', NOW(), NOW(), NULL),
-  ('f4000000-0000-4000-8000-000000000002', 'Study plan golden mock 2', 'published', 'public', NOW(), NOW(), NULL)
+  ('f4000000-0000-4000-8000-000000000001', '', 'Study plan golden mock 1', 'published', 'public', NOW(), NOW(), NULL, '54100000-0000-4000-8000-000000000001', 1),
+  ('f4000000-0000-4000-8000-000000000002', '', 'Study plan golden mock 2', 'published', 'public', NOW(), NOW(), NULL, '54100000-0000-4000-8000-000000000001', 2)
 ON CONFLICT (id) DO UPDATE SET
   name = EXCLUDED.name,
+  authoring_note = EXCLUDED.authoring_note,
   status = 'published',
   access_scope = 'public',
   published_at = NOW(),
   deleted_at = NULL,
+  blueprint_id = EXCLUDED.blueprint_id,
+  catalog_index = EXCLUDED.catalog_index,
   updated_at = NOW();
 
-DELETE FROM public.question_sets_ucat_mocks
-WHERE ucat_mock_id IN (
-  'f4000000-0000-4000-8000-000000000001',
-  'f4000000-0000-4000-8000-000000000002'
-);
-
-INSERT INTO public.question_sets_ucat_mocks (
-  id, question_set_id, ucat_mock_id, index
+WITH component_seed(component_id, source_set_id, mock_id) AS (
+  VALUES
+    ('f3100000-0000-4000-8000-000000000001'::UUID, 'f3000000-0000-4000-8000-000000000001'::UUID, 'f4000000-0000-4000-8000-000000000001'::UUID),
+    ('f3100000-0000-4000-8000-000000000002'::UUID, 'f3000000-0000-4000-8000-000000000002'::UUID, 'f4000000-0000-4000-8000-000000000002'::UUID),
+    ('f3100000-0000-4000-8000-000000000003'::UUID, 'f3000000-0000-4000-8000-000000000003'::UUID, 'f4000000-0000-4000-8000-000000000001'::UUID),
+    ('f3100000-0000-4000-8000-000000000004'::UUID, 'f3000000-0000-4000-8000-000000000004'::UUID, 'f4000000-0000-4000-8000-000000000002'::UUID),
+    ('f3100000-0000-4000-8000-000000000005'::UUID, 'f3000000-0000-4000-8000-000000000005'::UUID, 'f4000000-0000-4000-8000-000000000001'::UUID),
+    ('f3100000-0000-4000-8000-000000000006'::UUID, 'f3000000-0000-4000-8000-000000000006'::UUID, 'f4000000-0000-4000-8000-000000000002'::UUID),
+    ('f3100000-0000-4000-8000-000000000007'::UUID, 'f3000000-0000-4000-8000-000000000007'::UUID, 'f4000000-0000-4000-8000-000000000001'::UUID),
+    ('f3100000-0000-4000-8000-000000000008'::UUID, 'f3000000-0000-4000-8000-000000000008'::UUID, 'f4000000-0000-4000-8000-000000000002'::UUID)
 )
-VALUES
-  (md5('golden-mock-1-vr')::UUID, 'f3000000-0000-4000-8000-000000000001', 'f4000000-0000-4000-8000-000000000001', 0),
-  (md5('golden-mock-1-dm')::UUID, 'f3000000-0000-4000-8000-000000000003', 'f4000000-0000-4000-8000-000000000001', 1),
-  (md5('golden-mock-1-qr')::UUID, 'f3000000-0000-4000-8000-000000000005', 'f4000000-0000-4000-8000-000000000001', 2),
-  (md5('golden-mock-2-vr')::UUID, 'f3000000-0000-4000-8000-000000000002', 'f4000000-0000-4000-8000-000000000002', 0),
-  (md5('golden-mock-2-dm')::UUID, 'f3000000-0000-4000-8000-000000000004', 'f4000000-0000-4000-8000-000000000002', 1),
-  (md5('golden-mock-2-qr')::UUID, 'f3000000-0000-4000-8000-000000000006', 'f4000000-0000-4000-8000-000000000002', 2)
-ON CONFLICT (id) DO UPDATE SET index = EXCLUDED.index;
+INSERT INTO public.question_sets (
+  id, name, description, sections, time_limit_seconds,
+  time_limit_at_exam_speed_seconds, speed, status, access_scope,
+  status_changed_at, published_at, deleted_at, section_id,
+  authoring_note, set_format, timing_mode, pace_multiplier,
+  fixed_time_limit_seconds, reference_blueprint_id, mock_id, catalog_index
+)
+SELECT
+  component.component_id,
+  source.name,
+  source.description,
+  source.sections,
+  source.time_limit_seconds,
+  source.time_limit_at_exam_speed_seconds,
+  1,
+  'published',
+  'public',
+  NOW(),
+  NOW(),
+  NULL,
+  source.section_id,
+  source.authoring_note,
+  'full_section',
+  'pace',
+  1,
+  NULL,
+  '54100000-0000-4000-8000-000000000001',
+  component.mock_id,
+  NULL
+FROM component_seed component
+JOIN public.question_sets source ON source.id = component.source_set_id
+ON CONFLICT (id) DO UPDATE SET
+  name = EXCLUDED.name,
+  description = EXCLUDED.description,
+  sections = EXCLUDED.sections,
+  time_limit_seconds = EXCLUDED.time_limit_seconds,
+  time_limit_at_exam_speed_seconds = EXCLUDED.time_limit_at_exam_speed_seconds,
+  speed = 1,
+  status = 'published',
+  access_scope = 'public',
+  published_at = NOW(),
+  deleted_at = NULL,
+  section_id = EXCLUDED.section_id,
+  authoring_note = EXCLUDED.authoring_note,
+  set_format = 'full_section',
+  timing_mode = 'pace',
+  pace_multiplier = 1,
+  fixed_time_limit_seconds = NULL,
+  reference_blueprint_id = EXCLUDED.reference_blueprint_id,
+  mock_id = EXCLUDED.mock_id,
+  catalog_index = NULL,
+  updated_at = NOW();
+
+DELETE FROM public.question_stems_question_sets
+WHERE question_set_id::TEXT LIKE 'f3100000-0000-4000-8000-%';
+
+WITH component_seed(component_id, source_set_id) AS (
+  VALUES
+    ('f3100000-0000-4000-8000-000000000001'::UUID, 'f3000000-0000-4000-8000-000000000001'::UUID),
+    ('f3100000-0000-4000-8000-000000000002'::UUID, 'f3000000-0000-4000-8000-000000000002'::UUID),
+    ('f3100000-0000-4000-8000-000000000003'::UUID, 'f3000000-0000-4000-8000-000000000003'::UUID),
+    ('f3100000-0000-4000-8000-000000000004'::UUID, 'f3000000-0000-4000-8000-000000000004'::UUID),
+    ('f3100000-0000-4000-8000-000000000005'::UUID, 'f3000000-0000-4000-8000-000000000005'::UUID),
+    ('f3100000-0000-4000-8000-000000000006'::UUID, 'f3000000-0000-4000-8000-000000000006'::UUID),
+    ('f3100000-0000-4000-8000-000000000007'::UUID, 'f3000000-0000-4000-8000-000000000007'::UUID),
+    ('f3100000-0000-4000-8000-000000000008'::UUID, 'f3000000-0000-4000-8000-000000000008'::UUID)
+)
+INSERT INTO public.question_stems_question_sets (
+  id, question_stem_id, question_set_id, index
+)
+SELECT
+  md5(component.component_id::TEXT || ':' || membership.question_stem_id::TEXT)::UUID,
+  membership.question_stem_id,
+  component.component_id,
+  membership.index
+FROM component_seed component
+JOIN public.question_stems_question_sets membership
+  ON membership.question_set_id = component.source_set_id;

@@ -186,6 +186,10 @@ SELECT isnt(
   'explicit registration-link revocation returns a replacement token'
 );
 
+-- Tombstones are intentionally unreadable by API roles. Inspect persistence as
+-- the database owner, then return to the production service-role boundary.
+RESET ROLE;
+
 SELECT ok(
   EXISTS (
     SELECT 1
@@ -195,6 +199,8 @@ SELECT ok(
   ),
   'the revoked registration token is retained as a tombstone'
 );
+
+SET LOCAL ROLE service_role;
 
 SELECT is(
   (
@@ -231,6 +237,8 @@ SELECT isnt(
   'explicit booking-link revocation returns a replacement token'
 );
 
+RESET ROLE;
+
 SELECT ok(
   EXISTS (
     SELECT 1
@@ -241,10 +249,12 @@ SELECT ok(
   'rotating a booking link disables the legacy Session-ID URL'
 );
 
+SET LOCAL ROLE service_role;
+
 SELECT ok(
   NOT EXISTS (
     SELECT 1
-    FROM public.activity_events
+    FROM public.activity_events_legacy
     WHERE changed_fields::text LIKE '%fd000000-0000-4000-8000-000000000010%'
        OR changed_fields::text LIKE '%fd000000-0000-4000-8000-000000000011%'
        OR changed_fields::text LIKE '%fd000000-0000-4000-8000-000000000012%'

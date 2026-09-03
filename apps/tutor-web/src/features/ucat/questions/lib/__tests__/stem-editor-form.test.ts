@@ -131,6 +131,27 @@ describe('persistStemFormValues', () => {
     ])
   })
 
+  it('still builds form questions with options when a deleted stem has no live nested rows', () => {
+    const values = stemDetailToFormValues({
+      id: '0107f6e0-2751-45fd-9b7a-89f0d5e4d9ae',
+      section_id: '5286dbd1-aa7e-40da-b330-823347292f01',
+      section_name: 'Decision Making',
+      section_number: 2,
+      display_columns: 1,
+      question_stem_category_id: null,
+      category_name: null,
+      status: 'draft',
+      access_scope: 'public',
+      stem_text: plainTextToProseMirror(
+        'Should a prime minister require political experience before leading the country?',
+      ),
+      questions: null as never,
+    })
+
+    expect(values.questions).toHaveLength(1)
+    expect(values.questions[0]?.options.length).toBeGreaterThan(0)
+  })
+
   it('preserves an unkeyed Most/Least action', () => {
     const values = formValues('in_review')
     const question = values.questions[0]!

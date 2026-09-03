@@ -7,6 +7,7 @@ import type { ProjectedClassScheduleRow, Tables } from '@altitutor/shared';
 import { ClassCard } from '@/shared/components/ClassCard';
 import { AdminShiftCard } from '@/shared/components/AdminShiftCard';
 import { Search, X } from 'lucide-react';
+import { classMatchesSelectedDays } from '../lib/class-day-filter';
 
 interface CalendarViewProps {
   classes: Tables<'classes'>[];
@@ -127,12 +128,10 @@ export function CalendarView({
       });
     }
     
-    // Apply day filter (multi-select)
+    // Apply day filter (multi-select). search_classes_admin does not return
+    // schedule_weekdays, so this falls back to the primary day_of_week.
     if (dayFilter.length > 0) {
-      result = result.filter(cls =>
-        (cls.schedule_weekdays.length > 0 ? cls.schedule_weekdays : [cls.day_of_week])
-          .some((day) => dayFilter.includes(day))
-      );
+      result = result.filter((cls) => classMatchesSelectedDays(cls, dayFilter));
     }
     
     return result;

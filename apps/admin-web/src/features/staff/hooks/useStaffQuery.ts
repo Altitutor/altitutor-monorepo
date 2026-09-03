@@ -1,5 +1,5 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { staffApi } from '../api/staff';
+import { staffApi, type StaffSearchField } from '../api/staff';
 import type { Tables } from '@altitutor/shared';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 type Staff = Tables<'staff'>;
@@ -24,6 +24,7 @@ export const staffKeys = {
 // For table display - minimal data
 export interface UseStaffListParams {
   search?: string;
+  searchFields?: StaffSearchField[];
   role?: string;
   status?: string;
   roles?: string[];
@@ -38,6 +39,7 @@ export interface UseStaffListParams {
 export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
   const {
     search = '',
+    searchFields = ['name', 'email', 'phone'],
     role,
     status,
     roles = [],
@@ -52,10 +54,11 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: staffKeys.minimal({ search, role, status, roles, statuses, subjectIds, page, pageSize, orderBy, ascending }),
+    queryKey: staffKeys.minimal({ search, searchFields, role, status, roles, statuses, subjectIds, page, pageSize, orderBy, ascending }),
     queryFn: () =>
       staffApi.listMinimal({
         search,
+        searchFields,
         role,
         status,
         roles,

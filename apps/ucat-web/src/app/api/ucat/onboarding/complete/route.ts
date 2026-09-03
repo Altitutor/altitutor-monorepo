@@ -2,6 +2,7 @@ import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import { SIGNUP_STEP } from "@/features/signup-onboarding/lib/steps";
 
 type OnboardingChoice = "free";
 
@@ -81,7 +82,7 @@ export async function POST(request: NextRequest) {
     .from("students")
     .update({
       ucat_onboarding_completed_at: new Date().toISOString(),
-      ucat_signup_step: 4,
+      ucat_signup_step: SIGNUP_STEP.PLAN,
     })
     .eq("id", student.id);
 

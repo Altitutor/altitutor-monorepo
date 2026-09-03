@@ -5,6 +5,11 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { messagesKeys } from './queryKeys';
 import { ensureConversationForContact } from './queries';
+import {
+  applyOptimisticUnread,
+  markUnreadQueriesStale,
+  restoreUnreadCache,
+} from '../utils/unreadQueryCache';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -156,18 +161,17 @@ export function useMarkRead() {
         .select('id')
         .eq('user_id', user?.id || '')
         .maybeSingle();
-      if (!staff?.id) return;
-      
-      // Get all conversations for this contact and mark them all as read
-      const { data: conversations } = await supabase
+      if (!staff?.id) throw new Error('Staff record not found');
+
+      const { data: conversations, error: conversationsError } = await supabase
         .from('conversations')
         .select('id')
         .eq('contact_id', args.contactId)
         .in('status', ['OPEN', 'SNOOZED']);
-      
+      if (conversationsError) throw conversationsError;
+
       if (conversations && conversations.length > 0) {
-        // Mark all conversations as read
-        await Promise.all(
+        const results = await Promise.all(
           conversations.map((conv) =>
             supabase
               .from('conversation_reads')
@@ -179,13 +183,13 @@ export function useMarkRead() {
               }, { onConflict: 'conversation_id,staff_id' })
           )
         );
+        const failed = results.find((result) => result.error);
+        if (failed?.error) throw failed.error;
       }
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
-    },
+    onMutate: (args) => applyOptimisticUnread(qc, { contactId: args.contactId }, false),
+    onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
   });
 }
 
@@ -194,16 +198,40 @@ export function useMarkUnread() {
   return useMutation({
     mutationFn: async (conversationId: string) => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      await supabase
+      const { error } = await supabase
         .from('conversation_reads')
         .delete()
         .eq('conversation_id', conversationId);
+      if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
+    onMutate: (conversationId) => applyOptimisticUnread(qc, { conversationId }, true),
+    onError: (_error, _conversationId, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
+  });
+}
+
+export function useMarkContactUnread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contactId: string) => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', contactId)
+        .in('status', ['OPEN', 'SNOOZED']);
+      if (error) throw error;
+      const conversationIds = (conversations ?? []).map((conversation) => conversation.id);
+      if (conversationIds.length === 0) return;
+      const { error: deleteError } = await supabase
+        .from('conversation_reads')
+        .delete()
+        .in('conversation_id', conversationIds);
+      if (deleteError) throw deleteError;
     },
+    onMutate: (contactId) => applyOptimisticUnread(qc, { contactId }, true),
+    onError: (_error, _contactId, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
   });
 }
 
@@ -218,7 +246,7 @@ export function useMarkConversationRead() {
         .select('id')
         .eq('user_id', user?.id || '')
         .maybeSingle();
-      if (!staff?.id) return;
+      if (!staff?.id) throw new Error('Staff record not found');
 
       const { error } = await supabase
         .from('conversation_reads')
@@ -230,10 +258,9 @@ export function useMarkConversationRead() {
         }, { onConflict: 'conversation_id,staff_id' });
       if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
-    },
+    onMutate: (args) => applyOptimisticUnread(qc, { conversationId: args.conversationId }, false),
+    onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
   });
 }
 

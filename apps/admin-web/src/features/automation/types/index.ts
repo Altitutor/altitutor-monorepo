@@ -145,6 +145,10 @@ export type ActivityEntityType =
   | 'sessions_students'
   | 'sessions_staff'
   | 'sessions_files'
-  | 'parents_students';
+  | 'parents_students'
+  | 'admin_shifts'
+  | 'issues'
+  | 'projects'
+  | 'form_responses';
 
-export type ActivityEventType = 'CREATED' | 'UPDATED' | 'DELETED' | 'FIELD_CHANGED' | 'SCHEDULED';
+export type DomainEventName = string;

@@ -4,6 +4,7 @@ import { Suspense, useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import posthog from "posthog-js";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
+import { captureUcatObservedFirstTouchInBrowser } from "@altitutor/shared";
 import { MARKETING_ANALYTICS_CONTEXT } from "./posthog";
 
 let initialized = false;
@@ -11,18 +12,24 @@ let initialized = false;
 function PostHogPageView({ enabled }: { enabled: boolean }) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const query = searchParams.toString();
 
   useEffect(() => {
+    if (pathname.startsWith("/ucat")) {
+      captureUcatObservedFirstTouchInBrowser({
+        pathname,
+        searchParams: new URLSearchParams(query),
+      });
+    }
     if (!enabled) return;
 
-    const query = searchParams.toString();
     const currentUrl = `${window.location.origin}${pathname}${query ? `?${query}` : ""}`;
 
     posthog.capture("$pageview", {
       $current_url: currentUrl,
       ...MARKETING_ANALYTICS_CONTEXT,
     });
-  }, [enabled, pathname, searchParams]);
+  }, [enabled, pathname, query]);
 
   return null;
 }

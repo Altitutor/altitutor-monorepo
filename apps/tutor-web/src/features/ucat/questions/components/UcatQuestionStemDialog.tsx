@@ -45,6 +45,7 @@ import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
 import {
   replaceSelectedImageAttrs,
   type SelectedVisualImage,
@@ -446,6 +447,7 @@ export function UcatQuestionStemDialog({
         />
       }
       headerActions={headerActions}
+      headerBadge={initial?.status ? <UcatContentStatusBadge status={initial.status} /> : undefined}
       warningPills={warningPills}
       hideCancel
       defaultExpanded

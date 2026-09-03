@@ -1,5 +1,6 @@
 import {
   evaluateBlueprint,
+  isPublicationBlockingBlueprintCode,
   type BlueprintComposition,
   type BlueprintEvaluation,
   type BlueprintSectionCode,
@@ -35,7 +36,7 @@ export type StoredBlueprintCompliance = {
     compliant: boolean
     checks: StoredBlueprintCheck[]
   }>
-  reasons?: Array<{ code: string; message: string }>
+  reasons?: Array<{ code: string; message: string; severity?: 'error' | 'warning' | 'information' }>
 }
 
 export type LinkedMockBlueprintCompliance = {
@@ -121,6 +122,7 @@ export function catalogStemToBlueprintStem(stem: UcatStemCatalogItem): Blueprint
   return {
     id: stem.id,
     category: stem.categoryName ?? 'Uncategorised',
+    categoryId: stem.categoryId ?? undefined,
     questions: stem.blueprintQuestions ?? [],
   }
 }
@@ -233,9 +235,15 @@ export function evaluationToStoredCompliance(evaluation: BlueprintEvaluation): S
     blueprintCode: evaluation.blueprintId,
     sections: evaluation.sections.map(section => ({
       section: section.section,
-      compliant: evaluation.checks
-        .filter(check => check.section === section.section)
-        .every(check => check.compliant),
+      compliant: !evaluation.reasons.some(reason =>
+        reason.section === section.section && reason.severity === 'error',
+      )
+        && evaluation.checks
+          .filter(check =>
+            check.section === section.section
+            && isPublicationBlockingBlueprintCode(check.code),
+          )
+          .every(check => check.compliant),
       checks: evaluation.checks
         .filter(check => check.section === section.section)
         .map(check => ({
@@ -246,7 +254,11 @@ export function evaluationToStoredCompliance(evaluation: BlueprintEvaluation): S
             : `Allowed ${check.minimum ?? '—'}–${check.maximum ?? '—'}; actual ${check.actual}.`,
         })),
     })),
-    reasons: evaluation.reasons.map(reason => ({ code: reason.code, message: reason.message })),
+    reasons: evaluation.reasons.map(reason => ({
+      code: reason.code,
+      message: reason.message,
+      severity: reason.severity,
+    })),
   }
 }
 

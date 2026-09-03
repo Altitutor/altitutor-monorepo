@@ -1,6 +1,6 @@
 'use client'
 
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import {
   Button,
@@ -12,8 +12,16 @@ import {
 } from '@altitutor/ui'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { useUcatSections } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { UcatSetTimeLimitFields } from '@/features/ucat/sets/components/UcatSetTimeLimitFields'
+import {
+  PACED_SPEED_DEFAULT,
+  resolveSetTimeLimitSeconds,
+  type SetTimeLimitSource,
+} from '@/features/ucat/sets/lib/set-time-limit'
+import type { UcatQuestionSetFormat } from '@/features/ucat/shared/types'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import { formatSecondsToDuration, secondsToMinutesAndSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { formatSecondsToDuration } from '@/features/ucat/shared/lib/time-utils'
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
@@ -52,15 +60,19 @@ export type AddToSetConfig =
   | { mode: 'existing'; setId: string }
   | {
       mode: 'create'
-      name: string
+      authoringNote: string
       description: string
-      isTimed: boolean
-      timeLimitSeconds: number | null
+      timingMode: 'pace' | 'fixed' | 'untimed'
+      paceMultiplier: number | null
+      fixedTimeLimitSeconds: number | null
+      setFormat: UcatQuestionSetFormat
+      referenceBlueprintId: string
       isPrivate: boolean
     }
 
 type Step4CreateSetProps = {
   sectionId: string
+  questionCount: number
   addToSetEnabled: boolean
   onAddToSetEnabledChange: (value: boolean) => void
   addToSetConfig: AddToSetConfig | null
@@ -103,6 +115,7 @@ const SET_FILTER_DEFINITIONS: DataTableFilterDefinition[] = [
 
 export function Step4CreateSet({
   sectionId,
+  questionCount,
   addToSetEnabled,
   onAddToSetEnabledChange,
   addToSetConfig,
@@ -111,15 +124,46 @@ export function Step4CreateSet({
 }: Step4CreateSetProps) {
   const setsQuery = useUcatSets()
   const sectionsQuery = useUcatSections()
+  const blueprintsQuery = useUcatMockBlueprints()
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
   const [createNewSet, setCreateNewSet] = useState(false)
-  const [createName, setCreateName] = useState('')
+  const [createAuthoringNote, setCreateAuthoringNote] = useState('')
   const [createDescription, setCreateDescription] = useState('')
-  const [createIsTimed, setCreateIsTimed] = useState(true)
+  const [createTimeLimitSource, setCreateTimeLimitSource] = useState<SetTimeLimitSource>('paced')
+  const [createPaceMultiplier, setCreatePaceMultiplier] = useState(PACED_SPEED_DEFAULT)
   const [createTimeLimitMinutes, setCreateTimeLimitMinutes] = useState('')
   const [createTimeLimitSeconds, setCreateTimeLimitSeconds] = useState('')
+  const [createSetFormat, setCreateSetFormat] = useState<UcatQuestionSetFormat>('partial_section')
+  const [createReferenceBlueprintId, setCreateReferenceBlueprintId] = useState('')
   const [createIsPrivate, setCreateIsPrivate] = useState(false)
+
+  const section = (sectionsQuery.data ?? []).find((candidate) => candidate.id === sectionId)
+  const blueprintOptions = useMemo(
+    () => (blueprintsQuery.data ?? []).flatMap((blueprint) => {
+      if (!blueprint.id) return []
+      return [{
+        id: blueprint.id,
+        label: `${blueprint.code ?? 'Blueprint'} (${blueprint.test_year ?? '—'} v${blueprint.version ?? '—'})`,
+        sections: blueprint.sections,
+      }]
+    }),
+    [blueprintsQuery.data],
+  )
+  const blueprintSection = useMemo(() => {
+    const selected = blueprintOptions.find((blueprint) => blueprint.id === createReferenceBlueprintId)
+    if (!selected || !Array.isArray(selected.sections) || section?.section_number == null) return null
+    return selected.sections.find((candidate) => {
+      if (!candidate || typeof candidate !== 'object') return false
+      return (candidate as { sectionIndex?: unknown }).sectionIndex === section.section_number! - 1
+    }) as { answeringTimeSeconds?: number; exactQuestionCount?: number } | null
+  }, [blueprintOptions, createReferenceBlueprintId, section?.section_number])
+  const timePerQuestion =
+    blueprintSection?.answeringTimeSeconds != null
+    && blueprintSection.exactQuestionCount != null
+    && blueprintSection.exactQuestionCount > 0
+      ? blueprintSection.answeringTimeSeconds / blueprintSection.exactQuestionCount
+      : null
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (setsQuery.data ?? [])
@@ -196,18 +240,23 @@ export function Step4CreateSet({
   function handleCreateNewSetToggle(enabled: boolean) {
     setCreateNewSet(enabled)
     if (enabled) {
-      setCreateName('')
+      setCreateAuthoringNote('')
       setCreateDescription('')
-      setCreateIsTimed(true)
+      setCreateTimeLimitSource('paced')
+      setCreatePaceMultiplier(PACED_SPEED_DEFAULT)
       setCreateTimeLimitMinutes('')
       setCreateTimeLimitSeconds('')
+      setCreateSetFormat('partial_section')
       setCreateIsPrivate(false)
       onAddToSetConfigChange({
         mode: 'create',
-        name: '',
+        authoringNote: '',
         description: '',
-        isTimed: true,
-        timeLimitSeconds: null,
+        timingMode: 'pace',
+        paceMultiplier: PACED_SPEED_DEFAULT,
+        fixedTimeLimitSeconds: null,
+        setFormat: 'partial_section',
+        referenceBlueprintId: createReferenceBlueprintId,
         isPrivate: false,
       })
     } else {
@@ -216,32 +265,54 @@ export function Step4CreateSet({
   }
 
   function buildCreateConfig(overrides: {
-    name?: string
+    authoringNote?: string
     description?: string
-    isTimed?: boolean
+    timeLimitSource?: SetTimeLimitSource
+    paceMultiplier?: number
     timeLimitMinutes?: string
     timeLimitSeconds?: string
+    setFormat?: UcatQuestionSetFormat
+    referenceBlueprintId?: string
     isPrivate?: boolean
   } = {}): AddToSetConfig {
-    const name = overrides.name ?? createName
+    const authoringNote = overrides.authoringNote ?? createAuthoringNote
     const description = overrides.description ?? createDescription
-    const isTimed = overrides.isTimed ?? createIsTimed
+    const timeLimitSource = overrides.timeLimitSource ?? createTimeLimitSource
+    const paceMultiplier = overrides.paceMultiplier ?? createPaceMultiplier
     const mins = overrides.timeLimitMinutes ?? createTimeLimitMinutes
     const secs = overrides.timeLimitSeconds ?? createTimeLimitSeconds
+    const setFormat = overrides.setFormat ?? createSetFormat
+    const referenceBlueprintId = overrides.referenceBlueprintId ?? createReferenceBlueprintId
     const isPrivate = overrides.isPrivate ?? createIsPrivate
-    const totalSeconds =
-      isTimed && (mins.trim() || secs.trim())
-        ? (parseInt(mins, 10) || 0) * 60 + (parseInt(secs, 10) || 0)
-        : null
+    const fixedTimeLimitSeconds = resolveSetTimeLimitSeconds({
+      source: timeLimitSource,
+      timePerQuestion,
+      questionCount,
+      speed: paceMultiplier,
+      customMinutes: mins,
+      customSeconds: secs,
+    })
     return {
       mode: 'create',
-      name: name.trim(),
+      authoringNote: authoringNote.trim(),
       description: description.trim(),
-      isTimed,
-      timeLimitSeconds: totalSeconds,
+      timingMode: timeLimitSource === 'custom' ? 'fixed' : timeLimitSource === 'paced' ? 'pace' : 'untimed',
+      paceMultiplier: timeLimitSource === 'paced' ? paceMultiplier : null,
+      fixedTimeLimitSeconds: timeLimitSource === 'custom' ? fixedTimeLimitSeconds : null,
+      setFormat,
+      referenceBlueprintId,
       isPrivate,
     }
   }
+
+  useEffect(() => {
+    if (!createNewSet || createReferenceBlueprintId || blueprintOptions.length === 0) return
+    const referenceBlueprintId = blueprintOptions[0].id
+    setCreateReferenceBlueprintId(referenceBlueprintId)
+    onAddToSetConfigChange(buildCreateConfig({ referenceBlueprintId }))
+    // Initialise the visible blueprint selection when the catalog arrives.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [blueprintOptions, createNewSet, createReferenceBlueprintId])
 
   return (
     <div className="space-y-6">
@@ -275,15 +346,51 @@ export function Step4CreateSet({
           <SegmentedTabPanelContent when="create" activeTab={createNewSet ? 'create' : 'existing'} className="mt-4 space-y-4">
               <h3 className="font-medium">New set details</h3>
               <label className="block text-sm">
-                <span className="mb-1 block font-medium">Name</span>
+                <span className="mb-1 block font-medium">Tutor note</span>
                 <Input
-                  value={createName}
+                  value={createAuthoringNote}
                   onChange={(e) => {
                     const v = e.target.value
-                    setCreateName(v)
-                    onAddToSetConfigChange(buildCreateConfig({ name: v }))
+                    setCreateAuthoringNote(v)
+                    onAddToSetConfigChange(buildCreateConfig({ authoringNote: v }))
                   }}
-                  placeholder="Set name"
+                  placeholder="Optional internal note"
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Format</span>
+                <SearchableSelect<{ value: UcatQuestionSetFormat; label: string }>
+                  items={[
+                    { value: 'partial_section', label: 'Partial section' },
+                    { value: 'full_section', label: 'Full section' },
+                  ]}
+                  value={createSetFormat === 'full_section'
+                    ? { value: 'full_section', label: 'Full section' }
+                    : { value: 'partial_section', label: 'Partial section' }}
+                  onValueChange={(item) => {
+                    if (!item) return
+                    setCreateSetFormat(item.value)
+                    onAddToSetConfigChange(buildCreateConfig({ setFormat: item.value }))
+                  }}
+                  getItemLabel={(item) => item.label}
+                  getItemId={(item) => item.value}
+                  fullWidth
+                />
+              </label>
+              <label className="block text-sm">
+                <span className="mb-1 block font-medium">Reference blueprint</span>
+                <SearchableSelect<(typeof blueprintOptions)[number]>
+                  items={blueprintOptions}
+                  value={blueprintOptions.find((item) => item.id === createReferenceBlueprintId) ?? null}
+                  onValueChange={(item) => {
+                    const referenceBlueprintId = item?.id ?? ''
+                    setCreateReferenceBlueprintId(referenceBlueprintId)
+                    onAddToSetConfigChange(buildCreateConfig({ referenceBlueprintId }))
+                  }}
+                  getItemLabel={(item) => item.label}
+                  getItemId={(item) => item.id}
+                  placeholder="Select blueprint"
+                  fullWidth
                 />
               </label>
               <label className="block text-sm">
@@ -299,82 +406,33 @@ export function Step4CreateSet({
                   placeholder="Optional description"
                 />
               </label>
-              <label className="block text-sm">
-                <div className="mb-2 flex items-center justify-between">
-                  <span className="font-medium">Time limit</span>
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-muted-foreground">Untimed</span>
-                    <Switch
-                      checked={createIsTimed}
-                      onCheckedChange={(v) => {
-                        setCreateIsTimed(v)
-                        if (!v) {
-                          setCreateTimeLimitMinutes('')
-                          setCreateTimeLimitSeconds('')
-                          onAddToSetConfigChange(buildCreateConfig({ isTimed: false, timeLimitMinutes: '', timeLimitSeconds: '' }))
-                        } else {
-                          onAddToSetConfigChange(buildCreateConfig({ isTimed: true }))
-                        }
-                      }}
-                    />
-                    <span className="text-xs text-muted-foreground">Timed</span>
-                  </div>
-                </div>
-                {createIsTimed && (
-                <div className="flex flex-wrap items-center gap-2">
-                  <Input
-                    type="number"
-                    min={0}
-                    placeholder="0"
-                    className="w-20"
-                    value={createTimeLimitMinutes}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setCreateTimeLimitMinutes(v)
-                      onAddToSetConfigChange(buildCreateConfig({ timeLimitMinutes: v }))
-                    }}
-                  />
-                  <span className="text-muted-foreground font-medium">:</span>
-                  <Input
-                    type="number"
-                    min={0}
-                    max={59}
-                    placeholder="0"
-                    className="w-20"
-                    value={createTimeLimitSeconds}
-                    onChange={(e) => {
-                      const v = e.target.value
-                      setCreateTimeLimitSeconds(v)
-                      onAddToSetConfigChange(buildCreateConfig({ timeLimitSeconds: v }))
-                    }}
-                  />
-                  {(sectionsQuery.data ?? []).filter((s) => s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0).length > 0 && (
-                    <SearchableSelect<{ id: string; name: string }>
-                      items={(sectionsQuery.data ?? [])
-                        .filter((s): s is typeof s & { id: string; time_limit_seconds: number } =>
-                          s.id != null && s.time_limit_seconds != null && s.time_limit_seconds > 0
-                        )
-                        .map((s) => ({ id: s.id!, name: `${s.name ?? 'Unknown'} (${formatSecondsToDuration(s.time_limit_seconds)})` }))}
-                      value={null}
-                      onValueChange={(sec) => {
-                        if (!sec) return
-                        const section = (sectionsQuery.data ?? []).find((s) => s.id === sec.id)
-                        if (section?.time_limit_seconds != null) {
-                          const { minutes, seconds } = secondsToMinutesAndSeconds(section.time_limit_seconds)
-                          setCreateTimeLimitMinutes(minutes)
-                          setCreateTimeLimitSeconds(seconds)
-                          onAddToSetConfigChange(buildCreateConfig({ timeLimitMinutes: minutes, timeLimitSeconds: seconds }))
-                        }
-                      }}
-                      getItemLabel={(s) => s.name}
-                      getItemId={(s) => s.id}
-                      placeholder="Use section time"
-                      triggerClassName="w-[180px]"
-                    />
-                  )}
-                </div>
-                )}
-              </label>
+              <div className="block text-sm">
+                <span className="mb-1 block font-medium">Time limit</span>
+                <UcatSetTimeLimitFields
+                  source={createTimeLimitSource}
+                  speed={createPaceMultiplier}
+                  minutes={createTimeLimitMinutes}
+                  seconds={createTimeLimitSeconds}
+                  questionCount={questionCount}
+                  timePerQuestion={timePerQuestion}
+                  onChangeSource={(value) => {
+                    setCreateTimeLimitSource(value)
+                    onAddToSetConfigChange(buildCreateConfig({ timeLimitSource: value }))
+                  }}
+                  onChangeSpeed={(value) => {
+                    setCreatePaceMultiplier(value)
+                    onAddToSetConfigChange(buildCreateConfig({ paceMultiplier: value }))
+                  }}
+                  onChangeMinutes={(value) => {
+                    setCreateTimeLimitMinutes(value)
+                    onAddToSetConfigChange(buildCreateConfig({ timeLimitMinutes: value }))
+                  }}
+                  onChangeSeconds={(value) => {
+                    setCreateTimeLimitSeconds(value)
+                    onAddToSetConfigChange(buildCreateConfig({ timeLimitSeconds: value }))
+                  }}
+                />
+              </div>
               <label className="block text-sm">
                 <span className="mb-1 block font-medium">Visibility</span>
                 <SearchableSelect<{ value: 'public' | 'private'; label: string }>

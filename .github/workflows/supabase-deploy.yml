@@ -25,6 +25,9 @@ jobs:
     environment: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     env:
       SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+      UCAT_EMAIL_DISPATCH_SECRET_KEY: ${{ secrets.UCAT_EMAIL_DISPATCH_SECRET_KEY }}
+      POSTHOG_PROJECT_TOKEN: ${{ secrets.POSTHOG_PROJECT_TOKEN }}
+      POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
       # deploy-config.sh uses this to pick default portal URLs and localhost auth redirects
       SUPABASE_CONFIG_ENV: ${{ github.ref_name == 'main' && 'production' || 'development' }}
     steps:
@@ -53,6 +56,26 @@ jobs:
       - name: Link project
         run: supabase link --project-ref $SUPABASE_PROJECT_ID
 
+      - name: Require production transactional email authentication
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "$UCAT_EMAIL_DISPATCH_SECRET_KEY" ]; then
+            echo "UCAT_EMAIL_DISPATCH_SECRET_KEY is required in the production GitHub Environment." >&2
+            exit 1
+          fi
+
+      - name: Require production PostHog capture configuration
+        if: github.ref == 'refs/heads/main'
+        run: |
+          if [ -z "$POSTHOG_PROJECT_TOKEN" ]; then
+            echo "POSTHOG_PROJECT_TOKEN is required in the production GitHub Environment." >&2
+            exit 1
+          fi
+          if [ -z "$POSTHOG_HOST" ]; then
+            echo "POSTHOG_HOST is required in the production GitHub Environment." >&2
+            exit 1
+          fi
+
       - name: Push migrations
         timeout-minutes: 35
         # --include-all applies local migrations inserted before the remote's
@@ -65,6 +88,26 @@ jobs:
           migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
           PGPASSWORD="$SUPABASE_DB_PASSWORD" supabase db push --db-url "$migration_db_url" --include-all
 
+      - name: Synchronize transactional email authentication
+        if: env.UCAT_EMAIL_DISPATCH_SECRET_KEY != ''
+        run: |
+          supabase secrets set \
+            --project-ref "$SUPABASE_PROJECT_ID" \
+            UCAT_EMAIL_DISPATCH_SECRET_KEY="$UCAT_EMAIL_DISPATCH_SECRET_KEY"
+          migration_db_url="$(node supabase/scripts/migration-database-url.mjs supabase/.temp/pooler-url)"
+          PGPASSWORD="$SUPABASE_DB_PASSWORD" psql \
+            "$migration_db_url" \
+            --set=dispatch_secret="$UCAT_EMAIL_DISPATCH_SECRET_KEY" \
+            --file=supabase/scripts/sync-ucat-email-dispatch-secret.sql
+
+      - name: Synchronize PostHog capture configuration
+        if: env.POSTHOG_PROJECT_TOKEN != '' && env.POSTHOG_HOST != ''
+        run: |
+          supabase secrets set \
+            --project-ref "$SUPABASE_PROJECT_ID" \
+            POSTHOG_PROJECT_TOKEN="$POSTHOG_PROJECT_TOKEN" \
+            POSTHOG_HOST="$POSTHOG_HOST"
+
       - name: Lint remote schema (post-push)
         run: supabase db lint --linked --level error --fail-on error
 
@@ -72,8 +115,14 @@ jobs:
         if: ${{ contains(github.event.head_commit.message, '[skip-functions]') == false }}
         run: |
           if [ -d "supabase/functions" ]; then
-            for fn in $(ls supabase/functions); do
-              supabase functions deploy --no-verify-jwt "$fn" --project-ref $SUPABASE_PROJECT_ID || true
+            for function_dir in supabase/functions/*/; do
+              fn="${function_dir%/}"
+              fn="${fn##*/}"
+              case "$fn" in _*) continue ;; esac
+              if [ ! -f "${function_dir}index.ts" ]; then
+                continue
+              fi
+              supabase functions deploy --no-verify-jwt "$fn" --project-ref "$SUPABASE_PROJECT_ID"
             done
           fi
 
@@ -147,3 +196,25 @@ jobs:
             --archive=tgz \
             --token="$VERCEL_TOKEN")"
           echo "Deployed ${{ matrix.app }}: $deployment_url" >> "$GITHUB_STEP_SUMMARY"
+
+  smoke-production:
+    name: Smoke production web apps
+    needs: deploy-web
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Verify public production boundaries
+        run: node scripts/production-web-smoke.mjs
+        env:
+          ADMIN_PRODUCTION_BASE_URL: https://admin.altitutor.com
+          MARKETING_PRODUCTION_BASE_URL: https://altitutor.com
+          STUDENT_PRODUCTION_BASE_URL: https://student.altitutor.com
+          TUTOR_PRODUCTION_BASE_URL: https://tutor.altitutor.com
+          UCAT_PRODUCTION_BASE_URL: https://ucat.altitutor.com

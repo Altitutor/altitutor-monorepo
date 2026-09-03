@@ -266,14 +266,14 @@ export function MockDetailPage({
     >
       <motion.div variants={itemVariants}>
         <UcatPageHeader
-          title={mock.name ?? "Mock exam"}
+          title={mock.display_name ?? mock.name ?? "Mock exam"}
           description="This mock opens the full UCAT-style exam interface using all the sets included in it."
           backHref={backHref}
           backLabel={backLabel}
           breadcrumbOverrides={buildMockBreadcrumbOverrides(
             sessionEntryContext,
             breadcrumbLeafSegmentIndex,
-            mock.name ?? "Mock",
+            mock.display_name ?? mock.name ?? "Mock",
           )}
         />
       </motion.div>
@@ -299,7 +299,8 @@ export function MockDetailPage({
                     className="mt-2 flex w-full items-center justify-between gap-6 pl-4"
                   >
                     <span className="text-sm text-muted-foreground">
-                      {set.name}
+                      <span className="hidden sm:inline">{set.name}</span>
+                      <span className="sm:hidden">{set.compactName}</span>
                     </span>
                     <span className="text-right text-sm font-medium tabular-nums">
                       {formatExamDurationSeconds(set.timeLimitSeconds)}
@@ -325,11 +326,7 @@ export function MockDetailPage({
       </motion.div>
 
       {attempts.length > 0 ? (
-        <motion.section
-          aria-labelledby={attemptsHeadingId}
-          className="space-y-4"
-          variants={itemVariants}
-        >
+        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -408,7 +405,7 @@ export function MockDetailPage({
                 : `Show all ${attempts.length} attempts`}
             </Button>
           ) : null}
-        </motion.section>
+        </section>
       ) : null}
 
       <ExamAttemptConflictDialog

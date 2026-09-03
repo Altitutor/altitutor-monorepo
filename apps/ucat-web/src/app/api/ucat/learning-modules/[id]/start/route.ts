@@ -9,8 +9,13 @@ import { ensureLessonStarted } from "@/lib/ucat/learning/progress-service";
 
 type RouteContext = { params: Promise<{ id: string }> };
 
-export async function POST(_request: NextRequest, context: RouteContext) {
+export async function POST(request: NextRequest, context: RouteContext) {
   const { id } = await context.params;
+  const body = (await request.json().catch(() => ({}))) as {
+    studyPlanTaskId?: unknown;
+  };
+  const studyPlanTaskId =
+    typeof body.studyPlanTaskId === "string" ? body.studyPlanTaskId : null;
   const auth = await requireStudentAdminClient();
   if (!auth.ok) return auth.response;
 
@@ -40,7 +45,12 @@ export async function POST(_request: NextRequest, context: RouteContext) {
   }
 
   try {
-    const result = await ensureLessonStarted(auth.admin, auth.studentId, id);
+    const result = await ensureLessonStarted(
+      auth.admin,
+      auth.studentId,
+      id,
+      studyPlanTaskId,
+    );
     return NextResponse.json(result);
   } catch (error) {
     const message =

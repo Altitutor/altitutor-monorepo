@@ -126,7 +126,7 @@ export function SetDetailPage({
     kind: "set",
     resourceId: setId,
     title:
-      (set && extractTextFromRichJson(set.name as JsonLike)) || "Question set",
+      set?.display_name || (set && extractTextFromRichJson(set.name as JsonLike)) || "Question set",
     exitHref: backHref,
   });
   const launchPreflight = useExamAttemptLaunchPreflight({
@@ -212,7 +212,7 @@ export function SetDetailPage({
   }
 
   const title =
-    extractTextFromRichJson(set.name as JsonLike) ||
+    set.display_name || extractTextFromRichJson(set.name as JsonLike) ||
     extractTextFromRichJson(set.description as JsonLike) ||
     "Question set";
 
@@ -289,11 +289,7 @@ export function SetDetailPage({
       </motion.div>
 
       {attempts.length > 0 ? (
-        <motion.section
-          aria-labelledby={attemptsHeadingId}
-          className="space-y-4"
-          variants={itemVariants}
-        >
+        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -358,7 +354,7 @@ export function SetDetailPage({
                 : `Show all ${attempts.length} attempts`}
             </Button>
           ) : null}
-        </motion.section>
+        </section>
       ) : null}
 
       <ExamAttemptConflictDialog

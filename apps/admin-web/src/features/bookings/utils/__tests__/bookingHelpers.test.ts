@@ -53,7 +53,7 @@ describe('formatStudentDisplay', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -99,7 +99,7 @@ describe('formatStudentDisplay', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');
@@ -189,6 +189,13 @@ describe('getBookingSteps', () => {
     expect(steps[1].id).toBe('time');
     expect(steps[2].id).toBe('staff');
     expect(steps[3].id).toBe('confirm');
+  });
+
+  it('should use the create-student step for subsidy when allowCreateStudent is set', () => {
+    const steps = getBookingSteps('SUBSIDY_INTERVIEW', null, { allowCreateStudent: true });
+
+    expect(steps[0].id).toBe('trial-contact');
+    expect(steps[0].title).toBe('Select or Create Student');
   });
 
   it('should show "Confirm Reschedule" when originalSessionId is provided', () => {

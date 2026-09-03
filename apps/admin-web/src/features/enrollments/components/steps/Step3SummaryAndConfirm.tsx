@@ -8,7 +8,7 @@ import { cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays, isBefore, startOfDay } from 'date-fns';
-import { formatDate } from '@/shared/utils/datetime';
+import { formatDate, combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
@@ -81,8 +81,11 @@ export function Step3SummaryAndConfirm({
     // Create a mock session object for the first session
     // Format: YYYY-MM-DDTHH:MM:SS (Adelaide local time, will be parsed correctly)
     const dateStr = firstSessionDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
-    const sessionStart = `${dateStr}T${selectedClass.start_time}:00`;
-    const sessionEnd = `${dateStr}T${selectedClass.end_time}:00`;
+    const sessionStart = combineLocalDateAndTime(dateStr, selectedClass.start_time);
+    const sessionEnd = combineLocalDateAndTime(dateStr, selectedClass.end_time);
+    if (!sessionStart || !sessionEnd) {
+      return null;
+    }
 
     const mockSession = {
       billing_type: 'CLASS' as const, // Classes always have CLASS billing type

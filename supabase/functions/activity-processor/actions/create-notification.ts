@@ -101,7 +101,7 @@ export async function executeCreateNotification(
   const notificationsToInsert = scopedRecipients.map((recipient) => ({
     staff_id: recipient.staff_id || null,
     student_id: recipient.student_id || null,
-    activity_event_id: activityEvent.id,
+    domain_event_id: activityEvent.domain_event_id || null,
     notification_type: config.notification_type,
     app_scope: config.app_scope || (recipient.student_id ? 'student_web' : 'staff_web'),
     title,

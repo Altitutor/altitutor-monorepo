@@ -1,16 +1,10 @@
 import { useState } from 'react';
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { Separator } from "@altitutor/ui";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@altitutor/ui";
+import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
+import { Label } from '@altitutor/ui';
+import { Badge } from '@altitutor/ui';
+import { Separator } from '@altitutor/ui';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@altitutor/ui';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,14 +20,15 @@ import {
   TooltipProvider,
   TooltipTrigger,
   useToast,
-} from "@altitutor/ui";
-import type { Tables } from "@altitutor/shared";
+} from '@altitutor/ui';
+import type { Tables } from '@altitutor/shared';
 import { Pencil, Loader2, Trash2, X, Copy, Check, UserPlus } from 'lucide-react';
 import { PhoneInput } from '@altitutor/ui';
 import { ParentCard } from '@/shared/components/ParentCard';
 import { useParentStudents } from '../../hooks/useStudentsQuery';
 import { SendStudentInviteDialog } from '../SendStudentInviteDialog';
 import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 export interface DetailsFormData {
   // Student details
@@ -42,7 +37,7 @@ export interface DetailsFormData {
   email: string;
   phone: string;
   birthday: string;
-  analyticsAccountClass?: 'external' | 'internal_test';
+  accountClass?: 'external' | 'internal_test';
 }
 
 interface DetailsTabProps {
@@ -87,7 +82,7 @@ export function DetailsTab({
   addParentButton,
 }: DetailsTabProps) {
   // Fetch students for each parent using React Query
-  const parentIds = parents.map(p => p.id);
+  const parentIds = parents.map((p) => p.id);
   const { data: parentStudents = {} } = useParentStudents(parentIds, !isEditing && parents.length > 0);
   const { toast } = useToast();
 
@@ -103,10 +98,7 @@ export function DetailsTab({
     email: student.email || '',
     phone: student.phone || '',
     birthday: student.birthday || '',
-    analyticsAccountClass:
-      student.ucat_analytics_account_class === 'internal_test'
-        ? 'internal_test'
-        : 'external',
+    accountClass: student.account_class === 'internal_test' ? 'internal_test' : 'external',
   });
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -115,296 +107,288 @@ export function DetailsTab({
   };
 
   const handleInputChange = (field: keyof DetailsFormData, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
+    setFormData((prev) => ({ ...prev, [field]: value }));
   };
 
   if (isEditing) {
     const studentFullName = `${student.first_name} ${student.last_name}`;
-    
+
     return (
       <>
         <div className="flex-1 overflow-y-auto">
           <form id="student-edit-form" onSubmit={handleSubmit} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name *</Label>
-                  <Input
-                    id="firstName"
-                    value={formData.firstName}
-                    onChange={(e) => handleInputChange('firstName', e.target.value)}
-                    required
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="lastName">Last Name *</Label>
-                  <Input
-                    id="lastName"
-                    value={formData.lastName}
-                    onChange={(e) => handleInputChange('lastName', e.target.value)}
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">Student Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={formData.email || ''}
-                    onChange={(e) => handleInputChange('email', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">Student Phone</Label>
-                  <PhoneInput
-                    value={formData.phone || ''}
-                    onChange={(value) => handleInputChange('phone', value)}
-                  />
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="birthday">Birthday</Label>
+            <PropertyForm>
+              <PropertyFormRow label="First Name *" htmlFor="student-first-name">
                 <Input
-                  id="birthday"
+                  id="student-first-name"
+                  value={formData.firstName}
+                  onChange={(e) => handleInputChange('firstName', e.target.value)}
+                  required
+                />
+              </PropertyFormRow>
+              <PropertyFormRow label="Last Name *" htmlFor="student-last-name">
+                <Input
+                  id="student-last-name"
+                  value={formData.lastName}
+                  onChange={(e) => handleInputChange('lastName', e.target.value)}
+                  required
+                />
+              </PropertyFormRow>
+              <PropertyFormRow label="Student Email" htmlFor="student-email">
+                <Input
+                  id="student-email"
+                  type="email"
+                  value={formData.email || ''}
+                  onChange={(e) => handleInputChange('email', e.target.value)}
+                />
+              </PropertyFormRow>
+              <PropertyFormRow label="Student Phone" htmlFor="student-phone">
+                <PhoneInput
+                  id="student-phone"
+                  value={formData.phone || ''}
+                  onChange={(value) => handleInputChange('phone', value)}
+                />
+              </PropertyFormRow>
+              <PropertyFormRow label="Birthday" htmlFor="student-birthday">
+                <Input
+                  id="student-birthday"
                   type="date"
                   value={formData.birthday || ''}
                   max={new Date().toISOString().slice(0, 10)}
                   onChange={(e) => handleInputChange('birthday', e.target.value)}
                 />
-              </div>
-
-              <div>
-                <Label htmlFor="analytics-account-class">
-                  Analytics account class
-                </Label>
+              </PropertyFormRow>
+              <PropertyFormRow label="Account class" htmlFor="student-account-class" valueClassName="space-y-1">
                 <Select
-                  value={formData.analyticsAccountClass}
+                  value={formData.accountClass}
                   onValueChange={(value: 'external' | 'internal_test') =>
                     setFormData((previous) => ({
                       ...previous,
-                      analyticsAccountClass: value,
+                      accountClass: value,
                     }))
                   }
                 >
-                  <SelectTrigger id="analytics-account-class">
+                  <SelectTrigger id="student-account-class" className="w-full">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="external">External customer</SelectItem>
-                    <SelectItem value="internal_test">
-                      Internal / friend / test account
-                    </SelectItem>
+                    <SelectItem value="internal_test">Internal / friend / test account</SelectItem>
                   </SelectContent>
                 </Select>
                 <p className="mt-1 text-xs text-muted-foreground">
-                  Internal/test accounts are excluded from UCAT acquisition,
-                  conversion, and retention reporting.
+                  Internal/test accounts are excluded from UCAT acquisition, conversion, and retention reporting.
                 </p>
-              </div>
+              </PropertyFormRow>
+            </PropertyForm>
 
-              <Separator className="my-6" />
+            <Separator className="my-6" />
 
-              {/* Parents Section */}
-              <div>
-                <Label>Parents</Label>
-                <div className="space-y-2 mt-2">
-                  {parents.length > 0 ? (
-                    <div className="flex flex-wrap gap-2">
-                      {parents.map((parent) => (
-                        <div key={parent.id} className="flex items-center gap-1">
-                          <Badge
-                            variant="outline"
-                            className="cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1"
-                            onClick={() => onViewParent?.(parent.id)}
-                          >
-                            <span>{parent.first_name} {parent.last_name}</span>
-                            {onRemoveParent && (
-                              <button
-                                type="button"
-                                className="remove-parent-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  onRemoveParent(parent.id);
-                                }}
-                              >
-                                <X className="h-3 w-3" />
-                              </button>
-                            )}
-                          </Badge>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
-                  )}
-                  {addParentButton}
-                </div>
-              </div>
-
-              {/* Account Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Account</h3>
-                {(() => {
-                  const isRegistered = student.status === 'ACTIVE';
-                  const hasAccount = !!student.user_id;
-                  
-                  // Case 1: Registered but no account -> Send Invite
-                  if (isRegistered && !hasAccount) {
-                    return (
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          This student has completed registration but does not have an associated user account yet. Send them an invite to create one.
-                        </p>
-                        
-                        <Button
-                          variant="default"
-                          onClick={() => {
-                            setInviteDialogType('invite');
-                            setInviteDialogOpen(true);
-                          }}
-                          className="justify-start w-fit"
+            {/* Parents Section */}
+            <div>
+              <Label>Parents</Label>
+              <div className="space-y-2 mt-2">
+                {parents.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {parents.map((parent) => (
+                      <div key={parent.id} className="flex items-center gap-1">
+                        <Badge
+                          variant="outline"
+                          className="cursor-pointer hover:opacity-80 flex items-center gap-1 pr-1"
+                          onClick={() => onViewParent?.(parent.id)}
                         >
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Send Invite
-                        </Button>
-
-                        <SendStudentInviteDialog
-                          isOpen={inviteDialogOpen}
-                          onClose={() => setInviteDialogOpen(false)}
-                          student={student}
-                          linkType={inviteDialogType}
-                        />
+                          <span>
+                            {parent.first_name} {parent.last_name}
+                          </span>
+                          {onRemoveParent && (
+                            <button
+                              type="button"
+                              className="remove-parent-btn ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                onRemoveParent(parent.id);
+                              }}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          )}
+                        </Badge>
                       </div>
-                    );
-                  }
-                  
-                  // Case 2: No account and not registered -> Send Registration Link
-                  if (!hasAccount && !isRegistered) {
-                    return (
-                      <div className="space-y-4">
-                        <p className="text-sm text-muted-foreground">
-                          This student has not completed registration. Send them a registration link to complete account setup and registration.
-                        </p>
-                        
-                        <Button
-                          variant="default"
-                          onClick={() => {
-                            setInviteDialogType('registration');
-                            setInviteDialogOpen(true);
-                          }}
-                          className="justify-start w-fit"
-                        >
-                          <UserPlus className="mr-2 h-4 w-4" />
-                          Send Registration Link
-                        </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm text-muted-foreground">No parents assigned to this student</p>
+                )}
+                {addParentButton}
+              </div>
+            </div>
 
-                        <SendStudentInviteDialog
-                          isOpen={inviteDialogOpen}
-                          onClose={() => setInviteDialogOpen(false)}
-                          student={student}
-                          linkType={inviteDialogType}
-                        />
-                      </div>
-                    );
-                  }
-                  
-                  // Case 3: Has account -> Show Reset Password
+            {/* Account Section */}
+            <div>
+              <h3 className="text-lg font-semibold mb-4">Account</h3>
+              {(() => {
+                const isRegistered = student.status === 'ACTIVE';
+                const hasAccount = !!student.user_id;
+
+                // Case 1: Registered but no account -> Send Invite
+                if (isRegistered && !hasAccount) {
                   return (
-                    <AdminPasswordResetSection
-                      userId={student.user_id}
-                      email={student.email}
-                      userType="student"
-                      displayName={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student'}
-                      recipients={[
-                        {
-                          type: 'student',
-                          id: student.id,
-                          label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student',
-                          value: student.phone,
-                        },
-                        ...parents.map((parent) => ({
-                          type: 'parent' as const,
-                          id: parent.id,
-                          label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent',
-                          value: parent.phone,
-                        })),
-                      ]}
-                    />
-                  );
-                })()}
-              </div>
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        This student has completed registration but does not have an associated user account yet. Send
+                        them an invite to create one.
+                      </p>
 
-              {onDelete && (
-                <>
-                  <Separator className="my-6" />
-                  <div className="pt-4">
-                    <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
+                      <Button
+                        variant="default"
+                        onClick={() => {
+                          setInviteDialogType('invite');
+                          setInviteDialogOpen(true);
+                        }}
+                        className="justify-start w-fit"
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Send Invite
+                      </Button>
+
+                      <SendStudentInviteDialog
+                        isOpen={inviteDialogOpen}
+                        onClose={() => setInviteDialogOpen(false)}
+                        student={student}
+                        linkType={inviteDialogType}
+                      />
+                    </div>
+                  );
+                }
+
+                // Case 2: No account and not registered -> Send Registration Link
+                if (!hasAccount && !isRegistered) {
+                  return (
+                    <div className="space-y-4">
+                      <p className="text-sm text-muted-foreground">
+                        This student has not completed registration. Send them a registration link to complete account
+                        setup and registration.
+                      </p>
+
+                      <Button
+                        variant="default"
+                        onClick={() => {
+                          setInviteDialogType('registration');
+                          setInviteDialogOpen(true);
+                        }}
+                        className="justify-start w-fit"
+                      >
+                        <UserPlus className="mr-2 h-4 w-4" />
+                        Send Registration Link
+                      </Button>
+
+                      <SendStudentInviteDialog
+                        isOpen={inviteDialogOpen}
+                        onClose={() => setInviteDialogOpen(false)}
+                        student={student}
+                        linkType={inviteDialogType}
+                      />
+                    </div>
+                  );
+                }
+
+                // Case 3: Has account -> Show Reset Password
+                return (
+                  <AdminPasswordResetSection
+                    userId={student.user_id}
+                    email={student.email}
+                    userType="student"
+                    displayName={`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student'}
+                    recipients={[
+                      {
+                        type: 'student',
+                        id: student.id,
+                        label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Student',
+                        value: student.phone,
+                      },
+                      ...parents.map((parent) => ({
+                        type: 'parent' as const,
+                        id: parent.id,
+                        label: `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent',
+                        value: parent.phone,
+                      })),
+                    ]}
+                  />
+                );
+              })()}
+            </div>
+
+            {onDelete && (
+              <>
+                <Separator className="my-6" />
+                <div className="pt-4">
+                  <AlertDialog
+                    open={isDeleteDialogOpen}
+                    onOpenChange={(open) => {
                       setIsDeleteDialogOpen(open);
                       if (!open) {
                         setDeleteConfirmText('');
                       }
-                    }}>
-                      <AlertDialogTrigger asChild>
-                        <Button variant="destructive" type="button" className="flex items-center w-full">
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete Student
-                        </Button>
-                      </AlertDialogTrigger>
-                      <AlertDialogContent>
-                        <AlertDialogHeader>
-                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                          <AlertDialogDescription>
-                            This action cannot be undone. This will permanently delete the student
-                            "{studentFullName}" and all associated data from the database.
-                          </AlertDialogDescription>
-                        </AlertDialogHeader>
-                        <div className="py-4">
-                          <div className="space-y-2">
-                            <Label>
-                              Type <strong>{studentFullName}</strong> to confirm deletion
-                            </Label>
-                            <Input
-                              type="text"
-                              placeholder={studentFullName}
-                              value={deleteConfirmText}
-                              onChange={(e) => setDeleteConfirmText(e.target.value)}
-                              className="mt-2"
-                            />
-                          </div>
+                    }}
+                  >
+                    <AlertDialogTrigger asChild>
+                      <Button variant="destructive" type="button" className="flex items-center w-full">
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete Student
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This action cannot be undone. This will permanently delete the student "{studentFullName}" and
+                          all associated data from the database.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <div className="py-4">
+                        <div className="space-y-2">
+                          <Label>
+                            Type <strong>{studentFullName}</strong> to confirm deletion
+                          </Label>
+                          <Input
+                            type="text"
+                            placeholder={studentFullName}
+                            value={deleteConfirmText}
+                            onChange={(e) => setDeleteConfirmText(e.target.value)}
+                            className="mt-2"
+                          />
                         </div>
-                        <AlertDialogFooter>
-                          <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
-                            onClick={() => {
-                              if (onDelete) {
-                                onDelete();
-                                setIsDeleteDialogOpen(false);
-                                setDeleteConfirmText('');
-                              }
-                            }}
-                            disabled={isDeleting || deleteConfirmText !== studentFullName}
-                            className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
-                          >
-                            {isDeleting ? (
-                              <>
-                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                Deleting...
-                              </>
-                            ) : (
-                              'Delete'
-                            )}
-                          </AlertDialogAction>
-                        </AlertDialogFooter>
-                      </AlertDialogContent>
-                    </AlertDialog>
-                  </div>
-                </>
-              )}
-            </form>
-          </div>
+                      </div>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => {
+                            if (onDelete) {
+                              onDelete();
+                              setIsDeleteDialogOpen(false);
+                              setDeleteConfirmText('');
+                            }
+                          }}
+                          disabled={isDeleting || deleteConfirmText !== studentFullName}
+                          className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {isDeleting ? (
+                            <>
+                              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                              Deleting...
+                            </>
+                          ) : (
+                            'Delete'
+                          )}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </>
+            )}
+          </form>
+        </div>
       </>
     );
   }
@@ -464,12 +448,12 @@ export function DetailsTab({
         <div>
           <TruncatedText text={student.first_name || '-'} />
         </div>
-        
+
         <div className="text-sm font-medium">Last Name:</div>
         <div>
           <TruncatedText text={student.last_name || '-'} />
         </div>
-        
+
         <div className="text-sm font-medium">Student Email:</div>
         <div className="flex items-center gap-2">
           <TruncatedText text={student.email || '-'} className="flex-1 min-w-0" />
@@ -480,15 +464,11 @@ export function DetailsTab({
               className="h-6 w-6 flex-shrink-0"
               onClick={() => handleCopy(student.email!, 'email')}
             >
-              {copiedField === 'email' ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
+              {copiedField === 'email' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             </Button>
           )}
         </div>
-        
+
         <div className="text-sm font-medium">Student Phone:</div>
         <div className="flex items-center gap-2">
           <TruncatedText text={student.phone || '-'} className="flex-1 min-w-0" />
@@ -499,11 +479,7 @@ export function DetailsTab({
               className="h-6 w-6 flex-shrink-0"
               onClick={() => handleCopy(student.phone!, 'phone')}
             >
-              {copiedField === 'phone' ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
+              {copiedField === 'phone' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             </Button>
           )}
         </div>
@@ -513,15 +489,12 @@ export function DetailsTab({
           <TruncatedText text={student.birthday || '-'} />
         </div>
 
-        <div className="text-sm font-medium">Analytics:</div>
+        <div className="text-sm font-medium">Account class:</div>
         <div>
           <Badge variant="outline">
-            {student.ucat_analytics_account_class === 'internal_test'
-              ? 'Internal / test'
-              : 'External customer'}
+            {student.account_class === 'internal_test' ? 'Internal / test' : 'External customer'}
           </Badge>
         </div>
-        
       </div>
 
       <Separator className="my-6" />
@@ -553,15 +526,16 @@ export function DetailsTab({
         {(() => {
           const isRegistered = student.status === 'ACTIVE';
           const hasAccount = !!student.user_id;
-          
+
           // Case 1: Registered but no account -> Send Invite
           if (isRegistered && !hasAccount) {
             return (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  This student has completed registration but does not have an associated user account yet. Send them an invite to create one.
+                  This student has completed registration but does not have an associated user account yet. Send them an
+                  invite to create one.
                 </p>
-                
+
                 <Button
                   variant="default"
                   onClick={() => {
@@ -583,15 +557,16 @@ export function DetailsTab({
               </div>
             );
           }
-          
+
           // Case 2: No account and not registered -> Send Registration Link
           if (!hasAccount && !isRegistered) {
             return (
               <div className="space-y-4">
                 <p className="text-sm text-muted-foreground">
-                  This student has not completed registration. Send them a registration link to complete account setup and registration.
+                  This student has not completed registration. Send them a registration link to complete account setup
+                  and registration.
                 </p>
-                
+
                 <Button
                   variant="default"
                   onClick={() => {
@@ -613,7 +588,7 @@ export function DetailsTab({
               </div>
             );
           }
-          
+
           // Case 3: Has account -> Show Reset Password
           return (
             <AdminPasswordResetSection
@@ -641,4 +616,4 @@ export function DetailsTab({
       </div>
     </div>
   );
-} 
+}

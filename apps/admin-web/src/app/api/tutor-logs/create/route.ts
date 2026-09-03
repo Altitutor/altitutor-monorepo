@@ -3,6 +3,10 @@ import { NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
+import {
+  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
+  staffMaySubmitTutorLog,
+} from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 export async function POST(request: Request) {
@@ -61,6 +65,35 @@ export async function POST(request: Request) {
         persistSession: false,
       },
     });
+
+    const { data: sessionToLog, error: sessionToLogError } = await supabase
+      .from('sessions')
+      .select('type')
+      .eq('id', data.sessionId)
+      .maybeSingle();
+
+    if (sessionToLogError) {
+      captureApiError(sessionToLogError, "/api/tutor-logs/create");
+      return NextResponse.json({ error: 'Failed to verify session' }, { status: 500 });
+    }
+
+    if (sessionToLog?.type === 'CHECK_IN') {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('sessions_staff')
+        .select('type')
+        .eq('session_id', data.sessionId)
+        .eq('staff_id', createdBy)
+        .maybeSingle();
+
+      if (assignmentError) {
+        captureApiError(assignmentError, "/api/tutor-logs/create");
+        return NextResponse.json({ error: 'Failed to verify check-in role' }, { status: 500 });
+      }
+
+      if (!staffMaySubmitTutorLog('CHECK_IN', assignment?.type)) {
+        return NextResponse.json({ error: CHECK_IN_LOG_FORBIDDEN_MESSAGE }, { status: 403 });
+      }
+    }
 
     // Prepare data for RPC call
     const staffAttendance = (data.staffAttendance || []).map((sa) => ({

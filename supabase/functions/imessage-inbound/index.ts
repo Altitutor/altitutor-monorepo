@@ -24,6 +24,7 @@ import {
   type ParsedIMessageEvent,
   parseIMessageEvent,
 } from "../_shared/imessage.ts";
+import { updateMessageFromDeliveryEvent } from "./delivery.ts";
 
 interface OwnedNumber {
   id: string;
@@ -534,7 +535,7 @@ async function dispatchEvent(
       });
     }
     case "delivery":
-      return processMessage(supabase, await ownedNumber(supabase), event);
+      return updateMessageFromDeliveryEvent(supabase, event);
     case "read": {
       if (!event.guid && !event.tempGuid) return;
       return updateCorrelatedMessage(supabase, event, {

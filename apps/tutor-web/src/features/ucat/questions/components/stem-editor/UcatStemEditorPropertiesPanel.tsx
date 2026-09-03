@@ -668,12 +668,12 @@ export function UcatStemEditorPropertiesPanel({
         return { toolCallId: toolCall.id, ok: true, message: `Updated answer option ${optionIndex + 1}.` }
 
       case 'markCorrectAnswer':
-        if (questionIndex == null || optionIndex == null || !current.questions[questionIndex]?.options[optionIndex]) {
+        if (questionIndex == null || optionIndex == null || !current.questions[questionIndex]?.options?.[optionIndex]) {
           return { toolCallId: toolCall.id, ok: false, message: 'Answer option not found.' }
         }
         form.setValue(
           `questions.${questionIndex}.options`,
-          current.questions[questionIndex].options.map((option, index) => ({
+          (current.questions[questionIndex].options ?? []).map((option, index) => ({
             ...option,
             answerKeyValue: index === optionIndex ? 'correct' as const : null,
           })),

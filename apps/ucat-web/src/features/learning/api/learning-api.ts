@@ -9,7 +9,9 @@ import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
 async function parseJson<T>(response: Response): Promise<T> {
   await assertOkOrQuotaExceeded(response);
   if (!response.ok) {
-    const body = (await response.json().catch(() => ({}))) as { error?: string };
+    const body = (await response.json().catch(() => ({}))) as {
+      error?: string;
+    };
     throw new Error(body.error ?? "Request failed");
   }
   return response.json() as Promise<T>;
@@ -32,11 +34,19 @@ export const learningApi = {
     return parseJson<LearningLessonDetail>(response);
   },
 
-  async startLesson(lessonId: string): Promise<void> {
-    const response = await fetch(`/api/ucat/learning-modules/${lessonId}/start`, {
-      method: "POST",
-    });
-    await parseJson(response);
+  async startLesson(
+    lessonId: string,
+    studyPlanTaskId: string | null,
+  ): Promise<{ created: boolean }> {
+    const response = await fetch(
+      `/api/ucat/learning-modules/${lessonId}/start`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ studyPlanTaskId }),
+      },
+    );
+    return parseJson<{ created: boolean }>(response);
   },
 
   async updateBlockProgress(
@@ -63,16 +73,22 @@ export const learningApi = {
   },
 
   async markLessonComplete(lessonId: string): Promise<void> {
-    const response = await fetch(`/api/ucat/learning-modules/${lessonId}/complete`, {
-      method: "POST",
-    });
+    const response = await fetch(
+      `/api/ucat/learning-modules/${lessonId}/complete`,
+      {
+        method: "POST",
+      },
+    );
     await parseJson(response);
   },
 
   async resetLessonProgress(lessonId: string): Promise<void> {
-    const response = await fetch(`/api/ucat/learning-modules/${lessonId}/complete`, {
-      method: "DELETE",
-    });
+    const response = await fetch(
+      `/api/ucat/learning-modules/${lessonId}/complete`,
+      {
+        method: "DELETE",
+      },
+    );
     await parseJson(response);
   },
 };

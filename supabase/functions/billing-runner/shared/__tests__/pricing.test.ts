@@ -90,7 +90,11 @@ describe('calculateSessionPrice', () => {
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 12000, currency: 'AUD' },
+          DOMESTIC: {
+            hourly_rate_cents: 12000,
+            currency: 'AUD',
+            effective_from: '2024-01-01',
+          },
         },
       };
 
@@ -120,7 +124,11 @@ describe('calculateSessionPrice', () => {
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 12000, currency: 'AUD' },
+          DOMESTIC: {
+            hourly_rate_cents: 12000,
+            currency: 'AUD',
+            effective_from: '2024-02-01',
+          },
         },
       };
 
@@ -187,7 +195,11 @@ describe('calculateSessionPrice', () => {
 
       const overridesBySubjectAndBilling = {
         'subject-1': {
-          DOMESTIC: { hourly_rate_cents: 9000, currency: 'AUD' },
+          DOMESTIC: {
+            hourly_rate_cents: 9000,
+            currency: 'AUD',
+            effective_from: '2024-01-01',
+          },
         },
       };
 

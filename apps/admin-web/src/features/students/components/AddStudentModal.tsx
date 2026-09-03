@@ -33,7 +33,7 @@ interface AddStudentModalProps {
 // Schema for form validation
 const formSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
-  lastName: z.string().min(1, 'Last name is required'),
+  lastName: z.string().optional().or(z.literal('')),
   studentEmail: z.string().email('Invalid email address').optional().or(z.literal('')),
   studentPhone: z
     .union([
@@ -151,7 +151,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone 
       const studentData: TablesInsert<'students'> = {
         id: crypto.randomUUID(),
         first_name: formData.firstName,
-        last_name: formData.lastName,
+        last_name: formData.lastName?.trim() || '',
         email: formData.studentEmail || null,
         phone: formData.studentPhone || null,
         birthday: formData.birthday || null,
@@ -344,7 +344,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone 
         <form id="add-student-form" onSubmit={handleSubmit(onSubmit as SubmitHandler<FieldValues>)} className="space-y-4">
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+              <Label htmlFor="firstName">First Name *</Label>
               <Input 
                 id="firstName" 
                 {...register('firstName')} 

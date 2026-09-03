@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  FileDiff,
   FileQuestion,
   FolderTree,
   GitMerge,
@@ -9,8 +10,10 @@ import {
   Layers,
   School,
   ScrollText,
+  ShieldCheck,
   Tag,
   Dumbbell,
+  DraftingCompass,
   type LucideIcon,
   Users,
 } from 'lucide-react'
@@ -88,6 +91,24 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
   {
     heading: 'Settings',
     cards: [
+      {
+        title: 'Audits',
+        description: 'Monitor durable UCAT content audit runs and outcomes',
+        href: '/ucat/audits',
+        icon: ShieldCheck,
+      },
+      {
+        title: 'AI content changes',
+        description: 'Review, apply, or reject staged changes to live content',
+        href: '/ucat/content-changes',
+        icon: FileDiff,
+      },
+      {
+        title: 'Mock blueprints',
+        description: 'Manage versioned full-mock totals, timings, and category ranges',
+        href: '/ucat/mock-blueprints',
+        icon: DraftingCompass,
+      },
       {
         title: 'Reconciliation',
         description: 'Fix uncategorized stems and questions missing explanations',

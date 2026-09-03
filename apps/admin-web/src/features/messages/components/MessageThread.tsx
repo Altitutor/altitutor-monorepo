@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState, useLayoutEffect } from 'react';
+import { useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
 import { useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
@@ -422,6 +422,7 @@ export function MessageThread({
     ? conversationMessages
     : contactMessages;
   const qc = useQueryClient();
+  const channelNonce = useId().replace(/:/g, '');
   const { data: availableSenders = [] } = useAvailableSenders();
   const sendMessage = useSendMessage();
   const smsSender = defaultPhoneSmsSender(availableSenders);
@@ -473,7 +474,7 @@ export function MessageThread({
     
     if (conversationId) {
       channel = supabase
-        .channel(`messages-conversation-${conversationId}`)
+        .channel(`messages-conversation-${conversationId}-${channelNonce}`)
         .on('postgres_changes', {
           event: '*',
           schema: 'public',
@@ -511,7 +512,7 @@ export function MessageThread({
         // Avoid conversation_id=in.(...) realtime filters — they are unreliable.
         // Filter client-side so device-sent outbound inserts still refresh the thread.
         channel = supabase
-          .channel(`messages-contact-${contactId}`)
+          .channel(`messages-contact-${contactId}-${channelNonce}`)
           .on('postgres_changes', {
             event: '*',
             schema: 'public',
@@ -542,7 +543,7 @@ export function MessageThread({
         supabase.removeChannel(channel);
       }
     };
-  }, [contactId, conversationId, ownedNumberId, qc]);
+  }, [channelNonce, contactId, conversationId, ownedNumberId, qc]);
 
   // Filter and process messages for search; attach tapbacks onto their target bubbles.
   const processedMessages = useMemo(() => {

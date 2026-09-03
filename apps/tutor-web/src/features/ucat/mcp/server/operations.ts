@@ -51,19 +51,25 @@ export type QuestionStemDraft = {
 }
 
 export type QuestionSetDraft = {
-  name: Json | null
+  authoringNote: string | null
   description: Json
-  timeLimitSeconds: number | null
+  timingMode: 'pace' | 'fixed' | 'untimed'
+  paceMultiplier: number | null
+  fixedTimeLimitSeconds: number | null
+  setFormat: 'full_section' | 'partial_section'
   accessScope: AccessScope
   sectionId: string
+  referenceBlueprintId: string
   stemIds: string[]
 }
 
 export type MockDraft = {
-  name: string
+  authoringNote: string | null
   instructionsText: Json | null
   accessScope: AccessScope
+  blueprintId: string
   setIds: string[]
+  sectionSets: Array<{ sectionId: string; setId: string }>
 }
 
 export type LearningModuleBlockDraft = {
@@ -460,11 +466,15 @@ export function applyQuestionStemOperations(
 export function questionSetDraftFromDetail(detail: Record<string, unknown>): QuestionSetDraft {
   const stems = Array.isArray(detail.stems) ? detail.stems : []
   return {
-    name: asJson(detail.name, null),
+    authoringNote: asNullableString(detail.authoring_note),
     description: asJson(detail.description, {}),
-    timeLimitSeconds: asNullableNumber(detail.time_limit_seconds),
+    timingMode: detail.timing_mode === 'fixed' || detail.timing_mode === 'untimed' ? detail.timing_mode : 'pace',
+    paceMultiplier: asNullableNumber(detail.pace_multiplier),
+    fixedTimeLimitSeconds: asNullableNumber(detail.fixed_time_limit_seconds),
+    setFormat: detail.set_format === 'full_section' ? 'full_section' : 'partial_section',
     accessScope: asAccessScope(detail.access_scope),
     sectionId: asString(detail.section_id, 'Section id'),
+    referenceBlueprintId: asString(detail.reference_blueprint_id, 'Reference blueprint id'),
     stemIds: stems
       .filter(isRecord)
       .map((stem) => asNullableString(stem.stem_id))
@@ -486,15 +496,17 @@ export function applyQuestionSetOperations(
   const next = cloneSerializable(draft)
   for (const operation of operations) {
     if (operation.type === 'set_metadata') {
-      if (operation.name !== undefined) next.name = toRichTextJson(operation.name)
+      if (operation.authoringNote !== undefined) next.authoringNote = operation.authoringNote
       if (operation.description !== undefined) {
         next.description = toRichTextJson(operation.description) ?? {}
       }
-      if (operation.timeLimitSeconds !== undefined) {
-        next.timeLimitSeconds = operation.timeLimitSeconds
-      }
+      if (operation.timingMode !== undefined) next.timingMode = operation.timingMode
+      if (operation.paceMultiplier !== undefined) next.paceMultiplier = operation.paceMultiplier
+      if (operation.fixedTimeLimitSeconds !== undefined) next.fixedTimeLimitSeconds = operation.fixedTimeLimitSeconds
+      if (operation.setFormat !== undefined) next.setFormat = operation.setFormat
       if (operation.accessScope !== undefined) next.accessScope = operation.accessScope
       if (operation.sectionId !== undefined) next.sectionId = operation.sectionId
+      if (operation.referenceBlueprintId !== undefined) next.referenceBlueprintId = operation.referenceBlueprintId
     } else if (operation.type === 'add_stem') {
       if (next.stemIds.includes(operation.stemId)) {
         throw new Error(`Stem ${operation.stemId} is already in this set`)
@@ -502,10 +514,16 @@ export function applyQuestionSetOperations(
       insertAt(next.stemIds, operation.stemId, operation.toIndex)
     } else if (operation.type === 'move_stem') {
       moveMembership(next.stemIds, operation.stemId, operation.toIndex, 'Stem')
-    } else {
+    } else if (operation.type === 'remove_stem') {
       const index = next.stemIds.indexOf(operation.stemId)
       if (index < 0) throw new Error(`Stem ${operation.stemId} was not found`)
       next.stemIds.splice(index, 1)
+    } else {
+      const uniqueStemIds = [...new Set(operation.stemIds)]
+      if (uniqueStemIds.length !== operation.stemIds.length) {
+        throw new Error('Replacement stem membership contains duplicate ids')
+      }
+      next.stemIds = uniqueStemIds
     }
   }
   return next
@@ -513,14 +531,26 @@ export function applyQuestionSetOperations(
 
 export function mockDraftFromDetail(detail: Record<string, unknown>): MockDraft {
   const sets = Array.isArray(detail.sets) ? detail.sets : []
+  const sectionSets = sets
+    .filter(isRecord)
+    .map((set) => ({
+      sectionId: asNullableString(set.section_id),
+      setId: asNullableString(set.id),
+    }))
+    .filter((item): item is { sectionId: string; setId: string } => (
+      item.sectionId !== null && item.setId !== null
+    ))
+  const setIds = sets
+    .filter(isRecord)
+    .map((set) => asNullableString(set.id))
+    .filter((id): id is string => id !== null)
   return {
-    name: typeof detail.name === 'string' ? detail.name : 'Untitled Mock',
+    authoringNote: asNullableString(detail.authoring_note),
     instructionsText: asJson(detail.instructions_text, null),
     accessScope: asAccessScope(detail.access_scope),
-    setIds: sets
-      .filter(isRecord)
-      .map((set) => asNullableString(set.id))
-      .filter((id): id is string => id !== null),
+    blueprintId: asString(detail.blueprint_id, 'Blueprint id'),
+    setIds,
+    sectionSets,
   }
 }
 
@@ -528,11 +558,12 @@ export function applyMockOperations(draft: MockDraft, operations: MockOperation[
   const next = cloneSerializable(draft)
   for (const operation of operations) {
     if (operation.type === 'set_metadata') {
-      if (operation.name !== undefined) next.name = operation.name
+      if (operation.authoringNote !== undefined) next.authoringNote = operation.authoringNote
       if (operation.instructionsText !== undefined) {
         next.instructionsText = toRichTextJson(operation.instructionsText)
       }
       if (operation.accessScope !== undefined) next.accessScope = operation.accessScope
+      if (operation.blueprintId !== undefined) next.blueprintId = operation.blueprintId
     } else if (operation.type === 'add_set') {
       if (next.setIds.includes(operation.setId)) {
         throw new Error(`Set ${operation.setId} is already in this mock`)
@@ -540,10 +571,38 @@ export function applyMockOperations(draft: MockDraft, operations: MockOperation[
       insertAt(next.setIds, operation.setId, operation.toIndex)
     } else if (operation.type === 'move_set') {
       moveMembership(next.setIds, operation.setId, operation.toIndex, 'Set')
-    } else {
+    } else if (operation.type === 'remove_set') {
       const index = next.setIds.indexOf(operation.setId)
       if (index < 0) throw new Error(`Set ${operation.setId} was not found`)
       next.setIds.splice(index, 1)
+      next.sectionSets = next.sectionSets.filter((item) => item.setId !== operation.setId)
+    } else if (operation.type === 'set_section_set') {
+      const current = next.sectionSets.find((item) => item.sectionId === operation.sectionId)
+      if (current) {
+        next.setIds = next.setIds.filter((setId) => setId !== current.setId)
+      }
+      next.sectionSets = next.sectionSets.filter(
+        (item) => item.sectionId !== operation.sectionId,
+      )
+      if (operation.setId) {
+        next.setIds = next.setIds.filter((setId) => setId !== operation.setId)
+        next.setIds.push(operation.setId)
+        next.sectionSets.push({
+          sectionId: operation.sectionId,
+          setId: operation.setId,
+        })
+      }
+    } else {
+      const sectionIds = operation.sectionSets.map((item) => item.sectionId)
+      const setIds = operation.sectionSets.map((item) => item.setId)
+      if (new Set(sectionIds).size !== sectionIds.length) {
+        throw new Error('Replacement mock membership contains duplicate section ids')
+      }
+      if (new Set(setIds).size !== setIds.length) {
+        throw new Error('Replacement mock membership contains duplicate set ids')
+      }
+      next.sectionSets = operation.sectionSets.map((item) => ({ ...item }))
+      next.setIds = [...setIds]
     }
   }
   return next

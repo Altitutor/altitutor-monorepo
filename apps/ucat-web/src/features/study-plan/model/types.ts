@@ -332,6 +332,8 @@ export type StudyPlanResponse = {
   nextSteps: StudyGuidanceItem[];
   today: string;
   todayTasks: StudyPlanTask[];
+  refreshPending?: boolean;
+  refreshFailed?: boolean;
   completion: {
     completed: number;
     scheduledThroughToday: number;

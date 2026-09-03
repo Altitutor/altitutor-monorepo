@@ -2,6 +2,8 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
+export type StaffSearchField = 'name' | 'email' | 'phone';
+
 export type StaffListItem = Pick<
   Tables<'staff'>,
   'id' | 'first_name' | 'last_name' | 'role' | 'status' | 'phone_number' | 'email'
@@ -86,6 +88,7 @@ export const staffApi = {
    */
   listMinimal: async (params: {
     search?: string;
+    searchFields?: StaffSearchField[];
     role?: string;
     status?: string;
     roles?: string[];
@@ -100,6 +103,7 @@ export const staffApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const {
       search = '',
+      searchFields = ['name', 'email', 'phone'],
       role,
       status,
       roles = [],
@@ -128,6 +132,7 @@ export const staffApi = {
       p_order_by: orderBy as string,
       p_ascending: ascending,
       p_subject_ids: subjectIds.length > 0 ? subjectIds : undefined,
+      p_search_fields: searchFields,
     });
 
     if (rpcError) throw rpcError;

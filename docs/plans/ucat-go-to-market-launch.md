@@ -227,6 +227,17 @@ Attach or derive these consistently:
 
 Do not put names, email addresses, question responses or other unnecessary personal data into analytics event properties.
 
+### Implemented acquisition and subscription contract
+
+- A shared, 180-day first-touch cookie captures the first UCAT landing path, referring domain and standard UTM fields across `altitutor.com` and the UCAT app subdomain. It deliberately excludes the landing query string.
+- New signups must answer "How did you first hear about us?" after setting a password. The answer accepts multiple sources; `not_sure` is mutually exclusive.
+- Supabase stores observed first touch separately from self-reported sources. Observed first touch is immutable; a self-reported answer can be corrected.
+- `signup_completed` is emitted from the server after durable signup and product-relationship writes.
+- Stripe webhooks emit `subscription_started`, `subscription_payment_succeeded`, `subscription_renewed`, `subscription_cancellation_scheduled`, `subscription_cancelled` and `payment_failed` after billing state has been processed.
+- The commercial acquisition conversion is a `subscription_payment_succeeded` event with `is_paid_acquisition_conversion = true`: the first successful positive-value subscription invoice. A trial or referral-funded zero-dollar period is not a paid conversion.
+- Billing events repeat the durable acquisition properties so source-to-payment and source-to-retention breakdowns remain simple and auditable.
+- Server events use stable event UUIDs and stable source timestamps so request and Stripe webhook retries are eventually deduplicated by PostHog.
+
 ### Proposed activation definition
 
 A student is activated when they have:
@@ -286,6 +297,7 @@ Keep no more than three acquisition experiments active simultaneously. A solo fo
 
 1. Deploy and use the durable `external` / `internal_test` account classification; mark every existing tester as `internal_test` in Admin Web.
 2. Configure PostHog's default test-account filter to exclude `account_class = internal_test` and change the project timezone to Australia/Adelaide.
-3. Verify the new `activation_completed` event and test-year/date identity properties after deployment.
-4. Re-run the complete production billing path at $15/week and $40/month.
-5. Recruit the first 10-15 external candidates; do not wait for a large content launch.
+3. Deploy and verify the acquisition table, five-step signup flow, `signup_completed`, subscription lifecycle events, `activation_completed`, and test-year/date identity properties in production PostHog.
+4. Confirm `POSTHOG_PROJECT_TOKEN` and `POSTHOG_HOST` are configured for the `stripe-webhooks` Edge Function before the production billing smoke test.
+5. Re-run the complete production billing path at $15/week and $40/month.
+6. Recruit the first 10-15 external candidates; do not wait for a large content launch.

@@ -12,6 +12,7 @@ import {
   useMocks,
 } from "@/features/mocks/hooks/use-mocks";
 import {
+  compareStudentMocksByCatalog,
   filterMocks,
   type StudentMockRow,
 } from "@/features/mocks/api/mocks-api";
@@ -59,11 +60,7 @@ export function MocksListPage() {
       ...effectiveFilters,
       search: search.trim() || undefined,
     });
-    return [...filtered].sort((a, b) =>
-      (a.name ?? "").localeCompare(b.name ?? "", undefined, {
-        sensitivity: "base",
-      }),
-    );
+    return [...filtered].sort(compareStudentMocksByCatalog);
   }, [mocks, effectiveFilters, search]);
 
   const handleFiltersChange = useCallback(
@@ -179,7 +176,7 @@ function MockCard({
         <NotebookText className="h-5 w-5 text-muted-foreground transition-colors duration-200 group-hover:text-foreground" />
       </div>
       <div className="min-w-0 flex-1">
-        <p className="font-medium truncate">{mock.name ?? "Mock exam"}</p>
+        <p className="font-medium truncate">{mock.display_name ?? mock.name ?? "Mock exam"}</p>
         {mock.set_count != null ? (
           <p className="text-xs text-muted-foreground">
             {mock.set_count} set{mock.set_count !== 1 ? "s" : ""}

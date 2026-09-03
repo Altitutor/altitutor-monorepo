@@ -10,6 +10,6 @@ export function mapDetailsFormToStudentUpdate(
     email: data.email || null,
     phone: data.phone || null,
     birthday: data.birthday || null,
-    ucat_analytics_account_class: data.analyticsAccountClass ?? "external",
-  } as TablesUpdate<"students">;
+    account_class: data.accountClass ?? 'external',
+  } as TablesUpdate<'students'>;
 }

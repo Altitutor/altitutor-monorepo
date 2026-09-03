@@ -3,7 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { MARKETING_TOKENS } from "@altitutor/shared";
+import {
+  MARKETING_TOKENS,
+  readUcatObservedFirstTouchCookie,
+  type UcatAcquisitionSource,
+} from "@altitutor/shared";
 import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
@@ -19,6 +23,7 @@ import type {
 } from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
 import { SignupCompletePasswordStep } from "@/features/signup-onboarding/components/steps/password-step";
+import { SignupCompleteAcquisitionSourceStep } from "@/features/signup-onboarding/components/steps/acquisition-source-step";
 import {
   SignupCompleteSamplerStep,
   type UcatFamiliarity,
@@ -38,7 +43,6 @@ import {
 import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
-import { captureUcatEvent } from "@/lib/analytics/posthog";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 import {
   pathWithReturnIntent,
@@ -97,19 +101,25 @@ function stepHeading(
   switch (step) {
     case SIGNUP_STEP.DETAILS:
       return {
-        kicker: "Step 1 of 4",
+        kicker: "Step 1 of 5",
         title: "Your details",
         desc: "Tell us a bit about yourself to personalise your experience.",
       };
     case SIGNUP_STEP.PASSWORD:
       return {
-        kicker: "Step 2 of 4",
+        kicker: "Step 2 of 5",
         title: "Set your password",
         desc: "Choose a strong password to secure your account.",
       };
+    case SIGNUP_STEP.ACQUISITION_SOURCE:
+      return {
+        kicker: "Step 3 of 5",
+        title: "How did you first hear about us?",
+        desc: "This helps us understand which communities and recommendations are genuinely useful.",
+      };
     case SIGNUP_STEP.PLAN:
       return {
-        kicker: "Step 4 of 4",
+        kicker: "Step 5 of 5",
         title: hasGift ? "Your gift is ready" : "Choose how to continue",
         desc: hasGift
           ? "Accept your gift or continue with UCAT Free."
@@ -117,7 +127,7 @@ function stepHeading(
       };
     case SIGNUP_STEP.SAMPLER:
       return {
-        kicker: "Step 3 of 4",
+        kicker: "Step 4 of 5",
         title: "Let’s get you ready for your first UCAT session",
         desc: "Answer two questions from every section while we show you the exam controls. About 6 minutes.",
       };
@@ -193,6 +203,10 @@ export function SignupOnboardingWizard({
     phone: initial.phone,
   });
   const [familiarity, setFamiliarity] = useState<UcatFamiliarity | null>(null);
+  const [acquisitionSources, setAcquisitionSources] = useState<
+    UcatAcquisitionSource[]
+  >([]);
+  const [acquisitionOther, setAcquisitionOther] = useState("");
 
   const [error, setError] = useState<string | null>(null);
 
@@ -243,18 +257,10 @@ export function SignupOnboardingWizard({
   }, [navigateAfterSignupComplete]);
 
   const completePaidSignup = useCallback(
-    async (activationTier: "unlimited" | "unlimited_trial" | null) => {
+    async () => {
       try {
         await patchSignupProgress({ planComplete: true });
         await patchSignupProgress({ complete: true });
-
-        if (activationTier) {
-          captureUcatEvent("subscription_activated", {
-            plan_tier: activationTier,
-            activation_type: "new_subscription",
-            journey_context: "signup_onboarding",
-          });
-        }
 
         setSignupSuccessError(null);
         postCompleteNavigationStarted.current = false;
@@ -352,9 +358,7 @@ export function SignupOnboardingWizard({
     if (!isPaid) return;
 
     paidSignupCompletionStarted.current = true;
-    void completePaidSignup(
-      access.onlineTier === "unlimited_trial" ? "unlimited_trial" : "unlimited",
-    );
+    void completePaidSignup();
   }, [
     signupSuccessJourney,
     signupSuccessPhase,
@@ -391,16 +395,30 @@ export function SignupOnboardingWizard({
     setSignupSuccessError(null);
     setSignupSuccessPhase("confirming");
     paidSignupCompletionStarted.current = true;
-    void completePaidSignup(null);
+    void completePaidSignup();
   };
 
   const handlePasswordComplete = async () => {
+    await patchSignupProgress({ step: SIGNUP_STEP.ACQUISITION_SOURCE });
+    goToStep(SIGNUP_STEP.ACQUISITION_SOURCE, 1);
+  };
+
+  const handleAcquisitionComplete = async () => {
+    const observedFirstTouch = readUcatObservedFirstTouchCookie(
+      document.cookie,
+    );
+    await patchSignupProgress({
+      step: SIGNUP_STEP.SAMPLER,
+      acquisitionSources,
+      acquisitionOther: acquisitionOther.trim() || null,
+      observedFirstTouch,
+    });
+
     if (planIntent && giftQuery.isSuccess && !giftQuery.data.pendingGift) {
       await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
       router.push(planIntent.checkoutPath);
       return;
     }
-    await patchSignupProgress({ step: SIGNUP_STEP.SAMPLER });
     goToStep(SIGNUP_STEP.SAMPLER, 1);
   };
 
@@ -456,7 +474,7 @@ export function SignupOnboardingWizard({
             void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
           } else {
             paidSignupCompletionStarted.current = true;
-            void completePaidSignup(null);
+            void completePaidSignup();
           }
         }}
         onComplete={goToDashboard}
@@ -537,6 +555,18 @@ export function SignupOnboardingWizard({
                   supabase={supabase}
                   onComplete={() => void handlePasswordComplete()}
                   onBack={() => goToStep(SIGNUP_STEP.DETAILS, -1)}
+                  error={error}
+                  setError={setError}
+                />
+              ) : null}
+
+              {step === SIGNUP_STEP.ACQUISITION_SOURCE ? (
+                <SignupCompleteAcquisitionSourceStep
+                  selectedSources={acquisitionSources}
+                  otherSource={acquisitionOther}
+                  onSelectedSourcesChange={setAcquisitionSources}
+                  onOtherSourceChange={setAcquisitionOther}
+                  onComplete={handleAcquisitionComplete}
                   error={error}
                   setError={setError}
                 />

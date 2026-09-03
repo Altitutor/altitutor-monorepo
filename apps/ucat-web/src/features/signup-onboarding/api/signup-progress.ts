@@ -2,6 +2,10 @@ import type {
   SignupOnboardingStep,
   UcatFamiliarity,
 } from "@/features/signup-onboarding/types";
+import type {
+  UcatAcquisitionSource,
+  UcatObservedFirstTouch,
+} from "@altitutor/shared";
 import { isSignupOnboardingStep } from "@/features/signup-onboarding/lib/steps";
 
 export type SignupProgressResponse = {
@@ -24,6 +28,9 @@ export async function patchSignupProgress(input: {
   complete?: boolean;
   planComplete?: boolean;
   familiarity?: UcatFamiliarity;
+  acquisitionSources?: UcatAcquisitionSource[];
+  acquisitionOther?: string | null;
+  observedFirstTouch?: UcatObservedFirstTouch | null;
 }): Promise<SignupProgressResponse> {
   const res = await fetch("/api/ucat/signup/progress", {
     method: "PATCH",

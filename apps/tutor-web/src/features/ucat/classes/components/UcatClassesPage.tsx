@@ -1,53 +1,62 @@
-'use client'
+'use client';
 
-import { useMemo, useState } from 'react'
-import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
-import { ListToolbar, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui'
-import { formatTime, getDayOfWeek } from '@/shared/utils/datetime'
-import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { useUcatClassesWithDetails } from '@/features/ucat/students/hooks/useUcatStudents'
-import type { UcatClassWithDetails } from '@/features/ucat/students/api/students'
-import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
-import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { UcatClassDialog } from '@/features/ucat/classes/components/UcatClassDialog'
-import { applyCoreStringFilter } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { Pencil } from 'lucide-react'
-import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { useMemo, useState } from 'react';
+import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState';
+import {
+  AccountClassBadge,
+  ListToolbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@altitutor/ui';
+import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
+import { useUcatClassesWithDetails } from '@/features/ucat/students/hooks/useUcatStudents';
+import type { UcatClassWithDetails } from '@/features/ucat/students/api/students';
+import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components';
+import { UcatRowActions } from '@/features/ucat/shared/row-actions';
+import { UcatClassDialog } from '@/features/ucat/classes/components/UcatClassDialog';
+import { applyCoreStringFilter } from '@/features/ucat/shared/hooks/useUcatTableState';
+import { Pencil } from 'lucide-react';
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell, tutorToolbarProps } from '@/shared/lib/tutor-visual';
 
 function formatClassTime(c: UcatClassWithDetails): string {
-  const day = c.day_of_week != null ? getDayOfWeek(c.day_of_week) : ''
-  const start = formatTime(c.start_time ?? undefined)
-  const end = formatTime(c.end_time ?? undefined)
-  if (!day && !start) return '—'
-  return [day, start && end ? `${start} – ${end}` : start || end].filter(Boolean).join(' ')
+  const day = c.day_of_week != null ? getDayOfWeek(c.day_of_week) : '';
+  const start = formatTime(c.start_time ?? undefined);
+  const end = formatTime(c.end_time ?? undefined);
+  if (!day && !start) return '—';
+  return [day, start && end ? `${start} – ${end}` : start || end].filter(Boolean).join(' ');
 }
 
 export function UcatClassesPage() {
-  const access = useUcatAccess()
-  const { data: classes, isLoading } = useUcatClassesWithDetails()
-  const [classDialogId, setClassDialogId] = useState<string | null>(null)
-  const tableUrl = useUcatTableUrlState([], { availableColumns: [] })
-  const search = tableUrl.state.search
-  const setSearch = tableUrl.actions.onSearchChange
+  const access = useUcatAccess();
+  const { data: classes, isLoading } = useUcatClassesWithDetails();
+  const [classDialogId, setClassDialogId] = useState<string | null>(null);
+  const tableUrl = useUcatTableUrlState([], { availableColumns: [] });
+  const search = tableUrl.state.search;
+  const setSearch = tableUrl.actions.onSearchChange;
 
   const rows = useMemo(() => {
-    const list = classes ?? []
-    if (!search.trim()) return list
-    const q = search.trim().toLowerCase()
+    const list = classes ?? [];
+    if (!search.trim()) return list;
+    const q = search.trim().toLowerCase();
     return list.filter((row) => {
-      const timeStr = formatClassTime(row)
-      const studentNames = row.students.map((s) => [s.first_name, s.last_name].filter(Boolean).join(' ')).join(' ')
-      const staffNames = row.staff.map((s) => [s.first_name, s.last_name].filter(Boolean).join(' ')).join(' ')
+      const timeStr = formatClassTime(row);
+      const studentNames = row.students.map((s) => [s.first_name, s.last_name].filter(Boolean).join(' ')).join(' ');
+      const staffNames = row.staff.map((s) => [s.first_name, s.last_name].filter(Boolean).join(' ')).join(' ');
       return (
         applyCoreStringFilter(timeStr, search) ||
         studentNames.toLowerCase().includes(q) ||
         staffNames.toLowerCase().includes(q)
-      )
-    })
-  }, [classes, search])
+      );
+    });
+  }, [classes, search]);
 
-  if (access.isLoading || isLoading) return <UcatPageSkeleton rows={8} />
-  if (!access.data) return <UcatAccessDenied />
+  if (access.isLoading || isLoading) return <UcatPageSkeleton rows={8} />;
+  if (!access.data) return <UcatAccessDenied />;
 
   return (
     <div className="space-y-6 py-8 md:py-10">
@@ -67,64 +76,65 @@ export function UcatClassesPage() {
 
       <div className="pt-3">
         <div className={tutorTableShell}>
-        <Table>
-          <TableHeader className="[&_tr]:border-b-0">
-            <TableRow className={tutorTableHeaderRow}>
-              <TableHead>Time</TableHead>
-              <TableHead>Students</TableHead>
-              <TableHead>Staff</TableHead>
-              <TableHead className="w-16 shrink-0" />
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {rows.length === 0 ? (
-              <TableRow className={tutorTableBodyRow}>
-                <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                  No UCAT classes found.
-                </TableCell>
+          <Table>
+            <TableHeader className="[&_tr]:border-b-0">
+              <TableRow className={tutorTableHeaderRow}>
+                <TableHead>Time</TableHead>
+                <TableHead>Students</TableHead>
+                <TableHead>Staff</TableHead>
+                <TableHead className="w-16 shrink-0" />
               </TableRow>
-            ) : (
-              rows.map((row) => (
-                <TableRow key={row.id} className={tutorTableBodyRow}>
-                  <TableCell>{formatClassTime(row)}</TableCell>
-                  <TableCell>
-                    <div className="flex flex-col gap-0.5">
-                      {row.students.length === 0
-                        ? '—'
-                        : row.students.map((s) => (
-                            <span key={s.id}>
-                              {[s.first_name, s.last_name].filter(Boolean).join(' ').trim() || 'Student'}
-                            </span>
-                          ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    <div className="flex flex-col gap-0.5">
-                      {row.staff.length === 0
-                        ? '—'
-                        : row.staff.map((s) => (
-                            <span key={s.id}>
-                              {[s.first_name, s.last_name].filter(Boolean).join(' ').trim() || 'Unknown'}
-                            </span>
-                          ))}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <UcatRowActions
-                      actions={[
-                        {
-                          label: 'Edit',
-                          icon: <Pencil className="h-4 w-4" />,
-                          onClick: () => setClassDialogId(row.id),
-                        },
-                      ]}
-                    />
+            </TableHeader>
+            <TableBody>
+              {rows.length === 0 ? (
+                <TableRow className={tutorTableBodyRow}>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
+                    No UCAT classes found.
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                rows.map((row) => (
+                  <TableRow key={row.id} className={tutorTableBodyRow}>
+                    <TableCell>{formatClassTime(row)}</TableCell>
+                    <TableCell>
+                      <div className="flex flex-col gap-0.5">
+                        {row.students.length === 0
+                          ? '—'
+                          : row.students.map((s) => (
+                              <span key={s.id} className="flex items-center gap-2">
+                                <span>{[s.first_name, s.last_name].filter(Boolean).join(' ').trim() || 'Student'}</span>
+                                <AccountClassBadge accountClass={s.account_class} />
+                              </span>
+                            ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      <div className="flex flex-col gap-0.5">
+                        {row.staff.length === 0
+                          ? '—'
+                          : row.staff.map((s) => (
+                              <span key={s.id}>
+                                {[s.first_name, s.last_name].filter(Boolean).join(' ').trim() || 'Unknown'}
+                              </span>
+                            ))}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <UcatRowActions
+                        actions={[
+                          {
+                            label: 'Edit',
+                            icon: <Pencil className="h-4 w-4" />,
+                            onClick: () => setClassDialogId(row.id),
+                          },
+                        ]}
+                      />
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
         </div>
       </div>
 
@@ -135,5 +145,5 @@ export function UcatClassesPage() {
         onSaved={() => setClassDialogId(null)}
       />
     </div>
-  )
+  );
 }

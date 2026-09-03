@@ -44,6 +44,77 @@ const categories = [
 ]
 
 describe('2026 blueprint set creation', () => {
+  it('preserves existing stems and fills only the remaining category targets', () => {
+    const existing = {
+      ...stem('reading-existing', 'reading', 'Reading Comprehension'),
+      setIds: ['current-set'],
+    }
+    const stems = [
+      existing,
+      ...Array.from({ length: 7 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 3 }, (_, index) => stem(`tfct-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+
+    const result = buildAutoSetPreview({
+      mode: 'category',
+      blueprint: UCAT_ANZ_2026_V1,
+      targetTotal: 0,
+      categoryTargets: {},
+      categoryRanges: {},
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: true,
+      categories,
+      stems,
+      existingStemIds: [existing.id],
+      seed: 1,
+    })
+
+    expect(result.selectedStems.filter((item) => item.id === existing.id)).toHaveLength(1)
+    expect(result.selectedStems).toHaveLength(11)
+    expect(result.totalQuestions).toBe(44)
+    expect(result.byCategory).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ categoryId: 'reading', targetQuestions: 32, actualQuestions: 32 }),
+        expect.objectContaining({ categoryId: 'tfct', targetQuestions: 12, actualQuestions: 12 }),
+      ]),
+    )
+  })
+
+  it('preserves existing stems when filling the default blueprint range targets', () => {
+    const existing = {
+      ...stem('reading-existing-range', 'reading', 'Reading Comprehension'),
+      setIds: ['current-set'],
+    }
+    const stems = [
+      existing,
+      ...Array.from({ length: 7 }, (_, index) => stem(`range-reading-${index}`, 'reading', 'Reading Comprehension')),
+      ...Array.from({ length: 3 }, (_, index) => stem(`range-tfct-${index}`, 'tfct', "True, False, Can't Tell")),
+    ]
+
+    const result = buildAutoSetPreview({
+      mode: 'range',
+      blueprint: UCAT_ANZ_2026_V1,
+      targetTotal: 0,
+      categoryTargets: {},
+      categoryRanges: {},
+      sectionId: 'vr',
+      sectionNumber: 1,
+      stemVisibility: 'either',
+      onlyNotInAnotherSet: true,
+      categories,
+      stems,
+      existingStemIds: [existing.id],
+      seed: 1,
+    })
+
+    expect(result.selectedStems[0]?.id).toBe(existing.id)
+    expect(result.selectedStems.filter((item) => item.id === existing.id)).toHaveLength(1)
+    expect(result.totalQuestions).toBe(44)
+    expect(result.blueprintCompliance?.compliant).toBe(true)
+  })
+
   it('maps VR stem-unit rules into the same category question targets as By category', () => {
     const stems = [
       ...Array.from({ length: 8 }, (_, index) => stem(`reading-${index}`, 'reading', 'Reading Comprehension')),
@@ -51,6 +122,7 @@ describe('2026 blueprint set creation', () => {
     ]
     expect(
       blueprintPreferredCategoryTargets({
+        blueprint: UCAT_ANZ_2026_V1,
         sectionNumber: 1,
         categories: [
           { id: 'reading', name: 'Reading Comprehension' },
@@ -72,7 +144,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -102,7 +174,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -130,7 +202,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -182,7 +254,7 @@ describe('2026 blueprint set creation', () => {
 
     const result = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -208,7 +280,7 @@ describe('2026 blueprint set creation', () => {
     ].map((item) => ({ ...item, setIds: ['set-1'] }))
     const initial = buildAutoSetPreview({
       mode: 'category',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 0,
       categoryTargets: {},
       categoryRanges: {},
@@ -289,7 +361,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 5,
       categoryTargets: {},
       categoryRanges: {
@@ -319,7 +390,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 20,
       categoryTargets: {},
       categoryRanges: {
@@ -348,7 +418,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 10,
       categoryTargets: {},
       categoryRanges: {
@@ -383,7 +452,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 10,
       categoryTargets: {},
       categoryRanges: {
@@ -414,7 +482,6 @@ describe('Total + category ranges', () => {
     ]
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: 'manual',
       targetTotal: 10,
       categoryTargets: {},
       categoryRanges: {
@@ -449,6 +516,7 @@ describe('Total + category ranges', () => {
     ]
     expect(
       blueprintCategoryRanges({
+        blueprint: UCAT_ANZ_2026_V1,
         sectionNumber: 1,
         categories: [
           { id: 'reading', name: 'Reading Comprehension' },
@@ -463,7 +531,7 @@ describe('Total + category ranges', () => {
 
     const result = buildAutoSetPreview({
       mode: 'range',
-      blueprintSource: '2026',
+      blueprint: UCAT_ANZ_2026_V1,
       targetTotal: 44,
       categoryTargets: {},
       categoryRanges: {

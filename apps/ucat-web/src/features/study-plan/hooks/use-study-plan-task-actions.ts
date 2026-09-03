@@ -42,7 +42,9 @@ function practiceStartInput(task: StudyPlanTask) {
       ? config.categoryIds.filter((id): id is string => typeof id === "string")
       : [],
     questionTagIds: Array.isArray(config.questionTagIds)
-      ? config.questionTagIds.filter((id): id is string => typeof id === "string")
+      ? config.questionTagIds.filter(
+          (id): id is string => typeof id === "string",
+        )
       : [],
     linkedLearningPractice: config.linkedLearningPractice === true,
     timeMode: config.timeMode === "off" ? "off" : "speed",
@@ -114,7 +116,9 @@ export function useStudyPlanTaskActions(
           ? `/skill-trainer/${skillTrainerKey.replaceAll("_", "-")}/play`
           : taskToStart.taskType === "review"
             ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
-            : taskToStart.launchPath;
+            : taskToStart.taskType === "learn"
+              ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanTaskId=${encodeURIComponent(taskToStart.id)}`
+              : taskToStart.launchPath;
       setPendingAction(null);
       router.push(launchPath);
     } catch (caught) {

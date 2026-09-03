@@ -125,6 +125,61 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     ]))
   })
 
+  it('matches managed category rules by canonical id after a category is renamed', () => {
+    const blueprint: UcatBlueprint = {
+      id: 'managed-blueprint',
+      testYear: 2027,
+      version: 1,
+      official: {
+        label: 'Test facts',
+        sections: [{
+          section: 'decision_making',
+          questionCount: 1,
+          answeringTimeSeconds: 60,
+          instructionTimeSeconds: 30,
+        }],
+      },
+      altitutorPolicy: {
+        label: 'Test policy',
+        sectionRules: [{
+          section: 'decision_making',
+          categoryRules: [{
+            categoryId: 'category-1',
+            category: 'Original category name',
+            unit: 'questions',
+            min: 1,
+            max: 1,
+          }],
+        }],
+      },
+    }
+
+    const result = evaluateBlueprint(blueprint, {
+      purpose: 'full_mock',
+      sections: [{
+        section: 'decision_making',
+        answeringTimeSeconds: 60,
+        instructionTimeSeconds: 30,
+        stems: [{
+          id: 'stem-1',
+          categoryId: 'category-1',
+          category: 'Renamed category',
+          questions: [{
+            id: 'question-1',
+            answerScheme: 'single_choice',
+            optionCount: 4,
+            requiredPlacementCount: 0,
+          }],
+        }],
+      }],
+    })
+
+    expect(result.compliant).toBe(true)
+    expect(result.checks).toEqual(expect.arrayContaining([
+      expect.objectContaining({ label: 'Original category name', actual: 1, compliant: true }),
+    ]))
+  })
+
   it('accepts every allowed-range boundary', () => {
     const composition = passingComposition()
     const dm = composition.sections[1]
@@ -155,6 +210,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     const second = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
     expect(first).toEqual(second)
+    expect(first.compliant).toBe(false)
     expect(first.reasons.slice(0, 3)).toEqual([
       expect.objectContaining({ code: 'ANSWERING_TIME_MISMATCH', section: 'decision_making' }),
       expect.objectContaining({ code: 'CATEGORY_QUESTION_COUNT_OUT_OF_RANGE', section: 'decision_making', actual: 35 }),
@@ -232,7 +288,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     ]))
   })
 
-  it('makes a failed scenario check fail the whole evaluation', () => {
+  it('treats questions-in-stem misses as warnings rather than publication blockers', () => {
     const composition = passingComposition()
     const sjt = composition.sections[3]
     if (!sjt) throw new Error('fixture is missing Situational Judgement')
@@ -240,9 +296,9 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
 
     const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
-    expect(result.compliant).toBe(false)
+    expect(result.compliant).toBe(true)
     expect(result.reasons).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', stemId: 'empty-scenario', minimum: 1 }),
+      expect.objectContaining({ code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', severity: 'warning', stemId: 'empty-scenario', minimum: 1 }),
     ]))
   })
 
@@ -266,7 +322,7 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
     ]))
   })
 
-  it('rejects a Most/Least category question with the wrong Answer scheme', () => {
+  it('warns when a Most/Least category question uses the wrong Answer scheme', () => {
     const composition = passingComposition()
     const sjt = composition.sections[3]
     if (!sjt) throw new Error('fixture is missing Situational Judgement')
@@ -276,9 +332,9 @@ describe('UCAT ANZ 2026 v1 blueprint', () => {
 
     const result = evaluateBlueprint(UCAT_ANZ_2026_V1, composition)
 
-    expect(result.compliant).toBe(false)
+    expect(result.compliant).toBe(true)
     expect(result.reasons).toEqual(expect.arrayContaining([
-      expect.objectContaining({ code: 'CATEGORY_ANSWER_SCHEME_MISMATCH', questionId: question.id }),
+      expect.objectContaining({ code: 'CATEGORY_ANSWER_SCHEME_MISMATCH', severity: 'warning', questionId: question.id }),
     ]))
   })
 

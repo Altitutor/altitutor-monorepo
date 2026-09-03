@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(14);
+SELECT plan(17);
 
 SELECT has_column('public', 'ucat_mocks', 'blueprint_id', 'full mocks may reference an immutable blueprint');
 SELECT has_function('public', 'ucat_mock_blueprint_compliance', ARRAY['uuid'], 'mock compliance is a durable database projection');
@@ -26,7 +26,7 @@ INSERT INTO public.ucat_mock_blueprint_sections (
   blueprint_id, section_code, section_index, exact_question_count,
   answering_time_seconds, instruction_time_seconds, altitutor_composition_policy
 ) VALUES (
-  '54200000-0000-4000-8000-000000000001', 'decision_making', 0, 4, 240, 90,
+  '54200000-0000-4000-8000-000000000001', 'decision_making', 1, 4, 240, 90,
   '{"categoryRules":[{"category":"Syllogisms","unit":"questions","min":2,"preferred":2,"max":2},{"category":"Logical Puzzles","unit":"questions","min":2,"preferred":2,"max":2}]}'::jsonb
 );
 
@@ -68,12 +68,23 @@ FROM public.ucat_questions question
 CROSS JOIN generate_series(1, 4) AS option(index)
 WHERE question.question_stem_id::text LIKE '54210000-0000-4000-8000-%';
 
-INSERT INTO public.question_sets (id, name, time_limit_seconds, status, access_scope, section_id)
+INSERT INTO public.ucat_mocks (id, name, status, access_scope, blueprint_id)
+VALUES (
+  '54240000-0000-4000-8000-000000000001', '', 'in_review', 'public',
+  '54200000-0000-4000-8000-000000000001'
+);
+
+INSERT INTO public.question_sets (
+  id, name, status, access_scope, section_id, set_format, timing_mode,
+  pace_multiplier, fixed_time_limit_seconds, reference_blueprint_id, mock_id
+)
 SELECT
   '54230000-0000-4000-8000-000000000001',
   '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
-  240, 'published', 'public',
-  section.id
+  'published', 'public', section.id,
+  'full_section', 'pace', 1, NULL,
+  '54200000-0000-4000-8000-000000000001',
+  '54240000-0000-4000-8000-000000000001'
 FROM public.ucat_sections section
 WHERE section.section_number = 2
 LIMIT 1;
@@ -82,12 +93,6 @@ INSERT INTO public.question_stems_question_sets (question_stem_id, question_set_
 SELECT stem.id, '54230000-0000-4000-8000-000000000001', row_number() OVER (ORDER BY stem.id)
 FROM public.question_stems stem
 WHERE stem.id::text LIKE '54210000-0000-4000-8000-%';
-
-INSERT INTO public.ucat_mocks (id, name, status, access_scope, blueprint_id)
-VALUES ('54240000-0000-4000-8000-000000000001', 'Blueprint mock', 'in_review', 'public', '54200000-0000-4000-8000-000000000001');
-
-INSERT INTO public.question_sets_ucat_mocks (question_set_id, ucat_mock_id, index)
-VALUES ('54230000-0000-4000-8000-000000000001', '54240000-0000-4000-8000-000000000001', 1);
 
 SELECT is(
   public.ucat_mock_blueprint_compliance('54240000-0000-4000-8000-000000000001')->>'compliant',
@@ -127,7 +132,7 @@ SELECT set_config(
   '{"sub":"00000000-0000-0000-0000-000000000010","role":"authenticated"}',
   true
 );
-SELECT throws_ok(
+SELECT lives_ok(
   $$SELECT public.tutor_ucat_upsert_question_stem_bundle(
     '54210000-0000-4000-8000-000000000004',
     (SELECT section_id FROM public.question_stems WHERE id = '54210000-0000-4000-8000-000000000004'),
@@ -148,30 +153,71 @@ SELECT throws_ok(
     )) FROM public.ucat_questions question
       WHERE question.question_stem_id = '54210000-0000-4000-8000-000000000004' AND question.deleted_at IS NULL)
   )$$,
-  'P0001',
-  'published_mock_blueprint_noncompliant:54240000-0000-4000-8000-000000000001',
-  'stem metadata edits cannot leave a linked published blueprint mock noncompliant'
+  'category-range misses do not block saving a stem on a published mock'
 );
-SELECT throws_ok(
+
+SELECT is(
+  public.ucat_mock_blueprint_compliance('54240000-0000-4000-8000-000000000001')->>'compliant',
+  'true',
+  'a published mock stays publication-compliant when only category ranges miss'
+);
+
+SELECT lives_ok(
+  $$SELECT public.tutor_ucat_upsert_question_set_v2(
+    '54230000-0000-4000-8000-000000000001',
+    NULL,
+    '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
+    'pace', 1, NULL, 'full_section', 'public',
+    '["54210000-0000-4000-8000-000000000001","54210000-0000-4000-8000-000000000002","54210000-0000-4000-8000-000000000003","54210000-0000-4000-8000-000000000004"]'::jsonb,
+    (SELECT section_id FROM public.question_sets WHERE id = '54230000-0000-4000-8000-000000000001'),
+    '54200000-0000-4000-8000-000000000001'
+  )$$,
+  'category-range misses do not block saving a published mock component set'
+);
+
+UPDATE public.ucat_mocks
+SET deleted_at = timezone('utc', now()),
+    catalog_index = NULL
+WHERE id = '54240000-0000-4000-8000-000000000001';
+
+SELECT lives_ok(
+  $$SELECT public.tutor_ucat_upsert_question_set_v2(
+    '54230000-0000-4000-8000-000000000001',
+    NULL,
+    '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
+    'pace', 1, NULL, 'full_section', 'public',
+    '["54210000-0000-4000-8000-000000000001","54210000-0000-4000-8000-000000000002","54210000-0000-4000-8000-000000000003","54210000-0000-4000-8000-000000000004"]'::jsonb,
+    (SELECT section_id FROM public.question_sets WHERE id = '54230000-0000-4000-8000-000000000001'),
+    '54200000-0000-4000-8000-000000000001'
+  )$$,
+  'a leftover mock_id on a deleted mock does not block saving a published set'
+);
+
+UPDATE public.ucat_mocks
+SET deleted_at = NULL
+WHERE id = '54240000-0000-4000-8000-000000000001';
+
+SELECT lives_ok(
   $$SELECT public.tutor_ucat_bulk_update_question_stem_metadata(
     ARRAY['54210000-0000-4000-8000-000000000004'::uuid],
     'b35d193a-d054-4ac2-8ae3-669ac1ff79bc',
     NULL
   )$$,
-  'P0001',
-  'published_mock_blueprint_noncompliant:54240000-0000-4000-8000-000000000001',
-  'bulk category edits cannot leave a linked published blueprint mock noncompliant'
+  'bulk category edits do not block when question totals still match'
 );
 SELECT throws_ok(
-  $$SELECT public.tutor_ucat_upsert_question_set(
+  $$SELECT public.tutor_ucat_upsert_question_set_v2(
     '54230000-0000-4000-8000-000000000001',
+    NULL,
     '{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"DM"}]}]}'::jsonb,
-    NULL, 240, 'public',
-    '["54210000-0000-4000-8000-000000000001","54210000-0000-4000-8000-000000000002","54210000-0000-4000-8000-000000000003"]'::jsonb
+    'pace', 1, NULL, 'full_section', 'public',
+    '["54210000-0000-4000-8000-000000000001","54210000-0000-4000-8000-000000000002","54210000-0000-4000-8000-000000000003"]'::jsonb,
+    (SELECT section_id FROM public.question_sets WHERE id = '54230000-0000-4000-8000-000000000001'),
+    '54200000-0000-4000-8000-000000000001'
   )$$,
   'P0001',
-  'published_mock_blueprint_noncompliant:54240000-0000-4000-8000-000000000001',
-  'shared-set edits cannot leave a linked published blueprint mock noncompliant'
+  'published_content_invalid:[{"code": "full_section_question_count_mismatch", "message": "A full section set requires exactly 4 questions for its reference blueprint; found 3.", "entity_id": "54230000-0000-4000-8000-000000000001", "entity_type": "set"}]',
+  'shared-set edits cannot violate their own full-section publication intent'
 );
 
 DELETE FROM public.question_stems_question_sets
@@ -190,13 +236,9 @@ SELECT ok(
   'ordinary and focused sets are not independently constrained by full-mock ranges'
 );
 
-UPDATE public.ucat_mocks SET blueprint_id = NULL
-WHERE id = '54240000-0000-4000-8000-000000000001';
-
-SELECT is(
-  public.ucat_mock_blueprint_compliance('54240000-0000-4000-8000-000000000001')->>'applicable',
-  'false',
-  'an unversioned mock remains outside blueprint enforcement'
+SELECT col_not_null(
+  'public', 'ucat_mocks', 'blueprint_id',
+  'every mock now requires an explicit blueprint'
 );
 
 SELECT * FROM finish();

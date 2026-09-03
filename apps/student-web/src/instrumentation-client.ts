@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { sanitizeStudentAnalyticsUrl } from "@/shared/lib/analytics/posthog";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
@@ -9,6 +10,12 @@ Sentry.init({
     process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV,
   sendDefaultPii: false,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
+  beforeSend(event) {
+    if (event.request?.url) {
+      event.request.url = sanitizeStudentAnalyticsUrl(event.request.url);
+    }
+    return event;
+  },
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: process.env.NODE_ENV === "production" ? 1 : 0,
   integrations: [

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useMemo } from 'react';
+import { useEffect, useState, useMemo, useId } from 'react';
 import { useAvailableSenders, useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
@@ -21,7 +21,8 @@ import { Plus, Mail, Filter, Search, X } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
-import { useMarkConversationRead, useMarkUnread, useMarkRead } from '../api/mutations';
+import { useMarkConversationRead, useMarkUnread, useMarkRead, useMarkContactUnread } from '../api/mutations';
+import { useMessagingListFilters, type ConversationListFilter, type MessagingFilterScope } from '../state/messagingUiStore';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
@@ -30,7 +31,7 @@ import type {
   ConversationSelection,
 } from '../types';
 
-type FilterOption = 'all' | 'unread' | 'unreplied' | 'to_follow_up';
+type FilterOption = ConversationListFilter;
 const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
   { value: 'all', label: 'All' },
   { value: 'unread', label: 'Unread' },
@@ -41,31 +42,36 @@ const FILTER_OPTIONS: { value: FilterOption; label: string }[] = [
 interface Props {
   activeSelection?: ConversationSelection | null;
   onSelect: (selection: ConversationSelection) => void;
-  selectedOwnedNumberId: string | null;
-  onOwnedNumberFilterChange: (ownedNumberId: string | null) => void;
+  filterScope: MessagingFilterScope;
 }
 
 export function ConversationList({
   activeSelection,
   onSelect,
-  selectedOwnedNumberId,
-  onOwnedNumberFilterChange,
+  filterScope,
 }: Props) {
+  const {
+    listFilter: activeFilter,
+    ownedNumberFilter: selectedOwnedNumberId,
+    setListFilter: setActiveFilter,
+    setOwnedNumberFilter: onOwnedNumberFilterChange,
+  } = useMessagingListFilters(filterScope);
   const { data } = useConversationList(selectedOwnedNumberId);
   const { data: senders = [] } = useAvailableSenders();
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
-  const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'unreplied' | 'to_follow_up'>('all');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
   const markUnreadMutation = useMarkUnread();
   const markReadMutation = useMarkRead();
+  const markContactUnreadMutation = useMarkContactUnread();
   const markConversationReadMutation = useMarkConversationRead();
   const [isFilterMenuOpen, setIsFilterMenuOpen] = useState(false);
+  const channelNonce = useId().replace(/:/g, '');
 
   useEffect(() => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const channel = supabase
-      .channel('conversations-list')
+      .channel(`conversations-list-${channelNonce}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'conversations' }, () => {
         qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
         qc.invalidateQueries({ queryKey: messagesKeys.conversations() }); // Also invalidate old for backward compat
@@ -79,7 +85,7 @@ export function ConversationList({
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [qc]);
+  }, [qc, channelNonce]);
 
   // Check if aggregated conversation is unread (has unreadCount > 0)
   const isUnread = (aggregated: AggregatedConversation) => {
@@ -371,7 +377,7 @@ export function ConversationList({
                       size="sm"
                       variant={aggregated.unreadCount > 0 ? 'default' : 'outline'}
                       className={cn(
-                        'absolute right-3 top-3 h-6 w-6 p-0',
+                        'absolute right-3 top-3 h-6 w-6 p-0 transition-none',
                         aggregated.unreadCount > 0 && 'bg-red-500 text-white hover:bg-red-600'
                       )}
                       title={aggregated.unreadCount > 0 ? 'Mark as read for me' : 'Mark as unread for me'}
@@ -407,9 +413,7 @@ export function ConversationList({
                   markReadMutation.mutate({ contactId: aggregated.contactId, lastMessageId });
                 }
               } else {
-                aggregated.conversations.forEach((conv) => {
-                  markUnreadMutation.mutate(conv.id);
-                });
+                markContactUnreadMutation.mutate(aggregated.contactId);
               }
             };
 
@@ -442,7 +446,7 @@ export function ConversationList({
                         size="sm"
                         variant={isUnreadConv ? 'default' : 'outline'}
                         className={cn(
-                          "h-6 w-6 p-0 shrink-0",
+                          "h-6 w-6 p-0 shrink-0 transition-none",
                           isUnreadConv && "bg-red-500 text-white hover:bg-red-600 border-transparent"
                         )}
                         onClick={handleToggleRead}

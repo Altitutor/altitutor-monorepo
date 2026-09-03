@@ -56,7 +56,8 @@ jobs:
           cache: 'pnpm'
 
       - name: Check production release gate
-        run: node --test scripts/production-release-gate.test.mjs
+        run: |
+          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs
 
       - uses: actions/cache@v4
         with:
@@ -168,6 +169,194 @@ jobs:
           else
             pnpm turbo run test
           fi
+
+  ucat-contracts:
+    name: UCAT Contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: 'pnpm'
+
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Enforce UCAT application coverage
+        run: pnpm --filter ucat-web test:coverage
+
+      - name: Test Supabase Edge Function contracts
+        run: deno test --config supabase/functions/deno.json --allow-env supabase/functions
+
+  web-system-tests-needed:
+    name: Detect web system tests
+    runs-on: ubuntu-latest
+    outputs:
+      run: ${{ steps.detect.outputs.run }}
+      database: ${{ steps.detect.outputs.database }}
+      admin: ${{ steps.detect.outputs.admin }}
+      marketing: ${{ steps.detect.outputs.marketing }}
+      student: ${{ steps.detect.outputs.student }}
+      tutor: ${{ steps.detect.outputs.tutor }}
+      ucat: ${{ steps.detect.outputs.ucat }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Fetch base branch for path detection
+        if: github.event_name == 'pull_request'
+        run: git fetch origin ${{ github.base_ref }} --no-tags
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Decide which browser and database tests are needed
+        id: detect
+        run: |
+          set -euo pipefail
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ] || [ "${{ inputs.full_run }}" = "true" ]; then
+            node scripts/web-system-test-paths.mjs --all >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            range="origin/${{ github.base_ref }}...HEAD"
+          else
+            range="HEAD^..HEAD"
+          fi
+          node scripts/web-system-test-paths.mjs --git-diff "$range" | tee -a "$GITHUB_OUTPUT"
+
+  web-e2e:
+    name: Web Browser and Database
+    needs: web-system-tests-needed
+    if: needs.web-system-tests-needed.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: "pnpm"
+
+      - uses: supabase/setup-cli@v2
+        with:
+          version: 2.107.0
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Cache Supabase Docker images
+        id: supabase-docker-cache
+        uses: actions/cache@v4
+        with:
+          path: /tmp/supabase-docker-images.tar
+          key: ${{ runner.os }}-supabase-docker-2.107.0-${{ hashFiles('supabase/config.toml') }}
+
+      - name: Load cached Supabase Docker images
+        if: steps.supabase-docker-cache.outputs.cache-hit == 'true'
+        continue-on-error: true
+        run: docker load -i /tmp/supabase-docker-images.tar
+
+      - name: Render email templates
+        run: bash supabase/scripts/render-email-templates.sh
+
+      - name: Start local Supabase and install browsers
+        run: |
+          set -euo pipefail
+          # A fresh `supabase start` applies migrations and seed. Do not follow
+          # it with `db reset` — that recreates the database and reapplies
+          # everything. Studio, image proxy, analytics, and mail UI are unused
+          # by pgTAP and Playwright.
+          if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge &
+          else
+            pnpm --filter ucat-web exec playwright install --with-deps chromium &
+          fi
+          playwright_pid=$!
+          supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
+          wait "$playwright_pid"
+
+      - name: Save Supabase Docker images
+        if: steps.supabase-docker-cache.outputs.cache-hit != 'true'
+        continue-on-error: true
+        run: |
+          docker images --format '{{.Repository}}:{{.Tag}}' \
+            | grep -i supabase \
+            | grep -v '<none>' \
+            | xargs docker save -o /tmp/supabase-docker-images.tar
+
+      - name: Test database contracts
+        if: needs.web-system-tests-needed.outputs.database == 'true'
+        run: supabase test db
+
+      - name: Run admin browser journeys
+        if: needs.web-system-tests-needed.outputs.admin == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter admin-web test:e2e
+
+      - name: Run marketing browser journeys
+        if: needs.web-system-tests-needed.outputs.marketing == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          MARKETING_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter marketing-web test:e2e
+
+      - name: Run student browser journeys
+        if: needs.web-system-tests-needed.outputs.student == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          STUDENT_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter student-web test:e2e
+
+      - name: Run tutor browser journeys
+        if: needs.web-system-tests-needed.outputs.tutor == 'true'
+        env:
+          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+        run: pnpm --filter tutor-web test:e2e
+
+      - name: Run UCAT desktop browser journeys
+        if: needs.web-system-tests-needed.outputs.ucat == 'true' && github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
+        run: pnpm --filter ucat-web test:e2e:desktop
+
+      - name: Run UCAT production browser matrix
+        if: needs.web-system-tests-needed.outputs.ucat == 'true' && (github.ref_name == 'main' || github.event_name == 'workflow_dispatch')
+        env:
+          UCAT_E2E_FULL_BROWSER_MATRIX: "true"
+          CI_RELEASE_GATE: "true"
+        run: pnpm --filter ucat-web test:e2e
+
+      - name: Preserve Playwright diagnostics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: web-playwright-${{ github.run_id }}-${{ github.run_attempt }}
+          path: |
+            apps/admin-web/playwright-report
+            apps/admin-web/test-results
+            apps/marketing-web/playwright-report
+            apps/marketing-web/test-results
+            apps/student-web/playwright-report
+            apps/student-web/test-results
+            apps/tutor-web/playwright-report
+            apps/tutor-web/test-results
+            apps/ucat-web/playwright-report
+            apps/ucat-web/test-results
+          if-no-files-found: ignore
+          retention-days: 14
 
   build:
     name: Build

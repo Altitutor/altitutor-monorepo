@@ -63,20 +63,20 @@ SELECT is(
 );
 
 SELECT ok(
-  (SELECT jsonb_typeof(value -> 'vstudent_ucat_practice_stem_index') = 'array'
-    AND jsonb_typeof(value -> 'vstudent_ucat_my_question_attempts') = 'array'
+  (SELECT jsonb_typeof(value -> 'vstudent_ucat_study_plan_readiness_evidence') = 'array'
     AND jsonb_typeof(value -> 'vstudent_ucat_preparation_snapshots') = 'array'
    FROM scheduled_bundle),
-  'the canonical catalogue, evidence, and snapshot inputs are arrays'
+  'the compact evidence and snapshot inputs are arrays'
 );
 
 SELECT ok(
-  (SELECT jsonb_array_length(value -> 'vstudent_ucat_my_question_attempts') <= 5000
+  (SELECT NOT value ? 'vstudent_ucat_practice_stem_index'
+    AND NOT value ? 'vstudent_ucat_my_question_attempts'
     AND jsonb_array_length(value -> 'vstudent_ucat_preparation_timing_evidence') <= 800
     AND jsonb_array_length(value -> 'vstudent_ucat_completed_set_assets') = 512
     AND jsonb_array_length(value -> 'vstudent_ucat_completed_mock_assets') = 512
    FROM scheduled_bundle),
-  'lifetime evidence and completed benchmark inputs are explicitly bounded'
+  'raw catalogue/attempt payloads are absent and remaining history is bounded'
 );
 
 SELECT ok(

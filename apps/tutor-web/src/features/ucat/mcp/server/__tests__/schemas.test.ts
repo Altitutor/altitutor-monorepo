@@ -2,7 +2,11 @@ import { toJsonSchemaCompat } from '@modelcontextprotocol/sdk/server/zod-json-sc
 import { z } from 'zod'
 import {
   AuditSelectorSchema,
+  ChangeMockInputSchema,
+  ChangeQuestionSetInputSchema,
   ContentChangeMetadataSchema,
+  CreateMockInputSchema,
+  CreateQuestionSetInputSchema,
   LearningModuleBlockSchema,
   RichTextSchema,
   UcatContentIdOrIdsSchema,
@@ -114,5 +118,40 @@ describe('UCAT MCP authoring schemas', () => {
     expect(UcatContentIdOrIdsSchema.safeParse([]).success).toBe(false)
     expect(UcatContentIdOrIdsSchema.safeParse(Array.from({ length: 26 }, () => first)).success)
       .toBe(false)
+  })
+
+  it('keeps set and mock intent fields in the runtime and exposed MCP contracts', () => {
+    const sectionId = '50000000-0000-0000-0000-000000000001'
+    const blueprintId = '70000000-0000-0000-0000-000000000001'
+    const idempotencyKey = '80000000-0000-0000-0000-000000000001'
+
+    expect(CreateQuestionSetInputSchema.safeParse({
+      idempotencyKey,
+      description: 'Practice set',
+      setFormat: 'partial_section',
+      sectionId,
+      referenceBlueprintId: blueprintId,
+    }).success).toBe(true)
+    expect(CreateQuestionSetInputSchema.safeParse({
+      idempotencyKey,
+      description: 'Missing intent',
+      sectionId,
+    }).success).toBe(false)
+    expect(CreateMockInputSchema.safeParse({
+      idempotencyKey,
+      blueprintId,
+    }).success).toBe(true)
+
+    const serialized = JSON.stringify({
+      createSet: toJsonSchemaCompat(CreateQuestionSetInputSchema),
+      changeSet: toJsonSchemaCompat(ChangeQuestionSetInputSchema),
+      createMock: toJsonSchemaCompat(CreateMockInputSchema),
+      changeMock: toJsonSchemaCompat(ChangeMockInputSchema),
+    })
+    expect(serialized).toContain('referenceBlueprintId')
+    expect(serialized).toContain('setFormat')
+    expect(serialized).toContain('blueprintId')
+    expect(serialized).toContain('replace_stems')
+    expect(serialized).toContain('replace_section_sets')
   })
 })

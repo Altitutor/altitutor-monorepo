@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import {
+  AccountClassBadge,
   Dialog,
   DialogContent,
   DialogHeader,
@@ -14,12 +15,7 @@ import { useStudentFutureSessions, useLogAbsences } from '../hooks';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { AbsenceActionSelector } from './AbsenceActionSelector';
 import { AbsenceSummary } from './AbsenceSummary';
-import type {
-  AbsenceDecision,
-  AbsenceOperation,
-  StudentSession,
-  RescheduleSession,
-} from '../types/absence';
+import type { AbsenceDecision, AbsenceOperation, StudentSession, RescheduleSession } from '../types/absence';
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import { filterStudentsBySearch } from '@/shared/utils/filtering';
 import { Search, Loader2 } from 'lucide-react';
@@ -54,11 +50,9 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
   const [currentSessionIndex, setCurrentSessionIndex] = useState(0);
-  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
-    Map<string, RescheduleSession>
-  >(new Map());
+  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<Map<string, RescheduleSession>>(new Map());
   const [errorMessage, setErrorMessage] = useState<string>('');
-  
+
   // Student search
   // TODO: Tutor-web doesn't have direct access to students - they come from vtutor_session_detail view
   // For absence logging, students should be selected from sessions they're linked to
@@ -78,17 +72,15 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
   }, [allStudents, searchQuery]);
 
   // Get student's future sessions (8 weeks ahead by default)
-  const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(
-    selectedStudent?.id || null
-  );
+  const { data: futureSessions, isLoading: loadingSessions } = useStudentFutureSessions(selectedStudent?.id || null);
 
   // Log absences mutation
   const logAbsencesMutation = useLogAbsences();
 
   // Reset expanded when dialog closes
   useEffect(() => {
-    if (!isOpen) setExpanded(false)
-  }, [isOpen])
+    if (!isOpen) setExpanded(false);
+  }, [isOpen]);
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -143,7 +135,11 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     setStep('process-session');
   };
 
-  const handleActionSelected = (action: 'reschedule' | 'credit', targetSessionId?: string, targetSession?: RescheduleSession) => {
+  const handleActionSelected = (
+    action: 'reschedule' | 'credit',
+    targetSessionId?: string,
+    targetSession?: RescheduleSession
+  ) => {
     if (!currentSession) return;
 
     // Store decision
@@ -228,12 +224,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
                     className="p-3 rounded-lg border-2 border-border hover:border-primary/50 hover:bg-primary/5 cursor-pointer transition-all"
                     onClick={() => handleStudentSelect(student)}
                   >
-                    <div className="font-medium">
-                      {student.first_name} {student.last_name}
+                    <div className="flex flex-wrap items-center gap-2 font-medium">
+                      <span>
+                        {student.first_name} {student.last_name}
+                      </span>
+                      <AccountClassBadge accountClass={student.account_class} />
                     </div>
-                    {student.school && (
-                      <div className="text-sm text-muted-foreground">{student.school}</div>
-                    )}
+                    {student.school && <div className="text-sm text-muted-foreground">{student.school}</div>}
                     {student.year_level && (
                       <div className="text-xs text-muted-foreground">Year {student.year_level}</div>
                     )}
@@ -243,9 +240,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
             ) : searchQuery.trim() ? (
               <div className="py-8 text-center text-muted-foreground">No students found</div>
             ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                Start typing to search for students
-              </div>
+              <div className="py-8 text-center text-muted-foreground">Start typing to search for students</div>
             )}
           </div>
         );
@@ -254,20 +249,19 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
         return (
           <div className="space-y-4">
             <div className="p-3 bg-muted rounded-lg">
-              <div className="font-semibold">
-                {selectedStudent?.first_name} {selectedStudent?.last_name}
+              <div className="flex flex-wrap items-center gap-2 font-semibold">
+                <span>
+                  {selectedStudent?.first_name} {selectedStudent?.last_name}
+                </span>
+                <AccountClassBadge accountClass={selectedStudent?.account_class} />
               </div>
-              {selectedStudent?.school && (
-                <div className="text-sm text-muted-foreground">{selectedStudent.school}</div>
-              )}
+              {selectedStudent?.school && <div className="text-sm text-muted-foreground">{selectedStudent.school}</div>}
             </div>
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h4 className="font-semibold">Select Sessions to Log Absence</h4>
-                <div className="text-sm text-muted-foreground">
-                  {selectedSessionIds.size} selected
-                </div>
+                <div className="text-sm text-muted-foreground">{selectedSessionIds.size} selected</div>
               </div>
               <AbsenceSessionSelector
                 sessions={futureSessions || []}
@@ -278,13 +272,17 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
             </div>
 
             <div className="flex gap-3">
-              <Button variant="outline" className={cn(tutorBtnOutline, 'flex-1')} onClick={() => {
-                // Clear all saved decisions when going back
-                setDecisions([]);
-                setRescheduledSessionsMap(new Map());
-                setCurrentSessionIndex(0);
-                setStep('select-student');
-              }}>
+              <Button
+                variant="outline"
+                className={cn(tutorBtnOutline, 'flex-1')}
+                onClick={() => {
+                  // Clear all saved decisions when going back
+                  setDecisions([]);
+                  setRescheduledSessionsMap(new Map());
+                  setCurrentSessionIndex(0);
+                  setStep('select-student');
+                }}
+              >
                 Back
               </Button>
               <Button
@@ -292,7 +290,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
                 onClick={handleProceedToProcess}
                 disabled={selectedSessionIds.size === 0}
               >
-                Next ({selectedSessionIds.size} session{selectedSessionIds.size !== 1 ? 's' : ''})
+                Next ({selectedSessionIds.size} session
+                {selectedSessionIds.size !== 1 ? 's' : ''})
               </Button>
             </div>
           </div>
@@ -391,9 +390,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
           <div className="py-12 text-center space-y-4">
             <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
             <div className="text-lg font-semibold">Processing absences...</div>
-            <div className="text-sm text-muted-foreground">
-              Please wait while we log the absences
-            </div>
+            <div className="text-sm text-muted-foreground">Please wait while we log the absences</div>
           </div>
         );
 
@@ -442,9 +439,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
               </svg>
             </div>
             <div className="text-lg font-semibold">Error Logging Absences</div>
-            <div className="text-sm text-muted-foreground max-w-md mx-auto">
-              {errorMessage}
-            </div>
+            <div className="text-sm text-muted-foreground max-w-md mx-auto">{errorMessage}</div>
             <div className="pt-4 flex gap-3">
               <Button variant="outline" className={cn(tutorBtnOutline, 'flex-1')} onClick={() => setStep('review')}>
                 Go Back
@@ -520,4 +515,3 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId }: LogAbsenceDialogP
     </Dialog>
   );
 }
-

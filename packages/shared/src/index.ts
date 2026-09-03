@@ -15,6 +15,8 @@ export * from "./ucat/progress-points";
 export * from "./ucat/progress-aggregation";
 export * from "./ucat/question-difficulty";
 export * from "./ucat/question-time-burden";
+export * from "./ucat/catalog-name";
+export * from "./ucat/acquisition-attribution";
 export * from "./types/ucat-subscription";
 export * from "./types/ucat-skill-trainer";
 export * from "./utils/quick-filters";
@@ -27,5 +29,7 @@ export * from "./flashcards";
 export * from "./forms";
 export * from "./constants/online-products";
 export * from "./auth/verified-request";
+export * from "./auth/session-verification";
+export * from "./observability/sentry-environment";
 // Client hooks and pay-tiers: import via subpaths `@altitutor/shared/hooks` and
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.

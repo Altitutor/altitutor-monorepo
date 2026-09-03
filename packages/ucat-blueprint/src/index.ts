@@ -26,6 +26,7 @@ export interface BlueprintQuestion {
 export interface BlueprintStem {
   id: string
   category: string
+  categoryId?: string
   questions: BlueprintQuestion[]
 }
 
@@ -48,7 +49,7 @@ interface Range {
 }
 
 type CategoryRule = Range & { unit: 'questions' | 'stems' } & (
-  | { category: string; answerScheme?: never; label?: string; requiredAnswerScheme?: BlueprintAnswerScheme }
+  | { category: string; categoryId?: string; answerScheme?: never; label?: string; requiredAnswerScheme?: BlueprintAnswerScheme }
   | { category?: never; answerScheme: BlueprintAnswerScheme; label: string }
 )
 
@@ -196,7 +197,7 @@ export type BlueprintReasonCode =
 
 export interface BlueprintReason {
   code: BlueprintReasonCode
-  severity: 'error' | 'information'
+  severity: 'error' | 'warning' | 'information'
   message: string
   section?: BlueprintSectionCode
   stemId?: string
@@ -245,6 +246,16 @@ export interface BlueprintEvaluation {
   reasons: BlueprintReason[]
 }
 
+export const PUBLICATION_BLOCKING_BLUEPRINT_CODES = [
+  'QUESTION_TOTAL_MISMATCH',
+  'ANSWERING_TIME_MISMATCH',
+  'INSTRUCTION_TIME_MISMATCH',
+] as const satisfies readonly BlueprintReasonCode[]
+
+export function isPublicationBlockingBlueprintCode(code: string): boolean {
+  return (PUBLICATION_BLOCKING_BLUEPRINT_CODES as readonly string[]).includes(code)
+}
+
 export interface BlueprintBuildShortfall {
   label: string
   available: number
@@ -285,7 +296,7 @@ const rangeReason = (
   range: Range,
 ): BlueprintReason => ({
   code,
-  severity: 'error',
+  severity: 'warning',
   section,
   actual,
   minimum: range.min,
@@ -432,7 +443,7 @@ export function evaluateBlueprint(
     if (policy.exactStemCount !== undefined && section.stems.length !== policy.exactStemCount) {
       reasons.push({
         code: 'STEM_TOTAL_MISMATCH',
-        severity: 'error',
+        severity: 'warning',
         section: official.section,
         actual: section.stems.length,
         expected: policy.exactStemCount,
@@ -455,7 +466,11 @@ export function evaluateBlueprint(
       const label = rule.label ?? rule.category ?? 'Answer-scheme questions'
       const matchingCategoryStems = rule.category === undefined
         ? []
-        : section.stems.filter(stem => stem.category === rule.category)
+        : section.stems.filter(stem =>
+            rule.categoryId !== undefined
+              ? stem.categoryId === rule.categoryId
+              : stem.category === rule.category,
+          )
       const actual = rule.answerScheme === undefined
         ? rule.unit === 'stems' ? matchingCategoryStems.length : totalQuestions(matchingCategoryStems)
         : section.stems.reduce(
@@ -504,7 +519,7 @@ export function evaluateBlueprint(
         if (firstMismatch) {
           reasons.push({
             code: 'CATEGORY_ANSWER_SCHEME_MISMATCH',
-            severity: 'error',
+            severity: 'warning',
             section: official.section,
             stemId: firstMismatch.stemId,
             questionId: firstMismatch.questionId,
@@ -551,7 +566,7 @@ export function evaluateBlueprint(
         })
         if (!compliant) {
           reasons.push({
-            code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', severity: 'error', section: official.section,
+            code: 'SJT_SCENARIO_QUESTION_LIMIT_EXCEEDED', severity: 'warning', section: official.section,
             stemId: stem.id, actual: stem.questions.length, minimum: rule.min, maximum: rule.max,
             message: `${sectionLabels[official.section]} stem ${stem.id} must contain between ${rule.min} and ${rule.max} questions; found ${stem.questions.length}.`,
           })
@@ -573,7 +588,7 @@ export function evaluateBlueprint(
         if (!stemCompliant) {
           reasons.push({
             code: 'MOST_LEAST_STEM_QUESTION_COUNT_INVALID',
-            severity: 'error',
+            severity: 'warning',
             section: official.section,
             stemId: stem.id,
             actual: stem.questions.length,
@@ -667,7 +682,7 @@ export function evaluateBlueprint(
 
   return {
     applicable: true,
-    compliant: reasons.length === 0 && checks.every(check => check.compliant),
+    compliant: reasons.every(reason => reason.severity !== 'error'),
     blueprintId: blueprint.id,
     totals,
     sections,
@@ -704,7 +719,7 @@ function sectionEvaluation(
 
   return {
     ...evaluation,
-    compliant: reasons.length === 0 && checks.every(check => check.compliant),
+    compliant: reasons.every(reason => reason.severity !== 'error'),
     checks,
     reasons,
   }
@@ -799,7 +814,7 @@ export function buildBlueprintSection(
   const compliant = Array.from(states.values())
     .filter(selected => totalQuestions(selected) === official.questionCount)
     .map(selected => ({ selected, evaluation: sectionEvaluation(blueprint, section, selected) }))
-    .filter(result => result.evaluation.compliant)
+    .filter(result => result.evaluation.checks.every(check => check.compliant))
     .sort((left, right) => {
       const distance = preferredDistance(blueprint, section, left.evaluation)
         - preferredDistance(blueprint, section, right.evaluation)

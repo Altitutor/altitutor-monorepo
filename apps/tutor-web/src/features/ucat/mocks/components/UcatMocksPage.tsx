@@ -28,7 +28,7 @@ import {
   useToast,
 } from '@altitutor/ui'
 import { CheckCircle2, FilePenLine, ListChecks, Pencil, RotateCcw, Send, Trash2 } from 'lucide-react'
-import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useSetUcatMockStatus, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useSetUcatMockStatus, useUcatMockBlueprints, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
 import { useUcatMocksTable, type MockRow } from '@/features/ucat/mocks/hooks/useUcatMocksTable'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
@@ -57,6 +57,14 @@ import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 import { SegmentedControl } from '@/shared/components/segmented-control'
+import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
+import {
+  belongsInMockCatalogOrder,
+  buildPublishedMockOrder,
+  unpublishedMockOrderRows,
+  type MockCatalogOrderRow,
+} from '@/features/ucat/mocks/lib/mock-catalog-order'
+import { confirmDiscardUnsavedOrder } from '@/features/ucat/shared/components/UcatOrderSaveToolbar'
 import {
   firstUcatBulkStatusFailureError,
   lifecycleErrorToast,
@@ -94,17 +102,26 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'updated_at', label: 'Updated' },
 ]
 
+type MockBlueprintOption = {
+  id: string | null
+  code: string | null
+  test_year: number | null
+  version: number | null
+}
+
 export function UcatMocksPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const pathname = usePathname()
   const activeStatus = parseStatusTab(searchParams.get('tab'))
+  const viewMode = searchParams.get('view') === 'order' ? 'order' : 'table'
   const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeStatus), [activeStatus])
   const access = useUcatAccess()
   const mocks = useUcatMocks()
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const createMock = useCreateUcatMock()
+  const blueprintsQuery = useUcatMockBlueprints()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
   const setStatus = useSetUcatMockStatus()
@@ -116,12 +133,14 @@ export function UcatMocksPage() {
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
   const [instructionsText, setInstructionsText] = useState<RichTextJson | null>(null)
+  const [createBlueprintId, setCreateBlueprintId] = useState<string | null>(null)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
   const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
   const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
+  const [orderDirty, setOrderDirty] = useState(false)
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
   const { toast } = useToast()
@@ -130,6 +149,15 @@ export function UcatMocksPage() {
     const editId = searchParams.get('edit')
     if (editId) setEditingMockId(editId)
   }, [searchParams])
+
+  function setViewMode(value: 'table' | 'order') {
+    if (!confirmDiscardUnsavedOrder(orderDirty)) return
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'order') params.set('view', 'order')
+    else params.delete('view')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
 
   const { rows, visibleColumns, tableState, showDeleted, setShowDeleted } = useUcatMocksTable({
     data: mocks.data,
@@ -309,13 +337,13 @@ export function UcatMocksPage() {
         for (const mockId of ids) {
           const detail = await ucatMocksApi.detail(mockId)
           if (!detail) continue
-          const setIds = (detail.sets as Array<{ id: string }> | null)?.map((set) => set.id) ?? []
           await updateMockMutation.mutateAsync({
             mockId,
             payload: {
-              name: detail.name ?? 'Untitled',
+              authoringNote: detail.authoring_note,
               accessScope,
-              setIds,
+              instructionsText: detail.instructions_text,
+              blueprintId: detail.blueprint_id ?? '',
             },
           })
         }
@@ -446,19 +474,19 @@ export function UcatMocksPage() {
 
   async function onCreate() {
     const result = await createMock.mutateAsync({
-      name,
+      authoringNote: name,
       accessScope: isPrivate ? 'private' : 'public',
-      setIds: [],
       instructionsText: instructionsText ?? undefined,
+      blueprintId: createBlueprintId ?? '',
     })
-    const mockName = name.trim() || 'Untitled'
     setOpenCreate(false)
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
+    setCreateBlueprintId(null)
     if (result.id) setEditingMockId(result.id)
     toast({
-      title: `Mock ${mockName} created`,
+      title: 'Mock created',
       description: (
         <button
           type="button"
@@ -476,10 +504,59 @@ export function UcatMocksPage() {
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
+    setCreateBlueprintId(null)
   }
 
   if (access.isLoading || mocks.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
+
+  if (viewMode === 'order') {
+    const orderRows: MockCatalogOrderRow[] = (mocks.data ?? [])
+      .filter((mock) => belongsInMockCatalogOrder({ deletedAt: mock.deleted_at }))
+      .flatMap((mock) => mock.id ? [{
+        id: mock.id,
+        displayName: mock.display_name ?? mock.name ?? mock.id,
+        authoringNote: mock.authoring_note,
+        catalogIndex: mock.catalog_index ?? null,
+        status: mock.status ?? 'draft',
+      }] : [])
+    const publishedIds = buildPublishedMockOrder(orderRows)
+    const rowById = new Map(orderRows.map((row) => [row.id, row]))
+    const publishedRows = publishedIds.flatMap((id) => {
+      const row = rowById.get(id)
+      return row ? [{
+        id: row.id,
+        displayName: row.displayName,
+        authoringNote: row.authoringNote,
+      }] : []
+    })
+    const unpublishedRows = unpublishedMockOrderRows(orderRows).map((row) => ({
+      id: row.id,
+      displayName: row.displayName,
+      authoringNote: row.authoringNote,
+    }))
+    return (
+      <div className="space-y-6 py-8 md:py-10">
+        <UcatPageHeader
+          title="UCAT Mocks"
+          description="Set the published mock display order"
+          backHref="/ucat"
+          breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
+          actions={<SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />}
+        />
+        <UcatCatalogOrderEditor
+          rows={publishedRows}
+          unpublishedRows={unpublishedRows}
+          onDirtyChange={setOrderDirty}
+          onSave={async (ids) => {
+            await ucatMocksApi.reorder(ids)
+            await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+            toast({ title: 'Mock order saved' })
+          }}
+        />
+      </div>
+    )
+  }
 
   return (
     <div className="space-y-6 py-8 md:py-10">
@@ -488,11 +565,10 @@ export function UcatMocksPage() {
         description="Draft, review, and publish full mock exams"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
-        actions={
-          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
-            Add Mock
-          </Button>
-        }
+        actions={<div className="flex items-center gap-2">
+          <SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="table" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>Add Mock</Button>
+        </div>}
       />
 
       <SegmentedControl
@@ -659,13 +735,13 @@ export function UcatMocksPage() {
         subtitle="Create a new UCAT mock"
         onSave={onCreate}
         saveLabel="Create"
-        saveDisabled={createMock.isPending}
+        saveDisabled={createMock.isPending || !createBlueprintId}
         isSaving={createMock.isPending}
       >
         <div className="p-6 overflow-y-auto h-full space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
-            <Input value={name} onChange={(event) => setName(event.target.value)} />
+            <span className="mb-1 block font-medium">Tutor note</span>
+            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Optional internal note" />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
@@ -679,6 +755,21 @@ export function UcatMocksPage() {
               getItemLabel={(item) => item.label}
               getItemId={(item) => item.value}
             />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Mock blueprint</span>
+            <SearchableSelect<MockBlueprintOption>
+              items={(blueprintsQuery.data ?? []) as MockBlueprintOption[]}
+              value={((blueprintsQuery.data ?? []) as MockBlueprintOption[]).find((blueprint) => blueprint.id === createBlueprintId) ?? null}
+              onValueChange={(blueprint) => setCreateBlueprintId(blueprint?.id ?? null)}
+              getItemLabel={(blueprint) => `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}`}
+              getItemId={(blueprint) => blueprint.id ?? ''}
+              placeholder="Select a blueprint"
+              searchPlaceholder="Search blueprints..."
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              The selected immutable version supplies this mock's section totals, timings, and composition rules.
+            </p>
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Instructions</span>

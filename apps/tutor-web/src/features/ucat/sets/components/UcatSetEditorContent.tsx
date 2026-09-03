@@ -30,7 +30,7 @@ import { UcatSetTimeLimitFields } from '@/features/ucat/sets/components/UcatSetT
 import { getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import { bindRichTextToolbarFocus } from '@/features/ucat/shared/lib/rich-text-toolbar-focus'
-import type { RichTextJson } from '@/features/ucat/shared/types'
+import type { RichTextJson, UcatQuestionSetFormat } from '@/features/ucat/shared/types'
 import { SegmentedControl } from '@/shared/components/segmented-control'
 import {
   UcatAuthoringWorkspaceTabs,
@@ -83,6 +83,8 @@ type UcatSetEditorContentProps = {
   draftTimeLimitSource: SetTimeLimitSource
   draftTimeLimitSpeed: number
   draftPrivate: boolean
+  draftSetFormat: UcatQuestionSetFormat
+  draftReferenceBlueprintId: string
   draftStemIds: string[]
   setDraftStemIds: (ids: string[]) => void
   stemCatalog: UcatStemCatalogItem[]
@@ -108,6 +110,10 @@ type UcatSetEditorContentProps = {
   onChangeTimeLimitSource: (value: SetTimeLimitSource) => void
   onChangeTimeLimitSpeed: (value: number) => void
   onChangePrivate: (value: boolean) => void
+  onChangeSetFormat: (value: UcatQuestionSetFormat) => void
+  onChangeReferenceBlueprintId: (value: string) => void
+  blueprintOptions?: Array<{ id: string; label: string }>
+  isMockSet?: boolean
   sections?: UcatSectionForTimeLimit[]
   onActiveTextEditorChange?: (editor: Editor | null) => void
   linkedBlueprintReports?: LinkedMockBlueprintCompliance[]
@@ -122,6 +128,8 @@ export function UcatSetEditorContent({
   draftTimeLimitSource,
   draftTimeLimitSpeed,
   draftPrivate,
+  draftSetFormat,
+  draftReferenceBlueprintId,
   draftStemIds,
   setDraftStemIds,
   stemCatalog,
@@ -147,6 +155,10 @@ export function UcatSetEditorContent({
   onChangeTimeLimitSource,
   onChangeTimeLimitSpeed,
   onChangePrivate,
+  onChangeSetFormat,
+  onChangeReferenceBlueprintId,
+  blueprintOptions = [],
+  isMockSet = false,
   sections = [],
   onActiveTextEditorChange,
   linkedBlueprintReports = [],
@@ -319,8 +331,8 @@ export function UcatSetEditorContent({
               </PropertiesCard>
 
               <PropertiesCard value="set" title="Set properties">
-                <UcatSetPropertyRow label="Name">
-                  <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Set name" />
+                <UcatSetPropertyRow label="Tutor note">
+                  <Input value={draftName} onChange={(e) => onChangeName(e.target.value)} placeholder="Optional internal note" />
                 </UcatSetPropertyRow>
                 <UcatSetPropertyRow label="Section">
                   <div className="space-y-1">
@@ -338,6 +350,39 @@ export function UcatSetEditorContent({
                     {draftStemIds.length > 0 ? (
                       <p className="text-xs text-muted-foreground">
                         Remove every stem before changing this set’s section.
+                      </p>
+                    ) : null}
+                  </div>
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Format">
+                  <SearchableSelect<{ value: UcatQuestionSetFormat; label: string }>
+                    items={[
+                      { value: 'full_section', label: 'Full section' },
+                      { value: 'partial_section', label: 'Partial section' },
+                    ]}
+                    value={draftSetFormat === 'full_section'
+                      ? { value: 'full_section', label: 'Full section' }
+                      : { value: 'partial_section', label: 'Partial section' }}
+                    onValueChange={(item) => item && onChangeSetFormat(item.value)}
+                    getItemLabel={(item) => item.label}
+                    getItemId={(item) => item.value}
+                    disabled={isMockSet}
+                  />
+                </UcatSetPropertyRow>
+                <UcatSetPropertyRow label="Reference blueprint">
+                  <div className="space-y-1">
+                    <SearchableSelect<(typeof blueprintOptions)[number]>
+                      items={blueprintOptions}
+                      value={blueprintOptions.find((item) => item.id === draftReferenceBlueprintId) ?? null}
+                      onValueChange={(item) => item && onChangeReferenceBlueprintId(item.id)}
+                      getItemLabel={(item) => item.label}
+                      getItemId={(item) => item.id}
+                      placeholder="Select blueprint"
+                      disabled={isMockSet}
+                    />
+                    {isMockSet ? (
+                      <p className="text-xs text-muted-foreground">
+                        Mock sets use their mock’s blueprint and full-section format.
                       </p>
                     ) : null}
                   </div>

@@ -48,9 +48,7 @@ jobs:
         run: bash supabase/scripts/render-email-templates.sh
 
       - name: Start Supabase and apply migrations
-        run: |
-          supabase start
-          supabase db reset
+        run: supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
 
       - name: Regenerate types and fail if committed file is stale
         run: |

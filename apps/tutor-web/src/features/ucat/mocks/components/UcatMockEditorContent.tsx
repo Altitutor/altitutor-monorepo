@@ -9,10 +9,11 @@ import {
   Button,
   Input,
   SearchableSelect,
+  ResponsiveResizablePanels,
   Tabs,
   TabsContent,
 } from '@altitutor/ui'
-import { Pencil, Trash2 } from 'lucide-react'
+import { Pencil, Plus, Trash2 } from 'lucide-react'
 import type { DataTableFilterDefinition } from '@altitutor/shared'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
 import type { RichTextJson } from '@/features/ucat/shared/types'
@@ -27,7 +28,6 @@ import {
 import { cn } from '@/shared/utils'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
 import { UcatMockBlueprintAuditPanel } from '@/features/ucat/mocks/components/UcatMockBlueprintAuditPanel'
-import { UcatMockSetMembershipCard } from '@/features/ucat/mocks/components/UcatMockSetMembershipCard'
 import type { UcatMockBlueprintCandidateController } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
 
 function MockPropertyRow({ label, children }: { label: ReactNode; children: ReactNode }) {
@@ -88,6 +88,7 @@ type UcatMockEditorContentProps = {
     time_limit_seconds: number | null
   }>
   onEditSet?: (setId: string) => void
+  onCreateSet?: (sectionId: string) => void
   blueprints?: Array<{ id: string; code: string; test_year: number; version: number }>
   blueprintCandidate: UcatMockBlueprintCandidateController
 }
@@ -112,6 +113,7 @@ export function UcatMockEditorContent({
   setCatalogLoading = false,
   sections = [],
   onEditSet,
+  onCreateSet,
   blueprints = [],
   blueprintCandidate,
 }: UcatMockEditorContentProps) {
@@ -141,6 +143,8 @@ export function UcatMockEditorContent({
   )
 
   function removeSet(setId: string) {
+    const setName = setById.get(setId)?.name ?? 'this set'
+    if (!window.confirm(`Remove ${setName} from this mock?`)) return
     setDraftSetIds(draftSetIds.filter((id) => id !== setId))
   }
 
@@ -169,9 +173,20 @@ export function UcatMockEditorContent({
         aiLabel="Add sets"
         className="shrink-0 border-b bg-background p-2 lg:hidden"
       />
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
+      <ResponsiveResizablePanels
+        id="ucat-mock-editor-panels"
+        breakpoint="lg"
+        primaryDefaultSize="70%"
+        primaryMinSize={480}
+        secondaryDefaultSize={320}
+        secondaryMinSize={280}
+        secondaryMaxSize={520}
+        handleLabel="Resize mock properties sidebar"
+        mobilePanel={activeWorkspace === 'editor' ? 'primary' : 'secondary'}
+        primary={(
       <section className={cn(
-        'flex min-h-0 min-w-0 flex-1 flex-col p-3 sm:p-4 lg:flex lg:border-r lg:p-6',
+        'flex h-full min-h-0 min-w-0 flex-col p-3 sm:p-4 lg:flex lg:p-6',
         activeWorkspace !== 'editor' && 'hidden',
       )}>
         <h2 className="mb-1 shrink-0 font-semibold">Mock sections</h2>
@@ -196,8 +211,14 @@ export function UcatMockEditorContent({
                   </span>
                 </div>
                 {assignedSets.length === 0 ? (
-                  <div className="rounded-lg border border-dashed bg-background px-3 py-4 text-sm text-muted-foreground">
-                    No set selected
+                  <div className="flex items-center justify-between gap-3 rounded-lg border border-dashed bg-background px-3 py-3">
+                    <span className="text-sm text-muted-foreground">No set selected</span>
+                    {section.id && onCreateSet ? (
+                      <Button type="button" variant="outline" size="sm" onClick={() => onCreateSet(section.id as string)}>
+                        <Plus className="mr-1.5 h-4 w-4" />
+                        New set
+                      </Button>
+                    ) : null}
                   </div>
                 ) : (
                   <div className="space-y-2">
@@ -237,9 +258,11 @@ export function UcatMockEditorContent({
           ) : null}
         </div>
       </section>
+        )}
 
+        secondary={(
       <aside className={cn(
-        'h-full min-h-0 w-full shrink-0 flex-col overflow-hidden bg-background p-3 sm:p-4 lg:flex lg:w-80 lg:border-l',
+        'h-full min-h-0 w-full min-w-0 flex-col overflow-hidden bg-background p-3 sm:p-4 lg:flex',
         activeWorkspace === 'editor' && 'hidden',
         activeWorkspace !== 'editor' && 'flex',
       )}>
@@ -260,10 +283,10 @@ export function UcatMockEditorContent({
             />
           </div>
           <TabsContent value="properties" className="m-0 mt-3 min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain pt-1">
-            <Accordion type="multiple" defaultValue={['mock', 'blueprint', 'sets']} className="space-y-4">
+            <Accordion type="multiple" defaultValue={['mock', 'blueprint']} className="space-y-4">
               <PropertiesCard value="mock" title="Mock properties">
-                <MockPropertyRow label="Name">
-                  <Input value={name} onChange={(e) => setName(e.target.value)} />
+                <MockPropertyRow label="Tutor note">
+                  <Input value={name} onChange={(e) => setName(e.target.value)} placeholder="Optional internal note" />
                 </MockPropertyRow>
                 <MockPropertyRow label={<UcatVisibilityFieldLabel />}>
                   <SearchableSelect<{ value: string; label: string }>
@@ -300,14 +323,6 @@ export function UcatMockEditorContent({
               <PropertiesCard value="blueprint" title="Blueprint">
                 <UcatMockBlueprintAuditPanel blueprints={blueprints} controller={blueprintCandidate} />
               </PropertiesCard>
-
-              <PropertiesCard value="sets" title="Set membership">
-                <UcatMockSetMembershipCard
-                  setIds={draftSetIds}
-                  setCatalog={setCatalog}
-                  onViewSet={onEditSet}
-                />
-              </PropertiesCard>
             </Accordion>
           </TabsContent>
           <TabsContent value="add-sets" className="m-0 mt-3 min-h-0 flex-1 flex-col data-[state=active]:flex">
@@ -330,6 +345,8 @@ export function UcatMockEditorContent({
           </TabsContent>
         </Tabs>
       </aside>
+        )}
+      />
       </div>
     </div>
   )

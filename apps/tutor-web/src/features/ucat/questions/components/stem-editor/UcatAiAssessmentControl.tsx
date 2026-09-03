@@ -234,7 +234,7 @@ function patchPreviewRows(
     : null
   const optionText = (id: string | null | undefined) => {
     if (!id) return 'No keyed option'
-    const option = questions.flatMap((item) => item.options).find((item) => item.id === id)
+    const option = questions.flatMap((item) => item.options ?? []).find((item) => item.id === id)
     return option ? proseMirrorToPlainText(option.answerText) : id
   }
   switch (patch.operation) {
@@ -253,11 +253,11 @@ function patchPreviewRows(
     case 'replace_option_and_key':
       return [
         { label: 'Answer option', before: patch.beforeAnswerText, after: patch.answerText },
-        { label: 'Correct answer', before: optionText(question?.options.find((item) => item.answerKeyValue === 'correct')?.id), after: patch.answerText },
+        { label: 'Correct answer', before: optionText((question?.options ?? []).find((item) => item.answerKeyValue === 'correct')?.id), after: patch.answerText },
         ...(patch.answerExplanation !== undefined
           ? [{
               label: 'Option explanation',
-              before: proseMirrorToPlainText(question?.options.find((item) => item.id === patch.optionId)?.answerExplanation ?? null),
+              before: proseMirrorToPlainText((question?.options ?? []).find((item) => item.id === patch.optionId)?.answerExplanation ?? null),
               after: patch.answerExplanation ?? 'None',
             }]
           : []),
@@ -275,7 +275,7 @@ function patchPreviewRows(
     case 'reorder_options':
       return [{
         label: 'Answer option order',
-        before: question?.options.map((option) => optionText(option.id)).join('\n') ?? 'Unknown',
+        before: (question?.options ?? []).map((option) => optionText(option.id)).join('\n') || 'Unknown',
         after: patch.optionIds.map(optionText).join('\n'),
       }]
     case 'set_metadata':

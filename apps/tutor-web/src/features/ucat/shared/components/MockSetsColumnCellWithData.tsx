@@ -38,6 +38,7 @@ export function MockSetsColumnCellWithData({
       ? (setsRaw as Array<{
           id: string
           name?: unknown
+          display_name?: string | null
           sections?: unknown
           question_count?: number | null
           time_limit_seconds?: number | null

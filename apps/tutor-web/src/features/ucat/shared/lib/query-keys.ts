@@ -28,6 +28,7 @@ export const ucatKeys = {
     [...ucatKeys.questions('all'), 'catalog-audit-runs'] as const,
   audits: () => [...ucatKeys.all, 'audits'] as const,
   audit: (id: string) => [...ucatKeys.audits(), id] as const,
+  contentChanges: (status: string) => [...ucatKeys.all, 'content-changes', status] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,
   set: (id: string) => [...ucatKeys.sets(), id] as const,
   mocks: () => [...ucatKeys.all, 'mocks'] as const,

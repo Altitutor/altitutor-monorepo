@@ -27,8 +27,7 @@ import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
 import { ClassInfoTab } from '@/features/classes/components/modal/tabs/ClassInfoTab';
-import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/ClassStudentsTab';
-import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
+import { ClassPeopleTab } from '@/features/classes/components/modal/tabs/ClassPeopleTab';
 import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
 import { AdminLoadingSkeleton } from '@/shared/components';
@@ -191,8 +190,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         className="space-y-6"
         options={[
           { value: 'details', label: 'Details' },
-          { value: 'students', label: 'Students' },
-          { value: 'staff', label: 'Staff' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
         ]}
@@ -212,30 +209,19 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
               toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
             }}
           />
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="students" activeTab={activeTab} className="space-y-6">
-          <ClassStudentsTab
-            classData={classData}
-            classSubject={subject || undefined}
-            classStaff={classStaff}
-            classStudents={classStudents}
-            allStudents={allStudentsData}
-            loadingStudents={false}
-            onStudentsUpdated={handleClassUpdated}
-          />
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="space-y-6">
-          <ClassStaffTab
-            classData={classData}
-            classSubject={subject || undefined}
-            classStaff={classStaff}
-            allStaff={allStaffData}
-            loadingStaff={false}
-            onAssignStaff={handleAssignStaff}
-            onRemoveStaff={handleRemoveStaff}
-          />
+          <div className="border-t pt-6">
+            <ClassPeopleTab
+              classData={classData}
+              classSubject={subject || undefined}
+              classStaff={classStaff}
+              classStudents={classStudents}
+              allStudents={allStudentsData}
+              allStaff={allStaffData}
+              onStudentsUpdated={handleClassUpdated}
+              onAssignStaff={handleAssignStaff}
+              onRemoveStaff={handleRemoveStaff}
+            />
+          </div>
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">

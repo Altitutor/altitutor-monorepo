@@ -46,7 +46,7 @@ import { DraggableTopicsList } from './DraggableTopicsList';
 import { DraggableFilesList, type TopicFileWithFile } from './DraggableFilesList';
 import { FileCard } from './FileCard';
 import { getFileTypeLabel } from '@/shared/utils/file-type-icons';
-import { groupFilesByType, getNonSolutionFiles, findLinkedSolution } from '../utils/fileDisplay';
+import { groupFilesByType, getTopicFileDisplayRows } from '../utils/fileDisplay';
 import type { Enums } from '@altitutor/shared';
 import { AddTopicModal } from './AddTopicModal';
 import { AddResourceFileModal } from './AddResourceFileModal';
@@ -385,7 +385,7 @@ export function ViewTopicModal({
                   <div className="mt-6">
                     <h3 className="text-lg font-semibold mb-3">Files</h3>
                     <p className="text-sm text-muted-foreground mb-3">
-                      Drag files to reorder within types or change types. Drag solutions to link them to files.
+                      Drag files to reorder within types or change types. Drag solutions onto a file, or drop a file into an unlinked solution.
                     </p>
                     {topicFiles.length > 0 ? (
                       <DraggableFilesList
@@ -497,15 +497,49 @@ export function ViewTopicModal({
                             if (files.length === 0) return null;
                             
                             const typeLabel = getFileTypeLabel(type as Enums<'resource_type'>);
-                            const nonSolutionFiles = getNonSolutionFiles(files);
+                            const rows = getTopicFileDisplayRows(files);
                             
                             return (
                               <div key={type} className="space-y-2">
                                 <h4 className="font-semibold text-sm">{typeLabel}</h4>
                                 <div className="space-y-2">
-                                  {nonSolutionFiles.map((topicFile) => {
+                                  {rows.map((row) => {
+                                    if (row.kind === 'unlinked-solution') {
+                                      const solution = row.solution;
+                                      return (
+                                        <div key={solution.id} className="flex gap-2">
+                                          <div className="w-1/2">
+                                            <div className="h-full border-2 border-dashed border-muted-foreground/30 rounded-lg bg-muted/20 flex items-center justify-center min-h-[60px]">
+                                              <span className="text-xs text-muted-foreground">No file</span>
+                                            </div>
+                                          </div>
+                                          <div className="w-1/2">
+                                            <FileCard
+                                              fileCode={solution.code || ''}
+                                              fileType={solution.type}
+                                              filename={solution.file.filename}
+                                              storagePath={solution.file.storage_path}
+                                              externalUrl={solution.file.external_url}
+                                              mimeType={solution.file.mimetype}
+                                              topicFileId={solution.id}
+                                              fileId={solution.file.id}
+                                              topicName={topic.name}
+                                              onEdit={(id) => {
+                                                setEditingFileId(id);
+                                                setIsEditFileModalOpen(true);
+                                              }}
+                                              onDelete={async (id) => {
+                                                await deleteTopicFileMutation.mutateAsync(id);
+                                              }}
+                                            />
+                                          </div>
+                                        </div>
+                                      );
+                                    }
+
+                                    const topicFile = row.file;
+                                    const linkedSolution = row.solution;
                                     const code = topicFile.code || '';
-                                    const linkedSolution = findLinkedSolution(topicFile.id, files);
                                     
                                     return (
                                       <div key={topicFile.id} className="flex gap-2">

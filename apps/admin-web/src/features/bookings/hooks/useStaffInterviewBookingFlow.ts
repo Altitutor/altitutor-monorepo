@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { createStaffInterview } from '../api/staff-interview';
@@ -31,13 +31,15 @@ function getDefaultStartEnd(): { startAt: string; endAt: string } {
 }
 
 export function useStaffInterviewBookingFlow({
-  isOpen: _isOpen,
+  isOpen,
   onBookingCreated,
   onClose,
+  initialPhone = null,
 }: {
   isOpen: boolean;
   onBookingCreated?: (sessionId: string) => void;
   onClose: () => void;
+  initialPhone?: string | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -52,6 +54,13 @@ export function useStaffInterviewBookingFlow({
   const [selectedInterviewerId, setSelectedInterviewerId] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialPhone) {
+      setIsCreatingStaff(true);
+    }
+  }, [isOpen, initialPhone]);
 
   const steps = STAFF_INTERVIEW_STEPS;
   const currentStepData = steps[currentStep];

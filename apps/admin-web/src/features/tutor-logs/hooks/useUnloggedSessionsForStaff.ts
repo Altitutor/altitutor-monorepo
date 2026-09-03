@@ -3,6 +3,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Tables } from '@altitutor/shared';
+import { filterSessionsStaffMayLog } from '@altitutor/shared/pay-tiers';
 import { sessionsKeys } from '../../sessions/hooks/useSessionsQuery';
 
 export interface UnloggedSessionData {
@@ -84,8 +85,27 @@ export function useUnloggedSessionsForStaff(staffId: string | null | undefined) 
           (s: Tables<'sessions'>) => !loggedSessionIds.has(s.id)
         );
 
+        const unloggedIds = unloggedSessions.map((s) => s.id);
+        const assignmentTypeBySessionId: Record<string, string | null | undefined> = {};
+        if (unloggedIds.length > 0) {
+          const { data: assignments } = await supabase
+            .from('sessions_staff')
+            .select('session_id, type')
+            .eq('staff_id', staffId)
+            .in('session_id', unloggedIds);
+
+          for (const row of assignments ?? []) {
+            assignmentTypeBySessionId[row.session_id] = row.type;
+          }
+        }
+
+        const sessionsStaffMayLog = filterSessionsStaffMayLog(
+          unloggedSessions as Tables<'sessions'>[],
+          assignmentTypeBySessionId
+        );
+
         return {
-          sessions: unloggedSessions as Tables<'sessions'>[],
+          sessions: sessionsStaffMayLog,
           sessionStudents: rpcData.sessionStudents || {},
           sessionStaff: rpcData.sessionStaff || {},
           classesById: rpcData.classesById || {},

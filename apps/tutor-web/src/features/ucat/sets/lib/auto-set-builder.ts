@@ -1,8 +1,8 @@
 import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import {
   evaluateBlueprint,
-  UCAT_ANZ_2026_V1,
   type BlueprintSectionCode,
+  type UcatBlueprint,
 } from '@altitutor/ucat-blueprint'
 import {
   blueprintSectionCode,
@@ -12,7 +12,6 @@ import {
 } from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 export type AutoSetMode = 'total' | 'category' | 'range'
-export type AutoBlueprintSource = 'manual' | '2026'
 export type AutoStemVisibility = 'either' | 'public' | 'private'
 
 export type AutoCategoryRangeInput = {
@@ -54,6 +53,22 @@ export type AutoCategoryRow = {
   id?: string | null
   name?: string | null
   ucat_section_id?: string | null
+}
+
+export type AutoSetBuildInput = {
+  mode: AutoSetMode
+  blueprint?: UcatBlueprint | null
+  targetTotal: number
+  categoryTargets: Record<string, string>
+  categoryRanges?: Record<string, AutoCategoryRangeInput>
+  sectionId: string | null
+  sectionNumber?: number | null
+  stemVisibility: AutoStemVisibility
+  onlyNotInAnotherSet: boolean
+  categories: AutoCategoryRow[]
+  stems: UcatStemCatalogItem[]
+  existingStemIds?: string[]
+  seed: number
 }
 
 export function positiveIntFromInput(value: string): number {
@@ -148,7 +163,7 @@ function chooseClosestWholeStemSet(stems: UcatStemCatalogItem[], targetQuestions
 }
 
 type CategoryPolicyRule = NonNullable<
-  (typeof UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules)[number]['categoryRules']
+  UcatBlueprint['altitutorPolicy']['sectionRules'][number]['categoryRules']
 >[number]
 
 function categoryRulePreferred(rule: CategoryPolicyRule): number {
@@ -178,20 +193,19 @@ function toQuestionBounds(
   return { min: rule.min, max: rule.max, preferred }
 }
 
-/**
- * Map the 2026 full-mock blueprint into the same per-category question targets
- * used by "By category" mode (stem-unit rules convert via typical questions/stem).
- */
+/** Map a selected full-mock blueprint into per-category question targets. */
 export function blueprintPreferredCategoryTargets({
+  blueprint,
   sectionNumber,
   categories,
   eligibleStems,
 }: {
+  blueprint: UcatBlueprint
   sectionNumber?: number | null
   categories: Array<{ id: string; name: string }>
   eligibleStems: UcatStemCatalogItem[]
 }): Record<string, string> {
-  const ranges = blueprintCategoryRanges({ sectionNumber, categories, eligibleStems })
+  const ranges = blueprintCategoryRanges({ blueprint, sectionNumber, categories, eligibleStems })
   const targets: Record<string, string> = {}
   for (const [categoryId, range] of Object.entries(ranges)) {
     const min = Number.parseInt(range.min, 10)
@@ -211,14 +225,14 @@ export type BlueprintCategoryRange = {
   preferred?: string
 }
 
-/**
- * Map 2026 policy category rules into question min/max (and preferred) for range mode.
- */
+/** Map selected policy category rules into question min/max for range mode. */
 export function blueprintCategoryRanges({
+  blueprint,
   sectionNumber,
   categories,
   eligibleStems,
 }: {
+  blueprint: UcatBlueprint
   sectionNumber?: number | null
   categories: Array<{ id: string; name: string }>
   eligibleStems: UcatStemCatalogItem[]
@@ -226,7 +240,7 @@ export function blueprintCategoryRanges({
   const section = blueprintSectionCode(sectionNumber)
   if (!section) return {}
 
-  const policy = UCAT_ANZ_2026_V1.altitutorPolicy.sectionRules.find((rule) => rule.section === section)
+  const policy = blueprint.altitutorPolicy.sectionRules.find((rule) => rule.section === section)
   if (!policy?.categoryRules?.length) return {}
 
   const targets: Record<string, BlueprintCategoryRange> = {}
@@ -234,7 +248,8 @@ export function blueprintCategoryRanges({
   const schemeOnlyRules = policy.categoryRules.filter((rule) => rule.answerScheme !== undefined && !rule.category)
 
   for (const rule of namedRules) {
-    const category = categories.find((row) => row.name === rule.category)
+    const categoryId = 'categoryId' in rule ? rule.categoryId : undefined
+    const category = categories.find((row) => row.id === categoryId || (!categoryId && row.name === rule.category))
     if (!category) continue
     const categoryStems = eligibleStems.filter((stem) => stem.categoryId === category.id)
     const bounds = toQuestionBounds(rule, categoryStems)
@@ -303,11 +318,12 @@ export function blueprintCategoryRanges({
 }
 
 function blueprintPreviewCompliance(
+  blueprint: UcatBlueprint,
   section: BlueprintSectionCode,
   selectedStems: UcatStemCatalogItem[],
 ): StoredBlueprintCompliance {
-  const official = UCAT_ANZ_2026_V1.official.sections.find((rule) => rule.section === section)
-  const selectedEvaluation = evaluateBlueprint(UCAT_ANZ_2026_V1, {
+  const official = blueprint.official.sections.find((rule) => rule.section === section)
+  const selectedEvaluation = evaluateBlueprint(blueprint, {
     purpose: 'full_mock',
     sections: official
       ? [{
@@ -697,15 +713,15 @@ function buildRangePreview({
   }
 }
 
-function officialQuestionCount(sectionNumber?: number | null): number {
+function officialQuestionCount(blueprint: UcatBlueprint, sectionNumber?: number | null): number {
   const section = blueprintSectionCode(sectionNumber)
   if (!section) return 0
-  return UCAT_ANZ_2026_V1.official.sections.find((rule) => rule.section === section)?.questionCount ?? 0
+  return blueprint.official.sections.find((rule) => rule.section === section)?.questionCount ?? 0
 }
 
-export function buildAutoSetPreview({
+function buildAutoSetPreviewCore({
   mode,
-  blueprintSource = 'manual',
+  blueprint = null,
   targetTotal,
   categoryTargets,
   categoryRanges = {},
@@ -716,20 +732,7 @@ export function buildAutoSetPreview({
   categories,
   stems,
   seed,
-}: {
-  mode: AutoSetMode
-  blueprintSource?: AutoBlueprintSource
-  targetTotal: number
-  categoryTargets: Record<string, string>
-  categoryRanges?: Record<string, AutoCategoryRangeInput>
-  sectionId: string | null
-  sectionNumber?: number | null
-  stemVisibility: AutoStemVisibility
-  onlyNotInAnotherSet: boolean
-  categories: AutoCategoryRow[]
-  stems: UcatStemCatalogItem[]
-  seed: number
-}): AutoSetPreview {
+}: Omit<AutoSetBuildInput, 'existingStemIds'>): AutoSetPreview {
   if (!sectionId) {
     return { selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [], warnings: [] }
   }
@@ -748,12 +751,13 @@ export function buildAutoSetPreview({
     return true
   })
 
-  const useBlueprint = blueprintSource === '2026'
+  const useBlueprint = blueprint != null
   const section = blueprintSectionCode(sectionNumber)
 
   if (mode === 'range') {
     const preferredFromBlueprint = useBlueprint
       ? blueprintCategoryRanges({
+          blueprint,
           sectionNumber,
           categories: sectionCategories,
           eligibleStems,
@@ -770,7 +774,7 @@ export function buildAutoSetPreview({
     const effectiveTotal = targetTotal > 0
       ? targetTotal
       : useBlueprint && Object.keys(categoryRanges).length === 0
-        ? officialQuestionCount(sectionNumber)
+        ? officialQuestionCount(blueprint, sectionNumber)
         : 0
     const effectiveRanges = Object.keys(categoryRanges).length > 0
       ? categoryRanges
@@ -800,7 +804,7 @@ export function buildAutoSetPreview({
         targetQuestions: effectiveTotal,
         byCategory: [],
         warnings,
-        blueprintCompliance: section ? blueprintPreviewCompliance(section, selectedStems) : undefined,
+        blueprintCompliance: section ? blueprintPreviewCompliance(blueprint, section, selectedStems) : undefined,
       }
     }
 
@@ -819,7 +823,7 @@ export function buildAutoSetPreview({
     return {
       ...preview,
       blueprintCompliance: useBlueprint && section
-        ? blueprintPreviewCompliance(section, preview.selectedStems)
+        ? blueprintPreviewCompliance(blueprint, section, preview.selectedStems)
         : undefined,
     }
   }
@@ -831,6 +835,7 @@ export function buildAutoSetPreview({
         ? categoryTargets
         : useBlueprint && Object.keys(categoryTargets).length === 0
           ? blueprintPreferredCategoryTargets({
+              blueprint,
               sectionNumber,
               categories: sectionCategories,
               eligibleStems,
@@ -841,7 +846,7 @@ export function buildAutoSetPreview({
 
     if (useBlueprint && !hasCategoryPreset) {
       // QR-style: structure-only — fall back to official total path.
-      const officialTotal = officialQuestionCount(sectionNumber)
+      const officialTotal = officialQuestionCount(blueprint, sectionNumber)
       const shuffled = shuffleWithSeed(
         eligibleStems,
         `blueprint-total:${sectionId}:${officialTotal}:${stemVisibility}:${onlyNotInAnotherSet}:${seed}`,
@@ -860,7 +865,7 @@ export function buildAutoSetPreview({
         targetQuestions: officialTotal,
         byCategory: [],
         warnings,
-        blueprintCompliance: section ? blueprintPreviewCompliance(section, selectedStems) : undefined,
+        blueprintCompliance: section ? blueprintPreviewCompliance(blueprint, section, selectedStems) : undefined,
       }
     }
 
@@ -877,7 +882,7 @@ export function buildAutoSetPreview({
     return {
       ...preview,
       blueprintCompliance: useBlueprint && section
-        ? blueprintPreviewCompliance(section, preview.selectedStems)
+        ? blueprintPreviewCompliance(blueprint, section, preview.selectedStems)
         : undefined,
     }
   }
@@ -903,6 +908,238 @@ export function buildAutoSetPreview({
     byCategory: [],
     warnings,
   }
+}
+
+function eligibleFillStem(
+  stem: UcatStemCatalogItem,
+  input: AutoSetBuildInput,
+  categoryIds: Set<string>,
+  existingIds: Set<string>,
+): boolean {
+  if (stem.sectionId !== input.sectionId) return false
+  if (!stem.categoryId || !categoryIds.has(stem.categoryId)) return false
+  if (stem.questionsCount <= 0) return false
+  if (input.stemVisibility === 'public' && stem.accessScope === 'private') return false
+  if (input.stemVisibility === 'private' && stem.accessScope !== 'private') return false
+  if (input.onlyNotInAnotherSet && stem.setIds.length > 0 && !existingIds.has(stem.id)) return false
+  return true
+}
+
+function questionCountsByCategory(stems: UcatStemCatalogItem[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const stem of stems) {
+    if (!stem.categoryId) continue
+    counts.set(stem.categoryId, (counts.get(stem.categoryId) ?? 0) + stem.questionsCount)
+  }
+  return counts
+}
+
+function mergeFillPreview({
+  input,
+  existingStems,
+  additions,
+  targetQuestions,
+  byCategory,
+  warnings = additions.warnings,
+}: {
+  input: AutoSetBuildInput
+  existingStems: UcatStemCatalogItem[]
+  additions: AutoSetPreview
+  targetQuestions: number
+  byCategory: AutoSetPreview['byCategory']
+  warnings?: string[]
+}): AutoSetPreview {
+  const existingIds = new Set(existingStems.map((stem) => stem.id))
+  const selectedStems = [
+    ...existingStems,
+    ...additions.selectedStems.filter((stem) => !existingIds.has(stem.id)),
+  ]
+  const totalQuestions = selectedStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+  const section = blueprintSectionCode(input.sectionNumber)
+  return {
+    selectedStems,
+    totalQuestions,
+    targetQuestions,
+    byCategory,
+    warnings,
+    blueprintCompliance: input.blueprint && section
+      ? blueprintPreviewCompliance(input.blueprint, section, selectedStems)
+      : undefined,
+  }
+}
+
+/**
+ * Builds a new set or additively fills an existing set. Existing stems remain in
+ * their authored order and count toward total/category targets; only the
+ * remaining capacity is selected from eligible candidates.
+ */
+export function buildAutoSetPreview(input: AutoSetBuildInput): AutoSetPreview {
+  const existingIds = new Set(input.existingStemIds ?? [])
+  if (existingIds.size === 0) return buildAutoSetPreviewCore(input)
+
+  const stemById = new Map(input.stems.map((stem) => [stem.id, stem]))
+  const existingStems = (input.existingStemIds ?? []).flatMap((id) => {
+    const stem = stemById.get(id)
+    return stem ? [stem] : []
+  })
+  const sectionCategories = input.categories
+    .filter((category) => category.id && category.ucat_section_id === input.sectionId)
+    .map((category) => ({ id: category.id as string, name: category.name ?? 'Untitled category' }))
+  const categoryIds = new Set(sectionCategories.map((category) => category.id))
+  const eligibleStems = input.stems.filter((stem) =>
+    eligibleFillStem(stem, input, categoryIds, existingIds),
+  )
+  const candidateStems = eligibleStems.filter((stem) => !existingIds.has(stem.id))
+  const existingQuestions = existingStems.reduce((sum, stem) => sum + stem.questionsCount, 0)
+  const existingByCategory = questionCountsByCategory(existingStems)
+  const blueprint = input.blueprint ?? null
+
+  if (input.mode === 'total') {
+    const additions = buildAutoSetPreviewCore({
+      ...input,
+      blueprint: null,
+      stems: candidateStems,
+      targetTotal: Math.max(0, input.targetTotal - existingQuestions),
+    })
+    return mergeFillPreview({
+      input,
+      existingStems,
+      additions,
+      targetQuestions: input.targetTotal,
+      byCategory: [],
+    })
+  }
+
+  if (input.mode === 'category') {
+    const hasManualTargets = Object.values(input.categoryTargets)
+      .some((value) => positiveIntFromInput(value) > 0)
+    const targets = hasManualTargets
+      ? input.categoryTargets
+      : blueprint
+        ? blueprintPreferredCategoryTargets({
+            blueprint,
+            sectionNumber: input.sectionNumber,
+            categories: sectionCategories,
+            eligibleStems,
+          })
+        : input.categoryTargets
+    const remainingTargets = Object.fromEntries(
+      Object.entries(targets).map(([categoryId, value]) => [
+        categoryId,
+        String(Math.max(0, positiveIntFromInput(value) - (existingByCategory.get(categoryId) ?? 0))),
+      ]),
+    )
+    const hasRemaining = Object.values(remainingTargets)
+      .some((value) => positiveIntFromInput(value) > 0)
+    const additions = hasRemaining
+      ? buildAutoSetPreviewCore({
+          ...input,
+          blueprint: null,
+          stems: candidateStems,
+          categoryTargets: remainingTargets,
+        })
+      : { selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [], warnings: [] }
+    const additionsByCategory = questionCountsByCategory(additions.selectedStems)
+    const byCategory = sectionCategories.flatMap((category) => {
+      const target = positiveIntFromInput(targets[category.id] ?? '')
+      if (target <= 0) return []
+      const categoryCandidates = eligibleStems.filter((stem) => stem.categoryId === category.id)
+      return [{
+        categoryId: category.id,
+        categoryName: category.name,
+        targetQuestions: target,
+        actualQuestions:
+          (existingByCategory.get(category.id) ?? 0) +
+          (additionsByCategory.get(category.id) ?? 0),
+        stemCount:
+          existingStems.filter((stem) => stem.categoryId === category.id).length +
+          additions.selectedStems.filter((stem) => stem.categoryId === category.id).length,
+        eligibleStemCount: categoryCandidates.length,
+      }]
+    })
+    return mergeFillPreview({
+      input,
+      existingStems,
+      additions,
+      targetQuestions: Object.values(targets)
+        .reduce((sum, value) => sum + positiveIntFromInput(value), 0),
+      byCategory,
+    })
+  }
+
+  const blueprintRanges = blueprint
+    ? blueprintCategoryRanges({
+        blueprint,
+        sectionNumber: input.sectionNumber,
+        categories: sectionCategories,
+        eligibleStems,
+      })
+    : {}
+  const ranges = Object.keys(input.categoryRanges ?? {}).length > 0
+    ? (input.categoryRanges ?? {})
+    : Object.fromEntries(
+        Object.entries(blueprintRanges).map(([id, range]) => [id, { min: range.min, max: range.max }]),
+      )
+  const sectionCode = blueprintSectionCode(input.sectionNumber)
+  const targetTotal = input.targetTotal > 0
+    ? input.targetTotal
+    : blueprint && sectionCode
+      ? (blueprint.official.sections.find((section) => section.section === sectionCode)?.questionCount ?? 0)
+      : 0
+  const remainingTotal = Math.max(0, targetTotal - existingQuestions)
+  const remainingRanges = Object.fromEntries(
+    Object.entries(ranges).map(([categoryId, range]) => {
+      const parsed = parseCategoryRange(range)
+      const existing = existingByCategory.get(categoryId) ?? 0
+      return [categoryId, parsed
+        ? { min: String(Math.max(0, parsed.min - existing)), max: String(Math.max(0, parsed.max - existing)) }
+        : range]
+    }),
+  )
+  const hasRanges = Object.values(remainingRanges).some((range) => parseCategoryRange(range))
+  const additions = remainingTotal > 0
+    ? buildAutoSetPreviewCore({
+        ...input,
+        mode: hasRanges ? 'range' : 'total',
+        blueprint: null,
+        stems: candidateStems,
+        targetTotal: remainingTotal,
+        categoryRanges: remainingRanges,
+      })
+    : { selectedStems: [], totalQuestions: 0, targetQuestions: 0, byCategory: [], warnings: [] }
+  const additionsByCategory = questionCountsByCategory(additions.selectedStems)
+  const warnings = [...additions.warnings]
+  const byCategory = sectionCategories.flatMap((category) => {
+    const parsed = parseCategoryRange(ranges[category.id])
+    if (!parsed) return []
+    const existing = existingByCategory.get(category.id) ?? 0
+    if (existing > parsed.max) {
+      warnings.push(`${category.name} already has ${existing} questions, above the requested maximum of ${parsed.max}.`)
+    }
+    const preferred = blueprintRanges[category.id]?.preferred
+      ? Number.parseInt(blueprintRanges[category.id]?.preferred ?? '', 10)
+      : Math.round((parsed.min + parsed.max) / 2)
+    return [{
+      categoryId: category.id,
+      categoryName: category.name,
+      targetQuestions: Number.isFinite(preferred) ? preferred : parsed.max,
+      minQuestions: parsed.min,
+      maxQuestions: parsed.max,
+      actualQuestions: existing + (additionsByCategory.get(category.id) ?? 0),
+      stemCount:
+        existingStems.filter((stem) => stem.categoryId === category.id).length +
+        additions.selectedStems.filter((stem) => stem.categoryId === category.id).length,
+      eligibleStemCount: eligibleStems.filter((stem) => stem.categoryId === category.id).length,
+    }]
+  })
+  return mergeFillPreview({
+    input,
+    existingStems,
+    additions,
+    targetQuestions: targetTotal,
+    byCategory,
+    warnings,
+  })
 }
 
 /** Yields to the browser once, then builds — keeps create-set controls responsive. */

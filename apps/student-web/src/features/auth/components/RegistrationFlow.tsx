@@ -1,23 +1,34 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { registrationSchema, type RegistrationFormValues } from '../validations';
-import { Button } from '@altitutor/ui';
-import { Form } from '@altitutor/ui';
-import { Loader2 } from 'lucide-react';
-import { cn } from '@/shared/utils';
-import { useToast } from '@altitutor/ui';
-import { useSupabaseClient } from '@/shared/lib/supabase/client';
-import { RegistrationStep1StudentDetails } from './RegistrationStep1StudentDetails';
-import { RegistrationStep2ParentDetails } from './RegistrationStep2ParentDetails';
-import { RegistrationStep3Availability } from './RegistrationStep3Availability';
-import { RegistrationStep4Password } from './RegistrationStep4Password';
-import { RegistrationStep4PaymentMethod } from './RegistrationStep4PaymentMethod';
-import { RegistrationStep5Confirm } from './RegistrationStep5Confirm';
-import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import {
+  registrationSchema,
+  type RegistrationFormValues,
+} from "../validations";
+import { Button } from "@altitutor/ui";
+import { Form } from "@altitutor/ui";
+import { Loader2 } from "lucide-react";
+import { cn } from "@/shared/utils";
+import { useToast } from "@altitutor/ui";
+import { useSupabaseClient } from "@/shared/lib/supabase/client";
+import { RegistrationStep1StudentDetails } from "./RegistrationStep1StudentDetails";
+import { RegistrationStep2ParentDetails } from "./RegistrationStep2ParentDetails";
+import { RegistrationStep3Availability } from "./RegistrationStep3Availability";
+import { RegistrationStep4Password } from "./RegistrationStep4Password";
+import { RegistrationStep4PaymentMethod } from "./RegistrationStep4PaymentMethod";
+import { RegistrationStep5Confirm } from "./RegistrationStep5Confirm";
+import {
+  studentBtnOutline,
+  studentBtnPrimary,
+} from "@/shared/lib/student-visual";
+import {
+  captureRegistrationEvent,
+  captureRegistrationOperationalError,
+  registrationStepAt,
+} from "@/features/registration/lib/registration-observability";
 
 interface RegistrationFlowProps {
   token: string;
@@ -55,12 +66,12 @@ interface RegistrationFlowProps {
 }
 
 const STEPS = [
-  { id: 'student', title: 'Student Details' },
-  { id: 'parents', title: 'Parent Details' },
-  { id: 'availability', title: 'Availability' },
-  { id: 'password', title: 'Password' },
-  { id: 'payment', title: 'Payment Method' },
-  { id: 'confirm', title: 'Confirm' },
+  { id: "student", title: "Student Details" },
+  { id: "parents", title: "Parent Details" },
+  { id: "availability", title: "Availability" },
+  { id: "password", title: "Password" },
+  { id: "payment", title: "Payment Method" },
+  { id: "confirm", title: "Confirm" },
 ];
 
 export function RegistrationFlow({
@@ -77,19 +88,39 @@ export function RegistrationFlow({
   const { toast } = useToast();
   const supabase = useSupabaseClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [preloadedClientSecret, setPreloadedClientSecret] = useState<string | null>(null);
+  const [preloadedClientSecret, setPreloadedClientSecret] = useState<
+    string | null
+  >(null);
   const [isPreloadingPayment, setIsPreloadingPayment] = useState(false);
   const isRedirectingRef = useRef(false);
+  const registrationCompletedRef = useRef(false);
+  const lastViewedStepRef = useRef<number | null>(null);
+  const currentStepRef = useRef(currentStep);
+
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
+
+  useEffect(() => {
+    if (lastViewedStepRef.current === currentStep) return;
+    lastViewedStepRef.current = currentStep;
+    captureRegistrationEvent("student_registration_step_viewed", {
+      step: registrationStepAt(currentStep),
+      step_number: currentStep + 1,
+      skip_password: skipPassword,
+    });
+  }, [currentStep, skipPassword]);
 
   // Preload setup intent when user reaches step 2 (parents) or step 3 (availability)
   // This ensures it's ready by the time they reach step 4 (payment method)
   useEffect(() => {
     // Only preload if we're on step 2 or 3, haven't already preloaded, and studentId exists
-    const shouldPreload = (currentStep === 1 || currentStep === 2) && 
-                          !preloadedClientSecret && 
-                          !isPreloadingPayment &&
-                          initialData.student.id;
-    
+    const shouldPreload =
+      (currentStep === 1 || currentStep === 2) &&
+      !preloadedClientSecret &&
+      !isPreloadingPayment &&
+      initialData.student.id;
+
     if (!shouldPreload) return;
 
     let cancelled = false;
@@ -97,27 +128,43 @@ export function RegistrationFlow({
 
     // Delay slightly to not block the current step render
     const timeoutId = setTimeout(() => {
-      fetch('/api/register/payment-method', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      fetch("/api/register/payment-method", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           token,
-          action: 'create_setup_intent',
+          action: "create_setup_intent",
         }),
       })
         .then(async (res) => {
           if (cancelled) return;
-          
+
           const data = await res.json();
           if (!res.ok) {
             // Silently fail - this is just pre-warming, not critical
             // The actual setup intent will be created when step 4 mounts
-            console.warn('[RegistrationFlow] Preload setup intent failed:', data.error);
+            console.warn(
+              "[RegistrationFlow] Preload setup intent failed:",
+              data.error,
+            );
+            captureRegistrationEvent(
+              "student_registration_payment_initialization_failed",
+              {
+                http_status: res.status,
+                result_code: data.code || "preload_failed",
+              },
+            );
             setIsPreloadingPayment(false);
             return;
           }
-          
+
           if (!cancelled && data.client_secret) {
+            captureRegistrationEvent(
+              "student_registration_payment_initialized",
+              {
+                result_code: "preloaded",
+              },
+            );
             setPreloadedClientSecret(data.client_secret);
             setIsPreloadingPayment(false);
           }
@@ -125,7 +172,13 @@ export function RegistrationFlow({
         .catch((error: unknown) => {
           if (cancelled) return;
           // Silently fail - this is just pre-warming, not critical
-          console.warn('[RegistrationFlow] Preload setup intent error:', error);
+          console.warn("[RegistrationFlow] Preload setup intent error:", error);
+          captureRegistrationEvent(
+            "student_registration_payment_initialization_failed",
+            {
+              result_code: "preload_request_failed",
+            },
+          );
           setIsPreloadingPayment(false);
         });
     }, 500);
@@ -134,11 +187,17 @@ export function RegistrationFlow({
       cancelled = true;
       clearTimeout(timeoutId);
     };
-  }, [currentStep, preloadedClientSecret, isPreloadingPayment, initialData.student.id, token]);
+  }, [
+    currentStep,
+    preloadedClientSecret,
+    isPreloadingPayment,
+    initialData.student.id,
+    token,
+  ]);
 
   const form = useForm<RegistrationFormValues>({
     resolver: zodResolver(registrationSchema),
-    mode: 'onChange',
+    mode: "onChange",
     defaultValues: {
       student: {
         first_name: initialData.student.first_name,
@@ -146,19 +205,25 @@ export function RegistrationFlow({
         email: initialData.student.email,
         phone: initialData.student.phone,
         school: initialData.student.school || undefined,
-        curriculum: (initialData.student.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY') || undefined,
+        curriculum:
+          (initialData.student.curriculum as
+            | "SACE"
+            | "IB"
+            | "PRESACE"
+            | "PRIMARY") || undefined,
         year_level: initialData.student.year_level || undefined,
         subject_ids: initialData.subjects.map((s) => s.id),
       },
-      parents: initialData.parents.length > 0
-        ? initialData.parents.map((p) => ({
-            id: p.id,
-            first_name: p.first_name,
-            last_name: p.last_name,
-            email: p.email,
-            phone: p.phone,
-          }))
-        : [{ first_name: '', last_name: '', email: '', phone: '' }],
+      parents:
+        initialData.parents.length > 0
+          ? initialData.parents.map((p) => ({
+              id: p.id,
+              first_name: p.first_name,
+              last_name: p.last_name,
+              email: p.email,
+              phone: p.phone,
+            }))
+          : [{ first_name: "", last_name: "", email: "", phone: "" }],
       availability: {
         monday: true,
         tuesday: true,
@@ -170,46 +235,76 @@ export function RegistrationFlow({
         sunday_am: true,
         sunday_pm: true,
       },
-      password: '',
-      confirmPassword: '',
+      password: "",
+      confirmPassword: "",
       paymentMethodVerified: false,
       billingPolicyAgreed: false,
     },
   });
 
+  useEffect(() => {
+    const captureDeparture = () => {
+      if (registrationCompletedRef.current || isRedirectingRef.current) return;
+      captureRegistrationEvent("student_registration_abandoned", {
+        step: registrationStepAt(currentStepRef.current),
+        step_number: currentStepRef.current + 1,
+        payment_method_verified: form.getValues("paymentMethodVerified"),
+      });
+    };
+
+    window.addEventListener("pagehide", captureDeparture);
+    return () => window.removeEventListener("pagehide", captureDeparture);
+  }, [form]);
+
   const handleNext = async () => {
     // Validate current step before proceeding
     const fieldsToValidate: (keyof RegistrationFormValues)[] = [];
-    
+
     // Steps: student(0), parents(1), availability(2), password(3), payment(4), confirm(5)
     // When skipPassword=true, password step shows "Enter your password" instead of "Create password"
-    
+
     if (currentStep === 0) {
-      fieldsToValidate.push('student');
+      fieldsToValidate.push("student");
     } else if (currentStep === 1) {
-      fieldsToValidate.push('parents');
+      fieldsToValidate.push("parents");
     } else if (currentStep === 2) {
-      fieldsToValidate.push('availability');
+      fieldsToValidate.push("availability");
     } else if (currentStep === 3) {
       // Password step - always validate password, but only validate confirmPassword if not skipping
-      fieldsToValidate.push('password');
+      fieldsToValidate.push("password");
       if (!skipPassword) {
-        fieldsToValidate.push('confirmPassword');
+        fieldsToValidate.push("confirmPassword");
       }
     } else if (currentStep === 4) {
-      fieldsToValidate.push('paymentMethodVerified', 'billingPolicyAgreed');
+      fieldsToValidate.push("paymentMethodVerified", "billingPolicyAgreed");
     }
 
-    const isValid = await form.trigger(fieldsToValidate as Array<keyof RegistrationFormValues>);
-    
+    const isValid = await form.trigger(
+      fieldsToValidate as Array<keyof RegistrationFormValues>,
+    );
+
     if (isValid) {
+      captureRegistrationEvent("student_registration_step_completed", {
+        step: registrationStepAt(currentStep),
+        step_number: currentStep + 1,
+      });
       onStepChange(currentStep + 1);
+    } else {
+      captureRegistrationEvent("student_registration_step_validation_failed", {
+        step: registrationStepAt(currentStep),
+        step_number: currentStep + 1,
+        result_code: "client_validation_failed",
+      });
     }
     // Validation errors are shown inline via FormField FormMessage and step-specific error areas
   };
 
   const handleBack = () => {
     if (currentStep > 0) {
+      captureRegistrationEvent("student_registration_step_back_clicked", {
+        step: registrationStepAt(currentStep),
+        step_number: currentStep + 1,
+      });
       onStepChange(currentStep - 1);
     }
   };
@@ -221,16 +316,24 @@ export function RegistrationFlow({
     }
 
     const isValid = await form.trigger();
-    
+
     if (!isValid) {
+      captureRegistrationEvent("student_registration_completion_failed", {
+        step: "confirmation",
+        step_number: 6,
+        result_code: "client_validation_failed",
+      });
       // Validation errors are shown inline via FormField FormMessage
       return;
     }
 
     setIsSubmitting(true);
+    captureRegistrationEvent("student_registration_completion_started", {
+      skip_password: skipPassword,
+    });
     try {
       const formData = form.getValues();
-      
+
       const requestBody = {
         token,
         student: {
@@ -251,37 +354,57 @@ export function RegistrationFlow({
         confirmPassword: skipPassword ? undefined : formData.confirmPassword,
         skipPassword,
       };
-      
-      const response = await fetch('/api/register/complete', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+
+      const response = await fetch("/api/register/complete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();
 
       if (!response.ok) {
+        captureRegistrationEvent("student_registration_completion_failed", {
+          http_status: response.status,
+          result_code:
+            data.code ||
+            (data.alreadyRegistered ? "already_registered" : "api_error"),
+        });
         if (data.alreadyRegistered) {
           toast({
-            title: 'Already Registered',
-            description: 'You already have an account. Redirecting to login...',
-            variant: 'default',
+            title: "Already Registered",
+            description: "You already have an account. Redirecting to login...",
+            variant: "default",
           });
-          router.push('/login');
+          router.push("/login");
           return;
         }
         // Show the API error message directly
         toast({
-          title: 'Registration Failed',
-          description: data.error || 'Registration failed. Please try again.',
-          variant: 'destructive',
+          title: "Registration Failed",
+          description: data.error || "Registration failed. Please try again.",
+          variant: "destructive",
         });
-        throw new Error(data.error || 'Registration failed');
+        if (response.status >= 500) {
+          captureRegistrationOperationalError(
+            new Error("Registration completion API failed"),
+            "completion",
+            data.code || "api_error",
+          );
+        }
+        return;
       }
 
+      captureRegistrationEvent("student_registration_completed", {
+        skip_password: skipPassword,
+      });
+      registrationCompletedRef.current = true;
+
       toast({
-        title: 'Registration Successful!',
-        description: skipPassword ? 'Redirecting to dashboard...' : 'Signing you in...',
+        title: "Registration Successful!",
+        description: skipPassword
+          ? "Redirecting to dashboard..."
+          : "Signing you in...",
       });
 
       // Sign in the user - either with newly created password or existing password
@@ -292,65 +415,106 @@ export function RegistrationFlow({
         });
 
         if (signInError) {
-          console.error('Sign in error:', signInError);
+          console.error("Sign in error:", signInError);
+          captureRegistrationEvent("student_registration_auth_handoff_failed", {
+            result_code: "sign_in_failed",
+          });
+          captureRegistrationOperationalError(
+            signInError,
+            "auth_handoff",
+            "sign_in_failed",
+          );
           // Account created but auto-login failed, redirect to login
           toast({
-            title: 'Account Created',
-            description: 'Your account was created successfully. Please sign in.',
-            variant: 'default',
+            title: "Account Created",
+            description:
+              "Your account was created successfully. Please sign in.",
+            variant: "default",
           });
-          router.push('/login?registered=success');
+          router.push("/login?registered=success");
           return;
         }
 
         // Verify session is established before redirecting
-        const { data: { session } } = await supabase.auth.getSession();
-        
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
+
         if (!session) {
-          console.warn('Session not established after sign-in, redirecting to login');
-          toast({
-            title: 'Account Created',
-            description: 'Your account was created successfully. Please sign in.',
-            variant: 'default',
+          console.warn(
+            "Session not established after sign-in, redirecting to login",
+          );
+          captureRegistrationEvent("student_registration_auth_handoff_failed", {
+            result_code: "session_missing",
           });
-          router.push('/login?registered=success');
+          captureRegistrationOperationalError(
+            new Error("Session missing after successful registration sign-in"),
+            "auth_handoff",
+            "session_missing",
+          );
+          toast({
+            title: "Account Created",
+            description:
+              "Your account was created successfully. Please sign in.",
+            variant: "default",
+          });
+          router.push("/login?registered=success");
           return;
         }
 
         // Use router.replace() for client-side navigation that replaces history entry
         // This prevents users from going back to registration page
         // Cookies are already set synchronously by signInWithPassword(), so no delay needed
-        const redirectPath = data.redirectTo || '/dashboard';
-        
+        const redirectPath = data.redirectTo || "/dashboard";
+
         // Set redirecting flag BEFORE redirect to prevent state updates in finally block
         // Use a ref for synchronous access (state updates are async and may not be available in finally)
         isRedirectingRef.current = true;
-        
+
         // Use router.replace() instead of window.location for:
         // 1. Client-side navigation (faster, no full page reload)
         // 2. Not affected by HMR reload signals in development
         // 3. Replaces history entry (prevents back navigation)
         router.replace(redirectPath);
-        
+
         // Prevent any further execution that might interfere with redirect
         // Note: This return won't prevent finally block, but isRedirecting flag will
         return;
       } catch (signInErr) {
-        console.error('Auto-login error:', signInErr);
+        console.error("Auto-login error:", signInErr);
+        captureRegistrationEvent("student_registration_auth_handoff_failed", {
+          result_code: "unexpected_sign_in_error",
+        });
+        captureRegistrationOperationalError(
+          signInErr,
+          "auth_handoff",
+          "unexpected_sign_in_error",
+        );
         // Redirect to login page
         toast({
-          title: 'Account Created',
-          description: 'Your account was created successfully. Please sign in.',
-          variant: 'default',
+          title: "Account Created",
+          description: "Your account was created successfully. Please sign in.",
+          variant: "default",
         });
-        router.push('/login?registered=success');
+        router.push("/login?registered=success");
       }
     } catch (error) {
-      console.error('Registration error:', error);
+      console.error("Registration error:", error);
+      captureRegistrationEvent("student_registration_completion_failed", {
+        result_code: "unexpected_client_error",
+      });
+      captureRegistrationOperationalError(
+        error,
+        "completion",
+        "unexpected_client_error",
+      );
       toast({
-        title: 'Registration Failed',
-        description: error instanceof Error ? error.message : 'An error occurred. Please try again.',
-        variant: 'destructive',
+        title: "Registration Failed",
+        description:
+          error instanceof Error
+            ? error.message
+            : "An error occurred. Please try again.",
+        variant: "destructive",
       });
     } finally {
       // Only set submitting to false if we're not redirecting
@@ -372,7 +536,8 @@ export function RegistrationFlow({
         <div>
           <h1 className="text-2xl font-bold">Complete Your Registration</h1>
           <p className="text-muted-foreground mt-2">
-            Step {currentStep + 1} of {steps.length}: {steps[currentStep]?.title}
+            Step {currentStep + 1} of {steps.length}:{" "}
+            {steps[currentStep]?.title}
           </p>
         </div>
 
@@ -382,12 +547,12 @@ export function RegistrationFlow({
             <div key={step.id} className="flex items-center">
               <div
                 className={cn(
-                  'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
+                  "flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium",
                   index === currentStep
-                    ? 'bg-primary text-primary-foreground'
+                    ? "bg-primary text-primary-foreground"
                     : index < currentStep
-                    ? 'bg-primary/20 text-primary'
-                    : 'bg-muted text-muted-foreground'
+                      ? "bg-primary/20 text-primary"
+                      : "bg-muted text-muted-foreground",
                 )}
               >
                 {index + 1}
@@ -395,8 +560,8 @@ export function RegistrationFlow({
               {index < steps.length - 1 && (
                 <div
                   className={cn(
-                    'w-12 h-0.5 mx-2',
-                    index < currentStep ? 'bg-primary' : 'bg-muted'
+                    "w-12 h-0.5 mx-2",
+                    index < currentStep ? "bg-primary" : "bg-muted",
                   )}
                 />
               )}
@@ -416,23 +581,22 @@ export function RegistrationFlow({
             {currentStep === 1 && (
               <RegistrationStep2ParentDetails form={form} />
             )}
-            {currentStep === 2 && (
-              <RegistrationStep3Availability form={form} />
-            )}
+            {currentStep === 2 && <RegistrationStep3Availability form={form} />}
             {currentStep === 3 && (
-              <RegistrationStep4Password form={form} skipPassword={skipPassword} />
+              <RegistrationStep4Password
+                form={form}
+                skipPassword={skipPassword}
+              />
             )}
             {currentStep === 4 ? (
-                  <RegistrationStep4PaymentMethod 
-                    form={form} 
-                    token={token}
-                    studentId={initialData.student.id}
-                    preloadedClientSecret={preloadedClientSecret}
-                  />
-                ) : null}
-            {currentStep === 5 && (
-              <RegistrationStep5Confirm form={form} />
-            )}
+              <RegistrationStep4PaymentMethod
+                form={form}
+                token={token}
+                studentId={initialData.student.id}
+                preloadedClientSecret={preloadedClientSecret}
+              />
+            ) : null}
+            {currentStep === 5 && <RegistrationStep5Confirm form={form} />}
 
             {/* Navigation Buttons */}
             <div className="flex gap-2 pt-4 border-t">
@@ -467,7 +631,7 @@ export function RegistrationFlow({
                       Completing Registration...
                     </>
                   ) : (
-                    'Complete Registration'
+                    "Complete Registration"
                   )}
                 </Button>
               )}

@@ -151,15 +151,19 @@ SELECT lives_ok(
 SELECT is(
   (
     SELECT count(*)
-    FROM public.activity_events
-    WHERE entity_type = 'classes_staff'
-      AND entity_id = 'fc200000-0000-4000-8000-000000000002'
-      AND event_type = 'DELETED'
-      AND staff_id IS NULL
-      AND metadata ->> 'deleted_staff_id' = 'fc200000-0000-4000-8000-000000000001'
+    FROM public.domain_events event
+    JOIN public.domain_event_entities entity
+      ON entity.domain_event_id = event.id
+    WHERE event.event_name IN (
+      'class.staff_removed',
+      'admin_shift.staff_removed',
+      'session.staff_removed'
+    )
+      AND entity.entity_type = 'staff'
+      AND entity.entity_id = 'fc200000-0000-4000-8000-000000000001'
   ),
-  1::bigint,
-  'the cascading assignment deletion is retained as a snapshot without a stale staff foreign key'
+  0::bigint,
+  'cascade cleanup does not pretend that a user explicitly removed each assignment'
 );
 
 SELECT * FROM finish();

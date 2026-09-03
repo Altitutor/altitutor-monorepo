@@ -11,6 +11,10 @@ import { ServerTiming } from "@/lib/performance/server-timing";
 import { waitUntil } from "@vercel/functions";
 import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
+function isExamAttemptKind(value: unknown): value is ExamAttemptKind {
+  return value === "set" || value === "mock" || value === "practice";
+}
+
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
@@ -33,16 +37,29 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as {
-    kind?: ExamAttemptKind;
+  const body = (await request.json().catch(() => null)) as {
+    kind?: unknown;
     attemptId?: string;
     complete?: boolean;
     answers?: FinalExamQuestionAttemptInput[];
-  };
+  } | null;
+
+  if (!body) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
 
   if (!body.kind || !body.attemptId || !body.complete) {
     return NextResponse.json(
       { error: "Missing required fields" },
+      { status: 400 },
+    );
+  }
+  if (!isExamAttemptKind(body.kind)) {
+    return NextResponse.json(
+      { error: "Invalid attempt kind" },
       { status: 400 },
     );
   }

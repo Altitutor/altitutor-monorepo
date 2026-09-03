@@ -50,9 +50,11 @@ reconciliation catch-up (message age under ~10 minutes) is treated as live for
 unread/notifications; older reconciliation is historical backfill. Both are idempotent by
 provider GUID and can correlate an existing outbound row by temp GUID.
 
-`message-send-error` updates a correlated outbound row. Group-name and participant events update
-conversation metadata. Typing and server events are stored in the durable inbox but never inserted
-as messages. Read events update provider message state only; they do not change `conversation_reads`.
+`message-send-error` and delivery/status observations update a correlated outbound row by provider
+GUID or temp GUID; they never create contacts, conversations, or messages when correlation is
+missing. Group-name and participant events update conversation metadata. Typing and server events
+are stored in the durable inbox but never inserted as messages. Read events update provider message
+state only; they do not change `conversation_reads`.
 
 Every authenticated event is inserted into `imessage_events` before processing. A repeated
 `event_key` resumes an unprocessed event or returns as an already-processed duplicate. Attachments

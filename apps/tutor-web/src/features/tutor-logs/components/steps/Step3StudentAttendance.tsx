@@ -1,16 +1,13 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Checkbox } from '@altitutor/ui';
+import { AccountClassBadge, Checkbox } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Loader2, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import {
-  useTutorLogStep3Data,
-  tutorLogStep3Keys,
-} from '../../hooks/useTutorLogStep3Data';
+import { useTutorLogStep3Data, tutorLogStep3Keys } from '../../hooks/useTutorLogStep3Data';
 import type { SessionStudentRow } from '../../api/tutor-views';
 import { tutorViewsApi } from '../../api/tutor-views';
 import { sessionsApi } from '@/features/sessions/api/sessions';
@@ -29,14 +26,9 @@ type Step3StudentAttendanceProps = {
   onUpdate: (studentAttendance: StudentAttendanceItem[]) => void;
 };
 
-export function Step3StudentAttendance({
-  sessionId,
-  studentAttendance,
-  onUpdate,
-}: Step3StudentAttendanceProps) {
+export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate }: Step3StudentAttendanceProps) {
   const queryClient = useQueryClient();
-  const { sessionStudents, allStudents, isLoading } =
-    useTutorLogStep3Data(sessionId);
+  const { sessionStudents, allStudents, isLoading } = useTutorLogStep3Data(sessionId);
 
   const [studentAddQuery, setStudentAddQuery] = useState('');
   const [searchResults, setSearchResults] = useState<Tables<'students'>[]>([]);
@@ -56,9 +48,7 @@ export function Step3StudentAttendance({
   }, [isLoading, studentAttendance.length, sessionStudents.length]);
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
-    const updated = studentAttendance.map((sa) =>
-      sa.studentId === studentId ? { ...sa, attended } : sa
-    );
+    const updated = studentAttendance.map((sa) => (sa.studentId === studentId ? { ...sa, attended } : sa));
 
     if (!studentAttendance.find((sa) => sa.studentId === studentId)) {
       updated.push({ studentId, attended });
@@ -67,10 +57,7 @@ export function Step3StudentAttendance({
     onUpdate(updated);
   };
 
-  const existingStudentIds = useMemo(
-    () => new Set(sessionStudents.map((ss) => ss.student_id)),
-    [sessionStudents]
-  );
+  const existingStudentIds = useMemo(() => new Set(sessionStudents.map((ss) => ss.student_id)), [sessionStudents]);
 
   const localAddCandidates = useMemo(
     () => allStudents.filter((s) => !existingStudentIds.has(s.id)),
@@ -81,9 +68,7 @@ export function Step3StudentAttendance({
     if (!studentAddQuery.trim()) return localAddCandidates;
     if (searchResults.length > 0) return searchResults;
     const q = studentAddQuery.toLowerCase();
-    return localAddCandidates.filter((s) =>
-      `${s.first_name} ${s.last_name}`.toLowerCase().includes(q)
-    );
+    return localAddCandidates.filter((s) => `${s.first_name} ${s.last_name}`.toLowerCase().includes(q));
   }, [studentAddQuery, searchResults, localAddCandidates]);
 
   const handleStudentAddSearchChange = useCallback(
@@ -118,32 +103,24 @@ export function Step3StudentAttendance({
 
     const attendanceSnapshot = studentAttendance;
     const nextAttendance = attendanceSnapshot.find((sa) => sa.studentId === studentId)
-      ? attendanceSnapshot.map((sa) =>
-          sa.studentId === studentId ? { ...sa, attended: true } : sa
-        )
+      ? attendanceSnapshot.map((sa) => (sa.studentId === studentId ? { ...sa, attended: true } : sa))
       : [...attendanceSnapshot, { studentId, attended: true }];
 
     setAddingStudentId(studentId);
     setSearchResults([]);
     setStudentAddQuery('');
 
-    queryClient.setQueryData<SessionStudentRow[]>(
-      tutorLogStep3Keys.sessionStudents(sessionId),
-      (old) => {
-        const current = old ?? [];
-        if (current.some((row) => row.student_id === studentId)) return current;
-        return [...current, { student_id: studentId, planned_absence: false }];
-      }
-    );
+    queryClient.setQueryData<SessionStudentRow[]>(tutorLogStep3Keys.sessionStudents(sessionId), (old) => {
+      const current = old ?? [];
+      if (current.some((row) => row.student_id === studentId)) return current;
+      return [...current, { student_id: studentId, planned_absence: false }];
+    });
 
-    queryClient.setQueryData<Tables<'students'>[]>(
-      tutorLogStep3Keys.allStudents(),
-      (old) => {
-        const current = old ?? [];
-        if (current.some((row) => row.id === studentId)) return current;
-        return [...current, student];
-      }
-    );
+    queryClient.setQueryData<Tables<'students'>[]>(tutorLogStep3Keys.allStudents(), (old) => {
+      const current = old ?? [];
+      if (current.some((row) => row.id === studentId)) return current;
+      return [...current, student];
+    });
 
     onUpdate(nextAttendance);
 
@@ -180,16 +157,8 @@ export function Step3StudentAttendance({
   };
 
   const addStudentTrigger = (
-    <Button
-      variant="outline"
-      className={cn(tutorBtnOutline, 'w-full sm:w-auto')}
-      disabled={!!addingStudentId}
-    >
-      {addingStudentId ? (
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-      ) : (
-        <Plus className="mr-2 h-4 w-4" />
-      )}
+    <Button variant="outline" className={cn(tutorBtnOutline, 'w-full sm:w-auto')} disabled={!!addingStudentId}>
+      {addingStudentId ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Plus className="mr-2 h-4 w-4" />}
       Add Student
     </Button>
   );
@@ -220,22 +189,17 @@ export function Step3StudentAttendance({
                   id={`student-${ss.student_id}`}
                   checked={isAttended}
                   disabled={isAdding}
-                  onCheckedChange={(checked) =>
-                    handleAttendanceChange(ss.student_id, checked === true)
-                  }
+                  onCheckedChange={(checked) => handleAttendanceChange(ss.student_id, checked === true)}
                 />
-                <Label htmlFor={`student-${ss.student_id}`} className="flex-1 cursor-pointer">
-                  {student.first_name} {student.last_name}
-                  {ss.planned_absence && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Planned Absence)</span>
-                  )}
-                  {student.status === 'TRIAL' && (
-                    <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>
-                  )}
+                <Label htmlFor={`student-${ss.student_id}`} className="flex flex-1 cursor-pointer items-center gap-2">
+                  <span>
+                    {student.first_name} {student.last_name}
+                  </span>
+                  <AccountClassBadge accountClass={student.account_class} />
+                  {ss.planned_absence && <span className="ml-2 text-xs text-muted-foreground">(Planned Absence)</span>}
+                  {student.status === 'TRIAL' && <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>}
                 </Label>
-                {isAdding ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" />
-                ) : null}
+                {isAdding ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" /> : null}
               </div>
             );
           })}
@@ -244,48 +208,43 @@ export function Step3StudentAttendance({
 
       <div className="mt-6">
         <SearchableSelect<Tables<'students'>>
-        items={addStudentSelectItems}
-        value={null}
-        onValueChange={(selectedStudent) => {
-          if (selectedStudent) void handleAddStudent(selectedStudent);
-        }}
-        getItemId={(s) => s.id}
-        getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
-        getItemValue={(s) =>
-          `${s.first_name} ${s.last_name} ${s.email ?? ''} ${s.year_level ?? ''}`.toLowerCase()
-        }
-        onSearchChange={handleStudentAddSearchChange}
-        loading={isSearching || !!addingStudentId}
-        searchPlaceholder="Search students..."
-        emptyMessage={
-          studentAddQuery.trim()
-            ? 'No students found'
-            : localAddCandidates.length === 0
-              ? 'All known students are already on this session'
-              : 'Browse the list or type to search'
-        }
-        trigger={addStudentTrigger}
-        align="start"
-        contentWidth="min(400px, 92vw)"
-        renderItem={(student) => (
-          <div className="flex w-full items-center justify-between gap-2 min-w-0">
-            <span className="min-w-0 truncate">
-              {student.first_name} {student.last_name}
-              {student.status === 'TRIAL' && (
-                <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>
-              )}
-            </span>
-            {student.year_level != null && (
-              <span className="text-sm text-muted-foreground shrink-0">
-                Year {student.year_level}
+          items={addStudentSelectItems}
+          value={null}
+          onValueChange={(selectedStudent) => {
+            if (selectedStudent) void handleAddStudent(selectedStudent);
+          }}
+          getItemId={(s) => s.id}
+          getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
+          getItemValue={(s) => `${s.first_name} ${s.last_name} ${s.email ?? ''} ${s.year_level ?? ''}`.toLowerCase()}
+          onSearchChange={handleStudentAddSearchChange}
+          loading={isSearching || !!addingStudentId}
+          searchPlaceholder="Search students..."
+          emptyMessage={
+            studentAddQuery.trim()
+              ? 'No students found'
+              : localAddCandidates.length === 0
+                ? 'All known students are already on this session'
+                : 'Browse the list or type to search'
+          }
+          trigger={addStudentTrigger}
+          align="start"
+          contentWidth="min(400px, 92vw)"
+          renderItem={(student) => (
+            <div className="flex w-full min-w-0 items-center justify-between gap-2">
+              <span className="flex min-w-0 items-center gap-2">
+                <span className="truncate">
+                  {student.first_name} {student.last_name}
+                </span>
+                <AccountClassBadge accountClass={student.account_class} />
+                {student.status === 'TRIAL' && <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>}
               </span>
-            )}
-          </div>
-        )}
+              {student.year_level != null && (
+                <span className="text-sm text-muted-foreground shrink-0">Year {student.year_level}</span>
+              )}
+            </div>
+          )}
         />
       </div>
     </div>
   );
 }
-
-

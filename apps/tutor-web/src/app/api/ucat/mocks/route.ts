@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
-import { jsonUcatVisibilityErrorResponse, ucatMemberIds } from '@/features/ucat/shared/server/delete-blocked-response'
+import { jsonUcatVisibilityErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
@@ -10,13 +10,12 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { data, error } = await client.rpc('tutor_ucat_upsert_mock', {
+    const { data, error } = await client.rpc('tutor_ucat_upsert_mock_v2', {
       p_mock_id: null,
-      p_name: body.name,
+      p_authoring_note: body.authoringNote ?? null,
       p_access_scope: body.accessScope ?? 'public',
-      p_set_ids: body.setIds ?? [],
       p_instructions_text: body.instructionsText ?? null,
-      p_blueprint_id: body.blueprintId ?? null,
+      p_blueprint_id: body.blueprintId,
     })
 
     if (error) {
@@ -24,7 +23,7 @@ export async function POST(request: NextRequest) {
         contentType: 'mock',
         contentId: '00000000-0000-0000-0000-000000000000',
         accessScope: body.accessScope === 'private' ? 'private' : 'public',
-        memberIds: ucatMemberIds(body.setIds),
+        memberIds: [],
         errorMessage: error.message,
       })
     }

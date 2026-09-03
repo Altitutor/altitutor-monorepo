@@ -36,4 +36,14 @@ describe("humanizeQuestionStemError", () => {
       "Cannot change to private while this stem belongs to a public set.";
     expect(humanizeQuestionStemError(message)).toBe(message);
   });
+
+  it("names the published set when a full-section question count is wrong", () => {
+    expect(
+      humanizeQuestionStemError(
+        'published_content_invalid:[{"code":"full_section_question_count_mismatch","message":"A full section set requires exactly 35 questions for its reference blueprint; found 34.","entity_id":"9c4d8767-fdc9-4ed7-a6e7-e8ba70b40885","entity_type":"set"}]',
+      ),
+    ).toBe(
+      "This published set still needs changes: A full section set requires exactly 35 questions for its reference blueprint; found 34.",
+    );
+  });
 });

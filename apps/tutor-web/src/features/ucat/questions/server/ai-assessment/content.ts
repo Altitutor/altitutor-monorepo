@@ -29,6 +29,7 @@ type AssessmentStemRow = Pick<
   | 'tutor_source_note'
   | 'access_scope'
   | 'stem_text'
+  | 'deleted_at'
 >
 
 type AssessmentSectionRow = Pick<
@@ -238,13 +239,13 @@ async function loadAssessmentDetailRow(
   const source = client as SupabaseAny
   const { data: stemData, error: stemError } = await source
     .from('question_stems')
-    .select('id,section_id,question_stem_category_id,status,source_channel,status_changed_at,status_changed_by,updated_by,updated_at,tutor_source_note,access_scope,stem_text')
+    .select('id,section_id,question_stem_category_id,status,source_channel,status_changed_at,status_changed_by,updated_by,updated_at,tutor_source_note,access_scope,stem_text,deleted_at')
     .eq('id', stemId)
-    .is('deleted_at', null)
     .maybeSingle()
   if (stemError) throw stemError
   if (!stemData) return null
   const stem = stemData as AssessmentStemRow
+  const includeDeletedNested = stem.deleted_at != null
 
   const categoryPromise = stem.question_stem_category_id
     ? source
@@ -253,6 +254,10 @@ async function loadAssessmentDetailRow(
         .eq('id', stem.question_stem_category_id)
         .maybeSingle()
     : Promise.resolve({ data: null, error: null })
+  const questionsQuery = source
+    .from('ucat_questions')
+    .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,response_type,answer_scheme,source_channel,ai_generation_metadata')
+    .eq('question_stem_id', stem.id)
   const [sectionResult, categoryResult, questionResult] = await Promise.all([
     source
       .from('ucat_sections')
@@ -260,11 +265,7 @@ async function loadAssessmentDetailRow(
       .eq('id', stem.section_id)
       .single(),
     categoryPromise,
-    source
-      .from('ucat_questions')
-      .select('id,question_text,answer_explanation,index,difficulty,time_burden_seconds,response_type,answer_scheme,source_channel,ai_generation_metadata')
-      .eq('question_stem_id', stem.id)
-      .is('deleted_at', null),
+    includeDeletedNested ? questionsQuery : questionsQuery.is('deleted_at', null),
   ])
   if (sectionResult.error) throw sectionResult.error
   if (categoryResult.error) throw categoryResult.error
@@ -279,11 +280,13 @@ async function loadAssessmentDetailRow(
 
   if (questionIds.length > 0) {
     const [optionResult, tagLinkResult] = await Promise.all([
-      source
-        .from('question_answer_options')
-        .select('id,question_id,answer_text,answer_explanation,index,answer_key_value')
-        .in('question_id', questionIds)
-        .is('deleted_at', null),
+      (() => {
+        const optionsQuery = source
+          .from('question_answer_options')
+          .select('id,question_id,answer_text,answer_explanation,index,answer_key_value')
+          .in('question_id', questionIds)
+        return includeDeletedNested ? optionsQuery : optionsQuery.is('deleted_at', null)
+      })(),
       source
         .from('questions_question_tags')
         .select('question_id,tag_id')

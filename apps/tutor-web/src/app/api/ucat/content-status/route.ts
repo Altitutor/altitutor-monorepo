@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
-import type { UcatLifecycleBlocker } from '@/features/ucat/shared/lifecycle-errors'
+import {
+  isUcatStatementTimeoutError,
+  parseUcatLifecycleBlockers,
+  publicationBlockedBlockers,
+  type UcatLifecycleBlocker,
+} from '@/features/ucat/shared/lifecycle-errors'
 import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 const BodySchema = z.object({
@@ -17,7 +22,8 @@ const FRIENDLY_FALLBACKS: Record<string, string> = {
   status_blocked_by_parent_mock: 'A parent mock must be moved or edited first.',
   status_blocked_by_attachment: 'Remove this content from its session or learning module before moving it out of Published.',
   in_review_set_contains_draft_stem: 'This set contains a draft question that must be sent for review first.',
-  in_review_mock_contains_draft_set: 'This mock contains a draft set that must be sent for review first.',
+  in_review_mock_contains_draft_set:
+    'This mock still has a draft or deleted set that could not be sent for review.',
   undo_status_changed: 'The status changed again after this action, so it can no longer be undone.',
   published_lessons_require_published_assessment_blocks:
     'Published lessons can only include published assessment blocks.',
@@ -32,7 +38,26 @@ function friendlyMessage(rawMessage: string, blockers: UcatLifecycleBlocker[]) {
   const match = Object.entries(FRIENDLY_FALLBACKS).find(([code]) => rawMessage.includes(code))
   if (match) return match[1]
   if (rawMessage.includes('publication_blocked')) return 'This content still has publication blockers.'
+  if (isUcatStatementTimeoutError(rawMessage)) {
+    return 'This bulk change took too long. Try fewer items at a time.'
+  }
   return 'The lifecycle change could not be completed.'
+}
+
+async function loadStatusBlockers(
+  client: UcatTutorSupabaseClient,
+  contentType: z.infer<typeof BodySchema>['contentType'],
+  contentId: string,
+  status: z.infer<typeof BodySchema>['status'],
+  rawMessage: string,
+): Promise<UcatLifecycleBlocker[]> {
+  const { data } = await client.rpc('tutor_ucat_content_status_blockers', {
+    p_content_type: contentType,
+    p_content_id: contentId,
+    p_status: status,
+  })
+  const blockers = parseUcatLifecycleBlockers(data)
+  return blockers.length > 0 ? blockers : publicationBlockedBlockers(rawMessage)
 }
 
 export async function PATCH(request: NextRequest) {
@@ -60,13 +85,15 @@ export async function PATCH(request: NextRequest) {
       })
 
   if (error) {
+    console.error('UCAT content-status RPC failed', error.message)
     const blockerId = failedContentId(error.message, contentIds[0])
-    const { data } = await client.rpc('tutor_ucat_content_status_blockers', {
-      p_content_type: contentType,
-      p_content_id: blockerId,
-      p_status: previousStatus ?? status,
-    })
-    const blockers = Array.isArray(data) ? (data as UcatLifecycleBlocker[]) : []
+    const blockers = await loadStatusBlockers(
+      client,
+      contentType,
+      blockerId,
+      previousStatus ?? status,
+      error.message,
+    )
     return NextResponse.json(
       { error: friendlyMessage(error.message, blockers), blockers, failedContentId: blockerId },
       { status: 409 },
@@ -94,12 +121,13 @@ export async function PATCH(request: NextRequest) {
   const failures = await Promise.all(rawFailures.map(async (failure) => {
     const contentId = failure.contentId ?? contentIds[0]
     const rawError = failure.rawError ?? 'lifecycle_change_failed'
-    const { data } = await client.rpc('tutor_ucat_content_status_blockers', {
-      p_content_type: contentType,
-      p_content_id: contentId,
-      p_status: status,
-    })
-    const blockers = Array.isArray(data) ? (data as UcatLifecycleBlocker[]) : []
+    const blockers = await loadStatusBlockers(
+      client,
+      contentType,
+      contentId,
+      status,
+      rawError,
+    )
     return {
       contentId,
       error: friendlyMessage(rawError, blockers),

@@ -50,6 +50,23 @@
 - **Online product entitlement** — The access level currently granted within an Online product relationship, such as Altitutor UCAT free or a paid plan. Entitlement and subscription state may change without activating or ending the Student's relationship with the Product app.
   _Avoid_: Online student status, student lifecycle, active Student
 
+## UCAT acquisition and conversion
+
+- **Observed acquisition attribution** — The first measurable campaign context through which a Student reached Altitutor UCAT, such as a tagged Reddit link or business-card QR code. It is immutable first-touch evidence and remains distinct from what the Student remembers or reports.
+  _Avoid_: Marketing source, latest touch, self-reported source
+
+- **Self-reported acquisition source** — One or more channels a Student says first made them aware of Altitutor UCAT during Online product signup. It records the Student's recollection, including uncertainty, without replacing Observed acquisition attribution.
+  _Avoid_: Observed source, UTM source, inferred source
+
+- **Paid acquisition conversion** — The first successful positive-value subscription payment for a Student's Altitutor UCAT subscription. Creating an account, beginning checkout, provisioning a trial, receiving a referral-funded period, or activating unpaid access is not a Paid acquisition conversion.
+  _Avoid_: Checkout completion, subscription provisioning, trial activation, Unlimited entitlement
+
+- **Subscription cancellation scheduled** — A Student's recorded intent to end a subscription at a future billing boundary while paid entitlement remains available until that boundary.
+  _Avoid_: Subscription cancelled, access ended
+
+- **Subscription cancelled** — The terminal subscription state after Stripe ends the subscription and its paid entitlement. It is distinct from a scheduled cancellation that has not yet taken effect.
+  _Avoid_: Cancellation requested, cancellation scheduled
+
 - **UCAT preparation cycle** — The period in which a Student is preparing for a particular UCAT sitting, identified by a test year and optionally a test date. Passing the test date ends that preparation cycle but does not end the Altitutor UCAT relationship, close the account, remove free access, or erase attempts and study history. A Student may later prepare for another sitting.
   _Avoid_: UCAT account lifecycle, discontinued UCAT student, expired online student
 
@@ -365,7 +382,7 @@
 
 - **UCAT insight rule** — A stable evidence-to-guidance decision representing one coaching intent; its identity persists across dynamic values and wording revisions so the same intent can be previewed, verified, and rated together. _Avoid_: insight title, preview case, wording version
 
-- **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience.
+- **UCAT mock exam** — A complete practice exam made of UCAT section content that students can attempt as an exam-like experience. It is created against an explicitly selected UCAT exam blueprint. A published, non-deleted mock occupies one global contiguous mock-catalog position independent of blueprint version or test year; draft and in-review mocks stay visible to tutors but are unnumbered and do not reserve a position. Current catalog positions may change when published mocks are reordered or removed, while attempt history keeps its captured name. Soft deletion preserves its attached component sets for faithful restoration. A published, non-deleted mock occupies those sets in the catalog; otherwise they keep mock ownership but use standalone catalog identity until explicitly detached.
 
 - **UCAT exam attempt start** — The moment a student confirms **Ready to Begin** and enters the first timed or untimed exam segment (instructions or questions). This is when a set attempt, mock attempt, or practice session is considered started for quota, progress, and resume — not when they open the launch screen and not when they submit their first answer. Instructions time (when configured) is part of the attempt from this point.
   _Avoid_: Launch click, first answer, session created
@@ -532,14 +549,14 @@
 - **Accessible question bank** — The set of non-deleted questions on published question stems that the student may access, either publicly or through an explicit learning-module or session link. It defines the denominator for the student's UCAT progress totals.
   _Avoid_: All published questions, tutor question list, stem catalog
 
-- **UCAT content status** — The authoring lifecycle shared by question stems, question sets, mock exams, and learning module **lessons**: **draft**, **in review**, or **published**. Draft and in-review content is tutor-only. Published content may be student-accessible according to its access scope. AI generation creates question stems in review; tutor authoring creates drafts. Published content may be edited in place, and may be moved back to in review or draft to withdraw it from student access. Learning module **folders** do not use this lifecycle — they are catalog structure only.
+- **UCAT content status** — The authoring lifecycle shared by question stems, question sets, mock exams, and learning module **lessons**: **draft**, **in review**, or **published**. Draft and in-review content is tutor-only. Published content may be student-accessible according to its access scope. AI generation creates question stems in review; tutor authoring creates drafts. Published content may be edited in place, and may be moved back to in review or draft to withdraw it from student access. Sending a mock for review submits its remaining draft component sets first, and publishing a mock publishes its unpublished component sets first; either cascade is all-or-nothing. Learning module **folders** do not use this lifecycle — they are catalog structure only.
   _Avoid_: Approval status, visibility, active status, folder lifecycle
 
 - **UCAT content access scope** — The access rule for published question stems, question sets, mock exams, and learning module **lessons**: **public** content may appear in the relevant student pool or Learn catalog, while **private** content is accessible only through an explicit learning-module or session link. Access scope has no student-facing effect until the content is published. A public parent cannot contain a private child. Learning module **folders** do not use access scope for student visibility; a folder appears when it has at least one accessible descendant lesson.
   _Avoid_: Publication status, approval, visibility
 
-- **UCAT authoring MCP** — The remote, Supabase OAuth-authenticated Codex interface for reading UCAT authoring content and creating or editing draft/in-review learning module lessons, question-stem bundles, sets, and mocks. It is an additional authoring client alongside tutor-web, cannot publish or mutate published/top-level-deleted content, and attributes every mutation to the acting UCAT tutor.
-  _Avoid_: Tutor-web replacement, service-role authoring API, autonomous publisher
+- **UCAT authoring MCP** — The single remote, Supabase OAuth-authenticated Codex interface for reading and changing UCAT authoring content. It may create or edit draft and in-review content and apply recoverable changes to published content, but cannot publish, unpublish, hard-delete, or delete published content; every mutation is attributed to the acting UCAT tutor.
+  _Avoid_: Production maintenance MCP, tutor-web replacement, service-role authoring API, autonomous publisher
 
 - **UCAT authoring revision** — An opaque concurrency token returned with every MCP aggregate read and required by MCP updates or review submissions. The database checks it while holding the aggregate lock and rejects stale writes, requiring Codex to re-read and reconcile.
   _Avoid_: Content version, publication revision, updated-at timestamp
@@ -562,11 +579,41 @@
 - **UCAT question set** — A practice unit that belongs to exactly one UCAT section and contains an ordered collection of question stems from that section. Belonging is a fact about the set, not a summary of its current members, so an unpublished set may be empty and still belong to its section. That section may be changed only while the set has no member stems. A set includes every question on each selected stem; question counts are derived from the selected stems, so tutor auto-selection may approximate a requested question total rather than match it exactly. Students cannot generate or persist their own sets. The set's UCAT section supplies the instructions shown before its questions.
   _Avoid_: Individual question playlist, multi-section set, mixed-section set, first-stem section
 
+- **UCAT question set format** — The authored size intent of a UCAT question set: **full section** targets the official question total for its section, while **partial section** deliberately targets fewer questions. Actual question count remains derived from the set's member stems.
+  _Avoid_: Mini set, inferred full set, question-count bucket
+
+- **UCAT question set pace** — The authored working speed for a timed UCAT question set relative to exam pace. `1×` is exam pace, below `1×` is slower and therefore allows more time, and above `1×` is faster and therefore allows less time.
+  _Avoid_: Time multiplier, percentage of exam time, derived student speed
+
+- **UCAT question set timing intent** — The authored timing rule for a standalone UCAT question set: exam-relative pace, fixed answering duration, or untimed. Exam-relative answering time is resolved from the set's reference blueprint when an attempt starts as `(blueprint section answering time ÷ blueprint section question total) × actual set question count ÷ pace`; the resulting segment deadline is captured for the attempt. Mock component sets always use their mock blueprint's exact section timing rather than a proportional standalone calculation.
+  _Avoid_: Mutable attempt duration, pace as time allowance, unexplained seconds
+
+- **UCAT question set blueprint reference** — The immutable UCAT exam blueprint version used as a standalone set's timing and composition provenance, not as part of its catalog identity. Every set has one reference. Attaching a set whose existing reference differs from the mock's blueprint is allowed only after it passes the target blueprint's slot-compliance rules, then explicitly rebases the reference to the mock blueprint; detaching retains that reference.
+  _Avoid_: Catalog year, implicit current blueprint, nullable blueprint provenance
+
+- **UCAT question set placement** — A UCAT question set is either standalone or belongs to exactly one UCAT mock. Placement is ownership for composition and restore; it is not by itself the student-facing catalog identity. Detaching a mock set makes it standalone; simultaneous membership in multiple mocks is not supported.
+  _Avoid_: Shared mock set, many-mock membership, permanent mock ownership, catalog name as ownership
+
+- **Standalone UCAT question set position** — The mutable contiguous position of a published set that is in the sets pool, within its UCAT section and format. Full-section and partial-section sets have independent sequences; draft and in-review sets remain unnumbered, and entering the sets pool as a published set appends it to the applicable sequence.
+  _Avoid_: Permanent set number, cross-format sequence, hidden mock-set position, ownership as numbering
+
+- **Mock component set** — A UCAT question set currently attached to one mock for one blueprint section. It uses full-section intent, the mock's exact blueprint timing, and the same blueprint reference as its mock while attached. Its catalog name is mock-relative only while that mock is published and not deleted; otherwise a published component uses standalone catalog identity without being detached. Sending the parent mock for review submits remaining draft components first; publishing the mock publishes unpublished components first.
+  _Avoid_: Shared mock set, partial mock section, reusable simultaneous membership, mock name for a deleted parent
+
+- **Mock section slot** — One blueprint section position in a UCAT mock. Draft mocks may have an empty slot after explicit detachment, but publication requires exactly one Mock component set in every slot whose official question total and answering time match the selected blueprint; category ranges and questions-per-stem are warnings rather than publication blockers. Section order is fixed by the blueprint.
+  _Avoid_: Tutor-defined section order, permanent empty section, arbitrary extra set
+
+- **UCAT authoring note** — Optional tutor-only text attached to a UCAT question set or mock for internal identification or editorial context. It never supplies student-facing identity.
+  _Avoid_: Name, title, display name, student description
+
+- **UCAT catalog name** — The deterministic student- and tutor-facing identity of a UCAT question set or mock, derived from its structured catalog position and occupying context rather than authored text. A published mock is `Mock N` in one global sequence; unpublished mocks are unnumbered. A set uses a mock-relative name only while a published, non-deleted mock occupies it; otherwise a published set uses its standalone position. The default expanded presentation uses the full section name, while space-constrained surfaces may use the canonical section abbreviation without changing identity. Attempt history preserves the expanded catalog name captured when the attempt begins.
+  _Avoid_: Free name, authoring note, mutable attempt title, mock name for a non-occupying parent
+
 - **Stem available in the question pool** — A published public question stem that is not included in any published, non-deleted question set. Draft and in-review sets do not reserve their stems from the pool.
   _Avoid_: Unused question, not attempted, not in any set
 
-- **Set available in the sets pool** — A published public question set that is not included in any published, non-deleted mock exam. Draft and in-review mocks do not reserve their sets from the pool.
-  _Avoid_: Unused set, not attempted, not in any mock
+- **Set available in the sets pool** — A published public UCAT question set that is not occupied by a published, non-deleted mock. Draft, in-review, and deleted mocks do not reserve their sets from the pool. Sets-pool membership is also the set's standalone catalog identity.
+  _Avoid_: Unused set, not attempted, not in any mock, mock ownership as library membership
 
 - **Question stem review queue** — The tutor workflow for reviewing all in-review question stems, applying or reversing edits, and either publishing or returning each stem to draft. AI-generated, eligible bulk-imported, and tutor-submitted stems enter this queue automatically.
   _Avoid_: AI approval queue, bulk approval, generated questions tab
@@ -610,7 +657,10 @@
 - **UCAT content change** — A recoverable mutation of a saved UCAT aggregate recorded with its exact base and resulting revisions, before-and-after content, operations, provenance, and reversal relationship. Reversal restores the prior content only when doing so cannot overwrite later work.
   _Avoid_: Browser undo, branching version, activity event
 
-- **UCAT audit run** — A durable, named quality-audit of a frozen set of UCAT aggregates. It is selecting while targets are still being added, active while agents claim them, then completed or cancelled. Cancelled runs remain stored but are not current catalog review membership.
+- **Pending UCAT content change** — A proposed exact-revision UCAT content change that has not yet been applied or rejected. It is shared staff work visible in the AI Content Changes queue and is distinct from an AI assessment suggestion.
+  _Avoid_: Audit suggestion, draft edit, AI assessment suggestion
+
+- **UCAT audit run** — A durable, named quality-audit of a frozen set of UCAT aggregates. It is selecting while targets are still being added, active while agents claim them, then completed or cancelled; by default it may apply valid changes to its frozen targets, while an explicitly proposal-only run creates pending UCAT content changes instead.
   _Avoid_: AI assessment run, AI assessment audit record, question stem review queue
 
 - **Audit run target** — One aggregate assigned to a UCAT audit run, most often a question stem. Its status in that run is pending, in progress, completed, failed, or skipped, independently of the aggregate's content status and of any other run it belongs to.
@@ -745,8 +795,11 @@
 - **UCAT response inference** — The authoring classification process that independently infers Question stem category, Response type, Answer scheme, and answer key from structural content and answer evidence, then reconciles the results. Certain evidence may prefill a value; strong evidence requires review confirmation, weak or missing evidence requires selection, and conflicting evidence blocks import until resolved.
   _Avoid_: Category-to-type inference, answer-pattern category inference, silent fallback
 
-- **UCAT exam blueprint** — A versioned, test-year-specific composition policy for a full UCAT mock, defining section question totals, timings, stem or question-unit targets, and optional category composition ranges. Blueprint constraints apply to full mocks rather than focused practice sets and distinguish official test-level requirements from Altitutor-authored composition policy.
+- **UCAT exam blueprint** — A versioned, test-year-specific composition policy for a full UCAT mock, defining its fixed section order, section question totals, timings, stem or question-unit targets, and optional category composition ranges. Official question totals and answering times are publication blockers; category ranges and questions-per-stem remain visible warnings. Blueprint constraints apply to full mocks rather than focused practice sets and distinguish official test-level requirements from Altitutor-authored composition policy.
   _Avoid_: Category quota, universal set rule, timeless UCAT format
+
+- **UCAT exam blueprint version** — An immutable snapshot of one UCAT exam blueprint. Revising a version creates the next version for that test year; existing mocks and compliance audits retain the version they explicitly selected. A category composition constraint may be omitted, but when present it defines a minimum and maximum plus an optional ideal count for one canonical section category.
+  _Avoid_: Editable historical blueprint, active blueprint, global default blueprint
 
 - **Answer option** — One selectable response for a UCAT question.
 
@@ -861,7 +914,19 @@
 - **Dashboard trajectory** — The dashboard presentation that overlays a UCAT preparation goal, Study-plan mocks when applicable, and an exact test date on the independent Score projection. The dashboard canvas shows at most 60 days of trusted snapshot history and the next 120 days of bounded projection so `Today` stays in a consistent position. It may describe exam-day progress only when the date is known, the projection has sufficient evidence, and the date falls inside the configured forecast horizon; otherwise it shows baseline progress or a bounded outlook without an on-track judgement. Its `Why` insight may report stored improvement or a section-to-section-target gap, but must not claim that a section caused a precise total-score deficit.
   _Avoid_: Guaranteed target path, sample personalised data, indefinite extrapolation
 
-- **Study plan** — An optional personalised calendar of UCAT study tasks generated through the student's test date from their UCAT preparation goal, score projection, available study days, and preferred mock day. It adapts session composition and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed. A student without a Study plan does not see its calendar or navigation entry.
+- **Study plan** — An optional personalised calendar of UCAT study tasks generated through the student's test date from their UCAT preparation goal, score projection, and available study days. It adapts session composition and normally increases practice as the test approaches. It is recalculated when progress or planning inputs materially change; it is separate from Score projection and must not present target attainment as guaranteed. A student without a Study plan does not see its calendar or navigation entry.
+
+- **Study-planning eligibility** — Whether an enabled Study plan may receive scheduled recalculation. Eligibility requires completed setup, an Altitutor UCAT Online product relationship, and a preparation cycle that has not ended; it is independent of subscription tier and recent engagement. An exact test date ends eligibility after that date, while year-only timing remains eligible through the end of the whole configured testing window or, when no window is configured, through the end of that calendar year.
+  _Avoid_: Active Student, paid Student, Study plan enabled
+
+- **Recent UCAT engagement** — An authenticated visit to Altitutor UCAT within the preceding fourteen days. It determines whether scheduled maintenance is currently worthwhile, not whether the Student owns an Online product relationship or may access their persisted Study plan.
+  _Avoid_: Active Student, last login, subscription activity
+
+- **Active Study-plan generation** — The sole current generated schedule presented to and reconciled for a Student. Earlier generations are superseded historical records and must not independently trigger current-plan maintenance.
+  _Avoid_: Latest plan row, enabled Study plan, active Student
+
+- **Abandoned Study-plan draft task** — Future work from a superseded Study-plan generation that was invalidated before becoming due and has no start, completion, skip, partial-progress, or matched-activity evidence. It is disposable schedule material rather than Student preparation history.
+  _Avoid_: Missed task, historical task, incomplete task
   _Avoid_: Score projection, fixed timetable, target guarantee
 
 - **Study guidance orb** — The compact guide that is available throughout UCAT study except during an active attempt. It expands from the same unobtrusive orb on mobile and desktop and shows a primary next step plus a less prominent secondary step. It follows today's scheduled work when a Study plan is enabled and follows Next-step guidance otherwise. A dismissible prompt may announce changed guidance without removing that guidance from the expanded orb.
@@ -873,7 +938,7 @@
 - **Study-plan preference** — The student's choice to use a Study plan or have no Study plan. Turning it off retires future scheduled work without deleting completed activity, historical plans, the UCAT preparation goal, or Score projection evidence. Turning it back on creates a fresh future plan from current evidence and planning availability rather than reviving stale scheduled tasks.
   _Avoid_: Permanent opt-out, deleting plan history, recommendations plan
 
-- **Study plan activation setup** — The strongly encouraged but optional setup that first asks whether the student wants a Study plan, then always captures their UCAT preparation goal. Only students choosing a Study plan are asked for available study days. A student who is unsure may start with a clearly labelled working target, and the initial preferred mock day is inferred from availability rather than requested as another onboarding input. The student may defer setup and reach the dashboard.
+- **Study plan activation setup** — The strongly encouraged but optional setup that first asks whether the student wants a Study plan, then always captures their UCAT preparation goal. Only students choosing a Study plan are asked for available study days. A student who is unsure may start with a clearly labelled working target. The student may defer setup and reach the dashboard.
   _Avoid_: Required signup step, diagnostic, full settings form
 
 - **UCAT preparation goal** — The student's overall cognitive target score and test timing: an exact UCAT test date when booked, otherwise the test year. It exists with or without a Study plan and supports dashboard goal presentation and score-projection context; students do not enter target section scores. Situational Judgement is excluded from the cognitive total.
@@ -895,13 +960,29 @@
 - **Study plan Situational Judgement goal** — The automatically managed standard used to prescribe Situational Judgement learning and practice without adding another onboarding input. It uses Situational Judgement performance evidence and a system-configured readiness standard, but neither contributes to nor competes with the Study plan target.
   _Avoid_: Overall-score contribution, student-entered SJ target, ignored section
 
-- **Study plan rebalancing** — The automatic adjustment made after planned work is missed. Missed tasks remain visible in history but do not accumulate as extra study debt or overload a later available study day. High-value work may be rescheduled; lower-priority work may be replaced or dropped. Equivalent completed activity is reconciled after activity completion, while missed-work rebalancing and the full future calendar follow scheduled or event-driven recalculation. Opening the Study plan is read-only and never performs either mutation.
+- **Study plan rebalancing** — The bounded adjustment made by a weekly or material-event generation from current readiness, completed activity, and Missed exposure debt. Rollover records missed work when the next planned study day begins without regenerating the future calendar, while opening the Study plan remains read-only.
   _Avoid_: Backlog rollover, catch-up workload, plan failure
+
+- **Missed exposure debt** — A capped planning signal created by missed non-optional Practice, expressed against its section or category rather than as unfinished task volume. Replacement scheduling reduces it and equivalent completed Practice reduces it further; it never becomes a carried task backlog or independently triggers full generation.
+  _Avoid_: Missed-task backlog, overdue workload, automatic catch-up task
+
+- **Carry-over study task** — Incomplete work from the most recent planned study day that remains actionable through intervening rest days. It is retired into missed-work history only when the next day containing planned work begins, so completing it on a rest day prevents Missed exposure debt without moving its scheduled date.
+  _Avoid_: Rescheduled task, next-day backlog, extra-study task
+
+- **Practice prescription** — The Study plan's scheduled intent for a Practice task: its section or category objective, dose, and pace. It may consult compact global availability to avoid impossible prescriptions, but it does not load Student-specific catalogue inventory or preselect exact Question stems.
+  _Avoid_: Preselected question list, practice-session snapshot, catalogue bundle
+
+- **Practice launch fulfilment** — Selection of the best currently accessible whole Question stems when a Student starts a Practice prescription, including unanswered or incorrect preference and bounded fallbacks. The resulting exact stem snapshot belongs to the resumable Practice session, not to future Study-plan generation.
+  _Avoid_: Plan generation, future question reservation, per-plan catalogue inventory
+
+- **Learning task ownership** — Learning progress launched from a Study-plan task belongs only to that task identifier. Progress started outside the Study plan may reconcile only the earliest applicable active task for the same module; completing the module skips other untouched future copies rather than completing them all.
+- **Study-plan task fulfilment** — One completed activity satisfies at most one planned prescription. Completing an exact Set or Mock early completes its matching task; completing a Learning module completes its owning task while untouched later prescriptions for that non-repeatable module become obsolete rather than creating duplicate completion credit.
+  _Avoid_: Module-wide task completion, progress copied to future tasks, generation-wide learning match
 
 - **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.
   _Avoid_: Any activity counts, plan-only activity, duplicate required practice
 
-- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The completed work contributes to progress evidence and plan recalculation, but the task remains visibly partial and its remainder does not automatically become next-day study debt. A mock or benchmark is complete only when its required attempt is finalized.
+- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The task remains visibly partial; when overdue, only the uncompleted portion of non-optional Practice may contribute bounded Missed exposure debt rather than becoming a carried task. A mock or benchmark is complete only when its required attempt is finalized.
   _Avoid_: Failed task, automatic completion, remaining-work rollover
 
 - **Study plan task controls** — The intentionally limited actions available on a generated study task: start the prescribed activity or skip it for automatic Study plan rebalancing. Students edit planning inputs such as availability, test date, and target score rather than manually moving, rewriting, or swapping generated tasks. This preserves the student-facing promise that the plan decides what to do next.
@@ -910,7 +991,7 @@
 - **Study plan quota handling** — The Study plan prescribes the same academically appropriate work regardless of Online access tier; it is not weakened to fit UCAT Free quotas. A Free student can see the complete plan and complete tasks while quota remains. A task blocked by quota remains visibly locked with its reset or upgrade action, is not counted as missed, and may contribute to an access-risk warning when the target workload cannot be executed.
   _Avoid_: Paid-only hidden plan, quota-sized academic plan, locked task as non-adherence
 
-- **Study plan calibration phase** — The opening phase used when a student has insufficient Attempt evidence for confident personalisation. It begins immediately and emphasises learning modules, short representative practice, and frequent review rather than requiring a diagnostic mock. Existing history may shorten or bypass calibration. A first mock is scheduled only after the student demonstrates reasonable familiarity with the question types, not merely because their preferred mock day arrives.
+- **Study plan calibration phase** — The opening phase used when a student has insufficient Attempt evidence for confident personalisation. It begins immediately and emphasises learning modules, short representative practice, and frequent review rather than requiring a diagnostic mock. Existing history may shorten or bypass calibration. A first mock is scheduled only after the student demonstrates reasonable familiarity with the question types, not merely because a convenient weekday arrives.
   _Avoid_: Mandatory diagnostic mock, first-week mock, unpersonalised permanent plan
 
 - **Module-linked practice** — Learning-phase Practice prescribed immediately after a Learning module to apply that module's methods, followed by its Review as one indivisible same-day Learning loop. It always matches the module's section, is restricted to the module's categories when any are configured, and preferentially draws whole stems containing unattempted questions from the module's tags without allowing one configured category or tag to crowd out the others; its exact resumable stem snapshot is fixed when the Student starts it. If strict content is insufficient, the dose shrinks and the Preparation sandbox reports the gap rather than escaping the categories or splitting a stem. A day may contain multiple complete loops when availability or test proximity warrants it.
@@ -941,9 +1022,9 @@
   _Avoid_: Any question set, mini-set, mandatory fixed benchmark count
 
 - **Mock readiness** — The Study plan's evidence-based judgement that a student is sufficiently familiar with all sections to benefit from a full UCAT mock. It is normally established through Full-section benchmarks across every section, but a credible completed mock or other equivalent historical evidence may satisfy that requirement without forcing the student through learning and short-loop practice. Test proximity may override incomplete readiness when a mock has become the most useful available baseline.
-  _Avoid_: Minimum accuracy gate, mandatory lesson sequence, preferred mock day alone
+  _Avoid_: Minimum accuracy gate, mandatory lesson sequence, weekday preference alone
 
-- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. Incomplete Essential lessons are completed in authored order; Recommended lessons follow in authored order only while their section remains in Learning; Optional and Excluded lessons are not automatically prescribed. Selection uses this metadata and stable lesson references rather than hard-coded lesson IDs or titles.
+- **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. While a section remains in Learning, incomplete Essential lessons remain strongly prioritised in authored order and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended lessons follow only after the Essential tier, while Optional and Excluded lessons are not automatically prescribed.
   _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
 
 - **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
@@ -1090,3 +1171,14 @@
 
 - **Scheduled subscription downgrade** — A tier decrease from UCAT Pro to UCAT Unlimited on the same billing interval. The student may request it at any time; Pro entitlements and billing continue until the end of the current billing cycle, then Unlimited takes effect. No proration or partial refunds.
   _Avoid_: Immediate downgrade, prorated refund
+
+## Admin activity and automation
+
+- **Lifecycle event** — An immutable record that a business-significant transition occurred, named for the domain outcome and linked to every directly affected core entity. It records when Altitutor learned about the transition separately from when the transition took effect; it is not a reconstruction of arbitrary table changes or a complete audit log.
+  _Avoid_: Row-change event, database audit entry, event-sourced state
+
+- **Activity feed** — The chronological projection of Lifecycle events directly linked to one core admin entity. A Parent Activity feed contains Parent forms and Parent–Student link changes but does not inherit the histories of currently linked Students.
+  _Avoid_: Change log, Parent Student roll-up, table history
+
+- **Event automation trigger** — An automation trigger that matches an exact Lifecycle event name and may apply conditions to its stable event or live entity context. A relative-time trigger remains a separate scheduled trigger anchored to a Session start and is not represented as a Lifecycle event.
+  _Avoid_: Row trigger, changed-column automation, scheduled event

@@ -152,9 +152,10 @@ function PlacementPreviewBody({
   placementSnapshot?: Record<string, PlacementValue> | null
 }) {
   const answerScheme = question.answerScheme ?? 'decision_making_binary_placement'
+  const options = question.options ?? []
   const presentation = getAnswerSchemePresentation(
     answerScheme,
-    [...question.options]
+    [...options]
       .sort((left, right) => left.index - right.index)
       .map((option) => option.id),
   )
@@ -339,7 +340,7 @@ function PlacementPreviewBody({
           const placedOptionId = Object.entries(visibleAnswers).find(
             ([, value]) => value === token.value,
           )?.[0]
-          const placedOption = question.options.find((option) => option.id === placedOptionId)
+          const placedOption = options.find((option) => option.id === placedOptionId)
           const placedCorrectly = placedOption?.answerKeyValue === token.value
           return (
             <div key={token.value} className="flex items-stretch gap-3 sm:gap-5">
@@ -407,7 +408,7 @@ function PlacementPreviewBody({
         onDrop={interactive ? handleOptionTrayDrop : undefined}
         onDragOver={interactive ? handleDragOver : undefined}
       >
-        {question.options
+        {options
           .filter((option) => !visibleAnswers[option.id])
           .map((option) => (
             <div
@@ -445,7 +446,7 @@ function PlacementPreviewBody({
       />
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
         <div className="flex-1 space-y-3">
-          {question.options.map((option) => {
+          {options.map((option) => {
             const savedAnswer = placementSnapshot?.[option.id]
             const choice =
               !interactive && savedAnswer != null ? savedAnswer : (answers[option.id] ?? null)
@@ -685,6 +686,7 @@ function MultipleChoicePreviewBody({
   const radioName = useId()
   const [selectedOptionId, setSelectedOptionId] = useState<string | undefined>(undefined)
   const isTwoColumn = question.sectionDisplayColumns === 2
+  const options = question.options ?? []
 
   const innerSection = (
     <div className="space-y-3">
@@ -695,7 +697,7 @@ function MultipleChoicePreviewBody({
         preloadedQuestion={preloadedContent?.question}
       />
       <div className="space-y-2 pl-6">
-        {question.options.map((option, index) => {
+        {options.map((option, index) => {
           const letter = String.fromCharCode(65 + index)
           const showReviewState = Boolean(showAnswerExplanations || showAnswerResults)
           const selectedInReview = showReviewState && savedOptionId === option.id

@@ -6,6 +6,7 @@ import { processPendingPreparationRefreshes } from "@/features/preparation/serve
 import { supabaseAdmin } from "@/lib/supabase/admin";
 
 jest.mock("server-only", () => ({}));
+jest.mock("@sentry/nextjs", () => ({ captureMessage: jest.fn() }));
 jest.mock("@/features/preparation/server/preparation-refresh-worker", () => ({
   processPendingPreparationRefreshes: jest.fn(),
 }));
@@ -14,11 +15,15 @@ jest.mock("@/lib/supabase/admin", () => ({
 }));
 
 describe("UCAT preparation refresh cron", () => {
-  it("leases only the next job and stops when the queue is empty", async () => {
-    jest.mocked(supabaseAdmin!.rpc).mockResolvedValue({
-      data: 2,
-      error: null,
-    } as never);
+  it("runs three bounded worker lanes and stops when a lane finds no work", async () => {
+    jest
+      .mocked(supabaseAdmin!.rpc)
+      .mockResolvedValueOnce({
+        data: [{ students_processed: 1, tasks_skipped: 2 }],
+        error: null,
+      } as never)
+      .mockResolvedValueOnce({ data: 2, error: null } as never)
+      .mockResolvedValueOnce({ data: [], error: null } as never);
     jest
       .mocked(processPendingPreparationRefreshes)
       .mockResolvedValueOnce({ claimed: 1, completed: 1, failed: 0 })
@@ -31,20 +36,17 @@ describe("UCAT preparation refresh cron", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
+      rollover: { students_processed: 1, tasks_skipped: 2 },
       scheduled: 2,
       claimed: 2,
       completed: 1,
       failed: 1,
     });
     expect(processPendingPreparationRefreshes).toHaveBeenCalledTimes(3);
-    expect(processPendingPreparationRefreshes).toHaveBeenNthCalledWith(1, {
-      limit: 1,
-    });
-    expect(processPendingPreparationRefreshes).toHaveBeenNthCalledWith(2, {
-      limit: 1,
-    });
-    expect(processPendingPreparationRefreshes).toHaveBeenNthCalledWith(3, {
-      limit: 1,
-    });
+    for (let call = 1; call <= 3; call += 1) {
+      expect(processPendingPreparationRefreshes).toHaveBeenNthCalledWith(call, {
+        limit: 1,
+      });
+    }
   });
 });

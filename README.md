@@ -34,9 +34,10 @@ pnpm install
 
 ```bash
 supabase start
-supabase db reset
 pnpm db:types
 ```
+
+A first `supabase start` applies migrations and seed. Use `supabase db reset` later if you need to rebuild the local database from scratch.
 
 5. Run development servers:
 
@@ -72,7 +73,7 @@ pnpm --filter @altitutor/student-app start
 - `pnpm lint` / `pnpm lint:fix`: Lint (and autofix)
 - `pnpm test` / `pnpm test:coverage`: Tests
 - `pnpm typecheck`: TypeScript across the workspace
-- `pnpm checkall`: lint, typecheck, test, then build
+- `pnpm checkall`: full local CI — lint, typecheck, unit tests, UCAT coverage, Edge Function contracts, build, database contracts, and UCAT critical browser journeys
 - `pnpm db:types`: Generate TypeScript types from local Supabase
 - `pnpm db:email-templates`: Render email templates
 - `pnpm db:committypes`: Reset local DB, lint schema, regenerate types, commit if changed
@@ -108,9 +109,12 @@ These resolve against `auth.uid()`.
 
 ```bash
 supabase start
-supabase db reset
 pnpm db:types
 ```
+
+`supabase start` applies migrations and seed on a fresh stack. If the stack is
+already running, `supabase db reset` rebuilds the local database from those
+same files. `pnpm db:committypes` still resets before regenerating types.
 
 ### Remote
 

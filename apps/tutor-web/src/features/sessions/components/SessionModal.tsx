@@ -7,6 +7,7 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
+  AccountClassBadge,
   Button,
   SessionInfoGrid,
   Badge,
@@ -69,7 +70,9 @@ function TutorLogSubmitterBadge({ firstName, lastName }: { firstName: string; la
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <p>Tutor log submitted by {firstName} {lastName}</p>
+          <p>
+            Tutor log submitted by {firstName} {lastName}
+          </p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
@@ -87,16 +90,7 @@ export function SessionModal({
 }: SessionModalProps) {
   const { data: notesData } = useSessionNotes(sessionId || '');
 
-  const {
-    session,
-    tutorLog,
-    allTopics,
-    studentsData,
-    staffData,
-    subject,
-    isLoading,
-    refresh,
-  } = useSessionModalData({
+  const { session, tutorLog, allTopics, studentsData, staffData, subject, isLoading, refresh } = useSessionModalData({
     isOpen,
     sessionId,
   });
@@ -113,16 +107,14 @@ export function SessionModal({
         <SheetContent
           className={cn(
             'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
-            tutorSheetContentClass,
+            tutorSheetContentClass
           )}
         >
           <div className="flex-1 overflow-y-auto p-6">
             <SheetHeader className="mb-6">
               <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
             </SheetHeader>
-            {isLoading && (
-              <div className="py-6 text-center text-muted-foreground">Loading session details...</div>
-            )}
+            {isLoading && <div className="py-6 text-center text-muted-foreground">Loading session details...</div>}
           </div>
         </SheetContent>
       </Sheet>
@@ -144,7 +136,7 @@ export function SessionModal({
       <SheetContent
         className={cn(
           'flex h-full max-h-[100dvh] w-full flex-col p-0 md:w-[600px] md:max-w-none',
-          tutorSheetContentClass,
+          tutorSheetContentClass
         )}
       >
         <div className="flex-1 overflow-y-auto p-6">
@@ -152,9 +144,7 @@ export function SessionModal({
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <SheetTitle>Session Details</SheetTitle>
-                <SheetDescription className="text-lg font-medium">
-                  {sessionTitle}
-                </SheetDescription>
+                <SheetDescription className="text-lg font-medium">{sessionTitle}</SheetDescription>
               </div>
             </div>
           </SheetHeader>
@@ -191,46 +181,49 @@ export function SessionModal({
 
             {!isCheckIn && (
               <>
-            {/* Students Section */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
-              </div>
-              {studentsData.length === 0 ? (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  No students planned
+                {/* Students Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Students ({studentsData.length})</h3>
+                  </div>
+                  {studentsData.length === 0 ? (
+                    <div className="text-center py-4 text-sm text-muted-foreground">No students planned</div>
+                  ) : (
+                    <div className={tutorTableShell}>
+                      <Table>
+                        <TableHeader className="[&_tr]:border-b-0">
+                          <TableRow className={tutorTableHeaderRow}>
+                            <TableHead>Student</TableHead>
+                            <TableHead>Planned</TableHead>
+                            <TableHead>Actual</TableHead>
+                          </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                          {studentsData.map((data: ProcessedStudent) => (
+                            <TableRow key={data.student.id} className={tutorTableBodyRow}>
+                              <TableCell>
+                                <div className="flex flex-wrap items-center gap-2 font-medium">
+                                  <span>
+                                    {data.student.first_name} {data.student.last_name}
+                                  </span>
+                                  <AccountClassBadge accountClass={data.student.account_class} />
+                                </div>
+                              </TableCell>
+                              <TableCell>
+                                <AttendanceCell status={data.plannedStatus} />
+                              </TableCell>
+                              <TableCell>
+                                <AttendanceCell status={data.actualStatus} />
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </div>
+                  )}
                 </div>
-              ) : (
-                <div className={tutorTableShell}>
-                  <Table>
-                    <TableHeader className="[&_tr]:border-b-0">
-                      <TableRow className={tutorTableHeaderRow}>
-                        <TableHead>Student</TableHead>
-                        <TableHead>Planned</TableHead>
-                        <TableHead>Actual</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {studentsData.map((data: ProcessedStudent) => (
-                        <TableRow key={data.student.id} className={tutorTableBodyRow}>
-                          <TableCell className="font-medium">
-                            {data.student.first_name} {data.student.last_name}
-                          </TableCell>
-                          <TableCell>
-                            <AttendanceCell status={data.plannedStatus} />
-                          </TableCell>
-                          <TableCell>
-                            <AttendanceCell status={data.actualStatus} />
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </div>
-              )}
-            </div>
 
-            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+                <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
               </>
             )}
 
@@ -240,9 +233,7 @@ export function SessionModal({
                 <h3 className="text-lg font-semibold">Staff ({staffData.length})</h3>
               </div>
               {staffData.length === 0 ? (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  No staff planned
-                </div>
+                <div className="text-center py-4 text-sm text-muted-foreground">No staff planned</div>
               ) : (
                 <div className={tutorTableShell}>
                   <Table>
@@ -263,9 +254,7 @@ export function SessionModal({
                           </TableCell>
                           {isCheckIn ? (
                             <TableCell>
-                              <Badge variant="outline">
-                                {formatCheckInStaffRole(data.sessionsStaffType) ?? '—'}
-                              </Badge>
+                              <Badge variant="outline">{formatCheckInStaffRole(data.sessionsStaffType) ?? '—'}</Badge>
                             </TableCell>
                           ) : null}
                           <TableCell>
@@ -277,11 +266,7 @@ export function SessionModal({
                               staffType={
                                 isCheckIn
                                   ? undefined
-                                  : (data.staffType as
-                                      | 'MAIN_TUTOR'
-                                      | 'SECONDARY_TUTOR'
-                                      | 'TRIAL_TUTOR'
-                                      | undefined)
+                                  : (data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined)
                               }
                             />
                           </TableCell>
@@ -307,60 +292,61 @@ export function SessionModal({
 
             {!isCheckIn && (
               <>
-            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+                <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
 
-            {/* Tutor Log Section */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-lg font-semibold">Tutor Log</h3>
-                {!hasTutorLog && canAddTutorLog && sessionId && currentStaffId && onLogSessionClick && (
-                  <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={onLogSessionClick}>
-                    Add Tutor Log
-                  </Button>
-                )}
-              </div>
+                {/* Tutor Log Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-lg font-semibold">Tutor Log</h3>
+                    {!hasTutorLog && canAddTutorLog && sessionId && currentStaffId && onLogSessionClick && (
+                      <Button variant="outline" size="sm" className={tutorBtnOutline} onClick={onLogSessionClick}>
+                        Add Tutor Log
+                      </Button>
+                    )}
+                  </div>
 
-              {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (
-                <div className="space-y-4 mb-4">
-                  {tutorLog.topics.map((topicData) => {
-                    const topic = allTopics.find(t => t.id === topicData.id);
-                    const topicName = topicData.name || topic?.name || 'Unknown Topic';
-                    const topicCode = topic?.code || '';
-                    const topicFiles = (tutorLog.files || []).filter((f) => f.topic_id === topicData.id);
+                  {hasTutorLog && tutorLog.topics && tutorLog.topics.length > 0 && (
+                    <div className="space-y-4 mb-4">
+                      {tutorLog.topics.map((topicData) => {
+                        const topic = allTopics.find((t) => t.id === topicData.id);
+                        const topicName = topicData.name || topic?.name || 'Unknown Topic';
+                        const topicCode = topic?.code || '';
+                        const topicFiles = (tutorLog.files || []).filter((f) => f.topic_id === topicData.id);
 
-                    return (
-                      <div key={topicData.id} className={tutorCardCn('space-y-3 p-4')}>
-                        <div className="font-medium">
-                          {topicCode ? `${topicCode} ` : ''}{topicName}
-                        </div>
-                        {topicFiles.length > 0 && (
-                          <div>
-                            <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
-                            <div className="space-y-1">
-                              {topicFiles.map((fileData) => (
-                                <div key={fileData.id} className="text-sm text-muted-foreground">
-                                  {fileData.code || fileData.filename || ''}
-                                </div>
-                              ))}
+                        return (
+                          <div key={topicData.id} className={tutorCardCn('space-y-3 p-4')}>
+                            <div className="font-medium">
+                              {topicCode ? `${topicCode} ` : ''}
+                              {topicName}
                             </div>
+                            {topicFiles.length > 0 && (
+                              <div>
+                                <div className="text-xs font-medium text-muted-foreground mb-1">Files:</div>
+                                <div className="space-y-1">
+                                  {topicFiles.map((fileData) => (
+                                    <div key={fileData.id} className="text-sm text-muted-foreground">
+                                      {fileData.code || fileData.filename || ''}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
                           </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
+                        );
+                      })}
+                    </div>
+                  )}
 
-              {!hasTutorLog && (
-                <div className="text-center py-4 text-sm text-muted-foreground">
-                  {canAddTutorLog
-                    ? 'This session has not been logged yet.'
-                    : 'Tutor log will be available once this session has started.'}
+                  {!hasTutorLog && (
+                    <div className="text-center py-4 text-sm text-muted-foreground">
+                      {canAddTutorLog
+                        ? 'This session has not been logged yet.'
+                        : 'Tutor log will be available once this session has started.'}
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
 
-            <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+                <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
               </>
             )}
 

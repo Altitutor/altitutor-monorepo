@@ -52,7 +52,7 @@ describe('sortStudentsByStatus', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     },
     {
       id: 'student-2',
@@ -93,7 +93,7 @@ describe('sortStudentsByStatus', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     },
     {
       id: 'student-3',
@@ -134,7 +134,7 @@ describe('sortStudentsByStatus', () => {
       ucat_signup_step: 0,
       birthday: null,
       ucat_initial_familiarity: null,
-      ucat_analytics_account_class: 'external',
+      account_class: 'external',
     },
   ];
 

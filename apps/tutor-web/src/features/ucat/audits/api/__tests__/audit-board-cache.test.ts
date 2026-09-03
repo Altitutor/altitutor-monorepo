@@ -28,7 +28,7 @@ function detail(targets: AuditTarget[]): AuditDetail {
       title: 'All draft stems',
       brief: null,
       status: 'active',
-      publishedWriteMode: 'proposal_only',
+      publishedWriteMode: 'apply_valid_changes',
       workflowId: null,
       workflowVersion: null,
       createdAt: '2026-08-20T00:00:00.000Z',

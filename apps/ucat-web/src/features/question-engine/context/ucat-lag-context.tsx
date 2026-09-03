@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext } from "react";
 
 import { useLagMode } from "@/features/question-engine/hooks/use-lag-mode";

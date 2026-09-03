@@ -25,6 +25,7 @@ import {
   buildClassScheduleProposal,
   validateClassScheduleRows,
 } from '../utils/classScheduleForm';
+import { GeneratedTimetablePreview } from './GeneratedTimetablePreview';
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -231,38 +232,30 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       <div className="space-y-5">
           {step === 0 && (
             <div className="space-y-5">
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Subject *</Label>
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+                <Label>Subject *</Label>
+                <div className="w-full">
                   <SubjectSelectPopover
                     selectedSubject={selectedSubject}
                     onSelectSubject={setSelectedSubject}
                     placeholder="Select subject"
                   />
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="cohort-label">Class name / code</Label>
-                  <Input
-                    id="cohort-label"
-                    value={cohortLabel}
-                    onChange={(event) => setCohortLabel(event.target.value)}
-                    placeholder="A, B, Interview Course"
-                  />
-                </div>
-              </div>
-              <div className="grid gap-4 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Start date *</Label>
-                  <SmartDatePickerField value={startDate} onChange={(value) => setStartDate(value ?? '')} />
-                </div>
-                <div className="space-y-2">
-                  <Label>End date *</Label>
-                  <SmartDatePickerField
-                    value={endDate}
-                    onChange={(value) => setEndDate(value ?? '')}
-                    minDate={startDate || undefined}
-                  />
-                </div>
+                <Label htmlFor="cohort-label">Class name / code</Label>
+                <Input
+                  id="cohort-label"
+                  value={cohortLabel}
+                  onChange={(event) => setCohortLabel(event.target.value)}
+                  placeholder="A, B, Interview Course"
+                />
+                <Label>Start date *</Label>
+                <SmartDatePickerField value={startDate} onChange={(value) => setStartDate(value ?? '')} />
+                <Label>End date *</Label>
+                <SmartDatePickerField
+                  value={endDate}
+                  onChange={(value) => setEndDate(value ?? '')}
+                  minDate={startDate || undefined}
+                />
               </div>
               <p className="text-sm text-muted-foreground">
                 Sessions use Australia/Adelaide time and are generated only inside these dates.
@@ -272,7 +265,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
 
           {step === 1 && (
             <div className="space-y-5">
-              <div className="max-w-xs space-y-2">
+              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
                 <Label>Repeat</Label>
                 <SearchableSelect<(typeof FREQUENCY_OPTIONS)[number]>
                   items={FREQUENCY_OPTIONS}
@@ -286,10 +279,10 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                 />
               </div>
 
-              <div className="space-y-3">
+              <div className="space-y-3 border-t pt-5">
                 {rows.map((row, index) => (
                   <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
-                    <div className="space-y-2">
+                    <div className="flex min-w-0 flex-col gap-2">
                       <Label>Day {index + 1}</Label>
                       <SearchableSelect<(typeof DAY_OPTIONS)[number]>
                         items={[...DAY_OPTIONS]}
@@ -331,6 +324,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                         type="button"
                         size="icon"
                         variant="ghost"
+                        className="text-destructive hover:bg-destructive/10 hover:text-destructive"
                         aria-label={`Remove schedule row ${index + 1}`}
                         disabled={rows.length === 1}
                         onClick={() => setRows((current) => current.filter((item) => item.id !== row.id))}
@@ -378,17 +372,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                 </div>
               )}
 
-              <div className="space-y-2">
-                <h3 className="font-medium">Generated timetable</h3>
-                <div className="max-h-64 divide-y overflow-y-auto rounded-md border">
-                  {plan.occurrences.map((occurrence) => (
-                    <div key={`${occurrence.source_key}-${occurrence.start_at}`} className="flex justify-between gap-4 p-3 text-sm">
-                      <span>{new Date(occurrence.start_at).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide', dateStyle: 'medium', timeStyle: 'short' })}</span>
-                      <span className="text-muted-foreground">{occurrence.room ?? 'No room'} · {occurrence.action.toLowerCase()}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <GeneratedTimetablePreview occurrences={plan.occurrences} />
             </div>
           )}
       </div>

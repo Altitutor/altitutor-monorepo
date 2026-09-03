@@ -62,6 +62,7 @@ export type PreparationActivityCandidate = {
     uncertainty: number;
     targetGap: number;
     tagSampling: number;
+    missedExposure: number;
     total: number;
   };
 };
@@ -70,9 +71,15 @@ export type ActivityTagSignal = {
   id: string;
   sectionId: string;
   categoryId: string;
-  availableQuestionCount: number;
+  availableQuestionCount: number | null;
   independentSessionCount: number;
   weaknessScore: number;
+};
+
+export type MissedExposureDebtSignal = {
+  sectionId: string;
+  categoryId: string | null;
+  debtUnits: number;
 };
 
 export type ActivityRankingInput = {
@@ -86,6 +93,7 @@ export type ActivityRankingInput = {
   learningModules: StudyPlanLearningModule[];
   skillTrainers: StudyPlanSkillTrainer[];
   tagSignals?: ActivityTagSignal[];
+  missedExposureDebt?: MissedExposureDebtSignal[];
   trainerAttemptCounts: Map<string, number>;
   incompleteReview: {
     attemptType: "practice_session" | "set_attempt" | "mock_attempt";
@@ -98,15 +106,18 @@ export type ActivityRankingInput = {
 };
 
 type Factors = Omit<PreparationActivityCandidate["ranking"], "total">;
+type FactorInput = Omit<Factors, "missedExposure"> &
+  Partial<Pick<Factors, "missedExposure">>;
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
-function factors(input: Factors): PreparationActivityCandidate["ranking"] {
+function factors(input: FactorInput): PreparationActivityCandidate["ranking"] {
+  const completed: Factors = { missedExposure: 0, ...input };
   return {
-    ...input,
-    total: Object.values(input).reduce((sum, value) => sum + value, 0),
+    ...completed,
+    total: Object.values(completed).reduce((sum, value) => sum + value, 0),
   };
 }
 
@@ -174,7 +185,8 @@ function eligibleTag(
         item.sectionId === sectionId &&
         item.categoryId === categoryId &&
         item.independentSessionCount >= 2 &&
-        item.availableQuestionCount >= 20,
+        (item.availableQuestionCount == null ||
+          item.availableQuestionCount >= 20),
     )
     .sort(
       (left, right) =>
@@ -200,6 +212,13 @@ export function rankActivityCandidates(
     input.signals.map((item) => [item.sectionId, item]),
   );
   const equalTarget = input.targetScore / 3;
+  const debtFor = (sectionId: string, categoryId: string | null) =>
+    (input.missedExposureDebt ?? [])
+      .filter(
+        (item) =>
+          item.sectionId === sectionId && item.categoryId === categoryId,
+      )
+      .reduce((sum, item) => sum + Math.max(0, item.debtUnits), 0);
 
   if (input.incompleteReview) {
     result.push(
@@ -252,14 +271,26 @@ export function rankActivityCandidates(
       item.maxScore >= 8 ||
       (item.attemptedQuestionCount ?? 0) >= 10 ||
       (item.qualifyingPracticeSessions ?? 0) >= 2;
+    const debtBoost = (categoryId: string | null) =>
+      clamp(
+        ((debtFor(section.id, categoryId) +
+          (categoryId == null ? 0 : debtFor(section.id, null))) /
+          Math.max(1, section.questionCount)) *
+          20,
+        0,
+        20,
+      );
+    const categoryPriority = (item: StudyPlanCategorySignal) =>
+      item.weaknessScore * 50 + debtBoost(item.id);
     const reliableCategories = input.categories
       .filter(
         (item) =>
-          item.sectionId === section.id && categoryHasReliableVolume(item),
+          item.sectionId === section.id &&
+          (categoryHasReliableVolume(item) || debtFor(section.id, item.id) > 0),
       )
       .sort(
         (left, right) =>
-          right.weaknessScore - left.weaknessScore ||
+          categoryPriority(right) - categoryPriority(left) ||
           right.maxScore - left.maxScore ||
           left.id.localeCompare(right.id),
       );
@@ -268,16 +299,19 @@ export function rankActivityCandidates(
       .filter(
         (item) =>
           strongestCategory != null &&
-          strongestCategory.weaknessScore - item.weaknessScore < 0.2,
+          categoryPriority(strongestCategory) - categoryPriority(item) < 10,
       )
       .sort(
         (left, right) =>
-          right.weaknessScore - left.weaknessScore ||
+          categoryPriority(right) - categoryPriority(left) ||
           left.id.localeCompare(right.id),
       )
       .slice(0, 3);
     const useMixedScope = similarlyReliableCategories.length >= 2;
     const weakness = clamp((strongestCategory?.weaknessScore ?? 0) * 50, 0, 50);
+    const missedExposure = strongestCategory
+      ? debtBoost(strongestCategory.id)
+      : debtBoost(null);
     const tag = eligibleTag(input, section.id, strongestCategory?.id ?? null);
 
     if (readiness.mode === "learning") {
@@ -419,6 +453,7 @@ export function rankActivityCandidates(
       uncertainty,
       targetGap,
       tagSampling: tag.priority,
+      missedExposure,
     });
     result.push(
       candidate({
@@ -490,6 +525,7 @@ export function rankActivityCandidates(
             uncertainty,
             targetGap,
             tagSampling: 0,
+            missedExposure: debtBoost(null),
           }),
         }),
       );
@@ -537,6 +573,13 @@ export function rankActivityCandidates(
           uncertainty: 0,
           targetGap: 0,
           tagSampling: 0,
+          missedExposure: clamp(
+            (debtFor(sjtSection.id, null) /
+              Math.max(1, sjtSection.questionCount)) *
+              20,
+            0,
+            20,
+          ),
         }),
       }),
     );

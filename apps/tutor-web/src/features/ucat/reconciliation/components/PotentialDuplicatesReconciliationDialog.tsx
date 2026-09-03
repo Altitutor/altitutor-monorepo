@@ -328,14 +328,19 @@ export function PotentialDuplicatesReconciliationDialog({
       void queryClient.invalidateQueries({
         queryKey: ucatKeys.reconciliationQueue("potential-duplicates"),
       });
-      toast({
-        title: "Cannot merge",
-        description:
-          err instanceof Error
-            ? `${err.message} The queue has been refreshed.`
-            : "Failed to merge question stems. The queue has been refreshed.",
-        variant: "destructive",
-      });
+      toast(lifecycleErrorToast(err, "Cannot merge", router.push, (entityType, entityId) => {
+        if (entityType === "stem") {
+          onOpenChange(false);
+          onOpenStemDialog(entityId);
+          return true;
+        }
+        if (entityType === "set") {
+          onOpenChange(false);
+          onEditSet(entityId);
+          return true;
+        }
+        return false;
+      }));
     }).finally(() => {
       setMergePending(false);
     });

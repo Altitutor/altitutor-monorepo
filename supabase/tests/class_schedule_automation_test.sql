@@ -6,8 +6,8 @@ CREATE TEMP TABLE automation_proposal AS
 SELECT jsonb_build_object(
   'class_id', '90000000-0000-0000-0000-000000000008',
   'subject_id', (SELECT id FROM public.subjects ORDER BY id LIMIT 1),
-  'schedule_type', 'RECURRING', 'start_date', '2026-09-01', 'end_date', '2026-09-01',
-  'frequency_weeks', 1, 'anchor_date', '2026-09-01',
+  'schedule_type', 'RECURRING', 'start_date', '2027-01-05', 'end_date', '2027-01-05',
+  'frequency_weeks', 1, 'anchor_date', '2027-01-05',
   'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 2, 'start_time', '13:00', 'end_time', '14:00'))
 ) AS proposal;
 
@@ -24,7 +24,7 @@ VALUES (
 );
 
 UPDATE automation_proposal
-SET proposal = jsonb_set(proposal, '{end_date}', '"2026-09-08"'::JSONB);
+SET proposal = jsonb_set(proposal, '{end_date}', '"2027-01-12"'::JSONB);
 
 SELECT public.apply_class_schedule(proposal, public.preview_class_schedule(proposal)->>'proposal_hash')
 FROM automation_proposal;
@@ -43,15 +43,16 @@ SELECT is(
 SELECT is(
   (
     SELECT COUNT(*)::INTEGER
-    FROM public.activity_events ae
-    JOIN public.sessions s ON s.id = ae.session_id
+    FROM public.domain_events event
+    JOIN public.domain_event_entities session_entity
+      ON session_entity.domain_event_id = event.id
+     AND session_entity.entity_type = 'session'
+    JOIN public.sessions s ON s.id = session_entity.entity_id
     WHERE s.class_id = '90000000-0000-0000-0000-000000000008'
-      AND ae.entity_type = 'sessions_staff'
-      AND ae.event_type = 'CREATED'
-      AND ae.metadata->>'assignment_source' IS DISTINCT FROM 'class_staff_sync'
+      AND event.event_name = 'session.staff_added'
   ),
   0,
-  'generated per-Session tutor assignments are marked to suppress notification noise'
+  'generated per-Session tutor assignments do not emit lifecycle or notification noise'
 );
 
 SELECT * FROM finish();

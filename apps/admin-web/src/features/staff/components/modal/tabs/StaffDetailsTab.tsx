@@ -32,6 +32,7 @@ import { getSubjectColorStyle } from '@/shared/utils';
 import { useToast } from "@altitutor/ui";
 import { SendInviteDialog } from '../SendInviteDialog';
 import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -221,15 +222,14 @@ export function StaffDetailsTab({
           onSubmit={handleFormSubmit} 
           className="space-y-6"
         >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name *</Label>
+              <PropertyForm>
+                <PropertyFormRow label="First Name *" htmlFor="staff-first-name">
                   <Controller
                     control={form.control}
                     name="firstName"
                     render={({ field }) => (
                       <Input 
-                        id="firstName" 
+                        id="staff-first-name"
                         {...field}
                         disabled={isLoading} 
                         required
@@ -237,18 +237,17 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.firstName && (
-                    <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.firstName.message}</p>
                   )}
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="lastName">Last Name *</Label>
+                <PropertyFormRow label="Last Name *" htmlFor="staff-last-name">
                   <Controller
                     control={form.control}
                     name="lastName"
                     render={({ field }) => (
                       <Input 
-                        id="lastName" 
+                        id="staff-last-name"
                         {...field}
                         disabled={isLoading} 
                         required
@@ -256,20 +255,17 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.lastName && (
-                    <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.lastName.message}</p>
                   )}
-                </div>
-              </div>
+                </PropertyFormRow>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
+                <PropertyFormRow label="Email" htmlFor="staff-email">
                   <Controller
                     control={form.control}
                     name="email"
                     render={({ field }) => (
                       <Input 
-                        id="email" 
+                        id="staff-email"
                         type="email" 
                         {...field}
                         disabled={isLoading} 
@@ -277,17 +273,17 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.email && (
-                    <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.email.message}</p>
                   )}
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                <PropertyFormRow label="Phone Number" htmlFor="staff-phone-number">
                   <Controller
                     control={form.control}
                     name="phoneNumber"
                     render={({ field }) => (
                       <PhoneInput
+                        id="staff-phone-number"
                         value={field.value ?? ''}
                         onChange={field.onChange}
                         disabled={isLoading}
@@ -295,17 +291,15 @@ export function StaffDetailsTab({
                       />
                     )}
                   />
-                </div>
-              </div>
+                </PropertyFormRow>
 
-              <div>
-                <Label htmlFor="birthday">Birthday</Label>
+                <PropertyFormRow label="Birthday" htmlFor="staff-birthday">
                 <Controller
                   control={form.control}
                   name="birthday"
                   render={({ field }) => (
                     <Input
-                      id="birthday"
+                      id="staff-birthday"
                       type="date"
                       value={field.value ?? ''}
                       max={new Date().toISOString().slice(0, 10)}
@@ -315,19 +309,17 @@ export function StaffDetailsTab({
                   )}
                 />
                 {form.formState.errors.birthday && (
-                  <p className="text-sm text-red-500">{form.formState.errors.birthday.message}</p>
+                  <p className="mt-1 text-sm text-destructive">{form.formState.errors.birthday.message}</p>
                 )}
-              </div>
+                </PropertyFormRow>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="officeKeyNumber">Office Key Number</Label>
+                <PropertyFormRow label="Office Key Number" htmlFor="staff-office-key-number">
                   <Controller
                     control={form.control}
                     name="officeKeyNumber"
                     render={({ field }) => (
                       <Input
-                        id="officeKeyNumber"
+                        id="staff-office-key-number"
                         type="number"
                         {...field}
                         value={field.value ?? ''}
@@ -341,12 +333,11 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.officeKeyNumber && (
-                    <p className="text-sm text-red-500">{form.formState.errors.officeKeyNumber.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.officeKeyNumber.message}</p>
                   )}
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="hasParkingRemote">Parking Remote</Label>
+                <PropertyFormRow label="Parking Remote">
                   <Controller
                     control={form.control}
                     name="hasParkingRemote"
@@ -369,18 +360,16 @@ export function StaffDetailsTab({
                         getItemId={(i) => i.value}
                         placeholder="Select option"
                         disabled={isLoading}
+                        ariaLabel="Parking remote"
                       />
                     )}
                   />
                   {form.formState.errors.hasParkingRemote && (
-                    <p className="text-sm text-red-500">{form.formState.errors.hasParkingRemote.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.hasParkingRemote.message}</p>
                   )}
-                </div>
-              </div>
+                </PropertyFormRow>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="role">Role</Label>
+                <PropertyFormRow label="Role">
                   <Controller
                     control={form.control}
                     name="role"
@@ -400,13 +389,13 @@ export function StaffDetailsTab({
                         getItemId={(i) => i.value}
                         placeholder="Select role"
                         disabled={isLoading}
+                        ariaLabel="Role"
                       />
                     )}
                   />
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="status">Status</Label>
+                <PropertyFormRow label="Status">
                   <Controller
                     control={form.control}
                     name="status"
@@ -435,15 +424,14 @@ export function StaffDetailsTab({
                         getItemId={(i) => i.value}
                         placeholder="Select status"
                         disabled={isLoading}
+                        ariaLabel="Status"
                       />
                     )}
                   />
-                </div>
-              </div>
+                </PropertyFormRow>
 
               {/* Subjects Field */}
-              <div>
-                <Label>Subjects</Label>
+                <PropertyFormRow label="Subjects" labelClassName="self-start pt-3">
                 <div className="space-y-2">
                   {staffSubjects.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -484,7 +472,8 @@ export function StaffDetailsTab({
                   )}
                   {addSubjectButton}
                 </div>
-              </div>
+                </PropertyFormRow>
+              </PropertyForm>
 
               <Separator className="my-6" />
 

@@ -60,7 +60,11 @@ Leave the field when it is already right, including small disagreements under th
 
 ## 7. Write
 
-Authoring: `update_question_stem`. Published: `update_published_question_stem` with `auditRunId`, plus `summary` (and `rationale` when the change is not obvious).
+Use `change_question_stem` for every lifecycle, with `auditRunId`, `summary`,
+and `rationale` when the change is not obvious. Draft and in-review changes are
+applied immediately. Published changes return `staged`; pass the returned
+`changeId` to `apply_ucat_content_changes`. Treat the write as accepted only
+after application succeeds.
 
 Prefer `{ "format": "markdown", "value": "..." }` for text. Use native ProseMirror only to insert an `imageNode` from an image tool (`fileId` is the durable reference; it is not attached until you insert it).
 

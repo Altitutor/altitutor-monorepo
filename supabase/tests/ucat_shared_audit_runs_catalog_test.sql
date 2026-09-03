@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(14);
+SELECT plan(15);
 
 INSERT INTO public.staff_subjects (staff_id, subject_id)
 SELECT staff.id, subject.id
@@ -237,6 +237,8 @@ SELECT is(
           'kind', 'filter',
           'contentType', 'stem',
           'status', 'draft',
+          'query', 'Audit stem',
+          'searchScopes', jsonb_build_array('stem_text'),
           'auditFilters', jsonb_build_array('not_audited')
         ),
         'audit-ucat-questions',
@@ -261,11 +263,14 @@ SELECT is(
   (
     SELECT COUNT(*)::INTEGER
     FROM public.ucat_question_catalog_filtered_stem_ids(
-      jsonb_build_object('auditFilters', jsonb_build_array('not_audited'))
+      jsonb_build_object('auditFilters', jsonb_build_array('not_audited')),
+      FALSE,
+      'Audit stem',
+      ARRAY['stem_text']::TEXT[]
     ) stem_id
   ),
-  2,
-  'never-audited filter works without a lifecycle constraint'
+  0,
+  'creating a filter run removes its targets from the never-audited pool'
 );
 
 SELECT is(
@@ -275,7 +280,7 @@ SELECT is(
       public.tutor_ucat_mcp_search_question_stems(
         jsonb_build_object('statuses', jsonb_build_array('draft', 'published')),
         FALSE,
-        NULL,
+        'Audit stem',
         ARRAY['stem_text']::TEXT[],
         NULL,
         'desc',

@@ -1,5 +1,10 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
+import {
+  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
+  defaultCheckInSessionsStaffType,
+  staffMaySubmitTutorLog,
+} from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from './useTutorLogsQuery';
 import { useSessionForLogging } from './useSessionForLogging';
@@ -180,6 +185,16 @@ export function useLogSessionFlow({
 
     const submitPayload = { data, createdBy: selectedStaffId };
 
+    if (selectedSession?.type === 'CHECK_IN') {
+      const assignmentType = sessionData?.staff.find((s) => s.id === selectedStaffId)
+        ?.session_staff_type;
+      if (!staffMaySubmitTutorLog('CHECK_IN', assignmentType)) {
+        setSubmissionState('error');
+        setSubmissionError(CHECK_IN_LOG_FORBIDDEN_MESSAGE);
+        return;
+      }
+    }
+
     setSubmissionState('submitting');
     setSubmissionError(null);
     try {
@@ -194,7 +209,7 @@ export function useLogSessionFlow({
           : 'Failed to submit log. Please try again.'
       );
     }
-  }, [formData, selectedStaffId, createMutation, wizardFlow]);
+  }, [formData, selectedStaffId, createMutation, wizardFlow, selectedSession, sessionData]);
 
   const handleClose = useCallback(() => {
     if (submissionState === 'success') {
@@ -210,9 +225,15 @@ export function useLogSessionFlow({
   const handleAddStaffToSession = useCallback(
     async (staffId: string) => {
       if (!formData.sessionId) return;
-      await sessionsApi.assignStaffToSession(formData.sessionId, staffId);
+      const type =
+        selectedSession?.type === 'CHECK_IN'
+          ? defaultCheckInSessionsStaffType(
+              sessionStudents.length > 0 || sessionParents.length > 0
+            )
+          : 'MAIN_TUTOR';
+      await sessionsApi.assignStaffToSession(formData.sessionId, staffId, type);
     },
-    [formData.sessionId]
+    [formData.sessionId, selectedSession?.type, sessionStudents.length, sessionParents.length]
   );
 
   const handleAddStudentToSession = useCallback(

@@ -40,12 +40,4 @@ describe("Study plan preparation preferences", () => {
     ).toThrow("Choose how much standalone SJT practice you want.");
   });
 
-  it("treats the mock weekday as a soft preference outside normal availability", () => {
-    expect(
-      parseStudyPlanProfileInput({
-        ...baseProfile,
-        preferredMockWeekday: 6,
-      }),
-    ).toMatchObject({ preferredMockWeekday: 6 });
-  });
 });

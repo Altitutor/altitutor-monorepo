@@ -13,18 +13,17 @@ import {
 } from '@altitutor/ui';
 import { AutomationConditionsBuilder } from '../AutomationConditionsBuilder';
 import type { WizardFormData } from '../CreateAutomationRuleWizard';
-import type { ActivityEventType, AutomationConditionExpression } from '../../types';
-import { ENTITY_TYPES, EVENT_TYPES } from '../../constants';
+import type { DomainEventName, AutomationConditionExpression } from '../../types';
+import { EVENT_NAMES } from '../../constants';
 
 interface Step2TriggerProps {
   form: UseFormReturn<WizardFormData>;
 }
 
-type EntityTypeOption = (typeof ENTITY_TYPES)[number];
-type EventTypeOption = (typeof EVENT_TYPES)[number];
+type EventTypeOption = (typeof EVENT_NAMES)[number];
 
 export function Step2Trigger({ form }: Step2TriggerProps) {
-  const selectedEventTypes = form.watch('event_types');
+  const selectedEventTypes = form.watch('event_names');
   const entityType = form.watch('entity_type');
   const triggerKind = form.watch('trigger_kind');
 
@@ -58,9 +57,10 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
                       field.onChange(next);
                       if (next === 'RELATIVE_TIME') {
                         form.setValue('entity_type', 'sessions');
-                        form.setValue('event_types', ['SCHEDULED']);
-                      } else if (form.getValues('event_types')[0] === 'SCHEDULED') {
-                        form.setValue('event_types', ['CREATED']);
+                        form.setValue('event_names', []);
+                      } else if (form.getValues('event_names').length === 0) {
+                        form.setValue('entity_type', 'students');
+                        form.setValue('event_names', ['student.created']);
                       }
                     }}
                     getItemLabel={(option) => option.label}
@@ -96,50 +96,23 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
 
         {triggerKind === 'EVENT' && (
         <div className="flex flex-wrap items-center gap-2 text-base">
-          <span>When a</span>
+          <span>When</span>
 
           <FormField
             control={form.control}
-            name="entity_type"
-            render={({ field }) => {
-              const entity = ENTITY_TYPES.find((t) => t.value === field.value) ?? null;
-              return (
-              <FormItem className="w-[180px]">
-                <FormControl>
-                  <SearchableSelect<EntityTypeOption>
-                    items={ENTITY_TYPES}
-                    value={entity}
-                    onValueChange={(item) => field.onChange(item?.value ?? '')}
-                    getItemLabel={(t) => t.label}
-                    getItemId={(t) => t.value}
-                    placeholder="Entity"
-                    triggerClassName="h-9"
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-              );
-            }}
-          />
-
-          <span>is</span>
-
-          <FormField
-            control={form.control}
-            name="event_types"
+            name="event_names"
             render={({ field }) => {
               const event =
-                EVENT_TYPES.find((t) => t.value === (field.value?.[0] ?? '')) ?? null;
+                EVENT_NAMES.find((t) => t.value === (field.value?.[0] ?? '')) ?? null;
               return (
-              <FormItem className="w-[140px]">
+              <FormItem className="w-[320px]">
                 <FormControl>
                   <SearchableSelect<EventTypeOption>
-                    items={EVENT_TYPES}
+                    items={EVENT_NAMES}
                     value={event}
                     onValueChange={(item) => {
-                      field.onChange(
-                        item ? [item.value as ActivityEventType] : []
-                      );
+                      field.onChange(item ? [item.value as DomainEventName] : []);
+                      if (item) form.setValue('entity_type', item.entityType);
                     }}
                     getItemLabel={(t) => t.label}
                     getItemId={(t) => t.value}
@@ -155,7 +128,7 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
         </div>
         )}
 
-        {(triggerKind === 'RELATIVE_TIME' || selectedEventTypes[0] === 'CREATED' || selectedEventTypes[0] === 'UPDATED') && (
+        {(triggerKind === 'RELATIVE_TIME' || selectedEventTypes.length > 0) && (
           <div className="mt-4">
             <FormField
               control={form.control}
@@ -169,7 +142,7 @@ export function Step2Trigger({ form }: Step2TriggerProps) {
                   <FormControl>
                     <AutomationConditionsBuilder
                       conditions={field.value as AutomationConditionExpression | null}
-                      eventTypes={selectedEventTypes as ActivityEventType[]}
+                      eventTypes={selectedEventTypes as DomainEventName[]}
                       entityType={entityType}
                       onChange={(condition) => {
                         field.onChange(condition);

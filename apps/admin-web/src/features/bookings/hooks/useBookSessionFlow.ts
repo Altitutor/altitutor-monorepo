@@ -37,6 +37,10 @@ export interface UseBookSessionFlowProps {
   isOpen: boolean;
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
   initialStudentId?: string;
+  initialCreateStudent?: {
+    phone: string;
+    phoneOwner: 'student' | 'parent';
+  } | null;
   originalSessionId?: string | null;
   originalSubjectId?: string | null;
   onBookingCreated?: (sessionId: string) => void;
@@ -47,6 +51,7 @@ export function useBookSessionFlow({
   isOpen,
   sessionType,
   initialStudentId,
+  initialCreateStudent = null,
   originalSessionId,
   originalSubjectId,
   onBookingCreated,
@@ -72,7 +77,10 @@ export function useBookSessionFlow({
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
 
   // Calculate steps
-  const steps = useMemo(() => getBookingSteps(sessionType, originalSessionId), [sessionType, originalSessionId]);
+  const steps = useMemo(
+    () => getBookingSteps(sessionType, originalSessionId, { allowCreateStudent: Boolean(initialCreateStudent) }),
+    [sessionType, originalSessionId, initialCreateStudent]
+  );
   const currentStepData = steps[currentStep];
   const currentStepId = currentStepData?.id;
 
@@ -111,6 +119,21 @@ export function useBookSessionFlow({
       }
       
       setCurrentStep(startingStep);
+    } else if (initialCreateStudent) {
+      setIsCreatingTrialStudent(true);
+      setSelectedStudentId('');
+      setCurrentStep(0);
+      setTrialContactData({
+        student_first_name: '',
+        student_last_name: '',
+        student_email: '',
+        student_phone: initialCreateStudent.phoneOwner === 'student' ? initialCreateStudent.phone : '',
+        skip_parent_details: initialCreateStudent.phoneOwner === 'student',
+        parent_first_name: '',
+        parent_last_name: '',
+        parent_email: '',
+        parent_phone: initialCreateStudent.phoneOwner === 'parent' ? initialCreateStudent.phone : '',
+      });
     } else if (initialStudentId && !originalSessionId) {
       // Regular booking flow (not rescheduling)
       setSelectedStudentId(initialStudentId);
@@ -124,7 +147,7 @@ export function useBookSessionFlow({
         setCurrentStep(1);
       }
     }
-  }, [isOpen, initialStudentId, originalSessionId, sessionType, originalSubjectId]);
+  }, [isOpen, initialStudentId, initialCreateStudent, originalSessionId, sessionType, originalSubjectId]);
 
   // Search students - filter by status for drafting sessions (only active students)
   const { data: studentsData, isLoading: studentsLoading } = useQuery({
@@ -376,8 +399,8 @@ export function useBookSessionFlow({
       return;
     }
 
-    // For trial sessions with new student, use database function (handles everything atomically)
-    if (sessionType === 'TRIAL_SESSION' && isCreatingTrialStudent && !selectedStudentId && trialContactData) {
+    // For trial/subsidy with a new student, create the student as part of booking
+    if (isCreatingTrialStudent && !selectedStudentId && trialContactData) {
       if (!trialContactData.student_first_name || !trialContactData.student_last_name || !trialContactData.student_phone) {
         toast({
           title: 'Missing Information',
@@ -390,32 +413,71 @@ export function useBookSessionFlow({
 
       try {
         setIsSubmitting(true);
-        
-        const yearLevel = trialContactData.year_level 
+
+        const yearLevel = trialContactData.year_level
           ? (trialContactData.year_level === 'Reception' ? 0 : parseInt(trialContactData.year_level, 10))
           : null;
 
+        if (sessionType === 'TRIAL_SESSION') {
+          const sessionId = await createBooking.mutateAsync({
+            session_type: sessionType,
+            start_at: selectedSlot.startAt,
+            end_at: selectedSlot.endAt,
+            staff_id: selectedStaffId,
+            trial_student_data: {
+              student_first_name: trialContactData.student_first_name,
+              student_last_name: trialContactData.student_last_name,
+              student_phone: trialContactData.student_phone,
+              student_email: trialContactData.student_email || undefined,
+              curriculum: trialContactData.curriculum || undefined,
+              year_level: yearLevel || undefined,
+              subject_ids: trialContactData.subject_ids || undefined,
+            },
+            trial_parent_data: {
+              skip_parent_details: trialContactData.skip_parent_details,
+              parent_first_name: trialContactData.parent_first_name || undefined,
+              parent_last_name: trialContactData.parent_last_name || undefined,
+              parent_email: trialContactData.parent_email || undefined,
+              parent_phone: trialContactData.parent_phone || undefined,
+            },
+          });
+
+          showSessionBookedToast({
+            toast,
+            sessionId,
+            message: `${getSessionTypeLabel(sessionType)} has been booked successfully`,
+          });
+
+          setCreatedSessionId(sessionId);
+          return;
+        }
+
+        const createdStudent = await studentsApi.createStudent({
+          id: crypto.randomUUID(),
+          first_name: trialContactData.student_first_name,
+          last_name: trialContactData.student_last_name?.trim() || '',
+          email: trialContactData.student_email || null,
+          phone: trialContactData.student_phone || null,
+          status: 'TRIAL',
+          curriculum: trialContactData.curriculum ?? null,
+          year_level: yearLevel,
+          availability_monday: false,
+          availability_tuesday: false,
+          availability_wednesday: false,
+          availability_thursday: false,
+          availability_friday: false,
+          availability_saturday_am: false,
+          availability_saturday_pm: false,
+          availability_sunday_am: false,
+          availability_sunday_pm: false,
+        });
+
         const sessionId = await createBooking.mutateAsync({
           session_type: sessionType,
+          student_id: createdStudent.id,
           start_at: selectedSlot.startAt,
           end_at: selectedSlot.endAt,
           staff_id: selectedStaffId,
-          trial_student_data: {
-            student_first_name: trialContactData.student_first_name,
-            student_last_name: trialContactData.student_last_name,
-            student_phone: trialContactData.student_phone,
-            student_email: trialContactData.student_email || undefined,
-            curriculum: trialContactData.curriculum || undefined,
-            year_level: yearLevel || undefined,
-            subject_ids: trialContactData.subject_ids || undefined,
-          },
-          trial_parent_data: {
-            skip_parent_details: trialContactData.skip_parent_details,
-            parent_first_name: trialContactData.parent_first_name || undefined,
-            parent_last_name: trialContactData.parent_last_name || undefined,
-            parent_email: trialContactData.parent_email || undefined,
-            parent_phone: trialContactData.parent_phone || undefined,
-          },
         });
 
         showSessionBookedToast({

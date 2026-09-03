@@ -43,7 +43,13 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as BatchRequest;
+  const body = (await request.json().catch(() => null)) as BatchRequest | null;
+  if (!body) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
   const attempts = (body.attempts ?? []).filter((item) => item.questionId);
   if (attempts.length === 0 || attempts.length > 500) {
     return NextResponse.json(

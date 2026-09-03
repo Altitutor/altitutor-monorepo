@@ -27,6 +27,8 @@ import {
   useToast,
 } from '@altitutor/ui';
 import {
+  checkInStaffingError,
+  defaultCheckInStaffUiRole,
   formatCheckInHostLabel,
   formatCheckInReceiverLabel,
 } from '@altitutor/shared/pay-tiers';
@@ -34,6 +36,7 @@ import { Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getTodayAdelaideDate, adelaideWallDateTimePlusMinutesUtcIso } from '@/features/bookings/utils/dateTimeHelpers';
 import { AdminDialogShell } from '@/shared/components';
+import { useCurrentStaff } from '@/shared/hooks';
 import { staffApi } from '@/features/staff/api/staff';
 import type { CheckInModalPrefill, CheckInSessionType } from '@/shared/contexts/QuickActionsContext';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
@@ -60,7 +63,10 @@ export type CheckInBookSessionModalProps = {
   initialPrefill?: CheckInModalPrefill | null;
 };
 
-function picksFromPrefill(prefill: CheckInModalPrefill | null | undefined): {
+function picksFromPrefill(
+  prefill: CheckInModalPrefill | null | undefined,
+  currentStaffId?: string | null
+): {
   staff: StaffPick[];
   students: IdLabel[];
   parents: IdLabel[];
@@ -68,11 +74,16 @@ function picksFromPrefill(prefill: CheckInModalPrefill | null | undefined): {
   if (!prefill) {
     return { staff: [], students: [], parents: [] };
   }
+  const hasStudentsOrParents =
+    (prefill.students?.length ?? 0) > 0 || (prefill.parents?.length ?? 0) > 0;
   return {
     staff: (prefill.staff ?? []).map((s) => ({
       id: s.id,
       label: `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Staff',
-      role: 'receiver' as const,
+      role:
+        hasStudentsOrParents || s.id === currentStaffId
+          ? 'host'
+          : defaultCheckInStaffUiRole(false),
     })),
     students: (prefill.students ?? []).map((s) => ({
       id: s.id,
@@ -105,6 +116,7 @@ export function CheckInBookSessionModal({
   initialPrefill = null,
 }: CheckInBookSessionModalProps) {
   const { toast } = useToast();
+  const { data: currentStaff } = useCurrentStaff();
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
@@ -129,12 +141,15 @@ export function CheckInBookSessionModal({
       setDate(getTodayAdelaideDate());
       setTime('09:00');
       setDurationMinutes(60);
-      const { staff, students, parents } = picksFromPrefill(initialPrefill ?? null);
+      const { staff, students, parents } = picksFromPrefill(
+        initialPrefill ?? null,
+        currentStaff?.id
+      );
       setStaffPicks(staff);
       setStudentPicks(students);
       setParentPicks(parents);
     }
-  }, [isOpen, initialPrefill]);
+  }, [isOpen, initialPrefill, currentStaff?.id]);
 
   const { data: defaultAdminStaff } = useQuery({
     queryKey: ['admin-meeting-default-staff'],
@@ -173,27 +188,36 @@ export function CheckInBookSessionModal({
   const parentIds = parentPicks.map((p) => p.id);
   const canManageStudentsAndParents = sessionType !== 'ADMIN_MEETING';
 
+  const setStaffToConducting = useCallback(() => {
+    if (sessionType !== 'CHECK_IN') return;
+    setStaffPicks((prev) => prev.map((p) => (p.role === 'host' ? p : { ...p, role: 'host' as const })));
+  }, [sessionType]);
+
   const addStaff = useCallback((s: Tables<'staff'>) => {
     const id = s.id;
     const label = nameStaff(s);
-    setStaffPicks((prev) =>
-      prev.some((p) => p.id === id)
-        ? prev
-        : [...prev, { id, label, role: sessionType === 'CHECK_IN' ? 'receiver' : 'receiver' }]
-    );
-  }, [sessionType]);
+    setStaffPicks((prev) => {
+      if (prev.some((p) => p.id === id)) return prev;
+      const hasStudentsOrParents = studentPicks.length > 0 || parentPicks.length > 0;
+      const role =
+        sessionType === 'CHECK_IN' ? defaultCheckInStaffUiRole(hasStudentsOrParents) : 'receiver';
+      return [...prev, { id, label, role }];
+    });
+  }, [sessionType, studentPicks.length, parentPicks.length]);
 
   const addStudent = useCallback((s: Tables<'students'>) => {
     const id = s.id;
     const label = nameStudent(s);
     setStudentPicks((prev) => (prev.some((p) => p.id === id) ? prev : [...prev, { id, label }]));
-  }, []);
+    setStaffToConducting();
+  }, [setStaffToConducting]);
 
   const addParent = useCallback((p: Tables<'parents'>) => {
     const id = p.id;
     const label = nameParent(p);
     setParentPicks((prev) => (prev.some((x) => x.id === id) ? prev : [...prev, { id, label }]));
-  }, []);
+    setStaffToConducting();
+  }, [setStaffToConducting]);
 
   const durationValue =
     DURATION_ITEMS.find((d) => d.minutes === durationMinutes) ?? DURATION_ITEMS.find((d) => d.minutes === 60)!;
@@ -204,11 +228,15 @@ export function CheckInBookSessionModal({
       return;
     }
     if (sessionType === 'CHECK_IN') {
-      const receivers = staffPicks.filter((p) => p.role === 'receiver');
-      if (receivers.length === 0) {
+      const staffingError = checkInStaffingError({
+        hostCount: staffPicks.filter((p) => p.role === 'host').length,
+        receiverCount: staffPicks.filter((p) => p.role === 'receiver').length,
+        hasStudentsOrParents: studentIds.length > 0 || parentIds.length > 0,
+      });
+      if (staffingError) {
         toast({
-          title: 'Receiving staff required',
-          description: 'Add at least one staff member receiving the check-in.',
+          title: 'Staff roles required',
+          description: staffingError,
           variant: 'destructive',
         });
         return;

@@ -22,6 +22,7 @@ import {
   CalendarDays,
   Check,
   Gauge,
+  Loader2,
   Target,
   type LucideIcon,
 } from "lucide-react";
@@ -258,6 +259,33 @@ export function StudyPlanPage({
         </motion.div>
       ) : null}
 
+      {!previewMode && plan?.refreshPending ? (
+        <motion.div variants={itemVariants}>
+          <Alert>
+            <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+            <AlertTitle>Updating your Study plan</AlertTitle>
+            <AlertDescription>
+              Your current plan is ready to use. Recent progress and missed work
+              are being applied in the background.
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      ) : null}
+
+      {!previewMode && plan?.refreshFailed ? (
+        <motion.div variants={itemVariants}>
+          <Alert>
+            <AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden />
+            <AlertTitle>Study plan update delayed</AlertTitle>
+            <AlertDescription>
+              Your current plan is ready to use, but we could not apply the
+              latest background update. We will retry automatically after your
+              next activity or authenticated visit.
+            </AlertDescription>
+          </Alert>
+        </motion.div>
+      ) : null}
+
       {plan && !plan.profile ? (
         <motion.div variants={itemVariants}>
           <Card className={UCAT_CARD_CHROME}>
@@ -294,8 +322,8 @@ export function StudyPlanPage({
                 <AlertTriangle className="h-4 w-4 text-amber-600" />
                 <AlertTitle>Your plan is prioritising</AlertTitle>
                 <AlertDescription>
-                  {studentCapacityRiskMessage(plan.generation.capacityRisk)} This
-                  is guidance, not a block.
+                  {studentCapacityRiskMessage(plan.generation.capacityRisk)}{" "}
+                  This is guidance, not a block.
                 </AlertDescription>
               </Alert>
             </motion.div>

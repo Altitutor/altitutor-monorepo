@@ -18,6 +18,7 @@ const QUESTION_TWO = '20000000-0000-0000-0000-000000000002'
 const OPTION_ONE = '30000000-0000-0000-0000-000000000001'
 const OPTION_TWO = '30000000-0000-0000-0000-000000000002'
 const TAG_ID = '40000000-0000-0000-0000-000000000001'
+const BLUEPRINT_ID = '70000000-0000-0000-0000-000000000001'
 
 function stemDetail() {
   return {
@@ -283,8 +284,14 @@ describe('UCAT MCP typed operations', () => {
   it('applies explicit set and mock membership changes in order', () => {
     const setDraft = questionSetDraftFromDetail({
       name: null,
+      authoring_note: null,
       description: {},
       time_limit_seconds: null,
+      timing_mode: 'untimed',
+      pace_multiplier: null,
+      fixed_time_limit_seconds: null,
+      set_format: 'partial_section',
+      reference_blueprint_id: BLUEPRINT_ID,
       access_scope: 'private',
       section_id: '50000000-0000-0000-0000-000000000001',
       stems: [{ stem_id: STEM_ID }, { stem_id: QUESTION_TWO }],
@@ -298,8 +305,14 @@ describe('UCAT MCP typed operations', () => {
 
     const emptySet = questionSetDraftFromDetail({
       name: null,
+      authoring_note: null,
       description: {},
       time_limit_seconds: null,
+      timing_mode: 'untimed',
+      pace_multiplier: null,
+      fixed_time_limit_seconds: null,
+      set_format: 'partial_section',
+      reference_blueprint_id: BLUEPRINT_ID,
       access_scope: 'private',
       section_id: '50000000-0000-0000-0000-000000000001',
       stems: [],
@@ -311,8 +324,10 @@ describe('UCAT MCP typed operations', () => {
 
     const mockDraft = mockDraftFromDetail({
       name: 'Mock',
+      authoring_note: null,
       instructions_text: null,
       access_scope: 'private',
+      blueprint_id: BLUEPRINT_ID,
       sets: [{ id: STEM_ID }, { id: QUESTION_TWO }],
     })
     const updatedMock = applyMockOperations(mockDraft, [
@@ -320,6 +335,59 @@ describe('UCAT MCP typed operations', () => {
       { type: 'remove_set', setId: STEM_ID },
     ])
     expect(updatedMock.setIds).toEqual([QUESTION_TWO])
+  })
+
+  it('supports explicit complete set and section-addressed mock replacement', () => {
+    const sectionOne = '50000000-0000-0000-0000-000000000001'
+    const sectionTwo = '50000000-0000-0000-0000-000000000002'
+    const setDraft = questionSetDraftFromDetail({
+      authoring_note: null,
+      description: {},
+      timing_mode: 'untimed',
+      pace_multiplier: null,
+      fixed_time_limit_seconds: null,
+      set_format: 'partial_section',
+      reference_blueprint_id: BLUEPRINT_ID,
+      access_scope: 'private',
+      section_id: sectionOne,
+      stems: [{ stem_id: STEM_ID }],
+    })
+    expect(applyQuestionSetOperations(setDraft, [{
+      type: 'replace_stems',
+      stemIds: [QUESTION_ONE, QUESTION_TWO],
+    }]).stemIds).toEqual([QUESTION_ONE, QUESTION_TWO])
+    expect(() => applyQuestionSetOperations(setDraft, [{
+      type: 'replace_stems',
+      stemIds: [QUESTION_ONE, QUESTION_ONE],
+    }])).toThrow('duplicate ids')
+
+    const mockDraft = mockDraftFromDetail({
+      authoring_note: null,
+      instructions_text: null,
+      access_scope: 'private',
+      blueprint_id: BLUEPRINT_ID,
+      sets: [{ id: STEM_ID, section_id: sectionOne }],
+    })
+    const replaced = applyMockOperations(mockDraft, [{
+      type: 'replace_section_sets',
+      sectionSets: [
+        { sectionId: sectionOne, setId: QUESTION_ONE },
+        { sectionId: sectionTwo, setId: QUESTION_TWO },
+      ],
+    }])
+    expect(replaced.sectionSets).toEqual([
+      { sectionId: sectionOne, setId: QUESTION_ONE },
+      { sectionId: sectionTwo, setId: QUESTION_TWO },
+    ])
+    expect(replaced.setIds).toEqual([QUESTION_ONE, QUESTION_TWO])
+
+    const cleared = applyMockOperations(replaced, [{
+      type: 'set_section_set',
+      sectionId: sectionOne,
+      setId: null,
+    }])
+    expect(cleared.sectionSets).toEqual([{ sectionId: sectionTwo, setId: QUESTION_TWO }])
+    expect(cleared.setIds).toEqual([QUESTION_TWO])
   })
 
   it('removes only the explicitly targeted lesson block', () => {

@@ -1,15 +1,17 @@
 import type React from "react";
 import { headers } from "next/headers";
 import { redirect } from "next/navigation";
-import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
 import {
-  isUcatOnlineTier,
-  VERIFIED_USER_ID_HEADER,
-} from "@altitutor/shared";
+  HydrationBoundary,
+  QueryClient,
+  dehydrate,
+} from "@tanstack/react-query";
+import { isUcatOnlineTier, VERIFIED_USER_ID_HEADER } from "@altitutor/shared";
 import { AppShell } from "@/features/layout";
 import { UcatAccessShell } from "@/features/ucat-access/components/ucat-access-shell";
 import { PortalAccessUnavailable } from "@/features/auth/components/portal-access-unavailable";
 import { loadUcatPortalAccess } from "@/features/auth/server/portal-access";
+import { UcatAuthenticatedVisit } from "@/features/preparation/components/ucat-authenticated-visit";
 
 type AuthenticatedLayoutProps = {
   children?: React.ReactNode;
@@ -45,6 +47,7 @@ export default async function AuthenticatedLayout({
 
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
+      <UcatAuthenticatedVisit />
       <UcatAccessShell>
         <AppShell>{children}</AppShell>
       </UcatAccessShell>

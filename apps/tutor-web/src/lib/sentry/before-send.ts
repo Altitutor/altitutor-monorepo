@@ -17,6 +17,7 @@ const EXPECTED_UCAT_DOMAIN_OUTCOMES = [
   'private_child_of_public_set',
   'private_child_of_public_mock',
   'public_mock_contains_private_set',
+  'audit_target_not_in_progress',
 ] as const
 
 function originalExceptionMessage(originalException: unknown): string | undefined {

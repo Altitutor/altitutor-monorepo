@@ -16,6 +16,7 @@ import { Edit, Trash2, MoreVertical } from 'lucide-react';
 import { useAutomationRules } from '../api/queries';
 import { useUpdateAutomationRule, useDeleteAutomationRule } from '../api/mutations';
 import type { AutomationRuleWithActions } from '../types';
+import { EVENT_NAMES_DISPLAY } from '../constants';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -66,7 +67,7 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
               <TableRow>
                 <TableHead>Name</TableHead>
                 <TableHead>Entity Type</TableHead>
-                <TableHead>Event Types</TableHead>
+                <TableHead>Lifecycle event</TableHead>
                 <TableHead>Actions</TableHead>
                 <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
@@ -82,9 +83,11 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
                   </TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {rule.event_types.map((eventType) => (
-                        <Badge key={eventType} variant="secondary" className="text-xs">
-                          {eventType}
+                      {rule.trigger_kind === 'RELATIVE_TIME' ? (
+                        <Badge variant="secondary" className="text-xs">Before session start</Badge>
+                      ) : rule.event_names.map((eventName) => (
+                        <Badge key={eventName} variant="secondary" className="text-xs">
+                          {EVENT_NAMES_DISPLAY[eventName] || eventName}
                         </Badge>
                       ))}
                     </div>
@@ -133,4 +136,3 @@ export function AutomationRulesList({ onCreateRule, onEditRule }: AutomationRule
     </div>
   );
 }
-

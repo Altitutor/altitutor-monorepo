@@ -10,25 +10,19 @@ This folder is self-contained. Read sibling files when a step names them. Do not
 
 ## 1. MCP
 
-This skill needs the Altitutor UCAT MCP. Two profiles, same tutor token:
-
-| Profile | Edit | Use when |
-|---|---|---|
-| **Authoring** (drafts) | `create_question_stem`, `update_question_stem`, audit-run tools | `draft` or `in_review` |
-| **Production** (published) | `update_published_question_stem`, audit-run tools | `published` |
-
-Both profiles can `search_ucat_content`, `get_ucat_content`, `get_ucat_reference_data`, `get_ucat_file`, `render_ucat_visual`, `generate_ucat_image`, `revise_ucat_image`, and the audit-run lifecycle tools.
-
-If neither profile is available, stop and say so.
+This skill needs the single Altitutor UCAT authoring MCP. It covers draft,
+in-review, and published content through one lifecycle-aware catalogue. If it is
+unavailable, stop and say so.
 
 Tool input shapes live on the tools. Cache these gotchas:
 
 - Re-read immediately before every write. Pass the opaque `revision`. On `mcp_stale_revision`, re-read, reconcile, retry.
 - Typed operations only. Omission never deletes nested content.
-- Authoring refuses published stems. Production cannot publish, unpublish, or delete.
+- `change_question_stem` applies editable changes immediately and stages published changes for application.
+- Published changes returned as `staged` are not live until `apply_ucat_content_changes` succeeds.
 - Do not submit for review. Do not call `delete_ucat_content`. Do not call `request_question_ai_assessment`.
 
-**Done when:** the needed profile is callable, or you have stopped.
+**Done when:** the MCP is callable, or you have stopped.
 
 ## 2. Resolve the selector
 
@@ -39,8 +33,6 @@ Use `search_ucat_content` and `get_ucat_content`. Catalog filters on stems match
 - One clear match → continue.
 - Several plausible matches (two sets named similarly, an id that hits more than one type) → list them and ask.
 - More than 25 stems → show the count and the section/status mix, then ask before writing.
-
-Split the list by status. Draft/in-review stems use authoring. Published stems use production. A mixed selector is two runs, one report.
 
 **Done when:** you have an ordered list of `{ stemId, status, section }`, or you have asked and are waiting.
 
@@ -55,14 +47,17 @@ Default is inline.
 
 ## 4. Audit run
 
-Always create a run, including draft-only work. A mixed selector is still two runs (authoring vs production writes) and one report.
+Always create one run for the resolved selector, including draft-only and mixed-lifecycle work.
 
-1. `create_ucat_audit_run` with `publishedWriteMode: "apply_valid_changes"`, `workflowId: "audit-ucat-questions"`, `workflowVersion: "1"`, selector `explicit` targets `{ contentType: "stem", id }` or a stem `filter` selector. `status` / `statuses` are optional; omit both to include every lifecycle. Use `filter` with `all` / `any` / `clause` for explicit AND/OR trees (for example never-audited published stems: flat `{ statuses: ["published"], auditFilters: ["not_audited"] }`, or failed-or-never-audited via `filter.any`). Use `add_ucat_audit_run_targets` only when you need to append explicit leftovers. `idempotencyKey` stable for this run.
+1. `create_ucat_audit_run` with `workflowId: "audit-ucat-questions"`, `workflowVersion: "1"`, selector `explicit` targets `{ contentType: "stem", id }` or a stem `filter` selector. Omit `publishedWriteMode` to use its `apply_valid_changes` default. `status` / `statuses` are optional; omit both to include every lifecycle. Use `filter` with `all` / `any` / `clause` for explicit AND/OR trees (for example never-audited published stems: flat `{ statuses: ["published"], auditFilters: ["not_audited"] }`, or failed-or-never-audited via `filter.any`). Use `add_ucat_audit_run_targets` only when you need to append explicit leftovers. `idempotencyKey` stable for this run.
 2. `start_ucat_audit_run` (freezes the manifest).
 3. Each worker `claim_ucat_audit_run_targets` with `limit: 1`, `includeContent: true`, then audits, then `finish_ucat_audit_run_target`. Put the outcome object in `outcome`. Set `result` to that same `outcome` value for `updated`/`unchanged`/`suggest_delete`/`suggest_split`; `failed` has no result. Target status: `completed` for `updated`/`unchanged`, `skipped` for `suggest_delete`/`suggest_split`, `failed` for `failed`.
 4. After every target is terminal, `complete_ucat_audit_run`.
 
-Pass `auditRunId` on `update_published_question_stem`. Draft/in-review writes still use `update_question_stem`.
+Use `change_question_stem` for every lifecycle. Pass change metadata with the
+`auditRunId`. When it returns `staged`, call `apply_ucat_content_changes` with
+that `changeId` before recording `updated`; an `apply_valid_changes` run
+authorizes that application.
 
 **Done when:** every target is claimed through a started run.
 

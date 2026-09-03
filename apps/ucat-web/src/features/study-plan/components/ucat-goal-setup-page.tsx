@@ -14,7 +14,7 @@ import {
 } from "@/features/study-plan/hooks/use-study-plan";
 import {
   STUDY_SETUP_GHOST_BUTTON_CLASS,
-  STUDY_SETUP_PRIMARY_BUTTON_CLASS,
+  StudyPlanContinueButton,
   StudyPlanGoalFields,
   StudyPlanSetupShell,
   StudyPlanStepIndicator,
@@ -171,7 +171,7 @@ export function UcatGoalSetupPage() {
           </p>
         ) : null}
 
-        <div className="mt-6 flex items-center justify-between gap-3">
+        <div className="mt-6 flex items-end justify-between gap-3">
           <button
             type="button"
             className={STUDY_SETUP_GHOST_BUTTON_CLASS}
@@ -180,17 +180,18 @@ export function UcatGoalSetupPage() {
           >
             Skip for now
           </button>
-          <button
-            type="button"
-            className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-            disabled={pending || testYear == null}
+          <StudyPlanContinueButton
+            blockedReason={
+              testYear == null ? "Select your UCAT year to continue." : null
+            }
+            pending={pending}
             onClick={() => void saveGoal()}
           >
             {pending ? "Saving…" : "Save my goal"}
             {!pending ? (
               <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
             ) : null}
-          </button>
+          </StudyPlanContinueButton>
         </div>
       </motion.div>
     </StudyPlanSetupShell>

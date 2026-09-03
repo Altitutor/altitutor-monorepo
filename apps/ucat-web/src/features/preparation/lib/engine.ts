@@ -175,6 +175,7 @@ function explanationTrace(
         uncertainty: candidate.ranking.uncertainty,
         targetGap: candidate.ranking.targetGap,
         tagSampling: candidate.ranking.tagSampling,
+        missedExposure: candidate.ranking.missedExposure,
         total: candidate.ranking.total,
       },
     })),
@@ -293,6 +294,7 @@ export function prepareStudent(
     learningModules: input.content.learningModules,
     skillTrainers: input.content.skillTrainers,
     tagSignals: input.content.tagSignals,
+    missedExposureDebt: input.evidence.missedExposureDebt,
     trainerAttemptCounts: new Map(
       Object.entries(input.guidance?.trainerAttemptCounts ?? {}),
     ),

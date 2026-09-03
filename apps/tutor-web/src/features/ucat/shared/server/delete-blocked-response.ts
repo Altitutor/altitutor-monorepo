@@ -5,7 +5,9 @@ import {
   isUcatDeleteBlockedError,
   isUcatVisibilityBlockedError,
   parseUcatLifecycleBlockers,
+  publishedContentInvalidBlockers,
   ucatDeleteBlockedPayload,
+  ucatPublishedContentInvalidPayload,
   ucatVisibilityBlockedPayload,
   type UcatDeleteContentType,
   type UcatVisibilityContentType,
@@ -17,6 +19,12 @@ export function ucatMemberIds(value: unknown): string[] | undefined {
     : undefined
 }
 
+export function jsonUcatPublishedContentErrorResponse(errorMessage: string): NextResponse | null {
+  const blockers = publishedContentInvalidBlockers(errorMessage)
+  if (blockers.length === 0) return null
+  return NextResponse.json(ucatPublishedContentInvalidPayload(blockers), { status: 409 })
+}
+
 export async function jsonUcatDeleteErrorResponse(
   client: UcatTutorSupabaseClient,
   options: {
@@ -25,6 +33,9 @@ export async function jsonUcatDeleteErrorResponse(
     errorMessage: string
   },
 ): Promise<NextResponse> {
+  const published = jsonUcatPublishedContentErrorResponse(options.errorMessage)
+  if (published) return published
+
   if (!isUcatDeleteBlockedError(options.errorMessage)) {
     return NextResponse.json({ error: options.errorMessage }, { status: 400 })
   }
@@ -50,6 +61,9 @@ export async function jsonUcatVisibilityErrorResponse(
     errorMessage: string
   },
 ): Promise<NextResponse> {
+  const published = jsonUcatPublishedContentErrorResponse(options.errorMessage)
+  if (published) return published
+
   if (!isUcatVisibilityBlockedError(options.errorMessage)) {
     return NextResponse.json({ error: options.errorMessage }, { status: 400 })
   }

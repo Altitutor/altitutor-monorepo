@@ -12,6 +12,10 @@ export type AnswerSchemeKind = AnswerScheme['kind']
 export type AnswerKeyValue = 'correct' | 'yes' | 'no' | 'most' | 'least' | null
 export type AuthoredQuestion = UcatQuestionStemFormValues['questions'][number]
 
+type AuthoredQuestionInput = Omit<AuthoredQuestion, 'options'> & {
+  options?: AuthoredQuestion['options'] | null
+}
+
 export type SuggestedResponseContract = {
   responseType: ResponseType
   answerScheme: AnswerSchemeKind
@@ -45,7 +49,7 @@ export function shouldApplyCategoryDefaults(input: {
 export function normalizeAuthoredQuestionContract(question: AuthoredQuestion): AuthoredQuestion {
   return {
     ...question,
-    options: question.options.map((option) => ({
+    options: authoredOptions(question).map((option) => ({
       ...option,
       answerKeyValue: option.answerKeyValue,
     })),
@@ -97,13 +101,17 @@ export function responseContractForType(
   }
 }
 
-function optionId(question: AuthoredQuestion, index: number): string {
-  return question.options[index]?.id ?? `draft-option-${index}`
+function authoredOptions(question: AuthoredQuestionInput): AuthoredQuestion['options'] {
+  return question.options ?? []
 }
 
-function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
+function optionId(question: AuthoredQuestionInput, index: number): string {
+  return authoredOptions(question)[index]?.id ?? `draft-option-${index}`
+}
+
+function answerSchemeDefinition(question: AuthoredQuestionInput): AnswerScheme {
   const { answerScheme: kind } = authoredResponseContract(question)
-  const keyed = question.options.map((option, index) => ({
+  const keyed = authoredOptions(question).map((option, index) => ({
     id: optionId(question, index),
     value: option.answerKeyValue,
   }))
@@ -131,23 +139,23 @@ function answerSchemeDefinition(question: AuthoredQuestion): AnswerScheme {
   }
 }
 
-export function responseContractIssues(question: AuthoredQuestion): readonly ContractIssue[] {
+export function responseContractIssues(question: AuthoredQuestionInput): readonly ContractIssue[] {
   const { responseType } = authoredResponseContract(question)
   const result = compileResponseContract({
     questionId: question.id ?? 'draft-question',
     responseType,
     answerScheme: answerSchemeDefinition(question),
-    options: question.options.map((_, index) => ({ id: optionId(question, index), index })),
+    options: authoredOptions(question).map((_, index) => ({ id: optionId(question, index), index })),
   })
   return result.ok ? [] : result.issues
 }
 
 function optionForTransform(
-  question: AuthoredQuestion,
+  question: AuthoredQuestionInput,
   index: number,
   answerKeyValue: AnswerKeyValue,
 ): AuthoredQuestion['options'][number] {
-  const existing = question.options[index]
+  const existing = authoredOptions(question)[index]
   return {
     ...(existing ?? { answerText: EMPTY_DOC, answerExplanation: null }),
     answerKeyValue,
@@ -155,21 +163,22 @@ function optionForTransform(
 }
 
 export function transformResponseContract(
-  question: AuthoredQuestion,
+  question: AuthoredQuestionInput,
   target: SuggestedResponseContract,
 ): AuthoredQuestion {
-  const existingCorrectIndex = Math.max(0, question.options.findIndex((option) => (
+  const existingOptions = authoredOptions(question)
+  const existingCorrectIndex = Math.max(0, existingOptions.findIndex((option) => (
     option.answerKeyValue === 'correct'
   )))
   const optionCountContract = getAnswerSchemeContract(target.answerScheme).optionCount
   const optionCount = typeof optionCountContract === 'number'
     ? optionCountContract
-    : Math.max(optionCountContract.minimum, question.options.length)
+    : Math.max(optionCountContract.minimum, existingOptions.length)
 
   const options = Array.from({ length: optionCount }, (_, index) => {
     let key: AnswerKeyValue = null
     if (target.answerScheme === 'decision_making_binary_placement') {
-      key = question.options[index]?.answerKeyValue === 'yes' ? 'yes' : 'no'
+      key = existingOptions[index]?.answerKeyValue === 'yes' ? 'yes' : 'no'
     } else if (target.answerScheme === 'situational_judgement_most_least') {
       key = index === 0 ? 'most' : index === 1 ? 'least' : null
     } else if (index === Math.min(existingCorrectIndex, optionCount - 1)) {

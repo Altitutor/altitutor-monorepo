@@ -12,6 +12,7 @@ import type {
   StudyPlanCategorySignal,
   StudyPlanSection,
   StudyPlanSectionSignal,
+  StudyPlanSkillTrainer,
 } from "@/features/study-plan/model/types";
 
 export const PREPARATION_SANDBOX_SCHEMA_VERSION = 1 as const;
@@ -73,6 +74,52 @@ const SECTIONS: StudyPlanSection[] = [
   questionCount: Number(questionCount),
   timePerQuestionSeconds: Number(seconds),
 }));
+
+// Mirrors the enabled production trainers that currently have approved,
+// active content. The preview uses fixture section IDs but keeps production
+// trainer identities, ordering and configured one-minute duration.
+const SKILL_TRAINERS = [
+  {
+    id: "a1000001-0000-4000-8000-000000000001",
+    key: "find_word",
+    name: "Find the word",
+    sectionId: "vr",
+    categoryIds: [],
+    estimatedMinutes: 1,
+  },
+  {
+    id: "a1000001-0000-4000-8000-000000000003",
+    key: "quick_syllogism",
+    name: "Quick syllogisms",
+    sectionId: "dm",
+    categoryIds: [],
+    estimatedMinutes: 1,
+  },
+  {
+    id: "a1000001-0000-4000-8000-000000000004",
+    key: "mental_maths",
+    name: "Mental maths",
+    sectionId: "qr",
+    categoryIds: [],
+    estimatedMinutes: 1,
+  },
+  {
+    id: "a1000001-0000-4000-8000-000000000006",
+    key: "calculator_maths",
+    name: "Calculator maths speed",
+    sectionId: "qr",
+    categoryIds: [],
+    estimatedMinutes: 1,
+  },
+  {
+    id: "a1000001-0000-4000-8000-000000000005",
+    key: "numpad_speed",
+    name: "Numpad speed",
+    sectionId: "qr",
+    categoryIds: [],
+    estimatedMinutes: 1,
+  },
+] satisfies StudyPlanSkillTrainer[];
 
 const CATEGORY_NAMES: Record<string, string[]> = {
   vr: ["Reading Comprehension", "True, False, Can’t Tell"],
@@ -196,16 +243,7 @@ function baseInput(): PreparationEngineInput {
           relevanceScore: 1,
         })),
       ),
-      skillTrainers: [
-        {
-          id: "trainer-dm",
-          key: "decision_making_warmup",
-          name: "Decision Making warm-up",
-          sectionId: "dm",
-          categoryIds: ["dm-category-1"],
-          estimatedMinutes: 3,
-        },
-      ],
+      skillTrainers: SKILL_TRAINERS,
       benchmarkSets: SECTIONS.slice(0, 3).flatMap((section) =>
         [0.5, 0.8, 1].map((pace) => ({
           id: `${section.id}-set-${pace}`,

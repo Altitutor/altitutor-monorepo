@@ -7,6 +7,8 @@ export function snapshotSetDetail(value: {
   time: number | null
   accessScope: 'public' | 'private'
   sectionId: string
+  setFormat?: 'full_section' | 'partial_section'
+  referenceBlueprintId?: string
   stemIds: string[]
 }) {
   return JSON.stringify({
@@ -18,6 +20,8 @@ export function snapshotSetDetail(value: {
     time: value.time,
     accessScope: value.accessScope,
     sectionId: value.sectionId,
+    setFormat: value.setFormat ?? null,
+    referenceBlueprintId: value.referenceBlueprintId ?? null,
     stemIds: value.stemIds,
   })
 }

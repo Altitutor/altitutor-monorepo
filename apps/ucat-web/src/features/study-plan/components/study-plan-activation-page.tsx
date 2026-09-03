@@ -44,7 +44,7 @@ import {
 import { saveStudyPlan } from "@/features/study-plan/api/study-plan";
 import {
   STUDY_SETUP_GHOST_BUTTON_CLASS,
-  STUDY_SETUP_PRIMARY_BUTTON_CLASS,
+  StudyPlanContinueButton,
   StudyPlanGoalFields,
   StudyPlanSetupShell,
   StudyPlanStepIndicator,
@@ -65,6 +65,7 @@ import type {
 import { UcatClickableCardButton } from "@/shared/components/ucat-clickable-card";
 import {
   UCAT_CARD_CHROME,
+  UCAT_CLICKABLE_CARD_SELECTED,
   UCAT_DIALOG_PRIMARY_ACTION,
   UCAT_SURFACE_CARD,
 } from "@/lib/ucat-surface-motion";
@@ -253,8 +254,6 @@ export function StudyPlanActivationPage() {
     useState<StudyPlanSjtPreference>("a_little");
   const [availability, setAvailability] =
     useState<StudyPlanAvailability[]>(DEFAULT_AVAILABILITY);
-  const [preferredMockWeekday, setPreferredMockWeekday] =
-    useState<StudyPlanWeekday | null>(null);
   const [savedPlan, setSavedPlan] = useState<StudyPlanResponse | null>(null);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -297,7 +296,6 @@ export function StudyPlanActivationPage() {
     if (plan.profile.availableDays.length) {
       setAvailability(plan.profile.availableDays);
     }
-    setPreferredMockWeekday(plan.profile.preferredMockWeekday ?? null);
   }, [plan?.profile]);
 
   useEffect(() => {
@@ -323,7 +321,6 @@ export function StudyPlanActivationPage() {
   }, [completionMinimumElapsed, completionPhase, completionReady]);
 
   function toggleDay(weekday: StudyPlanWeekday) {
-    if (preferredMockWeekday === weekday) setPreferredMockWeekday(null);
     setAvailability((current) =>
       current.some((day) => day.weekday === weekday)
         ? current.filter((day) => day.weekday !== weekday)
@@ -365,11 +362,7 @@ export function StudyPlanActivationPage() {
         testYear,
         testDate: testDate || null,
         availableDays: availability,
-        preferredMockWeekday:
-          preferredMockWeekday != null &&
-          availability.some((day) => day.weekday === preferredMockWeekday)
-            ? preferredMockWeekday
-            : inferPreferredMockWeekday(availability),
+        preferredMockWeekday: inferPreferredMockWeekday(availability),
         sjtPreference,
       });
       setSavedPlan(nextPlan);
@@ -615,7 +608,7 @@ export function StudyPlanActivationPage() {
                   />
                 </div>
                 <SetupError message={error} />
-                <div className="mt-6 flex items-center justify-between gap-3">
+                <div className="mt-6 flex items-end justify-between gap-3">
                   {fromSettings ? (
                     <button
                       type="button"
@@ -634,17 +627,20 @@ export function StudyPlanActivationPage() {
                       Skip for now
                     </button>
                   )}
-                  <button
-                    type="button"
-                    className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-                    disabled={studyPlanEnabled == null || pending}
+                  <StudyPlanContinueButton
+                    blockedReason={
+                      studyPlanEnabled == null
+                        ? "Choose how you’d like to organise your study first."
+                        : null
+                    }
+                    pending={pending}
                     onClick={continueFromPreference}
                   >
                     {pending ? "Saving…" : "Next"}
                     {!pending ? (
                       <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
                     ) : null}
-                  </button>
+                  </StudyPlanContinueButton>
                 </div>
               </div>
             ) : stage === "destination" ? (
@@ -668,55 +664,73 @@ export function StudyPlanActivationPage() {
                   onTestYearChange={setTestYear}
                   onTestDateChange={setTestDate}
                 />
-                <fieldset className={cn(UCAT_CARD_CHROME, "mt-4 p-5")}>
-                  <legend className="px-1 text-sm font-semibold text-foreground">
-                    How much standalone SJT practice do you want?
-                  </legend>
+                <div
+                  role="group"
+                  aria-labelledby="sjt-preference-heading"
+                  className={cn(UCAT_CARD_CHROME, "mt-4 p-5")}
+                >
+                  <h2
+                    id="sjt-preference-heading"
+                    className="text-sm font-semibold text-foreground"
+                  >
+                    How much standalone Situational Judgement practice do you
+                    want?
+                  </h2>
                   <p className="mt-1 text-sm text-muted-foreground">
-                    Full mocks still include SJT whichever option you choose.
+                    Situational Judgement does not count towards your UCAT
+                    score, but some universities consider it separately.
                   </p>
                   <div className="mt-4 grid gap-3 sm:grid-cols-3">
-                    {SJT_OPTIONS.map((option) => (
-                      <label
-                        key={option.value}
-                        className={cn(
-                          "cursor-pointer rounded-xl border p-4 transition-colors",
-                          sjtPreference === option.value
-                            ? "border-primary bg-primary/10"
-                            : "border-border bg-background/50 hover:bg-muted/60",
-                        )}
-                      >
-                        <input
-                          type="radio"
-                          name="sjt-preference"
-                          value={option.value}
-                          checked={sjtPreference === option.value}
-                          disabled={pending}
-                          onChange={() => setSjtPreference(option.value)}
-                          className="sr-only"
-                        />
-                        <span className="block text-sm font-semibold text-foreground">
-                          {option.label}
-                        </span>
-                        <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
-                          {option.description}
-                        </span>
-                      </label>
-                    ))}
+                    {SJT_OPTIONS.map((option) => {
+                      const selected = sjtPreference === option.value;
+                      return (
+                        <label
+                          key={option.value}
+                          className={cn(
+                            "cursor-pointer rounded-xl border p-4 transition-colors",
+                            selected
+                              ? cn(
+                                  "border-transparent ring-1",
+                                  UCAT_CLICKABLE_CARD_SELECTED,
+                                )
+                              : "border-border bg-background/50 hover:bg-muted/60",
+                          )}
+                        >
+                          <input
+                            type="radio"
+                            name="sjt-preference"
+                            value={option.value}
+                            checked={selected}
+                            disabled={pending}
+                            onChange={() => setSjtPreference(option.value)}
+                            className="sr-only"
+                          />
+                          <span className="block text-sm font-semibold text-foreground">
+                            {option.label}
+                          </span>
+                          <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">
+                            {option.description}
+                          </span>
+                        </label>
+                      );
+                    })}
                   </div>
-                </fieldset>
+                </div>
                 <SetupError message={error} />
-                <div className="mt-6 flex items-center justify-between gap-3">
+                <div className="mt-6 flex items-end justify-between gap-3">
                   <BackButton
                     onClick={() => {
                       setDirection(-1);
                       setStage("preference");
                     }}
                   />
-                  <button
-                    type="button"
-                    className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-                    disabled={pending || testYear == null}
+                  <StudyPlanContinueButton
+                    blockedReason={
+                      testYear == null
+                        ? "Select your UCAT year to continue."
+                        : null
+                    }
+                    pending={pending}
                     onClick={() => {
                       if (studyPlanEnabled) {
                         setDirection(1);
@@ -734,7 +748,7 @@ export function StudyPlanActivationPage() {
                     {!pending ? (
                       <ArrowRight className="ml-2 inline h-4 w-4" aria-hidden />
                     ) : null}
-                  </button>
+                  </StudyPlanContinueButton>
                 </div>
               </div>
             ) : (
@@ -771,40 +785,6 @@ export function StudyPlanActivationPage() {
                       </div>
                     );
                   })}
-                  <label
-                    className={cn(
-                      "block rounded-ucatShell px-4 py-4 text-sm sm:px-5",
-                      UCAT_SURFACE_CARD,
-                    )}
-                  >
-                    <span className="font-medium text-foreground">
-                      Soft mock weekday
-                    </span>
-                    <select
-                      aria-label="Soft mock weekday"
-                      value={preferredMockWeekday ?? ""}
-                      disabled={pending}
-                      onChange={(event) =>
-                        setPreferredMockWeekday(
-                          event.target.value === ""
-                            ? null
-                            : (Number(event.target.value) as StudyPlanWeekday),
-                        )
-                      }
-                      className="mt-2 block w-full rounded-lg border bg-background px-3 py-2"
-                    >
-                      <option value="">No preference</option>
-                      {DAYS.filter((day) =>
-                        availability.some(
-                          (available) => available.weekday === day.value,
-                        ),
-                      ).map((day) => (
-                        <option key={day.value} value={day.value}>
-                          {day.label}
-                        </option>
-                      ))}
-                    </select>
-                  </label>
                   <div
                     className={cn(
                       "flex gap-3 rounded-ucatShell px-4 py-3 text-sm text-muted-foreground",
@@ -816,32 +796,32 @@ export function StudyPlanActivationPage() {
                     <p>
                       Choose the days you can normally study. Altitutor will
                       adjust the session length and number of practice blocks as
-                      your readiness and exam date change. Your longest day is a
-                      chosen mock weekday as a preference, not a restriction.
-                      Workload and mock frequency increase as the exam approaches,
-                      with recovery protected near test day.
+                      your readiness and exam date change.
                     </p>
                   </div>
                 </div>
                 <SetupError message={error} />
-                <div className="mt-6 flex items-center justify-between gap-3">
+                <div className="mt-6 flex items-end justify-between gap-3">
                   <BackButton
                     onClick={() => {
                       setDirection(-1);
                       setStage(hasSavedGoal ? "preference" : "destination");
                     }}
                   />
-                  <button
-                    type="button"
-                    className={STUDY_SETUP_PRIMARY_BUTTON_CLASS}
-                    disabled={pending || !availability.length}
+                  <StudyPlanContinueButton
+                    blockedReason={
+                      availability.length
+                        ? null
+                        : "Choose at least one study day to continue."
+                    }
+                    pending={pending}
                     onClick={() => void buildPlan()}
                   >
                     {pending ? "Building…" : "Build my Study plan"}
                     {!pending ? (
                       <Sparkles className="ml-2 inline h-4 w-4" aria-hidden />
                     ) : null}
-                  </button>
+                  </StudyPlanContinueButton>
                 </div>
               </div>
             )}

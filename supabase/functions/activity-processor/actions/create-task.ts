@@ -53,7 +53,7 @@ export async function executeCreateTask(
       estimate: config.estimate || null,
       created_by: null, // Automated
       source_rule_id: rule.id,
-      source_activity_id: activityEvent.id,
+      source_domain_event_id: activityEvent.domain_event_id || null,
       status: 'backlog',
     })
     .select('id')

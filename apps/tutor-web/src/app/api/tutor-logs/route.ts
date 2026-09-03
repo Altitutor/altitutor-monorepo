@@ -4,6 +4,10 @@ import { createClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 import { hasSessionStarted, type Database } from '@altitutor/shared';
+import {
+  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
+  staffMaySubmitTutorLog,
+} from '@altitutor/shared/pay-tiers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { fetchPayTierProgressForStaff } from '@/features/pay-tier/server/fetchPayTierProgress';
@@ -66,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Verify the session is accessible by this tutor (check vtutor_sessions view)
     const { data: sessionAccess, error: sessionError } = await userClient
       .from('vtutor_sessions')
-      .select('session_id, start_at')
+      .select('session_id, start_at, session_type')
       .eq('session_id', body.sessionId)
       .maybeSingle();
     
@@ -86,8 +90,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Type assertion: sessionAccess has session_id and start_at from vtutor_sessions view
-    type SessionAccess = Pick<Database['public']['Views']['vtutor_sessions']['Row'], 'session_id' | 'start_at'>;
+    type SessionAccess = Pick<
+      Database['public']['Views']['vtutor_sessions']['Row'],
+      'session_id' | 'start_at' | 'session_type'
+    >;
     const typedSessionAccess = sessionAccess as SessionAccess;
 
     // Block logging until the session has started (start_at is a UTC instant in DB)
@@ -139,6 +145,31 @@ export async function POST(request: NextRequest) {
         persistSession: false,
       },
     });
+
+    if (typedSessionAccess.session_type === 'CHECK_IN') {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('sessions_staff')
+        .select('type')
+        .eq('session_id', body.sessionId)
+        .eq('staff_id', tutorId)
+        .maybeSingle();
+
+      if (assignmentError) {
+        console.error('Error checking check-in role:', assignmentError);
+        captureApiError(assignmentError, "/api/tutor-logs");
+        return NextResponse.json(
+          { error: 'Failed to verify check-in role' },
+          { status: 500 }
+        );
+      }
+
+      if (!staffMaySubmitTutorLog('CHECK_IN', assignment?.type)) {
+        return NextResponse.json(
+          { error: CHECK_IN_LOG_FORBIDDEN_MESSAGE },
+          { status: 403 }
+        );
+      }
+    }
 
     // Prepare data for RPC call
     const staffAttendance = (body.staffAttendance || []).map((sa) => ({

@@ -29,6 +29,10 @@ import {
   getUcatMcpAggregate,
   getUcatMcpAggregates,
   getUcatMcpAiAssessment,
+  updateUcatMcpLearningModule,
+  updateUcatMcpMock,
+  updateUcatMcpQuestionSet,
+  updateUcatMcpQuestionStem,
   type UcatMcpAggregateType,
 } from '@/features/ucat/mcp/server/service'
 import {
@@ -72,6 +76,32 @@ export type ChangeMetadata = {
 type PreparedChange = {
   baseSnapshot: Record<string, unknown>
   proposedSnapshot: Record<string, unknown>
+}
+
+type ChangeEffect =
+  | { effect: 'applied'; aggregate: Record<string, unknown> }
+  | { effect: 'staged'; changeId: string; change: Record<string, unknown> }
+
+function isPublishedContentWriteError(error: unknown): boolean {
+  if (!(error instanceof Error)) return false
+  return error.message.includes('Published content requires')
+    || error.message.includes('live Learn folder requires')
+}
+
+async function applyEditableOrStage(input: {
+  applyEditable: () => Promise<Record<string, unknown>>
+  stagePublished: () => Promise<Record<string, unknown>>
+}): Promise<ChangeEffect> {
+  try {
+    return { effect: 'applied', aggregate: await input.applyEditable() }
+  } catch (error) {
+    if (!isPublishedContentWriteError(error)) throw error
+    const change = await input.stagePublished()
+    if (typeof change.id !== 'string') {
+      throw new Error('Published content change did not return an id')
+    }
+    return { effect: 'staged', changeId: change.id, change }
+  }
 }
 
 type ChangeRow = {
@@ -139,20 +169,25 @@ function stemSnapshot(draft: QuestionStemDraft): Record<string, unknown> {
 
 function setSnapshot(draft: QuestionSetDraft): Record<string, unknown> {
   return {
-    name: draft.name,
+    authoringNote: draft.authoringNote,
     description: draft.description,
-    timeLimitSeconds: draft.timeLimitSeconds,
+    timingMode: draft.timingMode,
+    paceMultiplier: draft.paceMultiplier,
+    fixedTimeLimitSeconds: draft.fixedTimeLimitSeconds,
+    setFormat: draft.setFormat,
     accessScope: draft.accessScope,
     sectionId: draft.sectionId,
+    referenceBlueprintId: draft.referenceBlueprintId,
     stemIds: draft.stemIds,
   }
 }
 
 function mockSnapshot(draft: MockDraft): Record<string, unknown> {
   return {
-    name: draft.name,
+    authoringNote: draft.authoringNote,
     instructionsText: draft.instructionsText,
     accessScope: draft.accessScope,
+    blueprintId: draft.blueprintId,
     setIds: draft.setIds,
   }
 }
@@ -295,6 +330,86 @@ export async function proposeUcatMcpContentChange(
     p_audit_run_id: metadata.auditRunId ?? null,
     p_finding_refs: metadata.findingRefs ?? [],
     p_reverse_of_change_id: null,
+  })
+}
+
+export async function changeUcatMcpQuestionStem(
+  client: SupabaseClient<Database>,
+  id: string,
+  revision: string,
+  operations: QuestionStemOperation[],
+  metadata: ChangeMetadata,
+): Promise<ChangeEffect> {
+  return applyEditableOrStage({
+    applyEditable: () => updateUcatMcpQuestionStem(client, id, revision, operations),
+    stagePublished: () => proposeUcatMcpContentChange(
+      client,
+      'stem',
+      id,
+      revision,
+      operations,
+      metadata,
+    ),
+  })
+}
+
+export async function changeUcatMcpQuestionSet(
+  client: SupabaseClient<Database>,
+  id: string,
+  revision: string,
+  operations: QuestionSetOperation[],
+  metadata: ChangeMetadata,
+): Promise<ChangeEffect> {
+  return applyEditableOrStage({
+    applyEditable: () => updateUcatMcpQuestionSet(client, id, revision, operations),
+    stagePublished: () => proposeUcatMcpContentChange(
+      client,
+      'set',
+      id,
+      revision,
+      operations,
+      metadata,
+    ),
+  })
+}
+
+export async function changeUcatMcpMock(
+  client: SupabaseClient<Database>,
+  id: string,
+  revision: string,
+  operations: MockOperation[],
+  metadata: ChangeMetadata,
+): Promise<ChangeEffect> {
+  return applyEditableOrStage({
+    applyEditable: () => updateUcatMcpMock(client, id, revision, operations),
+    stagePublished: () => proposeUcatMcpContentChange(
+      client,
+      'mock',
+      id,
+      revision,
+      operations,
+      metadata,
+    ),
+  })
+}
+
+export async function changeUcatMcpLearningModule(
+  client: SupabaseClient<Database>,
+  id: string,
+  revision: string,
+  operations: LearningModuleOperation[],
+  metadata: ChangeMetadata,
+): Promise<ChangeEffect> {
+  return applyEditableOrStage({
+    applyEditable: () => updateUcatMcpLearningModule(client, id, revision, operations),
+    stagePublished: () => proposeUcatMcpContentChange(
+      client,
+      'learning_module',
+      id,
+      revision,
+      operations,
+      metadata,
+    ),
   })
 }
 
@@ -633,7 +748,7 @@ export async function recordUcatMcpAssessmentDecision(
   })
 }
 
-export async function acceptUcatMcpAssessmentSuggestion(
+export async function changeUcatMcpAssessmentSuggestion(
   client: SupabaseClient<Database>,
   input: {
     runId: string
@@ -705,30 +820,55 @@ export async function acceptUcatMcpAssessmentSuggestion(
     findingKey: input.findingKey,
     patches: finding.suggestion.patches,
   }] as unknown as ChangeOperation[]
+  const prepared = {
+    baseSnapshot: stemSnapshot(before),
+    proposedSnapshot: stemSnapshot(after),
+  }
+  const metadata: ChangeMetadata = {
+    summary: input.summary,
+    rationale: input.rationale,
+    auditRunId: input.auditRunId,
+    findingRefs: [{
+      assessmentRunId: input.runId,
+      findingKey: input.findingKey,
+      appliedExactSuggestion: true,
+    }],
+  }
+
+  if (current.status === 'published') {
+    const change = await callRpc(client, 'tutor_ucat_mcp_create_content_change', {
+      p_target_type: 'stem',
+      p_target_id: input.stemId,
+      p_expected_updated_at: decodeAuthoringRevision(revision, input.stemId),
+      p_base_snapshot: prepared.baseSnapshot,
+      p_proposed_snapshot: prepared.proposedSnapshot,
+      p_operations: operations,
+      p_summary: input.summary,
+      p_rationale: input.rationale ?? null,
+      p_source: 'assessment',
+      p_audit_run_id: input.auditRunId ?? null,
+      p_finding_refs: metadata.findingRefs ?? [],
+      p_reverse_of_change_id: null,
+    })
+    if (typeof change.id !== 'string') {
+      throw new Error('Assessment content change did not return an id')
+    }
+    return { effect: 'staged', changeId: change.id, change }
+  }
+
   const result = await callRpc(client, 'tutor_ucat_mcp_apply_content_change', changeArgs({
     contentType: 'stem',
     id: input.stemId,
     revision,
-    prepared: {
-      baseSnapshot: stemSnapshot(before),
-      proposedSnapshot: stemSnapshot(after),
-    },
+    prepared,
     operations,
-    metadata: {
-      summary: input.summary,
-      rationale: input.rationale,
-      auditRunId: input.auditRunId,
-      findingRefs: [{
-        assessmentRunId: input.runId,
-        findingKey: input.findingKey,
-        appliedExactSuggestion: true,
-      }],
-    },
+    metadata,
     source: 'assessment',
   }))
   await requestAssessmentAfterStemChange(input.stemId)
   return {
-    ...await getUcatMcpAggregate(client, 'stem', input.stemId),
+    effect: 'applied',
+    aggregate: await getUcatMcpAggregate(client, 'stem', input.stemId),
     changeId: result.changeId,
   }
 }

@@ -41,6 +41,11 @@ import {
   updateSubscriptionBillingRetryTime,
 } from "./shared/billing-recovery.ts";
 import { sendUcatBillingAccessEndedEmail } from "./shared/ucat-billing-email.ts";
+import {
+  captureUcatSubscriptionPosthogEvent,
+  isUcatPaidAcquisitionConversion,
+  isUcatSubscriptionRenewal,
+} from "./shared/posthog.ts";
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
@@ -756,6 +761,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           total?: number | null;
           amount_due?: number;
           amount_paid?: number;
+          currency?: string;
         };
 
         // Extract charge/payment_intent from payload first (Stripe sends these on invoice.paid)
@@ -779,6 +785,11 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         // Fallback: fetch from Stripe if payload didn't include charge/payment_intent
         // Also needed for reliable subtotal/total (customer balance, etc.)
         let fullInvoice: Stripe.Invoice | null = null;
+        let paidSubscriptionContext: {
+          dbInvoiceId: string;
+          studentId: string;
+          stripeSubscriptionId: string;
+        } | null = null;
         try {
           fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id, [
             "latest_charge",
@@ -795,6 +806,13 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               "[webhook] subscription invoice sync (paid):",
               paidSync,
             );
+          }
+          if (paidSync.ok) {
+            paidSubscriptionContext = {
+              dbInvoiceId: paidSync.dbInvoiceId,
+              studentId: paidSync.studentId,
+              stripeSubscriptionId: paidSync.stripeSubscriptionId,
+            };
           }
 
           if (!chargeId && fullInvoice.latest_charge) {
@@ -905,6 +923,74 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
 
         await markReferralRewardRedeemed(supabase, invoice.id);
 
+        if (paidSubscriptionContext) {
+          const { data: subscriptionRow } = await supabase
+            .from("student_subscriptions")
+            .select("id, plan_tier, billing_interval")
+            .eq(
+              "stripe_subscription_id",
+              paidSubscriptionContext.stripeSubscriptionId,
+            )
+            .maybeSingle();
+          const amountPaidCents = invoiceForAmounts.amount_paid ?? 0;
+          let priorPositiveSubscriptionPayments: number | null =
+            amountPaidCents > 0 ? null : 0;
+          if (amountPaidCents > 0) {
+            const { count, error: priorPaymentsError } = await supabase
+              .from("invoices")
+              .select("id", { count: "exact", head: true })
+              .eq("student_id", paidSubscriptionContext.studentId)
+              .eq("billing_source", "subscription")
+              .eq("status", "paid")
+              .gt("amount_paid_cents", 0)
+              .neq("id", paidSubscriptionContext.dbInvoiceId);
+            if (priorPaymentsError) {
+              console.error(
+                "[webhook] Could not classify first subscription payment",
+                priorPaymentsError,
+              );
+            } else {
+              priorPositiveSubscriptionPayments = count ?? 0;
+            }
+          }
+          const isFirstPositiveSubscriptionPayment =
+            priorPositiveSubscriptionPayments !== null &&
+            isUcatPaidAcquisitionConversion(
+              amountPaidCents,
+              priorPositiveSubscriptionPayments,
+            );
+          const billingReason = fullInvoice?.billing_reason ?? null;
+          const commonPaymentProperties = {
+            stripe_subscription_id:
+              paidSubscriptionContext.stripeSubscriptionId,
+            stripe_invoice_id: invoice.id,
+            plan_tier: subscriptionRow?.plan_tier ?? null,
+            billing_interval: subscriptionRow?.billing_interval ?? null,
+            billing_reason: billingReason,
+            amount_paid_cents: amountPaidCents,
+            currency: invoiceForAmounts.currency ?? null,
+            is_positive_value: amountPaidCents > 0,
+            is_paid_acquisition_conversion:
+              isFirstPositiveSubscriptionPayment,
+          };
+          await captureUcatSubscriptionPosthogEvent(supabase, {
+            eventName: "subscription_payment_succeeded",
+            providerEventId: event.id,
+            occurredAt: new Date(event.created * 1000).toISOString(),
+            studentId: paidSubscriptionContext.studentId,
+            properties: commonPaymentProperties,
+          });
+          if (isUcatSubscriptionRenewal(billingReason, amountPaidCents)) {
+            await captureUcatSubscriptionPosthogEvent(supabase, {
+              eventName: "subscription_renewed",
+              providerEventId: event.id,
+              occurredAt: new Date(event.created * 1000).toISOString(),
+              studentId: paidSubscriptionContext.studentId,
+              properties: commonPaymentProperties,
+            });
+          }
+        }
+
         await supabase
           .from("stripe_webhook_events")
           .update({ processed: true, processed_at: new Date().toISOString() })
@@ -1006,6 +1092,12 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
             failSync,
           );
         }
+        const failedSubscriptionContext = failSync.ok
+          ? {
+              studentId: failSync.studentId,
+              stripeSubscriptionId: failSync.stripeSubscriptionId,
+            }
+          : null;
 
         let fullInvoice = invoice;
         try {
@@ -1073,6 +1165,39 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           ),
           requiresAction,
         });
+
+        if (failedSubscriptionContext) {
+          const { data: subscriptionRow } = await supabase
+            .from("student_subscriptions")
+            .select("plan_tier, billing_interval")
+            .eq(
+              "stripe_subscription_id",
+              failedSubscriptionContext.stripeSubscriptionId,
+            )
+            .maybeSingle();
+          await captureUcatSubscriptionPosthogEvent(supabase, {
+            eventName: "payment_failed",
+            providerEventId: event.id,
+            occurredAt: new Date(event.created * 1000).toISOString(),
+            studentId: failedSubscriptionContext.studentId,
+            properties: {
+              stripe_subscription_id:
+                failedSubscriptionContext.stripeSubscriptionId,
+              stripe_invoice_id: invoice.id,
+              plan_tier: subscriptionRow?.plan_tier ?? null,
+              billing_interval: subscriptionRow?.billing_interval ?? null,
+              billing_reason: fullInvoice.billing_reason ?? null,
+              amount_due_cents: fullInvoice.amount_due ?? 0,
+              currency: fullInvoice.currency ?? null,
+              attempt_count: fullInvoice.attempt_count ?? 0,
+              failure_code,
+              requires_action: requiresAction,
+              next_payment_attempt_at: stripeTimestampToIso(
+                fullInvoice.next_payment_attempt,
+              ),
+            },
+          });
+        }
 
         await supabase
           .from("stripe_webhook_events")
@@ -1215,6 +1340,9 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           subscription?: string;
           customer?: string;
           customer_email?: string;
+          payment_status?: string;
+          amount_total?: number | null;
+          currency?: string | null;
           metadata?: {
             student_id?: string;
             ucat_plan_tier?: string;
@@ -1300,22 +1428,25 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               },
             );
 
-            await supabase.from("student_subscriptions").upsert(
-              {
-                student_id: studentId,
-                subject_id: ucatSubjectId,
-                stripe_subscription_id: subscription.id,
-                stripe_price_id: priceId,
-                stripe_product_id: productId,
-                plan_tier: planFields.plan_tier,
-                billing_interval: planFields.billing_interval,
-                status: subscription.status,
-                ...subscriptionPeriodFields(subscription),
-                ...subscriptionCancelFields(subscription),
-                updated_at: new Date().toISOString(),
-              },
-              { onConflict: "student_id,subject_id" },
-            );
+            const { error: subscriptionUpsertError } = await supabase
+              .from("student_subscriptions")
+              .upsert(
+                {
+                  student_id: studentId,
+                  subject_id: ucatSubjectId,
+                  stripe_subscription_id: subscription.id,
+                  stripe_price_id: priceId,
+                  stripe_product_id: productId,
+                  plan_tier: planFields.plan_tier,
+                  billing_interval: planFields.billing_interval,
+                  status: subscription.status,
+                  ...subscriptionPeriodFields(subscription),
+                  ...subscriptionCancelFields(subscription),
+                  updated_at: new Date().toISOString(),
+                },
+                { onConflict: "student_id,subject_id" },
+              );
+            if (subscriptionUpsertError) throw subscriptionUpsertError;
 
             if (ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
               await resolveUcatBillingAccessEndedNotificationsForStudent(
@@ -1392,7 +1523,42 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 )
                 .is("resolved_at", null);
             }
+            const rawContext = session.metadata?.ucat_checkout_context;
+            const journeyContext =
+              rawContext === "referral_gift"
+                ? "subscribe"
+                : rawContext === "signup_onboarding" ||
+                    rawContext === "practice_session" ||
+                    rawContext === "subscribe"
+                  ? rawContext
+                  : "subscribe";
             if (activationAllowed) {
+              await captureUcatSubscriptionPosthogEvent(supabase, {
+                eventName: "subscription_started",
+                providerEventId: event.id,
+                occurredAt: new Date(event.created * 1000).toISOString(),
+                studentId,
+                properties: {
+                  stripe_subscription_id: subscription.id,
+                  stripe_checkout_session_id: session.id,
+                  plan_tier: planFields.plan_tier,
+                  billing_interval: planFields.billing_interval,
+                  subscription_status: subscription.status,
+                  starts_with_trial: subscription.status === "trialing",
+                  initial_payment_collected:
+                    session.payment_status === "paid" &&
+                    (session.amount_total ?? 0) > 0,
+                  initial_amount_total_cents: session.amount_total ?? 0,
+                  currency: session.currency ?? null,
+                  journey_context: journeyContext,
+                  acquisition_benefit:
+                    session.metadata?.ucat_acquisition_benefit ??
+                    subscription.metadata?.ucat_acquisition_benefit ??
+                    (subscription.status === "trialing"
+                      ? "standard_trial"
+                      : "none"),
+                },
+              });
               await queueUcatTransactionalEmail(supabase, {
                 studentId,
                 template: "subscription_activated",
@@ -1409,15 +1575,6 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               "[webhook] UCAT subscription provisioned for student",
               studentId,
             );
-            const rawContext = session.metadata?.ucat_checkout_context;
-            const journeyContext =
-              rawContext === "referral_gift"
-                ? "subscribe"
-                : rawContext === "signup_onboarding" ||
-              rawContext === "practice_session" ||
-              rawContext === "subscribe"
-                ? rawContext
-                : "subscribe";
             await supabase.from("ucat_subscription_journey_events").insert({
               student_id: studentId,
               event_type: "checkout_completed",
@@ -1490,7 +1647,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         const { data: existing } = await supabase
           .from("student_subscriptions")
           .select(
-            "id, student_id, subject_id, status, plan_tier, billing_recovery_invoice_id, cancel_at_period_end, cancel_at",
+            "id, student_id, subject_id, status, plan_tier, billing_interval, billing_recovery_invoice_id, cancel_at_period_end, cancel_at",
           )
           .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
@@ -1565,6 +1722,20 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 cancel_at: cancellation.cancel_at,
               },
             });
+            await captureUcatSubscriptionPosthogEvent(supabase, {
+              eventName: "subscription_cancellation_scheduled",
+              providerEventId: event.id,
+              occurredAt: new Date(event.created * 1000).toISOString(),
+              studentId: existing.student_id,
+              properties: {
+                stripe_subscription_id: subscription.id,
+                plan_tier: planFields.plan_tier ?? existing.plan_tier,
+                billing_interval:
+                  planFields.billing_interval ?? existing.billing_interval,
+                subscription_status: subscription.status,
+                cancel_at: cancellation.cancel_at,
+              },
+            });
           } else if (
             existing.cancel_at_period_end &&
             !cancellation.cancel_at_period_end &&
@@ -1611,7 +1782,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         const { data: endedSub } = await supabase
           .from("student_subscriptions")
           .select(
-            "student_id, subject_id, status, plan_tier, billing_recovery_invoice_id",
+            "student_id, subject_id, status, plan_tier, billing_interval, billing_recovery_invoice_id",
           )
           .eq("stripe_subscription_id", subscription.id)
           .maybeSingle();
@@ -1646,6 +1817,21 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 payload: { stripe_subscription_id: subscription.id },
               });
             }
+            await captureUcatSubscriptionPosthogEvent(supabase, {
+              eventName: "subscription_cancelled",
+              providerEventId: event.id,
+              occurredAt: new Date(event.created * 1000).toISOString(),
+              studentId: endedSub.student_id,
+              properties: {
+                stripe_subscription_id: subscription.id,
+                plan_tier: endedSub.plan_tier,
+                billing_interval: endedSub.billing_interval,
+                previous_subscription_status: endedSub.status,
+                cancellation_reason:
+                  subscription.cancellation_details?.reason ?? null,
+                failed_billing_cancellation: failedBillingCancellation,
+              },
+            });
           }
         }
 

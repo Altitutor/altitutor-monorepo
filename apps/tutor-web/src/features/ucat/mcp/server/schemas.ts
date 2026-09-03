@@ -1,9 +1,14 @@
 import { z } from 'zod'
 import { StemCatalogFilterSelectorSchema } from '@/features/ucat/mcp/server/catalog-filters'
 
+export const UCAT_MCP_CONTRACT_VERSION = '2026-09-01.1'
+
 export const UcatContentTypeSchema = z.enum(['lesson', 'stem', 'set', 'mock'])
 export const UcatStatusSchema = z.enum(['draft', 'in_review', 'published'])
 export const UcatAccessScopeSchema = z.enum(['public', 'private'])
+export const UcatSetFormatSchema = z.enum(['full_section', 'partial_section'])
+export const UcatSetTimingModeSchema = z.enum(['pace', 'fixed', 'untimed'])
+export const UcatReadProjectionSchema = z.enum(['catalogue', 'composition', 'full'])
 export const UcatMcpAggregateTypeSchema = z.enum(['learning_module', 'stem', 'set', 'mock'])
 export const UcatContentIdOrIdsSchema = z.union([
   z.string().uuid(),
@@ -150,11 +155,15 @@ export const QuestionStemOperationSchema = z.discriminatedUnion('type', [
 export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('set_metadata'),
-    name: NullableRichTextSchema.optional(),
+    authoringNote: z.string().trim().max(1000).nullable().optional(),
     description: RichTextSchema.optional(),
-    timeLimitSeconds: z.number().int().positive().nullable().optional(),
+    timingMode: UcatSetTimingModeSchema.optional(),
+    paceMultiplier: z.number().positive().max(10).nullable().optional(),
+    fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
+    setFormat: UcatSetFormatSchema.optional(),
     accessScope: UcatAccessScopeSchema.optional(),
     sectionId: z.string().uuid().optional(),
+    referenceBlueprintId: z.string().uuid().optional(),
   }),
   z.object({
     type: z.literal('add_stem'),
@@ -170,14 +179,26 @@ export const QuestionSetOperationSchema = z.discriminatedUnion('type', [
     type: z.literal('remove_stem'),
     stemId: z.string().uuid(),
   }),
+  z.object({
+    type: z.literal('replace_stems'),
+    stemIds: z.array(z.string().uuid()).max(500),
+  }).describe(
+    'Explicitly replace the complete ordered stem membership. Omission elsewhere never removes stems.',
+  ),
 ])
+
+export const MockSectionSetSchema = z.object({
+  sectionId: z.string().uuid(),
+  setId: z.string().uuid(),
+})
 
 export const MockOperationSchema = z.discriminatedUnion('type', [
   z.object({
     type: z.literal('set_metadata'),
-    name: z.string().trim().min(1).max(300).optional(),
+    authoringNote: z.string().trim().max(1000).nullable().optional(),
     instructionsText: NullableRichTextSchema.optional(),
     accessScope: UcatAccessScopeSchema.optional(),
+    blueprintId: z.string().uuid().optional(),
   }),
   z.object({
     type: z.literal('add_set'),
@@ -193,6 +214,19 @@ export const MockOperationSchema = z.discriminatedUnion('type', [
     type: z.literal('remove_set'),
     setId: z.string().uuid(),
   }),
+  z.object({
+    type: z.literal('set_section_set'),
+    sectionId: z.string().uuid(),
+    setId: z.string().uuid().nullable(),
+  }).describe(
+    'Set or clear one blueprint section slot. The selected set must belong to that section.',
+  ),
+  z.object({
+    type: z.literal('replace_section_sets'),
+    sectionSets: z.array(MockSectionSetSchema).max(4),
+  }).describe(
+    'Explicitly replace all mock memberships using section-addressed slots.',
+  ),
 ])
 
 const LearningModuleBlockCommonShape = {
@@ -371,6 +405,70 @@ export const ContentChangeMetadataSchema = {
   ),
 }
 
+const SetIntentShape = {
+  authoringNote: z.string().trim().max(1000).nullable().optional(),
+  description: RichTextSchema,
+  timingMode: UcatSetTimingModeSchema.default('pace'),
+  paceMultiplier: z.number().positive().max(10).nullable().optional(),
+  fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
+  setFormat: UcatSetFormatSchema,
+  accessScope: UcatAccessScopeSchema.default('public'),
+  sectionId: z.string().uuid(),
+  referenceBlueprintId: z.string().uuid(),
+}
+
+export const CreateQuestionSetInputSchema = z.object({
+  idempotencyKey: IdempotencyKeySchema,
+  ...SetIntentShape,
+  stemIds: z.array(z.string().uuid()).max(500).default([]),
+})
+
+export const ChangeQuestionSetInputSchema = z.object({
+  id: z.string().uuid(),
+  revision: z.string().min(1),
+  operations: z.array(QuestionSetOperationSchema).min(1).max(100),
+  ...ContentChangeMetadataSchema,
+})
+
+export const CreateMockInputSchema = z.object({
+  idempotencyKey: IdempotencyKeySchema,
+  authoringNote: z.string().trim().max(1000).nullable().optional(),
+  instructionsText: NullableRichTextSchema.optional(),
+  accessScope: UcatAccessScopeSchema.default('public'),
+  blueprintId: z.string().uuid(),
+})
+
+export const ChangeMockInputSchema = z.object({
+  id: z.string().uuid(),
+  revision: z.string().min(1),
+  operations: z.array(MockOperationSchema).min(1).max(100),
+  ...ContentChangeMetadataSchema,
+})
+
+export const ListUcatBlueprintsInputSchema = z.object({
+  testYear: z.number().int().min(2020).max(2200).optional(),
+  latestOnly: z.boolean().default(false),
+})
+
+export const GetUcatBlueprintInputSchema = z.object({
+  blueprintId: z.string().uuid(),
+})
+
+export const ValidateQuestionSetCompositionInputSchema = z.object({
+  sectionId: z.string().uuid(),
+  setFormat: UcatSetFormatSchema,
+  referenceBlueprintId: z.string().uuid(),
+  timingMode: UcatSetTimingModeSchema.default('pace'),
+  paceMultiplier: z.number().positive().max(10).nullable().optional(),
+  fixedTimeLimitSeconds: z.number().int().positive().nullable().optional(),
+  stemIds: z.array(z.string().uuid()).max(500),
+})
+
+export const ValidateMockCompositionInputSchema = z.object({
+  blueprintId: z.string().uuid(),
+  sectionSets: z.array(MockSectionSetSchema).max(4),
+})
+
 export type QuestionStemOperation = z.infer<typeof QuestionStemOperationSchema>
 export type QuestionSetOperation = z.infer<typeof QuestionSetOperationSchema>
 export type MockOperation = z.infer<typeof MockOperationSchema>
@@ -380,3 +478,10 @@ export type QuestionInput = z.infer<typeof QuestionInputSchema>
 export type AuditTarget = z.infer<typeof AuditTargetSchema>
 export type AuditSelector = z.infer<typeof AuditSelectorSchema>
 export type AssessmentFindingRef = z.infer<typeof AssessmentFindingRefSchema>
+export type CreateQuestionSetInput = z.infer<typeof CreateQuestionSetInputSchema>
+export type CreateMockInput = z.infer<typeof CreateMockInputSchema>
+export type MockSectionSet = z.infer<typeof MockSectionSetSchema>
+export type ValidateQuestionSetCompositionInput = z.infer<
+  typeof ValidateQuestionSetCompositionInputSchema
+>
+export type ValidateMockCompositionInput = z.infer<typeof ValidateMockCompositionInputSchema>

@@ -8,9 +8,14 @@ import { cn } from "@/lib/utils";
 export const UCAT_INTERACTION_EASE =
   "ease-[cubic-bezier(0.32,0.72,0,1)]" as const;
 
-/** Default motion for surfaces; matches `globals.css` / Tailwind motion tokens. */
+/**
+ * Default motion for surfaces; matches `globals.css` / Tailwind motion tokens.
+ * Opacity and transform stay off this list: Motion stagger items own those, and
+ * a CSS transition on them replays the enter animation as a second flash.
+ * Hover lift still animates transform via `.ucat-pressable-lift` in globals.css.
+ */
 export const UCAT_SURFACE_MOTION = cn(
-  "transition-[color,background-color,box-shadow,transform,opacity,ring-color] duration-motion-subtle ease-motion-standard",
+  "transition-[color,background-color,box-shadow,ring-color] duration-motion-subtle ease-motion-standard",
 );
 
 /**

@@ -1,4 +1,5 @@
 const { withSentryConfig } = require("@sentry/nextjs");
+const legacyRedirects = require("./src/lib/legacy-redirects.json");
 
 const isSentrySourceMapUploadConfigured = Boolean(
   process.env.SENTRY_AUTH_TOKEN &&
@@ -92,39 +93,26 @@ const nextConfig = {
         destination: "/sitemap.xml",
         permanent: true,
       },
-      {
-        source: "/shop/",
-        destination: "https://student.altitutor.com/booking/trial-session",
+      ...Object.entries(legacyRedirects.pageRedirects).map(
+        ([source, destination]) => ({
+          source,
+          destination,
+          permanent: true,
+        }),
+      ),
+      ...legacyRedirects.trialBookingPaths.map((source) => ({
+        source,
+        destination: legacyRedirects.trialBookingUrl,
         permanent: true,
-      },
+      })),
       {
         source: "/session/:slug*/",
-        destination: "https://student.altitutor.com/booking/trial-session",
+        destination: legacyRedirects.trialBookingUrl,
         permanent: true,
       },
       {
         source: "/product-category/:slug*/",
         destination: "/classes/",
-        permanent: true,
-      },
-      {
-        source: "/weekly-classes/",
-        destination: "/classes/weekly-classes/",
-        permanent: true,
-      },
-      {
-        source: "/english-assignment-drafting/",
-        destination: "/classes/english-assignment-drafting/",
-        permanent: true,
-      },
-      {
-        source: "/subsidy/",
-        destination: "/about/subsidy/",
-        permanent: true,
-      },
-      {
-        source: "/new-student-registration/",
-        destination: "https://student.altitutor.com/booking/trial-session",
         permanent: true,
       },
       {
@@ -135,16 +123,6 @@ const nextConfig = {
       {
         source: "/new-admin-registration/",
         destination: "/",
-        permanent: true,
-      },
-      {
-        source: "/contact-us/",
-        destination: "/about/contact/",
-        permanent: true,
-      },
-      {
-        source: "/testimonials/",
-        destination: "/about/testimonials/",
         permanent: true,
       },
     ];

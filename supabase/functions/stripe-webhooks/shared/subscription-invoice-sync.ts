@@ -2,7 +2,13 @@ import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
 export type SyncSubscriptionInvoiceResult =
-  | { ok: true; dbInvoiceId: string; inserted: boolean }
+  | {
+    ok: true;
+    dbInvoiceId: string;
+    inserted: boolean;
+    studentId: string;
+    stripeSubscriptionId: string;
+  }
   | { ok: false; skipped: true; reason: string }
   | { ok: false; skipped?: false; reason: string; message?: string };
 
@@ -295,5 +301,11 @@ export async function syncSubscriptionInvoiceFromStripe(
     }
   }
 
-  return { ok: true, dbInvoiceId, inserted };
+  return {
+    ok: true,
+    dbInvoiceId,
+    inserted,
+    studentId,
+    stripeSubscriptionId: subscriptionId,
+  };
 }

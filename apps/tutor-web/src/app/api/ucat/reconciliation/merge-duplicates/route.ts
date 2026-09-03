@@ -3,6 +3,7 @@ import {
   requireUcatTutor,
   type UcatTutorSupabaseClient,
 } from "@/features/ucat/shared/server/guard";
+import { jsonUcatPublishedContentErrorResponse } from "@/features/ucat/shared/server/delete-blocked-response";
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor();
@@ -34,8 +35,11 @@ export async function POST(request: NextRequest) {
     p_source_stem_id: body.sourceStemId,
     p_minimum_similarity: minimumSimilarity,
   });
-  if (error)
+  if (error) {
+    const published = jsonUcatPublishedContentErrorResponse(error.message);
+    if (published) return published;
     return NextResponse.json({ error: error.message }, { status: 400 });
+  }
 
   return NextResponse.json({
     ok: true,

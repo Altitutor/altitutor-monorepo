@@ -13,16 +13,12 @@ import type {
 import { fetchAllSupabaseRows } from "@/features/ucat/shared/lib/fetch-all-supabase-rows";
 import {
   parseUcatLifecycleBlockers,
-  readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
   throwUcatLifecycleResponseError,
   UcatLifecycleError,
 } from "@/features/ucat/shared/lifecycle-errors";
+import { patchUcatContentStatus } from "@/features/ucat/shared/lib/content-status-request";
 import { humanizeQuestionStemError } from "@/features/ucat/questions/lib/question-stem-error";
-import {
-  buildQuestionStemListIndex,
-  type UcatQuestionStemListIndex,
-} from "@/features/ucat/questions/lib/build-question-stem-list-index";
 import type {
   UcatAssessmentResponse,
   UcatFormatCheck,
@@ -42,8 +38,6 @@ import {
   AUDIT_RUN_CATALOG_STATUSES,
   type CatalogAuditRun,
 } from "@/features/ucat/questions/lib/audit-catalog";
-
-export type { UcatQuestionStemListIndex };
 
 export type UcatGenerationDebugCall = {
   stemIndex: number;
@@ -193,6 +187,37 @@ export type UcatQuestionCatalogPage = {
   page: number;
   pageSize: number;
   aiReviewEnabled?: boolean;
+};
+
+export type UcatStemPickerCatalogRow = {
+  id: string;
+  stem_text: Json;
+  section_id: string;
+  section_number: number;
+  section_name: string;
+  question_stem_category_id: string | null;
+  category_name: string | null;
+  status: UcatContentStatus;
+  access_scope: UcatAccessScope;
+  source_channel: UcatQuestionSourceChannel | null;
+  created_at: string | null;
+  question_count: number;
+  tag_ids: string[];
+  set_ids: string[];
+  set_names: Json;
+  question_search_text: string;
+  answer_option_search_text: string;
+  questions: Array<{
+    id: string;
+    index: number;
+    response_type: "multiple_choice" | "drag_and_drop";
+    answer_scheme:
+      | "single_choice"
+      | "situational_judgement_rating"
+      | "decision_making_binary_placement"
+      | "situational_judgement_most_least";
+    option_ids: string[];
+  }>;
 };
 
 export type UcatQuestionCatalogCreator = {
@@ -596,93 +621,41 @@ export const ucatQuestionsApi = {
     } as StemDetailRow;
   },
 
-  /**
-   * One detail fetch for the questions table index (types + tags + search text).
-   * Replaces the previous triple fetch of `id,questions`.
-   */
-  async getStemListIndex(): Promise<UcatQuestionStemListIndex> {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const data = await fetchAllSupabaseRows((from, to) =>
-      supabase
-        .from("vtutor_ucat_question_stem_detail")
-        .select("id,questions")
-        .order("id")
-        .range(from, to),
-    );
-
-    return buildQuestionStemListIndex(
-      (data ?? []) as Array<{ id: string | null; questions: unknown }>,
-    );
-  },
-
-  async getStemCatalog(options?: { publishedOnly?: boolean }) {
+  async getStemCatalog(
+    options?: { publishedOnly?: boolean },
+  ): Promise<UcatStemPickerCatalogRow[]> {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const publishedOnly = options?.publishedOnly ?? false;
-    const [detailData, listData] = await Promise.all([
-      fetchAllSupabaseRows((from, to) =>
-        (publishedOnly
-          ? supabase
-              .from("vtutor_ucat_question_stem_detail")
-              .select(
-                "id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at",
-              )
-              .is("deleted_at", null)
-              .eq("status", "published")
-          : supabase
-              .from("vtutor_ucat_question_stem_detail")
-              .select(
-                "id,stem_text,questions,section_name,section_number,section_id,question_stem_category_id,category_name,status,access_scope,source_channel,created_at,deleted_at",
-              )
-              .is("deleted_at", null)
-        )
-          .order("id")
-          .range(from, to),
-      ),
-      fetchAllSupabaseRows((from, to) =>
-        supabase
-          .from("vtutor_ucat_question_stems")
-          .select("id,set_names,set_ids")
-          .is("deleted_at", null)
-          .order("id")
-          .range(from, to),
-      ),
-    ]);
+    const rows: UcatStemPickerCatalogRow[] = [];
+    let cursor: string | null = null;
 
-    const setInfoById = new Map(
-      listData.map((row) => [
-        row.id ?? "",
+    do {
+      const response = await supabase.rpc(
+        "tutor_ucat_list_stem_picker_catalog",
         {
-          setNames: row.set_names,
-          setIds: row.set_ids,
+          p_limit: 500,
+          p_published_only: publishedOnly,
+          ...(cursor ? { p_after_id: cursor } : {}),
         },
-      ]),
-    );
+      );
+      if (response.error) throw response.error;
 
-    return (
-      detailData as Array<{
-        id: string | null;
-        stem_text: Json | null;
-        questions: unknown;
-        section_name: string | null;
-        section_number: number | null;
-        section_id: string | null;
-        question_stem_category_id: string | null;
-        category_name: string | null;
-        status: UcatContentStatus;
-        access_scope: UcatAccessScope;
-        source_channel: UcatQuestionSourceChannel | null;
-        created_at: string | null;
-        set_names?: unknown;
-        set_ids?: unknown;
-      }>
-    ).map((row) => {
-      const setInfo = row.id ? setInfoById.get(row.id) : undefined;
-      return {
-        ...row,
-        set_names: setInfo?.setNames ?? null,
-        set_ids: setInfo?.setIds ?? null,
-      };
-    });
+      const rpcData: Json = response.data;
+      const payload: Record<string, unknown> =
+        rpcData && typeof rpcData === "object" && !Array.isArray(rpcData)
+          ? (rpcData as Record<string, unknown>)
+          : {};
+      const pageRows = Array.isArray(payload.items)
+        ? (payload.items as UcatStemPickerCatalogRow[])
+        : [];
+      rows.push(...pageRows);
+      cursor =
+        typeof payload.nextCursor === "string" && payload.nextCursor
+          ? payload.nextCursor
+          : null;
+    } while (cursor);
+
+    return rows;
   },
 
   async create(payload: UcatQuestionStemBundlePayload) {
@@ -1089,19 +1062,12 @@ export const ucatQuestionsApi = {
   },
 
   async bulkSetStatus(stemIds: string[], status: UcatContentStatus) {
-    const response = await fetch("/api/ucat/content-status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contentType: "stem",
-        contentIds: stemIds,
-        status,
-      }),
+    return patchUcatContentStatus({
+      contentType: "stem",
+      contentIds: stemIds,
+      status,
+      fallback: "Failed to update question status",
     });
-    return readUcatBulkStatusResponse(
-      response,
-      "Failed to update question status",
-    );
   },
 
   async bulkRestoreStatus(
@@ -1109,20 +1075,13 @@ export const ucatQuestionsApi = {
     currentStatus: UcatContentStatus,
     previousStatus: UcatContentStatus,
   ) {
-    const response = await fetch("/api/ucat/content-status", {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contentType: "stem",
-        contentIds: stemIds,
-        status: currentStatus,
-        previousStatus,
-      }),
+    return patchUcatContentStatus({
+      contentType: "stem",
+      contentIds: stemIds,
+      status: currentStatus,
+      previousStatus,
+      fallback: "Failed to restore question status",
     });
-    return readUcatBulkStatusResponse(
-      response,
-      "Failed to restore question status",
-    );
   },
 };
 

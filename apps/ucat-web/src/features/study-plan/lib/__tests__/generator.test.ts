@@ -298,6 +298,89 @@ describe("generateStudyPlan", () => {
     expect(result.capacityRisk.message).toBeNull();
   });
 
+  it("adds section-relevant warm-ups only when that section is beyond Learning", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile,
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: section.sectionNumber <= 3 ? 620 : null,
+        evidenceCount:
+          section.id === "dm" || section.id === "qr" ? 4 : 0,
+        completedFullSets:
+          section.id === "dm" || section.id === "qr" ? 1 : 0,
+        learningGraduatedAt:
+          section.id === "dm" || section.id === "qr"
+            ? "2025-12-01T00:00:00.000Z"
+            : null,
+        learningGraduationRoute:
+          section.id === "dm" || section.id === "qr" ? "accuracy" : null,
+        representativeSessionCount:
+          section.id === "dm" || section.id === "qr" ? 2 : 0,
+        representativeSectionEquivalents:
+          section.id === "dm" || section.id === "qr" ? 1 : 0,
+        representativeAccuracy:
+          section.id === "dm" || section.id === "qr" ? 0.75 : null,
+        benchmarkCompleted: section.id === "dm" || section.id === "qr",
+        benchmarkPace:
+          section.id === "dm" || section.id === "qr" ? 0.8 : null,
+      })),
+      learningModules: [
+        {
+          id: "vr-foundations",
+          title: "VR foundations",
+          sectionId: "vr",
+          sectionNumber: 1,
+          priority: "essential",
+          authoredOrder: 1,
+          estimatedMinutes: 15,
+          completionPercent: 0,
+          relevanceScore: 1,
+        },
+      ],
+      categories: timingCategories,
+      skillTrainers: skillTrainers.map((trainer) => ({
+        ...trainer,
+        categoryIds: [],
+      })),
+      benchmarkSets,
+      benchmarkMocks,
+      completedMockCount: 1,
+    });
+    const readinessBySection = new Map(
+      result.readiness.sections.map((section) => [
+        section.sectionId,
+        section.mode,
+      ]),
+    );
+    const warmups = result.tasks.filter(
+      (task) => task.taskType === "skill_trainer",
+    );
+
+    expect(readinessBySection.get("vr")).toBe("learning");
+    expect(readinessBySection.get("dm")).toBe("timing");
+    expect(readinessBySection.get("qr")).toBe("timing");
+    expect(warmups.length).toBeGreaterThan(0);
+    expect(
+      warmups.every(
+        (warmup) => readinessBySection.get(warmup.sectionId!) !== "learning",
+      ),
+    ).toBe(true);
+    for (const warmup of warmups) {
+      const firstCoreTask = result.tasks
+        .filter(
+          (task) =>
+            task.scheduledDate === warmup.scheduledDate &&
+            task.taskType !== "skill_trainer" &&
+            task.taskType !== "review",
+        )
+        .sort((left, right) => left.sortOrder - right.sortOrder)[0];
+      expect(warmup.sectionId).toBe(firstCoreTask?.sectionId);
+    }
+  });
+
   it("uses every ordinary Learning day for an ordered loop, then starts section diagnostics", () => {
     const learningModules = sections
       .filter((section) => section.sectionNumber <= 3)
@@ -922,14 +1005,13 @@ describe("generateStudyPlan", () => {
     expect(result.tasks.some((task) => task.taskType === "mock")).toBe(true);
   });
 
-  it("treats the preferred mock weekday as a preference, not a restriction", () => {
+  it("spreads full mocks across available days when cadence needs it", () => {
     const result = generateStudyPlan({
       today: "2026-07-03",
       planningDate: "2026-07-25",
       profile: {
         ...profile,
         availableDays: [{ weekday: 5 }, { weekday: 6 }],
-        preferredMockWeekday: 6,
       },
       sections,
       signals: sections.map((section) => ({

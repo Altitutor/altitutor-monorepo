@@ -12,6 +12,8 @@
     "lint:fix": "next lint --fix",
     "test": "jest",
     "test:e2e": "playwright test",
+    "test:e2e:desktop": "playwright test --project=desktop-chromium",
+    "test:e2e:critical": "playwright test --grep @critical --project=desktop-chromium",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "typecheck": "tsc --noEmit",

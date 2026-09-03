@@ -3,10 +3,10 @@ import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { UcatContentStatus, UcatMockPayload } from '@/features/ucat/shared/types'
 import {
-  readUcatBulkStatusResponse,
   throwFirstUcatBulkStatusFailure,
   throwUcatLifecycleResponseError,
 } from '@/features/ucat/shared/lifecycle-errors'
+import { patchUcatContentStatus } from '@/features/ucat/shared/lib/content-status-request'
 
 export const ucatMocksApi = {
   async blueprints() {
@@ -22,14 +22,19 @@ export const ucatMocksApi = {
 
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('updated_at', { ascending: false })
+    const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('catalog_index', { nullsFirst: false }).order('id')
     if (error) throw error
     return data ?? []
   },
 
   async detail(mockId: string) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_mock_detail').select('*').eq('id', mockId).maybeSingle()
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_detail')
+      .select('*')
+      .eq('id', mockId)
+      .is('deleted_at', null)
+      .maybeSingle()
     if (error) throw error
     return data
   },
@@ -87,6 +92,29 @@ export const ucatMocksApi = {
     return response.json() as Promise<{ id: string }>
   },
 
+  async reorder(mockIds: string[]) {
+    const response = await fetch('/api/ucat/mocks/order', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mockIds }),
+    })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to reorder mocks')
+  },
+
+  async attachSet(mockId: string, setId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/sets`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ setId }),
+    })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to attach set')
+  },
+
+  async detachSet(mockId: string, setId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/sets/${setId}`, { method: 'DELETE' })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to detach set')
+  },
+
   async setStatus(mockId: string, status: UcatContentStatus) {
     const result = await this.bulkSetStatus([mockId], status)
     throwFirstUcatBulkStatusFailure(result)
@@ -94,21 +122,22 @@ export const ucatMocksApi = {
   },
 
   async bulkSetStatus(mockIds: string[], status: UcatContentStatus) {
-    const response = await fetch('/api/ucat/content-status', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contentType: 'mock', contentIds: mockIds, status }),
+    return patchUcatContentStatus({
+      contentType: 'mock',
+      contentIds: mockIds,
+      status,
+      fallback: 'Failed to update mock status',
     })
-    return readUcatBulkStatusResponse(response, 'Failed to update mock status')
   },
 
   async bulkRestoreStatus(mockIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
-    const response = await fetch('/api/ucat/content-status', {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contentType: 'mock', contentIds: mockIds, status: currentStatus, previousStatus }),
+    return patchUcatContentStatus({
+      contentType: 'mock',
+      contentIds: mockIds,
+      status: currentStatus,
+      previousStatus,
+      fallback: 'Failed to restore mock status',
     })
-    return readUcatBulkStatusResponse(response, 'Failed to restore mock status')
   },
 
   async remove(mockId: string) {

@@ -4,7 +4,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import type { Database } from '@altitutor/shared';
-import { CHECK_IN_HOST, CHECK_IN_RECEIVER } from '@altitutor/shared/pay-tiers';
+import {
+  CHECK_IN_HOST,
+  CHECK_IN_RECEIVER,
+  checkInStaffingError,
+  defaultCheckInSessionsStaffType,
+} from '@altitutor/shared/pay-tiers';
 
 type SessionsStaffType = Database['public']['Tables']['sessions_staff']['Insert']['type'];
 
@@ -83,16 +88,25 @@ export async function POST(request: NextRequest) {
     let receiverIds = uniqueIds(checkInStaff?.receiver_ids);
     const legacyStaffList = uniqueIds(staffIds);
 
+    const hasStudentsOrParents = studentList.length > 0 || parentList.length > 0;
+
     if (sessionType === 'CHECK_IN') {
       if (hostIds.length === 0 && receiverIds.length === 0 && legacyStaffList.length > 0) {
-        receiverIds = [legacyStaffList[0]!];
-        hostIds = legacyStaffList.slice(1);
+        const legacyType = defaultCheckInSessionsStaffType(hasStudentsOrParents);
+        if (legacyType === CHECK_IN_HOST) {
+          hostIds = legacyStaffList;
+        } else {
+          receiverIds = [legacyStaffList[0]!];
+          hostIds = legacyStaffList.slice(1);
+        }
       }
-      if (receiverIds.length === 0) {
-        return NextResponse.json(
-          { error: 'At least one receiving staff member is required for a check-in' },
-          { status: 400 }
-        );
+      const staffingError = checkInStaffingError({
+        hostCount: hostIds.length,
+        receiverCount: receiverIds.length,
+        hasStudentsOrParents,
+      });
+      if (staffingError) {
+        return NextResponse.json({ error: staffingError }, { status: 400 });
       }
       const overlap = hostIds.filter((id) => receiverIds.includes(id));
       if (overlap.length > 0) {

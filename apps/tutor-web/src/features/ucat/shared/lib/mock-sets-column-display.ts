@@ -26,13 +26,14 @@ export type MockSetColumnRow =
 type MockSetForColumn = {
   id: string
   name?: unknown
+  display_name?: string | null
   sections?: unknown
   question_count?: number | null
   time_limit_seconds?: number | null
 }
 
-function getSetPlainName(name: unknown): string {
-  return proseMirrorToPlainText(name as Json) || 'Untitled'
+function getSetPlainName(set: MockSetForColumn): string {
+  return set.display_name?.trim() || proseMirrorToPlainText(set.name as Json) || 'Untitled'
 }
 
 function sectionLabel(section: UcatSectionForStatus | undefined): string {
@@ -67,7 +68,7 @@ function buildSetRow(
   },
 ): MockSetColumnRow {
   const parsed = parseSetSections(set.sections ?? null)
-  const name = getSetPlainName(set.name)
+  const name = getSetPlainName(set)
   const setStatus = getSetSectionStatus(
     {
       sectionCount: parsed.sectionCount,

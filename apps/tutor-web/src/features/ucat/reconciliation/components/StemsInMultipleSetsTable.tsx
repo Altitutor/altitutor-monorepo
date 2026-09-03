@@ -24,6 +24,7 @@ import {
 import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
 import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
 import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
 
 const ISSUE = getQuestionIssueDefinition('in-multiple-sets')
@@ -123,16 +124,22 @@ export function StemsInMultipleSetsTable({
           description: 'The question stem was removed from that set.',
         })
       } catch (error) {
-        toast({
-          title: 'Could not remove from set',
-          description: error instanceof Error ? error.message : 'Please try again.',
-          variant: 'destructive',
-        })
+        toast(lifecycleErrorToast(error, 'Could not remove from set', () => undefined, (entityType, entityId) => {
+          if (entityType === 'set') {
+            onEditSet?.(entityId)
+            return true
+          }
+          if (entityType === 'stem') {
+            onOpenStemDialog?.(entityId)
+            return true
+          }
+          return false
+        }))
       } finally {
         setRemovingKey(null)
       }
     },
-    [queryClient, toast],
+    [queryClient, toast, onEditSet, onOpenStemDialog],
   )
 
   const toolbar = (

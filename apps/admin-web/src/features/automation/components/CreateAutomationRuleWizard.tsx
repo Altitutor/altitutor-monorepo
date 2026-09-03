@@ -14,7 +14,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { Form } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
 import { cn } from '@/shared/utils';
-import type { ActivityEntityType, ActivityEventType, AutomationRuleInsert } from '../types';
+import type { ActivityEntityType, DomainEventName, AutomationRuleInsert } from '../types';
 import type { AutomationConditionExpression } from '../types';
 import { Step1BasicInfo } from './wizard/Step1BasicInfo';
 import { Step2Trigger } from './wizard/Step2Trigger';
@@ -25,7 +25,7 @@ const ruleFormSchema = z.object({
   name: z.string().min(1, 'Name is required'),
   description: z.string(),
   entity_type: z.string().min(1, 'Entity type is required'),
-  event_types: z.array(z.string()).min(1, 'At least one event type is required'),
+  event_names: z.array(z.string()),
   trigger_kind: z.enum(['EVENT', 'RELATIVE_TIME']),
   trigger_config: z.object({
     anchor: z.literal('session.start_at'),
@@ -34,6 +34,14 @@ const ruleFormSchema = z.object({
   enabled: z.boolean(),
   priority: z.number().int().min(0),
   conditions: z.custom<AutomationConditionExpression | null>().optional().nullable(),
+}).superRefine((value, context) => {
+  if (value.trigger_kind === 'EVENT' && value.event_names.length === 0) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['event_names'],
+      message: 'A lifecycle event is required',
+    });
+  }
 });
 
 export type WizardFormData = z.infer<typeof ruleFormSchema>;
@@ -69,7 +77,7 @@ export function CreateAutomationRuleWizard({
       name: '',
       description: '',
       entity_type: 'students',
-      event_types: ['CREATED'],
+      event_names: ['student.created'],
       trigger_kind: 'EVENT',
       trigger_config: { anchor: 'session.start_at', offset_minutes: 1440 },
       enabled: true,
@@ -87,7 +95,7 @@ export function CreateAutomationRuleWizard({
         name: '',
         description: '',
         entity_type: 'students',
-        event_types: ['CREATED'],
+        event_names: ['student.created'],
         trigger_kind: 'EVENT',
         trigger_config: { anchor: 'session.start_at', offset_minutes: 1440 },
         enabled: true,
@@ -114,7 +122,9 @@ export function CreateAutomationRuleWizard({
           name: formData.name,
           description: formData.description || null,
           entity_type: formData.entity_type as ActivityEntityType,
-          event_types: formData.event_types as ActivityEventType[],
+          event_names: formData.trigger_kind === 'EVENT'
+            ? formData.event_names as DomainEventName[]
+            : [],
           trigger_kind: formData.trigger_kind,
           trigger_config: formData.trigger_config,
           enabled: formData.enabled,
@@ -159,7 +169,7 @@ export function CreateAutomationRuleWizard({
       case 0: // Basic Info
         return ['name', 'priority', 'enabled'];
       case 1: // Trigger
-        return ['entity_type', 'event_types'];
+        return ['entity_type', 'event_names'];
       case 2: // Actions (no validation needed, actions are optional)
         return [];
       case 3: // Review (no validation needed)

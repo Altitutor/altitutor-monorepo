@@ -7,7 +7,9 @@
     "jsr:@std/expect@*": "1.0.17",
     "jsr:@std/internal@^1.0.10": "1.0.12",
     "jsr:@std/internal@^1.0.12": "1.0.12",
-    "jsr:@std/testing@*": "1.0.16"
+    "jsr:@std/testing@*": "1.0.16",
+    "jsr:@supabase/functions-js@^0.0.0-automated": "0.0.0-jsr-test.1",
+    "jsr:@supabase/supabase-js@2": "2.90.1"
   },
   "jsr": {
     "@std/assert@1.0.16": {
@@ -31,6 +33,15 @@
       "dependencies": [
         "jsr:@std/assert@^1.0.15",
         "jsr:@std/internal@^1.0.12"
+      ]
+    },
+    "@supabase/functions-js@0.0.0-jsr-test.1": {
+      "integrity": "b1b37924af1f0011b4753201e1585a37b030e996c6682492e02575eb27d902b2"
+    },
+    "@supabase/supabase-js@2.90.1": {
+      "integrity": "16258ad7a106f9fa284d4966289743ae2e00e78af3f0b7b07c9155885e9c613c",
+      "dependencies": [
+        "jsr:@supabase/functions-js"
       ]
     }
   },
@@ -84,8 +95,8 @@
             "npm:@storybook/test@^8.6.17",
             "npm:@stripe/react-stripe-js@^5.3.0",
             "npm:@stripe/stripe-js@^8.2.0",
-            "npm:@supabase/ssr@~0.5.2",
-            "npm:@supabase/supabase-js@^2.78.0",
+            "npm:@supabase/ssr@~0.12.4",
+            "npm:@supabase/supabase-js@^2.112.3",
             "npm:@swc/core@^1.11.21",
             "npm:@swc/jest@~0.2.37",
             "npm:@tailwindcss/typography@~0.5.19",
@@ -271,8 +282,8 @@
             "npm:@storybook/test@^8.6.17",
             "npm:@stripe/react-stripe-js@^5.3.0",
             "npm:@stripe/stripe-js@^8.2.0",
-            "npm:@supabase/ssr@~0.5.2",
-            "npm:@supabase/supabase-js@^2.78.0",
+            "npm:@supabase/ssr@~0.12.4",
+            "npm:@supabase/supabase-js@^2.112.3",
             "npm:@swc/core@^1.11.21",
             "npm:@swc/jest@~0.2.37",
             "npm:@tailwindcss/typography@~0.5.19",
@@ -376,8 +387,8 @@
             "npm:@storybook/test@^8.6.17",
             "npm:@stripe/react-stripe-js@^5.3.0",
             "npm:@stripe/stripe-js@^8.2.0",
-            "npm:@supabase/ssr@~0.5.2",
-            "npm:@supabase/supabase-js@^2.78.0",
+            "npm:@supabase/ssr@~0.12.4",
+            "npm:@supabase/supabase-js@^2.112.3",
             "npm:@swc/core@^1.11.21",
             "npm:@swc/jest@~0.2.37",
             "npm:@tanstack/react-query-devtools@^5.90.2",
@@ -462,8 +473,8 @@
             "npm:@sentry/nextjs@^10.65.0",
             "npm:@stripe/react-stripe-js@^5.3.0",
             "npm:@stripe/stripe-js@^8.2.0",
-            "npm:@supabase/ssr@~0.5.2",
-            "npm:@supabase/supabase-js@^2.78.0",
+            "npm:@supabase/ssr@~0.12.4",
+            "npm:@supabase/supabase-js@^2.112.3",
             "npm:@swc/core@^1.11.21",
             "npm:@swc/jest@~0.2.37",
             "npm:@tanstack/react-query-devtools@^5.90.2",
@@ -496,7 +507,7 @@
             "npm:prettier@^3.2.4",
             "npm:react-dom@^18.2.0",
             "npm:react@^18.2.0",
-            "npm:recharts@^3.7.0",
+            "npm:recharts@^3.10.1",
             "npm:stripe@^20.1.0",
             "npm:tailwindcss-animate@^1.0.7",
             "npm:tailwindcss@^3.4.1",
@@ -524,7 +535,9 @@
         "packageJson": {
           "dependencies": [
             "npm:@swc/jest@~0.2.37",
+            "npm:@testing-library/react@^14.3.1",
             "npm:@types/jest@^29.5.14",
+            "npm:@types/react-dom@^18.3.7",
             "npm:@types/react@^18.3.26",
             "npm:@typescript-eslint/eslint-plugin@^6.21.0",
             "npm:@typescript-eslint/parser@^6.21.0",
@@ -532,7 +545,9 @@
             "npm:eslint-config-next@14.1.0",
             "npm:eslint-plugin-storybook@0.12",
             "npm:eslint@^8.57.1",
+            "npm:jest-environment-jsdom@^29.7.0",
             "npm:jest@^29.7.0",
+            "npm:react-dom@^18.2.0",
             "npm:react@^18.2.0",
             "npm:typescript@^5.9.3"
           ]
@@ -619,6 +634,7 @@
             "npm:@radix-ui/react-tooltip@^1.2.8",
             "npm:@swc/jest@~0.2.37",
             "npm:@tanstack/react-table@^8.21.3",
+            "npm:@tanstack/react-virtual@^3.13.12",
             "npm:@tiptap/core@3.22.5",
             "npm:@tiptap/extension-details@3.22.5",
             "npm:@tiptap/extension-heading@3.22.5",
