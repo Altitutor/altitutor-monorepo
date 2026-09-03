@@ -9,7 +9,7 @@ type AnalyticsLinkProps = LinkProps &
   Omit<AnchorHTMLAttributes<HTMLAnchorElement>, "href"> & {
   children?: ReactNode;
   analytics: {
-    product: "ucat" | "online-learning";
+    product: "ucat" | "online-learning" | "in-person";
     placement: string;
     action: string;
     planTier?: string;

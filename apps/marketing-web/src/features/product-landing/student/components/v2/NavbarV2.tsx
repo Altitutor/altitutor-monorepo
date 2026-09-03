@@ -43,7 +43,7 @@ export function NavbarV2() {
         </AnalyticsLink>
         <AnalyticsLink
           href={PRODUCT_LINKS.trialBooking}
-          analytics={{ product: "online-learning", placement: "navbar", action: "book_trial" }}
+          analytics={{ product: "in-person", placement: "navbar", action: "book_trial" }}
         >
           <MagneticButton
             className={`px-4 py-2 text-sm font-medium sm:px-6 ${

@@ -10,6 +10,8 @@ import {
 } from '@/features/bookings/lib/public-booking-guards';
 import { sendEmail } from '@/shared/lib/email';
 import { buildBookingChangedEmail } from '@altitutor/email';
+import { capturePublicBookingOutcome } from '@/features/bookings/lib/capture-public-booking-outcome';
+import { IN_PERSON_BOOKING_EVENTS } from '@/shared/lib/analytics/in-person-booking-event';
 
 export const dynamic = 'force-dynamic';
 
@@ -130,6 +132,17 @@ export async function POST(
       .select('id, start_at, end_at, type, status')
       .eq('id', session.id)
       .single();
+
+    capturePublicBookingOutcome(request, {
+      event: IN_PERSON_BOOKING_EVENTS.rescheduled,
+      sessionId: String(rescheduledId ?? session.id),
+      sessionType: session.type,
+      studentId: session.student_id,
+      properties: {
+        previous_start_at: session.start_at,
+        start_at: updatedSession?.start_at ?? startAt,
+      },
+    });
 
     return NextResponse.json({
       session_id: rescheduledId ?? session.id,

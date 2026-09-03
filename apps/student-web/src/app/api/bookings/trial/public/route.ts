@@ -1,6 +1,8 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
+import { capturePublicBookingOutcome } from '@/features/bookings/lib/capture-public-booking-outcome';
+import { IN_PERSON_BOOKING_EVENTS } from '@/shared/lib/analytics/in-person-booking-event';
 
 // Simple in-memory rate limiter (replace with Redis for production)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -208,6 +210,16 @@ export async function POST(request: NextRequest) {
         'issue_session_booking_public_token',
         { p_session_id: result.session_id }
       );
+      capturePublicBookingOutcome(request, {
+        event: IN_PERSON_BOOKING_EVENTS.completed,
+        sessionId: result.session_id,
+        studentId: result.student_id,
+        sessionType,
+        properties: {
+          curriculum: body.curriculum,
+          subject_count: Array.isArray(body.subject_ids) ? body.subject_ids.length : 0,
+        },
+      });
       return NextResponse.json({
         session_id: result.session_id,
         student_id: result.student_id,

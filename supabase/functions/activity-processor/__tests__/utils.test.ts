@@ -454,6 +454,34 @@ describe('evaluateConditions', () => {
       }, updateEvent, context)).toBe(false);
     });
 
+    it('matches a cancelled trial or subsidy booking on current session state', () => {
+      const cancellationCondition = {
+        all: [
+          { field: 'type', operator: 'in', value: ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'] },
+          { field: 'status', operator: 'equals', value: 'INACTIVE' },
+        ],
+      };
+      const cancelledEvent = {
+        event_type: 'session.status_changed',
+        changed_fields: {},
+      };
+
+      expect(evaluateConditions(cancellationCondition, cancelledEvent, {
+        type: 'SUBSIDY_INTERVIEW',
+        status: 'INACTIVE',
+      })).toBe(true);
+
+      expect(evaluateConditions(cancellationCondition, cancelledEvent, {
+        type: 'TRIAL_SESSION',
+        status: 'ACTIVE',
+      })).toBe(false);
+
+      expect(evaluateConditions(cancellationCondition, cancelledEvent, {
+        type: 'CLASS',
+        status: 'INACTIVE',
+      })).toBe(false);
+    });
+
     it('matches only the first completed in-person registration', () => {
       const registrationCondition = {
         all: [
