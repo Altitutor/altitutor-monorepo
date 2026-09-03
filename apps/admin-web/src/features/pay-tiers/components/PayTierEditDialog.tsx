@@ -1,20 +1,11 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Button,
-  Input,
-  Label,
-} from '@altitutor/ui';
+import { Button, Input, Label } from '@altitutor/ui';
 import { Loader2, Plus } from 'lucide-react';
 import { formatPayRate, type StaffPayTier } from '@altitutor/shared/pay-tiers';
 import { AdminDialogShell } from '@/shared/components';
-import {
-  usePayTierRequirements,
-  useUpdatePayTier,
-  useDeletePayTier,
-  useAddPayTierRequirement,
-} from '../hooks';
+import { usePayTierRequirements, useUpdatePayTier, useDeletePayTier, useAddPayTierRequirement } from '../hooks';
 import {
   hasTenureRequirement,
   hasTimeSincePromotionRequirement,
@@ -29,13 +20,7 @@ type PayTierEditDialogProps = {
   canDelete: boolean;
 };
 
-export function PayTierEditDialog({
-  tier,
-  open,
-  onOpenChange,
-  isTopTier,
-  canDelete,
-}: PayTierEditDialogProps) {
+export function PayTierEditDialog({ tier, open, onOpenChange, isTopTier, canDelete }: PayTierEditDialogProps) {
   const [name, setName] = useState('');
   const [rate, setRate] = useState('');
 
@@ -92,11 +77,7 @@ export function PayTierEditDialog({
                 handleClose();
               }}
             >
-              {deleteTier.isPending ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                'Remove tier'
-              )}
+              {deleteTier.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Remove tier'}
             </Button>
           ) : (
             <span className="hidden sm:block" />
@@ -120,13 +101,7 @@ export function PayTierEditDialog({
           </div>
           <div className="space-y-2">
             <Label htmlFor="tier-rate">Base pay ($/hr)</Label>
-            <Input
-              id="tier-rate"
-              type="number"
-              step="0.01"
-              value={rate}
-              onChange={(e) => setRate(e.target.value)}
-            />
+            <Input id="tier-rate" type="number" step="0.01" value={rate} onChange={(e) => setRate(e.target.value)} />
           </div>
         </div>
 
@@ -140,15 +115,9 @@ export function PayTierEditDialog({
             ) : (
               <ul className="space-y-2 text-sm">
                 {requirements.map((req) => (
-                  <PayTierRequirementEditor
-                    key={req.id}
-                    tierNumber={tier.tier_number}
-                    requirement={req}
-                  />
+                  <PayTierRequirementEditor key={req.id} tierNumber={tier.tier_number} requirement={req} />
                 ))}
-                {requirements.length === 0 && (
-                  <p className="text-sm text-muted-foreground">No requirements yet.</p>
-                )}
+                {requirements.length === 0 && <p className="text-sm text-muted-foreground">No requirements yet.</p>}
               </ul>
             )}
             <div className="flex flex-wrap gap-2">
@@ -202,9 +171,24 @@ export function PayTierEditDialog({
               >
                 <Plus className="h-3 w-3 mr-1" /> Session count
               </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={addRequirement.isPending}
+                onClick={() =>
+                  addRequirement.mutate({
+                    tierNumber: tier.tier_number,
+                    requirement_kind: 'RESOURCE_COUNT',
+                    params: { min: 0 },
+                  })
+                }
+              >
+                <Plus className="h-3 w-3 mr-1" /> Resource count
+              </Button>
             </div>
             <p className="text-xs text-muted-foreground">
-              One tenure rule and one time-since-promotion rule per tier. Time requirements support days, weeks, or months. Changes save automatically.
+              One tenure rule and one time-since-promotion rule per tier. Time requirements support days, weeks, or
+              months. Changes save automatically.
             </p>
           </div>
         )}

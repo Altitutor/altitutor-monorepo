@@ -4,15 +4,65 @@ export const TEACHING_SESSION_TYPES = ['CLASS', 'DRAFTING', 'EXAM_COURSE'] as co
 /** Admin session types grouped for admin-shift metrics */
 export const ADMIN_SESSION_TYPES = ['ADMIN_SHIFT', 'ADMIN_MEETING'] as const;
 
+/** Pay-tier-only session categories that do not map to the session_type enum. */
+export const PAY_TIER_STANDALONE_SESSION_TYPES = ['HOMEWORK_HELP'] as const;
+
+export const PAY_TIER_SESSION_TYPES = [
+  ...TEACHING_SESSION_TYPES,
+  ...ADMIN_SESSION_TYPES,
+  ...PAY_TIER_STANDALONE_SESSION_TYPES,
+] as const;
+
 export const STAFF_ATTENDANCE_TYPES = ['MAIN_TUTOR', 'SECONDARY_TUTOR', 'TRIAL_TUTOR'] as const;
+
+/** Database resource types plus the exclusive synthetic Solutions category. */
+export const PAY_TIER_RESOURCE_TYPES = [
+  'NOTES',
+  'TEST',
+  'PRACTICE_QUESTIONS',
+  'VIDEO',
+  'EXAM',
+  'FLASHCARDS',
+  'REVISION_SHEET',
+  'CHEAT_SHEET',
+  'SOLUTIONS',
+] as const;
+
+/** Unknown is retained for legacy totals but cannot be selected by a requirement. */
+export const PAY_TIER_RESOURCE_OVERRIDE_TYPES = [...PAY_TIER_RESOURCE_TYPES, 'UNKNOWN'] as const;
+
+export const UNKNOWN_RESOURCE_SUBJECT = 'UNKNOWN';
 
 export type TeachingSessionType = (typeof TEACHING_SESSION_TYPES)[number];
 export type AdminSessionType = (typeof ADMIN_SESSION_TYPES)[number];
 export type StaffAttendanceType = (typeof STAFF_ATTENDANCE_TYPES)[number];
+export type PayTierResourceType = (typeof PAY_TIER_RESOURCE_TYPES)[number];
+export type PayTierResourceOverrideType = (typeof PAY_TIER_RESOURCE_OVERRIDE_TYPES)[number];
 
 export function sessionMetricKey(sessionType: string, attendanceType?: string | null): string {
   const attendance = attendanceType?.trim() ? attendanceType : 'any';
   return `sessions.${sessionType}.${attendance}`;
+}
+
+export function resourceMetricKey(resourceType: string, subjectId?: string | null): string {
+  return `resources.created.subject.${subjectId || UNKNOWN_RESOURCE_SUBJECT}.type.${resourceType}`;
+}
+
+export function parseResourceMetricKey(key: string): { resourceType: string; subjectId: string | null } | null {
+  const parts = key.split('.');
+  if (
+    parts.length !== 6 ||
+    parts[0] !== 'resources' ||
+    parts[1] !== 'created' ||
+    parts[2] !== 'subject' ||
+    parts[4] !== 'type'
+  ) {
+    return null;
+  }
+  return {
+    subjectId: parts[3] === UNKNOWN_RESOURCE_SUBJECT ? null : (parts[3] ?? null),
+    resourceType: parts[5] ?? '',
+  };
 }
 
 export const METRIC_KEYS = {
@@ -29,10 +79,7 @@ export const METRIC_KEYS = {
 export const TIME_METRIC_PREFIXES = ['tenure', 'time_since_promotion'] as const;
 export type TimeMetricPrefix = (typeof TIME_METRIC_PREFIXES)[number];
 
-export function resolveSessionCountMetricKey(params: {
-  session_types: string[];
-  attendance_types?: string[];
-}): string {
+export function resolveSessionCountMetricKey(params: { session_types: string[]; attendance_types?: string[] }): string {
   const types = params.session_types ?? [];
   const attendance = params.attendance_types ?? [];
 

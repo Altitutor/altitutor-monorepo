@@ -39214,6 +39214,10 @@ export type Database = {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
       }
+      staff_tier_resource_metric_key: {
+        Args: { p_resource_type: string; p_subject_id?: string }
+        Returns: string
+      }
       staff_tier_session_metric_key: {
         Args: { p_attendance_type: string; p_session_type: string }
         Returns: string
@@ -40319,6 +40323,7 @@ export type Database = {
         | "TENURE_MONTHS"
         | "SESSION_COUNT"
         | "TIME_SINCE_LAST_PROMOTION"
+        | "RESOURCE_COUNT"
       staff_tier_promotion_outcome: "approved" | "deferred" | "not_ready"
       student_exit_request_status: "pending" | "completed" | "revoked"
       subject_curriculum: "SACE" | "IB" | "PRESACE" | "PRIMARY" | "MEDICINE"
@@ -40541,6 +40546,7 @@ export const Constants = {
         "TENURE_MONTHS",
         "SESSION_COUNT",
         "TIME_SINCE_LAST_PROMOTION",
+        "RESOURCE_COUNT",
       ],
       staff_tier_promotion_outcome: ["approved", "deferred", "not_ready"],
       student_exit_request_status: ["pending", "completed", "revoked"],
