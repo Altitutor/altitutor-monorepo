@@ -123,14 +123,55 @@ describe('lifecycle activity mapper', () => {
       payload: {
         changes: {
           priority: { old: 1, new: 2 },
-          due_date: { old: null, new: '2026-09-01' },
+          due_date: { old: null, new: '2026-09-03T00:00:00.000Z' },
         },
       },
     }));
 
     expect(result.changedFields).toEqual([
       { fieldName: 'priority', fieldLabel: 'Priority', oldValue: '1', newValue: '2' },
-      { fieldName: 'due_date', fieldLabel: 'Due Date', oldValue: undefined, newValue: '2026-09-01' },
+      { fieldName: 'due_date', fieldLabel: 'Due Date', oldValue: undefined, newValue: 'Thu 3 Sep' },
+    ]);
+  });
+
+  it('formats each project date property without changing ordinary text values', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'project.properties_changed',
+      subject_type: 'project',
+      payload: {
+        changes: {
+          name: { old: 'Old project', new: 'New project' },
+          start_date: { old: '2026-09-02T00:00:00.000Z', new: '2026-09-03T00:00:00.000Z' },
+          target_date: { old: null, new: '2026-09-10T00:00:00.000Z' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      { fieldName: 'name', fieldLabel: 'Name', oldValue: 'Old project', newValue: 'New project' },
+      { fieldName: 'start_date', fieldLabel: 'Start Date', oldValue: 'Wed 2 Sep', newValue: 'Thu 3 Sep' },
+      { fieldName: 'target_date', fieldLabel: 'Target Date', oldValue: undefined, newValue: 'Thu 10 Sep' },
+    ]);
+  });
+
+  it('formats student birthday property changes as calendar dates', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'student.properties_changed',
+      subject_type: 'student',
+      payload: {
+        changes: {
+          birthday: { old: '2000-01-02', new: '2000-01-03' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      {
+        fieldName: 'birthday',
+        fieldLabel: 'Birthday',
+        oldValue: 'Sun 2 Jan',
+        newValue: 'Mon 3 Jan',
+      },
     ]);
   });
 

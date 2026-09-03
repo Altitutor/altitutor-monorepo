@@ -1,4 +1,4 @@
-import { formatActivityTimestamp, formatDate } from '@/shared/utils/datetime';
+import { formatActivityTimestamp, formatCompactDate, formatDate } from '@/shared/utils/datetime';
 import type {
   ActivityEvent,
   ActivityEventDisplay,
@@ -103,6 +103,16 @@ function titleCase(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const DATE_CHANGE_FIELDS = new Set(['birthday', 'due_date', 'start_date', 'target_date']);
+
+function formatChangedValue(fieldName: string, value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (DATE_CHANGE_FIELDS.has(fieldName) && (typeof value === 'string' || value instanceof Date)) {
+    return formatCompactDate(value) ?? String(value);
+  }
+  return String(value);
+}
+
 function changedFields(payload: Payload): ChangedField[] | undefined {
   const changes = asRecord(payload.changes);
   const fields = Object.entries(changes).flatMap(([fieldName, value]) => {
@@ -112,8 +122,8 @@ function changedFields(payload: Payload): ChangedField[] | undefined {
     return [{
       fieldName,
       fieldLabel: titleCase(fieldName),
-      oldValue: oldValue == null ? undefined : String(oldValue),
-      newValue: newValue == null ? undefined : String(newValue),
+      oldValue: formatChangedValue(fieldName, oldValue),
+      newValue: formatChangedValue(fieldName, newValue),
     }];
   });
   return fields.length ? fields : undefined;
@@ -158,6 +168,7 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'student.user_account_created': [`created ${student}'s user account`, 'user-plus', 'green'],
     'student.payment_method_added': [`added ${paymentMethod(payload)}`, 'check', 'green'],
     'student.payment_method_removed': [`removed ${paymentMethod(payload)}`, 'x', 'red'],
+    'student.properties_changed': [`changed ${student}`, 'user-edit', 'blue'],
     'student.discontinued': [`discontinued ${student}`, 'user-minus', 'red'],
     'student.reactivated': [`reactivated ${student}`, 'user-plus', 'green'],
     'student.deleted': [`deleted ${student}`, 'x', 'red'],

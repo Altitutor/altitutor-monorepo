@@ -1,6 +1,7 @@
 import type { QueryClient } from '@tanstack/react-query';
 
 import { invoicesKeys } from '@/features/billing/hooks/useInvoicesQuery';
+import { activityKeys } from '@/features/activity/queryKeys';
 import { classesKeys } from '@/features/classes/hooks/useClassesQuery';
 import { projectKeys } from '@/features/projects/api/queryKeys';
 import { reconciliationKeys } from '@/features/reconciliation/api/queryKeys';
@@ -114,6 +115,7 @@ export function invalidateProjectDetailSurfaces(queryClient: QueryClient, projec
     invalidate(queryClient, projectKeys.detail(projectId)),
     invalidate(queryClient, ['tasks']),
     invalidate(queryClient, ['notes']),
+    invalidate(queryClient, activityKeys.project(projectId)),
   ]);
 }
 

@@ -10,6 +10,7 @@ import type {
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mapRescheduleSessionsFromRpc } from '../utils/rescheduleSessionMapping';
 
 /**
  * Absences API client for logging student absences
@@ -210,49 +211,7 @@ export const absencesApi = {
         throw error;
       }
 
-      // RPC returns JSONB array, Supabase should parse it automatically
-      // Handle case where data might be null, undefined, or already parsed
-      if (!data) {
-        return [];
-      }
-
-      // If data is a string (unparsed JSONB), parse it
-      type RpcSession = RescheduleSession & { class?: { subject_id?: string }; subject?: Tables<'subjects'>; studentCount?: number };
-      let sessions: RpcSession[] = [];
-      if (typeof data === 'string') {
-        try {
-          sessions = JSON.parse(data) as RpcSession[];
-        } catch (e) {
-          console.error('Error parsing RPC response:', e);
-          return [];
-        }
-      } else if (Array.isArray(data)) {
-        sessions = data as unknown as RpcSession[];
-      } else {
-        // If it's an object with an error, return empty array
-        if (data && typeof data === 'object' && 'error' in data) {
-          console.error('RPC returned error:', data.error);
-          return [];
-        }
-        return [];
-      }
-
-      // Transform RPC response to RescheduleSession format
-      return sessions.map((session: RpcSession) => ({
-        id: session.id,
-        start_at: session.start_at,
-        end_at: session.end_at,
-        class_id: session.class_id,
-        type: session.type,
-        status: session.status,
-        billing_type: null,
-        subject_id: session.class?.subject_id || null,
-        created_at: session.created_at,
-        updated_at: session.updated_at,
-        class: session.class || null,
-        subject: session.subject || null,
-        studentCount: session.studentCount || 0,
-      })) as RescheduleSession[];
+      return mapRescheduleSessionsFromRpc(data);
     } catch (error) {
       console.error('Error getting available reschedule sessions:', error);
       throw error;

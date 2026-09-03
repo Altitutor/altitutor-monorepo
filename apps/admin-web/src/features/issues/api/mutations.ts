@@ -4,6 +4,7 @@ import { issueKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { Issue, IssueUpdate, IssueWithTags } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
+import { activityKeys } from '@/features/activity/queryKeys';
 
 type IssueUpdateVariables = { id: string; updates: IssueUpdate };
 
@@ -85,6 +86,7 @@ export function useUpdateIssue() {
     onSettled: (_updatedIssue, _error, { id }) => {
       void queryClient.invalidateQueries({ queryKey: issueKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: issueKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: activityKeys.issue(id) });
     },
   });
 }

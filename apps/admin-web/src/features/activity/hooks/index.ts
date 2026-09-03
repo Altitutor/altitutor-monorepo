@@ -6,6 +6,7 @@ export {
   useSessionActivity,
   useParentActivity,
   useTaskActivity,
+  useProjectActivity,
   useIssueActivity,
   useAdminShiftActivity,
   activityKeys,
@@ -13,4 +14,3 @@ export {
 } from './useActivityEvents';
 export { useFormResponseDialog } from './useFormResponseDialog';
 export { useEntityActivityNoteComposer } from './useEntityActivityNoteComposer';
-

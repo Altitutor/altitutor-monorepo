@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, CreditCard, RotateCcw, Trash2 } from 'lucide-react';
+import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, RotateCcw, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
@@ -28,6 +28,11 @@ import type { UseSessionsTableModalsReturn } from '../hooks/useSessionsTableModa
 import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
 import { STUDENT_PLANNED_STATUSES } from '../constants/attendanceStatuses';
 import type { StudentPlannedStatus } from '../constants/attendanceStatuses';
+import { SessionInvoiceCell } from './SessionInvoiceCell';
+import type {
+  SessionInvoiceDetails,
+  SessionInvoicePreview,
+} from '../hooks/useStudentSessionBillingDetails';
 
 type TutorLogMap = Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
 
@@ -91,6 +96,8 @@ export interface SessionsTableRowProps {
   router: { push: (path: string) => void };
   /** Set of sessions_students IDs that are uninvoiced per reconciliation view (student view only) */
   uninvoicedSessionsStudentsIds?: Set<string>;
+  invoiceDetailsById?: Record<string, SessionInvoiceDetails>;
+  invoicePreviewsBySessionId?: Record<string, SessionInvoicePreview>;
 }
 
 export function SessionsTableRow({
@@ -129,6 +136,8 @@ export function SessionsTableRow({
   onCopySessionId,
   router,
   uninvoicedSessionsStudentsIds,
+  invoiceDetailsById,
+  invoicePreviewsBySessionId,
 }: SessionsTableRowProps) {
   const { toast } = useToast();
   const invoiceSessionMutation = useInvoiceSessionMutation();
@@ -343,33 +352,27 @@ export function SessionsTableRow({
           {(() => {
             const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
             const invoicePayload = selectedStudent?.invoice_status_payload ?? null;
-            if (invoicePayload) {
-              const badge = getInvoiceStatusBadge(invoicePayload, { onOpenInvoice: openAdminInvoiceModal });
-              if (!badge) return <span className="text-xs text-muted-foreground">-</span>;
-              return badge;
-            }
             const sessionsStudentsId = selectedStudent?.sessions_students_id;
             const isUninvoiced =
               isStudentAttendanceView &&
               sessionsStudentsId &&
               uninvoicedSessionsStudentsIds?.has(sessionsStudentsId);
-            if (isUninvoiced) {
-              return (
-                <Button
-                  variant="default"
-                  size="sm"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    invoiceSessionMutation.mutate(sessionsStudentsId!);
-                  }}
-                  disabled={invoiceSessionMutation.isPending}
-                >
-                  <CreditCard className="h-4 w-4 mr-1" />
-                  {invoiceSessionMutation.isPending ? 'Invoicing...' : 'Send invoice'}
-                </Button>
-              );
-            }
-            return <span className="text-xs text-muted-foreground">-</span>;
+            const invoiceDetails = invoicePayload?.invoice_id
+              ? invoiceDetailsById?.[invoicePayload.invoice_id]
+              : undefined;
+
+            return (
+              <SessionInvoiceCell
+                invoice={invoicePayload}
+                invoiceDetails={invoiceDetails}
+                preview={invoicePreviewsBySessionId?.[session.id]}
+                canSendNow={!!isUninvoiced}
+                isSending={invoiceSessionMutation.isPending}
+                onSendNow={() => {
+                  if (sessionsStudentsId) invoiceSessionMutation.mutate(sessionsStudentsId);
+                }}
+              />
+            );
           })()}
         </TableCell>
       )}

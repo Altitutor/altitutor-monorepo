@@ -1,3 +1,5 @@
+import type { Database } from '@altitutor/shared';
+import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 export interface PaymentMethodData {
@@ -13,6 +15,21 @@ export interface PaymentMethodData {
 }
 
 export const paymentMethodsApi = {
+  /**
+   * Get the student's default payment method for billing previews.
+   */
+  getDefaultPaymentMethod: async (studentId: string): Promise<PaymentMethodData | null> => {
+    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+      .from('student_payment_methods')
+      .select('*')
+      .eq('student_id', studentId)
+      .eq('is_default', true)
+      .maybeSingle();
+
+    if (error) throw error;
+    return (data ?? null) as PaymentMethodData | null;
+  },
+
   /**
    * Create a SetupIntent for adding a new payment method for a student
    * Admin can add payment methods on behalf of students
@@ -77,4 +94,3 @@ export const paymentMethodsApi = {
     }
   },
 };
-

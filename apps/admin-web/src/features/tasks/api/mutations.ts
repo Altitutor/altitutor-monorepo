@@ -4,6 +4,7 @@ import { tasksKeys } from './queryKeys';
 import { useToast } from '@altitutor/ui';
 import type { Task, TaskInsert, TaskUpdate, TaskWithAssignee } from '../types';
 import { showWorkItemCreatedToast } from '@/shared/utils';
+import { activityKeys } from '@/features/activity/queryKeys';
 
 type TaskUpdateVariables = { id: string; updates: TaskUpdate };
 
@@ -108,6 +109,7 @@ export function useUpdateTask() {
     onSettled: (_updatedTask, _error, { id }) => {
       void queryClient.invalidateQueries({ queryKey: tasksKeys.lists() });
       void queryClient.invalidateQueries({ queryKey: tasksKeys.detail(id) });
+      void queryClient.invalidateQueries({ queryKey: activityKeys.task(id) });
     },
   });
 }

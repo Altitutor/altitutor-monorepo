@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, type UseFormReturn, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -18,8 +18,6 @@ import {
   AlertDialogTitle,
   Form,
   Button,
-  Card,
-  CardContent,
   Separator,
   Input,
   type RichTextEditorRef,
@@ -28,7 +26,6 @@ import {
 import { X, ArrowLeft, Loader2, FileText, Plus } from 'lucide-react';
 import { ExpandButton } from '@/shared/components/expandable-dialog';
 import { AutoSaveStatus } from '@/shared/components/AutoSaveStatus';
-import { useQuery } from '@tanstack/react-query';
 import { useProject } from '../api/queries';
 import { useUpdateProject, useDeleteProject } from '../api/mutations';
 import type { ProjectFormData, ProjectStatus } from '../types';
@@ -42,9 +39,8 @@ import { LinkedTasksSection } from '@/features/tasks/components/LinkedTasksSecti
 import { useNotes } from '@/features/notes/api/queries';
 import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
 import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
-import { useTasks } from '@/features/tasks/api/queries';
-import { activityApi } from '@/features/activity/api';
 import { ActivityFeed } from '@/features/activity/components/ActivityFeed';
+import { useProjectActivity } from '@/features/activity/hooks';
 import { useNotes as useEntityNotes } from '@/shared/hooks/useNotes';
 import { ProjectNotes } from './ProjectNotes';
 import { ProjectPropertyPills } from './fields/ProjectPropertyPills';
@@ -131,18 +127,11 @@ export function ProjectDetailView({
   const [newDocumentTitle, setNewDocumentTitle] = useState('');
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
-  const { data: linkedTasks = [] } = useTasks(projectId ? { project_id: [projectId] } : undefined);
-
-  const taskIds = useMemo(() => linkedTasks.map((task) => task.id), [linkedTasks]);
-  const { data: projectActivity, isLoading: isProjectActivityLoading, error: projectActivityError } = useQuery({
-    queryKey: ['project-linked-task-activity', projectId, taskIds],
-    queryFn: async () =>
-      activityApi.getActivityEvents({
-        or: `task_id.in.(${taskIds.join(',')})`,
-        limit: 100,
-      }),
-    enabled: enabled && !!projectId && taskIds.length > 0,
-  });
+  const {
+    data: projectActivity,
+    isLoading: isProjectActivityLoading,
+    error: projectActivityError,
+  } = useProjectActivity(projectId, enabled, 100);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
@@ -418,19 +407,11 @@ export function ProjectDetailView({
                     <Separator />
                     <div className="space-y-4">
                       <h3 className="text-lg font-semibold">Activity</h3>
-                      {taskIds.length === 0 ? (
-                        <Card>
-                          <CardContent className="p-4 text-sm text-muted-foreground">
-                            No linked tasks yet.
-                          </CardContent>
-                        </Card>
-                      ) : (
-                        <ActivityFeed
-                          data={projectActivity}
-                          isLoading={isProjectActivityLoading}
-                          error={projectActivityError as Error | null}
-                        />
-                      )}
+                      <ActivityFeed
+                        data={projectActivity}
+                        isLoading={isProjectActivityLoading}
+                        error={projectActivityError}
+                      />
                     </div>
 
                     <div className="space-y-4 md:hidden">

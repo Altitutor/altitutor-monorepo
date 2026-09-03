@@ -154,6 +154,9 @@ export const activityApi = {
   getTaskActivity: (taskId: string, limit = 50, offset = 0) =>
     activityApi.getActivityEvents({ entityType: 'task', entityId: taskId, limit, offset }),
 
+  getProjectActivity: (projectId: string, limit = 50, offset = 0) =>
+    activityApi.getActivityEvents({ entityType: 'project', entityId: projectId, limit, offset }),
+
   getIssueActivity: (params: {
     issueId: string;
     studentIds?: string[];

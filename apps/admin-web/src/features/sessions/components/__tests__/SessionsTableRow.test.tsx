@@ -127,6 +127,16 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
   };
 }
 
+function renderRow(props: SessionsTableRowProps) {
+  return renderWithProviders(
+    <table>
+      <tbody>
+        <SessionsTableRow {...props} />
+      </tbody>
+    </table>
+  );
+}
+
 describe('SessionsTableRow - invoice column', () => {
   beforeEach(() => {
     jest.clearAllMocks();
@@ -144,7 +154,7 @@ describe('SessionsTableRow - invoice column', () => {
       uninvoicedSessionsStudentsIds: new Set(['ss-1']),
     });
 
-    renderWithProviders(<SessionsTableRow {...props} />);
+    renderRow(props);
 
     const button = await screen.findByRole('button', { name: /send invoice/i });
     await user.click(button);
@@ -163,8 +173,60 @@ describe('SessionsTableRow - invoice column', () => {
       uninvoicedSessionsStudentsIds: new Set<string>(),
     });
 
-    renderWithProviders(<SessionsTableRow {...props} />);
+    renderRow(props);
 
     expect(screen.queryByRole('button', { name: /send invoice/i })).not.toBeInTheDocument();
+  });
+
+  it('shows the upcoming amount and bill date when an invoice has not been created', () => {
+    mockUseInvoiceSessionMutation.mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useInvoiceSessionMutation>);
+
+    const props = createBaseProps({
+      invoicePreviewsBySessionId: {
+        'session-1': {
+          amountCents: 10208,
+          currency: 'aud',
+          billingDate: '31 Dec',
+          action: 'bill',
+        },
+      },
+    });
+
+    renderRow(props);
+
+    expect(screen.getByText('$102.08')).toBeInTheDocument();
+    expect(screen.getByText('Bills 31 Dec')).toBeInTheDocument();
+  });
+
+  it('shows invoice number, amount, and status in one clickable link', async () => {
+    mockUseInvoiceSessionMutation.mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useInvoiceSessionMutation>);
+
+    const student = createStudent();
+    student.invoice_status_payload = {
+      invoice_id: 'invoice-1',
+      status: 'paid',
+      paid_at: '2024-01-02T00:00:00Z',
+    };
+    const props = createBaseProps({
+      sessionStudents: { 'session-1': [student] },
+      invoiceDetailsById: {
+        'invoice-1': {
+          invoiceNumber: 'ALT-1234',
+          amountCents: 10208,
+          currency: 'aud',
+        },
+      },
+    });
+
+    renderRow(props);
+
+    const link = screen.getByRole('button', { name: /ALT-1234.*\$102\.08.*Paid \(2 Jan\)/i });
+    expect(link).toBeInTheDocument();
   });
 });

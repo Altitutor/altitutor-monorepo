@@ -196,6 +196,15 @@
 - **Class activity status** — Whether a Class is active or inactive as a teaching cohort. Capacity or willingness to accept another enrolment is not a Class lifecycle status.
   _Avoid_: Full Class status, Session status, enrolment capacity
 
+- **Class billing type** — The pricing category chosen for a Class and inherited by its Class sessions from the stated effective date. Earlier Class sessions retain their historical category, and changing it does not revise charges already captured by an invoice.
+  _Avoid_: Session type, invoice type, subject price
+
+- **Class effective change** — A change to a Class schedule, Class billing type, or both that begins on a stated date. The current configuration remains authoritative before that date and the upcoming configuration becomes authoritative from that date onward.
+  _Avoid_: Immediate overwrite, unlabelled future edit, retroactive Class change
+
+- **Standard class session price** — The total standard price for one Class session, derived from its duration and the applicable Class billing type and Subject rate. It excludes Student-specific subsidies and payment-processing fees.
+  _Avoid_: Student charge, hourly rate, invoiced amount
+
 - **Class session** — One dated occurrence of a Class. It may originate from the Class schedule or be explicitly planned, and remains an independently identifiable occurrence when its time or status differs from the surrounding schedule.
   _Avoid_: Class, recurrence rule, weekly time slot
 

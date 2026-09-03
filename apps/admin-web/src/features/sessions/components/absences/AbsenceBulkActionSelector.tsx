@@ -8,6 +8,7 @@ import { ArrowRight, X } from 'lucide-react';
 import { WeekViewCalendar } from '../WeekViewCalendar';
 import { SessionsCard } from '../SessionsCard';
 import type { Tables } from '@altitutor/shared';
+import { getSessionCardDisplayName } from '../../utils/session-helpers';
 
 interface SessionDecision {
   sessionId: string;
@@ -227,6 +228,8 @@ export function AbsenceBulkActionSelector({
       billing_type: null,
       status: 'SCHEDULED',
       subject_id: session.class?.subject_id || null,
+      short_name: session.short_name,
+      long_name: session.long_name,
       created_at: null,
       updated_at: null,
     } as Tables<'sessions'>;
@@ -241,6 +244,8 @@ export function AbsenceBulkActionSelector({
       billing_type: null,
       status: 'SCHEDULED',
       subject_id: selectedTargetSession.class?.subject_id || null,
+      short_name: selectedTargetSession.short_name,
+      long_name: selectedTargetSession.long_name,
       created_at: null,
       updated_at: null,
     } as Tables<'sessions'> : null;
@@ -258,6 +263,7 @@ export function AbsenceBulkActionSelector({
               staff={[]}
               students={[]}
               compact={false}
+              title={getSessionCardDisplayName(session, false)}
             />
           </div>
 
@@ -278,6 +284,7 @@ export function AbsenceBulkActionSelector({
                   staff={[]}
                   students={[]}
                   compact={false}
+                  title={getSessionCardDisplayName(selectedTargetSession, false)}
                 />
                 <Button
                   variant="ghost"

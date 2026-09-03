@@ -1,5 +1,6 @@
 import type { Tables } from '@altitutor/shared';
 import { formatSessionDate } from '@altitutor/shared';
+import { formatSessionType } from '@/shared/utils';
 import { formatTime } from '@/shared/utils/datetime';
 
 export { formatSessionDate };
@@ -54,5 +55,58 @@ export function getShortSessionName(session: SessionShortNameInput | null | unde
   }
 
   return 'this session';
+}
+
+/**
+ * Label for session cards/calendar cells.
+ * Prefers stored session names, then class names, then subject names.
+ */
+export type SessionCardDisplayInput = {
+  type?: Tables<'sessions'>['type'] | string | null;
+  short_name?: string | null;
+  long_name?: string | null;
+  class?: {
+    short_name?: string | null;
+    long_name?: string | null;
+  } | null;
+  subject?: {
+    short_name?: string | null;
+    long_name?: string | null;
+    name?: string | null;
+  } | null;
+};
+
+function firstNonEmpty(...values: Array<string | null | undefined>): string {
+  for (const value of values) {
+    const trimmed = value?.trim();
+    if (trimmed) return trimmed;
+  }
+  return '';
+}
+
+export function getSessionCardDisplayName(
+  session: SessionCardDisplayInput,
+  compact: boolean
+): string {
+  if (compact) {
+    return (
+      firstNonEmpty(
+        session.short_name,
+        session.class?.short_name,
+        session.subject?.short_name,
+        session.subject?.long_name,
+        session.subject?.name
+      ) || formatSessionType(session.type)
+    );
+  }
+
+  return (
+    firstNonEmpty(
+      session.long_name,
+      session.class?.long_name,
+      session.subject?.long_name,
+      session.subject?.name
+    ) || formatSessionType(session.type)
+  );
 }
 
