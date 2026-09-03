@@ -94,10 +94,10 @@ function TaskRow({
     skipTask,
     startTask,
     unskipTask,
-    futureStartPromptOpen,
+    orderPromptOpen,
     currentRecommendedTask,
-    setFutureStartPromptOpen,
-    continueFutureTask,
+    setOrderPromptOpen,
+    continueOutOfOrderTask,
     startCurrentRecommendedTask,
   } = useStudyPlanTaskActions(task, !previewMode);
   const isDone = task.status === "completed";
@@ -173,11 +173,9 @@ function TaskRow({
               ) : null}
             </div>
           ) : null}
-          {!isDerivedReview && (task.rationale || nextMilestone) ? (
+          {!isDerivedReview && nextMilestone ? (
             <p className="mt-2 text-xs text-muted-foreground/80">
-              {task.rationale ? `Why this: ${task.rationale}` : null}
-              {task.rationale && nextMilestone ? " · " : null}
-              {nextMilestone ? `Next: ${nextMilestone}` : null}
+              Next: {nextMilestone}
             </p>
           ) : null}
           <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
@@ -267,18 +265,18 @@ function TaskRow({
         ) : null}
       </div>
       <AlertDialog
-        open={futureStartPromptOpen}
-        onOpenChange={setFutureStartPromptOpen}
+        open={orderPromptOpen}
+        onOpenChange={setOrderPromptOpen}
       >
         <AlertDialogContent className="max-w-lg">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Your current plan still has work waiting
+              This isn’t the next task in your plan
             </AlertDialogTitle>
             <AlertDialogDescription>
               {currentRecommendedTask
-                ? `We recommend ${currentRecommendedTask.title} first so today’s plan stays coherent. You can still continue with this future task if that suits you better.`
-                : "You still have work in your current plan. You can continue with this future task if that suits you better."}
+                ? `We recommend ${currentRecommendedTask.title} first so your plan stays coherent. You can still continue with the task you selected.`
+                : "You still have earlier work in your plan. You can still continue with the task you selected."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="sm:flex-wrap">
@@ -289,9 +287,9 @@ function TaskRow({
               type="button"
               variant="outline"
               disabled={pendingAction != null}
-              onClick={() => void continueFutureTask()}
+              onClick={() => void continueOutOfOrderTask()}
             >
-              Continue with future task
+              Continue with selected task
             </Button>
             {currentRecommendedTask ? (
               <Button

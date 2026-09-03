@@ -6,6 +6,8 @@ import {
   mapStudyPlanTaskStatuses,
   selectCurrentStudyPlanTasks,
   selectNextStudyPlanTask,
+  selectRecommendedTaskBeforeStart,
+  shouldConfirmStudyPlanTaskOrder,
 } from "@/features/study-plan/lib/companion";
 import type { StudyPlanTask } from "@/features/study-plan/model/types";
 
@@ -69,6 +71,34 @@ describe("Study plan companion selectors", () => {
     const planned = task({ id: "planned", sortOrder: 0 });
     const partial = task({ id: "partial", sortOrder: 2, status: "partial" });
     expect(selectNextStudyPlanTask([planned, partial])?.id).toBe("partial");
+  });
+
+  it("confirms before starting a later task on the same study day", () => {
+    const recommended = task({ id: "first", sortOrder: 0 });
+    const later = task({ id: "later", sortOrder: 1 });
+
+    expect(shouldConfirmStudyPlanTaskOrder(later, recommended)).toBe(true);
+    expect(shouldConfirmStudyPlanTaskOrder(recommended, recommended)).toBe(
+      false,
+    );
+  });
+
+  it("finds the first task on a future selected day when current work is clear", () => {
+    const first = task({
+      id: "future-first",
+      scheduledDate: "2026-07-18",
+      sortOrder: 0,
+    });
+    const later = task({
+      id: "future-later",
+      scheduledDate: "2026-07-18",
+      sortOrder: 1,
+    });
+
+    expect(
+      selectRecommendedTaskBeforeStart([later, first], "2026-07-15", later)
+        ?.id,
+    ).toBe("future-first");
   });
 
   it("does not offer a review until its source attempt exists", () => {
