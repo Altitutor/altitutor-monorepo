@@ -38,6 +38,7 @@ type HistoryRow = {
   scaled_score: number | null;
   time_taken_seconds: number | null;
   time_limit_seconds: number | null;
+  prescribed_pace: number | null;
   student_set_speed: number | null;
   student_exam_speed: number | null;
   was_timed: boolean;
@@ -71,9 +72,7 @@ function sectionNumberFromJson(value: unknown): number | null {
   const record = section as Record<string, unknown>;
   const candidate = record.section_number ?? record.sectionNumber;
   const number = Number(candidate);
-  return Number.isInteger(number) && number >= 1 && number <= 4
-    ? number
-    : null;
+  return Number.isInteger(number) && number >= 1 && number <= 4 ? number : null;
 }
 
 type HistoryQuery = PromiseLike<HistoryResult> & {
@@ -218,7 +217,9 @@ export async function GET(request: Request) {
   }
   const mockQuestionSetIds = Array.from(
     new Set(
-      (mockSetAttemptsResult.data ?? []).map((attempt) => attempt.question_set_id),
+      (mockSetAttemptsResult.data ?? []).map(
+        (attempt) => attempt.question_set_id,
+      ),
     ),
   );
   const questionSetsResult =
@@ -322,6 +323,7 @@ export async function GET(request: Request) {
           scaledScore: row.scaled_score,
           timeTakenSeconds: row.time_taken_seconds,
           setTimeLimitSeconds: row.time_limit_seconds,
+          effectivePace: row.prescribed_pace,
           studentSetSpeed: row.student_set_speed,
           studentExamSpeed: row.student_exam_speed,
           wasTimed: row.was_timed,
@@ -357,8 +359,7 @@ export async function GET(request: Request) {
         mockName: name,
         scorePoints: row.score_points,
         totalPoints: row.total_points,
-        rawScoreBreakdown:
-          rawScoreBreakdownByMockAttemptId.get(row.id) ?? [],
+        rawScoreBreakdown: rawScoreBreakdownByMockAttemptId.get(row.id) ?? [],
         scaledScore: row.scaled_score,
         scaledScoreMax: row.scaled_score_max,
         timeTakenSeconds: row.time_taken_seconds,

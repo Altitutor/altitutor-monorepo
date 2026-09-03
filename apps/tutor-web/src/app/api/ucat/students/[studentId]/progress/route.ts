@@ -57,6 +57,7 @@ type SetAttemptRaw = {
   scaled_score: number | null
   time_taken_seconds: number | null
   set_time_limit_seconds?: number | null
+  effective_pace_multiplier?: number | null
   student_set_speed?: number | null
   student_exam_speed?: number | null
   was_timed?: boolean
@@ -106,7 +107,7 @@ type AttemptReviewRow = {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ studentId: string }> }
+  { params }: { params: Promise<{ studentId: string }> },
 ) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -133,7 +134,7 @@ export async function GET(
   const { data: questionAttemptsAll, error: qaError } = await supabase
     .from('vtutor_ucat_student_question_attempts_for_progress')
     .select(
-      'id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, answer_scheme, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name'
+      'id, question_id, question_stem_id, student_question_set_attempt_id, attempted_at, ucat_section_id, section_name, section_number, score, answer_scheme, time_spent_seconds, student_question_speed, was_timed, question_stem_category_id, category_name',
     )
     .eq('student_id', studentId)
     .eq('is_submitted', true)
@@ -192,7 +193,7 @@ export async function GET(
       existing.correct += qa.score ?? 0
       existing.max += progressPointsForQuestion(
         toProgressQuestionRef(attempt),
-        existing.countedGroupedStems
+        existing.countedGroupedStems,
       )
     } else {
       const countedGroupedStems = new Set<string>()
@@ -202,7 +203,7 @@ export async function GET(
         correct: qa.score ?? 0,
         max: progressPointsForQuestion(
           toProgressQuestionRef(attempt),
-          countedGroupedStems
+          countedGroupedStems,
         ),
         countedGroupedStems,
       })
@@ -266,7 +267,7 @@ export async function GET(
     ...new Set(
       (setAttemptsRaw ?? [])
         .map((r) => (r as SetAttemptRaw).set_id)
-        .filter(Boolean)
+        .filter(Boolean),
     ),
   ] as string[]
   const { data: setDetails } =
@@ -274,7 +275,7 @@ export async function GET(
       ? await supabase
           .from('vtutor_ucat_question_sets')
           .select(
-            'id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections'
+            'id, name, time_limit_seconds, time_limit_at_exam_speed_seconds, sections',
           )
           .in('id', setIds)
       : { data: [] }
@@ -290,11 +291,11 @@ export async function GET(
         sections: s.sections as Array<{ section_number?: number }> | null,
         isStudentGenerated: false,
       },
-    ])
+    ]),
   )
 
   const sectionByNumber = new Map(
-    sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
+    sectionProgress.map((s) => [s.sectionNumber, s.sectionId]),
   )
 
   const setAttempts: SetAttemptRow[] = (
@@ -357,6 +358,7 @@ export async function GET(
       scaledScore: row.scaled_score,
       timeTakenSeconds: timeTaken,
       setTimeLimitSeconds: setTimeLimit,
+      effectivePace: row.effective_pace_multiplier ?? null,
       studentSetSpeed,
       studentExamSpeed,
       wasTimed: row.was_timed ?? false,
@@ -366,7 +368,7 @@ export async function GET(
 
   // Compute average and weighted average (EMA) scaled score per section
   const sectionByNumberForEma = new Map(
-    sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
+    sectionProgress.map((s) => [s.sectionNumber, s.sectionId]),
   )
   const sectionScaledSums = new Map<string, { sum: number; count: number }>()
   const sectionScaledScoresOrdered = new Map<string, number[]>()
@@ -375,7 +377,7 @@ export async function GET(
     sectionScaledScoresOrdered.set(s.sectionId, [])
   }
   const standaloneSetAttempts = setAttempts.filter(
-    (a) => !a.studentUcatMockAttemptId
+    (a) => !a.studentUcatMockAttemptId,
   )
   const attemptsWithSection = standaloneSetAttempts
     .filter((a) => {
@@ -466,10 +468,10 @@ export async function GET(
       return entry && entry.count > 0 ? entry.sum / entry.count : null
     })(),
     weightedAverageScaledScore: computeEma(
-      sectionScaledScoresOrdered.get(s.sectionId) ?? []
+      sectionScaledScoresOrdered.get(s.sectionId) ?? [],
     ),
     weightedAveragePercentage: computeEma(
-      sectionDailyPercentages.get(s.sectionId) ?? []
+      sectionDailyPercentages.get(s.sectionId) ?? [],
     ),
   }))
 
@@ -483,7 +485,7 @@ export async function GET(
               select: (c: string) => {
                 in: (
                   col: string,
-                  vals: string[]
+                  vals: string[],
                 ) => Promise<{ data: PublicCountRow[] | null }>
               }
             }
@@ -503,7 +505,7 @@ export async function GET(
     const total = row.total_questions ?? 0
     sectionTotalPublic.set(
       sectionId,
-      (sectionTotalPublic.get(sectionId) ?? 0) + total
+      (sectionTotalPublic.get(sectionId) ?? 0) + total,
     )
     categoryTotalPublic.set(`${sectionId}:${catId}`, total)
   }
@@ -539,11 +541,11 @@ export async function GET(
     }
     accumulateProgressAttempt(
       getOrCreateProgressBucket(sectionCategorySums, sumKey),
-      attempt
+      attempt,
     )
     accumulateProgressAttempt(
       getOrCreateProgressBucket(qaBySectionCategoryDate, dateKey),
-      attempt
+      attempt,
     )
   }
   const sectionCategoryDailyPctArrays = new Map<string, number[]>()
@@ -566,7 +568,7 @@ export async function GET(
     .select('id, name, ucat_section_id')
     .in(
       'ucat_section_id',
-      sectionProgress.map((s) => s.sectionId)
+      sectionProgress.map((s) => s.sectionId),
     )
 
   const categoriesBySection = new Map<string, { id: string; name: string }[]>()
@@ -614,12 +616,12 @@ export async function GET(
         percentage: Math.round((uncatSum.correct / uncatSum.max) * 100),
         weightedAveragePercentage: computeEma(dailyPcts),
         totalPublicQuestions: categoryTotalPublic.get(
-          `${s.sectionId}:__uncategorized__`
+          `${s.sectionId}:__uncategorized__`,
         ),
       })
     }
     sectionCategoryProgress[s.sectionId] = result.sort((a, b) =>
-      a.categoryName.localeCompare(b.categoryName)
+      a.categoryName.localeCompare(b.categoryName),
     )
   }
 
@@ -639,7 +641,7 @@ export async function GET(
     ...new Set(
       (mockAttemptsRaw ?? [])
         .map((r) => (r as MockAttemptRaw).ucat_mock_id)
-        .filter(Boolean)
+        .filter(Boolean),
     ),
   ] as string[]
   const { data: mockDetails } =
@@ -656,7 +658,7 @@ export async function GET(
       m.name != null
         ? extractTextFromRichJson(m.name as JsonLike) || null
         : null,
-    ])
+    ]),
   )
 
   const section4Id =
@@ -666,33 +668,33 @@ export async function GET(
   for (const m of mockAttemptsRaw ?? []) {
     const row = m as MockAttemptRaw
     const childSets = setAttempts.filter(
-      (s) => s.studentUcatMockAttemptId === row.id
+      (s) => s.studentUcatMockAttemptId === row.id,
     )
     const scoredChildSets = childSets.filter(
-      (s) => s.sectionId != null && s.sectionId !== section4Id
+      (s) => s.sectionId != null && s.sectionId !== section4Id,
     )
     const timeTakenSeconds = childSets.reduce(
       (sum, s) => sum + (s.timeTakenSeconds ?? 0),
-      0
+      0,
     )
     const setTimeLimitSeconds = childSets.reduce(
       (sum, s) => sum + (s.setTimeLimitSeconds ?? 0),
-      0
+      0,
     )
     const scorePoints = scoredChildSets.reduce(
       (sum, s) => sum + (s.scorePoints ?? 0),
-      0
+      0,
     )
     const totalPoints = scoredChildSets.reduce(
       (sum, s) => sum + (s.totalPoints ?? 0),
-      0
+      0,
     )
     const scaledScore = scoredChildSets.reduce(
       (sum, s) => sum + (s.scaledScore ?? 0),
-      0
+      0,
     )
     const speeds = childSets.filter(
-      (s) => s.studentSetSpeed != null || s.studentExamSpeed != null
+      (s) => s.studentSetSpeed != null || s.studentExamSpeed != null,
     )
     const studentSetSpeed =
       speeds.length > 0
@@ -758,7 +760,7 @@ export async function GET(
     ? await supabaseAdmin
         .from('student_practice_sessions')
         .select(
-          'id, ucat_section_id, score_points, total_points, question_count, started_at, completed_at, unlimited'
+          'id, ucat_section_id, score_points, total_points, question_count, started_at, completed_at, unlimited',
         )
         .eq('student_id', studentId)
         .not('completed_at', 'is', null)
@@ -772,7 +774,7 @@ export async function GET(
   }
 
   const sectionNameById = new Map(
-    sectionProgress.map((section) => [section.sectionId, section.sectionName])
+    sectionProgress.map((section) => [section.sectionId, section.sectionName]),
   )
   const practiceAttempts: PracticeAttemptRow[] = (
     (practiceAttemptsRaw ?? []) as PracticeAttemptRaw[]
@@ -791,8 +793,8 @@ export async function GET(
           Math.round(
             (new Date(attempt.completed_at).getTime() -
               new Date(attempt.started_at).getTime()) /
-              1000
-          )
+              1000,
+          ),
         )
       : null,
     unlimited: attempt.unlimited,
@@ -813,7 +815,7 @@ export async function GET(
     captureApiError(projectionError, '/api/ucat/students/[studentId]/progress')
     return NextResponse.json(
       { error: projectionError.message },
-      { status: 500 }
+      { status: 500 },
     )
   }
 
@@ -836,7 +838,7 @@ export async function GET(
     totalPublicTimedSetsBySection[s.sectionId] = 0
   }
   const sectionByNumberForSets = new Map(
-    sectionProgress.map((s) => [s.sectionNumber, s.sectionId])
+    sectionProgress.map((s) => [s.sectionNumber, s.sectionId]),
   )
   const publicSetsTyped = (publicSetsRaw ?? []) as QuestionSetRow[]
   for (const row of publicSetsTyped) {
@@ -878,18 +880,18 @@ export async function GET(
   if (reviewResult.error) {
     captureApiError(
       reviewResult.error,
-      '/api/ucat/students/[studentId]/progress'
+      '/api/ucat/students/[studentId]/progress',
     )
     return NextResponse.json(
       { error: reviewResult.error.message },
-      { status: 500 }
+      { status: 500 },
     )
   }
   const reviewCompletedAtByAttempt = new Map(
     ((reviewResult.data ?? []) as AttemptReviewRow[]).map((review) => [
       `${review.attempt_type}:${review.attempt_id}`,
       review.completed_at,
-    ])
+    ]),
   )
 
   const response: ProgressResponse = {

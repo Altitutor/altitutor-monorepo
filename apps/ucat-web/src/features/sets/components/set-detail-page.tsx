@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useId, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -79,6 +79,7 @@ export function SetDetailPage({
   sessionEntryContext,
 }: SetDetailPageProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
@@ -122,16 +123,21 @@ export function SetDetailPage({
       : sectionNumber != null
         ? "Back to section"
         : "Back to all sets");
+  const studyPlanTaskId = searchParams.get("studyPlanTaskId");
   const launchSet = useBeginExamRoute({
     kind: "set",
     resourceId: setId,
     title:
-      set?.display_name || (set && extractTextFromRichJson(set.name as JsonLike)) || "Question set",
+      set?.display_name ||
+      (set && extractTextFromRichJson(set.name as JsonLike)) ||
+      "Question set",
     exitHref: backHref,
+    studyPlanTaskId,
   });
   const launchPreflight = useExamAttemptLaunchPreflight({
     kind: "set",
     resourceId: setId,
+    studyPlanTaskId,
     onLaunch: launchSet,
   });
   const breadcrumbLeafSegmentIndex =
@@ -212,7 +218,8 @@ export function SetDetailPage({
   }
 
   const title =
-    set.display_name || extractTextFromRichJson(set.name as JsonLike) ||
+    set.display_name ||
+    extractTextFromRichJson(set.name as JsonLike) ||
     extractTextFromRichJson(set.description as JsonLike) ||
     "Question set";
 
@@ -305,6 +312,9 @@ export function SetDetailPage({
                       Date
                     </th>
                     <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Pace
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
                       Score
                     </th>
                     <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
@@ -323,6 +333,11 @@ export function SetDetailPage({
                           dateStyle: "medium",
                           timeStyle: "short",
                         })}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        {a.effectivePace != null
+                          ? `${Number(a.effectivePace.toFixed(2))}×`
+                          : "—"}
                       </td>
                       <td className="p-4 align-middle text-right">
                         {formatSetAttemptScore(a)}

@@ -119,6 +119,30 @@ describe("POST /api/ucat/exam-attempts/begin", () => {
     expect(response.status).toBe(409);
   });
 
+  it("preserves a conflict when the same set belongs to another active prescription", async () => {
+    mockBeginExamAttempt.mockRejectedValue(
+      new Error("EXAM_ATTEMPT_IN_PROGRESS"),
+    );
+    mockGetActiveExamAttempt.mockResolvedValue({
+      ...activeAttempt,
+      studyPlanTaskId: "task-old",
+    });
+
+    const response = await POST({
+      json: async () => ({
+        kind: "set",
+        resourceId: "set-1",
+        studyPlanTaskId: "task-new",
+        wasTimed: true,
+        engineSnapshot: {},
+        segmentTimeLimitSeconds: null,
+        examMeta: { sourceType: "set", sourceId: "set-1" },
+      }),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(409);
+  });
+
   it("returns an expected quota rejection without reporting an exception", async () => {
     mockBeginExamAttempt.mockRejectedValue(
       new Error(

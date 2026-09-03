@@ -13,10 +13,12 @@ import type {
 export function useExamAttemptLaunchPreflight({
   kind,
   resourceId,
+  studyPlanTaskId,
   onLaunch,
 }: {
   kind: ExamAttemptKind;
   resourceId: string;
+  studyPlanTaskId?: string | null;
   onLaunch: () => void | Promise<void>;
 }) {
   const { active, refresh, clearLocal } = useActiveExamAttempt();
@@ -26,7 +28,12 @@ export function useExamAttemptLaunchPreflight({
   const discardPromiseRef = useRef<Promise<void> | null>(null);
 
   function requestLaunch() {
-    const conflict = getLaunchConflictAttempt(active, kind, resourceId);
+    const conflict = getLaunchConflictAttempt(
+      active,
+      kind,
+      resourceId,
+      studyPlanTaskId,
+    );
     if (!conflict && active && isAttemptAtResults(active)) {
       // Finished attempts can linger client-side after timeout catch-up.
       clearLocal();

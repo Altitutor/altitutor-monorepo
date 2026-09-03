@@ -169,7 +169,13 @@ export function SetAttemptsCard({ sectionNumber }: SetAttemptsCardProps) {
                     <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
                       <TableCell>{dateStr}</TableCell>
                       <TableCell className="font-medium">
-                        {a.questionSetName ?? "—"}
+                        <div>{a.questionSetName ?? "—"}</div>
+                        {a.effectivePace != null ? (
+                          <div className="text-xs font-normal text-muted-foreground">
+                            Attempted at {Number(a.effectivePace.toFixed(2))}×
+                            pace
+                          </div>
+                        ) : null}
                       </TableCell>
                       <TableCell>
                         {formatAttemptTableMetricValue(

@@ -307,10 +307,8 @@ describe("generateStudyPlan", () => {
       signals: sections.map((section) => ({
         sectionId: section.id,
         currentEstimate: section.sectionNumber <= 3 ? 620 : null,
-        evidenceCount:
-          section.id === "dm" || section.id === "qr" ? 4 : 0,
-        completedFullSets:
-          section.id === "dm" || section.id === "qr" ? 1 : 0,
+        evidenceCount: section.id === "dm" || section.id === "qr" ? 4 : 0,
+        completedFullSets: section.id === "dm" || section.id === "qr" ? 1 : 0,
         learningGraduatedAt:
           section.id === "dm" || section.id === "qr"
             ? "2025-12-01T00:00:00.000Z"
@@ -324,8 +322,7 @@ describe("generateStudyPlan", () => {
         representativeAccuracy:
           section.id === "dm" || section.id === "qr" ? 0.75 : null,
         benchmarkCompleted: section.id === "dm" || section.id === "qr",
-        benchmarkPace:
-          section.id === "dm" || section.id === "qr" ? 0.8 : null,
+        benchmarkPace: section.id === "dm" || section.id === "qr" ? 0.8 : null,
       })),
       learningModules: [
         {
@@ -523,10 +520,7 @@ describe("generateStudyPlan", () => {
       ...contentInputs,
       completedMockCount: 0,
     });
-    const tasksByDate = Map.groupBy(
-      result.tasks,
-      (task) => task.scheduledDate,
-    );
+    const tasksByDate = Map.groupBy(result.tasks, (task) => task.scheduledDate);
 
     expect(
       [...tasksByDate.values()].some(
@@ -1014,7 +1008,8 @@ describe("generateStudyPlan", () => {
         (task) =>
           task.questionSetId != null &&
           task.launchConfig.kind === "set" &&
-          task.launchConfig.actualPace === 0.5 &&
+          task.launchConfig.prescribedPace === 0.5 &&
+          task.launchConfig.actualPace === undefined &&
           task.launchConfig.calibrationPurpose === "learning_diagnostic",
       ),
     ).toBe(true);
@@ -1270,8 +1265,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: section.sectionNumber <= 3 ? 2 : 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-05-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
         recentAccuracy: 0.6,
       })),
       learningModules: [],

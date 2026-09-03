@@ -29,7 +29,12 @@ import {
 } from '../lib/progress-data-utils'
 import type { SetAttemptRow } from '@altitutor/shared'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
-import { tutorCardCn, tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell } from '@/shared/lib/tutor-visual'
+import {
+  tutorCardCn,
+  tutorTableBodyRow,
+  tutorTableHeaderRow,
+  tutorTableShell,
+} from '@/shared/lib/tutor-visual'
 import {
   UnreviewedAttemptDot,
   UnreviewedAttemptTooltip,
@@ -54,7 +59,10 @@ const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50]
 
-function getDateRangeLabel(mode: ProgressMode, timeFrameDays: TimeFrameDays): string {
+function getDateRangeLabel(
+  mode: ProgressMode,
+  timeFrameDays: TimeFrameDays,
+): string {
   if (mode === 'time_frame') return `Last ${timeFrameDays} days`
   return mode === 'weighted' ? 'Weighted average (all time)' : 'All time'
 }
@@ -66,7 +74,8 @@ export function SetAttemptsCard({
   sharedDateRange,
   basePath = '',
 }: SetAttemptsCardProps) {
-  const [graphDataType, setGraphDataType] = useState<GraphDataType>('scaled_score')
+  const [graphDataType, setGraphDataType] =
+    useState<GraphDataType>('scaled_score')
   const [graphType, setGraphType] = useState<'line' | 'bar'>('line')
   const [page, setPage] = useState(1)
   const [pageSize, setPageSize] = useState(10)
@@ -87,14 +96,15 @@ export function SetAttemptsCard({
           const total = a.totalPoints ?? 0
           return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0
         }
-        if (graphDataType === 'time_taken') return Math.round(a.timeTakenSeconds ?? 0)
+        if (graphDataType === 'time_taken')
+          return Math.round(a.timeTakenSeconds ?? 0)
         if (graphDataType === 'attempt_count') return 1
         return (a.studentExamSpeed ?? 0) * 100
       },
       mode,
       timeFrameDays,
       isCountMetric,
-      sharedDateRange
+      sharedDateRange,
     )
     return {
       graphData,
@@ -117,7 +127,10 @@ export function SetAttemptsCard({
         <div className="flex flex-wrap items-center gap-2">
           <SearchableSelect<{ value: GraphDataType; label: string }>
             items={GRAPH_DATA_TYPES}
-            value={GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? GRAPH_DATA_TYPES[0]}
+            value={
+              GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ??
+              GRAPH_DATA_TYPES[0]
+            }
             onValueChange={(item) => item && setGraphDataType(item.value)}
             getItemLabel={(r) => r.label}
             getItemId={(r) => r.value}
@@ -142,29 +155,19 @@ export function SetAttemptsCard({
                 <TableRow className={tutorTableHeaderRow}>
                   <TableHead>Date</TableHead>
                   <TableHead>Set</TableHead>
-                  <TableHeaderWithTooltip
-                    tooltip="Raw score: correct points earned out of total possible points for this set."
-                  >
+                  <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points for this set.">
                     Points
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="Scaled score (300–900) normalised to UCAT exam scale for this section."
-                  >
+                  <TableHeaderWithTooltip tooltip="Scaled score (300–900) normalised to UCAT exam scale for this section.">
                     Scaled score
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00)."
-                  >
+                  <TableHeaderWithTooltip tooltip="Time taken vs time limit for this set (e.g. 25:00 / 30:00).">
                     Time
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="How fast you completed this set vs its time limit. >100% means you finished early."
-                  >
+                  <TableHeaderWithTooltip tooltip="How fast you completed this set vs its time limit. >100% means you finished early.">
                     Set speed
                   </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip
-                    tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace."
-                  >
+                  <TableHeaderWithTooltip tooltip="How fast you completed this set vs exam-pace time. >100% means you finished faster than exam pace.">
                     Exam speed
                   </TableHeaderWithTooltip>
                   <TableHead className="text-right">Actions</TableHead>
@@ -173,7 +176,10 @@ export function SetAttemptsCard({
               <TableBody>
                 {standaloneAttempts.length === 0 ? (
                   <TableRow className={tutorTableBodyRow}>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell
+                      colSpan={8}
+                      className="text-center text-muted-foreground"
+                    >
                       No submitted set attempts yet
                     </TableCell>
                   </TableRow>
@@ -205,7 +211,15 @@ export function SetAttemptsCard({
                             ? format(new Date(a.completedAt), 'dd MMM yyyy')
                             : format(new Date(a.attemptedAt), 'dd MMM yyyy')}
                         </TableCell>
-                        <TableCell>{a.questionSetName ?? '—'}</TableCell>
+                        <TableCell>
+                          <div>{a.questionSetName ?? '—'}</div>
+                          {a.effectivePace != null ? (
+                            <div className="text-xs text-muted-foreground">
+                              Attempted at {Number(a.effectivePace.toFixed(2))}×
+                              pace
+                            </div>
+                          ) : null}
+                        </TableCell>
                         <TableCell>
                           {(a.totalPoints ?? 0) > 0
                             ? `${a.scorePoints ?? 0} / ${a.totalPoints ?? 0}`
@@ -213,7 +227,8 @@ export function SetAttemptsCard({
                         </TableCell>
                         <TableCell>{a.scaledScore ?? '—'}</TableCell>
                         <TableCell>
-                          {(a.setTimeLimitSeconds ?? 0) > 0 && a.timeTakenSeconds != null
+                          {(a.setTimeLimitSeconds ?? 0) > 0 &&
+                          a.timeTakenSeconds != null
                             ? `${formatTimeSeconds(Math.round(a.timeTakenSeconds))} / ${formatTimeSeconds(Math.round(a.setTimeLimitSeconds ?? 0))}`
                             : '—'}
                         </TableCell>

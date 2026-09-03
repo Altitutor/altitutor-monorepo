@@ -51,6 +51,7 @@ export type AttemptTiming = {
   timeTakenSeconds: number | null
   timeLimitSeconds: number | null
   examTimeLimitSeconds: number | null
+  effectivePace?: number | null
   studentSpeed: number | null
   studentExamSpeed: number | null
 }
@@ -76,7 +77,10 @@ function Metric({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex cursor-help">
-                <Info className="h-3.5 w-3.5" aria-label={`${label} explanation`} />
+                <Info
+                  className="h-3.5 w-3.5"
+                  aria-label={`${label} explanation`}
+                />
               </span>
             </TooltipTrigger>
             <TooltipContent className="max-w-[280px]">{tooltip}</TooltipContent>
@@ -121,6 +125,13 @@ export function AttemptTimingCard({
           value={formatSpeed(timing.studentSpeed)}
           tooltip="1x uses the full time limit; above 1x means the student finished early."
         />
+        {scope === 'set' && timing.effectivePace != null ? (
+          <Metric
+            label="Attempt pace"
+            value={formatSpeed(timing.effectivePace)}
+            tooltip="The exam-relative working pace applied when this attempt began. Lower than 1x allowed more time."
+          />
+        ) : null}
         {showExamSpeed ? (
           <Metric
             label="Exam speed"
@@ -156,13 +167,17 @@ export function AttemptScoreCard({
       </CardHeader>
       <CardContent className="flex flex-col gap-2">
         <div>
-          <div className="text-xs font-medium text-muted-foreground">Scaled score</div>
+          <div className="text-xs font-medium text-muted-foreground">
+            Scaled score
+          </div>
           <div className="text-3xl font-bold tabular-nums">
             {scaledScore != null ? Math.round(scaledScore) : '—'}
           </div>
         </div>
         <div>
-          <div className="text-xs font-medium text-muted-foreground">Points</div>
+          <div className="text-xs font-medium text-muted-foreground">
+            Points
+          </div>
           <div className="text-xl font-semibold tabular-nums">
             {total > 0 ? `${points} / ${total}` : '—'}
           </div>
@@ -174,8 +189,13 @@ export function AttemptScoreCard({
             </div>
             <div className="flex flex-col gap-1.5">
               {categoryBreakdown.map((category) => (
-                <div key={category.name} className="flex justify-between gap-2 text-sm">
-                  <span className="truncate text-muted-foreground">{category.name}</span>
+                <div
+                  key={category.name}
+                  className="flex justify-between gap-2 text-sm"
+                >
+                  <span className="truncate text-muted-foreground">
+                    {category.name}
+                  </span>
                   <span className="shrink-0 tabular-nums">
                     {category.score} / {category.total}
                   </span>
@@ -204,7 +224,13 @@ function SimpleNavigator({
     const result: Array<{
       key: string
       label: string | null
-      stems: Array<{ stemIndex: number; questions: Array<{ attempt: SetAttemptQuestion | MockAttemptQuestion; index: number }> }>
+      stems: Array<{
+        stemIndex: number
+        questions: Array<{
+          attempt: SetAttemptQuestion | MockAttemptQuestion
+          index: number
+        }>
+      }>
     }> = []
     for (let index = 0; index < attempts.length; index += 1) {
       const attempt = attempts[index]
@@ -219,7 +245,9 @@ function SimpleNavigator({
         }
         result.push(setGroup)
       }
-      let stem = setGroup.stems.find((item) => item.stemIndex === attempt.stemIndex)
+      let stem = setGroup.stems.find(
+        (item) => item.stemIndex === attempt.stemIndex,
+      )
       if (!stem) {
         stem = { stemIndex: attempt.stemIndex, questions: [] }
         setGroup.stems.push(stem)
@@ -232,13 +260,21 @@ function SimpleNavigator({
   return (
     <div className="space-y-4 pb-1">
       {groups.map((group, groupIndex) => (
-        <div key={group.key} className={cn(groupIndex > 0 && 'border-t border-border pt-4')}>
+        <div
+          key={group.key}
+          className={cn(groupIndex > 0 && 'border-t border-border pt-4')}
+        >
           {group.label ? (
-            <div className="mb-2 text-xs font-medium text-muted-foreground">{group.label}</div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">
+              {group.label}
+            </div>
           ) : null}
           <div className="flex flex-wrap items-start gap-x-4 gap-y-3">
             {group.stems.map((stem) => (
-              <div key={stem.stemIndex} className="flex flex-col items-center gap-1">
+              <div
+                key={stem.stemIndex}
+                className="flex flex-col items-center gap-1"
+              >
                 <div className="flex flex-wrap justify-center gap-1">
                   {stem.questions.map(({ attempt, index }) => (
                     <button
@@ -247,7 +283,9 @@ function SimpleNavigator({
                       onClick={() => onSelect(index)}
                       className={cn(
                         'flex h-9 w-9 items-center justify-center rounded-md text-sm font-semibold tabular-nums text-white transition',
-                        selectedIndex === index ? 'shadow-sm opacity-100' : 'opacity-45'
+                        selectedIndex === index
+                          ? 'shadow-sm opacity-100'
+                          : 'opacity-45',
                       )}
                       style={{ backgroundColor: RESULT_COLORS[attempt.result] }}
                     >
@@ -289,7 +327,9 @@ export function AttemptQuestionNavigator({
   return (
     <Card className={tutorCardCn('min-w-0 overflow-hidden')}>
       <CardHeader className="flex flex-row items-center justify-between gap-3 space-y-0">
-        <CardTitle className="text-base font-medium">Question attempts</CardTitle>
+        <CardTitle className="text-base font-medium">
+          Question attempts
+        </CardTitle>
         <SegmentedControl
           value={view}
           onValueChange={setView}
@@ -328,9 +368,12 @@ export function AttemptQuestionNavigator({
 }
 
 function ResultBadge({ result }: { result: SetAttemptQuestion['result'] }) {
-  if (result === 'correct') return <Badge className="bg-emerald-500">Correct</Badge>
-  if (result === 'partial') return <Badge className="bg-amber-500">Partially correct</Badge>
-  if (result === 'incorrect') return <Badge variant="destructive">Incorrect</Badge>
+  if (result === 'correct')
+    return <Badge className="bg-emerald-500">Correct</Badge>
+  if (result === 'partial')
+    return <Badge className="bg-amber-500">Partially correct</Badge>
+  if (result === 'incorrect')
+    return <Badge variant="destructive">Incorrect</Badge>
   return <Badge variant="destructive">Not answered</Badge>
 }
 
@@ -350,7 +393,9 @@ function TimingMeter({
     <div className="space-y-1.5">
       <div className="flex justify-between gap-3 text-xs">
         <span className="text-muted-foreground">{label}</span>
-        <span className="font-medium tabular-nums">{value != null ? formatTimeSeconds(value) : '—'}</span>
+        <span className="font-medium tabular-nums">
+          {value != null ? formatTimeSeconds(value) : '—'}
+        </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
         <div
@@ -358,7 +403,7 @@ function TimingMeter({
             'h-full rounded-full',
             tone === 'primary' && 'bg-primary',
             tone === 'muted' && 'bg-muted-foreground/55',
-            tone === 'amber' && 'bg-amber-500'
+            tone === 'amber' && 'bg-amber-500',
           )}
           style={{ width: `${width}%` }}
         />
@@ -388,7 +433,7 @@ export function AttemptQuestionReview({
     attempt.timeSpentSeconds ?? 0,
     attempt.averageTimeSeconds ?? 0,
     attempt.timeBurdenSeconds ?? 0,
-    1
+    1,
   )
 
   return (
@@ -403,12 +448,14 @@ export function AttemptQuestionReview({
                   'h-4 w-4',
                   attempt.isFlagged
                     ? 'fill-amber-500 text-amber-500'
-                    : 'text-muted-foreground/45'
+                    : 'text-muted-foreground/45',
                 )}
               />
             </CardTitle>
             <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <span>Points: {attempt.score ?? 0} / {maxPoints}</span>
+              <span>
+                Points: {attempt.score ?? 0} / {maxPoints}
+              </span>
               <ResultBadge result={attempt.result} />
             </div>
           </div>
@@ -428,7 +475,9 @@ export function AttemptQuestionReview({
               size="icon"
               className={tutorBtnIconOutline}
               disabled={selectedIndex === questions.length - 1}
-              onClick={() => onSelect(Math.min(questions.length - 1, selectedIndex + 1))}
+              onClick={() =>
+                onSelect(Math.min(questions.length - 1, selectedIndex + 1))
+              }
               aria-label="Next question"
             >
               <ArrowRight className="h-4 w-4" />
@@ -448,7 +497,9 @@ export function AttemptQuestionReview({
       <div className="min-w-0 space-y-4">
         <Card className={tutorCardCn()}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Answer explanation</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Answer explanation
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
             {question.answerExplanation || question.answerExplanationJson ? (
@@ -458,21 +509,24 @@ export function AttemptQuestionReview({
                 textTone="theme"
                 paragraphSpacing
               />
-            ) : (
-              question.options.some(
+            ) : question.options.some(
                 (option) =>
-                  option.answerExplanation || option.answerExplanationJson
+                  option.answerExplanation || option.answerExplanationJson,
               ) ? null : (
-                <p className="text-sm text-muted-foreground">No explanation available.</p>
-              )
+              <p className="text-sm text-muted-foreground">
+                No explanation available.
+              </p>
             )}
             {question.options
               .filter(
                 (option) =>
-                  option.answerExplanation || option.answerExplanationJson
+                  option.answerExplanation || option.answerExplanationJson,
               )
               .map((option) => (
-                <div key={option.id} className="rounded-md border border-border p-3">
+                <div
+                  key={option.id}
+                  className="rounded-md border border-border p-3"
+                >
                   <div className="mb-1 text-xs font-medium text-muted-foreground">
                     Option {String.fromCharCode(65 + option.index)}
                   </div>
@@ -489,10 +543,16 @@ export function AttemptQuestionReview({
 
         <Card className={tutorCardCn()}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Question timing</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Question timing
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <TimingMeter label="Your time" value={attempt.timeSpentSeconds} max={timingMax} />
+            <TimingMeter
+              label="Your time"
+              value={attempt.timeSpentSeconds}
+              max={timingMax}
+            />
             {attempt.averageTimeSeconds != null ? (
               <TimingMeter
                 label="Full-mark attempt average"
@@ -514,7 +574,9 @@ export function AttemptQuestionReview({
 
         <Card className={tutorCardCn()}>
           <CardHeader className="pb-3">
-            <CardTitle className="text-base font-medium">Question properties</CardTitle>
+            <CardTitle className="text-base font-medium">
+              Question properties
+            </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-start justify-between gap-4">
@@ -534,7 +596,9 @@ export function AttemptQuestionReview({
               {attempt.questionTags.length > 0 ? (
                 <div className="flex min-w-0 flex-wrap justify-end gap-1.5">
                   {attempt.questionTags.map((tag) => (
-                    <Badge key={tag.name} variant="outline">{tag.name}</Badge>
+                    <Badge key={tag.name} variant="outline">
+                      {tag.name}
+                    </Badge>
                   ))}
                 </div>
               ) : (
@@ -558,8 +622,8 @@ export function AttemptQuestionReview({
                           100,
                           Math.max(
                             0,
-                            ucatQuestionDifficultyPercent(attempt.difficulty)
-                          )
+                            ucatQuestionDifficultyPercent(attempt.difficulty),
+                          ),
                         )}%`,
                       }}
                     />

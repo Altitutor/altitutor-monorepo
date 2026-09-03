@@ -597,9 +597,7 @@ async function loadGenerationInputs(
           .order("completed_at", { ascending: false })
           .limit(512),
       () =>
-        supabase
-          .from("vstudent_ucat_mocks")
-          .select("id, name, display_name"),
+        supabase.from("vstudent_ucat_mocks").select("id, name, display_name"),
       () =>
         supabase
           .from("vstudent_ucat_completed_mock_assets")
@@ -2019,7 +2017,9 @@ async function reconcileTasks(
         .order("started_at"),
       admin
         .from("student_question_set_attempts")
-        .select("id, question_set_id, attempted_at, completed_at, total_points")
+        .select(
+          "id, question_set_id, attempted_at, completed_at, total_points, study_plan_task_id",
+        )
         .eq("student_id", studentId)
         .is("student_ucat_mock_attempt_id", null)
         .gte("attempted_at", evidenceSince)
@@ -2075,26 +2075,21 @@ async function reconcileTasks(
       : [];
   });
   await runWithConcurrency(
-    ownershipClaims.map(
-      (claim) => async () => {
-        const { error } = await admin.rpc(
-          "claim_ucat_study_plan_learning_ownership",
-          {
-            p_student_id: studentId,
-            p_progress_id: claim.progressId,
-            p_study_plan_task_id: claim.taskId,
-          },
-        );
-        if (error) throw error;
-      },
-    ),
+    ownershipClaims.map((claim) => async () => {
+      const { error } = await admin.rpc(
+        "claim_ucat_study_plan_learning_ownership",
+        {
+          p_student_id: studentId,
+          p_progress_id: claim.progressId,
+          p_study_plan_task_id: claim.taskId,
+        },
+      );
+      if (error) throw error;
+    }),
     4,
   );
   for (const progress of learningRes.data ?? []) {
-    if (
-      progress.completed_at == null &&
-      progress.completion_percent < 100
-    ) {
+    if (progress.completed_at == null && progress.completion_percent < 100) {
       continue;
     }
     if (learningOwnerByModuleId.has(progress.learning_module_id)) continue;
@@ -2174,6 +2169,7 @@ async function reconcileTasks(
     } else if (task.task_type === "section_benchmark" && task.question_set_id) {
       const attempt = setRes.data?.find(
         (item) =>
+          item.study_plan_task_id === task.id &&
           item.question_set_id === task.question_set_id &&
           !usedActivities.has(item.id) &&
           item.completed_at,
@@ -2396,9 +2392,7 @@ async function loadScheduledAssetNames(
   const setIds = [
     ...new Set(taskRows.flatMap((task) => task.question_set_id ?? [])),
   ];
-  const mockIds = [
-    ...new Set(taskRows.flatMap((task) => task.mock_id ?? [])),
-  ];
+  const mockIds = [...new Set(taskRows.flatMap((task) => task.mock_id ?? []))];
   const [setRows, mockRows] = await Promise.all([
     setIds.length
       ? supabase

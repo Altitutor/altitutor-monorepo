@@ -32,6 +32,8 @@ export type SetAttemptRow = {
   scaledScore: number | null
   timeTakenSeconds: number | null
   setTimeLimitSeconds: number | null
+  /** Working pace applied to this attempt; null for fixed or untimed delivery. */
+  effectivePace: number | null
   studentSetSpeed: number | null
   studentExamSpeed: number | null
   wasTimed: boolean

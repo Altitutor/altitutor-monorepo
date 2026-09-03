@@ -21,6 +21,7 @@ export type AttemptReviewExamTimingMetrics = {
   setTimeLimitSeconds: number | null;
   /** Exam-pace time limit. When equal to setTimeLimitSeconds, exam speed is hidden. */
   examTimeLimitSeconds?: number | null;
+  effectivePace?: number | null;
   studentSetSpeed: number | null;
   studentExamSpeed: number | null;
 };
@@ -66,7 +67,10 @@ function MetricRow({
           <Tooltip>
             <TooltipTrigger asChild>
               <span className="inline-flex cursor-help text-muted-foreground/80">
-                <Info className="h-3.5 w-3.5" aria-label={`${label} explanation`} />
+                <Info
+                  className="h-3.5 w-3.5"
+                  aria-label={`${label} explanation`}
+                />
               </span>
             </TooltipTrigger>
             <TooltipContent side="top" className="max-w-[280px]">
@@ -138,6 +142,13 @@ function ExamTimingCardContent({
             : "How fast you completed this set vs its time limit. 1x uses the full limit; above 1x means you finished early."
         }
       />
+      {scopeLabel === "set" && timing.effectivePace != null ? (
+        <MetricRow
+          label="Attempt pace"
+          value={formatSpeedMultiplier(timing.effectivePace)}
+          tooltip="The exam-relative working pace applied when this attempt began. Lower than 1x allowed more time."
+        />
+      ) : null}
       {showExamSpeed ? (
         <MetricRow
           label="Exam speed"
@@ -187,7 +198,10 @@ export function AttemptReviewTimingCard(props: AttemptReviewTimingCardProps) {
   const { className } = props;
 
   return (
-    <Card id="tour-attempt-timing" className={cn(UCAT_CARD_CHROME, "h-full", className)}>
+    <Card
+      id="tour-attempt-timing"
+      className={cn(UCAT_CARD_CHROME, "h-full", className)}
+    >
       <CardHeader className="pb-2">
         <CardTitle className="text-base font-medium">Timing</CardTitle>
       </CardHeader>

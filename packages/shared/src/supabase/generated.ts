@@ -37418,6 +37418,10 @@ export type Database = {
           attempt_id: string | null
           attempted_at: string | null
           completed_at: string | null
+          effective_pace_multiplier: number | null
+          effective_timing_mode:
+            | Database["public"]["Enums"]["ucat_question_set_timing_mode"]
+            | null
           scaled_score: number | null
           score_points: number | null
           set_id: string | null
@@ -37430,7 +37434,9 @@ export type Database = {
           student_name: string | null
           student_set_speed: number | null
           student_ucat_mock_attempt_id: string | null
+          study_plan_task_id: string | null
           time_taken_seconds: number | null
+          timing_source: string | null
           total_points: number | null
           was_timed: boolean | null
         }

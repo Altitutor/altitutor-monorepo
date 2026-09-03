@@ -26,9 +26,16 @@ export function getLaunchConflictAttempt(
   active: ActiveExamAttempt | null,
   kind: ExamAttemptKind,
   resourceId: string,
+  studyPlanTaskId?: string | null,
 ): ActiveExamAttempt | null {
   if (!active) return null;
   if (isAttemptAtResults(active)) return null;
-  if (active.kind === kind && active.resourceId === resourceId) return null;
+  if (
+    active.kind === kind &&
+    active.resourceId === resourceId &&
+    (!studyPlanTaskId || active.studyPlanTaskId === studyPlanTaskId)
+  ) {
+    return null;
+  }
   return active;
 }

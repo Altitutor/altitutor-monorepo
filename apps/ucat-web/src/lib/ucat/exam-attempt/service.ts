@@ -2,6 +2,7 @@ import type { Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import {
+  examFromStoredTiming,
   resolveExamForCatchUp,
   toStoredExamTiming,
 } from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
@@ -11,10 +12,14 @@ import {
 } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import { buildFinalAnswersFromEngineSnapshot } from "@/lib/ucat/exam-attempt/build-final-answers";
 import { buildCatchUpPersistence } from "@/lib/ucat/exam-attempt/catch-up-persistence";
-import { computeSegmentEndsAt } from "@/lib/ucat/exam-attempt/timing";
+import {
+  computeSegmentEndsAt,
+  resolveSyncedSegmentEndsAt,
+} from "@/lib/ucat/exam-attempt/timing";
 import type {
   ActiveExamAttempt,
   BeginExamAttemptInput,
+  ExamAttemptTimingSnapshot,
   ExamAttemptKind,
   ExamEngineSnapshot,
   QuestionActiveTimingContext,
@@ -27,13 +32,7 @@ import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice
 
 type AdminClient = SupabaseClient;
 
-export type StoredExamTiming = {
-  setModeTiming?: QuestionEngineExam["setModeTiming"];
-  mockTimingSegments?: QuestionEngineExam["mockTimingSegments"];
-  mockSetSummaries?: QuestionEngineExam["mockSetSummaries"];
-  timePerQuestionSeconds?: number | null;
-  practiceSessionTimeLimitSeconds?: number | null;
-};
+export type StoredExamTiming = ExamAttemptTimingSnapshot;
 
 export type StoredExamSnapshot = {
   v: 1;
@@ -221,6 +220,7 @@ function rowToActiveAttempt(
     wasTimed?: boolean;
     mockAttemptId?: string | null;
     practiceSessionId?: string | null;
+    studyPlanTaskId?: string | null;
     resultsHref: string;
   },
   stored: StoredExamSnapshot,
@@ -239,6 +239,8 @@ function rowToActiveAttempt(
     setAttemptIdsBySetId: stored.setAttemptIdsBySetId,
     practiceSessionId: row.practiceSessionId ?? null,
     wasTimed: row.wasTimed ?? false,
+    examTiming: stored.examTiming,
+    studyPlanTaskId: row.studyPlanTaskId ?? null,
   };
 }
 
@@ -280,7 +282,7 @@ export async function getActiveExamAttempt(
       ? await admin
           .from("student_question_set_attempts")
           .select(
-            "id, question_set_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed, student_ucat_mock_attempt_id",
+            "id, question_set_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed, student_ucat_mock_attempt_id, study_plan_task_id",
           )
           .eq("id", activeSlot.attempt_id)
           .eq("student_id", studentId)
@@ -354,6 +356,7 @@ export async function getActiveExamAttempt(
           resourceId: setRes.data.question_set_id,
           label,
           wasTimed: setRes.data.was_timed,
+          studyPlanTaskId: setRes.data.study_plan_task_id,
           resultsHref,
         },
         stored,
@@ -957,14 +960,12 @@ async function persistSnapshot(
     exam?: StoredExamSnapshot["exam"];
     examTiming?: StoredExamTiming;
     mockAttemptId?: string | null;
+    persistedAttempt?: PersistedAttemptSnapshot;
   },
 ): Promise<Record<string, string> | null> {
-  const persisted = await loadPersistedAttemptSnapshot(
-    admin,
-    studentId,
-    kind,
-    attemptId,
-  );
+  const persisted =
+    input.persistedAttempt ??
+    (await loadPersistedAttemptSnapshot(admin, studentId, kind, attemptId));
   if (!persisted.inProgress) {
     if (kind === "practice" && !persisted.completed) {
       throw new PracticeSessionEndedError();
@@ -1029,7 +1030,7 @@ async function persistSnapshot(
       }),
       ...input.exam,
     },
-    examTiming: input.examTiming ?? persisted.stored?.examTiming,
+    examTiming: persisted.stored?.examTiming ?? input.examTiming,
     setAttemptIdsBySetId,
     mockAttemptId,
   });
@@ -1128,6 +1129,7 @@ async function createExamAttemptRecords(
     wasTimed: boolean;
     firstSetId?: string;
     firstSetAttemptId?: string | null;
+    studyPlanTaskId?: string | null;
   },
 ): Promise<void> {
   const rpcClient = admin as unknown as {
@@ -1146,6 +1148,7 @@ async function createExamAttemptRecords(
     p_was_timed: input.wasTimed,
     p_first_set_id: input.firstSetId ?? null,
     p_first_set_attempt_id: input.firstSetAttemptId ?? null,
+    p_study_plan_task_id: input.studyPlanTaskId ?? null,
   });
   if (error) throw new Error(error.message);
 }
@@ -1159,6 +1162,12 @@ export async function beginExamAttempt(
 ): Promise<{ attempt: ActiveExamAttempt; resumed: boolean }> {
   const active = await getActiveExamAttempt(admin, studentId);
   if (active?.kind === input.kind && active.resourceId === input.resourceId) {
+    if (
+      input.studyPlanTaskId &&
+      active.studyPlanTaskId !== input.studyPlanTaskId
+    ) {
+      throw new Error("EXAM_ATTEMPT_IN_PROGRESS");
+    }
     return { attempt: active, resumed: true };
   }
   if (active) {
@@ -1209,7 +1218,19 @@ export async function beginExamAttempt(
       stored: enrichedStored,
       endsAt,
       wasTimed: attemptWasTimed,
+      studyPlanTaskId: input.studyPlanTaskId,
     });
+    const { data: createdAttempt, error: createdAttemptError } = await admin
+      .from("student_question_set_attempts")
+      .select(
+        "engine_snapshot, current_segment_ends_at, was_timed, study_plan_task_id",
+      )
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .single();
+    if (createdAttemptError) throw new Error(createdAttemptError.message);
+    const createdStored =
+      parseStoredSnapshot(createdAttempt.engine_snapshot) ?? enrichedStored;
     const label =
       examMeta.label ?? (await loadSetLabel(admin, input.resourceId));
     const resultsHref = await buildResultsHref(
@@ -1227,12 +1248,14 @@ export async function beginExamAttempt(
         resumeHref: resumeHref("set", input.resourceId),
         exitHref: examMeta.exitHref,
         resultsHref,
-        currentSegmentEndsAt: endsAt,
-        engineSnapshot: input.engineSnapshot,
+        currentSegmentEndsAt: createdAttempt.current_segment_ends_at,
+        engineSnapshot: createdStored.state,
         mockAttemptId: null,
         setAttemptIdsBySetId: { [input.resourceId]: attemptId },
         practiceSessionId: null,
-        wasTimed: attemptWasTimed,
+        wasTimed: createdAttempt.was_timed,
+        examTiming: createdStored.examTiming,
+        studyPlanTaskId: createdAttempt.study_plan_task_id,
       },
       resumed: false,
     };
@@ -1377,10 +1400,45 @@ export async function syncExamAttempt(
   currentSegmentEndsAt: string | null;
   setAttemptIdsBySetId: Record<string, string>;
 }> {
-  const currentSegmentEndsAt =
-    input.startSegmentTimeLimitSeconds !== undefined
-      ? computeSegmentEndsAt(input.startSegmentTimeLimitSeconds)
-      : input.currentSegmentEndsAt;
+  const persisted = await loadPersistedAttemptSnapshot(
+    admin,
+    studentId,
+    input.kind,
+    input.attemptId,
+  );
+  const timingSnapshot =
+    persisted.stored ??
+    (examTiming
+      ? wrapStoredSnapshot({
+          state: input.engineSnapshot,
+          exam:
+            examMeta ??
+            ({
+              sourceType:
+                input.kind === "set"
+                  ? "set"
+                  : input.kind === "mock"
+                    ? "mock"
+                    : "questionStem",
+              sourceId: input.attemptId,
+              practice: input.kind === "practice",
+            } satisfies StoredExamSnapshot["exam"]),
+          examTiming,
+          setAttemptIdsBySetId: input.setAttemptIdsBySetId ?? {},
+          mockAttemptId: mockAttemptId ?? null,
+        })
+      : null);
+  const timingExam = timingSnapshot
+    ? examFromStoredTiming(timingSnapshot)
+    : null;
+  const currentSegmentEndsAt = resolveSyncedSegmentEndsAt({
+    exam: timingExam,
+    state: input.engineSnapshot as Parameters<
+      typeof resolveSyncedSegmentEndsAt
+    >[0]["state"],
+    persistedEndsAt: persisted.currentSegmentEndsAt,
+    startSegment: input.startSegmentTimeLimitSeconds !== undefined,
+  });
   const setAttemptIdsBySetId =
     (await persistSnapshot(admin, studentId, input.kind, input.attemptId, {
       ...input,
@@ -1388,6 +1446,7 @@ export async function syncExamAttempt(
       exam: examMeta,
       examTiming,
       mockAttemptId,
+      persistedAttempt: persisted,
     })) ??
     input.setAttemptIdsBySetId ??
     {};

@@ -56,7 +56,9 @@ export async function getStudentSets(): Promise<StudentSetRow[]> {
   return (data ?? []) as StudentSetRow[];
 }
 
-export async function getStudentSet(setId: string): Promise<StudentSetRow | null> {
+export async function getStudentSet(
+  setId: string,
+): Promise<StudentSetRow | null> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_question_sets")
@@ -87,7 +89,8 @@ export async function getSetQuestionCount(setId: string): Promise<number> {
     .select("stems")
     .eq("id", setId)
     .maybeSingle();
-  if (error) throw new Error(error.message ?? "Failed to load set question count");
+  if (error)
+    throw new Error(error.message ?? "Failed to load set question count");
   return countQuestionsFromStems(data?.stems);
 }
 
@@ -98,6 +101,7 @@ export type SetAttemptRow = {
   scorePoints: number | null;
   totalPoints: number | null;
   scaledScore: number | null;
+  effectivePace: number | null;
 };
 
 export async function getSetAttempts(setId: string): Promise<SetAttemptRow[]> {
@@ -105,7 +109,7 @@ export async function getSetAttempts(setId: string): Promise<SetAttemptRow[]> {
   const { data, error } = await supabase
     .from("vstudent_ucat_my_set_attempts")
     .select(
-      "id, attempted_at, completed_at, score_points, total_points, scaled_score",
+      "id, attempted_at, completed_at, score_points, total_points, scaled_score, effective_pace_multiplier",
     )
     .eq("question_set_id", setId)
     .not("completed_at", "is", null)
@@ -118,6 +122,7 @@ export async function getSetAttempts(setId: string): Promise<SetAttemptRow[]> {
     scorePoints: row.score_points,
     totalPoints: row.total_points,
     scaledScore: row.scaled_score,
+    effectivePace: row.effective_pace_multiplier,
   }));
 }
 

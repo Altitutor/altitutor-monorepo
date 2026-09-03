@@ -143,3 +143,19 @@ export function computeSegmentEndsAt(
   if (timeLimitSeconds == null || timeLimitSeconds <= 0) return null;
   return new Date(now + timeLimitSeconds * 1000).toISOString();
 }
+
+export function resolveSyncedSegmentEndsAt(input: {
+  exam: QuestionEngineExam | null;
+  state: QuestionEngineState;
+  persistedEndsAt: string | null;
+  startSegment: boolean;
+  now?: number;
+}): string | null {
+  const authoritativeLimit = input.exam
+    ? getCurrentSegmentTimeLimitSeconds(input.exam, input.state)
+    : null;
+  if (input.startSegment) {
+    return computeSegmentEndsAt(authoritativeLimit, input.now);
+  }
+  return authoritativeLimit == null ? null : input.persistedEndsAt;
+}

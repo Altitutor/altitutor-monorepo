@@ -29,7 +29,10 @@ export function SetAttemptDetailPage({
   mockAttemptId,
 }: SetAttemptDetailPageProps) {
   const { data, isLoading, error } = useSetAttemptDetail(studentId, attemptId)
-  const { data: mockData } = useMockAttemptDetail(studentId, mockAttemptId ?? null)
+  const { data: mockData } = useMockAttemptDetail(
+    studentId,
+    mockAttemptId ?? null,
+  )
   const [selectedQuestionIndex, setSelectedQuestionIndex] = useState(0)
 
   const categoryBreakdown = useMemo(() => {
@@ -69,7 +72,11 @@ export function SetAttemptDetailPage({
   if (isLoading) {
     return (
       <div className="space-y-6 py-8 md:py-10">
-        <UcatPageHeader title="Loading..." backHref={backHref} backLabel="Back" />
+        <UcatPageHeader
+          title="Loading..."
+          backHref={backHref}
+          backLabel="Back"
+        />
         <div className="animate-pulse space-y-6">
           <div className="h-32 rounded-xl bg-muted" />
           <div className="h-64 rounded-xl bg-muted" />
@@ -83,11 +90,15 @@ export function SetAttemptDetailPage({
       <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title="Set attempt"
-          description={error ? 'Could not load set attempt.' : 'No data available.'}
+          description={
+            error ? 'Could not load set attempt.' : 'No data available.'
+          }
           backHref={backHref}
           backLabel="Back"
         />
-        {error ? <p className="text-sm text-destructive">{error.message}</p> : null}
+        {error ? (
+          <p className="text-sm text-destructive">{error.message}</p>
+        ) : null}
       </div>
     )
   }
@@ -115,6 +126,7 @@ export function SetAttemptDetailPage({
             timeTakenSeconds: data.timeTakenSeconds,
             timeLimitSeconds: data.setTimeLimitSeconds,
             examTimeLimitSeconds: data.examTimeLimitSeconds,
+            effectivePace: data.effectivePace,
             studentSpeed: data.studentSetSpeed,
             studentExamSpeed: data.studentExamSpeed,
           }}
