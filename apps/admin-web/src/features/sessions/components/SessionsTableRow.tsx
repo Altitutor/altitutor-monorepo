@@ -29,12 +29,12 @@ import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
 import { STUDENT_PLANNED_STATUSES } from '../constants/attendanceStatuses';
 import type { StudentPlannedStatus } from '../constants/attendanceStatuses';
 import { SessionInvoiceCell } from './SessionInvoiceCell';
-import type {
-  SessionInvoiceDetails,
-  SessionInvoicePreview,
-} from '../hooks/useStudentSessionBillingDetails';
+import type { SessionInvoiceDetails, SessionInvoicePreview } from '../hooks/useStudentSessionBillingDetails';
 
-type TutorLogMap = Record<string, { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }>;
+type TutorLogMap = Record<
+  string,
+  { id: string; created_by: string; created_by_name: { first_name: string; last_name: string } }
+>;
 
 function studentHasLoggedAbsence(planned: StudentPlannedStatus | undefined): boolean {
   if (!planned) return false;
@@ -86,7 +86,12 @@ export interface SessionsTableRowProps {
     swappedStaffName?: string;
     sessionShortName: string;
   }) => void;
-  onRemoveStudentFromSession?: (sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => void;
+  onRemoveStudentFromSession?: (
+    sessionId: string,
+    studentId: string,
+    studentName: string,
+    sessionShortName?: string,
+  ) => void;
   onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
   modals: UseSessionsTableModalsReturn;
   currentStaff: { id: string } | null | undefined;
@@ -151,13 +156,11 @@ export function SessionsTableRow({
 
   const showClass = visibleColumns.includes('class') && !classId && !hideClassColumn && !hideTypeColumn;
   const showStaff = visibleColumns.includes('staff') && !isStudentAttendanceView && !isStaffAttendanceView;
-  const showStudents = visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView;
+  const showStudents =
+    visibleColumns.includes('students') && !hideStudentsColumn && !isStudentAttendanceView && !isStaffAttendanceView;
 
   return (
-    <TableRow
-      className="cursor-pointer hover:bg-muted/50"
-      onClick={() => onSessionClick(session.id)}
-    >
+    <TableRow className="cursor-pointer hover:bg-muted/50" onClick={() => onSessionClick(session.id)}>
       {visibleColumns.includes('date') && (
         <TableCell>
           <div className="flex items-center gap-2">
@@ -170,9 +173,7 @@ export function SessionsTableRow({
           </div>
         </TableCell>
       )}
-      {visibleColumns.includes('time') && (
-        <TableCell className="font-medium">{getTimeRange(session)}</TableCell>
-      )}
+      {visibleColumns.includes('time') && <TableCell className="font-medium">{getTimeRange(session)}</TableCell>}
       {showClass && (
         <TableCell className="min-w-0 max-w-[14rem]">
           <SessionTableClassColumn
@@ -268,9 +269,7 @@ export function SessionsTableRow({
               const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
               if (!selectedStudent) return <span className="text-muted-foreground text-sm">-</span>;
               const plannedStudentIds = new Set(
-                studentList
-                  .filter((s) => s.sessions_students_id != null)
-                  .map((s) => s.id)
+                studentList.filter((s) => s.sessions_students_id != null).map((s) => s.id),
               );
               const attendance = getStudentAttendanceStatus(selectedStudent, hasTutorLog, plannedStudentIds);
               return (
@@ -328,9 +327,7 @@ export function SessionsTableRow({
               const selectedStudent = studentList.find((s) => s.id === studentId) || studentList[0];
               if (!selectedStudent) return <span className="text-muted-foreground text-sm">-</span>;
               const plannedStudentIds = new Set(
-                studentList
-                  .filter((s) => s.sessions_students_id != null)
-                  .map((s) => s.id)
+                studentList.filter((s) => s.sessions_students_id != null).map((s) => s.id),
               );
               const attendance = getStudentAttendanceStatus(selectedStudent, hasTutorLog, plannedStudentIds);
               return <AttendanceCell status={attendance.actualStatus} />;
@@ -340,7 +337,9 @@ export function SessionsTableRow({
               const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
               if (!selectedStaff) return <span className="text-muted-foreground text-sm">-</span>;
               const attendance = getStaffAttendanceStatus(selectedStaff, hasTutorLog);
-              return <AttendanceCell status={attendance.actualStatus} staffType={selectedStaff.actual_type ?? undefined} />;
+              return (
+                <AttendanceCell status={attendance.actualStatus} staffType={selectedStaff.actual_type ?? undefined} />
+              );
             })()
           ) : (
             <span className="text-muted-foreground text-sm">-</span>
@@ -354,9 +353,7 @@ export function SessionsTableRow({
             const invoicePayload = selectedStudent?.invoice_status_payload ?? null;
             const sessionsStudentsId = selectedStudent?.sessions_students_id;
             const isUninvoiced =
-              isStudentAttendanceView &&
-              sessionsStudentsId &&
-              uninvoicedSessionsStudentsIds?.has(sessionsStudentsId);
+              isStudentAttendanceView && sessionsStudentsId && uninvoicedSessionsStudentsIds?.has(sessionsStudentsId);
             const invoiceDetails = invoicePayload?.invoice_id
               ? invoiceDetailsById?.[invoicePayload.invoice_id]
               : undefined;
@@ -453,7 +450,12 @@ interface SessionsTableRowStudentActionsProps {
     rescheduledSessionTitle?: string;
     sessionShortName: string;
   }) => void;
-  onRemoveStudentFromSession?: (sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => void;
+  onRemoveStudentFromSession?: (
+    sessionId: string,
+    studentId: string,
+    studentName: string,
+    sessionShortName?: string,
+  ) => void;
   modals: UseSessionsTableModalsReturn;
   currentStaff: { id: string } | null | undefined;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
@@ -485,7 +487,7 @@ function SessionsTableRowStudentActions({
   const attendance = selectedStudent
     ? getStudentAttendanceStatus(selectedStudent, hasTutorLog, plannedStudentIds)
     : null;
-  const canLogAbsence = !!selectedStudent && !selectedStudent.invoice_status_payload;
+  const canLogAbsence = !!selectedStudent;
   const canOpenAbsenceDialog = !!currentStaff && !!studentId;
   const loggedStudentAbsence = studentHasLoggedAbsence(attendance?.plannedStatus);
   const canUndoStudent =
@@ -509,11 +511,9 @@ function SessionsTableRowStudentActions({
     !!selectedStudent;
   const logAbsenceReason = hasTutorLog
     ? 'Session already has a tutor log.'
-    : selectedStudent?.invoice_status_payload
-      ? 'Student has an invoice item for this session.'
-      : !canLogAbsence
-        ? 'No absence to log for this student.'
-        : '';
+    : !canLogAbsence
+      ? 'No absence to log for this student.'
+      : '';
   const undoReason =
     canUndoStudent && selectedStudent && attendance
       ? ''
@@ -574,7 +574,8 @@ function SessionsTableRowStudentActions({
             onClick={(e) => {
               e.stopPropagation();
               if (canUndoStudent && selectedStudent && attendance) {
-                const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
+                const studentName =
+                  `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
                 onUndoLogAbsenceStudent({
                   studentId: selectedStudent.id,
                   studentName,
@@ -599,12 +600,13 @@ function SessionsTableRowStudentActions({
               className={cn(
                 !canRemoveStudent && 'opacity-60 text-muted-foreground',
                 canRemoveStudent &&
-                  '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                  '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10',
               )}
               onClick={(e) => {
                 e.stopPropagation();
                 if (canRemoveStudent && selectedStudent) {
-                  const studentName = `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
+                  const studentName =
+                    `${selectedStudent.first_name ?? ''} ${selectedStudent.last_name ?? ''}`.trim() || 'Student';
                   onRemoveStudentFromSession(session.id, selectedStudent.id, studentName, sessionShortName);
                 } else {
                   toast({ description: removeStudentReason, variant: 'destructive' });
@@ -669,7 +671,8 @@ function SessionsTableRowDefaultActions({
     selectedStaff?.sessions_staff_id &&
     (staffAttendance?.plannedStatus === 'absent' || staffAttendance?.plannedStatus === 'swapped');
   const canRemoveStaff = !hasTutorLog && !!onRemoveStaffFromSession && !!selectedStaff;
-  const undoStaffReason = canUndoStaff && selectedStaff && staffAttendance ? '' : 'No logged absence to undo for this staff.';
+  const undoStaffReason =
+    canUndoStaff && selectedStaff && staffAttendance ? '' : 'No logged absence to undo for this staff.';
   const removeStaffReason = canRemoveStaff
     ? ''
     : hasTutorLog
@@ -691,7 +694,8 @@ function SessionsTableRowDefaultActions({
               onClick={(e) => {
                 e.stopPropagation();
                 if (canUndoStaff && selectedStaff && staffAttendance) {
-                  const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
+                  const staffName =
+                    `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
                   onUndoLogAbsenceStaff({
                     staffId: selectedStaff.id,
                     staffName,
@@ -751,12 +755,13 @@ function SessionsTableRowDefaultActions({
               className={cn(
                 !canRemoveStaff && 'opacity-60 text-muted-foreground',
                 canRemoveStaff &&
-                  '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10'
+                  '!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10',
               )}
               onClick={(e) => {
                 e.stopPropagation();
                 if (canRemoveStaff && selectedStaff) {
-                  const staffName = `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
+                  const staffName =
+                    `${selectedStaff.first_name ?? ''} ${selectedStaff.last_name ?? ''}`.trim() || 'Staff';
                   onRemoveStaffFromSession(session.id, selectedStaff.id, staffName, sessionShortName);
                 } else {
                   toast({ description: removeStaffReason, variant: 'destructive' });

@@ -10,14 +10,7 @@ import {
   DropdownMenuTrigger,
   Input,
 } from '@altitutor/ui';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
 import { MoreHorizontal, Search, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useStudentAttendance, type StudentAttendanceItem } from '../../hooks/useStudentAttendance';
@@ -48,6 +41,7 @@ type Step3StudentAttendanceProps = {
   onAddParentToSession?: (parentId: string) => Promise<void>;
   /** Default `both`: student + parent blocks. Use split sections in meeting combined step. */
   section?: 'both' | 'students' | 'parents';
+  showBillingConsequences?: boolean;
 };
 
 export function Step3StudentAttendance({
@@ -64,6 +58,7 @@ export function Step3StudentAttendance({
   onRemoveStudentFromSession,
   onAddParentToSession,
   section = 'both',
+  showBillingConsequences = false,
 }: Step3StudentAttendanceProps) {
   const queryClient = useQueryClient();
   const {
@@ -84,20 +79,14 @@ export function Step3StudentAttendance({
     onUpdate,
   });
 
-  const allowAbsenceLogging = Boolean(
-    sessionData?.session?.class_id || sessionData?.session?.admin_shift_id
-  );
+  const allowAbsenceLogging = Boolean(sessionData?.session?.class_id || sessionData?.session?.admin_shift_id);
 
   const studentSessionItems = useMemo(
     () =>
       sessionData?.students?.length != null
-        ? buildSessionStudentItemsForTutorLog(
-            sessionData.students,
-            studentAttendance,
-            allStudents
-          )
+        ? buildSessionStudentItemsForTutorLog(sessionData.students, studentAttendance, allStudents)
         : [],
-    [sessionData?.students, studentAttendance, allStudents]
+    [sessionData?.students, studentAttendance, allStudents],
   );
 
   const actualStudentMap = useMemo(() => {
@@ -110,7 +99,7 @@ export function Step3StudentAttendance({
 
   const studentsProcessed = useMemo(
     () => processSessionStudents(studentSessionItems, actualStudentMap, true),
-    [studentSessionItems, actualStudentMap]
+    [studentSessionItems, actualStudentMap],
   );
 
   if (isLoading) {
@@ -170,9 +159,7 @@ export function Step3StudentAttendance({
                     ) : (
                       <TableHead className="min-w-0 w-[35%]">Planned</TableHead>
                     )}
-                    {!allowAbsenceLogging ? (
-                      <TableHead className="min-w-0 w-[25%]">Actual</TableHead>
-                    ) : null}
+                    {!allowAbsenceLogging ? <TableHead className="min-w-0 w-[25%]">Actual</TableHead> : null}
                     <TableHead className="w-12" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
@@ -186,9 +173,7 @@ export function Step3StudentAttendance({
                       <Checkbox
                         id={`student-${data.student.id}`}
                         checked={isAttended}
-                        onCheckedChange={(checked) =>
-                          handleAttendanceChange(data.student.id, checked === true)
-                        }
+                        onCheckedChange={(checked) => handleAttendanceChange(data.student.id, checked === true)}
                       />
                     );
 
@@ -209,14 +194,28 @@ export function Step3StudentAttendance({
                                 linkText={data.rescheduledDate || undefined}
                               />
                             </TableCell>
-                            <TableCell className="min-w-0 align-middle">{actualCheckbox}</TableCell>
+                            <TableCell className="min-w-0 align-middle">
+                              {actualCheckbox}
+                              {showBillingConsequences && isAttended && data.plannedAbsence && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                  Attendance overrides the absence. Any credit will be restored as a new charge.
+                                </p>
+                              )}
+                            </TableCell>
                           </>
                         ) : (
                           <>
                             <TableCell className="min-w-0 align-middle">
                               <AttendanceCell status={data.plannedStatus} />
                             </TableCell>
-                            <TableCell className="min-w-0 align-middle">{actualCheckbox}</TableCell>
+                            <TableCell className="min-w-0 align-middle">
+                              {actualCheckbox}
+                              {showBillingConsequences && isAttended && data.plannedAbsence && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                  Attendance overrides the absence. Any credit will be restored as a new charge.
+                                </p>
+                              )}
+                            </TableCell>
                           </>
                         )}
                         <TableCell className="align-middle text-right">
@@ -302,9 +301,7 @@ export function Step3StudentAttendance({
                       </button>
                     ))}
                     {filteredStudents.length === 0 && (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        No students found
-                      </div>
+                      <div className="text-center py-4 text-muted-foreground text-sm">No students found</div>
                     )}
                   </div>
 
@@ -323,9 +320,7 @@ export function Step3StudentAttendance({
           {section === 'both' && (
             <>
               <div className="border-t pt-4 mt-4" />
-              <p className="text-sm text-muted-foreground">
-                Record whether each linked parent attended this meeting.
-              </p>
+              <p className="text-sm text-muted-foreground">Record whether each linked parent attended this meeting.</p>
             </>
           )}
           {sessionParents.length === 0 ? (
@@ -361,9 +356,7 @@ export function Step3StudentAttendance({
                             <Checkbox
                               id={`parent-${p.id}`}
                               checked={getParentAttendance(p.id)}
-                              onCheckedChange={(checked) =>
-                                setParentAttendance(p.id, checked === true)
-                              }
+                              onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
                             />
                           </TableCell>
                         </>
@@ -372,9 +365,7 @@ export function Step3StudentAttendance({
                           <Checkbox
                             id={`parent-${p.id}`}
                             checked={getParentAttendance(p.id)}
-                            onCheckedChange={(checked) =>
-                              setParentAttendance(p.id, checked === true)
-                            }
+                            onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
                           />
                         </TableCell>
                       )}

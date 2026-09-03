@@ -3,11 +3,7 @@
 import { Button } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useLogSessionFlow } from '../hooks/useLogSessionFlow';
-import {
-  getLogSessionStepTitle,
-  getAttendedStudentIds,
-  type LogSessionWizardFlow,
-} from '../utils/logSessionHelpers';
+import { getLogSessionStepTitle, getAttendedStudentIds, type LogSessionWizardFlow } from '../utils/logSessionHelpers';
 import { getShortSessionName } from '@/features/sessions/utils/session-helpers';
 import { AdminDialogShell } from '@/shared/components';
 import { cn } from '@/shared/utils';
@@ -104,7 +100,7 @@ export function LogSessionModal({
             'inline-flex items-center px-2 py-1 rounded-md font-semibold border',
             selectedStaff
               ? 'bg-primary/10 text-primary border-primary/20'
-              : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20'
+              : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20',
           )}
         >
           {staffSummaryName}
@@ -115,7 +111,7 @@ export function LogSessionModal({
             'inline-flex items-center px-2 py-1 rounded-md font-semibold border',
             selectedSession
               ? 'bg-primary/10 text-primary border-primary/20'
-              : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20'
+              : 'bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20',
           )}
         >
           {sessionSummaryName}
@@ -142,9 +138,7 @@ export function LogSessionModal({
             </svg>
           </div>
           <div className="text-lg font-semibold">Tutor log submitted successfully</div>
-          <div className="text-sm text-muted-foreground">
-            The session has been logged and saved.
-          </div>
+          <div className="text-sm text-muted-foreground">The session has been logged and saved.</div>
         </div>
       );
     }
@@ -209,9 +203,7 @@ export function LogSessionModal({
               onRemoveStudentFromSession={async (studentId) => {
                 await handleRemoveStudentFromSession(studentId);
                 updateFormData({
-                  studentAttendance: (formData.studentAttendance || []).filter(
-                    (a) => a.studentId !== studentId
-                  ),
+                  studentAttendance: (formData.studentAttendance || []).filter((a) => a.studentId !== studentId),
                 });
               }}
             />
@@ -225,12 +217,7 @@ export function LogSessionModal({
             />
           );
         case 3:
-          return (
-            <Step9Confirmation
-              title={getStepTitle()}
-              formData={formData}
-            />
-          );
+          return <Step9Confirmation title={getStepTitle()} formData={formData} />;
         default:
           return null;
       }
@@ -273,9 +260,7 @@ export function LogSessionModal({
               onRemoveStudentFromSession={async (studentId) => {
                 await handleRemoveStudentFromSession(studentId);
                 updateFormData({
-                  studentAttendance: (formData.studentAttendance || []).filter(
-                    (a) => a.studentId !== studentId
-                  ),
+                  studentAttendance: (formData.studentAttendance || []).filter((a) => a.studentId !== studentId),
                 });
               }}
             />
@@ -289,12 +274,7 @@ export function LogSessionModal({
             />
           );
         case 3:
-          return (
-            <Step9Confirmation
-              title={getStepTitle()}
-              formData={formData}
-            />
-          );
+          return <Step9Confirmation title={getStepTitle()} formData={formData} />;
         default:
           return null;
       }
@@ -359,11 +339,10 @@ export function LogSessionModal({
             onRemoveStudentFromSession={async (studentId) => {
               await handleRemoveStudentFromSession(studentId);
               updateFormData({
-                studentAttendance: (formData.studentAttendance || []).filter(
-                  (a) => a.studentId !== studentId
-                ),
+                studentAttendance: (formData.studentAttendance || []).filter((a) => a.studentId !== studentId),
               });
             }}
+            showBillingConsequences={adminMode}
           />
         );
       case 3:
@@ -411,12 +390,7 @@ export function LogSessionModal({
           />
         );
       case 8:
-        return (
-          <Step9Confirmation
-            title={getStepTitle()}
-            formData={formData}
-          />
-        );
+        return <Step9Confirmation title={getStepTitle()} formData={formData} />;
       default:
         return null;
     }
@@ -440,11 +414,7 @@ export function LogSessionModal({
                   key={index}
                   className={cn(
                     'flex-1 h-2 rounded-full transition-colors',
-                    index < currentStep
-                      ? 'bg-primary'
-                      : index === currentStep
-                        ? 'bg-primary/50'
-                        : 'bg-muted'
+                    index < currentStep ? 'bg-primary' : index === currentStep ? 'bg-primary/50' : 'bg-muted',
                   )}
                 />
               ))}
@@ -477,10 +447,7 @@ export function LogSessionModal({
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button
-                onClick={handleSubmit}
-                disabled={submissionState === 'submitting' || !canGoNext}
-              >
+              <Button onClick={handleSubmit} disabled={submissionState === 'submitting' || !canGoNext}>
                 {submissionState === 'submitting' ? 'Submitting...' : 'Submit log'}
               </Button>
             )}

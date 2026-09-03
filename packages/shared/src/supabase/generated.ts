@@ -2455,6 +2455,7 @@ export type Database = {
       credit_notes: {
         Row: {
           amount_cents: number
+          billing_adjustment_id: string | null
           created_at: string
           credit_amount_cents: number | null
           currency: string
@@ -2464,6 +2465,7 @@ export type Database = {
           out_of_band_amount_cents: number | null
           reason: string | null
           refund_amount_cents: number | null
+          source_invoice_item_id: string | null
           status: string
           stripe_credit_note_id: string
           updated_at: string
@@ -2471,6 +2473,7 @@ export type Database = {
         }
         Insert: {
           amount_cents: number
+          billing_adjustment_id?: string | null
           created_at?: string
           credit_amount_cents?: number | null
           currency?: string
@@ -2480,6 +2483,7 @@ export type Database = {
           out_of_band_amount_cents?: number | null
           reason?: string | null
           refund_amount_cents?: number | null
+          source_invoice_item_id?: string | null
           status?: string
           stripe_credit_note_id: string
           updated_at?: string
@@ -2487,6 +2491,7 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          billing_adjustment_id?: string | null
           created_at?: string
           credit_amount_cents?: number | null
           currency?: string
@@ -2496,12 +2501,27 @@ export type Database = {
           out_of_band_amount_cents?: number | null
           reason?: string | null
           refund_amount_cents?: number | null
+          source_invoice_item_id?: string | null
           status?: string
           stripe_credit_note_id?: string
           updated_at?: string
           voided_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "credit_notes_billing_adjustment_id_fkey"
+            columns: ["billing_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "session_billing_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_billing_adjustment_id_fkey"
+            columns: ["billing_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_session_billing_adjustments"
+            referencedColumns: ["adjustment_id"]
+          },
           {
             foreignKeyName: "credit_notes_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -2521,6 +2541,20 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_source_invoice_item_id_fkey"
+            columns: ["source_invoice_item_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_notes_source_invoice_item_id_fkey"
+            columns: ["source_invoice_item_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoice_items"
             referencedColumns: ["id"]
           },
         ]
@@ -3907,6 +3941,7 @@ export type Database = {
       invoice_items: {
         Row: {
           amount_cents: number
+          billing_adjustment_id: string | null
           created_at: string
           deleted_at: string | null
           description: string
@@ -3914,6 +3949,8 @@ export type Database = {
           invoice_id: string
           is_fee: boolean
           is_subsidy: boolean
+          line_kind: string | null
+          restores_credit_note_id: string | null
           session_id: string | null
           sessions_students_id: string | null
           stripe_invoice_item_id: string
@@ -3921,6 +3958,7 @@ export type Database = {
         }
         Insert: {
           amount_cents: number
+          billing_adjustment_id?: string | null
           created_at?: string
           deleted_at?: string | null
           description: string
@@ -3928,6 +3966,8 @@ export type Database = {
           invoice_id: string
           is_fee?: boolean
           is_subsidy?: boolean
+          line_kind?: string | null
+          restores_credit_note_id?: string | null
           session_id?: string | null
           sessions_students_id?: string | null
           stripe_invoice_item_id: string
@@ -3935,6 +3975,7 @@ export type Database = {
         }
         Update: {
           amount_cents?: number
+          billing_adjustment_id?: string | null
           created_at?: string
           deleted_at?: string | null
           description?: string
@@ -3942,12 +3983,28 @@ export type Database = {
           invoice_id?: string
           is_fee?: boolean
           is_subsidy?: boolean
+          line_kind?: string | null
+          restores_credit_note_id?: string | null
           session_id?: string | null
           sessions_students_id?: string | null
           stripe_invoice_item_id?: string
           student_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "invoice_items_billing_adjustment_id_fkey"
+            columns: ["billing_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "session_billing_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_billing_adjustment_id_fkey"
+            columns: ["billing_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_session_billing_adjustments"
+            referencedColumns: ["adjustment_id"]
+          },
           {
             foreignKeyName: "invoice_items_invoice_id_fkey"
             columns: ["invoice_id"]
@@ -3967,6 +4024,13 @@ export type Database = {
             columns: ["invoice_id"]
             isOneToOne: false
             referencedRelation: "vstudent_invoices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "invoice_items_restores_credit_note_id_fkey"
+            columns: ["restores_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
             referencedColumns: ["id"]
           },
           {
@@ -7675,6 +7739,188 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      session_billing_adjustments: {
+        Row: {
+          amount_cents: number | null
+          attempt_count: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          depends_on_adjustment_id: string | null
+          id: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["session_billing_adjustment_kind"]
+          last_error: string | null
+          max_attempts: number
+          next_attempt_at: string
+          reason_category: string
+          reason_note: string | null
+          sessions_students_id: string
+          source_credit_note_id: string | null
+          source_invoice_item_id: string | null
+          status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          updated_at: string
+        }
+        Insert: {
+          amount_cents?: number | null
+          attempt_count?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          depends_on_adjustment_id?: string | null
+          id?: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["session_billing_adjustment_kind"]
+          last_error?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          reason_category: string
+          reason_note?: string | null
+          sessions_students_id: string
+          source_credit_note_id?: string | null
+          source_invoice_item_id?: string | null
+          status?: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          updated_at?: string
+        }
+        Update: {
+          amount_cents?: number | null
+          attempt_count?: number
+          completed_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          currency?: string
+          depends_on_adjustment_id?: string | null
+          id?: string
+          idempotency_key?: string
+          kind?: Database["public"]["Enums"]["session_billing_adjustment_kind"]
+          last_error?: string | null
+          max_attempts?: number
+          next_attempt_at?: string
+          reason_category?: string
+          reason_note?: string | null
+          sessions_students_id?: string
+          source_credit_note_id?: string | null
+          source_invoice_item_id?: string | null
+          status?: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_billing_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_depends_on_adjustment_id_fkey"
+            columns: ["depends_on_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "session_billing_adjustments"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_depends_on_adjustment_id_fkey"
+            columns: ["depends_on_adjustment_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_session_billing_adjustments"
+            referencedColumns: ["adjustment_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_uninvoiced_sessions"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_void_invoice_sessions"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_source_credit_note_id_fkey"
+            columns: ["source_credit_note_id"]
+            isOneToOne: false
+            referencedRelation: "credit_notes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_source_invoice_item_id_fkey"
+            columns: ["source_invoice_item_id"]
+            isOneToOne: false
+            referencedRelation: "invoice_items"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_source_invoice_item_id_fkey"
+            columns: ["source_invoice_item_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_invoice_items"
             referencedColumns: ["id"]
           },
         ]
@@ -21853,6 +22099,167 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
+          },
+        ]
+      }
+      vadmin_reconciliation_session_billing_adjustments: {
+        Row: {
+          adjustment_id: string | null
+          amount_cents: number | null
+          attempt_count: number | null
+          created_at: string | null
+          currency: string | null
+          issue: string | null
+          kind:
+            | Database["public"]["Enums"]["session_billing_adjustment_kind"]
+            | null
+          last_error: string | null
+          max_attempts: number | null
+          next_attempt_at: string | null
+          reason_category: string | null
+          reason_note: string | null
+          session_id: string | null
+          session_start_at: string | null
+          sessions_students_id: string | null
+          status:
+            | Database["public"]["Enums"]["session_billing_adjustment_status"]
+            | null
+          student_id: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "sessions_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_uninvoiced_sessions"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_void_invoice_sessions"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_student_id"]
+          },
+          {
+            foreignKeyName: "session_billing_adjustments_sessions_students_id_fkey"
+            columns: ["sessions_students_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions_students"
+            referencedColumns: ["sessions_students_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "sessions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unlogged_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_base"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_session_detail"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_sessions"
+            referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_students_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
           },
         ]
       }
@@ -37278,6 +37685,37 @@ export type Database = {
         Args: { p_connector_id: string; p_limit?: number }
         Returns: Json[]
       }
+      claim_session_billing_adjustments: {
+        Args: { p_limit?: number }
+        Returns: {
+          amount_cents: number | null
+          attempt_count: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          depends_on_adjustment_id: string | null
+          id: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["session_billing_adjustment_kind"]
+          last_error: string | null
+          max_attempts: number
+          next_attempt_at: string
+          reason_category: string
+          reason_note: string | null
+          sessions_students_id: string
+          source_credit_note_id: string | null
+          source_invoice_item_id: string | null
+          status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "session_billing_adjustments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_ucat_lifecycle_email: {
         Args: {
           p_campaign_key: string
@@ -37610,6 +38048,14 @@ export type Database = {
       current_tutor_id: { Args: never; Returns: string }
       current_ucat_portal_access: { Args: never; Returns: Json }
       current_ucat_signup_staff_role: { Args: never; Returns: string }
+      derive_session_absence_billing_treatment: {
+        Args: {
+          p_is_credited: boolean
+          p_is_rescheduled: boolean
+          p_planned_absence: boolean
+        }
+        Returns: string
+      }
       discard_ucat_exam_attempt: {
         Args: {
           p_attempt_id: string
@@ -37725,6 +38171,16 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      enqueue_session_billing_adjustment: {
+        Args: {
+          p_created_by: string
+          p_depends_on_adjustment_id?: string
+          p_reason_category: string
+          p_reason_note?: string
+          p_sessions_students_id: string
+        }
+        Returns: string
+      }
       enqueue_ucat_preparation_refresh: {
         Args: { p_reason: string; p_student_id: string }
         Returns: undefined
@@ -37789,6 +38245,10 @@ export type Database = {
       extract_text_from_prosemirror_json: {
         Args: { json_content: Json }
         Returns: string
+      }
+      fail_session_billing_adjustment: {
+        Args: { p_adjustment_id: string; p_error: string }
+        Returns: undefined
       }
       format_class_full_name:
         | {
@@ -38262,6 +38722,15 @@ export type Database = {
         Args: { logged_by_student_id: string; operations: Json }
         Returns: Json
       }
+      log_student_absences_with_billing: {
+        Args: {
+          logged_by_staff_id: string
+          operations: Json
+          reason_category: string
+          reason_note?: string
+        }
+        Returns: Json
+      }
       map_tutor_to_id: {
         Args: { first_name: string; last_name: string }
         Returns: string
@@ -38721,6 +39190,10 @@ export type Database = {
       service_ucat_start_ai_assessment_cycle: {
         Args: { p_started_by?: string; p_stem_id: string }
         Returns: string
+      }
+      session_student_is_chargeable: {
+        Args: { p_sessions_students_id: string }
+        Returns: boolean
       }
       set_ucat_communication_preferences: {
         Args: {
@@ -39748,6 +40221,14 @@ export type Database = {
         Args: { logged_by_staff_id: string; operations: Json }
         Returns: Json
       }
+      undo_student_absences_with_billing: {
+        Args: {
+          logged_by_staff_id: string
+          operations: Json
+          reason_note?: string
+        }
+        Returns: Json
+      }
       upsert_ucat_learning_module_block_progress: {
         Args: {
           p_completed?: boolean
@@ -39812,6 +40293,17 @@ export type Database = {
         | "FLASHCARDS"
         | "REVISION_SHEET"
         | "CHEAT_SHEET"
+      session_billing_adjustment_kind:
+        | "credit_note"
+        | "session_charge"
+        | "restoration_charge"
+      session_billing_adjustment_status:
+        | "pending"
+        | "processing"
+        | "retryable"
+        | "succeeded"
+        | "failed"
+        | "superseded"
       session_type:
         | "CLASS"
         | "DRAFTING"
@@ -40019,6 +40511,19 @@ export const Constants = {
         "FLASHCARDS",
         "REVISION_SHEET",
         "CHEAT_SHEET",
+      ],
+      session_billing_adjustment_kind: [
+        "credit_note",
+        "session_charge",
+        "restoration_charge",
+      ],
+      session_billing_adjustment_status: [
+        "pending",
+        "processing",
+        "retryable",
+        "succeeded",
+        "failed",
+        "superseded",
       ],
       session_type: [
         "CLASS",

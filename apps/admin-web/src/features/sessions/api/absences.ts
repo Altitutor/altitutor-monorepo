@@ -6,6 +6,7 @@ import type {
   GetRescheduleSessionsParams,
   RescheduleSession,
   StudentSession,
+  AbsenceReason,
 } from '../types/absence';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -22,7 +23,8 @@ export const absencesApi = {
    */
   logAbsences: async (
     operations: AbsenceOperation[],
-    staffId: string
+    staffId: string,
+    reason: AbsenceReason,
   ): Promise<LogAbsencesResponse> => {
     try {
       const response = await fetch('/api/absences/log', {
@@ -33,6 +35,8 @@ export const absencesApi = {
         body: JSON.stringify({
           operations,
           staffId,
+          reasonCategory: reason.category,
+          reasonNote: reason.note,
         }),
       });
 
@@ -59,10 +63,7 @@ export const absencesApi = {
    * Undo student absences (reschedule or credit revert)
    * All operations are executed atomically via RPC function
    */
-  undoAbsences: async (
-    operations: UndoAbsenceOperation[],
-    staffId: string
-  ): Promise<UndoAbsencesResponse> => {
+  undoAbsences: async (operations: UndoAbsenceOperation[], staffId: string): Promise<UndoAbsencesResponse> => {
     try {
       const response = await fetch('/api/absences/undo', {
         method: 'POST',
@@ -96,32 +97,29 @@ export const absencesApi = {
 
   /**
    * Get a student's future sessions with session-student enrollment details
-   * 
+   *
    * Note: We use direct queries from sessions_students rather than search_sessions_admin RPC
    * because we need the sessionsStudentsId from sessions_students table for absence logging.
    * The RPC returns sessions but doesn't provide the sessions_students.id we need.
    */
   getStudentFutureSessions: async (
-    studentId: string, 
+    studentId: string,
     weeksAhead: number | null = 8,
     allowPastSessions: boolean = false,
-    weeksBack: number = 4
+    weeksBack: number = 4,
   ): Promise<StudentSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const now = new Date();
     // If weeksAhead is null, don't set a maxDate (fetch all future sessions)
-    const maxDate = weeksAhead === null 
-      ? null 
-      : new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
-    const minDate = allowPastSessions 
-      ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000)
-      : now;
+    const maxDate = weeksAhead === null ? null : new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+    const minDate = allowPastSessions ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000) : now;
 
     try {
       // Build query
       let query = supabase
         .from('sessions_students')
-        .select(`
+        .select(
+          `
           id,
           session_id,
           planned_absence,
@@ -132,7 +130,8 @@ export const absencesApi = {
               subject:subjects(*)
             )
           )
-        `)
+        `,
+        )
         .eq('student_id', studentId)
         .eq('planned_absence', false);
 
@@ -148,9 +147,20 @@ export const absencesApi = {
 
       if (error) throw error;
 
-      type RowWithSession = { id: string; session: { class?: { subject?: Tables<'subjects'> | null } | null } | null };
+      type RowWithSession = {
+        id: string;
+        session: {
+          class?: { subject?: Tables<'subjects'> | null } | null;
+        } | null;
+      };
       const sessions: StudentSession[] = (data || [])
-        .filter((row: RowWithSession): row is RowWithSession & { session: NonNullable<RowWithSession['session']> } => !!row.session)
+        .filter(
+          (
+            row: RowWithSession,
+          ): row is RowWithSession & {
+            session: NonNullable<RowWithSession['session']>;
+          } => !!row.session,
+        )
         .map((row) => {
           const session = row.session as unknown as Tables<'sessions'>;
           const cls = row.session.class;
@@ -192,9 +202,7 @@ export const absencesApi = {
    * - Student not already enrolled
    * - Within date range of original session
    */
-  getAvailableRescheduleSessions: async (
-    params: GetRescheduleSessionsParams
-  ): Promise<RescheduleSession[]> => {
+  getAvailableRescheduleSessions: async (params: GetRescheduleSessionsParams): Promise<RescheduleSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { originalSessionId, studentId, dateRangeDays } = params;
 

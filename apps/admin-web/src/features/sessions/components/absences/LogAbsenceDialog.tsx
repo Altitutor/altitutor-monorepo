@@ -1,12 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Button } from '@altitutor/ui';
+import { Button, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../../hooks';
-import {
-  useMissingStudentSession,
-  useInitialStudentForAbsence,
-} from '../../hooks/useAbsenceInitialData';
+import { useMissingStudentSession, useInitialStudentForAbsence } from '../../hooks/useAbsenceInitialData';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { AbsenceBulkActionSelector } from './AbsenceBulkActionSelector';
 import { AbsenceMessageScreen } from './AbsenceMessageScreen';
@@ -15,6 +12,7 @@ import type {
   AbsenceDecision,
   AbsenceOperation,
   AbsenceAction,
+  AbsenceReasonCategory,
   RescheduleSession,
   StudentSession,
 } from '../../types/absence';
@@ -24,7 +22,7 @@ import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables } from '@altitutor/shared';
 
-type WizardStep = 'select-student' | 'select-sessions' | 'process-sessions' | 'message' | 'error';
+type WizardStep = 'select-student' | 'select-sessions' | 'select-outcome' | 'process-sessions' | 'message' | 'error';
 
 interface LogAbsenceDialogProps {
   isOpen: boolean;
@@ -35,25 +33,33 @@ interface LogAbsenceDialogProps {
   allowPastSessions?: boolean;
 }
 
-export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, initialSessionId, allowPastSessions = false }: LogAbsenceDialogProps) {
+export function LogAbsenceDialog({
+  isOpen,
+  onClose,
+  staffId,
+  initialStudentId,
+  initialSessionId,
+  allowPastSessions = false,
+}: LogAbsenceDialogProps) {
   // Start at select-sessions if we have an initial student, otherwise start at select-student
   const [step, setStep] = useState<WizardStep>(initialStudentId ? 'select-sessions' : 'select-student');
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
   const [, setCurrentSessionIndex] = useState(0);
-  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
-    Map<string, RescheduleSession>
-  >(new Map());
+  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<Map<string, RescheduleSession>>(new Map());
   const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
+  const [absenceAction, setAbsenceAction] = useState<AbsenceAction | null>(null);
+  const [reasonCategory, setReasonCategory] = useState<AbsenceReasonCategory>('approved_absence');
+  const [reasonNote, setReasonNote] = useState('');
 
   // Student search and pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 20;
-  
+
   const { data: studentResults, isLoading: loadingStudents } = useStudentsSearchForAbsence({
     search: searchQuery,
     page,
@@ -70,14 +76,14 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     selectedStudent?.id || initialStudentId || null,
     null, // null = fetch all future sessions with no limit
     allowPastSessions,
-    4 // weeks back when allowing past sessions
+    4, // weeks back when allowing past sessions
   );
 
   const { data: missingSessionData } = useMissingStudentSession(
     initialStudentId ?? undefined,
     initialSessionId ?? undefined,
     futureSessions ?? undefined,
-    isOpen
+    isOpen,
   );
   const missingSession = missingSessionData ?? null;
 
@@ -86,7 +92,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     if (!futureSessions) return missingSession ? [missingSession] : [];
     if (!missingSession) return futureSessions;
     // Check if missingSession is already in futureSessions
-    if (futureSessions.some(s => s.id === missingSession.id)) {
+    if (futureSessions.some((s) => s.id === missingSession.id)) {
       return futureSessions;
     }
     return [...futureSessions, missingSession];
@@ -97,7 +103,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   const { data: initialStudentData } = useInitialStudentForAbsence(
     initialStudentId ?? undefined,
-    isOpen && !!initialStudentId && !selectedStudent && !hasInitialized
+    isOpen && !!initialStudentId && !selectedStudent && !hasInitialized,
   );
 
   useEffect(() => {
@@ -121,9 +127,16 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   // Auto-advance to process-sessions when session is selected and both initial values are provided
   useEffect(() => {
-    if (isOpen && selectedStudent && initialSessionId && selectedSessionIds.has(initialSessionId) && step === 'select-sessions' && hasInitialized) {
+    if (
+      isOpen &&
+      selectedStudent &&
+      initialSessionId &&
+      selectedSessionIds.has(initialSessionId) &&
+      step === 'select-sessions' &&
+      hasInitialized
+    ) {
       // Auto-advance to process step since we have everything pre-filled
-      setStep('process-sessions');
+      setStep('select-outcome');
     }
   }, [isOpen, selectedStudent, initialSessionId, selectedSessionIds, step, hasInitialized]);
 
@@ -141,6 +154,9 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
+      setAbsenceAction(null);
+      setReasonCategory('approved_absence');
+      setReasonNote('');
     }
   }, [isOpen]);
 
@@ -178,10 +194,17 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       alert('Please select at least one session');
       return;
     }
-    setStep('process-sessions');
+    setStep('select-outcome');
   };
 
-  const handleBulkDecisionsChange = (bulkDecisions: Array<{ sessionId: string; action: AbsenceAction; targetSessionId?: string; targetSession?: RescheduleSession }>) => {
+  const handleBulkDecisionsChange = (
+    bulkDecisions: Array<{
+      sessionId: string;
+      action: AbsenceAction;
+      targetSessionId?: string;
+      targetSession?: RescheduleSession;
+    }>,
+  ) => {
     if (!selectedStudent) return;
 
     const newRescheduledMap = new Map<string, RescheduleSession>();
@@ -210,7 +233,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   const handleConfirmAndSubmit = () => {
     if (!selectedStudent) return;
-    
+
     // Check if all decisions are complete
     const allComplete = decisions.every((d) => {
       if (!d.action) return false;
@@ -243,6 +266,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       const result = await logAbsencesMutation.mutateAsync({
         operations,
         staffId,
+        reason: {
+          category: reasonCategory,
+          note: reasonNote.trim() || undefined,
+        },
       });
 
       if (result.success) {
@@ -318,9 +345,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             ) : searchQuery.trim() ? (
               <div className="py-8 text-center text-muted-foreground">No students found</div>
             ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                Loading students...
-              </div>
+              <div className="py-8 text-center text-muted-foreground">Loading students...</div>
             )}
           </div>
         );
@@ -333,17 +358,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             {/* Sticky Header */}
             {displayStudent && (
               <div className="sticky top-0 bg-background z-10 pb-4 border-b mb-4">
-                <StudentCard
-                  student={displayStudent}
-                  subjects={[]}
-                  showSubjects={false}
-                  showActions={false}
-                />
+                <StudentCard student={displayStudent} subjects={[]} showSubjects={false} showActions={false} />
                 <div className="flex items-center justify-between mt-4">
                   <h4 className="font-semibold">Select Sessions to Log Absence</h4>
-                  <div className="text-sm text-muted-foreground">
-                    {selectedSessionIds.size} selected
-                  </div>
+                  <div className="text-sm text-muted-foreground">{selectedSessionIds.size} selected</div>
                 </div>
               </div>
             )}
@@ -360,20 +378,77 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
           </div>
         );
 
+      case 'select-outcome':
+        return (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <button
+              type="button"
+              className="rounded-lg border p-5 text-left transition-colors hover:border-primary hover:bg-muted"
+              onClick={() => {
+                setAbsenceAction('reschedule');
+                setDecisions([]);
+                setStep('process-sessions');
+              }}
+            >
+              <div className="font-semibold">Reschedule absence</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Credit an existing charge when needed, then bill the replacement under its normal pricing.
+              </p>
+            </button>
+            <button
+              type="button"
+              className="rounded-lg border p-5 text-left transition-colors hover:border-primary hover:bg-muted"
+              onClick={() => {
+                setAbsenceAction('credit');
+                setDecisions([]);
+                setStep('process-sessions');
+              }}
+            >
+              <div className="font-semibold">Credit absence</div>
+              <p className="mt-2 text-sm text-muted-foreground">
+                Remove the session charge without creating a replacement booking.
+              </p>
+            </button>
+          </div>
+        );
+
       case 'process-sessions':
         return (
           <div className="flex flex-col h-full">
             {/* Sticky Header */}
             {selectedStudent && (
               <div className="sticky top-0 bg-background z-10 pb-4 border-b mb-4">
-                <StudentCard
-                  student={selectedStudent}
-                  subjects={[]}
-                  showSubjects={false}
-                  showActions={false}
-                />
+                <StudentCard student={selectedStudent} subjects={[]} showSubjects={false} showActions={false} />
                 <div className="text-sm text-muted-foreground mt-2">
-                  Select action for {selectedSessionsArray.length} session{selectedSessionsArray.length !== 1 ? 's' : ''}
+                  {absenceAction === 'credit' ? 'Credit' : 'Reschedule'} {selectedSessionsArray.length} session
+                  {selectedSessionsArray.length !== 1 ? 's' : ''}
+                </div>
+                <div className="grid gap-3 mt-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="absence-reason">Reason</Label>
+                    <Select
+                      value={reasonCategory}
+                      onValueChange={(value) => setReasonCategory(value as AbsenceReasonCategory)}
+                    >
+                      <SelectTrigger id="absence-reason">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="approved_absence">Approved absence</SelectItem>
+                        <SelectItem value="extended_absence">Extended absence</SelectItem>
+                        <SelectItem value="admin_discretion">Admin discretion</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="absence-note">Internal note (optional)</Label>
+                    <Textarea
+                      id="absence-note"
+                      value={reasonNote}
+                      onChange={(event) => setReasonNote(event.target.value)}
+                      placeholder="Add context for the audit history"
+                    />
+                  </div>
                 </div>
               </div>
             )}
@@ -387,7 +462,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
                 onBack={() => {
                   setDecisions([]);
                   setRescheduledSessionsMap(new Map());
-                  setStep('select-sessions');
+                  setStep('select-outcome');
                 }}
                 onConfirm={() => {
                   // Decisions are already updated via onDecisionsChange
@@ -401,11 +476,11 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
                 excludeSessionIds={decisions
                   .filter((d) => d.action === 'reschedule' && d.targetSessionId)
                   .map((d) => d.targetSessionId!)} // Exclude already selected reschedule targets
+                forcedAction={absenceAction ?? undefined}
               />
             </div>
           </div>
         );
-
 
       case 'message':
         return (
@@ -434,9 +509,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
               </svg>
             </div>
             <div className="text-lg font-semibold">Error Logging Absences</div>
-            <div className="text-sm text-muted-foreground max-w-md mx-auto">
-              {errorMessage}
-            </div>
+            <div className="text-sm text-muted-foreground max-w-md mx-auto">{errorMessage}</div>
           </div>
         );
 
@@ -451,8 +524,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         return 'Select Student';
       case 'select-sessions':
         return 'Select Sessions';
+      case 'select-outcome':
+        return 'Choose Absence Outcome';
       case 'process-sessions':
-        return 'Process Absences';
+        return absenceAction === 'credit' ? 'Credit Absences' : 'Reschedule Absences';
       case 'message':
         return 'Send Message';
       default:
@@ -466,8 +541,12 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         return 'Search and select the student to log absences for';
       case 'select-sessions':
         return 'Select which future sessions the student will be absent from';
+      case 'select-outcome':
+        return 'Credit and reschedule are separate financial workflows';
       case 'process-sessions':
-        return 'Choose whether to reschedule or credit each session';
+        return absenceAction === 'credit'
+          ? 'Confirm the sessions to credit and record why'
+          : 'Choose a replacement for each session and record why';
       case 'message':
         return 'Notify the student/parent about the processed absences';
       default:
@@ -509,10 +588,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
-            <Button
-              onClick={handleProceedToProcess}
-              disabled={selectedSessionIds.size === 0}
-            >
+            <Button onClick={handleProceedToProcess} disabled={selectedSessionIds.size === 0}>
               Next
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
@@ -526,7 +602,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
               onClick={() => {
                 setDecisions([]);
                 setRescheduledSessionsMap(new Map());
-                setStep('select-sessions');
+                setStep('select-outcome');
               }}
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
@@ -534,14 +610,25 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             </Button>
             <Button
               onClick={handleConfirmAndSubmit}
-              disabled={!decisions.every((d) => {
-                if (!d.action) return false;
-                if (d.action === 'reschedule' && !d.targetSessionId) return false;
-                return true;
-              }) || decisions.length === 0}
+              disabled={
+                !decisions.every((d) => {
+                  if (!d.action) return false;
+                  if (d.action === 'reschedule' && !d.targetSessionId) return false;
+                  return true;
+                }) || decisions.length === 0
+              }
             >
               Confirm All Actions
               <ChevronRight className="h-4 w-4 ml-2" />
+            </Button>
+          </div>
+        );
+      case 'select-outcome':
+        return (
+          <div className="flex w-full justify-start">
+            <Button variant="outline" onClick={() => setStep('select-sessions')}>
+              <ChevronLeft className="h-4 w-4 mr-2" />
+              Previous
             </Button>
           </div>
         );

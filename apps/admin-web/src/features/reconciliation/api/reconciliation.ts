@@ -15,6 +15,7 @@ import type {
   VoidInvoiceSession,
   ProjectWithoutLead,
   ReconciliationTabCounts,
+  SessionBillingAdjustmentIssue,
 } from '../types';
 
 // Helper type for querying views
@@ -38,7 +39,7 @@ type SupabaseWithViews = SupabaseClient<Database> & {
 type ViewCountBuilder = {
   select: (
     columns: string,
-    options: { count: 'exact'; head: true }
+    options: { count: 'exact'; head: true },
   ) => Promise<{ count: number | null; error: Error | null }>;
 };
 
@@ -59,7 +60,7 @@ type ReconciliationSessionRow = {
  */
 async function enrichReconciliationSessionRows<T extends ReconciliationSessionRow>(
   supabase: SupabaseClient<Database>,
-  rows: T[]
+  rows: T[],
 ): Promise<T[]> {
   const sessionIds = [
     ...new Set(rows.map((r) => r.session_id).filter((id): id is string => typeof id === 'string' && id.length > 0)),
@@ -79,12 +80,7 @@ async function enrichReconciliationSessionRows<T extends ReconciliationSessionRo
     const fromView = row.session_short_name?.trim();
     const fromSessionShort = s?.short_name?.trim();
     const fromSessionLong = s?.long_name?.trim();
-    const merged =
-      fromSessionShort ||
-      fromSessionLong ||
-      fromView ||
-      row.session_name?.trim() ||
-      null;
+    const merged = fromSessionShort || fromSessionLong || fromView || row.session_name?.trim() || null;
     return { ...row, session_short_name: merged || null } as T;
   });
 }
@@ -108,6 +104,16 @@ function parseAssignedTutorsFromView(raw: unknown): UnloggedSession['assigned_tu
  * Reconciliation API client for querying reconciliation views
  */
 export const reconciliationApi = {
+  getSessionBillingAdjustmentIssues: async (): Promise<SessionBillingAdjustmentIssue[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('vadmin_reconciliation_session_billing_adjustments')
+      .select('*')
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return (data ?? []) as SessionBillingAdjustmentIssue[];
+  },
+
   /**
    * Get uninvoiced sessions
    */
@@ -129,7 +135,8 @@ export const reconciliationApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await supabase
       .from('invoices')
-      .select(`
+      .select(
+        `
         id,
         student_id,
         invoice_date,
@@ -154,16 +161,17 @@ export const reconciliationApi = {
             long_name
           )
         )
-      `)
+      `,
+      )
       .neq('status', 'paid')
       .neq('status', 'void')
       .neq('status', 'uncollectible')
       .gt('amount_due_cents', 0)
       .is('deleted_at', null)
       .order('invoice_date', { ascending: true });
-    
+
     if (error) throw error;
-    
+
     // Transform the data to match UnpaidInvoice type
     type InvoiceQueryResult = {
       id: string;
@@ -185,22 +193,22 @@ export const reconciliationApi = {
         | {
             session_id: string | null;
             deleted_at: string | null;
-            sessions: { start_at: string | null; short_name: string | null; long_name: string | null } | null;
+            sessions: {
+              start_at: string | null;
+              short_name: string | null;
+              long_name: string | null;
+            } | null;
           }[]
         | null;
     };
-    
+
     return (data ?? []).map((invoice: InvoiceQueryResult) => {
       const student = invoice.student;
-      const firstLine = (invoice.invoice_items ?? []).find(
-        (row) => row.session_id && row.deleted_at == null
-      );
+      const firstLine = (invoice.invoice_items ?? []).find((row) => row.session_id && row.deleted_at == null);
       const lineSessionId = firstLine?.session_id ?? null;
       const sessionStartAt = firstLine?.sessions?.start_at ?? null;
       const sessionShortName =
-        firstLine?.sessions?.short_name?.trim() ||
-        firstLine?.sessions?.long_name?.trim() ||
-        null;
+        firstLine?.sessions?.short_name?.trim() || firstLine?.sessions?.long_name?.trim() || null;
       type InvoiceMetadata = {
         last_payment_error?: {
           code: string;
@@ -210,7 +218,7 @@ export const reconciliationApi = {
       };
       const metadata = (invoice.metadata as InvoiceMetadata | null) ?? null;
       const lastPaymentError = metadata?.last_payment_error || null;
-      
+
       return {
         id: invoice.id,
         student_id: invoice.student_id,
@@ -298,7 +306,6 @@ export const reconciliationApi = {
     });
   },
 
-
   /**
    * Get unassigned tasks (tasks with no assignee)
    */
@@ -327,7 +334,8 @@ export const reconciliationApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await supabase
       .from('projects')
-      .select(`
+      .select(
+        `
         id,
         name,
         status,
@@ -336,7 +344,8 @@ export const reconciliationApi = {
         created_at,
         updated_at,
         creator:staff!projects_created_by_fkey(id, first_name, last_name)
-      `)
+      `,
+      )
       .is('project_lead_id', null)
       .neq('status', 'completed')
       .order('priority', { ascending: true })
@@ -370,7 +379,8 @@ export const reconciliationApi = {
     // Get ACTIVE students with their subjects
     const { data: studentsWithSubjects, error: studentsError } = await supabase
       .from('students')
-      .select(`
+      .select(
+        `
         id,
         first_name,
         last_name,
@@ -388,7 +398,8 @@ export const reconciliationApi = {
             year_level
           )
         )
-      `)
+      `,
+      )
       .eq('status', 'ACTIVE')
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true });
@@ -406,7 +417,8 @@ export const reconciliationApi = {
     if (studentIds.length > 0) {
       const { data: manualData, error: manualError } = await supabase
         .from('students_online_access_manual')
-        .select(`
+        .select(
+          `
           student_id,
           created_at,
           subject:subjects(
@@ -417,7 +429,8 @@ export const reconciliationApi = {
             curriculum,
             year_level
           )
-        `)
+        `,
+        )
         .in('student_id', studentIds);
 
       if (manualError) throw manualError;
@@ -428,28 +441,31 @@ export const reconciliationApi = {
     for (const row of manualSubjectRows) {
       if (!row.subject?.id) continue;
       const list = manualByStudentId.get(row.student_id) ?? [];
-      list.push({ created_at: row.created_at ?? undefined, subject: row.subject });
+      list.push({
+        created_at: row.created_at ?? undefined,
+        subject: row.subject,
+      });
       manualByStudentId.set(row.student_id, list);
     }
-    
+
     // Get all active class enrollments
     const { data: classEnrollments, error: enrollmentsError } = await supabase
       .from('classes_students')
       .select('student_id, class_id')
       .is('unenrolled_at', null);
-    
+
     if (enrollmentsError) throw enrollmentsError;
-    
+
     // Get class details for enrolled classes
-    const classIds = [...new Set((classEnrollments ?? []).map(e => e.class_id))];
+    const classIds = [...new Set((classEnrollments ?? []).map((e) => e.class_id))];
     const { data: classes, error: classesError } = await supabase
       .from('classes')
       .select('id, subject_id, status')
       .in('id', classIds)
       .eq('status', 'ACTIVE');
-    
+
     if (classesError) throw classesError;
-    
+
     // Build a map of class_id -> subject_id for active classes
     const classSubjectMap = new Map<string, string>();
     (classes ?? []).forEach((cls) => {
@@ -457,7 +473,7 @@ export const reconciliationApi = {
         classSubjectMap.set(cls.id, cls.subject_id);
       }
     });
-    
+
     // Build a map of student_id -> Set of subject_ids they have active classes for
     const studentSubjectClasses = new Map<string, Set<string>>();
     (classEnrollments ?? []).forEach((enrollment) => {
@@ -470,7 +486,7 @@ export const reconciliationApi = {
         studentSubjectClasses.get(studentId)!.add(subjectId);
       }
     });
-    
+
     // Build result: one row per student-subject combination where student has no active class for that subject
     const result: StudentWithoutClasses[] = [];
 
@@ -510,14 +526,14 @@ export const reconciliationApi = {
         }
       }
     });
-    
+
     // Sort by last_name, then first_name
     result.sort((a, b) => {
       const lastNameCompare = (a.last_name || '').localeCompare(b.last_name || '');
       if (lastNameCompare !== 0) return lastNameCompare;
       return (a.first_name || '').localeCompare(b.first_name || '');
     });
-    
+
     return result;
   },
 
@@ -541,7 +557,7 @@ export const reconciliationApi = {
    */
   getTrialStudentsNotSignedUp: async (): Promise<TrialStudentNotSignedUp[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
+
     // First, find all TRIAL_SESSION sessions that are in the past
     const now = new Date().toISOString();
     const { data: pastTrialSessions, error: sessionsError } = await supabase
@@ -550,23 +566,23 @@ export const reconciliationApi = {
       .eq('type', 'TRIAL_SESSION')
       .lt('start_at', now)
       .order('start_at', { ascending: true });
-    
+
     if (sessionsError) throw sessionsError;
-    
+
     // If no past trial sessions found, return empty array
     if (!pastTrialSessions || pastTrialSessions.length === 0) {
       return [];
     }
-    
+
     // Get student IDs who attended these past trial sessions, with session dates
     const sessionIds = pastTrialSessions.map((s) => s.id);
     const { data: sessionsStudentsData, error: sessionsStudentsError } = await supabase
       .from('sessions_students')
       .select('student_id, session_id, sessions!inner(start_at)')
       .in('session_id', sessionIds);
-    
+
     if (sessionsStudentsError) throw sessionsStudentsError;
-    
+
     // Build a map of student_id -> first trial session date + session id
     const studentFirstTrialSessionMap = new Map<string, { date: string; sessionId: string }>();
     if (sessionsStudentsData) {
@@ -584,15 +600,15 @@ export const reconciliationApi = {
         }
       });
     }
-    
+
     // Get unique student IDs
     const studentIdsWithPastTrialSessions = Array.from(studentFirstTrialSessionMap.keys());
-    
+
     // If no students found, return empty array
     if (studentIdsWithPastTrialSessions.length === 0) {
       return [];
     }
-    
+
     // Now query trial students who have past trial sessions
     // Note: Removed user_id IS NULL filter per user request - now includes all trial students with past sessions
     const { data, error } = await supabase
@@ -600,9 +616,9 @@ export const reconciliationApi = {
       .select('id, first_name, last_name, email, phone, status, user_id, created_at, updated_at')
       .eq('status', 'TRIAL')
       .in('id', studentIdsWithPastTrialSessions);
-    
+
     if (error) throw error;
-    
+
     // Map students with their first trial session date and sort by date ascending
     const result = (data ?? []).map((student) => ({
       student_id: student.id,
@@ -617,14 +633,14 @@ export const reconciliationApi = {
       created_at: student.created_at ?? '',
       updated_at: student.updated_at ?? '',
     })) as TrialStudentNotSignedUp[];
-    
+
     // Sort by first trial session date ascending
     result.sort((a, b) => {
       const dateA = a.first_trial_session_date ? new Date(a.first_trial_session_date).getTime() : 0;
       const dateB = b.first_trial_session_date ? new Date(b.first_trial_session_date).getTime() : 0;
       return dateA - dateB;
     });
-    
+
     return result;
   },
 
@@ -703,6 +719,7 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     conversationsByContact,
     unassignedTasksCount,
     projectsNoLeadCount,
+    sessionBillingAdjustmentsCount,
   ] = await Promise.all([
     countReconciliationViewRows('vadmin_reconciliation_uninvoiced_sessions'),
     countReconciliationViewRows('vadmin_reconciliation_void_invoice_sessions'),
@@ -715,15 +732,16 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     fetchConversationsByContact(),
     countUnassignedTasksExact(),
     countProjectsWithoutLeadExact(),
+    countReconciliationViewRows('vadmin_reconciliation_session_billing_adjustments'),
   ]);
 
   const unreadContacts = conversationsByContact.filter((c) => c.unreadCount > 0).length;
   const followUpContacts = conversationsByContact.filter((c) =>
-    c.conversations.some((conv) => conv.needs_follow_up)
+    c.conversations.some((conv) => conv.needs_follow_up),
   ).length;
 
   return {
-    financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount,
+    financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount + sessionBillingAdjustmentsCount,
     scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount + trialCount,
     communication: unreadContacts + followUpContacts,
     operations: unassignedTasksCount + projectsNoLeadCount,

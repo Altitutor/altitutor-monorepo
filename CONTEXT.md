@@ -254,7 +254,7 @@
 - **Absence treatment reason** — The recorded factual explanation for selecting or changing an Absence billing treatment. It supports staff discretion and audit history without automatically determining the treatment.
   _Avoid_: Policy rule, billing eligibility
 
-- **Replacement session** — A separate Session assignment offered to a Student in place of an original Session. The original Session remains intact rather than being moved.
+- **Replacement session** — A separate Session assignment offered to a Student in place of an original Session. The original Session remains intact and has at most one current Replacement session; earlier replacements remain historical when they contain attendance or financial history.
   _Avoid_: Rescheduled session
 
 - **Session billing obligation** — The amount a Student currently owes for one Session under Altitutor's chargeability rules.

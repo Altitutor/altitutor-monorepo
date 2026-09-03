@@ -15,6 +15,15 @@ export function useUninvoicedSessions() {
   });
 }
 
+export function useSessionBillingAdjustmentIssues() {
+  return useQuery({
+    queryKey: reconciliationKeys.sessionBillingAdjustments(),
+    queryFn: () => reconciliationApi.getSessionBillingAdjustmentIssues(),
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 /**
  * Sessions billed only on void invoices (re-invoicing may be required)
  */

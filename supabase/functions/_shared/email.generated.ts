@@ -453,6 +453,23 @@ function buildInvoiceNotificationEmail(input) {
     `
   });
 }
+function buildCreditNoteNotificationEmail(input) {
+  const outcome = input.remainsOnAccount ? "The credit remains on your account and will be applied to future invoices." : "The amount due on your invoice has been reduced.";
+  const heading = `Credit note ${input.creditNoteNumber} has been issued`;
+  return renderEmail({
+    brand: "altitutor",
+    subject: `${heading} \u2014 Altitutor`,
+    previewText: `A credit note for ${input.amount} has been issued.`,
+    heading,
+    bodyText: `A credit note for ${input.amount} has been issued.
+
+${outcome}`,
+    bodyHtml: `
+      <p class="email-copy" style="${paragraphStyle}">A credit note for <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(input.amount)}</strong> has been issued.</p>
+      <p class="email-copy" style="${paragraphStyle}">${outcome}</p>
+    `
+  });
+}
 function buildContactRequestEmail(input) {
   const diagnostics = JSON.stringify(input.diagnostics ?? {}, null, 2);
   const replyTo = input.contact?.email || input.user?.email || EMAIL_SENDERS.altitutor.replyTo;
@@ -614,6 +631,7 @@ export {
   buildBookingChangedEmail,
   buildBookingConfirmationEmail,
   buildContactRequestEmail,
+  buildCreditNoteNotificationEmail,
   buildInvitationEmail,
   buildInvoiceNotificationEmail,
   buildRegistrationEmail,
