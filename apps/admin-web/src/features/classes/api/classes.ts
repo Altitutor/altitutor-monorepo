@@ -5,9 +5,34 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
 import type { ClassSchedulePlan, ClassScheduleProposal, StoredClassSchedule } from '../types/schedule';
 
+type ScheduleRevisionWithSlots = Tables<'class_schedule_revisions'> & {
+  class_schedule_slots: Tables<'class_schedule_slots'>[];
+};
+
+function mapStoredClassSchedule(data: ScheduleRevisionWithSlots): StoredClassSchedule {
+  return {
+    id: data.id,
+    scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
+    billingType: data.billing_type,
+    frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
+    anchorDate: data.anchor_date,
+    effectiveFrom: data.effective_from,
+    effectiveTo: data.effective_to,
+    rows: [...data.class_schedule_slots]
+      .sort((left, right) => left.position - right.position)
+      .map((row) => ({
+        id: row.id,
+        dayOfWeek: row.day_of_week,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        room: row.room ?? '',
+      })),
+  };
+}
+
 export type MinimalClass = Pick<
   Tables<'classes'>,
-  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name' | 'schedule_summary_short' | 'schedule_summary_long' | 'schedule_weekdays' | 'schedule_rows' | 'schedule_frequency_weeks' | 'schedule_anchor_date' | 'next_session_start_at'
+  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name' | 'schedule_summary_short' | 'schedule_summary_long' | 'schedule_weekdays' | 'schedule_rows' | 'schedule_frequency_weeks' | 'schedule_anchor_date' | 'next_session_start_at' | 'billing_type' | 'billing_type_effective_from'
 > & {
   subject?: Tables<'subjects'> | null;
   studentCount?: number;
@@ -33,7 +58,7 @@ export const classesApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await supabase
       .from('class_schedule_revisions')
-      .select('id, schedule_type, frequency_weeks, anchor_date, effective_from, class_schedule_slots(id, day_of_week, start_time, end_time, room, position)')
+      .select('id, class_id, schedule_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
       .eq('class_id', classId)
       .is('superseded_at', null)
       .order('effective_from', { ascending: false })
@@ -42,22 +67,27 @@ export const classesApi = {
       .maybeSingle();
     if (error) throw error;
     if (!data) return null;
-    return {
-      id: data.id,
-      scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
-      frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
-      anchorDate: data.anchor_date,
-      effectiveFrom: data.effective_from,
-      rows: [...data.class_schedule_slots]
-        .sort((left, right) => left.position - right.position)
-        .map((row) => ({
-          id: row.id,
-          dayOfWeek: row.day_of_week,
-          startTime: row.start_time,
-          endTime: row.end_time,
-          room: row.room ?? '',
-        })),
-    };
+    return mapStoredClassSchedule(data as ScheduleRevisionWithSlots);
+  },
+
+  getScheduleTimeline: async (classId: string): Promise<StoredClassSchedule[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Australia/Adelaide',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const { data, error } = await supabase
+      .from('class_schedule_revisions')
+      .select('id, class_id, schedule_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
+      .eq('class_id', classId)
+      .is('superseded_at', null)
+      .gte('effective_to', today)
+      .order('effective_from', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return ((data ?? []) as ScheduleRevisionWithSlots[]).map(mapStoredClassSchedule);
   },
 
   previewSchedule: async (proposal: ClassScheduleProposal): Promise<ClassSchedulePlan> => {
@@ -179,6 +209,8 @@ export const classesApi = {
       schedule_frequency_weeks?: number | null;
       schedule_anchor_date?: string | null;
       next_session_start_at?: string | null;
+      billing_type: Tables<'classes'>['billing_type'];
+      billing_type_effective_from: string;
     }
     const rpcData = rpcResult as unknown as {
       classes: RpcClassRow[];
@@ -221,6 +253,8 @@ export const classesApi = {
         schedule_frequency_weeks: cls.schedule_frequency_weeks ?? null,
         schedule_anchor_date: cls.schedule_anchor_date ?? null,
         next_session_start_at: cls.next_session_start_at ?? null,
+        billing_type: cls.billing_type,
+        billing_type_effective_from: cls.billing_type_effective_from,
         subject,
         studentCount: students.length,
         students,
@@ -281,6 +315,8 @@ export const classesApi = {
         long_name?: string | null;
         created_at?: string | null;
         updated_at?: string | null;
+        billing_type: Tables<'classes'>['billing_type'];
+        billing_type_effective_from: string;
       }
       const rpcData = rpcResult as unknown as {
         classes: RpcClassRow[];
@@ -313,6 +349,8 @@ export const classesApi = {
           long_name: cls.long_name ?? null,
           created_at: cls.created_at || null,
           updated_at: cls.updated_at || null,
+          billing_type: cls.billing_type,
+          billing_type_effective_from: cls.billing_type_effective_from,
         } as Tables<'classes'>;
         
         classes.push(classData);
@@ -1328,6 +1366,8 @@ export const classesApi = {
       schedule_weekdays: number[];
       schedule_rows: Json;
       next_session_start_at: string | null;
+      billing_type: Tables<'classes'>['billing_type'];
+      billing_type_effective_from: string;
     }
     
     interface RPCSubject {
@@ -1386,6 +1426,8 @@ export const classesApi = {
       schedule_weekdays: c.schedule_weekdays,
       schedule_rows: c.schedule_rows,
       next_session_start_at: c.next_session_start_at,
+      billing_type: c.billing_type,
+      billing_type_effective_from: c.billing_type_effective_from,
       subject: rpcData.classSubjects?.[c.id] as ClassWithExpandedSubject['subject'] | undefined,
       staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
         id: s.id,

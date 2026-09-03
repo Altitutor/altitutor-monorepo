@@ -28,6 +28,7 @@ describe('Class schedule form', () => {
       buildClassScheduleProposal({
         classId: '90000000-0000-0000-0000-000000000001',
         subjectId: null,
+        billingType: 'EXAM_COURSE',
         cohortLabel: ' Interview A ',
         startDate: '2026-09-01',
         endDate: '2026-09-30',
@@ -36,6 +37,7 @@ describe('Class schedule form', () => {
       })
     ).toMatchObject({
       cohort_label: 'Interview A',
+      billing_type: 'EXAM_COURSE',
       schedule_type: 'RECURRING',
       timezone: 'Australia/Adelaide',
       anchor_date: '2026-09-01',

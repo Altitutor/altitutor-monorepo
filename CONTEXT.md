@@ -244,6 +244,33 @@
 - **Calendar subscription** — A tutor-owned, read-only calendar feed containing that tutor's active assigned sessions. Calendar providers poll the subscription so session additions, changes, and cancellations flow through without tutors importing events again.
   _Avoid_: Calendar export, calendar sync, shared calendar
 
+## Core tutoring sessions and billing
+
+- **Planned absence** — The recorded expectation that a Student will not attend an original Session. It describes expected attendance, independently of whether the Session remains payable.
+
+- **Absence billing treatment** — The AdminStaff-selected financial treatment of a Planned absence: `charge` retains the original Session billing obligation, `credit` removes it, and `replacement` removes it while assigning a Replacement session. Actual attendance makes that Session payable regardless of its Absence billing treatment.
+  _Avoid_: Billing relief, cancellation policy result
+
+- **Absence treatment reason** — The recorded factual explanation for selecting or changing an Absence billing treatment. It supports staff discretion and audit history without automatically determining the treatment.
+  _Avoid_: Policy rule, billing eligibility
+
+- **Replacement session** — A separate Session assignment offered to a Student in place of an original Session. The original Session remains intact rather than being moved.
+  _Avoid_: Rescheduled session
+
+- **Session billing obligation** — The amount a Student currently owes for one Session under Altitutor's chargeability rules.
+  _Avoid_: Invoice status, Session payment
+
+- **Credit note** — An immutable financial document that reduces an amount recorded on a finalised Invoice. When the Invoice has already been paid, the value may become a Customer balance credit rather than reversing the historical Invoice.
+  _Avoid_: Manual balance adjustment, edited Invoice
+
+- **Customer balance credit** — Value owed to a Student that remains on their billing ledger and is automatically applied to a future Invoice.
+  _Avoid_: Editable credit balance, cash refund
+
+- **Restoration charge** — An append-only charge that restores a Session billing obligation previously reduced by a Credit note.
+  _Avoid_: Undo credit, reverse credit note
+
+- **Billing adjustment** — A pending or completed financial operation needed to align an Invoice with a Session billing obligation.
+
 ## Public web surfaces
 
 - **Marketing site** — The public, search-indexable website served from `altitutor.com`. It presents Altitutor's courses, resources, company information, and acquisition pages; it does not own authenticated learning, booking, checkout, or account workflows.

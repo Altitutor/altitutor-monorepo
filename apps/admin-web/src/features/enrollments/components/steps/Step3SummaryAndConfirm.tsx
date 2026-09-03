@@ -88,7 +88,7 @@ export function Step3SummaryAndConfirm({
     }
 
     const mockSession = {
-      billing_type: 'CLASS' as const, // Classes always have CLASS billing type
+      billing_type: selectedClass.billing_type,
       subject_id: selectedClass.subject_id,
       start_at: sessionStart,
       end_at: sessionEnd,

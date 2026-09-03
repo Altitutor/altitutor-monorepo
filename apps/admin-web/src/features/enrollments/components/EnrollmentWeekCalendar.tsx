@@ -656,7 +656,7 @@ export function EnrollmentWeekCalendar({
                                         type: s.type as 'CLASS' | 'PRIVATE' | 'GROUP',
                                         created_at: new Date().toISOString(),
                                         updated_at: new Date().toISOString(),
-                                        billing_type: 'CLASS',
+                                        billing_type: cls?.billing_type ?? 'CLASS',
                                         admin_shift_id: null,
                                         status: 'SCHEDULED',
                                         subject_id: subjectId,

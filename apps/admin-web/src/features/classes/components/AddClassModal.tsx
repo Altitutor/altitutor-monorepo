@@ -17,6 +17,7 @@ import { AdminDialogShell } from '@/shared/components';
 import { cn, showEntityCreatedToast } from '@/shared/utils';
 import { useApplyClassSchedule, usePreviewClassSchedule } from '../hooks/useClassesQuery';
 import type {
+  ClassBillingType,
   ClassSchedulePlan,
   ClassScheduleProposal,
   ClassScheduleRow,
@@ -40,6 +41,12 @@ const DAY_OPTIONS = [
 const FREQUENCY_OPTIONS = [
   { value: 1 as const, label: 'Every week' },
   { value: 2 as const, label: 'Every fortnight' },
+];
+
+const BILLING_TYPE_OPTIONS: Array<{ value: ClassBillingType; label: string }> = [
+  { value: 'CLASS', label: 'Class' },
+  { value: 'EXAM_COURSE', label: 'Exam course' },
+  { value: 'DRAFTING', label: 'Drafting' },
 ];
 
 const STEP_TITLES = ['Class details', 'Repeating timetable', 'Review sessions'];
@@ -78,6 +85,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const [classId, setClassId] = useState('');
   const [cohortLabel, setCohortLabel] = useState('');
   const [selectedSubject, setSelectedSubject] = useState<Tables<'subjects'> | null>(null);
+  const [billingType, setBillingType] = useState<ClassBillingType>('CLASS');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState(defaultEndDate);
   const [frequencyWeeks, setFrequencyWeeks] = useState<1 | 2>(1);
@@ -91,6 +99,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setClassId(crypto.randomUUID());
     setCohortLabel('');
     setSelectedSubject(null);
+    setBillingType('CLASS');
     setStartDate(dateInputValue(new Date()));
     setEndDate(defaultEndDate);
     setFrequencyWeeks(1);
@@ -140,6 +149,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     const nextProposal = buildClassScheduleProposal({
       classId,
       subjectId: selectedSubject?.id ?? null,
+      billingType,
       cohortLabel,
       startDate,
       endDate,
@@ -247,6 +257,15 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                   value={cohortLabel}
                   onChange={(event) => setCohortLabel(event.target.value)}
                   placeholder="A, B, Interview Course"
+                />
+                <Label>Billing type *</Label>
+                <SearchableSelect<(typeof BILLING_TYPE_OPTIONS)[number]>
+                  items={BILLING_TYPE_OPTIONS}
+                  value={BILLING_TYPE_OPTIONS.find((option) => option.value === billingType) ?? null}
+                  onValueChange={(option) => setBillingType(option?.value ?? 'CLASS')}
+                  getItemId={(option) => option.value}
+                  getItemLabel={(option) => option.label}
+                  placeholder="Select billing type"
                 />
                 <Label>Start date *</Label>
                 <SmartDatePickerField value={startDate} onChange={(value) => setStartDate(value ?? '')} />

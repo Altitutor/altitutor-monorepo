@@ -1,3 +1,7 @@
+import type { Enums } from '@altitutor/shared';
+
+export type ClassBillingType = Enums<'billing_type'>;
+
 export interface ClassScheduleRow {
   id: string;
   dayOfWeek: number;
@@ -9,6 +13,7 @@ export interface ClassScheduleRow {
 export interface ClassScheduleFormValues {
   classId: string;
   subjectId: string | null;
+  billingType: ClassBillingType;
   cohortLabel: string;
   startDate: string;
   endDate: string;
@@ -22,6 +27,7 @@ export interface ClassScheduleFormValues {
 export interface ClassScheduleProposal {
   class_id: string;
   subject_id: string | null;
+  billing_type: ClassBillingType;
   cohort_label: string;
   status: 'ACTIVE' | 'INACTIVE';
   schedule_type: 'RECURRING';
@@ -76,8 +82,10 @@ export interface ClassSchedulePlan {
 export interface StoredClassSchedule {
   id: string;
   scheduleType: 'RECURRING' | 'CUSTOM';
+  billingType: ClassBillingType;
   frequencyWeeks: 1 | 2 | null;
   anchorDate: string | null;
   effectiveFrom: string;
+  effectiveTo: string;
   rows: ClassScheduleRow[];
 }

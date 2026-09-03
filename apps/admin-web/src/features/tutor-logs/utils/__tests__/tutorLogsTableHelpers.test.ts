@@ -25,6 +25,8 @@ describe('tutorLogsTableHelpers', () => {
         start_time: '14:00:00',
         end_time: '16:00:00',
         status: 'ACTIVE',
+        billing_type: 'CLASS',
+        billing_type_effective_from: '2026-01-01',
         created_at: null,
         created_by: null,
         room: null,

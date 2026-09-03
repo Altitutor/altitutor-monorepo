@@ -1349,6 +1349,7 @@ export type Database = {
       class_schedule_revisions: {
         Row: {
           anchor_date: string | null
+          billing_type: Database["public"]["Enums"]["billing_type"]
           class_id: string
           created_at: string
           created_by: string | null
@@ -1361,6 +1362,7 @@ export type Database = {
         }
         Insert: {
           anchor_date?: string | null
+          billing_type?: Database["public"]["Enums"]["billing_type"]
           class_id: string
           created_at?: string
           created_by?: string | null
@@ -1373,6 +1375,7 @@ export type Database = {
         }
         Update: {
           anchor_date?: string | null
+          billing_type?: Database["public"]["Enums"]["billing_type"]
           class_id?: string
           created_at?: string
           created_by?: string | null
@@ -1492,6 +1495,8 @@ export type Database = {
       }
       classes: {
         Row: {
+          billing_type: Database["public"]["Enums"]["billing_type"]
+          billing_type_effective_from: string
           cohort_label: string | null
           created_at: string | null
           created_by: string | null
@@ -1518,6 +1523,8 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
+          billing_type_effective_from?: string
           cohort_label?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -1544,6 +1551,8 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          billing_type?: Database["public"]["Enums"]["billing_type"]
+          billing_type_effective_from?: string
           cohort_label?: string | null
           created_at?: string | null
           created_by?: string | null
@@ -37132,6 +37141,10 @@ export type Database = {
         Args: { p_expected_proposal_hash: string; p_proposal: Json }
         Returns: Json
       }
+      apply_class_schedule_core: {
+        Args: { p_expected_proposal_hash: string; p_proposal: Json }
+        Returns: Json
+      }
       apply_scheduled_student_discontinuations: { Args: never; Returns: number }
       apply_ucat_email_event_to_ledger: {
         Args: {
@@ -38495,6 +38508,23 @@ export type Database = {
       }
       safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
       search_classes_admin: {
+        Args: {
+          p_ascending?: boolean
+          p_exclude_staff_search?: boolean
+          p_exclude_student_search?: boolean
+          p_include_relationships?: boolean
+          p_limit?: number
+          p_offset?: number
+          p_order_by?: string
+          p_search?: string
+          p_staff_ids?: string[]
+          p_statuses?: string[]
+          p_student_ids?: string[]
+          p_subject_ids?: string[]
+        }
+        Returns: Json
+      }
+      search_classes_admin_core: {
         Args: {
           p_ascending?: boolean
           p_exclude_staff_search?: boolean

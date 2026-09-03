@@ -109,6 +109,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
             subject_id,
             start_time,
             end_time,
+            billing_type,
             subject:subjects(*)
           )
         `)
@@ -117,7 +118,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
         
       if (error) throw error;
       
-      type ClassRow = { class?: { id: string; subject: Tables<'subjects'> | null; start_time: string | null; end_time: string | null } | null };
+      type ClassRow = { class?: { id: string; subject: Tables<'subjects'> | null; start_time: string | null; end_time: string | null; billing_type: Tables<'classes'>['billing_type'] } | null };
       return ((data || []) as ClassRow[])
         .map((row) => row.class)
         .filter((cls): cls is NonNullable<ClassRow['class']> & { subject: Tables<'subjects'> } => cls != null && cls.subject != null)
@@ -126,7 +127,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
           subject: cls.subject,
           start_time: cls.start_time,
           end_time: cls.end_time,
-          billing_type: 'CLASS' as const, // Classes always use CLASS billing type
+          billing_type: cls.billing_type,
         }));
     },
     enabled: isAdjustModalOpen, // Only fetch when modal is open
