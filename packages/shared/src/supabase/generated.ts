@@ -10529,6 +10529,8 @@ export type Database = {
           content_snapshot: Json | null
           current_segment_ends_at: string | null
           discarded_at: string | null
+          effective_pace_multiplier: number | null
+          effective_timing_mode: Database["public"]["Enums"]["ucat_question_set_timing_mode"]
           engine_snapshot: Json | null
           expired_at: string | null
           id: string
@@ -10544,7 +10546,9 @@ export type Database = {
           student_id: string
           student_set_speed: number | null
           student_ucat_mock_attempt_id: string | null
+          study_plan_task_id: string | null
           time_taken_seconds: number | null
+          timing_source: string
           total_points: number | null
           was_timed: boolean
         }
@@ -10554,6 +10558,8 @@ export type Database = {
           content_snapshot?: Json | null
           current_segment_ends_at?: string | null
           discarded_at?: string | null
+          effective_pace_multiplier?: number | null
+          effective_timing_mode: Database["public"]["Enums"]["ucat_question_set_timing_mode"]
           engine_snapshot?: Json | null
           expired_at?: string | null
           id?: string
@@ -10569,7 +10575,9 @@ export type Database = {
           student_id: string
           student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
+          study_plan_task_id?: string | null
           time_taken_seconds?: number | null
+          timing_source: string
           total_points?: number | null
           was_timed?: boolean
         }
@@ -10579,6 +10587,8 @@ export type Database = {
           content_snapshot?: Json | null
           current_segment_ends_at?: string | null
           discarded_at?: string | null
+          effective_pace_multiplier?: number | null
+          effective_timing_mode?: Database["public"]["Enums"]["ucat_question_set_timing_mode"]
           engine_snapshot?: Json | null
           expired_at?: string | null
           id?: string
@@ -10594,7 +10604,9 @@ export type Database = {
           student_id?: string
           student_set_speed?: number | null
           student_ucat_mock_attempt_id?: string | null
+          study_plan_task_id?: string | null
           time_taken_seconds?: number | null
+          timing_source?: string
           total_points?: number | null
           was_timed?: boolean
         }
@@ -26920,6 +26932,10 @@ export type Database = {
           attempted_at: string | null
           completed_at: string | null
           content_snapshot: Json | null
+          effective_pace_multiplier: number | null
+          effective_timing_mode:
+            | Database["public"]["Enums"]["ucat_question_set_timing_mode"]
+            | null
           id: string | null
           question_set_id: string | null
           scaled_score: number | null
@@ -26931,7 +26947,9 @@ export type Database = {
           student_id: string | null
           student_set_speed: number | null
           student_ucat_mock_attempt_id: string | null
+          study_plan_task_id: string | null
           time_taken_seconds: number | null
+          timing_source: string | null
           total_points: number | null
           was_timed: boolean | null
         }
@@ -27665,6 +27683,7 @@ export type Database = {
           attempted_at: string | null
           completed_at: string | null
           id: string | null
+          prescribed_pace: number | null
           question_count: number | null
           resource_id: string | null
           resource_name: Json | null
@@ -27678,6 +27697,7 @@ export type Database = {
           student_set_speed: number | null
           time_limit_seconds: number | null
           time_taken_seconds: number | null
+          timing_source: string | null
           total_points: number | null
           unlimited: boolean | null
           was_timed: boolean | null
@@ -38106,6 +38126,7 @@ export type Database = {
           p_first_set_id?: string
           p_resource_id: string
           p_student_id: string
+          p_study_plan_task_id?: string
           p_was_timed: boolean
         }
         Returns: undefined
