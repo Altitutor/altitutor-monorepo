@@ -18,6 +18,7 @@
     "check": "turbo run lint && turbo run typecheck && turbo run test",
     "checkall": "bash scripts/checkall.sh",
     "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm turbo run build --filter=@altitutor/shared",
+    "db:seed:ucat": "bash supabase/scripts/apply-ucat-test-seed.sh",
     "db:email-templates": "pnpm --filter @altitutor/email generate:auth && bash supabase/scripts/render-email-templates.sh",
     "email:check": "pnpm --filter @altitutor/email check:auth",
     "email:preview": "node supabase/scripts/watch-ucat-email-previews.mjs",

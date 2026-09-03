@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { spawnSync } from "node:child_process";
+import { readdir, readFile } from "node:fs/promises";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { auditMigrationDirectory } from "./supabase-migration-privileges.mjs";
 
@@ -17,9 +19,21 @@ const workflowPath = new URL(
   import.meta.url,
 );
 const ciWorkflowPath = new URL("../.github/workflows/ci.yml", import.meta.url);
+const typesCheckWorkflowPath = new URL(
+  "../.github/workflows/supabase-types-check.yml",
+  import.meta.url,
+);
 const turboConfigPath = new URL("../turbo.json", import.meta.url);
 const checkallScriptPath = new URL("../scripts/checkall.sh", import.meta.url);
 const supabaseConfigPath = new URL("../supabase/config.toml", import.meta.url);
+const applyUcatSeedScriptPath = new URL(
+  "../supabase/scripts/apply-ucat-test-seed.sh",
+  import.meta.url,
+);
+const disableAutomaticSeedScriptPath = new URL(
+  "../supabase/scripts/disable-automatic-seed.py",
+  import.meta.url,
+);
 const ucatPlaywrightConfigPath = new URL(
   "../apps/ucat-web/playwright.config.ts",
   import.meta.url,
@@ -197,6 +211,18 @@ test("production verification executes every system test boundary", async () => 
     webE2eJob,
     /supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u,
   );
+  const applyUcatSeedStep = webE2eJob.indexOf(
+    "bash supabase/scripts/apply-ucat-test-seed.sh",
+  );
+  const databaseTestStep = webE2eJob.indexOf("supabase test db");
+  assert.ok(
+    applyUcatSeedStep >= 0 && applyUcatSeedStep < databaseTestStep,
+    "UCAT study-plan fixtures must be applied after start and before database contracts",
+  );
+  assert.match(
+    webE2eJob,
+    /needs\.web-system-tests-needed\.outputs\.database == 'true' \|\| needs\.web-system-tests-needed\.outputs\.ucat == 'true'/u,
+  );
   assert.match(webE2eJob, /Cache Supabase Docker images/u);
   assert.match(
     workflow,
@@ -239,6 +265,16 @@ test("UCAT browser verification exercises production mode and supported engines"
   assert.match(config, /name: "desktop-safari"/u);
   assert.match(config, /name: "mobile-android"/u);
   assert.match(config, /name: "mobile-ios"/u);
+  assert.match(config, /globalSetup: "\.\/e2e\/global-setup.ts"/u);
+  const globalSetup = await readFile(
+    new URL("../apps/ucat-web/e2e/global-setup.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    globalSetup,
+    /if \(process\.env\.CI\) return/u,
+    "CI applies UCAT fixtures before Playwright; local runs must seed themselves",
+  );
 });
 
 test("UCAT coverage includes unimported source and enforces a baseline", async () => {
@@ -275,13 +311,84 @@ test("pnpm checkall runs the same system suites as CI", async () => {
     "Local checkall must reset an already-running stack so schema matches CI",
   );
   assert.match(checkall, /supabase db reset/u);
+  const applyUcatSeedStep = checkall.indexOf(
+    "bash supabase/scripts/apply-ucat-test-seed.sh",
+  );
+  const databaseTestStep = checkall.indexOf("supabase test db");
+  assert.ok(
+    applyUcatSeedStep >= 0 && applyUcatSeedStep < databaseTestStep,
+    "checkall must apply UCAT study-plan fixtures before database contracts",
+  );
+  assert.equal(
+    packageJson.scripts["db:seed:ucat"],
+    "bash supabase/scripts/apply-ucat-test-seed.sh",
+  );
 });
 
-test("automatic seed excludes manual Dashboard pastes", async () => {
-  const config = await readFile(supabaseConfigPath, "utf8");
+test("automatic seed excludes manual pastes and UCAT study-plan fixtures", async () => {
+  const [config, applyScript, typesCheck] = await Promise.all([
+    readFile(supabaseConfigPath, "utf8"),
+    readFile(applyUcatSeedScriptPath, "utf8"),
+    readFile(typesCheckWorkflowPath, "utf8"),
+  ]);
+  const [automaticSeedFiles, ucatSeedFiles, fixtures] = await Promise.all([
+    readdir(new URL("../supabase/seed/test/", import.meta.url)),
+    readdir(new URL("../supabase/seed/test-ucat/", import.meta.url)),
+    readFile(
+      new URL(
+        "../supabase/seed/test-ucat/08_ucat_study_plan_fixtures.sql",
+        import.meta.url,
+      ),
+      "utf8",
+    ),
+  ]);
 
   assert.match(config, /sql_paths = \["\.\/seed\/test\/\*\.sql", "\.\/seed\/production\/\*\.sql"\]/u);
   assert.doesNotMatch(config, /seed\/\*\/\*\.sql/u);
+  assert.doesNotMatch(config, /sql_paths = \[[^\]]*test-ucat/u);
+  assert.equal(
+    automaticSeedFiles.some((name) => name.includes("ucat_study_plan")),
+    false,
+  );
+  assert.deepEqual(
+    ucatSeedFiles.filter((name) => name.endsWith(".sql")).sort(),
+    [
+      "08_ucat_study_plan_fixtures.sql",
+      "09_ucat_study_plan_personas.sql",
+    ],
+  );
+  assert.match(fixtures, /DISABLE TRIGGER USER/u);
+  assert.match(fixtures, /rebuild_ucat_duplicate_stem_pairs/u);
+  assert.match(applyScript, /docker exec -i "\$db_container"/u);
+  assert.match(applyScript, /psql -U postgres -d postgres -v ON_ERROR_STOP=1/u);
+  assert.match(applyScript, /seed\/test-ucat/u);
+  assert.doesNotMatch(applyScript, /--linked/u);
+  assert.match(
+    typesCheck,
+    /python3 supabase\/scripts\/disable-automatic-seed.py/u,
+  );
+  assert.doesNotMatch(typesCheck, /apply-ucat-test-seed/u);
+
+  const dryRun = spawnSync(
+    "python3",
+    [fileURLToPath(disableAutomaticSeedScriptPath), "--dry-run"],
+    {
+      encoding: "utf8",
+      input: `[api]
+enabled = true
+
+[db.seed]
+enabled = true
+
+[realtime]
+enabled = true
+`,
+    },
+  );
+  assert.equal(dryRun.status, 0, dryRun.stderr);
+  assert.match(dryRun.stdout, /\[db\.seed\]\nenabled = false/u);
+  assert.match(dryRun.stdout, /\[api\]\nenabled = true/u);
+  assert.match(dryRun.stdout, /\[realtime\]\nenabled = true/u);
 });
 
 test("every web app runs Playwright against a production build", async () => {

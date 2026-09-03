@@ -50,9 +50,10 @@ if supabase status >/dev/null 2>&1; then
   echo "Local stack is already running; resetting so schema and seed match a fresh CI start."
   supabase db reset
 else
-  echo "Starting a fresh local stack (applies all migrations and seed)."
+  echo "Starting a fresh local stack (applies all migrations and automatic seed)."
   supabase start
 fi
+bash supabase/scripts/apply-ucat-test-seed.sh
 
 section "Database contracts"
 supabase test db

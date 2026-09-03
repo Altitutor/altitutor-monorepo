@@ -7,25 +7,81 @@ ALTER TABLE public.student_question_set_attempts
   ADD COLUMN timing_source TEXT,
   ADD COLUMN study_plan_task_id UUID;
 
+-- Older attempts predate explicit timing intent. Some untimed attempts retained
+-- the Set's default time snapshot, while some timed attempts lack a recoverable
+-- exam-speed ratio. Resolve only evidence that was actually persisted instead
+-- of inventing timing metadata merely to satisfy the new invariant.
+WITH timing_candidates AS (
+  SELECT
+    attempt.id,
+    attempt.student_ucat_mock_attempt_id,
+    attempt.was_timed,
+    attempt.content_snapshot ->> 'timingMode' AS snapshot_mode,
+    CASE
+      WHEN attempt.set_time_limit_seconds > 0 THEN attempt.set_time_limit_seconds
+      WHEN attempt.content_snapshot ->> 'timeLimitSeconds' ~ '^[1-9][0-9]*$'
+        THEN (attempt.content_snapshot ->> 'timeLimitSeconds')::INTEGER
+      WHEN attempt.set_time_limit_at_exam_speed_seconds > 0
+           AND attempt.set_speed > 0
+        THEN CEIL(attempt.set_time_limit_at_exam_speed_seconds / attempt.set_speed)::INTEGER
+      WHEN attempt.student_ucat_mock_attempt_id IS NOT NULL
+           AND attempt.set_time_limit_at_exam_speed_seconds > 0
+        THEN CEIL(attempt.set_time_limit_at_exam_speed_seconds)::INTEGER
+      ELSE NULL
+    END AS resolved_time_limit_seconds,
+    CASE
+      WHEN attempt.student_ucat_mock_attempt_id IS NOT NULL THEN 1::NUMERIC
+      WHEN attempt.set_speed > 0 THEN attempt.set_speed
+      WHEN attempt.content_snapshot ->> 'paceMultiplier'
+             ~ '^(0|[1-9][0-9]*)([.][0-9]+)?$'
+           AND (attempt.content_snapshot ->> 'paceMultiplier')::NUMERIC > 0
+        THEN (attempt.content_snapshot ->> 'paceMultiplier')::NUMERIC
+      ELSE NULL
+    END AS resolved_pace_multiplier
+  FROM public.student_question_set_attempts attempt
+), resolved_timing AS (
+  SELECT
+    candidate.*,
+    CASE
+      WHEN candidate.student_ucat_mock_attempt_id IS NOT NULL
+           AND candidate.resolved_time_limit_seconds IS NOT NULL
+        THEN 'pace'::public.ucat_question_set_timing_mode
+      WHEN candidate.resolved_time_limit_seconds IS NULL
+        THEN 'untimed'::public.ucat_question_set_timing_mode
+      WHEN candidate.snapshot_mode = 'untimed'
+        THEN 'untimed'::public.ucat_question_set_timing_mode
+      WHEN candidate.snapshot_mode = 'fixed'
+        THEN 'fixed'::public.ucat_question_set_timing_mode
+      WHEN candidate.snapshot_mode = 'pace'
+           AND candidate.resolved_pace_multiplier IS NOT NULL
+        THEN 'pace'::public.ucat_question_set_timing_mode
+      WHEN candidate.snapshot_mode = 'pace'
+        THEN 'fixed'::public.ucat_question_set_timing_mode
+      WHEN NOT candidate.was_timed
+        THEN 'untimed'::public.ucat_question_set_timing_mode
+      WHEN candidate.resolved_pace_multiplier IS NOT NULL
+        THEN 'pace'::public.ucat_question_set_timing_mode
+      ELSE 'fixed'::public.ucat_question_set_timing_mode
+    END AS resolved_mode
+  FROM timing_candidates candidate
+)
 UPDATE public.student_question_set_attempts attempt
 SET
-  effective_timing_mode = CASE
-    WHEN attempt.student_ucat_mock_attempt_id IS NOT NULL THEN 'pace'::public.ucat_question_set_timing_mode
-    WHEN attempt.content_snapshot ->> 'timingMode' = 'fixed' THEN 'fixed'::public.ucat_question_set_timing_mode
-    WHEN attempt.content_snapshot ->> 'timingMode' = 'untimed' THEN 'untimed'::public.ucat_question_set_timing_mode
-    WHEN attempt.was_timed THEN 'pace'::public.ucat_question_set_timing_mode
-    ELSE 'untimed'::public.ucat_question_set_timing_mode
-  END,
+  effective_timing_mode = resolved.resolved_mode,
   effective_pace_multiplier = CASE
-    WHEN attempt.student_ucat_mock_attempt_id IS NOT NULL THEN 1
-    WHEN attempt.content_snapshot ->> 'timingMode' = 'pace' THEN attempt.set_speed
-    WHEN attempt.content_snapshot ->> 'timingMode' IS NULL AND attempt.was_timed THEN attempt.set_speed
+    WHEN resolved.resolved_mode = 'pace' THEN resolved.resolved_pace_multiplier
     ELSE NULL
   END,
+  set_time_limit_seconds = CASE
+    WHEN resolved.resolved_mode = 'untimed' THEN NULL
+    ELSE resolved.resolved_time_limit_seconds
+  END,
   timing_source = CASE
-    WHEN attempt.student_ucat_mock_attempt_id IS NOT NULL THEN 'mock_blueprint'
+    WHEN resolved.student_ucat_mock_attempt_id IS NOT NULL THEN 'mock_blueprint'
     ELSE 'set_default'
-  END;
+  END
+FROM resolved_timing resolved
+WHERE resolved.id = attempt.id;
 
 ALTER TABLE public.student_question_set_attempts
   ALTER COLUMN effective_timing_mode SET NOT NULL,

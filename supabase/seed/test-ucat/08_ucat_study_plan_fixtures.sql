@@ -1,6 +1,22 @@
 -- Deterministic UCAT Study plan golden fixtures for local development and the
 -- hosted dev project. This file is intentionally not a migration: none of this
 -- synthetic curriculum or persona data belongs in production.
+-- Applied by supabase/scripts/apply-ucat-test-seed.sh, not automatic seed.
+
+-- Catalog, duplicate-pair, and public-count triggers rebuild on every stem
+-- insert. Defer them for this synthetic bank, then refresh once at the end.
+BEGIN;
+
+SELECT set_config('altitutor.defer_ucat_catalog_refresh', 'on', true);
+
+ALTER TABLE public.question_stems DISABLE TRIGGER USER;
+ALTER TABLE public.ucat_questions DISABLE TRIGGER USER;
+ALTER TABLE public.question_answer_options DISABLE TRIGGER USER;
+ALTER TABLE public.questions_question_tags DISABLE TRIGGER USER;
+ALTER TABLE public.question_stems_question_sets DISABLE TRIGGER USER;
+ALTER TABLE public.question_sets DISABLE TRIGGER USER;
+ALTER TABLE public.ucat_mocks DISABLE TRIGGER USER;
+ALTER TABLE public.ucat_question_catalog_projection DISABLE TRIGGER USER;
 
 -- Four curriculum folders live at high indices so they do not disturb normal
 -- authoring order.
@@ -581,3 +597,38 @@ SELECT
 FROM component_seed component
 JOIN public.question_stems_question_sets membership
   ON membership.question_set_id = component.source_set_id;
+
+SELECT set_config('altitutor.defer_ucat_catalog_refresh', 'off', true);
+
+SELECT public.refresh_ucat_question_catalog_projection_for_stems(ARRAY(
+  SELECT stem.id
+  FROM public.question_stems stem
+  WHERE stem.tutor_source_note IN (
+    'Study plan benchmark fixture',
+    'Study plan practice fixture'
+  )
+));
+
+SELECT public.refresh_ucat_question_catalog_set_derived_fields_for_stems(ARRAY(
+  SELECT stem.id
+  FROM public.question_stems stem
+  WHERE stem.tutor_source_note IN (
+    'Study plan benchmark fixture',
+    'Study plan practice fixture'
+  )
+));
+
+REFRESH MATERIALIZED VIEW public.ucat_public_question_counts_cache;
+
+SELECT public.rebuild_ucat_duplicate_stem_pairs();
+
+ALTER TABLE public.question_stems ENABLE TRIGGER USER;
+ALTER TABLE public.ucat_questions ENABLE TRIGGER USER;
+ALTER TABLE public.question_answer_options ENABLE TRIGGER USER;
+ALTER TABLE public.questions_question_tags ENABLE TRIGGER USER;
+ALTER TABLE public.question_stems_question_sets ENABLE TRIGGER USER;
+ALTER TABLE public.question_sets ENABLE TRIGGER USER;
+ALTER TABLE public.ucat_mocks ENABLE TRIGGER USER;
+ALTER TABLE public.ucat_question_catalog_projection ENABLE TRIGGER USER;
+
+COMMIT;

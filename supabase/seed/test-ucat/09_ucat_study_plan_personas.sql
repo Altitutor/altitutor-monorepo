@@ -1,6 +1,8 @@
 -- Resettable Study plan personas. These attach to the deterministic local test
--- students from 01_core_entities.sql. The same scenarios can be assigned to a
--- hosted-dev student by changing only the student UUIDs.
+-- students from 01_core_entities.sql. Applied by
+-- supabase/scripts/apply-ucat-test-seed.sh after the golden curriculum in 08.
+-- The same scenarios can be assigned to a hosted-dev student by changing only
+-- the student UUIDs.
 
 -- These are post-onboarding product personas. Keep them out of the signup
 -- wizard so browser tests land on the Study plan surface they are exercising.

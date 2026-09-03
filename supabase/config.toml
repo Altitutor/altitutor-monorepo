@@ -54,6 +54,9 @@ schema_paths = []
 # If enabled, seeds the database after migrations on `supabase start` and `db reset`.
 enabled = true
 # Automatic seed only. `seed/manual` is for Dashboard paste, not CI or reset.
+# UCAT study-plan fixtures live in `seed/test-ucat` and are applied by
+# `supabase/scripts/apply-ucat-test-seed.sh` when database contracts or UCAT
+# browser journeys run.
 sql_paths = ["./seed/test/*.sql", "./seed/production/*.sql"]
 
 [realtime]

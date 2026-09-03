@@ -86,8 +86,9 @@ make the normal unit-test loop slow and environment-dependent.
 `pnpm checkall` is the local equivalent of CI. It runs lint, typecheck, unit
 tests, UCAT coverage, Edge Function contracts, build, database contracts, and
 the `@critical` Chromium journeys. A fresh `supabase start` applies migrations
-and seed; if the local stack is already running, checkall resets it so the
-schema matches CI.
+and the cheap automatic seed; if the local stack is already running, checkall
+resets it so the schema matches CI. Checkall then applies the UCAT study-plan
+fixtures before database contracts and Playwright.
 
 Playwright requires a running local Supabase stack and installed browser
 binaries. CI starts Supabase (without a redundant `db reset`) and installs the
@@ -97,14 +98,18 @@ For a first local run, start Supabase and install Chromium once:
 
 ```sh
 supabase start
+pnpm db:seed:ucat
 pnpm --filter ucat-web exec playwright install chromium
 pnpm --filter ucat-web test:e2e:critical
 ```
 
-`supabase start` on a fresh stack applies every migration and the automatic
-seed. `supabase db reset` is only needed when the local database is already
-running and you want to rebuild it from scratch. `seed/manual` is not applied
-automatically; paste those files in the Dashboard when you need them.
+`supabase start` on a fresh stack applies every migration and the cheap
+automatic seed. `supabase db reset` is only needed when the local database is
+already running and you want to rebuild it from scratch. `pnpm db:seed:ucat`
+applies `seed/test-ucat` (the synthetic study-plan bank and personas). Local
+UCAT Playwright also applies that seed during global setup when `CI` is unset.
+`seed/manual` is not applied automatically; paste those files in the Dashboard
+when you need them.
 
 ## Continuous integration
 
@@ -113,6 +118,7 @@ The `UCAT Browser and Database` job runs for pull requests, `develop`, and
 skip it. Pull requests and `develop` run the release-critical Chromium
 journeys. `main` and manual CI runs execute the full Chrome, Edge, Firefox,
 WebKit/Safari, Android, and iOS matrix. The same job starts a fresh local
-Supabase (migrations and seed applied once) and runs every database contract
-before starting Playwright. The separate `UCAT Contracts` job enforces Jest
+Supabase (migrations and cheap automatic seed applied once). It then applies
+UCAT study-plan fixtures when database contracts or UCAT Playwright will run,
+then runs those suites. The separate `UCAT Contracts` job enforces Jest
 coverage and runs all Deno Edge Function tests.
