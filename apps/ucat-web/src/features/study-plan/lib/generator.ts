@@ -32,8 +32,7 @@ import type {
   StudyPlanTrainingMode,
 } from "@/features/study-plan/model/types";
 import {
-  mockIntervalDays,
-  targetMocksInHorizon,
+  mockTargetDaysBeforeExam,
   UCAT_MOCK_CADENCE_POLICY,
 } from "@/features/preparation/lib/mock-cadence-policy";
 import {
@@ -750,27 +749,34 @@ function mockDates(
   lastCompletedMockDate: string | null,
 ): Set<string> {
   if (!dates.length || readiness.mode === "learning") return new Set();
-  const cadenceInterval = mockIntervalDays(readiness.daysUntilExam);
   const eligible = dates.filter(
-    (date) =>
-      daysBetween(date, planningDate) >
-        UCAT_MOCK_CADENCE_POLICY.finalRecoveryDays &&
-      (!lastCompletedMockDate ||
-        daysBetween(lastCompletedMockDate, date) >= cadenceInterval),
+    (date) => {
+      const daysUntilExam = daysBetween(date, planningDate);
+      return (
+        daysUntilExam <= UCAT_MOCK_CADENCE_POLICY.beginsDaysBeforeExam &&
+        daysUntilExam > UCAT_MOCK_CADENCE_POLICY.finalRecoveryDays &&
+        (!lastCompletedMockDate ||
+          daysBetween(lastCompletedMockDate, date) >=
+            UCAT_MOCK_CADENCE_POLICY.mockRecoveryDays)
+      );
+    },
   );
   if (!eligible.length) return new Set();
-  const calendarSpan = Math.max(
-    1,
-    daysBetween(eligible[0] ?? dates[0]!, eligible[eligible.length - 1]!) + 1,
+  const horizonEndDaysBeforeExam = Math.max(
+    0,
+    readiness.daysUntilExam - (STUDY_PLAN_DETAILED_HORIZON_DAYS - 1),
   );
-  const desired = targetMocksInHorizon({
-    daysUntilExam: readiness.daysUntilExam,
-    horizonDays: calendarSpan,
-  });
-  const count = Math.min(desired, eligible.length);
+  const targets = mockTargetDaysBeforeExam().filter(
+    (target) =>
+      target <= readiness.daysUntilExam &&
+      target >= horizonEndDaysBeforeExam,
+  );
+  const maximumTargets =
+    readiness.daysUntilExam > 28
+      ? Math.max(0, eligible.length - 1)
+      : eligible.length;
   const picked = new Set<string>();
-  for (let index = 0; index < count; index += 1) {
-    const ideal = ((index + 0.5) * eligible.length) / count - 0.5;
+  for (const target of targets.slice(0, maximumTargets)) {
     const candidate = eligible
       .filter(
         (date) =>
@@ -782,11 +788,10 @@ function mockDates(
           ),
       )
       .sort((a, b) => {
-        const aIndex = eligible.indexOf(a);
-        const bIndex = eligible.indexOf(b);
+        const aDistance = Math.abs(daysBetween(a, planningDate) - target);
+        const bDistance = Math.abs(daysBetween(b, planningDate) - target);
         return (
-          Math.abs(aIndex - ideal) - Math.abs(bIndex - ideal) ||
-          a.localeCompare(b)
+          aDistance - bDistance || a.localeCompare(b)
         );
       })[0];
     if (candidate) picked.add(candidate);

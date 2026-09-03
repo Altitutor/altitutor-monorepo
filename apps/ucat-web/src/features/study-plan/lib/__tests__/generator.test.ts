@@ -1112,9 +1112,9 @@ describe("generateStudyPlan", () => {
   });
 
   it.each([
-    ["far-out Timing", "2026-01-01", "2026-06-01", 1],
+    ["far-out Timing", "2026-01-01", "2026-06-01", 0],
     ["61–120 days", "2026-05-01", "2026-08-01", 2],
-    ["29–60 days", "2026-06-20", "2026-08-01", 3],
+    ["29–60 days", "2026-06-20", "2026-08-01", 4],
     ["final 28 days", "2026-07-11", "2026-08-01", 9],
   ])(
     "uses the versioned mock cadence for %s",
@@ -1388,7 +1388,7 @@ describe("generateStudyPlan", () => {
 
   it("schedules multiple core blocks and allows near-section overspeed work", () => {
     const result = generateStudyPlan({
-      today: "2026-03-02",
+      today: "2026-04-07",
       planningDate: "2026-08-05",
       profile,
       sections,
