@@ -27,6 +27,7 @@ describe('Class schedule form', () => {
     expect(
       buildClassScheduleProposal({
         classId: '90000000-0000-0000-0000-000000000001',
+        sessionType: 'CLASS',
         subjectId: null,
         billingType: 'EXAM_COURSE',
         cohortLabel: ' Interview A ',

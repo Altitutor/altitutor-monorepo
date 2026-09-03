@@ -17,6 +17,11 @@ import type { Tables } from '@altitutor/shared';
 import { formatSessionDate } from '@altitutor/shared';
 import { getSubjectColorHex, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
+import {
+  sessionStudentBadgeClassName,
+  sessionStudentDisplayKind,
+  sessionStudentDisplaySuffix,
+} from '@/features/sessions/utils/sessionStudentDisplay';
 
 type TutorSessionShape = {
   session_id: string;
@@ -44,6 +49,7 @@ interface StudentMember {
   last_name: string;
   year_level?: number;
   planned_absence?: boolean;
+  is_extra?: boolean;
   account_class?: string | null;
 }
 
@@ -236,7 +242,7 @@ export function TutorDashboardSessionCard({
                 {students.map((student) => {
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = showFullNames ? fullName : getInitials(student.first_name, student.last_name);
-                  const isAbsent = Boolean(student.planned_absence);
+                  const kind = sessionStudentDisplayKind(student);
                   return (
                     <TooltipProvider key={student.id} delayDuration={100}>
                       <Tooltip>
@@ -244,9 +250,7 @@ export function TutorDashboardSessionCard({
                           <span
                             className={cn(
                               'rounded',
-                              isAbsent
-                                ? 'bg-red-100 text-red-600 line-through dark:bg-red-900/30 dark:text-red-400'
-                                : 'bg-muted text-muted-foreground',
+                              sessionStudentBadgeClassName(kind),
                               shouldUseCompact ? 'px-1 py-0.5 text-[10px]' : 'px-2 py-0.5 text-xs'
                             )}
                           >
@@ -261,7 +265,7 @@ export function TutorDashboardSessionCard({
                           <div className="flex items-center gap-2">
                             <p>
                               {fullName}
-                              {isAbsent ? ' (absent)' : ''}
+                              {sessionStudentDisplaySuffix(kind)}
                             </p>
                             <AccountClassBadge accountClass={student.account_class} />
                           </div>

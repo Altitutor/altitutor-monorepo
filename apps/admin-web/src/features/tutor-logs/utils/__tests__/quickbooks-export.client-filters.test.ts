@@ -4,11 +4,14 @@ import {
   type TutorLogExportData,
 } from '../quickbooks-export.processor';
 
-function classLog(subjectName: string): TutorLogExportData {
+function classLog(
+  subjectName: string,
+  sessionType: TutorLogExportData['sessionType'] = 'CLASS'
+): TutorLogExportData {
   return {
     tutorLogId: `log-${subjectName}`,
     sessionId: `session-${subjectName}`,
-    sessionType: 'CLASS',
+    sessionType,
     sessionStartAt: '2026-07-11T01:30:00.000Z',
     sessionEndAt: '2026-07-11T03:00:00.000Z',
     classId: 'class-id',
@@ -28,9 +31,9 @@ describe('QuickBooks empty class-session filtering', () => {
     expect(getEmptyClassSessionsMode([])).toBe('exclude');
   });
 
-  it('keeps zero-attendance Homework Help while excluding other zero-attendance classes', () => {
+  it('keeps zero-attendance Homework Help while excluding empty Classes', () => {
     const result = processTutorLogsForExport(
-      [classLog('PRESACE 9 Mathematics'), classLog('Homework Help')],
+      [classLog('PRESACE 9 Mathematics'), classLog('Homework Help', 'HOMEWORK_HELP')],
       { emptyClassSessions: getEmptyClassSessionsMode([]) }
     );
 

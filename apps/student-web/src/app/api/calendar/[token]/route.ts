@@ -27,6 +27,7 @@ type CalendarSessionQueryRow = {
     subject: { long_name: string | null; name: string | null } | null;
   } | null;
 };
+type DirectCalendarSessionQueryRow = NonNullable<CalendarSessionQueryRow["session"]>;
 
 function toCalendarSessionStatus(
   status: string,
@@ -68,26 +69,54 @@ export async function GET(
     return new NextResponse("Calendar not found", { status: 404 });
   }
 
-  // Include ACTIVE sessions plus recently cancelled ones so clients receive
-  // STATUS:CANCELLED tombstones (silent omission alone leaves ghost events).
-  const { data, error } = await admin
-    .from("sessions_students")
-    .select(
-      "session:sessions!inner(id,type,class_id,start_at,end_at,updated_at,status,subject:subjects(long_name,name))",
-    )
-    .eq("student_id", subscription.student_id)
-    .eq("is_rescheduled", false)
-    .in("session.status", ["ACTIVE", "INACTIVE"])
-    .order("start_at", { referencedTable: "sessions", ascending: true });
+  // Assigned Sessions remain visible historically. Upcoming Homework Help is
+  // additionally discoverable without enrolment for active in-person students.
+  const nowIso = new Date().toISOString();
+  const tombstoneCutoff = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString();
+  const [assignedResult, studentResult, homeworkHelpResult] = await Promise.all([
+    admin
+      .from("sessions_students")
+      .select(
+        "session:sessions!inner(id,type,class_id,start_at,end_at,updated_at,status,subject:subjects(long_name,name))",
+      )
+      .eq("student_id", subscription.student_id)
+      .eq("is_rescheduled", false)
+      .in("session.status", ["ACTIVE", "INACTIVE"])
+      .order("start_at", { referencedTable: "sessions", ascending: true }),
+    admin.from("students").select("status").eq("id", subscription.student_id).maybeSingle(),
+    admin
+      .from("sessions")
+      .select("id,type,class_id,start_at,end_at,updated_at,status,subject:subjects(long_name,name)")
+      .eq("type", "HOMEWORK_HELP")
+      .or(`and(status.eq.ACTIVE,end_at.gte.${nowIso}),and(status.eq.INACTIVE,updated_at.gte.${tombstoneCutoff})`)
+      .order("start_at", { ascending: true }),
+  ]);
+
+  const { data, error } = assignedResult;
 
   if (error) {
     console.error("Failed to load student calendar sessions:", error);
     return new NextResponse("Could not load calendar", { status: 500 });
   }
+  if (studentResult.error || homeworkHelpResult.error) {
+    console.error("Failed to load Homework Help calendar sessions:", studentResult.error || homeworkHelpResult.error);
+    return new NextResponse("Could not load calendar", { status: 500 });
+  }
 
-  const sessions = ((data || []) as unknown as CalendarSessionQueryRow[])
-    .map((row): CalendarSession | null => {
-      const session = row.session;
+  const directHomeworkHelp = studentResult.data?.status === "ACTIVE"
+    ? (homeworkHelpResult.data || []) as unknown as DirectCalendarSessionQueryRow[]
+    : [];
+
+  const sessionRows = [
+    ...((data || []) as unknown as CalendarSessionQueryRow[]).map((row) => row.session),
+    ...directHomeworkHelp,
+  ];
+  const uniqueSessionRows = Array.from(
+    new Map(sessionRows.filter((session) => session !== null).map((session) => [session.id, session])).values(),
+  );
+
+  const sessions = uniqueSessionRows
+    .map((session): CalendarSession | null => {
       if (!session?.start_at || !session.end_at) return null;
       const status = toCalendarSessionStatus(session.status);
       if (!status) return null;

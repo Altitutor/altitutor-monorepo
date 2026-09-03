@@ -58,6 +58,13 @@ export interface SessionStudent {
   planned_absence?: boolean;
   is_rescheduled?: boolean;
   is_credited?: boolean;
+  is_extra?: boolean;
+}
+
+export interface SessionParent {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
 }
 
 /**
@@ -69,6 +76,14 @@ export interface SessionStaff {
   last_name: string;
   role: string;
   type?: string;
+  planned_absence?: boolean;
+  is_swapped?: boolean;
+  is_swapped_in?: boolean;
+  swapped_staff?: {
+    id: string;
+    first_name: string;
+    last_name: string;
+  } | null;
   subjects?: Array<{ id: string; name: string }>;
 }
 

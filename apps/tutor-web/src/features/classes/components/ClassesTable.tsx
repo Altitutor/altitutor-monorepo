@@ -97,6 +97,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       schedule_weekdays: cls.schedule_weekdays ?? [],
       billing_type: 'CLASS',
       billing_type_effective_from: cls.session_start_date!,
+      session_type: (cls as { session_type?: Tables<'classes'>['session_type'] }).session_type ?? 'CLASS',
     }));
   
   // Build subject objects from flattened fields for compatibility

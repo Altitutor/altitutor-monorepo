@@ -95,6 +95,37 @@ export function formatTimeHHMM(timeString: string | null | undefined): string {
 }
 
 /**
+ * Extract hours and minutes from a UTC ISO string in Adelaide timezone.
+ */
+export function getAdelaideTimeComponents(isoString: string): { hours: number; minutes: number } {
+  const date = new Date(isoString);
+  if (Number.isNaN(date.getTime())) {
+    return { hours: 0, minutes: 0 };
+  }
+
+  const formatter = new Intl.DateTimeFormat('en', {
+    timeZone: 'Australia/Adelaide',
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: false,
+  });
+
+  const parts = formatter.formatToParts(date);
+  const hours = parseInt(parts.find((part) => part.type === 'hour')?.value || '0', 10);
+  const minutes = parseInt(parts.find((part) => part.type === 'minute')?.value || '0', 10);
+
+  return { hours, minutes };
+}
+
+/**
+ * Convert a UTC ISO string to minutes from midnight in Adelaide timezone.
+ */
+export function adelaideTimeToMinutes(isoString: string): number {
+  const { hours, minutes } = getAdelaideTimeComponents(isoString);
+  return hours * 60 + minutes;
+}
+
+/**
  * Convert YYYY-MM-DD to UTC ISO for start of local day (matches student timetable queries).
  */
 export function dateStringToUtcStart(dateString: string): string {

@@ -195,17 +195,21 @@ export function formatSessionType(type: string | null | undefined): string {
   
   const typeMap: Record<string, string> = {
     'CLASS': 'Class',
+    'HOMEWORK_HELP': 'Homework Help',
     'DRAFTING': 'Drafting',
     'EXAM_COURSE': 'Exam Course',
     'SUBSIDY_INTERVIEW': 'Subsidy Interview',
     'TRIAL_SESSION': 'Trial Session',
+    'STAFF_INTERVIEW': 'Staff Interview',
+    'ADMIN_SHIFT': 'Admin Shift',
+    'ADMIN_MEETING': 'Admin Meeting',
+    'CHECK_IN': 'Check-in',
     'MEETING': 'Meeting',
   };
   
-  return typeMap[type] || type;
+  return typeMap[type] || type.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
 // Re-export enum color utilities from shared UI package
 export * from '@altitutor/ui';
 export * from './subject-icons';
- 

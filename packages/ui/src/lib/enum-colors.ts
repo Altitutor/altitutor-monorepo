@@ -8,7 +8,7 @@ type ClassStatus = 'ACTIVE' | 'INACTIVE' | 'FULL';
 type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' | 'TRIAL';
 type AbsenceType = 'PLANNED' | 'UNPLANNED';
 type MeetingType = 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'PARENT_MEETING' | 'OTHER';
-type SessionType = 'CLASS' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
+type SessionType = 'CLASS' | 'HOMEWORK_HELP' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
 type MessageStatus = 'DRAFT' | 'SENT' | 'FAILED';
 
 // Color mapping types
@@ -93,6 +93,7 @@ export const MEETING_TYPE_COLORS: Record<MeetingType, BadgeColorClass> = {
 // Session Type Colors
 export const SESSION_TYPE_COLORS: Record<SessionType, BadgeColorClass> = {
   CLASS: 'bg-blue-100 text-blue-800',
+  HOMEWORK_HELP: 'bg-emerald-100 text-emerald-800',
   DRAFTING: 'bg-green-100 text-green-800',
   SUBSIDY_INTERVIEW: 'bg-purple-100 text-purple-800',
   TRIAL_SESSION: 'bg-orange-100 text-orange-800',
@@ -225,4 +226,4 @@ export function getEnumColor<T extends string>(
 ): BadgeColorClass {
   if (!value) return 'bg-gray-100 text-gray-800';
   return colorMap[value] ?? 'bg-gray-100 text-gray-800';
-} 
+}

@@ -1144,8 +1144,7 @@ async function loadGenerationInputs(
         (candidate) => candidate.sectionNumber === sectionNumber,
       );
       const examSeconds = Number(set.time_limit_at_exam_speed_seconds ?? 0);
-      const pace = Number(set.speed ?? 0);
-      if (!section || examSeconds <= 0 || pace <= 0) return [];
+      if (!section || examSeconds <= 0) return [];
       return [
         {
           id: set.id,
@@ -1159,7 +1158,6 @@ async function loadGenerationInputs(
             1,
             Math.round(examSeconds / section.timePerQuestionSeconds),
           ),
-          pace,
           completedAttempts: (setAttemptsRes.data ?? []).flatMap((attempt) =>
             attempt.question_set_id === set.id &&
             attempt.student_ucat_mock_attempt_id == null &&

@@ -39,8 +39,8 @@ export default function ClassesPage() {
     <>
       <StudentPageContainer className="space-y-10 pb-10">
         <div id="tour-classes-header" className="pb-2">
-          <h1 className="text-3xl font-bold tracking-tight">My Classes</h1>
-          <p className="mt-1 text-muted-foreground">View your enrolled classes and sessions</p>
+          <h1 className="text-3xl font-bold tracking-tight">My Schedule</h1>
+          <p className="mt-1 text-muted-foreground">View your Classes, Homework Help, and Sessions</p>
         </div>
 
         <div id="tour-classes-actions">
@@ -72,7 +72,7 @@ export default function ClassesPage() {
         </div>
 
         <div id="tour-classes-enrolments">
-          <h2 className="mb-4 text-2xl font-semibold">Classes</h2>
+          <h2 className="mb-4 text-2xl font-semibold">Scheduled offerings</h2>
           <ClassesTable />
         </div>
 

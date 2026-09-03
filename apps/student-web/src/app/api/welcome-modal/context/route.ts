@@ -166,9 +166,9 @@ export async function GET(_request: NextRequest) {
 
     const { data: homeworkHelpClass, error: homeworkHelpError } = await adminClient
       .from('classes')
-      .select('day_of_week, start_time, end_time, subjects!inner(name)')
+      .select('day_of_week, start_time, end_time')
       .eq('status', 'ACTIVE')
-      .eq('subjects.name', 'Homework Help')
+      .eq('session_type', 'HOMEWORK_HELP')
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true })
       .limit(1)

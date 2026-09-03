@@ -29,6 +29,7 @@ import type { MinimalClass } from '@/features/classes/api/classes';
 
 const SESSION_TYPES: Database['public']['Enums']['session_type'][] = [
   'CLASS',
+  'HOMEWORK_HELP',
   'DRAFTING',
   'EXAM_COURSE',
   'SUBSIDY_INTERVIEW',

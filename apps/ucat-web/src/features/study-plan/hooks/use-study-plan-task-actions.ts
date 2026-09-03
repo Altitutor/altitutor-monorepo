@@ -114,7 +114,8 @@ export function useStudyPlanTaskActions(
           ? `/skill-trainer/${skillTrainerKey.replaceAll("_", "-")}/play`
           : taskToStart.taskType === "review"
             ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
-            : taskToStart.taskType === "learn"
+            : taskToStart.taskType === "learn" ||
+                taskToStart.taskType === "section_benchmark"
               ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanTaskId=${encodeURIComponent(taskToStart.id)}`
               : taskToStart.launchPath;
       setPendingAction(null);

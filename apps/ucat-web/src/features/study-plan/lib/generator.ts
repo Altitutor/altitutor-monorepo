@@ -438,10 +438,11 @@ function benchmarkTask(
   scheduledDate: string,
   sortOrder: number,
   asset: BenchmarkSetAsset,
+  prescribedPace: number,
   repeated: boolean,
   expectedAccuracy: number | null,
 ): GeneratedStudyPlanTask {
-  const pace = asset.pace;
+  const pace = prescribedPace;
   const atExamPace = pace === 1;
   return {
     scheduledDate,
@@ -476,7 +477,6 @@ function benchmarkTask(
       ucatSectionId: section.id,
       questionCount: asset.questionCount,
       prescribedPace: pace,
-      actualPace: pace,
       examTimePerQuestionSeconds: section.timePerQuestionSeconds,
       expectedAccuracy,
     },
@@ -933,7 +933,6 @@ export function generateStudyPlan(
         sectionQuestionCount: section.questionCount,
         requestedQuestionCount:
           activity.dose.questionCount ?? section.questionCount,
-        requestedPace: readinessBySection.get(section.id)?.paceMultiplier ?? 1,
         usedSetIds,
         sets: input.benchmarkSets ?? [],
       });
@@ -951,6 +950,7 @@ export function generateStudyPlan(
         scheduledDate,
         sortOrder,
         selected.asset,
+        readinessBySection.get(section.id)?.paceMultiplier ?? 1,
         selected.repeated,
         input.signals.find((signal) => signal.sectionId === section.id)
           ?.recentAccuracy ?? null,

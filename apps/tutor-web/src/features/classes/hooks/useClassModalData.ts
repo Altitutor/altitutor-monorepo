@@ -59,6 +59,7 @@ function buildClassFromClassDetail(detail: VtutorClassDetailRow): Tables<'classe
     schedule_weekdays: detail.schedule_weekdays ?? [],
     billing_type: 'CLASS',
     billing_type_effective_from: detail.session_start_date ?? '',
+    session_type: (detail as { session_type?: Tables<'classes'>['session_type'] }).session_type ?? 'CLASS',
   };
 }
 

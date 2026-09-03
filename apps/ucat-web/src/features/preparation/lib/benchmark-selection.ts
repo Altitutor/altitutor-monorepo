@@ -3,7 +3,6 @@ export type BenchmarkSetAsset = {
   name: string;
   sectionId: string;
   questionCount: number;
-  pace: number;
   completedAttempts: string[];
 };
 
@@ -25,7 +24,6 @@ export function selectBenchmarkSet(input: {
   sectionId: string;
   sectionQuestionCount: number;
   requestedQuestionCount: number;
-  requestedPace: number;
   usedSetIds: ReadonlySet<string>;
   sets: BenchmarkSetAsset[];
 }): SelectionResult<BenchmarkSetAsset> {
@@ -42,13 +40,9 @@ export function selectBenchmarkSet(input: {
   const planExhausted = unused.length === 0;
   const candidates = planExhausted ? eligible : unused;
   const asset = [...candidates].sort((left, right) => {
-    const leftDistance = Math.abs(left.pace - input.requestedPace);
-    const rightDistance = Math.abs(right.pace - input.requestedPace);
     const leftRecent = mostRecent(left.completedAttempts);
     const rightRecent = mostRecent(right.completedAttempts);
     return (
-      leftDistance - rightDistance ||
-      left.pace - right.pace ||
       Number(left.completedAttempts.length > 0) -
         Number(right.completedAttempts.length > 0) ||
       (leftRecent ?? "").localeCompare(rightRecent ?? "") ||

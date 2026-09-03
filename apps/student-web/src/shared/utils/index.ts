@@ -165,6 +165,7 @@ export function formatSessionType(type: string | null | undefined): string {
   
   const typeMap: Record<string, string> = {
     'CLASS': 'Class',
+    'HOMEWORK_HELP': 'Homework Help',
     'DRAFTING': 'Drafting',
     'EXAM_COURSE': 'Exam Course',
     'SUBSIDY_INTERVIEW': 'Subsidy Interview',
@@ -177,4 +178,4 @@ export function formatSessionType(type: string | null | undefined): string {
 }
 
 // Re-export enum color utilities from shared UI package
-export * from '@altitutor/ui'; 
+export * from '@altitutor/ui';

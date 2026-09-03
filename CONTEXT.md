@@ -627,11 +627,17 @@
 - **UCAT question set format** — The authored size intent of a UCAT question set: **full section** targets the official question total for its section, while **partial section** deliberately targets fewer questions. Actual question count remains derived from the set's member stems.
   _Avoid_: Mini set, inferred full set, question-count bucket
 
-- **UCAT question set pace** — The authored working speed for a timed UCAT question set relative to exam pace. `1×` is exam pace, below `1×` is slower and therefore allows more time, and above `1×` is faster and therefore allows less time.
-  _Avoid_: Time multiplier, percentage of exam time, derived student speed
+- **UCAT question set default pace** — The authored fallback working speed for a timed UCAT question set when no delivery prescription applies. `1×` is exam pace, below `1×` is slower and therefore allows more time, and above `1×` is faster and therefore allows less time.
+  _Avoid_: Attempt pace, time multiplier, percentage of exam time, derived student speed
 
-- **UCAT question set timing intent** — The authored timing rule for a standalone UCAT question set: exam-relative pace, fixed answering duration, or untimed. Exam-relative answering time is resolved from the set's reference blueprint when an attempt starts as `(blueprint section answering time ÷ blueprint section question total) × actual set question count ÷ pace`; the resulting segment deadline is captured for the attempt. Mock component sets always use their mock blueprint's exact section timing rather than a proportional standalone calculation.
-  _Avoid_: Mutable attempt duration, pace as time allowance, unexplained seconds
+- **UCAT question set timing intent** — The authored default timing rule for a standalone UCAT question set: exam-relative pace, fixed answering duration, or untimed. It governs direct set attempts when no delivery prescription applies; mock component sets always use their mock blueprint's exact section timing.
+  _Avoid_: Effective attempt timing, mutable attempt duration, unexplained seconds
+
+- **Prescribed set pace** — The working speed assigned to one student's delivery of a question set, normally by a Study plan task. It selects the attempt's answering time without changing the reusable set or reserving different questions for each pace rung.
+  _Avoid_: Set pace override, authored set pace, observed pace
+
+- **Effective set attempt timing** — The immutable timing condition captured when a standalone set attempt begins, including its resolved answering duration, exam-speed equivalent, prescribed pace, and whether it came from the set default or a delivery prescription. Resuming or replanning never recalculates it, and mock timing cannot be overridden by a set prescription.
+  _Avoid_: Current set timing, live task timing, recalculated deadline
 
 - **UCAT question set blueprint reference** — The immutable UCAT exam blueprint version used as a standalone set's timing and composition provenance, not as part of its catalog identity. Every set has one reference. Attaching a set whose existing reference differs from the mock's blueprint is allowed only after it passes the target blueprint's slot-compliance rules, then explicitly rebases the reference to the mock blueprint; detaching retains that reference.
   _Avoid_: Catalog year, implicit current blueprint, nullable blueprint provenance

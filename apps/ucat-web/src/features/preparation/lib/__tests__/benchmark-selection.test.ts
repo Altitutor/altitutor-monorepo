@@ -4,12 +4,11 @@ import {
 } from "@/features/preparation/lib/benchmark-selection";
 
 describe("benchmark asset selection", () => {
-  it("matches section and form before choosing nearest authored pace", () => {
+  it("matches section and form before choosing fresh content independently of authored pace", () => {
     const result = selectBenchmarkSet({
       sectionId: "vr",
       sectionQuestionCount: 44,
       requestedQuestionCount: 44,
-      requestedPace: 0.5,
       usedSetIds: new Set(),
       sets: [
         {
@@ -17,7 +16,6 @@ describe("benchmark asset selection", () => {
           name: "DM set",
           sectionId: "dm",
           questionCount: 35,
-          pace: 0.5,
           completedAttempts: [],
         },
         {
@@ -25,7 +23,6 @@ describe("benchmark asset selection", () => {
           name: "VR partial",
           sectionId: "vr",
           questionCount: 22,
-          pace: 0.5,
           completedAttempts: [],
         },
         {
@@ -33,7 +30,6 @@ describe("benchmark asset selection", () => {
           name: "VR 0.6",
           sectionId: "vr",
           questionCount: 44,
-          pace: 0.6,
           completedAttempts: ["2026-08-01T00:00:00.000Z"],
         },
         {
@@ -41,7 +37,6 @@ describe("benchmark asset selection", () => {
           name: "VR 0.8",
           sectionId: "vr",
           questionCount: 44,
-          pace: 0.8,
           completedAttempts: [],
         },
       ],
@@ -49,8 +44,8 @@ describe("benchmark asset selection", () => {
 
     expect(result).toMatchObject({
       status: "selected",
-      repeated: true,
-      asset: { id: "nearer-attempted", pace: 0.6 },
+      repeated: false,
+      asset: { id: "farther-unattempted" },
     });
   });
 
@@ -59,7 +54,6 @@ describe("benchmark asset selection", () => {
       sectionId: "vr",
       sectionQuestionCount: 44,
       requestedQuestionCount: 44,
-      requestedPace: 1,
       usedSetIds: new Set(["older", "newer"]),
       sets: [
         {
@@ -67,7 +61,6 @@ describe("benchmark asset selection", () => {
           name: "Newer",
           sectionId: "vr",
           questionCount: 44,
-          pace: 1,
           completedAttempts: ["2026-08-10T00:00:00.000Z"],
         },
         {
@@ -75,7 +68,6 @@ describe("benchmark asset selection", () => {
           name: "Older",
           sectionId: "vr",
           questionCount: 44,
-          pace: 1,
           completedAttempts: ["2026-07-01T00:00:00.000Z"],
         },
       ],
@@ -94,7 +86,6 @@ describe("benchmark asset selection", () => {
         sectionId: "qr",
         sectionQuestionCount: 36,
         requestedQuestionCount: 36,
-        requestedPace: 0.8,
         usedSetIds: new Set(),
         sets: [],
       }),

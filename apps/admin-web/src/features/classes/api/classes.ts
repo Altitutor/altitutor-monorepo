@@ -13,7 +13,7 @@ function mapStoredClassSchedule(data: ScheduleRevisionWithSlots): StoredClassSch
   return {
     id: data.id,
     scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
-    sessionType: data.session_type,
+    sessionType: data.session_type as StoredClassSchedule['sessionType'],
     billingType: data.billing_type,
     frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
     anchorDate: data.anchor_date,

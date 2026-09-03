@@ -40,6 +40,7 @@ interface StudentMember {
   last_name: string;
   year_level?: number;
   planned_absence?: boolean;
+  is_extra?: boolean;
   account_class?: string | null;
 }
 
@@ -276,6 +277,7 @@ export function SessionsCalendarView({ onOpenSession }: Props) {
                                 last_name: student.last_name,
                                 year_level: student.year_level !== null ? student.year_level : undefined,
                                 planned_absence: student.planned_absence ?? false,
+                                is_extra: student.is_extra ?? false,
                                 account_class: student.account_class,
                               }));
 

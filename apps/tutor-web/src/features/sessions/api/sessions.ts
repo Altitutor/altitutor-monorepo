@@ -2,12 +2,14 @@ import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { dateStringToUtcEnd, dateStringToUtcStart } from '@/shared/utils/datetime';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SessionStaff, SessionStudent } from '../utils/session-helpers';
+import type { SessionParent, SessionStaff, SessionStudent } from '../utils/session-helpers';
+import { parseSessionParentList, parseSessionStaffList, parseSessionStudentList } from '../utils/parseSessionDetailJson';
 
-interface SessionDetailsMap {
+export type TutorSessionDetailsMap = {
   staff: SessionStaff[];
   students: SessionStudent[];
-}
+  parents: SessionParent[];
+};
 
 /**
  * Sessions API client for tutor-web
@@ -41,6 +43,35 @@ export const sessionsApi = {
       .lte('start_at', utcEnd)
       .order('start_at', { ascending: true });
     if (error) throw error;
+    return data ?? [];
+  },
+
+  /**
+   * Sessions originally scheduled in this range (moved off the viewed day).
+   * Falls back to [] if the view does not yet expose original_start_at.
+   */
+  getSessionsOriginallyInDateRange: async (rangeStart: string, rangeEnd: string) => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const utcStart = dateStringToUtcStart(rangeStart);
+    const utcEnd = dateStringToUtcEnd(rangeEnd);
+    const { data, error } = await supabase
+      .from('vtutor_sessions')
+      .select('*')
+      .filter('original_start_at', 'gte', utcStart)
+      .filter('original_start_at', 'lte', utcEnd)
+      .not('original_start_at', 'is', null)
+      .order('start_at', { ascending: true });
+
+    if (error) {
+      if (
+        error.code === 'PGRST204' ||
+        error.code === '42703' ||
+        /original_start_at/i.test(error.message)
+      ) {
+        return [];
+      }
+      throw error;
+    }
     return data ?? [];
   },
 
@@ -104,89 +135,25 @@ export const sessionsApi = {
    * Uses vtutor_session_detail view
    * Returns a map of session_id -> { staff, students }
    */
-  getSessionsWithDetails: async (sessionIds: string[]): Promise<Record<string, SessionDetailsMap>> => {
+  getSessionsWithDetails: async (sessionIds: string[]): Promise<Record<string, TutorSessionDetailsMap>> => {
     if (sessionIds.length === 0) return {};
 
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
 
-    const { data, error } = await supabase
-      .from('vtutor_session_detail')
-      .select('session_id, staff, students')
-      .in('session_id', sessionIds);
+    const { data, error } = await supabase.from('vtutor_session_detail').select('*').in('session_id', sessionIds);
 
     if (error) throw error;
 
-    // Create a map of session_id -> { staff, students }
-    const detailsMap: Record<string, SessionDetailsMap> = {};
+    const detailsMap: Record<string, TutorSessionDetailsMap> = {};
 
     (data || []).forEach((detail) => {
-      const staffJson = detail.staff;
-      const studentsJson = detail.students;
-
-      // Parse JSON arrays if they're strings, otherwise use as-is
-      const staff: SessionStaff[] = Array.isArray(staffJson)
-        ? staffJson.map((s: unknown) => {
-            if (
-              typeof s === 'object' &&
-              s !== null &&
-              'id' in s &&
-              'first_name' in s &&
-              'last_name' in s &&
-              'role' in s
-            ) {
-              return {
-                id: String(s.id),
-                first_name: String(s.first_name),
-                last_name: String(s.last_name),
-                role: String(s.role),
-                type: 'type' in s ? String(s.type) : undefined,
-                subjects:
-                  'subjects' in s && Array.isArray(s.subjects)
-                    ? s.subjects.map((subj: unknown) => {
-                        if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
-                          return {
-                            id: String(subj.id),
-                            name: String(subj.name),
-                          };
-                        }
-                        return { id: '', name: '' };
-                      })
-                    : undefined,
-              };
-            }
-            return { id: '', first_name: '', last_name: '', role: '' };
-          })
-        : [];
-
-      const students: SessionStudent[] = Array.isArray(studentsJson)
-        ? studentsJson.map((s: unknown) => {
-            if (typeof s === 'object' && s !== null && 'id' in s && 'first_name' in s && 'last_name' in s) {
-              return {
-                id: String(s.id),
-                first_name: String(s.first_name),
-                last_name: String(s.last_name),
-                year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
-                account_class:
-                  'account_class' in s && s.account_class === 'internal_test' ? 'internal_test' : 'external',
-                planned_absence: 'planned_absence' in s ? Boolean(s.planned_absence) : false,
-              };
-            }
-            return {
-              id: '',
-              first_name: '',
-              last_name: '',
-              year_level: null,
-              planned_absence: false,
-            };
-          })
-        : [];
-
-      if (detail.session_id) {
-        detailsMap[detail.session_id] = {
-          staff,
-          students,
-        };
-      }
+      if (!detail.session_id) return;
+      const extra = detail as typeof detail & { parents?: unknown };
+      detailsMap[detail.session_id] = {
+        staff: parseSessionStaffList(detail.staff),
+        students: parseSessionStudentList(detail.students),
+        parents: parseSessionParentList(extra.parents),
+      };
     });
 
     return detailsMap;

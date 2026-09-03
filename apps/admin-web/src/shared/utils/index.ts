@@ -209,6 +209,7 @@ export function formatSessionType(type: string | null | undefined): string {
   
   const typeMap: Record<string, string> = {
     'CLASS': 'Class',
+    'HOMEWORK_HELP': 'Homework Help',
     'DRAFTING': 'Drafting',
     'EXAM_COURSE': 'Exam Course',
     'SUBSIDY_INTERVIEW': 'Subsidy Interview',

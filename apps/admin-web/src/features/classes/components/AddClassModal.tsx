@@ -187,7 +187,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       showEntityCreatedToast({
         toast,
         router,
-        entityType: 'scheduled offering',
+        entityType: 'class',
         entityId: result.class_id ?? classId,
         message: 'Scheduled offering and Sessions created successfully.',
       });

@@ -9,6 +9,7 @@ function revision(
   return {
     id,
     scheduleType: 'RECURRING',
+    sessionType: 'CLASS',
     billingType: 'CLASS',
     frequencyWeeks: 1,
     anchorDate: effectiveFrom,
