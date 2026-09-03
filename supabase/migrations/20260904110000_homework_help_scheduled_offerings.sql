@@ -604,8 +604,7 @@ BEGIN
     END
   WHERE session.class_id = NEW.class_id
     AND session.start_at >= NEW.effective_from::TIMESTAMP AT TIME ZONE v_timezone
-    AND session.start_at < (NEW.effective_to + 1)::TIMESTAMP AT TIME ZONE v_timezone
-    AND NOT session.is_schedule_exception;
+    AND session.start_at < (NEW.effective_to + 1)::TIMESTAMP AT TIME ZONE v_timezone;
 
   RETURN NEW;
 END;
@@ -1064,7 +1063,10 @@ DECLARE
   v_offering_type_text TEXT := COALESCE(NULLIF(p_proposal->>'session_type', ''), 'CLASS');
   v_offering_type public.session_type;
   v_subject_id UUID := NULLIF(p_proposal->>'subject_id', '')::UUID;
-  v_billing_type_text TEXT := NULLIF(p_proposal->>'billing_type', '');
+  v_billing_type_text TEXT := COALESCE(
+    NULLIF(p_proposal->>'billing_type', ''),
+    CASE WHEN v_offering_type_text = 'CLASS' THEN 'CLASS' END
+  );
   v_start_date DATE := (p_proposal->>'start_date')::DATE;
   v_end_date DATE := (p_proposal->>'end_date')::DATE;
   v_effective_from DATE := COALESCE((p_proposal->>'effective_from')::DATE, v_start_date);
@@ -1101,9 +1103,6 @@ BEGIN
   v_offering_type := v_offering_type_text::public.session_type;
 
   IF v_offering_type = 'CLASS'::public.session_type THEN
-    IF v_subject_id IS NULL THEN
-      RAISE EXCEPTION 'A Class Subject is required';
-    END IF;
     IF v_billing_type_text NOT IN ('CLASS', 'EXAM_COURSE', 'DRAFTING') THEN
       RAISE EXCEPTION 'A valid Class billing type is required';
     END IF;
@@ -1722,7 +1721,13 @@ SET search_path = ''
 AS $$
 DECLARE
   v_offering_type_text TEXT := COALESCE(NULLIF(p_proposal->>'session_type', ''), 'CLASS');
-  v_billing_type_text TEXT := NULLIF(p_proposal->>'billing_type', '');
+  v_billing_type_text TEXT := COALESCE(
+    NULLIF(p_proposal->>'billing_type', ''),
+    CASE
+      WHEN COALESCE(NULLIF(p_proposal->>'session_type', ''), 'CLASS') = 'CLASS'
+        THEN 'CLASS'
+    END
+  );
   v_previous_offering_type TEXT := current_setting('app.class_session_type', TRUE);
   v_previous_billing_type TEXT := current_setting('app.class_billing_type', TRUE);
   v_result JSONB;

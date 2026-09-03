@@ -67,7 +67,7 @@ SELECT throws_ok(
   $$ UPDATE public.classes
      SET status = 'INACTIVE'
      WHERE id = '90000000-0000-0000-0000-000000000002' $$,
-  'P0001', 'Class status changes must use the timetable preview',
+  'P0001', 'Scheduled offering status changes must use the timetable preview',
   'direct Class status changes cannot bypass schedule reconciliation'
 );
 

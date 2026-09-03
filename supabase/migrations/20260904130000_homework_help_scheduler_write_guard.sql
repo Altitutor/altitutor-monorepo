@@ -122,6 +122,7 @@ SELECT
       'availability_thursday', student.availability_thursday, 'availability_friday', student.availability_friday,
       'availability_saturday_am', student.availability_saturday_am, 'availability_saturday_pm', student.availability_saturday_pm,
       'availability_sunday_am', student.availability_sunday_am, 'availability_sunday_pm', student.availability_sunday_pm,
+      'account_class', student.account_class,
       'enrollment_id', enrollment.id, 'enrolled_at', enrollment.enrolled_at, 'unenrolled_at', enrollment.unenrolled_at
     ))
     FROM public.classes_students enrollment
