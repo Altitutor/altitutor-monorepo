@@ -838,6 +838,23 @@ CREATE TRIGGER trigger_prevent_scheduled_offering_type_overwrite
   FOR EACH ROW
   EXECUTE FUNCTION public.prevent_scheduled_offering_type_overwrite();
 
+-- Relax the legacy Class-subject invariant before converting existing Homework
+-- Help revisions. Updating a revision synchronizes its generated Sessions, so
+-- the replacement constraint must already permit subjectless Homework Help.
+ALTER TABLE public.sessions
+  DROP CONSTRAINT IF EXISTS check_session_subject_id_when_class_exists,
+  ADD CONSTRAINT check_session_subject_id_when_class_exists
+    CHECK (
+      class_id IS NULL
+      OR type = 'HOMEWORK_HELP'::public.session_type
+      OR subject_id IS NOT NULL
+    ),
+  ADD CONSTRAINT sessions_homework_help_configuration_check
+    CHECK (
+      type <> 'HOMEWORK_HELP'::public.session_type
+      OR (subject_id IS NULL AND billing_type IS NULL)
+    );
+
 CREATE TEMP TABLE homework_help_migration_targets ON COMMIT DROP AS
 SELECT class.id
 FROM public.classes class
@@ -1037,20 +1054,6 @@ ALTER TABLE public.class_schedule_revisions
     (session_type = 'CLASS'::public.session_type AND billing_type IS NOT NULL)
     OR (session_type = 'HOMEWORK_HELP'::public.session_type AND billing_type IS NULL)
   );
-
-ALTER TABLE public.sessions
-  DROP CONSTRAINT IF EXISTS check_session_subject_id_when_class_exists,
-  ADD CONSTRAINT check_session_subject_id_when_class_exists
-    CHECK (
-      class_id IS NULL
-      OR type = 'HOMEWORK_HELP'::public.session_type
-      OR subject_id IS NOT NULL
-    ),
-  ADD CONSTRAINT sessions_homework_help_configuration_check
-    CHECK (
-      type <> 'HOMEWORK_HELP'::public.session_type
-      OR (subject_id IS NULL AND billing_type IS NULL)
-    );
 
 CREATE OR REPLACE FUNCTION public.preview_class_schedule(p_proposal JSONB)
 RETURNS JSONB
