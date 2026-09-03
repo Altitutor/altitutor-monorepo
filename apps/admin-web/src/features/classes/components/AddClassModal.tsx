@@ -21,6 +21,7 @@ import type {
   ClassSchedulePlan,
   ClassScheduleProposal,
   ClassScheduleRow,
+  ScheduledOfferingType,
 } from '../types/schedule';
 import {
   buildClassScheduleProposal,
@@ -49,7 +50,12 @@ const BILLING_TYPE_OPTIONS: Array<{ value: ClassBillingType; label: string }> = 
   { value: 'DRAFTING', label: 'Drafting' },
 ];
 
-const STEP_TITLES = ['Class details', 'Repeating timetable', 'Review sessions'];
+const OFFERING_TYPE_OPTIONS: Array<{ value: ScheduledOfferingType; label: string }> = [
+  { value: 'CLASS', label: 'Class' },
+  { value: 'HOMEWORK_HELP', label: 'Homework Help' },
+];
+
+const STEP_TITLES = ['Offering details', 'Repeating timetable', 'Review sessions'];
 
 interface AddClassModalProps {
   isOpen: boolean;
@@ -84,6 +90,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   const [error, setError] = useState<string | null>(null);
   const [classId, setClassId] = useState('');
   const [cohortLabel, setCohortLabel] = useState('');
+  const [offeringType, setOfferingType] = useState<ScheduledOfferingType>('CLASS');
   const [selectedSubject, setSelectedSubject] = useState<Tables<'subjects'> | null>(null);
   const [billingType, setBillingType] = useState<ClassBillingType>('CLASS');
   const [startDate, setStartDate] = useState('');
@@ -98,6 +105,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
     setError(null);
     setClassId(crypto.randomUUID());
     setCohortLabel('');
+    setOfferingType('CLASS');
     setSelectedSubject(null);
     setBillingType('CLASS');
     setStartDate(dateInputValue(new Date()));
@@ -122,9 +130,9 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
   };
 
   const validateDetails = () => {
-    if (!selectedSubject) return 'A subject is required.';
-    if (!startDate || !endDate) return 'Class start and end dates are required.';
-    if (endDate < startDate) return 'Class end date must be on or after its start date.';
+    if (offeringType === 'CLASS' && !selectedSubject) return 'A subject is required for a Class.';
+    if (!startDate || !endDate) return 'Offering start and end dates are required.';
+    if (endDate < startDate) return 'Offering end date must be on or after its start date.';
     return null;
   };
 
@@ -148,8 +156,9 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
 
     const nextProposal = buildClassScheduleProposal({
       classId,
-      subjectId: selectedSubject?.id ?? null,
-      billingType,
+      sessionType: offeringType,
+      subjectId: offeringType === 'CLASS' ? selectedSubject?.id ?? null : null,
+      billingType: offeringType === 'CLASS' ? billingType : null,
       cohortLabel,
       startDate,
       endDate,
@@ -178,14 +187,14 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       showEntityCreatedToast({
         toast,
         router,
-        entityType: 'class',
+        entityType: 'scheduled offering',
         entityId: result.class_id ?? classId,
-        message: 'Class and scheduled Sessions created successfully.',
+        message: 'Scheduled offering and Sessions created successfully.',
       });
       onClassAdded();
       onClose();
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : 'Unable to create this Class.');
+      setError(applyError instanceof Error ? applyError.message : 'Unable to create this scheduled offering.');
     }
   };
 
@@ -196,12 +205,12 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       fillHeight
       open={isOpen}
       onClose={onClose}
-      title="Add New Class"
+      title="Add Scheduled Offering"
       subtitle={`Step ${step + 1} of 3: ${STEP_TITLES[step]}`}
       contentClassName="md:max-w-[760px]"
       headerExtra={
         <div className="px-6 pb-4">
-          <div className="flex gap-2" aria-label="Class creation progress">
+          <div className="flex gap-2" aria-label="Scheduled offering creation progress">
             {STEP_TITLES.map((title, index) => (
               <div
                 key={title}
@@ -230,7 +239,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             ) : (
               <Button type="button" onClick={handleConfirm} disabled={isBusy || !plan}>
                 {applyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Class
+                Create Scheduled Offering
               </Button>
             )}
           </div>
@@ -243,30 +252,49 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
           {step === 0 && (
             <div className="space-y-5">
               <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
-                <Label>Subject *</Label>
-                <div className="w-full">
-                  <SubjectSelectPopover
-                    selectedSubject={selectedSubject}
-                    onSelectSubject={setSelectedSubject}
-                    placeholder="Select subject"
-                  />
-                </div>
-                <Label htmlFor="cohort-label">Class name / code</Label>
+                <Label>Offering type *</Label>
+                <SearchableSelect<(typeof OFFERING_TYPE_OPTIONS)[number]>
+                  items={OFFERING_TYPE_OPTIONS}
+                  value={OFFERING_TYPE_OPTIONS.find((option) => option.value === offeringType) ?? null}
+                  onValueChange={(option) => {
+                    setOfferingType(option?.value ?? 'CLASS');
+                    setPlan(null);
+                  }}
+                  getItemId={(option) => option.value}
+                  getItemLabel={(option) => option.label}
+                  placeholder="Select offering type"
+                />
+                {offeringType === 'CLASS' ? <>
+                  <Label>Subject *</Label>
+                  <div className="w-full">
+                    <SubjectSelectPopover
+                      selectedSubject={selectedSubject}
+                      onSelectSubject={setSelectedSubject}
+                      placeholder="Select subject"
+                    />
+                  </div>
+                </> : null}
+                <Label htmlFor="cohort-label">Offering name / code</Label>
                 <Input
                   id="cohort-label"
                   value={cohortLabel}
                   onChange={(event) => setCohortLabel(event.target.value)}
                   placeholder="A, B, Interview Course"
                 />
-                <Label>Billing type *</Label>
-                <SearchableSelect<(typeof BILLING_TYPE_OPTIONS)[number]>
-                  items={BILLING_TYPE_OPTIONS}
-                  value={BILLING_TYPE_OPTIONS.find((option) => option.value === billingType) ?? null}
-                  onValueChange={(option) => setBillingType(option?.value ?? 'CLASS')}
-                  getItemId={(option) => option.value}
-                  getItemLabel={(option) => option.label}
-                  placeholder="Select billing type"
-                />
+                {offeringType === 'CLASS' ? <>
+                  <Label>Billing type *</Label>
+                  <SearchableSelect<(typeof BILLING_TYPE_OPTIONS)[number]>
+                    items={BILLING_TYPE_OPTIONS}
+                    value={BILLING_TYPE_OPTIONS.find((option) => option.value === billingType) ?? null}
+                    onValueChange={(option) => setBillingType(option?.value ?? 'CLASS')}
+                    getItemId={(option) => option.value}
+                    getItemLabel={(option) => option.label}
+                    placeholder="Select billing type"
+                  />
+                </> : <>
+                  <Label>Student billing</Label>
+                  <p className="text-sm text-muted-foreground">Free — students are not billed.</p>
+                </>}
                 <Label>Start date *</Label>
                 <SmartDatePickerField value={startDate} onChange={(value) => setStartDate(value ?? '')} />
                 <Label>End date *</Label>

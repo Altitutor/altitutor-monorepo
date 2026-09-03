@@ -28,6 +28,10 @@ function entityNames(event: ActivityEvent, entityType: string): string[] {
     .filter((name, index, names) => names.indexOf(name) === index);
 }
 
+function entityNameByRole(event: ActivityEvent, role: string): string | undefined {
+  return event.entities.find((entity) => entity.role === role)?.displayName || undefined;
+}
+
 function displayName(
   event: ActivityEvent,
   payload: Payload,
@@ -155,6 +159,10 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
   const issue = sentenceName(displayName(event, payload, 'issue'), 'the issue');
   const project = sentenceName(displayName(event, payload, 'project'), 'the project');
   const session = formatSession(event, payload);
+  const staffOut = sentenceName(entityNameByRole(event, 'staff_out'), staff);
+  const staffIn = sentenceName(entityNameByRole(event, 'staff_in'), 'the replacement staff member');
+  const sessionFrom = sentenceName(entityNameByRole(event, 'session_from'), session);
+  const sessionTo = sentenceName(entityNameByRole(event, 'session_to'), 'the replacement session');
   const invoiceNumber = displayName(event, payload, 'invoice');
   const invoice = invoiceNumber ? `invoice ${invoiceNumber}` : 'the invoice';
   const invoiceSessions = displayNames(event, payload, 'session');
@@ -219,6 +227,14 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'session.parent_attendance_corrected': [`corrected ${parent}'s attendance for ${session}`, 'session-edit', 'blue'],
     'session.student_absence_recorded': [`recorded ${student}'s planned absence from ${session}`, 'x', 'yellow'],
     'session.student_absence_cleared': [`cleared ${student}'s planned absence from ${session}`, 'check', 'green'],
+    'session.student_rescheduled': [`rescheduled ${student} from ${sessionFrom} to ${sessionTo}`, 'arrow-right', 'blue'],
+    'session.student_reschedule_reversed': [`reversed ${student}'s reschedule from ${sessionFrom} to ${sessionTo}`, 'arrow-left', 'gray'],
+    'session.student_credited': [`credited ${student} for ${session}`, 'check', 'purple'],
+    'session.student_credit_reversed': [`reversed ${student}'s credit for ${session}`, 'arrow-left', 'gray'],
+    'session.staff_absence_recorded': [`recorded ${staff}'s planned absence from ${session}`, 'x', 'yellow'],
+    'session.staff_absence_cleared': [`cleared ${staff}'s planned absence from ${session}`, 'check', 'green'],
+    'session.staff_swapped': [`swapped ${staffOut} out for ${staffIn} in ${session}`, 'user-edit', 'blue'],
+    'session.staff_swap_reversed': [`reversed the swap of ${staffOut} for ${staffIn} in ${session}`, 'arrow-left', 'gray'],
     'session.file_added': [`added ${text(payload.display_name) || 'a file'}`, 'file', 'green'],
     'session.file_removed': [`removed ${text(payload.display_name) || 'a file'}`, 'file', 'red'],
     'session.deleted': ['deleted the session', 'x', 'red'],

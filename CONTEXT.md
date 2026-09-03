@@ -187,8 +187,17 @@
 
 ## Tutor timetable
 
+- **Scheduled offering** — A bounded timetable configuration that materializes dated Sessions. A Scheduled offering is either a Class with an enrolled cohort or Homework Help with drop-in attendance; both reuse the same recurring and custom schedule machinery.
+  _Avoid_: Class when referring to Homework Help, recurrence rule, Session
+
 - **Class** — A stable tutor-led teaching cohort with a shared subject, level, student enrolments, and lifecycle. A Class may meet at multiple scheduled times; its meeting schedule does not define its identity.
   _Avoid_: Weekly time slot, recurring session, timetable entry
+
+- **Homework Help** — A free, subject-independent, tutor-led Scheduled offering open to every active in-person Student. Upcoming occurrences are discoverable without enrolment; a Student becomes attached to a past occurrence only through recorded drop-in participation. Tutors use the Homework Help pay category regardless of attendance count.
+  _Avoid_: Homework Help Class, Homework Help Subject, zero-dollar Class
+
+- **Offering type** — The operational kind materialized by a Scheduled offering. `CLASS` requires a Subject and billing type; `HOMEWORK_HELP` requires neither and materializes non-billable Homework Help sessions. It is distinct from both Student billing type and tutor pay category.
+  _Avoid_: Billing type, Subject, unrestricted Session type
 
 - **Class cohort label** — An optional staff-authored discriminator such as `A` or `2026 A` that distinguishes Classes sharing a Subject. It contributes to the stable Class name independently of when the Class meets.
   _Avoid_: Schedule summary, weekday label, Class level

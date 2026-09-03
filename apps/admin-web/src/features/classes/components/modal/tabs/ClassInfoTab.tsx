@@ -10,7 +10,7 @@ import { formatCurrency } from '@/shared/utils/pricing';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
 import { useBillingPricing, useSubjectPricingOverrides } from '@/features/billing';
 import { useApplyClassSchedule, useClassScheduleTimeline, usePreviewClassSchedule } from '../../../hooks/useClassesQuery';
-import type { ClassBillingType, ClassSchedulePlan, ClassScheduleProposal, ClassScheduleRow, StoredClassSchedule } from '../../../types/schedule';
+import type { ClassBillingType, ClassSchedulePlan, ClassScheduleProposal, ClassScheduleRow, ScheduledOfferingType, StoredClassSchedule } from '../../../types/schedule';
 import { buildClassScheduleProposal, resolveClassScheduleRows, validateClassScheduleRows } from '../../../utils/classScheduleForm';
 import { calculateStandardClassSessionPrice, resolveStandardClassRate } from '../../../utils/classPricing';
 import { partitionClassScheduleTimeline } from '../../../utils/classScheduleTimeline';
@@ -24,8 +24,13 @@ const BILLING_TYPES: Array<{ label: string; value: ClassBillingType }> = [
   { label: 'Exam course', value: 'EXAM_COURSE' },
   { label: 'Drafting', value: 'DRAFTING' },
 ];
+const OFFERING_TYPES: Array<{ label: string; value: ScheduledOfferingType }> = [
+  { label: 'Class', value: 'CLASS' },
+  { label: 'Homework Help', value: 'HOMEWORK_HELP' },
+];
 
-function billingTypeLabel(value: ClassBillingType): string {
+function billingTypeLabel(value: ClassBillingType | null): string {
+  if (!value) return 'Free';
   return BILLING_TYPES.find((option) => option.value === value)?.label ?? value;
 }
 
@@ -63,30 +68,32 @@ function ScheduleConfigurationCard({
   overrides,
   isPricingLoading,
 }: ScheduleConfigurationCardProps) {
-  const standardRate = resolveStandardClassRate(
-    revision.billingType,
-    subjectId,
-    new Date(`${pricingDate}T12:00:00Z`),
-    pricing,
-    overrides
-  );
+  const standardRate = revision.sessionType === 'CLASS' && revision.billingType
+    ? resolveStandardClassRate(
+        revision.billingType,
+        subjectId,
+        new Date(`${pricingDate}T12:00:00Z`),
+        pricing,
+        overrides
+      )
+    : null;
 
   return (
     <div className="space-y-3 rounded-md border p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="font-medium">{title}</h4>
-        <Badge variant="outline">{billingTypeLabel(revision.billingType)}</Badge>
+        <Badge variant="outline">
+          {revision.sessionType === 'HOMEWORK_HELP' ? 'Homework Help · Free' : billingTypeLabel(revision.billingType)}
+        </Badge>
       </div>
       {revision.scheduleType === 'CUSTOM' || revision.rows.length === 0 ? (
         <p className="text-sm text-muted-foreground">Custom timetable — see Sessions for dated times and prices.</p>
       ) : (
         <div className="divide-y">
           {revision.rows.map((row) => {
-            const sessionPrice = calculateStandardClassSessionPrice(
-              row.startTime,
-              row.endTime,
-              standardRate
-            );
+            const sessionPrice = revision.sessionType === 'CLASS'
+              ? calculateStandardClassSessionPrice(row.startTime, row.endTime, standardRate)
+              : null;
             return (
               <div key={row.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm first:pt-0 last:pb-0">
                 <div>
@@ -94,7 +101,9 @@ function ScheduleConfigurationCard({
                   {row.room ? <span className="text-muted-foreground"> · {row.room}</span> : null}
                 </div>
                 <span className="font-medium">
-                  {isPricingLoading
+                  {revision.sessionType === 'HOMEWORK_HELP'
+                    ? 'Free'
+                    : isPricingLoading
                     ? 'Loading price…'
                     : sessionPrice
                       ? `${formatCurrency(sessionPrice.amountCents, sessionPrice.currency)}/session`
@@ -105,9 +114,6 @@ function ScheduleConfigurationCard({
           })}
         </div>
       )}
-      <p className="text-xs text-muted-foreground">
-        Standard price; Student subsidies and payment-processing fees are excluded.
-      </p>
     </div>
   );
 }
@@ -120,6 +126,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
   const previewMutation = usePreviewClassSchedule();
   const applyMutation = useApplyClassSchedule();
   const [level, setLevel] = useState('');
+  const [sessionType, setSessionType] = useState<ScheduledOfferingType>('CLASS');
   const [subjectId, setSubjectId] = useState<string | null>(null);
   const [billingType, setBillingType] = useState<ClassBillingType>('CLASS');
   const [rows, setRows] = useState<ClassScheduleRow[]>([]);
@@ -134,8 +141,9 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
   useEffect(() => {
     if (!isEditing || storedSchedule === undefined) return;
     setLevel(classData.cohort_label ?? classData.level ?? '');
+    setSessionType(storedSchedule?.sessionType ?? classData.session_type);
     setSubjectId(classData.subject_id);
-    setBillingType(storedSchedule?.billingType ?? classData.billing_type);
+    setBillingType(storedSchedule?.billingType ?? classData.billing_type ?? 'CLASS');
     setRows(resolveClassScheduleRows(storedSchedule?.rows, {
       dayOfWeek: classData.day_of_week, startTime: classData.start_time, endTime: classData.end_time, room: classData.room,
     }, () => crypto.randomUUID()));
@@ -165,8 +173,11 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
     if (!endDate || endDate < classData.session_start_date) return setError('The Class end date must be on or after its start date.');
     if (effectiveFrom < todayInAdelaide() || effectiveFrom > endDate) return setError('The effective date must be today or later and inside the Class dates.');
     const nextProposal = buildClassScheduleProposal({
-      classId: classData.id, subjectId, cohortLabel: level, startDate: classData.session_start_date, endDate,
-      billingType, effectiveFrom, anchorDate: storedSchedule?.anchorDate ?? classData.session_start_date, frequencyWeeks, rows, status: classStatus,
+      classId: classData.id, sessionType,
+      subjectId: sessionType === 'CLASS' ? subjectId : null,
+      cohortLabel: level, startDate: classData.session_start_date, endDate,
+      billingType: sessionType === 'CLASS' ? billingType : null,
+      effectiveFrom, anchorDate: storedSchedule?.anchorDate ?? classData.session_start_date, frequencyWeeks, rows, status: classStatus,
     });
     setError(null);
     try {
@@ -200,14 +211,23 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
         {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
         {busy && rows.length === 0 ? <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div> : !plan ? <>
           <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+            <Label>Offering type:</Label>
+            <div>
+              <SearchableSelect<(typeof OFFERING_TYPES)[number]> items={OFFERING_TYPES} value={OFFERING_TYPES.find((item) => item.value === sessionType) ?? null} onValueChange={(item) => { setSessionType(item?.value ?? 'CLASS'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} disabled />
+              <p className="mt-1 text-xs text-muted-foreground">Type is fixed after Sessions have been generated.</p>
+            </div>
             <Label htmlFor="level">Level:</Label>
             <Input id="level" value={level} onChange={(event) => { setLevel(event.target.value); markChanged(); }} disabled={busy} placeholder="e.g., A/B/C/D" />
 
-            <Label>Subject:</Label>
-            <SearchableSelect<Tables<'subjects'>> items={subjects} value={subjects.find((item) => item.id === subjectId) ?? null} onValueChange={(item) => { setSubjectId(item?.id ?? null); markChanged(); }} getItemLabel={(item) => item.long_name ?? ''} getItemId={(item) => item.id} placeholder="Select subject" disabled={busy} />
+            {sessionType === 'CLASS' ? <>
+              <Label>Subject:</Label>
+              <SearchableSelect<Tables<'subjects'>> items={subjects} value={subjects.find((item) => item.id === subjectId) ?? null} onValueChange={(item) => { setSubjectId(item?.id ?? null); markChanged(); }} getItemLabel={(item) => item.long_name ?? ''} getItemId={(item) => item.id} placeholder="Select subject" disabled={busy} />
 
-            <Label>Billing type:</Label>
-            <SearchableSelect<(typeof BILLING_TYPES)[number]> items={BILLING_TYPES} value={BILLING_TYPES.find((item) => item.value === billingType) ?? null} onValueChange={(item) => { setBillingType(item?.value ?? 'CLASS'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} placeholder="Select billing type" disabled={busy} />
+              <Label>Billing type:</Label>
+              <SearchableSelect<(typeof BILLING_TYPES)[number]> items={BILLING_TYPES} value={BILLING_TYPES.find((item) => item.value === billingType) ?? null} onValueChange={(item) => { setBillingType(item?.value ?? 'CLASS'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} placeholder="Select billing type" disabled={busy} />
+            </> : <>
+              <Label>Student billing:</Label><p className="text-sm text-muted-foreground">Free — students are not billed.</p>
+            </>}
 
             <Label>Status:</Label>
             <SearchableSelect<(typeof STATUSES)[number]> items={STATUSES} value={STATUSES.find((item) => item.value === classStatus) ?? null} onValueChange={(item) => { setClassStatus(item?.value ?? 'ACTIVE'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} disabled={busy} />
@@ -225,7 +245,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
             <SearchableSelect<(typeof FREQUENCIES)[number]> items={FREQUENCIES} value={FREQUENCIES.find((item) => item.value === frequencyWeeks) ?? null} onValueChange={(item) => { setFrequencyWeeks(item?.value ?? 1); markChanged(); }} getItemId={(item) => String(item.value)} getItemLabel={(item) => item.label} disabled={busy} />
           </div>
           <div className="space-y-3 border-t pt-6">
-            <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this Class runs. Changes only reconcile future Sessions.</p></div>
+            <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this scheduled offering runs. Changes only reconcile future Sessions.</p></div>
             {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
               <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} /></div>
               <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
@@ -248,7 +268,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
           <Button type="button" variant="outline" disabled={busy} onClick={onCancelEdit}>Cancel</Button>
           <Button type="submit" disabled={busy || rows.length === 0}>
             {(previewMutation.isPending || applyMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {plan ? 'Apply Class changes' : 'Review changes'}
+            {plan ? 'Apply offering changes' : 'Review changes'}
           </Button>
         </div>
       </form>
@@ -256,11 +276,12 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
   }
 
   return <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
-    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Class Information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
+    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Scheduled offering information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+      <div className="text-sm font-medium">Offering type:</div><div>{classData.session_type === 'HOMEWORK_HELP' ? 'Homework Help' : 'Class'}</div>
       <div className="text-sm font-medium">Level:</div><div>{classData.level || '-'}</div>
       <div className="text-sm font-medium">Status:</div><div><ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} /></div>
-      <div className="text-sm font-medium">Subject:</div><div>{subject ? (() => { const { style, textColorClass } = getSubjectColorStyle(subject); return <Badge className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass} style={style.backgroundColor ? style : undefined}>{subject.long_name ?? ''}</Badge>; })() : '-'}</div>
+      {classData.session_type === 'CLASS' ? <><div className="text-sm font-medium">Subject:</div><div>{subject ? (() => { const { style, textColorClass } = getSubjectColorStyle(subject); return <Badge className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass} style={style.backgroundColor ? style : undefined}>{subject.long_name ?? ''}</Badge>; })() : '-'}</div></> : null}
       <div className="text-sm font-medium">Session Start Date:</div><div>{classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'Not set'}</div>
       <div className="text-sm font-medium">Session End Date:</div><div>{classData.session_end_date ? format(new Date(classData.session_end_date), 'MMM d, yyyy') : 'Not set'}</div>
     </div>

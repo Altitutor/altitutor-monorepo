@@ -172,7 +172,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Class' : 'Class Details'}
+            {isEditing ? 'Edit Scheduled Offering' : 'Scheduled Offering Details'}
           </h1>
         </div>
         <ActionsMenu
@@ -220,6 +220,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
               onStudentsUpdated={handleClassUpdated}
               onAssignStaff={handleAssignStaff}
               onRemoveStaff={handleRemoveStaff}
+              allowStudentEnrollment={classData.session_type === 'CLASS'}
             />
           </div>
         </SegmentedTabPanelContent>

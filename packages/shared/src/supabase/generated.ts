@@ -1349,7 +1349,7 @@ export type Database = {
       class_schedule_revisions: {
         Row: {
           anchor_date: string | null
-          billing_type: Database["public"]["Enums"]["billing_type"]
+          billing_type: Database["public"]["Enums"]["billing_type"] | null
           class_id: string
           created_at: string
           created_by: string | null
@@ -1358,11 +1358,12 @@ export type Database = {
           frequency_weeks: number | null
           id: string
           schedule_type: string
+          session_type: Database["public"]["Enums"]["session_type"]
           superseded_at: string | null
         }
         Insert: {
           anchor_date?: string | null
-          billing_type?: Database["public"]["Enums"]["billing_type"]
+          billing_type?: Database["public"]["Enums"]["billing_type"] | null
           class_id: string
           created_at?: string
           created_by?: string | null
@@ -1371,11 +1372,12 @@ export type Database = {
           frequency_weeks?: number | null
           id?: string
           schedule_type: string
+          session_type?: Database["public"]["Enums"]["session_type"]
           superseded_at?: string | null
         }
         Update: {
           anchor_date?: string | null
-          billing_type?: Database["public"]["Enums"]["billing_type"]
+          billing_type?: Database["public"]["Enums"]["billing_type"] | null
           class_id?: string
           created_at?: string
           created_by?: string | null
@@ -1384,6 +1386,7 @@ export type Database = {
           frequency_weeks?: number | null
           id?: string
           schedule_type?: string
+          session_type?: Database["public"]["Enums"]["session_type"]
           superseded_at?: string | null
         }
         Relationships: [
@@ -1495,7 +1498,7 @@ export type Database = {
       }
       classes: {
         Row: {
-          billing_type: Database["public"]["Enums"]["billing_type"]
+          billing_type: Database["public"]["Enums"]["billing_type"] | null
           billing_type_effective_from: string
           cohort_label: string | null
           created_at: string | null
@@ -1516,6 +1519,7 @@ export type Database = {
           schedule_weekdays: number[]
           session_end_date: string
           session_start_date: string
+          session_type: Database["public"]["Enums"]["session_type"]
           short_name: string | null
           start_time: string
           status: string
@@ -1523,7 +1527,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
-          billing_type?: Database["public"]["Enums"]["billing_type"]
+          billing_type?: Database["public"]["Enums"]["billing_type"] | null
           billing_type_effective_from?: string
           cohort_label?: string | null
           created_at?: string | null
@@ -1544,6 +1548,7 @@ export type Database = {
           schedule_weekdays?: number[]
           session_end_date: string
           session_start_date: string
+          session_type?: Database["public"]["Enums"]["session_type"]
           short_name?: string | null
           start_time: string
           status: string
@@ -1551,7 +1556,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
-          billing_type?: Database["public"]["Enums"]["billing_type"]
+          billing_type?: Database["public"]["Enums"]["billing_type"] | null
           billing_type_effective_from?: string
           cohort_label?: string | null
           created_at?: string | null
@@ -1572,6 +1577,7 @@ export type Database = {
           schedule_weekdays?: number[]
           session_end_date?: string
           session_start_date?: string
+          session_type?: Database["public"]["Enums"]["session_type"]
           short_name?: string | null
           start_time?: string
           status?: string
@@ -40318,6 +40324,7 @@ export type Database = {
         | "ADMIN_SHIFT"
         | "CHECK_IN"
         | "ADMIN_MEETING"
+        | "HOMEWORK_HELP"
       staff_pay_tier_requirement_kind:
         | "TENURE_DAYS"
         | "TENURE_MONTHS"
@@ -40540,6 +40547,7 @@ export const Constants = {
         "ADMIN_SHIFT",
         "CHECK_IN",
         "ADMIN_MEETING",
+        "HOMEWORK_HELP",
       ],
       staff_pay_tier_requirement_kind: [
         "TENURE_DAYS",

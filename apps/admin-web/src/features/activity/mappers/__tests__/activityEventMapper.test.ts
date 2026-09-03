@@ -116,6 +116,43 @@ describe('lifecycle activity mapper', () => {
     ]);
   });
 
+  it('describes a staff swap as one action with both staff members and the session', () => {
+    const outgoingStaffId = '10000000-0000-4000-8000-000000000020';
+    const incomingStaffId = '10000000-0000-4000-8000-000000000021';
+    const sessionId = '10000000-0000-4000-8000-000000000022';
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.staff_swapped',
+      subject_type: 'session',
+      subject_id: sessionId,
+      entities: [
+        { entityType: 'session', entityId: sessionId, role: 'subject', displayName: 'Thursday UCAT' },
+        { entityType: 'staff', entityId: outgoingStaffId, role: 'staff_out', displayName: 'John Doe' },
+        { entityType: 'staff', entityId: incomingStaffId, role: 'staff_in', displayName: 'Emily Davis' },
+      ],
+    }));
+
+    expect(result.message).toBe('swapped John Doe out for Emily Davis in Thursday UCAT');
+    expect(result.messageParts?.filter((part) => part.kind === 'entity')).toEqual([
+      expect.objectContaining({ text: 'John Doe' }),
+      expect.objectContaining({ text: 'Emily Davis' }),
+      expect.objectContaining({ text: 'Thursday UCAT' }),
+    ]);
+  });
+
+  it('describes a student reschedule with both sessions', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_rescheduled',
+      subject_type: 'session',
+      entities: [
+        { entityType: 'student', entityId: '10000000-0000-4000-8000-000000000030', role: 'related', displayName: 'Bob Taylor' },
+        { entityType: 'session', entityId: '10000000-0000-4000-8000-000000000031', role: 'session_from', displayName: 'Monday UCAT' },
+        { entityType: 'session', entityId: '10000000-0000-4000-8000-000000000032', role: 'session_to', displayName: 'Thursday UCAT' },
+      ],
+    }));
+
+    expect(result.message).toBe('rescheduled Bob Taylor from Monday UCAT to Thursday UCAT');
+  });
+
   it('exposes the allowlisted work-item changes to the existing field renderer', () => {
     const result = mapActivityEventToDisplay(makeEvent({
       event_name: 'task.properties_changed',

@@ -13,6 +13,7 @@ function mapStoredClassSchedule(data: ScheduleRevisionWithSlots): StoredClassSch
   return {
     id: data.id,
     scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
+    sessionType: data.session_type,
     billingType: data.billing_type,
     frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
     anchorDate: data.anchor_date,
@@ -32,7 +33,7 @@ function mapStoredClassSchedule(data: ScheduleRevisionWithSlots): StoredClassSch
 
 export type MinimalClass = Pick<
   Tables<'classes'>,
-  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name' | 'schedule_summary_short' | 'schedule_summary_long' | 'schedule_weekdays' | 'schedule_rows' | 'schedule_frequency_weeks' | 'schedule_anchor_date' | 'next_session_start_at' | 'billing_type' | 'billing_type_effective_from'
+  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name' | 'schedule_summary_short' | 'schedule_summary_long' | 'schedule_weekdays' | 'schedule_rows' | 'schedule_frequency_weeks' | 'schedule_anchor_date' | 'next_session_start_at' | 'session_type' | 'billing_type' | 'billing_type_effective_from'
 > & {
   subject?: Tables<'subjects'> | null;
   studentCount?: number;
@@ -58,7 +59,7 @@ export const classesApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await supabase
       .from('class_schedule_revisions')
-      .select('id, class_id, schedule_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
+      .select('id, class_id, schedule_type, session_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
       .eq('class_id', classId)
       .is('superseded_at', null)
       .order('effective_from', { ascending: false })
@@ -80,7 +81,7 @@ export const classesApi = {
     }).format(new Date());
     const { data, error } = await supabase
       .from('class_schedule_revisions')
-      .select('id, class_id, schedule_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
+      .select('id, class_id, schedule_type, session_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
       .eq('class_id', classId)
       .is('superseded_at', null)
       .gte('effective_to', today)
@@ -119,7 +120,7 @@ export const classesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data, error } = await supabase
       .from('classes')
-      .select('id, subject_id, day_of_week, start_time, end_time, status, room');
+      .select('id, subject_id, session_type, day_of_week, start_time, end_time, status, room');
     if (error) throw error;
     return (data ?? []) as Tables<'classes'>[];
   },
@@ -211,6 +212,7 @@ export const classesApi = {
       next_session_start_at?: string | null;
       billing_type: Tables<'classes'>['billing_type'];
       billing_type_effective_from: string;
+      session_type: Tables<'classes'>['session_type'];
     }
     const rpcData = rpcResult as unknown as {
       classes: RpcClassRow[];
@@ -253,6 +255,7 @@ export const classesApi = {
         schedule_frequency_weeks: cls.schedule_frequency_weeks ?? null,
         schedule_anchor_date: cls.schedule_anchor_date ?? null,
         next_session_start_at: cls.next_session_start_at ?? null,
+        session_type: cls.session_type,
         billing_type: cls.billing_type,
         billing_type_effective_from: cls.billing_type_effective_from,
         subject,
@@ -317,6 +320,7 @@ export const classesApi = {
         updated_at?: string | null;
         billing_type: Tables<'classes'>['billing_type'];
         billing_type_effective_from: string;
+        session_type: Tables<'classes'>['session_type'];
       }
       const rpcData = rpcResult as unknown as {
         classes: RpcClassRow[];
@@ -351,6 +355,7 @@ export const classesApi = {
           updated_at: cls.updated_at || null,
           billing_type: cls.billing_type,
           billing_type_effective_from: cls.billing_type_effective_from,
+          session_type: cls.session_type,
         } as Tables<'classes'>;
         
         classes.push(classData);
