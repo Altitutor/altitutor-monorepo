@@ -22,7 +22,7 @@ import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables } from '@altitutor/shared';
 
-type WizardStep = 'select-student' | 'select-sessions' | 'select-outcome' | 'process-sessions' | 'message' | 'error';
+type WizardStep = 'select-student' | 'select-sessions' | 'process-sessions' | 'message' | 'error';
 
 interface LogAbsenceDialogProps {
   isOpen: boolean;
@@ -51,7 +51,6 @@ export function LogAbsenceDialog({
   const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [absenceAction, setAbsenceAction] = useState<AbsenceAction | null>(null);
   const [reasonCategory, setReasonCategory] = useState<AbsenceReasonCategory>('approved_absence');
   const [reasonNote, setReasonNote] = useState('');
 
@@ -136,7 +135,7 @@ export function LogAbsenceDialog({
       hasInitialized
     ) {
       // Auto-advance to process step since we have everything pre-filled
-      setStep('select-outcome');
+      setStep('process-sessions');
     }
   }, [isOpen, selectedStudent, initialSessionId, selectedSessionIds, step, hasInitialized]);
 
@@ -154,7 +153,6 @@ export function LogAbsenceDialog({
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
-      setAbsenceAction(null);
       setReasonCategory('approved_absence');
       setReasonNote('');
     }
@@ -194,7 +192,7 @@ export function LogAbsenceDialog({
       alert('Please select at least one session');
       return;
     }
-    setStep('select-outcome');
+    setStep('process-sessions');
   };
 
   const handleBulkDecisionsChange = (
@@ -378,40 +376,6 @@ export function LogAbsenceDialog({
           </div>
         );
 
-      case 'select-outcome':
-        return (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              className="rounded-lg border p-5 text-left transition-colors hover:border-primary hover:bg-muted"
-              onClick={() => {
-                setAbsenceAction('reschedule');
-                setDecisions([]);
-                setStep('process-sessions');
-              }}
-            >
-              <div className="font-semibold">Reschedule absence</div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Credit an existing charge when needed, then bill the replacement under its normal pricing.
-              </p>
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border p-5 text-left transition-colors hover:border-primary hover:bg-muted"
-              onClick={() => {
-                setAbsenceAction('credit');
-                setDecisions([]);
-                setStep('process-sessions');
-              }}
-            >
-              <div className="font-semibold">Credit absence</div>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Remove the session charge without creating a replacement booking.
-              </p>
-            </button>
-          </div>
-        );
-
       case 'process-sessions':
         return (
           <div className="flex flex-col h-full">
@@ -420,7 +384,7 @@ export function LogAbsenceDialog({
               <div className="sticky top-0 bg-background z-10 pb-4 border-b mb-4">
                 <StudentCard student={selectedStudent} subjects={[]} showSubjects={false} showActions={false} />
                 <div className="text-sm text-muted-foreground mt-2">
-                  {absenceAction === 'credit' ? 'Credit' : 'Reschedule'} {selectedSessionsArray.length} session
+                  Select action for {selectedSessionsArray.length} session
                   {selectedSessionsArray.length !== 1 ? 's' : ''}
                 </div>
                 <div className="grid gap-3 mt-4 sm:grid-cols-2">
@@ -462,7 +426,7 @@ export function LogAbsenceDialog({
                 onBack={() => {
                   setDecisions([]);
                   setRescheduledSessionsMap(new Map());
-                  setStep('select-outcome');
+                  setStep('select-sessions');
                 }}
                 onConfirm={() => {
                   // Decisions are already updated via onDecisionsChange
@@ -476,7 +440,6 @@ export function LogAbsenceDialog({
                 excludeSessionIds={decisions
                   .filter((d) => d.action === 'reschedule' && d.targetSessionId)
                   .map((d) => d.targetSessionId!)} // Exclude already selected reschedule targets
-                forcedAction={absenceAction ?? undefined}
               />
             </div>
           </div>
@@ -524,10 +487,8 @@ export function LogAbsenceDialog({
         return 'Select Student';
       case 'select-sessions':
         return 'Select Sessions';
-      case 'select-outcome':
-        return 'Choose Absence Outcome';
       case 'process-sessions':
-        return absenceAction === 'credit' ? 'Credit Absences' : 'Reschedule Absences';
+        return 'Process Absences';
       case 'message':
         return 'Send Message';
       default:
@@ -541,12 +502,8 @@ export function LogAbsenceDialog({
         return 'Search and select the student to log absences for';
       case 'select-sessions':
         return 'Select which future sessions the student will be absent from';
-      case 'select-outcome':
-        return 'Credit and reschedule are separate financial workflows';
       case 'process-sessions':
-        return absenceAction === 'credit'
-          ? 'Confirm the sessions to credit and record why'
-          : 'Choose a replacement for each session and record why';
+        return 'Choose whether to reschedule or credit each session and record why';
       case 'message':
         return 'Notify the student/parent about the processed absences';
       default:
@@ -602,7 +559,7 @@ export function LogAbsenceDialog({
               onClick={() => {
                 setDecisions([]);
                 setRescheduledSessionsMap(new Map());
-                setStep('select-outcome');
+                setStep('select-sessions');
               }}
             >
               <ChevronLeft className="h-4 w-4 mr-2" />
@@ -620,15 +577,6 @@ export function LogAbsenceDialog({
             >
               Confirm All Actions
               <ChevronRight className="h-4 w-4 ml-2" />
-            </Button>
-          </div>
-        );
-      case 'select-outcome':
-        return (
-          <div className="flex w-full justify-start">
-            <Button variant="outline" onClick={() => setStep('select-sessions')}>
-              <ChevronLeft className="h-4 w-4 mr-2" />
-              Previous
             </Button>
           </div>
         );

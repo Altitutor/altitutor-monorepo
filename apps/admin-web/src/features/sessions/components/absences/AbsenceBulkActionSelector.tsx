@@ -31,7 +31,6 @@ interface AbsenceBulkActionSelectorProps {
   onConfirm: () => void;
   canProceed: boolean;
   excludeSessionIds?: string[]; // Session IDs already selected for other absences
-  forcedAction?: AbsenceAction;
 }
 
 export function AbsenceBulkActionSelector({
@@ -42,14 +41,13 @@ export function AbsenceBulkActionSelector({
   onConfirm: _onConfirm,
   canProceed: _canProceed,
   excludeSessionIds = [],
-  forcedAction,
 }: AbsenceBulkActionSelectorProps) {
   const [decisions, setDecisions] = useState<Map<string, SessionDecision>>(() => {
     const map = new Map();
     sessions.forEach((session) => {
       map.set(session.id, {
         sessionId: session.id,
-        action: forcedAction ?? null,
+        action: null,
         targetSessionId: null,
       });
     });
@@ -57,9 +55,7 @@ export function AbsenceBulkActionSelector({
   });
 
   // Track which session is currently showing reschedule options
-  const [activeRescheduleSessionId, setActiveRescheduleSessionId] = useState<string | null>(
-    forcedAction === 'reschedule' ? (sessions[0]?.id ?? null) : null,
-  );
+  const [activeRescheduleSessionId, setActiveRescheduleSessionId] = useState<string | null>(null);
 
   // Week view state for reschedule session selection (Monday-based)
   const [rescheduleWeekStart, setRescheduleWeekStart] = useState<Date>(() => {
@@ -120,7 +116,7 @@ export function AbsenceBulkActionSelector({
       const newMap = new Map(prev);
       const decision = newMap.get(sessionId) || {
         sessionId,
-        action: forcedAction ?? null,
+        action: null,
         targetSessionId: null,
       };
 
@@ -177,9 +173,7 @@ export function AbsenceBulkActionSelector({
         action: null,
         targetSessionId: null,
       });
-      if (forcedAction === 'reschedule') {
-        setActiveRescheduleSessionId(sessionId);
-      } else if (activeRescheduleSessionId === sessionId) {
+      if (activeRescheduleSessionId === sessionId) {
         setActiveRescheduleSessionId(null);
       }
       return newMap;
@@ -326,26 +320,16 @@ export function AbsenceBulkActionSelector({
                       <div className="text-xs text-red-600 dark:text-red-400 mt-1">No charge for this session</div>
                     </div>
                   </div>
-                  {!forcedAction && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleResetAction(session.id)}
-                      className="absolute top-2 right-2 h-6 w-6 p-0 z-10"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleResetAction(session.id)}
+                    className="absolute top-2 right-2 h-6 w-6 p-0 z-10"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
-            ) : forcedAction === 'reschedule' ? (
-              <Button
-                variant="outline"
-                className="mt-3 w-full"
-                onClick={() => setActiveRescheduleSessionId(session.id)}
-              >
-                Choose replacement session
-              </Button>
             ) : (
               // Show radio buttons for action selection
               <div className="pt-3">

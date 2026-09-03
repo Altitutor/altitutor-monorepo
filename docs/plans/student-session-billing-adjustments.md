@@ -71,7 +71,7 @@ An original has at most one current Replacement session. When changing it:
 
 ## AdminWeb
 
-Before an absence, expose separate `Reschedule Student…`, `Credit Session…`, and `Record chargeable absence…` actions and dialogs. Existing absences use `Manage absence…` to change treatment, select another replacement, or genuinely undo the Planned absence. Do not encode replacement refusal or the previous-day notice policy as billing branches.
+Keep the existing `Log absence…` workflow. For every selected Session, AdminStaff explicitly chooses `Reschedule` or `Credit`; one batch may contain both choices. Existing absences use `Manage absence…` to change treatment, select another replacement, or genuinely undo the Planned absence. Do not encode replacement refusal or the previous-day notice policy as billing branches.
 
 Treatment changes require a broad factual reason category and optional note. Admin attendance edits preview any financial consequence; TutorWeb records attendance without displaying financial amounts. Successful Credit note and Restoration charge notifications go to configured invoice recipients only after Stripe succeeds.
 
@@ -95,6 +95,7 @@ Tests must cover, through the agreed public seams:
 - open, paid, partially paid, pending, void, and uncollectible invoice states;
 - replacement changes with unbilled, invoiced, absent, and attended targets;
 - bulk operations with partial provider success;
+- mixed credit and reschedule decisions in one absence batch;
 - StudentWeb rejection for already-invoiced sources;
 - pre-cutover isolation and existing-balance preservation;
 - notification deduplication and processing-fee removal.

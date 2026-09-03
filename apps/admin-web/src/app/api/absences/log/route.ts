@@ -38,17 +38,8 @@ export async function POST(request: Request) {
     const actions = operations.map((operation) =>
       operation && typeof operation === 'object' ? (operation as { action?: unknown }).action : null,
     );
-    const requestedAction = actions[0];
-    if (
-      (requestedAction !== 'credit' && requestedAction !== 'reschedule') ||
-      actions.some((action) => action !== requestedAction)
-    ) {
-      return NextResponse.json(
-        {
-          error: 'Credit and reschedule must be submitted as separate operations',
-        },
-        { status: 400 },
-      );
+    if (actions.length === 0 || actions.some((action) => action !== 'credit' && action !== 'reschedule')) {
+      return NextResponse.json({ error: 'Every operation must be a credit or reschedule action' }, { status: 400 });
     }
 
     if (typeof reasonCategory !== 'string' || !REASON_CATEGORIES.has(reasonCategory)) {
