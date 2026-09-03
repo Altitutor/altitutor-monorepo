@@ -51,6 +51,10 @@ import {
   estimatedReviewSecondsPerQuestion,
   type ReviewDurationComponent,
 } from "@/features/preparation/lib/review-duration-policy";
+import {
+  exceedsOrdinaryStudyDayMinutes,
+  ORDINARY_STUDY_DAY_MINUTES,
+} from "@/features/study-plan/lib/calendar";
 
 type GenerateStudyPlanInput = {
   today: string;
@@ -89,7 +93,6 @@ type GenerateExtraStudyTaskInput = StudyPlanExtraStudyInput & {
 
 const COGNITIVE_SECTION_COUNT = 3;
 const FULL_MOCK_MINUTES = 125;
-const ORDINARY_DAY_TARGET_MINUTES = 60;
 const MINIMUM_CORE_BLOCK_MINUTES = 10;
 const MAXIMUM_ORDINARY_DAY_SECTIONS = 3;
 const PRACTICE_ACTIVITY_KINDS: ReadonlySet<
@@ -903,7 +906,6 @@ export function generateStudyPlan(
     activity: PreparationActivityCandidate,
     scheduledDate: string,
     sortOrder: number,
-    intensiveDay: boolean,
     materializedPractice?: MaterializedPractice,
   ): GeneratedStudyPlanTask | null => {
     const section = activity.sectionId
@@ -1053,9 +1055,6 @@ export function generateStudyPlan(
         reviewMinutes:
           materializedPractice?.reviewMinutes ??
           activity.duration.reviewMinutes,
-        preparationWarning: intensiveDay
-          ? "This is an intensive study day because the remaining preparation demand is high for your available days."
-          : null,
         optional: false,
       },
     };
@@ -1069,6 +1068,7 @@ export function generateStudyPlan(
 
   for (const envelope of dayEnvelopes) {
     const date = envelope.scheduledDate;
+    const firstDayTaskIndex = canonicalTasks.length;
     const mockCandidate = plannedActivities.find(
       (activity) => activity.kind === "mock",
     );
@@ -1349,7 +1349,7 @@ export function generateStudyPlan(
     const allocatedMinutes = usesOrdinaryTimeEnvelope
       ? allocatePracticeMinutes(
           candidatesForDay,
-          Math.max(1, ORDINARY_DAY_TARGET_MINUTES - scheduledWarmupMinutes),
+          Math.max(1, ORDINARY_STUDY_DAY_MINUTES - scheduledWarmupMinutes),
         )
       : new Map<number, number>();
     const rollBackSelection = (activity: PreparationActivityCandidate) => {
@@ -1435,7 +1435,6 @@ export function generateStudyPlan(
         activity,
         date,
         sortOrder++,
-        envelope.coreSlotCount > 2,
         materializedPractice,
       );
       if (!selectedTask) continue;
@@ -1595,10 +1594,25 @@ export function generateStudyPlan(
             sectionName: selectedTask.launchConfig.sectionName,
             practiceMinutes: 0,
             reviewMinutes: selectedReviewMinutes,
-            preparationWarning: selectedTask.launchConfig.preparationWarning,
             derivedReview: true,
           },
         });
+      }
+    }
+
+    const dayTasks = canonicalTasks.slice(firstDayTaskIndex);
+    if (
+      envelope.coreSlotCount > ordinaryCoreSlots &&
+      exceedsOrdinaryStudyDayMinutes(dayTasks)
+    ) {
+      const firstRequiredTask = dayTasks.find(
+        (task) => task.launchConfig.optional !== true,
+      );
+      if (firstRequiredTask) {
+        firstRequiredTask.launchConfig = {
+          ...firstRequiredTask.launchConfig,
+          intensiveStudyDay: true,
+        };
       }
     }
   }

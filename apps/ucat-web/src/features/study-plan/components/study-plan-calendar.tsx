@@ -2,18 +2,22 @@
 
 import { useMemo, useState, type ReactNode } from "react";
 import {
+  Alert,
+  AlertDescription,
+  AlertTitle,
   Badge,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
-import { Info, Target } from "lucide-react";
+import { AlertTriangle, Info, Target } from "lucide-react";
 import { StudyPlanTaskList } from "@/features/study-plan/components/study-plan-task-list";
 import { StudyPlanExtraStudy } from "@/features/study-plan/components/study-plan-extra-study";
 import {
   buildStudyPlanCalendarMonths,
   formatStudyPlanDate,
+  isIntensiveStudyPlanDay,
   studyPlanCalendarIntensityLevel,
   studyPlanPlannedMinutes,
 } from "@/features/study-plan/lib/calendar";
@@ -151,6 +155,9 @@ export function StudyPlanCalendar({
     selectedDate === plan.today
       ? selectCurrentStudyPlanTasks(plan.tasks, plan.today)
       : (tasksByDate.get(selectedDate) ?? []);
+  const selectedDayIsIntensive = isIntensiveStudyPlanDay(
+    tasksByDate.get(selectedDate) ?? [],
+  );
   const showExtraStudy =
     selectedDate === plan.today &&
     (plan.todayTasks.length === 0 ||
@@ -320,6 +327,24 @@ export function StudyPlanCalendar({
         >
           {selectedTasks.length || showExtraStudy ? (
             <div className="space-y-3">
+              {selectedDayIsIntensive ? (
+                <Alert
+                  role="alert"
+                  aria-label="Intensive study day"
+                  className="border-amber-500/25 bg-amber-500/[0.07] text-foreground"
+                >
+                  <AlertTriangle
+                    className="h-4 w-4 text-amber-600 dark:text-amber-400"
+                    aria-hidden
+                  />
+                  <AlertTitle>Intensive study day</AlertTitle>
+                  <AlertDescription>
+                    The remaining preparation demand is high for your available
+                    days, so this day contains more than the usual 60 minutes of
+                    planned study.
+                  </AlertDescription>
+                </Alert>
+              ) : null}
               {selectedDate === plan.today && carryOverTasks.length ? (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
                   <p className="text-sm font-medium">Still to do</p>

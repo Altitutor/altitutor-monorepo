@@ -43,7 +43,11 @@ jest.mock("@/features/study-plan/components/study-plan-extra-study", () => ({
   StudyPlanExtraStudy: () => null,
 }));
 
-function task(id: string, scheduledDate: string): StudyPlanTask {
+function task(
+  id: string,
+  scheduledDate: string,
+  overrides: Partial<StudyPlanTask> = {},
+): StudyPlanTask {
   return {
     id,
     scheduledDate,
@@ -71,6 +75,7 @@ function task(id: string, scheduledDate: string): StudyPlanTask {
     skippedAt: null,
     matchedActivityType: null,
     matchedActivityId: null,
+    ...overrides,
   };
 }
 
@@ -113,5 +118,42 @@ describe("StudyPlanCalendar", () => {
     expect(container.querySelector("[data-tour-study-plan-selected-day]")).toBe(
       initialPanel,
     );
+  });
+
+  it("shows one day-level alert only when the selected pressure-packed day exceeds 60 minutes", () => {
+    const warning = {
+      preparationWarning:
+        "This is an intensive study day because the remaining preparation demand is high for your available days.",
+    };
+    const currentPlan = plan();
+    const intensiveTasks = [
+      task("intensive-1", "2026-08-22", {
+        estimatedMinutes: 40,
+        launchConfig: warning,
+      }),
+      task("intensive-2", "2026-08-22", {
+        estimatedMinutes: 30,
+        launchConfig: warning,
+      }),
+    ];
+    const shortTasks = [
+      task("short-1", "2026-08-23", {
+        estimatedMinutes: 40,
+        launchConfig: warning,
+      }),
+    ];
+    currentPlan.tasks = [...intensiveTasks, ...shortTasks];
+    currentPlan.todayTasks = intensiveTasks;
+
+    render(<StudyPlanCalendar plan={currentPlan} summaryCards={<div />} />);
+
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(
+      screen.getByRole("alert", { name: "Intensive study day" }),
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Sunday 23 August/ }));
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

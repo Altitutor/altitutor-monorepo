@@ -504,6 +504,61 @@ describe("generateStudyPlan", () => {
     expect(result.capacityRisk.level).toBe("warning");
   });
 
+  it("marks only actually long pressure-packed days as intensive", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [{ weekday: 1 }],
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+    const tasksByDate = Map.groupBy(
+      result.tasks,
+      (task) => task.scheduledDate,
+    );
+
+    expect(
+      [...tasksByDate.values()].some(
+        (tasks) =>
+          tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0) <= 60,
+      ),
+    ).toBe(true);
+    expect(
+      [...tasksByDate.values()].some(
+        (tasks) =>
+          tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0) > 60,
+      ),
+    ).toBe(true);
+
+    for (const tasks of tasksByDate.values()) {
+      const totalMinutes = tasks.reduce(
+        (sum, task) => sum + task.estimatedMinutes,
+        0,
+      );
+      const intensiveMarkers = tasks.filter(
+        (task) => task.launchConfig.intensiveStudyDay === true,
+      );
+
+      expect(intensiveMarkers).toHaveLength(totalMinutes > 60 ? 1 : 0);
+      expect(
+        tasks.every(
+          (task) => task.launchConfig.preparationWarning === undefined,
+        ),
+      ).toBe(true);
+    }
+  });
+
   it("continues from essential into recommended instruction while Learning", () => {
     const result = generateStudyPlan({
       today: "2026-01-05",

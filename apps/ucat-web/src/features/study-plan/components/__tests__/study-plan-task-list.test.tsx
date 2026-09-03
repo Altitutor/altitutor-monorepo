@@ -109,4 +109,22 @@ describe("StudyPlanTaskList", () => {
     expect(screen.getByText("Task tomorrow")).toBeInTheDocument();
     expect(screen.queryByText("Task today")).not.toBeInTheDocument();
   });
+
+  it("does not repeat a day-level preparation alert inside task cards", () => {
+    const warnedTask = task("warned", "2026-08-22");
+    warnedTask.launchConfig = {
+      preparationWarning:
+        "This is an intensive study day because demand is high.",
+    };
+
+    render(
+      <StudyPlanTaskList
+        revealKey="2026-08-22"
+        tasks={[warnedTask]}
+        today="2026-08-22"
+      />,
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });

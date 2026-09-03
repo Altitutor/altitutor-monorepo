@@ -1,6 +1,7 @@
 import {
   buildStudyPlanCalendarMonths,
   daysBetweenDateKeys,
+  isIntensiveStudyPlanDay,
   studyPlanCalendarIntensityLevel,
   studyPlanPlannedMinutes,
 } from "@/features/study-plan/lib/calendar";
@@ -68,6 +69,30 @@ describe("Study plan calendar", () => {
         task({ taskType: "learn", estimatedMinutes: 20 }),
       ]),
     ).toBe(65);
+  });
+
+  it("requires both pressure and more than 60 active minutes for an intensive day", () => {
+    const legacyWarning = {
+      preparationWarning:
+        "This is an intensive study day because demand is high.",
+    };
+    const shortTasks = [
+      task({ taskType: "section_benchmark", estimatedMinutes: 45 }),
+      task({ taskType: "review", estimatedMinutes: 10 }),
+    ].map((item) => ({ ...item, launchConfig: legacyWarning }));
+    const longTasks = [
+      task({ taskType: "learn", estimatedMinutes: 40 }),
+      task({ taskType: "practice", estimatedMinutes: 30 }),
+    ];
+    longTasks[0]!.launchConfig = { intensiveStudyDay: true };
+
+    expect(isIntensiveStudyPlanDay(shortTasks)).toBe(false);
+    expect(isIntensiveStudyPlanDay(longTasks)).toBe(true);
+    expect(
+      isIntensiveStudyPlanDay(
+        longTasks.map((item) => ({ ...item, status: "skipped" as const })),
+      ),
+    ).toBe(false);
   });
 
   it("scales practice load against the visible window maximum", () => {

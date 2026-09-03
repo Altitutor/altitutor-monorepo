@@ -13,6 +13,8 @@ import type { StudyPlanTask } from "@/features/study-plan/model/types";
 export type StudyPlanCalendarDay = UcatCalendarDay;
 export type StudyPlanCalendarMonth = UcatCalendarMonth;
 
+export const ORDINARY_STUDY_DAY_MINUTES = 60;
+
 export {
   dateKeyToLocalDate,
   localDateKey,
@@ -43,6 +45,37 @@ export function daysBetweenDateKeys(fromDateKey: string, toDateKey: string) {
 
 export function studyPlanPlannedMinutes(tasks: StudyPlanTask[]): number {
   return tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
+}
+
+type StudyPlanDayTask = Pick<
+  StudyPlanTask,
+  "estimatedMinutes" | "launchConfig"
+> &
+  Partial<Pick<StudyPlanTask, "status">>;
+
+export function studyPlanActiveMinutes(tasks: StudyPlanDayTask[]): number {
+  return tasks.reduce(
+    (sum, task) =>
+      task.status === "skipped" ? sum : sum + task.estimatedMinutes,
+    0,
+  );
+}
+
+export function exceedsOrdinaryStudyDayMinutes(
+  tasks: StudyPlanDayTask[],
+): boolean {
+  return studyPlanActiveMinutes(tasks) > ORDINARY_STUDY_DAY_MINUTES;
+}
+
+export function isIntensiveStudyPlanDay(tasks: StudyPlanDayTask[]): boolean {
+  const hasPreparationPressure = tasks.some(
+    (task) =>
+      task.launchConfig.intensiveStudyDay === true ||
+      (typeof task.launchConfig.preparationWarning === "string" &&
+        task.launchConfig.preparationWarning.trim().length > 0),
+  );
+
+  return hasPreparationPressure && exceedsOrdinaryStudyDayMinutes(tasks);
 }
 
 /**

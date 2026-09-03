@@ -114,7 +114,6 @@ function TaskRow({
   const nextMilestone = isDerivedReview
     ? null
     : configString(task, "nextMilestone");
-  const preparationWarning = configString(task, "preparationWarning");
   const practiceMinutes = configNumber(task, "practiceMinutes");
   const reviewMinutes = configNumber(task, "reviewMinutes");
 
@@ -179,14 +178,6 @@ function TaskRow({
               {task.rationale ? `Why this: ${task.rationale}` : null}
               {task.rationale && nextMilestone ? " · " : null}
               {nextMilestone ? `Next: ${nextMilestone}` : null}
-            </p>
-          ) : null}
-          {preparationWarning ? (
-            <p
-              role="alert"
-              className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-amber-800 dark:text-amber-200"
-            >
-              {preparationWarning}
             </p>
           ) : null}
           <div className="mt-2 flex items-center gap-1 text-xs text-muted-foreground">
