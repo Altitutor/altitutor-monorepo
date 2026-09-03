@@ -107,7 +107,7 @@ function ResponsiveResizablePanels({
 
   if (!isResizable) {
     return (
-      <div className="h-full min-h-0 w-full min-w-0">
+      <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
         {mobilePanel === "primary" ? primary : secondary}
       </div>
     )
