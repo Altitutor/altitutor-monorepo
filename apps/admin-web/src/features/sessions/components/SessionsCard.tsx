@@ -23,6 +23,8 @@ interface SessionsCardProps {
   staff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
   students?: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>;
   onClick?: () => void;
+  /** Override the title (e.g. session/class name in the absence reschedule picker). */
+  title?: string;
   
   // Visual states
   isSelecting?: boolean;
@@ -44,6 +46,7 @@ export function SessionsCard({
   staff = [],
   students = [],
   onClick,
+  title,
   isSelecting = false,
   isSelected = false,
   compact: forceCompact = false,
@@ -86,11 +89,12 @@ export function SessionsCard({
   // Determine if we should use compact mode overall
   const shouldUseCompact = forceCompact || !iconVisible;
   
-  const subjectDisplay = shouldUseCompact && subject 
+  const subjectDisplay = title
+    ?? (shouldUseCompact && subject 
     ? (subject?.short_name ?? subject?.long_name ?? subject?.name ?? '') 
     : subject 
-      ? (subject?.long_name ?? '') 
-      : formatSessionType(session.type);
+      ? (subject?.long_name ?? subject?.name ?? '') 
+      : formatSessionType(session.type));
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
   const timeRange = session.start_at && session.end_at

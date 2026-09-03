@@ -26,7 +26,7 @@ type ClassStatus = 'ACTIVE' | 'INACTIVE' | 'FULL';
 type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' | 'TRIAL';
 type AbsenceType = 'PLANNED' | 'UNPLANNED';
 type MeetingType = 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'PARENT_MEETING' | 'OTHER';
-type SessionType = 'CLASS' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
+type SessionType = 'CLASS' | 'HOMEWORK_HELP' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
 type MessageStatus = 'DRAFT' | 'SENT' | 'FAILED';
 
 // Union type of all supported enum values
@@ -222,4 +222,4 @@ export function BooleanBadge({ value, trueText = 'Yes', falseText = 'No', ...pro
 }) {
   const displayText = value === true ? trueText : value === false ? falseText : '-';
   return <EnumBadge value={value} type="boolean" {...props}>{displayText}</EnumBadge>;
-} 
+}

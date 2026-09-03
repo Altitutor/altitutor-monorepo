@@ -1,19 +1,19 @@
 import {
   formatPayTierSessionType,
   formatPayTierStaffAttendanceType,
+  formatPayTierResourceType,
   formatTimeMetricOverrideLabel,
   METRIC_KEYS,
+  parseResourceMetricKey,
+  PAY_TIER_RESOURCE_OVERRIDE_TYPES,
+  PAY_TIER_SESSION_TYPES,
+  resourceMetricKey,
   sessionMetricKey,
   TIME_UNITS,
-  TEACHING_SESSION_TYPES,
-  ADMIN_SESSION_TYPES,
   type TimeUnit,
 } from '@altitutor/shared/pay-tiers';
 
-export const OVERRIDE_SESSION_TYPES = [
-  ...TEACHING_SESSION_TYPES,
-  ...ADMIN_SESSION_TYPES,
-] as const;
+export const OVERRIDE_SESSION_TYPES = [...PAY_TIER_SESSION_TYPES] as const;
 
 export type SessionOverrideRow = {
   id: string;
@@ -28,10 +28,29 @@ export type TimeOverrideRow = {
   count: number;
 };
 
+export type ResourceOverrideRow = {
+  id: string;
+  resourceType: string;
+  subjectId: string | null;
+  count: number;
+};
+
 const TIME_OVERRIDE_OPTIONS = [
-  { metricKey: METRIC_KEYS.tenureDays, prefix: 'tenure' as const, unit: 'days' as TimeUnit },
-  { metricKey: METRIC_KEYS.tenureWeeks, prefix: 'tenure' as const, unit: 'weeks' as TimeUnit },
-  { metricKey: METRIC_KEYS.tenureMonths, prefix: 'tenure' as const, unit: 'months' as TimeUnit },
+  {
+    metricKey: METRIC_KEYS.tenureDays,
+    prefix: 'tenure' as const,
+    unit: 'days' as TimeUnit,
+  },
+  {
+    metricKey: METRIC_KEYS.tenureWeeks,
+    prefix: 'tenure' as const,
+    unit: 'weeks' as TimeUnit,
+  },
+  {
+    metricKey: METRIC_KEYS.tenureMonths,
+    prefix: 'tenure' as const,
+    unit: 'months' as TimeUnit,
+  },
   {
     metricKey: METRIC_KEYS.timeSincePromotionDays,
     prefix: 'time_since_promotion' as const,
@@ -76,6 +95,23 @@ export function timeOverridesToRows(overrides: Record<string, number>): TimeOver
   return rows;
 }
 
+export function resourceOverridesToRows(overrides: Record<string, number>): ResourceOverrideRow[] {
+  const rows: ResourceOverrideRow[] = [];
+  for (const [key, count] of Object.entries(overrides)) {
+    const parsed = parseResourceMetricKey(key);
+    if (!parsed) continue;
+    rows.push({
+      id: key,
+      resourceType: parsed.resourceType,
+      subjectId: parsed.subjectId,
+      count,
+    });
+  }
+  return rows.sort(
+    (a, b) => a.resourceType.localeCompare(b.resourceType) || String(a.subjectId).localeCompare(String(b.subjectId))
+  );
+}
+
 export function parseSessionMetricKey(key: string): { sessionType: string; attendanceType: string } | null {
   const parts = key.split('.');
   if (parts[0] !== 'sessions' || parts.length < 3) return null;
@@ -91,7 +127,8 @@ export function sessionOverrideRowToMetricKey(row: SessionOverrideRow): string {
 
 export function buildMetricOverridesFromUi(
   sessionRows: SessionOverrideRow[],
-  timeRows: TimeOverrideRow[]
+  timeRows: TimeOverrideRow[],
+  resourceRows: ResourceOverrideRow[]
 ): Record<string, number> {
   const out: Record<string, number> = {};
   for (const row of sessionRows) {
@@ -101,6 +138,10 @@ export function buildMetricOverridesFromUi(
   for (const row of timeRows) {
     if (!row.metricKey.trim() || row.count === 0) continue;
     out[row.metricKey] = row.count;
+  }
+  for (const row of resourceRows) {
+    if (!row.resourceType.trim() || row.count === 0) continue;
+    out[resourceMetricKey(row.resourceType, row.subjectId)] = row.count;
   }
   return out;
 }
@@ -113,6 +154,10 @@ export function formatTimeOverrideLabel(metricKey: string): string {
   const option = TIME_OVERRIDE_OPTIONS.find((o) => o.metricKey === metricKey);
   if (!option) return metricKey;
   return formatTimeMetricOverrideLabel(option.prefix, option.unit);
+}
+
+export function formatResourceOverrideLabel(row: ResourceOverrideRow): string {
+  return formatPayTierResourceType(row.resourceType);
 }
 
 export function newSessionOverrideRow(): SessionOverrideRow {
@@ -132,6 +177,15 @@ export function newTimeOverrideRow(): TimeOverrideRow {
   };
 }
 
+export function newResourceOverrideRow(): ResourceOverrideRow {
+  return {
+    id: crypto.randomUUID(),
+    resourceType: 'NOTES',
+    subjectId: null,
+    count: 0,
+  };
+}
+
 export function getTimeOverrideOptions() {
   return TIME_OVERRIDE_OPTIONS.map((option) => ({
     metricKey: option.metricKey,
@@ -140,3 +194,4 @@ export function getTimeOverrideOptions() {
 }
 
 export { TIME_UNITS };
+export { PAY_TIER_RESOURCE_OVERRIDE_TYPES };

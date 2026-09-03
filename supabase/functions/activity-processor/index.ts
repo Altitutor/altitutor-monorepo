@@ -4,59 +4,15 @@ import { serveWithSentry } from '../_shared/sentry.ts';
 import { executeCreateNotification } from './actions/create-notification.ts';
 import { executeCreateTask } from './actions/create-task.ts';
 import { executeSendMessage } from './actions/send-message.ts';
+import {
+  asRecord,
+  ENTITY_TABLES,
+  lifecycleEventToAutomationContext,
+  type RecordData,
+} from './lifecycle-context.ts';
 import { corsHeaders, evaluateConditions, json } from './utils.ts';
 
 type ProcessBody = { execution_id?: string };
-type RecordData = Record<string, unknown>;
-
-const ENTITY_TABLES: Record<string, string> = {
-  student: 'students', students: 'students', parent: 'parents', parents: 'parents',
-  staff: 'staff', class: 'classes', classes: 'classes', session: 'sessions',
-  sessions: 'sessions', task: 'tasks', tasks: 'tasks', issue: 'issues',
-  issues: 'issues', project: 'projects', projects: 'projects', invoice: 'invoices',
-  invoices: 'invoices', tutor_log: 'tutor_logs', tutor_logs: 'tutor_logs',
-};
-
-function asRecord(value: unknown): RecordData {
-  return value && typeof value === 'object' && !Array.isArray(value)
-    ? value as RecordData
-    : {};
-}
-
-function lifecycleEventToAutomationContext(
-  event: RecordData,
-  linkedEntities: RecordData[]
-): RecordData {
-  const payload = asRecord(event.payload);
-  const ids: RecordData = {};
-  for (const link of linkedEntities) {
-    const entityType = String(link.entity_type || '');
-    if (entityType && typeof link.entity_id === 'string') {
-      ids[`${entityType}_id`] = link.entity_id;
-    }
-  }
-
-  const subjectType = String(event.subject_type || '');
-  const subjectTable = ENTITY_TABLES[subjectType] || subjectType;
-  const tutorLogId = typeof payload.tutor_log_id === 'string' ? payload.tutor_log_id : null;
-
-  return {
-    ...ids,
-    id: event.id,
-    domain_event_id: event.id,
-    event_name: event.event_name,
-    event_type: event.event_name,
-    entity_type: tutorLogId ? 'tutor_logs' : subjectTable,
-    entity_id: tutorLogId || event.subject_id,
-    subject_type: subjectType,
-    subject_id: event.subject_id,
-    performed_at: event.recorded_at,
-    effective_at: event.effective_at,
-    performed_by: event.actor_staff_id,
-    metadata: payload,
-    changed_fields: asRecord(payload.changes),
-  };
-}
 
 async function loadEntityContext(
   supabase: SupabaseClient,

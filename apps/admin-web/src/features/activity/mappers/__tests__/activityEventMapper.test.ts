@@ -116,6 +116,43 @@ describe('lifecycle activity mapper', () => {
     ]);
   });
 
+  it('describes a staff swap as one action with both staff members and the session', () => {
+    const outgoingStaffId = '10000000-0000-4000-8000-000000000020';
+    const incomingStaffId = '10000000-0000-4000-8000-000000000021';
+    const sessionId = '10000000-0000-4000-8000-000000000022';
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.staff_swapped',
+      subject_type: 'session',
+      subject_id: sessionId,
+      entities: [
+        { entityType: 'session', entityId: sessionId, role: 'subject', displayName: 'Thursday UCAT' },
+        { entityType: 'staff', entityId: outgoingStaffId, role: 'staff_out', displayName: 'John Doe' },
+        { entityType: 'staff', entityId: incomingStaffId, role: 'staff_in', displayName: 'Emily Davis' },
+      ],
+    }));
+
+    expect(result.message).toBe('swapped John Doe out for Emily Davis in Thursday UCAT');
+    expect(result.messageParts?.filter((part) => part.kind === 'entity')).toEqual([
+      expect.objectContaining({ text: 'John Doe' }),
+      expect.objectContaining({ text: 'Emily Davis' }),
+      expect.objectContaining({ text: 'Thursday UCAT' }),
+    ]);
+  });
+
+  it('describes a student reschedule with both sessions', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_rescheduled',
+      subject_type: 'session',
+      entities: [
+        { entityType: 'student', entityId: '10000000-0000-4000-8000-000000000030', role: 'related', displayName: 'Bob Taylor' },
+        { entityType: 'session', entityId: '10000000-0000-4000-8000-000000000031', role: 'session_from', displayName: 'Monday UCAT' },
+        { entityType: 'session', entityId: '10000000-0000-4000-8000-000000000032', role: 'session_to', displayName: 'Thursday UCAT' },
+      ],
+    }));
+
+    expect(result.message).toBe('rescheduled Bob Taylor from Monday UCAT to Thursday UCAT');
+  });
+
   it('exposes the allowlisted work-item changes to the existing field renderer', () => {
     const result = mapActivityEventToDisplay(makeEvent({
       event_name: 'task.properties_changed',
@@ -123,14 +160,55 @@ describe('lifecycle activity mapper', () => {
       payload: {
         changes: {
           priority: { old: 1, new: 2 },
-          due_date: { old: null, new: '2026-09-01' },
+          due_date: { old: null, new: '2026-09-03T00:00:00.000Z' },
         },
       },
     }));
 
     expect(result.changedFields).toEqual([
       { fieldName: 'priority', fieldLabel: 'Priority', oldValue: '1', newValue: '2' },
-      { fieldName: 'due_date', fieldLabel: 'Due Date', oldValue: undefined, newValue: '2026-09-01' },
+      { fieldName: 'due_date', fieldLabel: 'Due Date', oldValue: undefined, newValue: 'Thu 3 Sep' },
+    ]);
+  });
+
+  it('formats each project date property without changing ordinary text values', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'project.properties_changed',
+      subject_type: 'project',
+      payload: {
+        changes: {
+          name: { old: 'Old project', new: 'New project' },
+          start_date: { old: '2026-09-02T00:00:00.000Z', new: '2026-09-03T00:00:00.000Z' },
+          target_date: { old: null, new: '2026-09-10T00:00:00.000Z' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      { fieldName: 'name', fieldLabel: 'Name', oldValue: 'Old project', newValue: 'New project' },
+      { fieldName: 'start_date', fieldLabel: 'Start Date', oldValue: 'Wed 2 Sep', newValue: 'Thu 3 Sep' },
+      { fieldName: 'target_date', fieldLabel: 'Target Date', oldValue: undefined, newValue: 'Thu 10 Sep' },
+    ]);
+  });
+
+  it('formats student birthday property changes as calendar dates', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'student.properties_changed',
+      subject_type: 'student',
+      payload: {
+        changes: {
+          birthday: { old: '2000-01-02', new: '2000-01-03' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      {
+        fieldName: 'birthday',
+        fieldLabel: 'Birthday',
+        oldValue: 'Sun 2 Jan',
+        newValue: 'Mon 3 Jan',
+      },
     ]);
   });
 

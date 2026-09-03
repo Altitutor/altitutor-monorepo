@@ -13,7 +13,7 @@ export const EXPANDABLE_DIALOG_TRANSITION =
  * Avoids position jump when collapsing (right/bottom -> auto caused top-left flash).
  */
 export const EXPANDED_DIALOG_CONTENT_CLASS =
-  '!left-[50%] !top-[50%] !-translate-x-1/2 !-translate-y-1/2 !right-auto !bottom-auto !w-[calc(100vw-2rem)] !h-[calc(100dvh-2rem)] !max-w-none'
+  'sm:!left-[50%] sm:!top-[50%] sm:!-translate-x-1/2 sm:!-translate-y-1/2 sm:!right-auto sm:!bottom-auto sm:!w-[calc(100vw-2rem)] sm:!h-[calc(100dvh-2rem)] sm:!max-w-none'
 
 export const WIZARD_DIALOG_HEIGHT_CLASS = 'sm:!h-[90vh] sm:!max-h-[90vh] overflow-hidden'
 

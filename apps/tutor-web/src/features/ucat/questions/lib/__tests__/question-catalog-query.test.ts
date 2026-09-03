@@ -2,6 +2,7 @@ import {
   buildQuestionCatalogQuery,
   CREATED_AT_FROM_FILTER_KEY,
   CREATED_AT_TO_FILTER_KEY,
+  formatQuestionCatalogCountSummary,
   QUESTION_COUNT_MAX_FILTER_KEY,
   QUESTION_COUNT_MIN_FILTER_KEY,
   serializeQuestionCatalogQuery,
@@ -109,5 +110,25 @@ describe('buildQuestionCatalogQuery', () => {
 
     expect(query.accessScopes).toEqual([])
     expect(query.practicePool).toBeNull()
+  })
+})
+
+describe('formatQuestionCatalogCountSummary', () => {
+  it('labels matching stem and question counts', () => {
+    expect(formatQuestionCatalogCountSummary({ stemCount: 42, questionCount: 187 })).toBe(
+      '42 stems • 187 questions',
+    )
+  })
+
+  it('uses singular nouns for a single matching stem and question', () => {
+    expect(formatQuestionCatalogCountSummary({ stemCount: 1, questionCount: 1 })).toBe(
+      '1 stem • 1 question',
+    )
+  })
+
+  it('uses zero counts when no stems match', () => {
+    expect(formatQuestionCatalogCountSummary({ stemCount: 0, questionCount: 0 })).toBe(
+      '0 stems • 0 questions',
+    )
   })
 })

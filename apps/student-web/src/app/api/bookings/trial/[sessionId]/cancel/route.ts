@@ -9,11 +9,13 @@ import {
 } from '@/features/bookings/lib/public-booking-guards';
 import { sendEmail } from '@/shared/lib/email';
 import { buildBookingCancelledEmail } from '@altitutor/email';
+import { capturePublicBookingOutcome } from '@/features/bookings/lib/capture-public-booking-outcome';
+import { IN_PERSON_BOOKING_EVENTS } from '@/shared/lib/analytics/in-person-booking-event';
 
 export const dynamic = 'force-dynamic';
 
 export async function POST(
-  _request: NextRequest,
+  request: NextRequest,
   { params }: { params: { sessionId: string } }
 ) {
   try {
@@ -59,6 +61,13 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    capturePublicBookingOutcome(request, {
+      event: IN_PERSON_BOOKING_EVENTS.cancelled,
+      sessionId: session.id,
+      sessionType: session.type,
+      studentId: session.student_id,
+    });
 
     const { sessionDate, sessionTime } = formatSessionDateTime(
       session.start_at,

@@ -91,4 +91,12 @@ export const classesApi = {
     if (error) throw error;
     return data ?? [];
   },
+
+  getClassesWithDetails: async (classIds: string[]) => {
+    if (classIds.length === 0) return [];
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.from('vtutor_class_detail').select('*').in('class_id', classIds);
+    if (error) throw error;
+    return data ?? [];
+  },
 };

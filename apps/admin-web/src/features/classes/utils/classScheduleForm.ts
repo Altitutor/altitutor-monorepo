@@ -61,7 +61,9 @@ export function buildClassScheduleProposal(
 ): ClassScheduleProposal {
   return {
     class_id: values.classId,
+    session_type: values.sessionType,
     subject_id: values.subjectId,
+    billing_type: values.billingType,
     cohort_label: values.cohortLabel.trim(),
     status: values.status ?? 'ACTIVE',
     schedule_type: 'RECURRING',

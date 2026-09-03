@@ -37,7 +37,7 @@ supabase start
 pnpm db:types
 ```
 
-A first `supabase start` applies migrations and seed. Use `supabase db reset` later if you need to rebuild the local database from scratch.
+A first `supabase start` applies migrations and the cheap automatic seed. Use `supabase db reset` later if you need to rebuild the local database from scratch. UCAT study-plan fixtures are separate: `pnpm db:seed:ucat`.
 
 5. Run development servers:
 
@@ -112,9 +112,11 @@ supabase start
 pnpm db:types
 ```
 
-`supabase start` applies migrations and seed on a fresh stack. If the stack is
+`supabase start` applies migrations and the cheap automatic seed on a fresh stack. If the stack is
 already running, `supabase db reset` rebuilds the local database from those
-same files. `pnpm db:committypes` still resets before regenerating types.
+same files. `pnpm db:seed:ucat` then applies the UCAT study-plan fixtures needed
+by database contracts and UCAT browser journeys. `pnpm db:committypes` still
+resets before regenerating types.
 
 ### Remote
 

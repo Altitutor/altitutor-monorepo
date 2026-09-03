@@ -29,6 +29,7 @@ import { formatClassDisplayName } from '../utils/tutorLogsTableHelpers';
 
 const SESSION_TYPES: Database['public']['Enums']['session_type'][] = [
   'CLASS',
+  'HOMEWORK_HELP',
   'DRAFTING',
   'EXAM_COURSE',
   'SUBSIDY_INTERVIEW',

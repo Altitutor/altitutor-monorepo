@@ -15,6 +15,7 @@ import {
   StudentsWithoutPaymentMethodTable,
   TrialStudentsNotSignedUpTable,
   ProjectsWithoutLeadTable,
+  SessionBillingAdjustmentsTable,
 } from './ReconciliationTable';
 import {
   useReconciliationFinancialData,
@@ -85,6 +86,10 @@ export function ReconciliationFinancialTab() {
 
   return (
     <div className="space-y-6 mt-6">
+      <SessionBillingAdjustmentsTable
+        items={data.sessionBillingAdjustments.data ?? []}
+        isLoading={data.sessionBillingAdjustments.isLoading}
+      />
       <UninvoicedSessionsTable
         items={data.uninvoicedSessions.data ?? []}
         isLoading={data.uninvoicedSessions.isLoading}
@@ -93,10 +98,7 @@ export function ReconciliationFinancialTab() {
         items={data.voidInvoiceSessions.data ?? []}
         isLoading={data.voidInvoiceSessions.isLoading}
       />
-      <UnpaidInvoicesTable
-        items={data.unpaidInvoices.data ?? []}
-        isLoading={data.unpaidInvoices.isLoading}
-      />
+      <UnpaidInvoicesTable items={data.unpaidInvoices.data ?? []} isLoading={data.unpaidInvoices.isLoading} />
       <StudentsWithoutPaymentMethodTable
         items={data.studentsWithoutPaymentMethod.data ?? []}
         isLoading={data.studentsWithoutPaymentMethod.isLoading}
@@ -125,14 +127,8 @@ export function ReconciliationSchedulingTab() {
 
   return (
     <div className="space-y-6 mt-6">
-      <UnloggedSessionsTable
-        items={data.unloggedSessions.data ?? []}
-        isLoading={data.unloggedSessions.isLoading}
-      />
-      <UnassignedClassesTable
-        items={data.unassignedClasses.data ?? []}
-        isLoading={data.unassignedClasses.isLoading}
-      />
+      <UnloggedSessionsTable items={data.unloggedSessions.data ?? []} isLoading={data.unloggedSessions.isLoading} />
+      <UnassignedClassesTable items={data.unassignedClasses.data ?? []} isLoading={data.unassignedClasses.isLoading} />
       <StudentsWithoutClassesTable
         items={data.studentsWithoutClasses.data ?? []}
         isLoading={data.studentsWithoutClasses.isLoading}
@@ -174,10 +170,7 @@ export function ReconciliationOperationsTab() {
 
   return (
     <div className="space-y-6 mt-6">
-      <UnassignedTasksTable
-        items={data.unassignedTasks.data ?? []}
-        isLoading={data.unassignedTasks.isLoading}
-      />
+      <UnassignedTasksTable items={data.unassignedTasks.data ?? []} isLoading={data.unassignedTasks.isLoading} />
       <ProjectsWithoutLeadTable
         items={data.projectsWithNoLead.data ?? []}
         isLoading={data.projectsWithNoLead.isLoading}

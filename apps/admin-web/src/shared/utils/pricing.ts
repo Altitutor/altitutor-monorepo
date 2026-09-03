@@ -97,3 +97,19 @@ export function formatCurrency(amountCents: number, currency: string = 'aud'): s
     currency: currency.toUpperCase(),
   }).format(amount);
 }
+
+/**
+ * Gross up a session price so the resulting invoice covers processing fees.
+ * Mirrors the billing runner's fee calculation.
+ */
+export function grossUpInvoiceAmount(
+  netCents: number,
+  isInternational: boolean,
+  domesticPercent: number,
+  internationalPercent: number,
+  fixedCents: number
+): number {
+  if (netCents <= 0) return 0;
+  const percent = isInternational ? internationalPercent : domesticPercent;
+  return Math.round((netCents + fixedCents) / (1 - percent));
+}

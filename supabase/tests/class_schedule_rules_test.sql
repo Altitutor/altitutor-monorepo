@@ -85,7 +85,7 @@ SELECT throws_ok(
     'frequency_weeks', 1, 'anchor_date', '2027-01-05',
     'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 4, 'start_time', '13:00', 'end_time', '14:00'))
   )) $$,
-  'P0001', 'A Class timetable cannot contain more than 1000 Sessions',
+  'P0001', 'A Scheduled offering cannot contain more than 1000 Sessions',
   'bounded plans still enforce the 1000-Session safety cap'
 );
 
@@ -111,7 +111,7 @@ SELECT throws_ok(
     'frequency_weeks', 1, 'anchor_date', '2027-01-05',
     'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 2, 'start_time', '13:00', 'end_time', '14:00'))
   ), 'stale-hash') $$,
-  'P0001', 'The Class schedule changed after preview; preview it again',
+  'P0001', 'The Scheduled offering changed after preview; preview it again',
   'apply rejects a proposal that does not match the confirmed preview hash'
 );
 

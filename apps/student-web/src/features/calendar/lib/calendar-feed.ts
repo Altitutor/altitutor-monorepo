@@ -21,6 +21,7 @@ export const CANCELLED_TOMBSTONE_RETENTION_MS = 1000 * 60 * 60 * 24 * 90;
 
 const SESSION_TYPE_LABELS: Record<SessionType, string> = {
   CLASS: "class",
+  HOMEWORK_HELP: "homework help",
   DRAFTING: "drafting",
   EXAM_COURSE: "exam course",
   SUBSIDY_INTERVIEW: "subsidy interview",
@@ -82,6 +83,7 @@ function foldLine(line: string): string[] {
 }
 
 export function getCalendarEventTitle(session: CalendarSession): string {
+  if (session.type === "HOMEWORK_HELP") return "Altitutor Homework Help";
   if (session.classId) {
     const subject = session.subjectLongName || session.subjectName || "class";
     return `Altitutor class: ${subject}`;

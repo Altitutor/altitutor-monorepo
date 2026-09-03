@@ -15,6 +15,7 @@ import { TimeSlotPicker } from './TimeSlotPicker';
 import { useSessionDurationMinutes, useMinAdvanceBookingDays } from '../hooks/useBookingSettings';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { formatSessionType } from '@/shared/utils';
+import { posthogIdentityHeaders } from '@/shared/lib/analytics/posthog';
 
 type ChangeSessionStep = 'select' | 'review';
 
@@ -92,7 +93,7 @@ export function ChangeSessionDialog({
     try {
       const response = await fetch(`/api/bookings/trial/${sessionId}/reschedule`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...posthogIdentityHeaders() },
         body: JSON.stringify({
           start_at: selectedSlot.startAt,
           end_at: selectedSlot.endAt,

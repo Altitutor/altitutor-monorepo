@@ -11,10 +11,7 @@ export async function POST(request: Request) {
 
     // Validate required fields
     if (!operations || !Array.isArray(operations)) {
-      return NextResponse.json(
-        { error: 'operations array is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'operations array is required' }, { status: 400 });
     }
 
     // Get authenticated user's supabase client
@@ -25,18 +22,12 @@ export async function POST(request: Request) {
 
     if (studentCheckError) {
       console.error('Error checking student status:', studentCheckError);
-      captureApiError(studentCheckError, "/api/absences/log");
-      return NextResponse.json(
-        { error: 'Failed to verify student status' },
-        { status: 500 }
-      );
+      captureApiError(studentCheckError, '/api/absences/log');
+      return NextResponse.json({ error: 'Failed to verify student status' }, { status: 500 });
     }
 
     if (!isStudent) {
-      return NextResponse.json(
-        { error: 'Unauthorized: User is not a student' },
-        { status: 403 }
-      );
+      return NextResponse.json({ error: 'Unauthorized: User is not a student' }, { status: 403 });
     }
 
     // Get current student's ID
@@ -44,11 +35,8 @@ export async function POST(request: Request) {
 
     if (studentIdError || !studentId) {
       console.error('Error getting student ID:', studentIdError);
-      captureApiError(studentIdError, "/api/absences/log");
-      return NextResponse.json(
-        { error: 'Failed to get student ID' },
-        { status: 500 }
-      );
+      captureApiError(studentIdError, '/api/absences/log');
+      return NextResponse.json({ error: 'Failed to get student ID' }, { status: 500 });
     }
 
     // Get Supabase client with service role key for RPC call
@@ -57,10 +45,7 @@ export async function POST(request: Request) {
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Missing Supabase configuration');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
@@ -70,6 +55,35 @@ export async function POST(request: Request) {
       },
     });
 
+    const sessionStudentIds = operations
+      .map((operation) =>
+        operation && typeof operation === 'object'
+          ? (operation as { original_sessions_students_id?: unknown }).original_sessions_students_id
+          : null,
+      )
+      .filter((value): value is string => typeof value === 'string');
+
+    if (sessionStudentIds.length !== operations.length) {
+      return NextResponse.json({ error: 'Each operation must identify a session booking' }, { status: 400 });
+    }
+
+    const { data: invoicedSessionIds, error: invoiceCheckError } = await supabase.rpc(
+      'get_invoiced_sessions_students_ids',
+      { p_sessions_students_ids: sessionStudentIds },
+    );
+
+    if (invoiceCheckError) {
+      captureApiError(invoiceCheckError, '/api/absences/log');
+      return NextResponse.json({ error: 'Could not safely verify the session billing status' }, { status: 503 });
+    }
+
+    if (invoicedSessionIds.length > 0) {
+      return NextResponse.json(
+        { error: 'This session has already been invoiced. Please contact Altitutor to change it.' },
+        { status: 409 },
+      );
+    }
+
     // Call the RPC function
     const { data, error } = await supabase.rpc('log_student_absences_self', {
       operations: operations as Json,
@@ -78,31 +92,22 @@ export async function POST(request: Request) {
 
     if (error) {
       console.error('Error calling log_student_absences_self RPC:', error);
-      captureApiError(error, "/api/absences/log");
-      return NextResponse.json(
-        { error: error.message || 'Failed to log absences' },
-        { status: 500 }
-      );
+      captureApiError(error, '/api/absences/log');
+      return NextResponse.json({ error: error.message || 'Failed to log absences' }, { status: 500 });
     }
 
     // Check if the RPC function returned an error in the result
     type RpcResult = { success: boolean; error?: string } | unknown;
     if (data && typeof data === 'object' && 'success' in data && !(data as RpcResult & { success: boolean }).success) {
       const errorResult = data as RpcResult & { success: boolean; error?: string };
-      return NextResponse.json(
-        { error: errorResult.error || 'Failed to log absences' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: errorResult.error || 'Failed to log absences' }, { status: 400 });
     }
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
-    captureApiError(error, "/api/absences/log");
+    captureApiError(error, '/api/absences/log');
     const errorMessage = error instanceof Error ? error.message : 'An unexpected error occurred';
     console.error('Unexpected error in log absences API route:', error);
-    return NextResponse.json(
-      { error: errorMessage },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

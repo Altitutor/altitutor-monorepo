@@ -27,6 +27,14 @@ export function useClassSchedule(classId: string, enabled = true) {
   });
 }
 
+export function useClassScheduleTimeline(classId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...classesKeys.schedule(classId), 'timeline'],
+    queryFn: () => classesApi.getScheduleTimeline(classId),
+    enabled: enabled && !!classId,
+  });
+}
+
 export function useClassDeleteImpact(classId: string | undefined, enabled = true) {
   return useQuery({
     queryKey: classesKeys.deleteImpact(classId ?? ''),

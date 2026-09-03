@@ -150,7 +150,7 @@ export function ChangeClassStep3Summary({
     }
 
     const mockSession = {
-      billing_type: 'CLASS' as const,
+      billing_type: selectedNewClass.billing_type,
       subject_id: selectedNewClass.subject_id,
       start_at: sessionStart,
       end_at: sessionEnd,

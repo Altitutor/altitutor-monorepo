@@ -48,7 +48,12 @@ jobs:
         run: bash supabase/scripts/render-email-templates.sh
 
       - name: Start Supabase and apply migrations
-        run: supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
+        run: |
+          set -euo pipefail
+          # Types only need schema. Skip automatic seed so this job does not
+          # apply local accounts or UCAT fixtures.
+          python3 supabase/scripts/disable-automatic-seed.py
+          supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
 
       - name: Regenerate types and fail if committed file is stale
         run: |

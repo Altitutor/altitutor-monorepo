@@ -157,6 +157,7 @@ import {
   buildQuestionCatalogQuery,
   CREATED_AT_FROM_FILTER_KEY,
   CREATED_AT_TO_FILTER_KEY,
+  formatQuestionCatalogCountSummary,
   QUESTION_COUNT_MAX_FILTER_KEY,
   QUESTION_COUNT_MIN_FILTER_KEY,
 } from '@/features/ucat/questions/lib/question-catalog-query'
@@ -457,6 +458,7 @@ export function UcatQuestionsPage() {
 
   const { page, pageSize } = tableState.state
   const totalRows = questions.data?.total ?? 0
+  const questionTotal = questions.data?.questionTotal ?? 0
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
   const paginatedRows = rows
@@ -1618,6 +1620,10 @@ export function UcatQuestionsPage() {
           page={effectivePage}
           pageSize={pageSize}
           total={totalRows}
+          countSummary={formatQuestionCatalogCountSummary({
+            stemCount: totalRows,
+            questionCount: questionTotal,
+          })}
           onPageChange={tableState.actions.onPageChange}
           onPageSizeChange={tableState.actions.onPageSizeChange}
           pageSizeOptions={[10, 20, 50]}

@@ -5,45 +5,51 @@ import Stripe from 'stripe';
 import { getErrorMessage } from '@/shared/utils';
 import { z } from 'zod';
 
-const creditNoteLineSchema = z.object({
-  stripeInvoiceItemId: z.string().min(1),
-  quantity: z.number().int().positive().optional(),
-  amount_cents: z.number().int().nonnegative().optional(),
-}).refine((data) => data.quantity !== undefined || data.amount_cents !== undefined, {
-  message: 'Either quantity or amount_cents must be provided',
-});
+const creditNoteLineSchema = z
+  .object({
+    stripeInvoiceItemId: z.string().min(1),
+    quantity: z.number().int().positive().optional(),
+    amount_cents: z.number().int().nonnegative().optional(),
+  })
+  .refine((data) => data.quantity !== undefined || data.amount_cents !== undefined, {
+    message: 'Either quantity or amount_cents must be provided',
+  });
 
-const creditNoteBodySchema = z.object({
-  reason: z.enum(['duplicate', 'product_unsatisfactory', 'order_change', 'fraudulent', 'other']),
-  lines: z.array(creditNoteLineSchema).min(1, 'At least one line must be credited'),
-  memo: z.string().max(500).optional(),
-  effective_at: z.string().datetime().optional(),
-  refund_amount_cents: z.number().int().nonnegative().optional(),
-  credit_amount_cents: z.number().int().nonnegative().optional(),
-  out_of_band_amount_cents: z.number().int().nonnegative().optional(),
-  email_type: z.enum(['credit_note', 'none']).optional(),
-  internal_note: z.string().max(500).optional(),
-}).refine(
-  (data) => {
-    const count = [
-      data.refund_amount_cents !== undefined && data.refund_amount_cents > 0,
-      data.credit_amount_cents !== undefined && data.credit_amount_cents > 0,
-      data.out_of_band_amount_cents !== undefined && data.out_of_band_amount_cents > 0,
-    ].filter(Boolean).length;
-    return count <= 1;
-  },
-  { message: 'Only one of refund_amount_cents, credit_amount_cents, or out_of_band_amount_cents may be set' }
-);
+const creditNoteBodySchema = z
+  .object({
+    reason: z.enum(['duplicate', 'product_unsatisfactory', 'order_change', 'fraudulent', 'other']),
+    lines: z.array(creditNoteLineSchema).min(1, 'At least one line must be credited'),
+    memo: z.string().max(500).optional(),
+    effective_at: z.string().datetime().optional(),
+    refund_amount_cents: z.number().int().nonnegative().optional(),
+    credit_amount_cents: z.number().int().nonnegative().optional(),
+    out_of_band_amount_cents: z.number().int().nonnegative().optional(),
+    email_type: z.enum(['credit_note', 'none']).optional(),
+    internal_note: z.string().max(500).optional(),
+  })
+  .refine(
+    (data) => {
+      const count = [
+        data.refund_amount_cents !== undefined && data.refund_amount_cents > 0,
+        data.credit_amount_cents !== undefined && data.credit_amount_cents > 0,
+        data.out_of_band_amount_cents !== undefined && data.out_of_band_amount_cents > 0,
+      ].filter(Boolean).length;
+      return count <= 1;
+    },
+    {
+      message: 'Only one of refund_amount_cents, credit_amount_cents, or out_of_band_amount_cents may be set',
+    },
+  );
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   try {
     const invoiceId = params.id;
 
     const supabase = createClient();
-    const { data: { session }, error: authError } = await supabase.auth.getSession();
+    const {
+      data: { session },
+      error: authError,
+    } = await supabase.auth.getSession();
 
     if (authError || !session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -82,10 +88,7 @@ export async function POST(
 
     const allowedStatuses = ['open', 'paid'];
     if (!invoice.status || !allowedStatuses.includes(invoice.status)) {
-      return NextResponse.json(
-        { error: 'Credit notes can only be issued for open or paid invoices' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Credit notes can only be issued for open or paid invoices' }, { status: 400 });
     }
 
     const body = await request.json();
@@ -112,7 +115,9 @@ export async function POST(
       return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
     }
 
-    const stripe = new Stripe(stripeSecretKey, { apiVersion: '2025-12-15.clover' });
+    const stripe = new Stripe(stripeSecretKey, {
+      apiVersion: '2025-12-15.clover',
+    });
 
     // Stripe Credit Notes API requires invoice LINE item ids (il_xxx), not invoice item ids (ii_xxx).
     // Our DB stores ii_xxx (stripe_invoice_item_id). Fetch current invoice lines and map ii_xxx -> il_xxx.
@@ -134,7 +139,12 @@ export async function POST(
     }
 
     const stripeReason = reason === 'other' ? undefined : reason;
-    const stripeLines: Array<{ type: 'invoice_line_item'; invoice_line_item: string; amount?: number; quantity?: number }> = [];
+    const stripeLines: Array<{
+      type: 'invoice_line_item';
+      invoice_line_item: string;
+      amount?: number;
+      quantity?: number;
+    }> = [];
 
     for (const l of lines) {
       const lineItemId = invoiceItemIdToLineItemId.get(l.stripeInvoiceItemId);
@@ -143,7 +153,7 @@ export async function POST(
           {
             error: `Could not find current Stripe line item for invoice item ${l.stripeInvoiceItemId}. The invoice may have changed; try refreshing.`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       const hasAmount = l.amount_cents !== undefined && l.amount_cents > 0;
@@ -155,28 +165,37 @@ export async function POST(
       });
     }
 
-    const idempotencyKey = request.headers.get('Idempotency-Key') ?? `credit-note-${invoiceId}-${Date.now()}`;
+    const idempotencyKey = request.headers.get('Idempotency-Key');
+    if (!idempotencyKey) {
+      return NextResponse.json({ error: 'Idempotency-Key header is required' }, { status: 400 });
+    }
 
     const createParams: Stripe.CreditNoteCreateParams = {
       invoice: invoice.stripe_invoice_id,
       lines: stripeLines,
       ...(stripeReason && { reason: stripeReason }),
       ...(memo && { memo }),
-      ...(effective_at && { effective_at: Math.floor(new Date(effective_at).getTime() / 1000) }),
+      ...(effective_at && {
+        effective_at: Math.floor(new Date(effective_at).getTime() / 1000),
+      }),
       ...(refund_amount_cents !== undefined && refund_amount_cents > 0 && { refund_amount: refund_amount_cents }),
       ...(credit_amount_cents !== undefined && credit_amount_cents > 0 && { credit_amount: credit_amount_cents }),
-      ...(out_of_band_amount_cents !== undefined && out_of_band_amount_cents > 0 && { out_of_band_amount: out_of_band_amount_cents }),
+      ...(out_of_band_amount_cents !== undefined &&
+        out_of_band_amount_cents > 0 && {
+          out_of_band_amount: out_of_band_amount_cents,
+        }),
       ...(email_type && { email_type }),
       metadata: {
         ...(internal_note ? { internal_note } : {}),
         created_by_staff_id: staffData.id,
         created_by_staff_name:
-          [staffData.first_name, staffData.last_name].filter(Boolean).join(' ').trim() ||
-          staffData.id,
+          [staffData.first_name, staffData.last_name].filter(Boolean).join(' ').trim() || staffData.id,
       },
     };
 
-    const creditNote = await stripe.creditNotes.create(createParams, { idempotencyKey });
+    const creditNote = await stripe.creditNotes.create(createParams, {
+      idempotencyKey,
+    });
 
     // Do not write to local credit_notes here; webhooks are the single source of truth.
     // The stripe-webhooks edge function will upsert credit_notes and update invoices.has_credit_notes.
@@ -185,9 +204,10 @@ export async function POST(
     // Stripe billing.credit_balance_transaction webhooks don't fire for invoice credit notes.
     const cbtxnId = (creditNote as { customer_balance_transaction?: string | null }).customer_balance_transaction;
     if (cbtxnId && credit_amount_cents !== undefined && credit_amount_cents > 0) {
-      const effectiveAt = (creditNote as { effective_at?: number; created?: number }).effective_at
-        ?? (creditNote as { created?: number }).created
-        ?? Math.floor(Date.now() / 1000);
+      const effectiveAt =
+        (creditNote as { effective_at?: number; created?: number }).effective_at ??
+        (creditNote as { created?: number }).created ??
+        Math.floor(Date.now() / 1000);
       const { error: cbtErr } = await supabase.from('credit_balance_transactions').upsert(
         {
           stripe_credit_balance_transaction_id: cbtxnId,
@@ -207,19 +227,13 @@ export async function POST(
             amount: creditNote.amount,
             currency: creditNote.currency,
             customer_balance_transaction: cbtxnId,
-            invoice:
-              typeof creditNote.invoice === 'string'
-                ? creditNote.invoice
-                : creditNote.invoice?.id ?? null,
-            customer:
-              typeof creditNote.customer === 'string'
-                ? creditNote.customer
-                : creditNote.customer?.id ?? null,
+            invoice: typeof creditNote.invoice === 'string' ? creditNote.invoice : (creditNote.invoice?.id ?? null),
+            customer: typeof creditNote.customer === 'string' ? creditNote.customer : (creditNote.customer?.id ?? null),
             created: (creditNote as { created?: number }).created,
             effective_at: effectiveAt,
           },
         },
-        { onConflict: 'stripe_credit_balance_transaction_id' }
+        { onConflict: 'stripe_credit_balance_transaction_id' },
       );
       if (cbtErr) {
         console.error('[api/invoices/credit-note] Failed to insert credit_balance_transactions:', cbtErr);
@@ -231,11 +245,8 @@ export async function POST(
       stripeCreditNoteId: creditNote.id,
     });
   } catch (error) {
-    captureApiError(error, "/api/invoices/[id]/credit-note");
+    captureApiError(error, '/api/invoices/[id]/credit-note');
     console.error('[api/invoices/credit-note] Error:', error);
-    return NextResponse.json(
-      { error: getErrorMessage(error) },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: getErrorMessage(error) }, { status: 500 });
   }
 }

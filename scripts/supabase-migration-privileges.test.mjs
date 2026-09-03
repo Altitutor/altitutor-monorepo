@@ -41,6 +41,16 @@ test("accepts explicit least-privilege grants and denials", () => {
   );
 });
 
+test("ignores transaction-local temporary tables", () => {
+  assert.deepEqual(
+    findMissingRelationPrivilegeContracts(`
+      CREATE TEMP TABLE migration_snapshot (id uuid PRIMARY KEY);
+      CREATE TEMPORARY TABLE public.migration_targets (id uuid PRIMARY KEY);
+    `),
+    [],
+  );
+});
+
 test("flags a new function that inherits default API execution", () => {
   assert.deepEqual(
     findMissingRelationPrivilegeContracts(`

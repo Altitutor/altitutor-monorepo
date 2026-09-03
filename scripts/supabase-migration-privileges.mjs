@@ -19,12 +19,14 @@ function escapeRegExp(value) {
 
 function createdPublicObjects(sql) {
   const objectPattern =
-    /\bCREATE\s+(OR\s+REPLACE\s+)?(?:(?:UNLOGGED|TEMP|TEMPORARY)\s+)?(?:TABLE|VIEW|MATERIALIZED\s+VIEW|SEQUENCE|FUNCTION|PROCEDURE)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?public"?\.)?"?([a-zA-Z_][a-zA-Z0-9_$]*)"?/giu;
+    /\bCREATE\s+(OR\s+REPLACE\s+)?(?:(UNLOGGED|TEMP|TEMPORARY)\s+)?(?:TABLE|VIEW|MATERIALIZED\s+VIEW|SEQUENCE|FUNCTION|PROCEDURE)\s+(?:IF\s+NOT\s+EXISTS\s+)?(?:"?public"?\.)?"?([a-zA-Z_][a-zA-Z0-9_$]*)"?/giu;
 
-  return [...sql.matchAll(objectPattern)].map((match) => ({
-    name: match[2],
-    replaces: match[1] != null,
-  }));
+  return [...sql.matchAll(objectPattern)]
+    .filter((match) => !['TEMP', 'TEMPORARY'].includes(match[2]?.toUpperCase()))
+    .map((match) => ({
+      name: match[3],
+      replaces: match[1] != null,
+    }));
 }
 
 function droppedPublicObjects(sql) {

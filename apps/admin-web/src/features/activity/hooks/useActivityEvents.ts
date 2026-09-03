@@ -6,25 +6,12 @@ import { activityApi } from '../api';
 import type { ActivityEventsParams, ActivityEventsResponse, SessionActivityResponse } from '../types';
 import { mergeActivityPages, mergeSessionActivityPages } from '../lib/mergeActivityPages';
 import { useSupabaseRealtimeInvalidation } from '@/shared/hooks/useSupabaseRealtimeInvalidation';
+import { activityKeys } from '../queryKeys';
+
+export { activityKeys } from '../queryKeys';
 
 export const ACTIVITY_PAGE_SIZE = 50;
-
-/**
- * Query keys for activity events
- */
-export const activityKeys = {
-  all: ['activity'] as const,
-  lists: () => [...activityKeys.all, 'list'] as const,
-  list: (params: ActivityEventsParams) => [...activityKeys.lists(), params] as const,
-  student: (studentId: string) => [...activityKeys.all, 'student', studentId] as const,
-  staff: (staffId: string) => [...activityKeys.all, 'staff', staffId] as const,
-  class: (classId: string) => [...activityKeys.all, 'class', classId] as const,
-  session: (sessionId: string) => [...activityKeys.all, 'session', sessionId] as const,
-  parent: (parentId: string) => [...activityKeys.all, 'parent', parentId] as const,
-  task: (taskId: string) => [...activityKeys.all, 'task', taskId] as const,
-  issue: (issueId: string) => [...activityKeys.all, 'issue', issueId] as const,
-  adminShift: (adminShiftId: string) => [...activityKeys.all, 'adminShift', adminShiftId] as const,
-};
+const ACTIVITY_STALE_TIME = 0;
 
 type ActivityFeedQueryResult = {
   data: ActivityEventsResponse | undefined;
@@ -83,7 +70,7 @@ export function useActivityEvents(params: ActivityEventsParams & { enabled?: boo
         !!queryParams.sessionId ||
         !!queryParams.parentId ||
         !!queryParams.issueId),
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -101,7 +88,7 @@ export function useStudentActivity(
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!studentId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -119,7 +106,7 @@ export function useStaffActivity(
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!staffId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -137,7 +124,7 @@ export function useClassActivity(
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!classId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -159,7 +146,7 @@ export function useSessionActivity(
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => getNextOffset(lastPage, allPages),
     enabled: enabled && !!sessionId,
-    staleTime: 1000 * 5,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
     refetchInterval: (q) => {
       if (!enabled) return false;
@@ -228,7 +215,7 @@ export function useParentActivity(
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!parentId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -246,7 +233,25 @@ export function useTaskActivity(
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!taskId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
+    gcTime: 1000 * 60 * 5,
+  });
+
+  return toFeedResult(query);
+}
+
+export function useProjectActivity(
+  projectId: string | null,
+  enabled = true,
+  limit = ACTIVITY_PAGE_SIZE
+): ActivityFeedQueryResult {
+  const query = useInfiniteQuery({
+    queryKey: [...activityKeys.project(projectId || ''), { limit }] as const,
+    queryFn: ({ pageParam }) => activityApi.getProjectActivity(projectId!, limit, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: getNextOffset,
+    enabled: enabled && !!projectId,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -272,7 +277,7 @@ export function useIssueActivity(params: {
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!issueId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 
@@ -291,7 +296,7 @@ export function useAdminShiftActivity(
     initialPageParam: 0,
     getNextPageParam: getNextOffset,
     enabled: enabled && !!adminShiftId,
-    staleTime: 1000 * 60 * 2,
+    staleTime: ACTIVITY_STALE_TIME,
     gcTime: 1000 * 60 * 5,
   });
 

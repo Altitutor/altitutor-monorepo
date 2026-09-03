@@ -506,6 +506,8 @@ export function QuestionEnginePage({
 
   const queryClient = useQueryClient();
   const { reportActivityCompletion } = useStudyPlanCompanion();
+  const { active: activeExamAttempt, clearLocal: clearActiveExamAttempt } =
+    useActiveExamAttempt();
   const completionReportedRef = useRef<string | null>(null);
   const practiceTimingQueryKey = useMemo(
     () => ["ucat", "practice-question-timing", practiceSessionId] as const,
@@ -525,8 +527,8 @@ export function QuestionEnginePage({
   // Re-fetching each stem here added an avoidable loading waterfall.
   const questionStemsForExam = questionStems;
 
-  const exam = useMemo(
-    () =>
+  const exam = useMemo(() => {
+    const loadedExam =
       mode === "questionStem"
         ? questionStemsForExam && {
             sourceType: mode,
@@ -549,17 +551,37 @@ export function QuestionEnginePage({
               practiceSessionTimeLimitSeconds:
                 practiceSessionTimeLimitSeconds ?? null,
             }
-          : query.data,
-    [
-      mode,
-      sourceId,
-      questionStemsForExam,
-      standaloneQuestions,
-      query.data,
-      timePerQuestionSeconds,
-      practiceSessionTimeLimitSeconds,
-    ],
-  );
+          : query.data;
+    if (
+      !loadedExam ||
+      (mode !== "set" && mode !== "mock") ||
+      activeExamAttempt?.kind !== mode ||
+      activeExamAttempt.resourceId !== sourceId ||
+      !activeExamAttempt.examTiming
+    ) {
+      return loadedExam;
+    }
+    return {
+      ...loadedExam,
+      setModeTiming:
+        activeExamAttempt.examTiming.setModeTiming ?? loadedExam.setModeTiming,
+      mockTimingSegments:
+        activeExamAttempt.examTiming.mockTimingSegments ??
+        loadedExam.mockTimingSegments,
+      mockSetSummaries:
+        activeExamAttempt.examTiming.mockSetSummaries ??
+        loadedExam.mockSetSummaries,
+    };
+  }, [
+    activeExamAttempt,
+    mode,
+    sourceId,
+    questionStemsForExam,
+    standaloneQuestions,
+    query.data,
+    timePerQuestionSeconds,
+    practiceSessionTimeLimitSeconds,
+  ]);
 
   const instructionsScreens =
     exam && "instructionsScreens" in exam ? exam.instructionsScreens : [];
@@ -699,8 +721,6 @@ export function QuestionEnginePage({
   }, [tutorialMode, currentTour, currentStep, exam, setState]);
   const router = useRouter();
   const { toast } = useToast();
-  const { active: activeExamAttempt, clearLocal: clearActiveExamAttempt } =
-    useActiveExamAttempt();
   const { isLagging, runWithLag } = useUcatLag();
   const {
     display: calculatorDisplay,

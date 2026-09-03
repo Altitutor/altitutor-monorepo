@@ -54,6 +54,10 @@ import {
 import { isLegacyDemandCapacityRiskMessage } from "@/features/study-plan/lib/capacity-risk-copy";
 import { expandQuestionTagIds } from "@/features/study-plan/lib/tag-hierarchy";
 import {
+  preferredCatalogAssetName,
+  scheduledAssetTaskTitle,
+} from "@/features/study-plan/lib/task-title";
+import {
   needsPreparationVersionReplacement,
   planProfileTransition,
   prepareStudyPlanTasks,
@@ -583,7 +587,7 @@ async function loadGenerationInputs(
         supabase
           .from("vstudent_ucat_question_sets")
           .select(
-            "id, name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
+            "id, name, display_name, sections, speed, time_limit_at_exam_speed_seconds, is_available_in_sets_library",
           )
           .eq("is_available_in_sets_library", true),
       () =>
@@ -592,7 +596,8 @@ async function loadGenerationInputs(
           .select("question_set_id, completed_at, student_ucat_mock_attempt_id")
           .order("completed_at", { ascending: false })
           .limit(512),
-      () => supabase.from("vstudent_ucat_mocks").select("id, name"),
+      () =>
+        supabase.from("vstudent_ucat_mocks").select("id, name, display_name"),
       () =>
         supabase
           .from("vstudent_ucat_completed_mock_assets")
@@ -1137,20 +1142,20 @@ async function loadGenerationInputs(
         (candidate) => candidate.sectionNumber === sectionNumber,
       );
       const examSeconds = Number(set.time_limit_at_exam_speed_seconds ?? 0);
-      const pace = Number(set.speed ?? 0);
-      if (!section || examSeconds <= 0 || pace <= 0) return [];
+      if (!section || examSeconds <= 0) return [];
       return [
         {
           id: set.id,
-          name:
-            extractTextFromRichJson(set.name as JsonLike).trim() ||
-            `${section.shortName} set`,
+          name: preferredCatalogAssetName({
+            displayName: set.display_name,
+            richName: set.name as JsonLike,
+            fallback: `${section.shortName} set`,
+          }),
           sectionId: section.id,
           questionCount: Math.max(
             1,
             Math.round(examSeconds / section.timePerQuestionSeconds),
           ),
-          pace,
           completedAttempts: (setAttemptsRes.data ?? []).flatMap((attempt) =>
             attempt.question_set_id === set.id &&
             attempt.student_ucat_mock_attempt_id == null &&
@@ -1169,7 +1174,11 @@ async function loadGenerationInputs(
       ? [
           {
             id: mock.id,
-            name: mock.name?.trim() || "UCAT mock",
+            name: preferredCatalogAssetName({
+              displayName: mock.display_name,
+              richName: mock.name,
+              fallback: "UCAT mock",
+            }),
             completedAttempts: (mockAttemptsRes.data ?? []).flatMap(
               (attempt) =>
                 attempt.ucat_mock_id === mock.id && attempt.completed_at
@@ -2008,7 +2017,9 @@ async function reconcileTasks(
         .order("started_at"),
       admin
         .from("student_question_set_attempts")
-        .select("id, question_set_id, attempted_at, completed_at, total_points")
+        .select(
+          "id, question_set_id, attempted_at, completed_at, total_points, study_plan_task_id",
+        )
         .eq("student_id", studentId)
         .is("student_ucat_mock_attempt_id", null)
         .gte("attempted_at", evidenceSince)
@@ -2064,26 +2075,21 @@ async function reconcileTasks(
       : [];
   });
   await runWithConcurrency(
-    ownershipClaims.map(
-      (claim) => async () => {
-        const { error } = await admin.rpc(
-          "claim_ucat_study_plan_learning_ownership",
-          {
-            p_student_id: studentId,
-            p_progress_id: claim.progressId,
-            p_study_plan_task_id: claim.taskId,
-          },
-        );
-        if (error) throw error;
-      },
-    ),
+    ownershipClaims.map((claim) => async () => {
+      const { error } = await admin.rpc(
+        "claim_ucat_study_plan_learning_ownership",
+        {
+          p_student_id: studentId,
+          p_progress_id: claim.progressId,
+          p_study_plan_task_id: claim.taskId,
+        },
+      );
+      if (error) throw error;
+    }),
     4,
   );
   for (const progress of learningRes.data ?? []) {
-    if (
-      progress.completed_at == null &&
-      progress.completion_percent < 100
-    ) {
+    if (progress.completed_at == null && progress.completion_percent < 100) {
       continue;
     }
     if (learningOwnerByModuleId.has(progress.learning_module_id)) continue;
@@ -2163,6 +2169,7 @@ async function reconcileTasks(
     } else if (task.task_type === "section_benchmark" && task.question_set_id) {
       const attempt = setRes.data?.find(
         (item) =>
+          item.study_plan_task_id === task.id &&
           item.question_set_id === task.question_set_id &&
           !usedActivities.has(item.id) &&
           item.completed_at,
@@ -2373,7 +2380,89 @@ export async function regenerateStudyPlanDuringScheduledMaintenance(
   );
 }
 
-function mapTask(row: TaskRow): StudyPlanTask {
+type ScheduledAssetNames = {
+  sets: ReadonlyMap<string, string>;
+  mocks: ReadonlyMap<string, string>;
+};
+
+async function loadScheduledAssetNames(
+  supabase: SupabaseClient<Database>,
+  taskRows: TaskRow[],
+): Promise<ScheduledAssetNames> {
+  const setIds = [
+    ...new Set(taskRows.flatMap((task) => task.question_set_id ?? [])),
+  ];
+  const mockIds = [...new Set(taskRows.flatMap((task) => task.mock_id ?? []))];
+  const [setRows, mockRows] = await Promise.all([
+    setIds.length
+      ? supabase
+          .from("vstudent_ucat_question_sets")
+          .select("id, name, display_name")
+          .in("id", setIds)
+      : Promise.resolve({ data: [], error: null }),
+    mockIds.length
+      ? supabase
+          .from("vstudent_ucat_mocks")
+          .select("id, name, display_name")
+          .in("id", mockIds)
+      : Promise.resolve({ data: [], error: null }),
+  ]);
+  if (setRows.error) throw setRows.error;
+  if (mockRows.error) throw mockRows.error;
+  return {
+    sets: new Map(
+      (setRows.data ?? []).flatMap((set) =>
+        set.id
+          ? [
+              [
+                set.id,
+                preferredCatalogAssetName({
+                  displayName: set.display_name,
+                  richName: set.name as JsonLike,
+                  fallback: "Question set",
+                }),
+              ] as const,
+            ]
+          : [],
+      ),
+    ),
+    mocks: new Map(
+      (mockRows.data ?? []).flatMap((mock) =>
+        mock.id
+          ? [
+              [
+                mock.id,
+                preferredCatalogAssetName({
+                  displayName: mock.display_name,
+                  richName: mock.name,
+                  fallback: "UCAT mock",
+                }),
+              ] as const,
+            ]
+          : [],
+      ),
+    ),
+  };
+}
+
+function mapTask(
+  row: TaskRow,
+  assetNames: ScheduledAssetNames = {
+    sets: new Map(),
+    mocks: new Map(),
+  },
+): StudyPlanTask {
+  const launchConfig =
+    row.launch_config &&
+    typeof row.launch_config === "object" &&
+    !Array.isArray(row.launch_config)
+      ? (row.launch_config as Record<string, unknown>)
+      : {};
+  const assetName = row.question_set_id
+    ? (assetNames.sets.get(row.question_set_id) ?? null)
+    : row.mock_id
+      ? (assetNames.mocks.get(row.mock_id) ?? null)
+      : null;
   return {
     id: row.id,
     sourceTaskId: row.source_task_id,
@@ -2381,7 +2470,12 @@ function mapTask(row: TaskRow): StudyPlanTask {
     sortOrder: row.sort_order,
     taskType: row.task_type as StudyPlanTask["taskType"],
     status: row.status as StudyPlanTask["status"],
-    title: row.title,
+    title: scheduledAssetTaskTitle({
+      taskType: row.task_type as StudyPlanTask["taskType"],
+      storedTitle: row.title,
+      assetName,
+      repeated: launchConfig.repeatedBenchmark === true,
+    }),
     description: row.description ?? "",
     rationale: row.rationale ?? "",
     estimatedMinutes: row.estimated_minutes,
@@ -2395,12 +2489,7 @@ function mapTask(row: TaskRow): StudyPlanTask {
     mockId: row.mock_id,
     skillTrainerId: row.skill_trainer_id,
     launchPath: row.launch_path ?? "/dashboard",
-    launchConfig:
-      row.launch_config &&
-      typeof row.launch_config === "object" &&
-      !Array.isArray(row.launch_config)
-        ? (row.launch_config as Record<string, unknown>)
-        : {},
+    launchConfig,
     startedAt: row.started_at,
     completedAt: row.completed_at,
     skippedAt: row.skipped_at,
@@ -3366,8 +3455,11 @@ export async function getStudyPlan(
       }
     }
   }
-  const planning = await planningDateFor(profile);
-  const tasks = taskRows.map(mapTask);
+  const [planning, scheduledAssetNames] = await Promise.all([
+    planningDateFor(profile),
+    loadScheduledAssetNames(supabase, taskRows),
+  ]);
+  const tasks = taskRows.map((task) => mapTask(task, scheduledAssetNames));
   const nextSteps = profile.study_plan_enabled
     ? []
     : options.refreshGuidance === true

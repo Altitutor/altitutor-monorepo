@@ -376,6 +376,7 @@ function makeAttempt(
       scaledScore: clampSectionScore(score - 35 + index * 14),
       timeTakenSeconds: 1050 - index * 20,
       setTimeLimitSeconds: 1100,
+      effectivePace: 1,
       studentSetSpeed: 1.04,
       studentExamSpeed: 1.04,
       wasTimed: true,

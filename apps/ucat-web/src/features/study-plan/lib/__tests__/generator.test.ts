@@ -307,10 +307,8 @@ describe("generateStudyPlan", () => {
       signals: sections.map((section) => ({
         sectionId: section.id,
         currentEstimate: section.sectionNumber <= 3 ? 620 : null,
-        evidenceCount:
-          section.id === "dm" || section.id === "qr" ? 4 : 0,
-        completedFullSets:
-          section.id === "dm" || section.id === "qr" ? 1 : 0,
+        evidenceCount: section.id === "dm" || section.id === "qr" ? 4 : 0,
+        completedFullSets: section.id === "dm" || section.id === "qr" ? 1 : 0,
         learningGraduatedAt:
           section.id === "dm" || section.id === "qr"
             ? "2025-12-01T00:00:00.000Z"
@@ -324,8 +322,7 @@ describe("generateStudyPlan", () => {
         representativeAccuracy:
           section.id === "dm" || section.id === "qr" ? 0.75 : null,
         benchmarkCompleted: section.id === "dm" || section.id === "qr",
-        benchmarkPace:
-          section.id === "dm" || section.id === "qr" ? 0.8 : null,
+        benchmarkPace: section.id === "dm" || section.id === "qr" ? 0.8 : null,
       })),
       learningModules: [
         {
@@ -502,6 +499,58 @@ describe("generateStudyPlan", () => {
       "dm",
     ]);
     expect(result.capacityRisk.level).toBe("warning");
+  });
+
+  it("marks only actually long pressure-packed days as intensive", () => {
+    const result = generateStudyPlan({
+      today: "2026-01-05",
+      planningDate: "2026-08-05",
+      profile: {
+        ...profile,
+        availableDays: [{ weekday: 1 }],
+      },
+      sections,
+      signals: sections.map((section) => ({
+        sectionId: section.id,
+        currentEstimate: null,
+        evidenceCount: 0,
+        completedFullSets: 0,
+      })),
+      learningModules: [],
+      ...contentInputs,
+      completedMockCount: 0,
+    });
+    const tasksByDate = Map.groupBy(result.tasks, (task) => task.scheduledDate);
+
+    expect(
+      [...tasksByDate.values()].some(
+        (tasks) =>
+          tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0) <= 60,
+      ),
+    ).toBe(true);
+    expect(
+      [...tasksByDate.values()].some(
+        (tasks) =>
+          tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0) > 60,
+      ),
+    ).toBe(true);
+
+    for (const tasks of tasksByDate.values()) {
+      const totalMinutes = tasks.reduce(
+        (sum, task) => sum + task.estimatedMinutes,
+        0,
+      );
+      const intensiveMarkers = tasks.filter(
+        (task) => task.launchConfig.intensiveStudyDay === true,
+      );
+
+      expect(intensiveMarkers).toHaveLength(totalMinutes > 60 ? 1 : 0);
+      expect(
+        tasks.every(
+          (task) => task.launchConfig.preparationWarning === undefined,
+        ),
+      ).toBe(true);
+    }
   });
 
   it("continues from essential into recommended instruction while Learning", () => {
@@ -959,7 +1008,8 @@ describe("generateStudyPlan", () => {
         (task) =>
           task.questionSetId != null &&
           task.launchConfig.kind === "set" &&
-          task.launchConfig.actualPace === 0.5 &&
+          task.launchConfig.prescribedPace === 0.5 &&
+          task.launchConfig.actualPace === undefined &&
           task.launchConfig.calibrationPurpose === "learning_diagnostic",
       ),
     ).toBe(true);
@@ -1057,9 +1107,9 @@ describe("generateStudyPlan", () => {
   });
 
   it.each([
-    ["far-out Timing", "2026-01-01", "2026-06-01", 1],
+    ["far-out Timing", "2026-01-01", "2026-06-01", 0],
     ["61–120 days", "2026-05-01", "2026-08-01", 2],
-    ["29–60 days", "2026-06-20", "2026-08-01", 3],
+    ["29–60 days", "2026-06-20", "2026-08-01", 4],
     ["final 28 days", "2026-07-11", "2026-08-01", 9],
   ])(
     "uses the versioned mock cadence for %s",
@@ -1215,8 +1265,7 @@ describe("generateStudyPlan", () => {
         completedFullSets: section.sectionNumber <= 3 ? 2 : 0,
         learningGraduatedAt:
           section.sectionNumber <= 3 ? "2026-05-01T00:00:00.000Z" : null,
-        learningGraduationRoute:
-          section.sectionNumber <= 3 ? "accuracy" : null,
+        learningGraduationRoute: section.sectionNumber <= 3 ? "accuracy" : null,
         recentAccuracy: 0.6,
       })),
       learningModules: [],
@@ -1333,7 +1382,7 @@ describe("generateStudyPlan", () => {
 
   it("schedules multiple core blocks and allows near-section overspeed work", () => {
     const result = generateStudyPlan({
-      today: "2026-03-02",
+      today: "2026-04-07",
       planningDate: "2026-08-05",
       profile,
       sections,

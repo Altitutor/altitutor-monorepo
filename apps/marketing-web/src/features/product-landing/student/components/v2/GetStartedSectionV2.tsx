@@ -66,7 +66,7 @@ export function GetStartedSectionV2() {
             </div>
             <AnalyticsLink
               href={PRODUCT_LINKS.trialBooking}
-              analytics={{ product: "online-learning", placement: "get_started", action: "book_trial" }}
+              analytics={{ product: "in-person", placement: "get_started", action: "book_trial" }}
               className="mt-12 w-full"
             >
               <MagneticButton className="bg-[#92b9c6] w-full px-8 py-4 text-sm font-medium tracking-wide text-[#1A1A1A] shadow-lg shadow-[#92b9c6]/20">

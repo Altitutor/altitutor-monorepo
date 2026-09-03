@@ -187,14 +187,32 @@
 
 ## Tutor timetable
 
+- **Scheduled offering** — A bounded timetable configuration that materializes dated Sessions. A Scheduled offering is either a Class with an enrolled cohort or Homework Help with drop-in attendance; both reuse the same recurring and custom schedule machinery.
+  _Avoid_: Class when referring to Homework Help, recurrence rule, Session
+
 - **Class** — A stable tutor-led teaching cohort with a shared subject, level, student enrolments, and lifecycle. A Class may meet at multiple scheduled times; its meeting schedule does not define its identity.
   _Avoid_: Weekly time slot, recurring session, timetable entry
+
+- **Homework Help** — A free, subject-independent, tutor-led Scheduled offering open to every active in-person Student. Upcoming occurrences are discoverable without enrolment; a Student becomes attached to a past occurrence only through recorded drop-in participation. Tutors use the Homework Help pay category regardless of attendance count.
+  _Avoid_: Homework Help Class, Homework Help Subject, zero-dollar Class
+
+- **Offering type** — The operational kind materialized by a Scheduled offering. `CLASS` requires a Subject and billing type; `HOMEWORK_HELP` requires neither and materializes non-billable Homework Help sessions. It is distinct from both Student billing type and tutor pay category.
+  _Avoid_: Billing type, Subject, unrestricted Session type
 
 - **Class cohort label** — An optional staff-authored discriminator such as `A` or `2026 A` that distinguishes Classes sharing a Subject. It contributes to the stable Class name independently of when the Class meets.
   _Avoid_: Schedule summary, weekday label, Class level
 
 - **Class activity status** — Whether a Class is active or inactive as a teaching cohort. Capacity or willingness to accept another enrolment is not a Class lifecycle status.
   _Avoid_: Full Class status, Session status, enrolment capacity
+
+- **Class billing type** — The pricing category chosen for a Class and inherited by its Class sessions from the stated effective date. Earlier Class sessions retain their historical category, and changing it does not revise charges already captured by an invoice.
+  _Avoid_: Session type, invoice type, subject price
+
+- **Class effective change** — A change to a Class schedule, Class billing type, or both that begins on a stated date. The current configuration remains authoritative before that date and the upcoming configuration becomes authoritative from that date onward.
+  _Avoid_: Immediate overwrite, unlabelled future edit, retroactive Class change
+
+- **Standard class session price** — The total standard price for one Class session, derived from its duration and the applicable Class billing type and Subject rate. It excludes Student-specific subsidies and payment-processing fees.
+  _Avoid_: Student charge, hourly rate, invoiced amount
 
 - **Class session** — One dated occurrence of a Class. It may originate from the Class schedule or be explicitly planned, and remains an independently identifiable occurrence when its time or status differs from the surrounding schedule.
   _Avoid_: Class, recurrence rule, weekly time slot
@@ -234,6 +252,33 @@
 
 - **Calendar subscription** — A tutor-owned, read-only calendar feed containing that tutor's active assigned sessions. Calendar providers poll the subscription so session additions, changes, and cancellations flow through without tutors importing events again.
   _Avoid_: Calendar export, calendar sync, shared calendar
+
+## Core tutoring sessions and billing
+
+- **Planned absence** — The recorded expectation that a Student will not attend an original Session. It describes expected attendance, independently of whether the Session remains payable.
+
+- **Absence billing treatment** — The AdminStaff-selected financial treatment of a Planned absence: `charge` retains the original Session billing obligation, `credit` removes it, and `replacement` removes it while assigning a Replacement session. Actual attendance makes that Session payable regardless of its Absence billing treatment.
+  _Avoid_: Billing relief, cancellation policy result
+
+- **Absence treatment reason** — The recorded factual explanation for selecting or changing an Absence billing treatment. It supports staff discretion and audit history without automatically determining the treatment.
+  _Avoid_: Policy rule, billing eligibility
+
+- **Replacement session** — A separate Session assignment offered to a Student in place of an original Session. The original Session remains intact and has at most one current Replacement session; earlier replacements remain historical when they contain attendance or financial history.
+  _Avoid_: Rescheduled session
+
+- **Session billing obligation** — The amount a Student currently owes for one Session under Altitutor's chargeability rules.
+  _Avoid_: Invoice status, Session payment
+
+- **Credit note** — An immutable financial document that reduces an amount recorded on a finalised Invoice. When the Invoice has already been paid, the value may become a Customer balance credit rather than reversing the historical Invoice.
+  _Avoid_: Manual balance adjustment, edited Invoice
+
+- **Customer balance credit** — Value owed to a Student that remains on their billing ledger and is automatically applied to a future Invoice.
+  _Avoid_: Editable credit balance, cash refund
+
+- **Restoration charge** — An append-only charge that restores a Session billing obligation previously reduced by a Credit note.
+  _Avoid_: Undo credit, reverse credit note
+
+- **Billing adjustment** — A pending or completed financial operation needed to align an Invoice with a Session billing obligation.
 
 ## Public web surfaces
 
@@ -582,11 +627,17 @@
 - **UCAT question set format** — The authored size intent of a UCAT question set: **full section** targets the official question total for its section, while **partial section** deliberately targets fewer questions. Actual question count remains derived from the set's member stems.
   _Avoid_: Mini set, inferred full set, question-count bucket
 
-- **UCAT question set pace** — The authored working speed for a timed UCAT question set relative to exam pace. `1×` is exam pace, below `1×` is slower and therefore allows more time, and above `1×` is faster and therefore allows less time.
-  _Avoid_: Time multiplier, percentage of exam time, derived student speed
+- **UCAT question set default pace** — The authored fallback working speed for a timed UCAT question set when no delivery prescription applies. `1×` is exam pace, below `1×` is slower and therefore allows more time, and above `1×` is faster and therefore allows less time.
+  _Avoid_: Attempt pace, time multiplier, percentage of exam time, derived student speed
 
-- **UCAT question set timing intent** — The authored timing rule for a standalone UCAT question set: exam-relative pace, fixed answering duration, or untimed. Exam-relative answering time is resolved from the set's reference blueprint when an attempt starts as `(blueprint section answering time ÷ blueprint section question total) × actual set question count ÷ pace`; the resulting segment deadline is captured for the attempt. Mock component sets always use their mock blueprint's exact section timing rather than a proportional standalone calculation.
-  _Avoid_: Mutable attempt duration, pace as time allowance, unexplained seconds
+- **UCAT question set timing intent** — The authored default timing rule for a standalone UCAT question set: exam-relative pace, fixed answering duration, or untimed. It governs direct set attempts when no delivery prescription applies; mock component sets always use their mock blueprint's exact section timing.
+  _Avoid_: Effective attempt timing, mutable attempt duration, unexplained seconds
+
+- **Prescribed set pace** — The working speed assigned to one student's delivery of a question set, normally by a Study plan task. It selects the attempt's answering time without changing the reusable set or reserving different questions for each pace rung.
+  _Avoid_: Set pace override, authored set pace, observed pace
+
+- **Effective set attempt timing** — The immutable timing condition captured when a standalone set attempt begins, including its resolved answering duration, exam-speed equivalent, prescribed pace, and whether it came from the set default or a delivery prescription. Resuming or replanning never recalculates it, and mock timing cannot be overridden by a set prescription.
+  _Avoid_: Current set timing, live task timing, recalculated deadline
 
 - **UCAT question set blueprint reference** — The immutable UCAT exam blueprint version used as a standalone set's timing and composition provenance, not as part of its catalog identity. Every set has one reference. Attaching a set whose existing reference differs from the mock's blueprint is allowed only after it passes the target blueprint's slot-compliance rules, then explicitly rebases the reference to the mock blueprint; detaching retains that reference.
   _Avoid_: Catalog year, implicit current blueprint, nullable blueprint provenance

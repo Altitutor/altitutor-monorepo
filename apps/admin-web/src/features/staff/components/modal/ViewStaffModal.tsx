@@ -284,13 +284,11 @@ export function ViewStaffModal({
                   </div>
                 </SegmentedTabPanelContent>
 
-                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-                  <div className="p-6">
-                    <ClassesTab
-                      staff={staffMember}
-                      onStaffUpdated={onStaffUpdated}
-                    />
-                  </div>
+                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  <ClassesTab
+                    staff={staffMember}
+                    onStaffUpdated={onStaffUpdated}
+                  />
                 </SegmentedTabPanelContent>
 
                 <SegmentedTabPanelContent when="pay-tier" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">

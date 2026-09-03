@@ -61,18 +61,6 @@ export function useStaffMutations({
         status: data.status,
         office_key_number: data.officeKeyNumber,
         has_parking_remote: data.hasParkingRemote,
-        availability_monday: data.availability_monday,
-        availability_tuesday: data.availability_tuesday,
-        availability_wednesday: data.availability_wednesday,
-        availability_thursday: data.availability_thursday,
-        availability_friday: data.availability_friday,
-        availability_saturday_am: data.availability_saturday_am,
-        availability_saturday_pm: data.availability_saturday_pm,
-        availability_sunday_am: data.availability_sunday_am,
-        availability_sunday_pm: data.availability_sunday_pm,
-        drafting_availability: data.drafting_availability,
-        trial_session_availability: data.trial_session_availability,
-        subsidy_interview_availability: data.subsidy_interview_availability,
       };
       
       // Update staff basic info

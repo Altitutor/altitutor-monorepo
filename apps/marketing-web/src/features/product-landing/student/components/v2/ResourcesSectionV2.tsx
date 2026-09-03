@@ -251,7 +251,7 @@ export function ResourcesSectionV2() {
       <div className="mx-auto max-w-7xl mt-16 flex justify-center">
         <AnalyticsLink
           href={PRODUCT_LINKS.trialBooking}
-          analytics={{ product: "online-learning", placement: "resources", action: "book_trial" }}
+          analytics={{ product: "in-person", placement: "resources", action: "book_trial" }}
         >
           <MagneticButton className="bg-[#0a2941] px-10 py-5 text-[#F2F0E9] font-semibold text-lg hover:shadow-xl shadow-[#0a2941]/20 group">
             Book Trial <ArrowRight className="h-5 w-5 ml-2 transition-transform group-hover:translate-x-1" />

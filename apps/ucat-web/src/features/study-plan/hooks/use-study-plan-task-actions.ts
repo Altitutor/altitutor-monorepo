@@ -9,8 +9,8 @@ import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import { updateStudyPlanTask } from "@/features/study-plan/api/study-plan";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import {
-  selectCurrentStudyPlanTasks,
-  selectNextStudyPlanTask,
+  selectRecommendedTaskBeforeStart,
+  shouldConfirmStudyPlanTaskOrder,
 } from "@/features/study-plan/lib/companion";
 import type {
   StudyPlanResponse,
@@ -85,12 +85,10 @@ export function useStudyPlanTaskActions(
   const plan = planOverride === undefined ? planQuery.data : planOverride;
   const [pendingAction, setPendingAction] = useState<PendingAction>(null);
   const [error, setError] = useState<string | null>(null);
-  const [futureStartPromptOpen, setFutureStartPromptOpen] = useState(false);
+  const [orderPromptOpen, setOrderPromptOpen] = useState(false);
 
-  const currentRecommendedTask = plan
-    ? selectNextStudyPlanTask(
-        selectCurrentStudyPlanTasks(plan.tasks, plan.today),
-      )
+  const currentRecommendedTask = plan && task
+    ? selectRecommendedTaskBeforeStart(plan.tasks, plan.today, task)
     : null;
 
   async function executeTask(taskToStart: StudyPlanTask) {
@@ -116,7 +114,8 @@ export function useStudyPlanTaskActions(
           ? `/skill-trainer/${skillTrainerKey.replaceAll("_", "-")}/play`
           : taskToStart.taskType === "review"
             ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
-            : taskToStart.taskType === "learn"
+            : taskToStart.taskType === "learn" ||
+                taskToStart.taskType === "section_benchmark"
               ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanTaskId=${encodeURIComponent(taskToStart.id)}`
               : taskToStart.launchPath;
       setPendingAction(null);
@@ -141,27 +140,22 @@ export function useStudyPlanTaskActions(
 
   async function startTask() {
     if (!task) return;
-    const isFutureTask = Boolean(plan && task.scheduledDate > plan.today);
-    if (
-      isFutureTask &&
-      currentRecommendedTask &&
-      currentRecommendedTask.id !== task.id
-    ) {
-      setFutureStartPromptOpen(true);
+    if (shouldConfirmStudyPlanTaskOrder(task, currentRecommendedTask)) {
+      setOrderPromptOpen(true);
       return;
     }
     await executeTask(task);
   }
 
-  async function continueFutureTask() {
+  async function continueOutOfOrderTask() {
     if (!task) return;
-    setFutureStartPromptOpen(false);
+    setOrderPromptOpen(false);
     await executeTask(task);
   }
 
   async function startCurrentRecommendedTask() {
     if (!currentRecommendedTask) return;
-    setFutureStartPromptOpen(false);
+    setOrderPromptOpen(false);
     await executeTask(currentRecommendedTask);
   }
 
@@ -200,10 +194,10 @@ export function useStudyPlanTaskActions(
   return {
     error,
     pendingAction,
-    futureStartPromptOpen,
+    orderPromptOpen,
     currentRecommendedTask,
-    setFutureStartPromptOpen,
-    continueFutureTask,
+    setOrderPromptOpen,
+    continueOutOfOrderTask,
     startCurrentRecommendedTask,
     startTask,
     skipTask,

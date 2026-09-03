@@ -6,6 +6,11 @@ import { AccountClassBadge, Tooltip, TooltipContent, TooltipProvider, TooltipTri
 import type { Tables } from '@altitutor/shared';
 import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
+import {
+  sessionStudentBadgeClassName,
+  sessionStudentDisplayKind,
+  sessionStudentDisplaySuffix,
+} from '../utils/sessionStudentDisplay';
 
 // Session data from vtutor_sessions view
 interface TutorSession {
@@ -44,6 +49,7 @@ interface StudentMember {
   last_name: string;
   year_level?: number;
   planned_absence?: boolean;
+  is_extra?: boolean;
   account_class?: string | null;
 }
 
@@ -276,16 +282,14 @@ export function SessionCard({
                 {students.map((student) => {
                   const fullName = `${student.first_name} ${student.last_name}`;
                   const display = !showFullNames ? getInitials(student.first_name, student.last_name) : fullName;
-                  const isAbsent = Boolean(student.planned_absence);
+                  const kind = sessionStudentDisplayKind(student);
 
                   const badge = (
                     <span
                       key={student.id}
                       className={cn(
                         'rounded',
-                        isAbsent
-                          ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400 line-through'
-                          : 'bg-muted text-muted-foreground',
+                        sessionStudentBadgeClassName(kind),
                         shouldUseCompact ? 'text-[10px] px-1 py-0.5' : 'text-xs px-2 py-0.5'
                       )}
                     >
@@ -302,7 +306,7 @@ export function SessionCard({
                           <div className="flex items-center gap-2">
                             <p>
                               {fullName}
-                              {isAbsent ? ' (absent)' : ''}
+                              {sessionStudentDisplaySuffix(kind)}
                             </p>
                             <AccountClassBadge accountClass={student.account_class} />
                           </div>

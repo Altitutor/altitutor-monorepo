@@ -1,3 +1,8 @@
+import type { Enums } from '@altitutor/shared';
+
+export type ClassBillingType = Enums<'billing_type'>;
+export type ScheduledOfferingType = Extract<Enums<'session_type'>, 'CLASS' | 'HOMEWORK_HELP'>;
+
 export interface ClassScheduleRow {
   id: string;
   dayOfWeek: number;
@@ -8,7 +13,9 @@ export interface ClassScheduleRow {
 
 export interface ClassScheduleFormValues {
   classId: string;
+  sessionType: ScheduledOfferingType;
   subjectId: string | null;
+  billingType: ClassBillingType | null;
   cohortLabel: string;
   startDate: string;
   endDate: string;
@@ -21,7 +28,9 @@ export interface ClassScheduleFormValues {
 
 export interface ClassScheduleProposal {
   class_id: string;
+  session_type: ScheduledOfferingType;
   subject_id: string | null;
+  billing_type: ClassBillingType | null;
   cohort_label: string;
   status: 'ACTIVE' | 'INACTIVE';
   schedule_type: 'RECURRING';
@@ -76,8 +85,11 @@ export interface ClassSchedulePlan {
 export interface StoredClassSchedule {
   id: string;
   scheduleType: 'RECURRING' | 'CUSTOM';
+  sessionType: ScheduledOfferingType;
+  billingType: ClassBillingType | null;
   frequencyWeeks: 1 | 2 | null;
   anchorDate: string | null;
   effectiveFrom: string;
+  effectiveTo: string;
   rows: ClassScheduleRow[];
 }

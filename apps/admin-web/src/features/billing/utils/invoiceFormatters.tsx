@@ -19,7 +19,7 @@ function formatShortDate(dateString: string | null | undefined): string {
   if (!dateString) return '';
   try {
     const date = new Date(dateString);
-    return format(date, 'dd/MM/yyyy');
+    return format(date, 'd MMM');
   } catch {
     return '';
   }
@@ -130,7 +130,7 @@ export function getInvoiceStatusBadge(
     );
   }
 
-  return <div className="flex flex-wrap gap-1">{pillsEl}</div>;
+  return <span className="inline-flex flex-wrap gap-1">{pillsEl}</span>;
 }
 
 /**

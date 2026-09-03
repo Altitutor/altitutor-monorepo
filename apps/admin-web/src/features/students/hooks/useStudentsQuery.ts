@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { studentsApi, type StudentSearchField } from '../api/students';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
+import { activityKeys } from '@/features/activity/queryKeys';
 
 // Query Keys
 export const studentsKeys = {
@@ -310,8 +311,9 @@ export function useUpdateStudent() {
         return { ...old, student: updatedStudent };
       });
 
-      // Invalidate ONLY entity's minimal list
+      // Refresh list surfaces and the lifecycle feed for this student.
       queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
+      queryClient.invalidateQueries({ queryKey: activityKeys.student(id) });
     },
   });
 }

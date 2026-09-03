@@ -147,7 +147,7 @@ export function SetAttemptDetailPage({
       <motion.div variants={itemVariants}>
         <UcatPageHeader
           title={data.questionSetName ?? "Set attempt"}
-          description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}`}
+          description={`Attempt from ${new Date(data.attemptedAt).toLocaleDateString()}${data.effectivePace != null ? ` · ${Number(data.effectivePace.toFixed(2))}× pace` : ""}`}
           backHref={backHref}
           backLabel={backLabel}
           breadcrumbOverrides={
@@ -184,6 +184,7 @@ export function SetAttemptDetailPage({
             timeTakenSeconds: data.timeTakenSeconds,
             setTimeLimitSeconds: data.setTimeLimitSeconds,
             examTimeLimitSeconds: data.examTimeLimitSeconds,
+            effectivePace: data.effectivePace,
             studentSetSpeed: data.studentSetSpeed,
             studentExamSpeed: data.studentExamSpeed,
           }}

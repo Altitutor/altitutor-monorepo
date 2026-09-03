@@ -41,7 +41,7 @@ test('an admin can reach Student and Class operations', async ({ page }) => {
 
   await page.getByRole('button', { name: 'Add Class' }).click();
   await expect(
-    page.getByText('Step 1 of 3: Class details').last(),
+    page.getByText('Step 1 of 3: Offering details').last(),
   ).toBeVisible();
 
   expect(pageErrors).toEqual([]);

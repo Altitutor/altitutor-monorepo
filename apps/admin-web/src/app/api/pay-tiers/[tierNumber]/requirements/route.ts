@@ -7,7 +7,8 @@ type RequirementKind =
   | 'TENURE_DAYS'
   | 'TENURE_MONTHS'
   | 'TIME_SINCE_LAST_PROMOTION'
-  | 'SESSION_COUNT';
+  | 'SESSION_COUNT'
+  | 'RESOURCE_COUNT';
 
 const TENURE_KINDS: RequirementKind[] = ['TENURE_DAYS', 'TENURE_MONTHS'];
 
@@ -15,10 +16,7 @@ function isTenureKind(kind: string): kind is RequirementKind {
   return TENURE_KINDS.includes(kind as RequirementKind);
 }
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { tierNumber: string } }
-) {
+export async function GET(_request: NextRequest, { params }: { params: { tierNumber: string } }) {
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -27,14 +25,16 @@ export async function GET(
     .select('*')
     .eq('tier_number', tierNumber)
     .order('sort_order');
-  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
+  if (error)
+    return captureApiErrorResponse(
+      error,
+      '/api/pay-tiers/[tierNumber]/requirements',
+      NextResponse.json({ error: error.message }, { status: 500 })
+    );
   return NextResponse.json({ requirements: data ?? [] });
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { tierNumber: string } }
-) {
+export async function POST(request: NextRequest, { params }: { params: { tierNumber: string } }) {
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -54,12 +54,14 @@ export async function POST(
       .eq('tier_number', tierNumber)
       .in('requirement_kind', TENURE_KINDS);
     if (tenureCheckError) {
-      captureApiError(tenureCheckError, "/api/pay-tiers/[tierNumber]/requirements");
+      captureApiError(tenureCheckError, '/api/pay-tiers/[tierNumber]/requirements');
       return NextResponse.json({ error: tenureCheckError.message }, { status: 500 });
     }
     if (existingTenure && existingTenure.length > 0) {
       return NextResponse.json(
-        { error: 'This tier already has a tenure requirement. Edit the existing one.' },
+        {
+          error: 'This tier already has a tenure requirement. Edit the existing one.',
+        },
         { status: 400 }
       );
     }
@@ -72,12 +74,14 @@ export async function POST(
       .eq('tier_number', tierNumber)
       .eq('requirement_kind', 'TIME_SINCE_LAST_PROMOTION');
     if (timeSinceCheckError) {
-      captureApiError(timeSinceCheckError, "/api/pay-tiers/[tierNumber]/requirements");
+      captureApiError(timeSinceCheckError, '/api/pay-tiers/[tierNumber]/requirements');
       return NextResponse.json({ error: timeSinceCheckError.message }, { status: 500 });
     }
     if (existingTimeSince && existingTimeSince.length > 0) {
       return NextResponse.json(
-        { error: 'This tier already has a time-since-promotion requirement. Edit the existing one.' },
+        {
+          error: 'This tier already has a time-since-promotion requirement. Edit the existing one.',
+        },
         { status: 400 }
       );
     }
@@ -93,14 +97,16 @@ export async function POST(
     })
     .select()
     .single();
-  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
+  if (error)
+    return captureApiErrorResponse(
+      error,
+      '/api/pay-tiers/[tierNumber]/requirements',
+      NextResponse.json({ error: error.message }, { status: 500 })
+    );
   return NextResponse.json({ requirement: data });
 }
 
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { tierNumber: string } }
-) {
+export async function PATCH(request: NextRequest, { params }: { params: { tierNumber: string } }) {
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const tierNumber = Number(params.tierNumber);
@@ -124,14 +130,11 @@ export async function PATCH(
       .in('requirement_kind', TENURE_KINDS)
       .neq('id', body.id);
     if (tenureCheckError) {
-      captureApiError(tenureCheckError, "/api/pay-tiers/[tierNumber]/requirements");
+      captureApiError(tenureCheckError, '/api/pay-tiers/[tierNumber]/requirements');
       return NextResponse.json({ error: tenureCheckError.message }, { status: 500 });
     }
     if (otherTenure && otherTenure.length > 0) {
-      return NextResponse.json(
-        { error: 'Only one tenure requirement is allowed per tier' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'Only one tenure requirement is allowed per tier' }, { status: 400 });
     }
   }
 
@@ -143,12 +146,14 @@ export async function PATCH(
       .eq('requirement_kind', 'TIME_SINCE_LAST_PROMOTION')
       .neq('id', body.id);
     if (timeSinceCheckError) {
-      captureApiError(timeSinceCheckError, "/api/pay-tiers/[tierNumber]/requirements");
+      captureApiError(timeSinceCheckError, '/api/pay-tiers/[tierNumber]/requirements');
       return NextResponse.json({ error: timeSinceCheckError.message }, { status: 500 });
     }
     if (otherTimeSince && otherTimeSince.length > 0) {
       return NextResponse.json(
-        { error: 'Only one time-since-promotion requirement is allowed per tier' },
+        {
+          error: 'Only one time-since-promotion requirement is allowed per tier',
+        },
         { status: 400 }
       );
     }
@@ -168,14 +173,16 @@ export async function PATCH(
     .eq('tier_number', tierNumber)
     .select()
     .single();
-  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
+  if (error)
+    return captureApiErrorResponse(
+      error,
+      '/api/pay-tiers/[tierNumber]/requirements',
+      NextResponse.json({ error: error.message }, { status: 500 })
+    );
   return NextResponse.json({ requirement: data });
 }
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: { params: { tierNumber: string } }
-) {
+export async function DELETE(request: NextRequest, { params }: { params: { tierNumber: string } }) {
   const auth = await requireAdminStaff();
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(request.url);
@@ -189,6 +196,11 @@ export async function DELETE(
     .delete()
     .eq('id', requirementId)
     .eq('tier_number', tierNumber);
-  if (error) return captureApiErrorResponse(error, "/api/pay-tiers/[tierNumber]/requirements", NextResponse.json({ error: error.message }, { status: 500 }));
+  if (error)
+    return captureApiErrorResponse(
+      error,
+      '/api/pay-tiers/[tierNumber]/requirements',
+      NextResponse.json({ error: error.message }, { status: 500 })
+    );
   return NextResponse.json({ success: true });
 }

@@ -36,8 +36,10 @@ export async function loadBillingPricing(supabase: SupabaseClient): Promise<
     .select('billing_type, hourly_rate_cents, currency');
   if (bpErr) throw bpErr;
 
-  const pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }> =
-    {};
+  const pricingByBillingType: Record<
+    string,
+    { hourly_rate_cents: number; currency: string }
+  > = {};
   for (const p of billingPricing || []) {
     pricingByBillingType[p.billing_type] = {
       hourly_rate_cents: p.hourly_rate_cents,
@@ -53,9 +55,12 @@ export async function loadBillingPricing(supabase: SupabaseClient): Promise<
  */
 export async function loadPricingOverrides(
   supabase: SupabaseClient,
-  subjectIds: string[]
+  subjectIds: string[],
 ): Promise<{
-  overridesBySubjectAndBilling: Record<string, Record<string, PricingOverrideRecord>>;
+  overridesBySubjectAndBilling: Record<
+    string,
+    Record<string, PricingOverrideRecord>
+  >;
   pricingOverrides: Array<{
     subject_id: string;
     billing_type: string;
@@ -71,11 +76,16 @@ export async function loadPricingOverrides(
 
   const { data: pricingOverrides, error: poErr } = await supabase
     .from('billing_pricing_overrides')
-    .select('subject_id, billing_type, hourly_rate_cents, currency, effective_from, effective_until')
+    .select(
+      'subject_id, billing_type, hourly_rate_cents, currency, effective_from, effective_until',
+    )
     .in('subject_id', subjectIds);
   if (poErr) throw poErr;
 
-  const overridesBySubjectAndBilling: Record<string, Record<string, PricingOverrideRecord>> = {};
+  const overridesBySubjectAndBilling: Record<
+    string,
+    Record<string, PricingOverrideRecord>
+  > = {};
   for (const override of pricingOverrides || []) {
     if (!overridesBySubjectAndBilling[override.subject_id]) {
       overridesBySubjectAndBilling[override.subject_id] = {};
@@ -88,24 +98,31 @@ export async function loadPricingOverrides(
     };
   }
 
-  return { overridesBySubjectAndBilling, pricingOverrides: pricingOverrides || [] };
+  return {
+    overridesBySubjectAndBilling,
+    pricingOverrides: pricingOverrides || [],
+  };
 }
 
 /**
  * Load student subsidies
  */
-export async function loadSubsidies(supabase: SupabaseClient): Promise<Array<{
-  student_id: string;
-  subject_id: string;
-  billing_type: string;
-  price_cents: number;
-  currency?: string | null;
-  effective_from?: string | null;
-  effective_until?: string | null;
-}>> {
+export async function loadSubsidies(supabase: SupabaseClient): Promise<
+  Array<{
+    student_id: string;
+    subject_id: string;
+    billing_type: string;
+    price_cents: number;
+    currency?: string | null;
+    effective_from?: string | null;
+    effective_until?: string | null;
+  }>
+> {
   const { data: subsidies, error: subErr } = await supabase
     .from('student_subsidies')
-    .select('student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until');
+    .select(
+      'student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until',
+    );
   if (subErr) throw subErr;
 
   return subsidies || [];
@@ -130,7 +147,9 @@ export async function loadBillingInfo(supabase: SupabaseClient): Promise<
   // Query students_billing and student_payment_methods separately, then combine
   const { data: billingRows, error: billErr } = await supabase
     .from('students_billing')
-    .select('student_id, stripe_customer_id, auto_bill_enabled, invoice_email_to_student, invoice_email_to_parents');
+    .select(
+      'student_id, stripe_customer_id, auto_bill_enabled, invoice_email_to_student, invoice_email_to_parents',
+    );
   if (billErr) throw billErr;
 
   const { data: paymentMethods, error: pmErr } = await supabase
@@ -140,11 +159,14 @@ export async function loadBillingInfo(supabase: SupabaseClient): Promise<
   if (pmErr) throw pmErr;
 
   // Create a map of payment methods by student_id
-  const paymentMethodsByStudent: Record<string, Array<{
-    stripe_payment_method_id: string;
-    card_country: string | null;
-  }>> = {};
-  
+  const paymentMethodsByStudent: Record<
+    string,
+    Array<{
+      stripe_payment_method_id: string;
+      card_country: string | null;
+    }>
+  > = {};
+
   for (const pm of paymentMethods || []) {
     if (!paymentMethodsByStudent[pm.student_id]) {
       paymentMethodsByStudent[pm.student_id] = [];
@@ -159,7 +181,9 @@ export async function loadBillingInfo(supabase: SupabaseClient): Promise<
   const billingByStudent: Record<string, {
     student_id: string;
     stripe_customer_id: string | null;
-    payment_methods: Array<{ stripe_payment_method_id: string; card_country: string | null }>;
+    payment_methods: Array<
+      { stripe_payment_method_id: string; card_country: string | null }
+    >;
     auto_bill_enabled: boolean;
     invoice_email_to_student: boolean;
     invoice_email_to_parents: boolean;
@@ -232,7 +256,7 @@ interface SubjectRow {
 
 export async function loadSubjects(
   supabase: SupabaseClient,
-  subjectIds: string[]
+  subjectIds: string[],
 ): Promise<Record<string, SubjectRow>> {
   if (subjectIds.length === 0) {
     return {};
@@ -263,7 +287,7 @@ interface ClassRow {
 
 export async function loadClasses(
   supabase: SupabaseClient,
-  classIds: string[]
+  classIds: string[],
 ): Promise<Record<string, ClassRow>> {
   if (classIds.length === 0) {
     return {};
@@ -293,20 +317,24 @@ export async function loadClasses(
  */
 export async function getInvoicedSessionsStudentsIds(
   supabase: SupabaseClient,
-  sessionsStudentsIds: string[]
+  sessionsStudentsIds: string[],
 ): Promise<Set<string>> {
   if (sessionsStudentsIds.length === 0) {
     return new Set();
   }
 
-  const { data: invoicedIds, error } = await supabase.rpc('get_invoiced_sessions_students_ids', {
-    p_sessions_students_ids: sessionsStudentsIds,
-  });
+  const { data: invoicedIds, error } = await supabase.rpc(
+    'get_invoiced_sessions_students_ids',
+    {
+      p_sessions_students_ids: sessionsStudentsIds,
+    },
+  );
 
   if (error) {
     console.error('[billing-runner] Error checking invoiced sessions:', error);
-    // On error, return empty set to be safe (won't skip sessions)
-    return new Set();
+    throw new Error(
+      `Could not verify whether sessions were already invoiced: ${error.message}`,
+    );
   }
 
   return new Set((invoicedIds || []).map((id: string) => id));

@@ -8,6 +8,8 @@ export const classesKeys = {
   list: (filters: string) => [...classesKeys.lists(), { filters }] as const,
   details: () => [...classesKeys.all, 'detail'] as const,
   detail: (id: string) => [...classesKeys.details(), id] as const,
+  detailsBatch: (classIds: string[]) =>
+    [...classesKeys.details(), 'batch', [...classIds].sort().join(',')] as const,
 };
 
 // Get all classes (uses vtutor_classes view)
@@ -28,6 +30,17 @@ export function useClassWithDetails(classId: string) {
     enabled: !!classId,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export function useClassesWithDetailsBatch(classIds: string[]) {
+  const uniqueSorted = [...new Set(classIds.filter(Boolean))].sort();
+  return useQuery({
+    queryKey: classesKeys.detailsBatch(uniqueSorted),
+    queryFn: () => classesApi.getClassesWithDetails(uniqueSorted),
+    enabled: uniqueSorted.length > 0,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 5,
   });
 }
 

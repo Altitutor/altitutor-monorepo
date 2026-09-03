@@ -5,6 +5,8 @@ import type { Tables } from '@altitutor/shared';
  */
 export type AbsenceAction = 'reschedule' | 'credit';
 
+export type AbsenceReasonCategory = 'approved_absence' | 'extended_absence' | 'admin_discretion';
+
 /**
  * Operation structure for API submission
  */
@@ -13,6 +15,11 @@ export interface AbsenceOperation {
   original_sessions_students_id: string;
   action: AbsenceAction;
   target_session_id?: string; // Required for reschedule, not for credit
+}
+
+export interface AbsenceReason {
+  category: AbsenceReasonCategory;
+  note?: string;
 }
 
 /**

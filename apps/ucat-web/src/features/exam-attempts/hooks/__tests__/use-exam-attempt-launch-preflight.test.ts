@@ -59,6 +59,29 @@ describe("useExamAttemptLaunchPreflight", () => {
     expect(result.current.conflictActive).toBeNull();
   });
 
+  it("treats a different Study plan prescription for the same set as a conflict", () => {
+    mockActive = {
+      ...conflictingAttempt,
+      kind: "set",
+      resourceId: "set-1",
+      studyPlanTaskId: "task-old",
+    };
+    const onLaunch = jest.fn();
+    const { result } = renderHook(() =>
+      useExamAttemptLaunchPreflight({
+        kind: "set",
+        resourceId: "set-1",
+        studyPlanTaskId: "task-new",
+        onLaunch,
+      }),
+    );
+
+    act(() => result.current.requestLaunch());
+
+    expect(onLaunch).not.toHaveBeenCalled();
+    expect(result.current.conflictActive).toBe(mockActive);
+  });
+
   it("shows the conflict before navigation and launches after discarding", async () => {
     mockActive = conflictingAttempt;
     const onLaunch = jest.fn();

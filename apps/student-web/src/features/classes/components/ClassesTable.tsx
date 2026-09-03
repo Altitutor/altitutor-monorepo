@@ -44,7 +44,7 @@ export function ClassesTable() {
   if (!classes || classes.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        You are not enrolled in any classes yet.
+        You do not have any scheduled offerings yet.
       </div>
     );
   }
@@ -90,11 +90,13 @@ export function ClassesTable() {
             if (classItem.class_level) {
               subjectParts.push(classItem.class_level);
             }
-            const subjectDisplay = subjectParts.join(' ') || '-';
+            const subjectDisplay = classItem.session_type === 'HOMEWORK_HELP'
+              ? 'Homework Help'
+              : subjectParts.join(' ') || '-';
 
             return (
               <TableRow
-                key={classItem.enrollment_id || ''}
+                key={classItem.class_id || ''}
                 className={studentTableBodyRow}
               >
                 <TableCell className="font-medium">

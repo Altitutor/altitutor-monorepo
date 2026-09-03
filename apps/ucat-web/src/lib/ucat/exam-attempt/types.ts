@@ -1,9 +1,18 @@
 import type {
+  QuestionEngineExam,
   QuestionEngineMode,
   QuestionEngineState,
 } from "@/features/question-engine/model/types";
 
 export type ExamAttemptKind = "set" | "mock" | "practice";
+
+export type ExamAttemptTimingSnapshot = {
+  setModeTiming?: QuestionEngineExam["setModeTiming"];
+  mockTimingSegments?: QuestionEngineExam["mockTimingSegments"];
+  mockSetSummaries?: QuestionEngineExam["mockSetSummaries"];
+  timePerQuestionSeconds?: number | null;
+  practiceSessionTimeLimitSeconds?: number | null;
+};
 
 /** Serializable question-engine state persisted for resume. */
 export type QuestionActiveTimingContext = {
@@ -59,6 +68,8 @@ export type ActiveExamAttempt = {
   setAttemptIdsBySetId: Record<string, string>;
   practiceSessionId: string | null;
   wasTimed: boolean;
+  examTiming?: ExamAttemptTimingSnapshot;
+  studyPlanTaskId?: string | null;
 };
 
 export type BeginExamAttemptInput = {
@@ -69,6 +80,7 @@ export type BeginExamAttemptInput = {
   engineSnapshot: ExamEngineSnapshot;
   segmentTimeLimitSeconds: number | null;
   questionSetIdForMockSet?: string;
+  studyPlanTaskId?: string | null;
 };
 
 export type SyncExamAttemptInput = {

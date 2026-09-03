@@ -184,6 +184,7 @@ export type UcatQuestionCatalogRow = UcatQuestionStemRow & {
 export type UcatQuestionCatalogPage = {
   items: UcatQuestionCatalogRow[];
   total: number;
+  questionTotal: number;
   page: number;
   pageSize: number;
   aiReviewEnabled?: boolean;

@@ -197,7 +197,7 @@ export function ViewClassModal({
                   </Button>
                   <div className="flex-1">
                     <SheetTitle>
-                      {isEditing ? 'Edit Class' : 'Class Details'}
+                      {isEditing ? 'Edit Scheduled Offering' : 'Scheduled Offering Details'}
                     </SheetTitle>
                     <SheetDescription asChild>
                       <div className="flex flex-wrap items-center gap-2 text-lg font-medium text-muted-foreground">
@@ -267,6 +267,7 @@ export function ViewClassModal({
                         onStudentsUpdated={() => {}}
                         onAssignStaff={handleAssignStaff}
                         onRemoveStaff={handleRemoveStaff}
+                        allowStudentEnrollment={classData.session_type === 'CLASS'}
                       />
                     </div>
                   </div>

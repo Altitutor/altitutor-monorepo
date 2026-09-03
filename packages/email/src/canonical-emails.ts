@@ -248,6 +248,29 @@ export function buildInvoiceNotificationEmail(input: {
   });
 }
 
+export function buildCreditNoteNotificationEmail(input: {
+  creditNoteNumber: string;
+  amount: string;
+  remainsOnAccount: boolean;
+}): RenderedEmail {
+  const outcome = input.remainsOnAccount
+    ? "The credit remains on your account and will be applied to future invoices."
+    : "The amount due on your invoice has been reduced.";
+  const heading = `Credit note ${input.creditNoteNumber} has been issued`;
+
+  return renderEmail({
+    brand: "altitutor",
+    subject: `${heading} — Altitutor`,
+    previewText: `A credit note for ${input.amount} has been issued.`,
+    heading,
+    bodyText: `A credit note for ${input.amount} has been issued.\n\n${outcome}`,
+    bodyHtml: `
+      <p class="email-copy" style="${paragraphStyle}">A credit note for <strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(input.amount)}</strong> has been issued.</p>
+      <p class="email-copy" style="${paragraphStyle}">${outcome}</p>
+    `,
+  });
+}
+
 export function buildContactRequestEmail(input: {
   appName: string;
   message: string;

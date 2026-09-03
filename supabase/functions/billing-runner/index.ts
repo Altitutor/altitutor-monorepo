@@ -6,17 +6,17 @@ import Stripe from 'npm:stripe@16.6.0';
 // Shared helpers
 import { calculateAdelaideDateRange, getAdelaideDateString } from './shared/utils.ts';
 import {
-  loadBillingSettings,
-  loadBillingPricing,
-  loadPricingOverrides,
-  loadSubsidies,
+  getInvoicedSessionsStudentsIds,
   loadBillingInfo,
+  loadBillingPricing,
+  loadClasses,
+  loadPricingOverrides,
   loadStudentEmails,
   loadSubjects,
-  loadClasses,
-  getInvoicedSessionsStudentsIds,
+  loadSubsidies,
 } from './shared/data-loading.ts';
 import { processStudentInvoicing } from './shared/student-processing.ts';
+import { processSessionBillingAdjustments } from './shared/session-billing-adjustments.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -47,13 +47,16 @@ function json(resp: unknown, status = 200) {
 
 async function acquireBillingRunnerLock(
   supabase: SupabaseClient,
-  runId: string
+  runId: string,
 ): Promise<BillingRunnerLockResult> {
-  const { data, error } = await supabase.rpc('try_acquire_billing_runner_lock', {
-    p_lock_name: BILLING_RUNNER_LOCK_NAME,
-    p_run_id: runId,
-    p_ttl_seconds: BILLING_RUNNER_LOCK_TTL_SECONDS,
-  });
+  const { data, error } = await supabase.rpc(
+    'try_acquire_billing_runner_lock',
+    {
+      p_lock_name: BILLING_RUNNER_LOCK_NAME,
+      p_run_id: runId,
+      p_ttl_seconds: BILLING_RUNNER_LOCK_TTL_SECONDS,
+    },
+  );
 
   if (error) {
     throw error;
@@ -62,8 +65,8 @@ async function acquireBillingRunnerLock(
   const rows = Array.isArray(data)
     ? (data as BillingRunnerLockResult[])
     : data
-      ? [data as BillingRunnerLockResult]
-      : [];
+    ? [data as BillingRunnerLockResult]
+    : [];
   const lock = rows[0];
   if (!lock) {
     throw new Error('Billing runner lock RPC returned no result');
@@ -74,7 +77,7 @@ async function acquireBillingRunnerLock(
 
 async function releaseBillingRunnerLock(
   supabase: SupabaseClient,
-  runId: string
+  runId: string,
 ): Promise<void> {
   const { error } = await supabase.rpc('release_billing_runner_lock', {
     p_lock_name: BILLING_RUNNER_LOCK_NAME,
@@ -93,7 +96,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
   }
 
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
-  if (!STRIPE_SECRET_KEY) return json({ error: 'Stripe key not configured' }, 500);
+  if (!STRIPE_SECRET_KEY) {
+    return json({ error: 'Stripe key not configured' }, 500);
+  }
 
   // Check if using test or live Stripe keys
   const isStripeTestKey = STRIPE_SECRET_KEY.startsWith('sk_test_');
@@ -137,12 +142,13 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
 
     // Check if this is a cron job request using custom cron secret
     // Handle both Bearer token format and direct key comparison
-    const bearerToken = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7).trim()
-      : authHeader;
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : authHeader;
 
     // Authenticate cron jobs using custom secret (more secure and controllable)
-    if (billingCronSecret && (apiKey === billingCronSecret || bearerToken === billingCronSecret)) {
+    if (
+      billingCronSecret &&
+      (apiKey === billingCronSecret || bearerToken === billingCronSecret)
+    ) {
       isCronJob = true;
     }
 
@@ -156,7 +162,8 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
           const supabase = createClient(supabaseUrl, supabaseServiceKey, {
             auth: { persistSession: false },
           });
-          const { data: { user }, error: userError } = await supabase.auth.getUser(adminToken);
+          const { data: { user }, error: userError } = await supabase.auth
+            .getUser(adminToken);
 
           if (!userError && user) {
             // Check if user is admin staff
@@ -166,14 +173,19 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
               .eq('user_id', user.id)
               .maybeSingle();
 
-            if (staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE') {
+            if (
+              staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE'
+            ) {
               isAdminUser = true;
             }
           }
         }
       } catch (err) {
         // Auth check failed, continue with normal flow
-        console.error('[billing-runner] Admin token check failed:', err instanceof Error ? err.message : String(err));
+        console.error(
+          '[billing-runner] Admin token check failed:',
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
 
@@ -181,10 +193,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     if (!isCronJob && !isAdminUser) {
       return json(
         {
-          error:
-            'Unauthorized: Billing can only be triggered by cron jobs or admin staff',
+          error: 'Unauthorized: Billing can only be triggered by cron jobs or admin staff',
         },
-        403
+        403,
       );
     }
   } catch (authErr: unknown) {
@@ -193,7 +204,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
   }
 
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false },
+  });
   const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim();
   const runId = crypto.randomUUID();
   let lockAcquired = false;
@@ -220,9 +233,19 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     }
     lockAcquired = true;
 
-    // Load billing settings
-    const { feePercentDom, feePercentIntl, feeFixedCents, domesticCountry } =
-      await loadBillingSettings(supabase);
+    const adjustmentResult = await processSessionBillingAdjustments({
+      supabase,
+      stripe,
+      isStripeTestKey,
+      isStripeLiveKey,
+      resendApiKey,
+    });
+    if (adjustmentResult.claimed > 0) {
+      console.log(
+        '[billing-runner] Session billing adjustments:',
+        adjustmentResult,
+      );
+    }
 
     // Determine date range: use override if provided, otherwise tomorrow (production)
     let targetDate: Date;
@@ -265,22 +288,53 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     const sessionIds = sessions.map((s: { id: string }) => s.id);
     const { data: ssRows, error: ssErr } = await supabase
       .from('sessions_students')
-      .select('id, session_id, student_id, planned_absence')
+      .select('id, session_id, student_id, planned_absence, is_credited, is_rescheduled')
       .in('session_id', sessionIds);
     if (ssErr) throw ssErr;
 
+    const ssIdsForDate = (ssRows ?? []).map((row: { id: string }) => row.id);
+    const { data: controlledAdjustments, error: controlledAdjustmentsError } = ssIdsForDate.length > 0
+      ? await supabase
+        .from('session_billing_adjustments')
+        .select('sessions_students_id')
+        .in('sessions_students_id', ssIdsForDate)
+        .in('status', ['pending', 'processing', 'retryable', 'failed'])
+      : { data: [], error: null };
+    if (controlledAdjustmentsError) throw controlledAdjustmentsError;
+    const adjustmentControlledIds = new Set(
+      (controlledAdjustments ?? []).map((
+        row: { sessions_students_id: string },
+      ) => row.sessions_students_id),
+    );
+
     // *** NEW: Check which sessions_students_ids are already invoiced (session-level idempotency) ***
     const sessionsStudentsIds = (ssRows || [])
-      .filter((row: { planned_absence?: boolean }) => !row.planned_absence)
+      .filter((row: {
+        planned_absence?: boolean;
+        is_credited?: boolean;
+        is_rescheduled?: boolean;
+        id: string;
+      }) =>
+        (!row.planned_absence || (!row.is_credited && !row.is_rescheduled)) &&
+        !adjustmentControlledIds.has(row.id)
+      )
       .map((row: { id: string }) => row.id);
     const invoicedSessionsStudentsIds = await getInvoicedSessionsStudentsIds(
       supabase,
-      sessionsStudentsIds
+      sessionsStudentsIds,
     );
 
     // Filter out already-invoiced sessions
     const uninvoicedSsRows = (ssRows || []).filter(
-      (row: { planned_absence?: boolean; id: string }) => !row.planned_absence && !invoicedSessionsStudentsIds.has(row.id)
+      (row: {
+        planned_absence?: boolean;
+        is_credited?: boolean;
+        is_rescheduled?: boolean;
+        id: string;
+      }) =>
+        (!row.planned_absence || (!row.is_credited && !row.is_rescheduled)) &&
+        !adjustmentControlledIds.has(row.id) &&
+        !invoicedSessionsStudentsIds.has(row.id),
     );
 
     if (uninvoicedSsRows.length === 0) {
@@ -299,9 +353,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       return a.id < b.id ? -1 : 1;
     });
 
-    const pagedUninvoiced = cursor
-      ? sortedUninvoiced.filter((row) => row.id > cursor!)
-      : sortedUninvoiced;
+    const pagedUninvoiced = cursor ? sortedUninvoiced.filter((row) => row.id > cursor!) : sortedUninvoiced;
 
     const batchRows = pagedUninvoiced.slice(0, effectiveBatchLimit);
     const hasMore = pagedUninvoiced.length > effectiveBatchLimit;
@@ -318,20 +370,24 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
 
     // Get unique session IDs from uninvoiced sessions
     const uninvoicedSessionIds = Array.from(
-      new Set(uninvoicedSsRows.map((row: { session_id: string }) => row.session_id))
+      new Set(
+        uninvoicedSsRows.map((row: { session_id: string }) => row.session_id),
+      ),
     );
-    const uninvoicedSessions = sessions.filter((s: { id: string }) =>
-      uninvoicedSessionIds.includes(s.id)
-    );
+    const uninvoicedSessions = sessions.filter((s: { id: string }) => uninvoicedSessionIds.includes(s.id));
 
     // Load billing pricing tables
     const pricingByBillingType = await loadBillingPricing(supabase);
 
     // Load subject pricing overrides
-    const subjectIds = Array.from(new Set(uninvoicedSessions.map((s: { subject_id?: string | null }) => s.subject_id).filter(Boolean)));
+    const subjectIds = Array.from(
+      new Set(
+        uninvoicedSessions.map((s: { subject_id?: string | null }) => s.subject_id).filter(Boolean),
+      ),
+    );
     const { overridesBySubjectAndBilling, pricingOverrides } = await loadPricingOverrides(
       supabase,
-      subjectIds
+      subjectIds,
     );
 
     // Load subjects for display names
@@ -339,7 +395,10 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
 
     // Load classes for class name display
     const classIds = Array.from(
-      new Set(uninvoicedSessions.map((s: { class_id?: string | null }) => s.class_id).filter(Boolean))
+      new Set(
+        uninvoicedSessions.map((s: { class_id?: string | null }) => s.class_id)
+          .filter(Boolean),
+      ),
     );
     const classById = await loadClasses(supabase, classIds);
 
@@ -347,7 +406,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     const billingByStudent = await loadBillingInfo(supabase);
 
     // Load student and parent emails
-    const { parentEmailsByStudent, studentEmailById } = await loadStudentEmails(supabase);
+    const { parentEmailsByStudent, studentEmailById } = await loadStudentEmails(
+      supabase,
+    );
 
     // Load subsidies
     const subsidies = await loadSubsidies(supabase);
@@ -385,10 +446,6 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         studentSessions,
         invoiceDate: sessionInvoiceDate,
         targetDate: sessionDate,
-        feePercentDom,
-        feePercentIntl,
-        feeFixedCents,
-        domesticCountry,
         pricingByBillingType,
         overridesBySubjectAndBilling,
         pricingOverrides,
@@ -411,17 +468,21 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         failedSessionsStudentsIds.push(row.id);
 
         // Persist failure to billing_runner_logs for investigation
-        const { error: logError } = await supabase.from('billing_runner_logs').insert({
-          run_id: runId,
-          sessions_students_id: row.id,
-          student_id: row.student_id,
-          session_id: row.session_id,
-          invoice_date: sessionInvoiceDate,
-          error_type: 'invoicing',
-          error_message: result.error,
-        });
+        const { error: logError } = await supabase.from('billing_runner_logs')
+          .insert({
+            run_id: runId,
+            sessions_students_id: row.id,
+            student_id: row.student_id,
+            session_id: row.session_id,
+            invoice_date: sessionInvoiceDate,
+            error_type: 'invoicing',
+            error_message: result.error,
+          });
         if (logError) {
-          console.error('[billing-runner] Failed to log error to billing_runner_logs:', logError);
+          console.error(
+            '[billing-runner] Failed to log error to billing_runner_logs:',
+            logError,
+          );
         }
       }
     }
@@ -430,8 +491,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       ok: true,
       invoicesCreated: invoicesCreated.length,
       failedCount: failedSessionsStudentsIds.length,
-      failedSessionsStudentsIds:
-        failedSessionsStudentsIds.length > 0 ? failedSessionsStudentsIds : undefined,
+      failedSessionsStudentsIds: failedSessionsStudentsIds.length > 0 ? failedSessionsStudentsIds : undefined,
       runId,
       errors: errors.length > 0 ? errors : undefined,
       stripeKeyType: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
@@ -439,7 +499,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       processed: batchRows.length,
       hasMore,
       nextCursor: hasMore ? batchRows[batchRows.length - 1]?.id : null,
-      message: `Created ${invoicesCreated.length} invoices${failedSessionsStudentsIds.length > 0 ? `, ${failedSessionsStudentsIds.length} failed` : ''}${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
+      message: `Created ${invoicesCreated.length} invoices${
+        failedSessionsStudentsIds.length > 0 ? `, ${failedSessionsStudentsIds.length} failed` : ''
+      }${isStripeTestKey ? ' (using Stripe test keys)' : isStripeLiveKey ? ' (using Stripe live keys)' : ''}`,
     });
   } catch (e: unknown) {
     sentry.captureException(e);
@@ -454,7 +516,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         message: err.message || String(e),
         dateRange: { start: startIso || 'unknown', end: endIso || 'unknown' },
       },
-      500
+      500,
     );
   } finally {
     if (lockAcquired) {

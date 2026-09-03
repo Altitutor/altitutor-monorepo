@@ -1150,4 +1150,93 @@ export const sessionsApi = {
       throw error;
     }
   },
+
+  getSessionScheduleOverrides: async (
+    rangeStart: string,
+    rangeEnd: string
+  ): Promise<
+    Array<{
+      id: string;
+      type: string;
+      class_id: string | null;
+      start_at: string | null;
+      end_at: string | null;
+      original_start_at: string | null;
+      original_end_at: string | null;
+      short_name: string | null;
+      long_name: string | null;
+    }>
+  > => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const start = dateStringToUtcStart(rangeStart);
+    const end = dateStringToUtcEnd(rangeEnd);
+    const select =
+      'id, type, class_id, start_at, end_at, original_start_at, original_end_at, short_name, long_name';
+
+    const [byStart, byOriginal] = await Promise.all([
+      supabase.from('sessions').select(select).gte('start_at', start).lte('start_at', end).eq('status', 'ACTIVE'),
+      supabase
+        .from('sessions')
+        .select(select)
+        .gte('original_start_at', start)
+        .lte('original_start_at', end)
+        .eq('status', 'ACTIVE')
+        .not('original_start_at', 'is', null),
+    ]);
+
+    if (byStart.error) throw byStart.error;
+    if (byOriginal.error) throw byOriginal.error;
+
+    const byId = new Map<string, NonNullable<typeof byStart.data>[number]>();
+    for (const row of [...(byStart.data ?? []), ...(byOriginal.data ?? [])]) {
+      byId.set(row.id, row);
+    }
+    return [...byId.values()];
+  },
+
+  getSessionParents: async (
+    sessionIds: string[]
+  ): Promise<Record<string, Array<{ id: string; first_name: string | null; last_name: string | null }>>> => {
+    if (sessionIds.length === 0) return {};
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('sessions_parents')
+      .select('session_id, parent:parents(id, first_name, last_name)')
+      .in('session_id', sessionIds);
+
+    if (error) throw error;
+
+    const bySession: Record<string, Array<{ id: string; first_name: string | null; last_name: string | null }>> = {};
+    for (const row of data ?? []) {
+      const parent = row.parent as { id: string; first_name: string | null; last_name: string | null } | null;
+      if (!parent) continue;
+      const existing = bySession[row.session_id] ?? [];
+      existing.push(parent);
+      bySession[row.session_id] = existing;
+    }
+    return bySession;
+  },
+
+  getClassStaffAssignments: async (
+    classIds: string[]
+  ): Promise<
+    Array<{
+      class_id: string;
+      staff_id: string;
+      assigned_at: string;
+      unassigned_at: string | null;
+    }>
+  > => {
+    if (classIds.length === 0) return [];
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('classes_staff')
+      .select('class_id, staff_id, assigned_at, unassigned_at')
+      .in('class_id', classIds);
+
+    if (error) throw error;
+    return data ?? [];
+  },
 }; 

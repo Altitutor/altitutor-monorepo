@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { addDays, format, isSameDay, startOfDay } from 'date-fns';
+import { format } from 'date-fns';
 import {
   ArrowRight,
   BookOpen,
@@ -12,12 +12,10 @@ import {
   TrendingUp,
   type LucideIcon,
 } from 'lucide-react';
-import { Button, ClickableNavCard, Skeleton } from '@altitutor/ui';
-import type { Database } from '@altitutor/shared';
-import type { SessionStudent } from '@/features/sessions/utils/session-helpers';
-import { TutorDashboardSessionCard } from './TutorDashboardSessionCard';
+import { Button, ClickableNavCard } from '@altitutor/ui';
+import { TutorDashboardUpdatesCard } from './TutorDashboardUpdatesCard';
+import { TutorTodaySessionsCalendarView } from '@/features/sessions/components/TutorTodaySessionsCalendarView';
 import {
-  useTutorSessionDetailsBatch,
   useTutorSessionsInRange,
 } from '@/features/sessions/hooks/useSessionsQuery';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
@@ -26,26 +24,6 @@ import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { TutorPageContainer } from '@/shared/components/layouts';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 import { cn } from '@/shared/utils';
-
-const SESSION_RANGE_DAYS = 56;
-
-type TutorSessionRow = Database['public']['Views']['vtutor_sessions']['Row'];
-type TutorSessionWithId = TutorSessionRow & { session_id: string };
-
-function DashboardSessionsSkeleton() {
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <Skeleton className="h-8 w-40" />
-        <Skeleton className="h-9 w-36 shrink-0 rounded-xl" />
-      </div>
-      <div className="space-y-2">
-        <Skeleton className="h-28 w-full rounded-xl" />
-        <Skeleton className="h-28 w-full rounded-xl" />
-      </div>
-    </div>
-  );
-}
 
 type QuickLinkItem = {
   title: string;
@@ -115,7 +93,7 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
     setIsLogSessionModalOpen(false);
     setLogSessionPreselectedId(undefined);
     if (hadPreselected) {
-      setLogSessionCompletedCount((c) => c + 1);
+      setLogSessionCompletedCount((count) => count + 1);
     }
   };
 
@@ -130,40 +108,14 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
   };
 
   const today = useMemo(() => new Date(), []);
-  const rangeStart = format(today, 'yyyy-MM-dd');
-  const rangeEnd = format(addDays(today, SESSION_RANGE_DAYS), 'yyyy-MM-dd');
+  const todayStr = format(today, 'yyyy-MM-dd');
   const dateLabel = format(today, 'd MMMM yyyy');
 
   const {
-    data: sessions,
+    data: todaySessions = [],
     isLoading: sessionsLoading,
     isError: sessionsError,
-  } = useTutorSessionsInRange(rangeStart, rangeEnd);
-
-  /** Same idea as student dashboard: first upcoming session defines the day; show all upcoming sessions that day. */
-  const primarySessions = useMemo((): TutorSessionWithId[] => {
-    if (!sessions?.length) return [];
-
-    const withId = sessions.filter((s): s is TutorSessionWithId => Boolean(s.session_id));
-    const nowMs = Date.now();
-    const upcoming = withId.filter(
-      (s) => s.start_at && new Date(s.start_at).getTime() > nowMs,
-    );
-    if (!upcoming.length) return [];
-
-    upcoming.sort(
-      (a, b) =>
-        new Date(a.start_at ?? 0).getTime() - new Date(b.start_at ?? 0).getTime(),
-    );
-
-    const anchorDay = startOfDay(new Date(upcoming[0].start_at!));
-    return upcoming.filter(
-      (s) => s.start_at && isSameDay(new Date(s.start_at), anchorDay),
-    );
-  }, [sessions]);
-
-  const detailIds = useMemo(() => primarySessions.map((s) => s.session_id), [primarySessions]);
-  const { data: detailsMap } = useTutorSessionDetailsBatch(detailIds);
+  } = useTutorSessionsInRange(todayStr, todayStr);
 
   const quickLinks = ucatAccess.data
     ? [baseQuickLinks[0], ucatQuickLink, ...baseQuickLinks.slice(1)]
@@ -178,69 +130,57 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
             <div>
               <h1 className="text-3xl font-bold tracking-tight">Hi, {displayName}</h1>
             </div>
-            <p className="text-sm text-muted-foreground tabular-nums">{dateLabel}</p>
+            <p className="text-sm tabular-nums text-muted-foreground">{dateLabel}</p>
           </div>
           <p className="max-w-2xl text-pretty text-muted-foreground">
-            Welcome to Altitutor Tutor — manage classes, materials, and your profile from here.
+            Welcome to your tutor portal.
           </p>
         </header>
 
-        <section aria-labelledby="next-session-heading" className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 id="next-session-heading" className="text-2xl font-semibold">
-              Next session
-            </h2>
-            <Button
-              asChild
-              variant="outline"
-              size="sm"
-              className={cn(tutorBtnOutline, 'shrink-0')}
-            >
-              <Link href="/classes" className="gap-2">
-                Timetable
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-
-          {sessionsLoading ? (
-            <DashboardSessionsSkeleton />
-          ) : sessionsError ? (
-            <p className="text-sm text-muted-foreground">
-              Could not load your sessions.{' '}
-              <Link
-                href="/classes"
-                className="font-medium text-foreground underline-offset-4 hover:underline"
-              >
-                Open timetable
-              </Link>
-            </p>
-          ) : primarySessions.length > 0 ? (
-            <div className="space-y-2">
-              {primarySessions.map((session) => {
-                const details = detailsMap?.[session.session_id];
-                const students =
-                  details?.students?.map((s: SessionStudent) => ({
-                    ...s,
-                    year_level: s.year_level ?? undefined,
-                  })) ?? [];
-                return (
-                  <TutorDashboardSessionCard
-                    key={session.session_id}
-                    session={session}
-                    staff={details?.staff}
-                    students={students}
-                    onOpen={() => handleOpenSession(session.session_id)}
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
+          <section aria-labelledby="todays-sessions-heading" className="md:col-span-2">
+            <div className={tutorCardCn('flex flex-col overflow-hidden')}>
+              <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-2 pt-3">
+                <h2 id="todays-sessions-heading" className="text-lg font-semibold">
+                  Today’s sessions
+                </h2>
+                <Button
+                  asChild
+                  variant="outline"
+                  size="sm"
+                  className={cn(tutorBtnOutline, 'shrink-0')}
+                >
+                  <Link href="/classes" className="gap-2">
+                    Timetable
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+              <div className="max-h-[520px] min-h-0 overflow-auto">
+                {sessionsError ? (
+                  <p className="px-4 py-8 text-sm text-muted-foreground">
+                    Could not load your sessions.{' '}
+                    <Link
+                      href="/classes"
+                      className="font-medium text-foreground underline-offset-4 hover:underline"
+                    >
+                      Open timetable
+                    </Link>
+                  </p>
+                ) : (
+                  <TutorTodaySessionsCalendarView
+                    date={todayStr}
+                    sessions={todaySessions}
+                    isLoading={sessionsLoading}
+                    onOpenSession={handleOpenSession}
                   />
-                );
-              })}
+                )}
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No upcoming sessions in the next several weeks. Check your timetable under Classes.
-            </p>
-          )}
-        </section>
+          </section>
+
+          <TutorDashboardUpdatesCard date={todayStr} onOpenSession={handleOpenSession} />
+        </div>
 
         {staffId ? (
           <UnloggedSessionsTableSection staffId={staffId} onLogSession={handleOpenLogSession} />

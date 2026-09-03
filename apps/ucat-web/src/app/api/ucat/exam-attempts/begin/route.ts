@@ -109,7 +109,12 @@ export async function POST(request: NextRequest) {
       // Two begin requests for the same resource can both pass the initial
       // active-attempt read. The database slot correctly lets only one create
       // the row; treat the loser as an idempotent resume instead of a conflict.
-      if (active?.kind === body.kind && active.resourceId === body.resourceId) {
+      if (
+        active?.kind === body.kind &&
+        active.resourceId === body.resourceId &&
+        (!body.studyPlanTaskId ||
+          active.studyPlanTaskId === body.studyPlanTaskId)
+      ) {
         timing.mark("begin_race_resume");
         return timing.apply(
           NextResponse.json({ attempt: active, resumed: true }),

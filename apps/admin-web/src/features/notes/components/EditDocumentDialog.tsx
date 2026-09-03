@@ -484,8 +484,8 @@ export function EditDocumentDialog({
                   <EntityResizablePanels
                     id={`document-${noteId}-panels`}
                     main={(
-                      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-                        <div className="max-h-full min-h-0 min-w-0 flex-1 overflow-y-auto">
+                      <div className="flex h-full min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+                        <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
                           <div className="mx-auto max-w-3xl space-y-4 pb-6 pl-[2.75rem] pr-6 pt-6">
                             <div className="md:hidden">
                               <NotePropertyPills

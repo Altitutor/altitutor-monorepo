@@ -1,4 +1,4 @@
-import { formatActivityTimestamp, formatDate } from '@/shared/utils/datetime';
+import { formatActivityTimestamp, formatCompactDate, formatDate } from '@/shared/utils/datetime';
 import type {
   ActivityEvent,
   ActivityEventDisplay,
@@ -26,6 +26,10 @@ function entityNames(event: ActivityEvent, entityType: string): string[] {
     .filter((entity) => entity.entityType === entityType && entity.displayName)
     .map((entity) => entity.displayName!)
     .filter((name, index, names) => names.indexOf(name) === index);
+}
+
+function entityNameByRole(event: ActivityEvent, role: string): string | undefined {
+  return event.entities.find((entity) => entity.role === role)?.displayName || undefined;
 }
 
 function displayName(
@@ -103,6 +107,16 @@ function titleCase(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+const DATE_CHANGE_FIELDS = new Set(['birthday', 'due_date', 'start_date', 'target_date']);
+
+function formatChangedValue(fieldName: string, value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (DATE_CHANGE_FIELDS.has(fieldName) && (typeof value === 'string' || value instanceof Date)) {
+    return formatCompactDate(value) ?? String(value);
+  }
+  return String(value);
+}
+
 function changedFields(payload: Payload): ChangedField[] | undefined {
   const changes = asRecord(payload.changes);
   const fields = Object.entries(changes).flatMap(([fieldName, value]) => {
@@ -112,8 +126,8 @@ function changedFields(payload: Payload): ChangedField[] | undefined {
     return [{
       fieldName,
       fieldLabel: titleCase(fieldName),
-      oldValue: oldValue == null ? undefined : String(oldValue),
-      newValue: newValue == null ? undefined : String(newValue),
+      oldValue: formatChangedValue(fieldName, oldValue),
+      newValue: formatChangedValue(fieldName, newValue),
     }];
   });
   return fields.length ? fields : undefined;
@@ -145,6 +159,10 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
   const issue = sentenceName(displayName(event, payload, 'issue'), 'the issue');
   const project = sentenceName(displayName(event, payload, 'project'), 'the project');
   const session = formatSession(event, payload);
+  const staffOut = sentenceName(entityNameByRole(event, 'staff_out'), staff);
+  const staffIn = sentenceName(entityNameByRole(event, 'staff_in'), 'the replacement staff member');
+  const sessionFrom = sentenceName(entityNameByRole(event, 'session_from'), session);
+  const sessionTo = sentenceName(entityNameByRole(event, 'session_to'), 'the replacement session');
   const invoiceNumber = displayName(event, payload, 'invoice');
   const invoice = invoiceNumber ? `invoice ${invoiceNumber}` : 'the invoice';
   const invoiceSessions = displayNames(event, payload, 'session');
@@ -158,6 +176,7 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'student.user_account_created': [`created ${student}'s user account`, 'user-plus', 'green'],
     'student.payment_method_added': [`added ${paymentMethod(payload)}`, 'check', 'green'],
     'student.payment_method_removed': [`removed ${paymentMethod(payload)}`, 'x', 'red'],
+    'student.properties_changed': [`changed ${student}`, 'user-edit', 'blue'],
     'student.discontinued': [`discontinued ${student}`, 'user-minus', 'red'],
     'student.reactivated': [`reactivated ${student}`, 'user-plus', 'green'],
     'student.deleted': [`deleted ${student}`, 'x', 'red'],
@@ -208,6 +227,14 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'session.parent_attendance_corrected': [`corrected ${parent}'s attendance for ${session}`, 'session-edit', 'blue'],
     'session.student_absence_recorded': [`recorded ${student}'s planned absence from ${session}`, 'x', 'yellow'],
     'session.student_absence_cleared': [`cleared ${student}'s planned absence from ${session}`, 'check', 'green'],
+    'session.student_rescheduled': [`rescheduled ${student} from ${sessionFrom} to ${sessionTo}`, 'arrow-right', 'blue'],
+    'session.student_reschedule_reversed': [`reversed ${student}'s reschedule from ${sessionFrom} to ${sessionTo}`, 'arrow-left', 'gray'],
+    'session.student_credited': [`credited ${student} for ${session}`, 'check', 'purple'],
+    'session.student_credit_reversed': [`reversed ${student}'s credit for ${session}`, 'arrow-left', 'gray'],
+    'session.staff_absence_recorded': [`recorded ${staff}'s planned absence from ${session}`, 'x', 'yellow'],
+    'session.staff_absence_cleared': [`cleared ${staff}'s planned absence from ${session}`, 'check', 'green'],
+    'session.staff_swapped': [`swapped ${staffOut} out for ${staffIn} in ${session}`, 'user-edit', 'blue'],
+    'session.staff_swap_reversed': [`reversed the swap of ${staffOut} for ${staffIn} in ${session}`, 'arrow-left', 'gray'],
     'session.file_added': [`added ${text(payload.display_name) || 'a file'}`, 'file', 'green'],
     'session.file_removed': [`removed ${text(payload.display_name) || 'a file'}`, 'file', 'red'],
     'session.deleted': ['deleted the session', 'x', 'red'],

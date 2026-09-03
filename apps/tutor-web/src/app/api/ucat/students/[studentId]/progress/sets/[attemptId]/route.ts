@@ -33,7 +33,10 @@ export type SetAttemptQuestion = {
   categoryDescription: string | null
   questionStemCategoryId: string | null
   selectedOptionId: string | null
-  answerSnapshot: Record<string, import('@altitutor/ucat-response-contract').PlacementValue> | null
+  answerSnapshot: Record<
+    string,
+    import('@altitutor/ucat-response-contract').PlacementValue
+  > | null
 }
 
 export type SetAttemptDetailResponse = {
@@ -46,6 +49,7 @@ export type SetAttemptDetailResponse = {
   timeTakenSeconds: number | null
   setTimeLimitSeconds: number | null
   examTimeLimitSeconds: number | null
+  effectivePace: number | null
   studentSetSpeed: number | null
   studentExamSpeed: number | null
   attemptedAt: string
@@ -56,7 +60,7 @@ export type SetAttemptDetailResponse = {
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: Promise<{ studentId: string; attemptId: string }> }
+  { params }: { params: Promise<{ studentId: string; attemptId: string }> },
 ) {
   const access = await requireUcatTutor()
   if (!access.ok) return access.response
@@ -65,41 +69,45 @@ export async function GET(
   if (!studentId || !attemptId) {
     return NextResponse.json(
       { error: 'Missing studentId or attemptId' },
-      { status: 400 }
+      { status: 400 },
     )
   }
 
-  const { data: authorizedAttempt, error: authorizationError } = await access.userClient
-    .from('vtutor_ucat_student_set_attempt_detail')
-    .select('attempt_id')
-    .eq('attempt_id', attemptId)
-    .eq('student_id', studentId)
-    .maybeSingle()
+  const { data: authorizedAttempt, error: authorizationError } =
+    await access.userClient
+      .from('vtutor_ucat_student_set_attempt_detail')
+      .select('attempt_id')
+      .eq('attempt_id', attemptId)
+      .eq('student_id', studentId)
+      .maybeSingle()
 
   if (authorizationError) {
     captureApiError(
       authorizationError,
-      '/api/ucat/students/[studentId]/progress/sets/[attemptId]'
+      '/api/ucat/students/[studentId]/progress/sets/[attemptId]',
     )
     return NextResponse.json(
       { error: authorizationError.message },
-      { status: 500 }
+      { status: 500 },
     )
   }
   if (!authorizedAttempt) {
-    return NextResponse.json({ error: 'Set attempt not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Set attempt not found' },
+      { status: 404 },
+    )
   }
   if (!supabaseAdmin) {
     return NextResponse.json(
       { error: 'Attempt review is not configured on this server' },
-      { status: 500 }
+      { status: 500 },
     )
   }
 
   const { data: attempt, error: attemptError } = await supabaseAdmin
     .from('student_question_set_attempts')
     .select(
-      'id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds, student_set_speed, student_exam_speed, content_snapshot'
+      'id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds, effective_pace_multiplier, student_set_speed, student_exam_speed, content_snapshot',
     )
     .eq('id', attemptId)
     .eq('student_id', studentId)
@@ -108,18 +116,21 @@ export async function GET(
   if (attemptError) {
     captureApiError(
       attemptError,
-      '/api/ucat/students/[studentId]/progress/sets/[attemptId]'
+      '/api/ucat/students/[studentId]/progress/sets/[attemptId]',
     )
     return NextResponse.json({ error: attemptError.message }, { status: 500 })
   }
   if (!attempt) {
-    return NextResponse.json({ error: 'Set attempt not found' }, { status: 404 })
+    return NextResponse.json(
+      { error: 'Set attempt not found' },
+      { status: 404 },
+    )
   }
 
   const { data: rows, error: questionError } = await supabaseAdmin
     .from('student_question_attempts')
     .select(
-      'question_id, score, time_spent_seconds, answer_snapshot, is_flagged, attempted_at, content_snapshot'
+      'question_id, score, time_spent_seconds, answer_snapshot, is_flagged, attempted_at, content_snapshot',
     )
     .eq('student_question_set_attempt_id', attemptId)
     .eq('student_id', studentId)
@@ -128,7 +139,7 @@ export async function GET(
   if (questionError) {
     captureApiError(
       questionError,
-      '/api/ucat/students/[studentId]/progress/sets/[attemptId]'
+      '/api/ucat/students/[studentId]/progress/sets/[attemptId]',
     )
     return NextResponse.json({ error: questionError.message }, { status: 500 })
   }
@@ -137,9 +148,7 @@ export async function GET(
     name?: unknown
     stemIds?: string[]
   }
-  const stemIds = Array.isArray(setSnapshot.stemIds)
-    ? setSnapshot.stemIds
-    : []
+  const stemIds = Array.isArray(setSnapshot.stemIds) ? setSnapshot.stemIds : []
   const stemOrder = new Map(stemIds.map((id, index) => [id, index]))
   const ordered = (rows ?? [])
     .map((row) => ({
@@ -147,15 +156,18 @@ export async function GET(
       snapshot: parseAttemptContentSnapshot(row.content_snapshot),
     }))
     .filter(
-      (entry): entry is typeof entry & { snapshot: NonNullable<typeof entry.snapshot> } =>
-        entry.snapshot != null
+      (
+        entry,
+      ): entry is typeof entry & {
+        snapshot: NonNullable<typeof entry.snapshot>
+      } => entry.snapshot != null,
     )
     .sort(
       (a, b) =>
         (stemOrder.get(a.snapshot.stem.id) ?? Number.MAX_SAFE_INTEGER) -
           (stemOrder.get(b.snapshot.stem.id) ?? Number.MAX_SAFE_INTEGER) ||
         a.snapshot.question.index - b.snapshot.question.index ||
-        a.row.attempted_at.localeCompare(b.row.attempted_at)
+        a.row.attempted_at.localeCompare(b.row.attempted_at),
     )
 
   let currentStemId: string | null = null
@@ -190,19 +202,19 @@ export async function GET(
         result: resultForAttempt(
           row.score,
           snapshot.question.answerScheme,
-          true
+          true,
         ),
         categoryName: snapshot.stem.categoryName ?? null,
         categoryDescription: snapshot.stem.categoryDescription
           ? extractTextFromRichJson(
-              snapshot.stem.categoryDescription as JsonLike
+              snapshot.stem.categoryDescription as JsonLike,
             ) || null
           : null,
         questionStemCategoryId: snapshot.stem.categoryId ?? null,
         selectedOptionId: parseSelectedOptionId(row.answer_snapshot),
         answerSnapshot: parsePlacementProjection(row.answer_snapshot),
       }
-    }
+    },
   )
 
   const questionSetName = setSnapshot.name
@@ -234,16 +246,13 @@ export async function GET(
     timeTakenSeconds,
     setTimeLimitSeconds,
     examTimeLimitSeconds,
+    effectivePace: attempt.effective_pace_multiplier,
     studentSetSpeed,
     studentExamSpeed,
     attemptedAt: attempt.attempted_at,
     completedAt: attempt.completed_at,
     questions: ordered.map(({ snapshot }, index) =>
-      snapshotToReviewQuestion(
-        snapshot,
-        index + 1,
-        attempt.question_set_id
-      )
+      snapshotToReviewQuestion(snapshot, index + 1, attempt.question_set_id),
     ),
     questionAttempts,
   }

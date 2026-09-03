@@ -73,7 +73,6 @@ export interface VoidInvoiceSession {
   updated_at: string;
 }
 
-
 // Students Without Classes (one row per subject the student is assigned to — students_subjects
 // and students_online_access_manual — with no active class for that subject)
 export interface StudentWithoutClasses {
@@ -193,6 +192,27 @@ export interface UnpaidInvoice {
   stripe_invoice_number: string | null;
 }
 
+export interface SessionBillingAdjustmentIssue {
+  adjustment_id: string;
+  sessions_students_id: string;
+  student_id: string;
+  session_id: string;
+  session_start_at: string | null;
+  kind: 'credit_note' | 'session_charge' | 'restoration_charge';
+  status: 'pending' | 'processing' | 'retryable' | 'failed';
+  amount_cents: number | null;
+  currency: string;
+  reason_category: string;
+  reason_note: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: string;
+  last_error: string | null;
+  issue: 'failed_adjustment' | 'blocked_by_failed_dependency' | 'overdue_adjustment' | 'pending_adjustment';
+  created_at: string;
+  updated_at: string;
+}
+
 // Reconciliation Category Types
 export type ReconciliationCategory = 'financial' | 'scheduling' | 'communication';
 
@@ -218,7 +238,11 @@ export interface ProjectWithoutLead {
   target_date: string | null;
   created_at: string;
   updated_at: string;
-  creator?: { id: string; first_name: string | null; last_name: string | null } | null;
+  creator?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 }
 
 /** Row counts per reconciliation tab (for nav badges). */
@@ -243,6 +267,7 @@ export type ReconciliationItemType =
   | 'uninvoiced_sessions'
   | 'void_invoice_sessions'
   | 'unpaid_invoices'
+  | 'session_billing_adjustments'
   | 'unlogged_sessions'
   | 'unassigned_classes'
   | 'unassigned_tasks'

@@ -12,6 +12,7 @@ import {
   AlertDialogTitle,
   useToast,
 } from '@altitutor/ui';
+import { posthogIdentityHeaders } from '@/shared/lib/analytics/posthog';
 
 interface CancelBookingDialogProps {
   open: boolean;
@@ -36,6 +37,7 @@ export function CancelBookingDialog({
     try {
       const response = await fetch(`/api/bookings/trial/${sessionId}/cancel`, {
         method: 'POST',
+        headers: posthogIdentityHeaders(),
       });
       const data = await response.json().catch(() => ({}));
       if (!response.ok) {

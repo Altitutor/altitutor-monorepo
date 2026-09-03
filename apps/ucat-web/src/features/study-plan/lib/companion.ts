@@ -30,6 +30,28 @@ export function selectNextStudyPlanTask(
   );
 }
 
+export function shouldConfirmStudyPlanTaskOrder(
+  task: StudyPlanTask,
+  recommendedTask: StudyPlanTask | null,
+): boolean {
+  return recommendedTask != null && recommendedTask.id !== task.id;
+}
+
+export function selectRecommendedTaskBeforeStart(
+  tasks: StudyPlanTask[],
+  today: string,
+  selectedTask: StudyPlanTask,
+): StudyPlanTask | null {
+  return (
+    selectNextStudyPlanTask(selectCurrentStudyPlanTasks(tasks, today)) ??
+    selectNextStudyPlanTask(
+      tasks.filter(
+        (task) => task.scheduledDate === selectedTask.scheduledDate,
+      ),
+    )
+  );
+}
+
 export function isCarryOverStudyPlanTask(
   task: StudyPlanTask,
   today: string,

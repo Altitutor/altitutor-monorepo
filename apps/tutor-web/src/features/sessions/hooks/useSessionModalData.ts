@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { sessionsApi } from '../api/sessions';
 import type { Tables } from '@altitutor/shared';
 import type { FlattenedSessionDetail, SessionStaff, SessionStudent } from '../utils/session-helpers';
+import { parseSessionStaffList, parseSessionStudentList } from '../utils/parseSessionDetailJson';
 
 export interface UseSessionModalDataProps {
   isOpen: boolean;
@@ -10,7 +11,7 @@ export interface UseSessionModalDataProps {
 
 export interface ProcessedStudent {
   student: Tables<'students'>;
-  plannedStatus: 'attending' | 'absent';
+  plannedStatus: 'attending' | 'attending-extra' | 'absent';
   actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
 }
 
@@ -50,37 +51,13 @@ interface TutorLog {
 }
 
 function parseSessionStudentsFromJson(json: unknown): SessionStudent[] | undefined {
-  if (!Array.isArray(json)) return undefined;
-  const out: SessionStudent[] = [];
-  for (const item of json) {
-    if (
-      typeof item !== 'object' ||
-      item === null ||
-      !('id' in item) ||
-      !('first_name' in item) ||
-      !('last_name' in item)
-    ) {
-      continue;
-    }
-    const row: SessionStudent = {
-      id: String(item.id),
-      first_name: String(item.first_name),
-      last_name: String(item.last_name),
-      year_level:
-        'year_level' in item && (typeof item.year_level === 'number' || item.year_level === null)
-          ? (item.year_level as number | null)
-          : null,
-      account_class: 'account_class' in item && item.account_class === 'internal_test' ? 'internal_test' : 'external',
-      planned_absence: 'planned_absence' in item ? Boolean(item.planned_absence) : false,
-      is_rescheduled: 'is_rescheduled' in item ? Boolean(item.is_rescheduled) : false,
-      is_credited: 'is_credited' in item ? Boolean(item.is_credited) : false,
-    };
-    if ('session_student_id' in item && typeof item.session_student_id === 'string') {
-      row.session_student_id = item.session_student_id;
-    }
-    out.push(row);
-  }
-  return out.length > 0 ? out : undefined;
+  const students = parseSessionStudentList(json).filter((student) => student.id);
+  return students.length > 0 ? students : undefined;
+}
+
+function parseSessionStaffFromJson(json: unknown): SessionStaff[] | undefined {
+  const staff = parseSessionStaffList(json).filter((member) => member.id);
+  return staff.length > 0 ? staff : undefined;
 }
 
 export interface UseSessionModalDataReturn {
@@ -117,49 +94,8 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
       const result = await sessionsApi.getSessionWithDetails(sessionId);
       // Transform result to match FlattenedSessionDetail type
       if (result && result.session_id) {
-        const parseStaff = (json: unknown): SessionStaff[] | undefined => {
-          if (!Array.isArray(json)) return undefined;
-          const result: SessionStaff[] = [];
-          for (const item of json) {
-            if (
-              typeof item === 'object' &&
-              item !== null &&
-              'id' in item &&
-              'first_name' in item &&
-              'last_name' in item &&
-              'role' in item
-            ) {
-              const staff: SessionStaff = {
-                id: String(item.id),
-                first_name: String(item.first_name),
-                last_name: String(item.last_name),
-                role: String(item.role),
-              };
-              if ('type' in item && typeof item.type === 'string') {
-                staff.type = item.type;
-              }
-              if ('subjects' in item && Array.isArray(item.subjects)) {
-                const subjects: Array<{ id: string; name: string }> = [];
-                for (const subj of item.subjects) {
-                  if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
-                    subjects.push({
-                      id: String(subj.id),
-                      name: String(subj.name),
-                    });
-                  }
-                }
-                if (subjects.length > 0) {
-                  staff.subjects = subjects;
-                }
-              }
-              result.push(staff);
-            }
-          }
-          return result.length > 0 ? result : undefined;
-        };
-
         const students = parseSessionStudentsFromJson(result.students);
-        const staff = parseStaff(result.staff);
+        const staff = parseSessionStaffFromJson(result.staff);
 
         setData({
           ...result,
@@ -346,49 +282,8 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
       const result = await sessionsApi.getSessionWithDetails(sessionId);
       // Transform result to match FlattenedSessionDetail type
       if (result && result.session_id) {
-        const parseStaff = (json: unknown): SessionStaff[] | undefined => {
-          if (!Array.isArray(json)) return undefined;
-          const result: SessionStaff[] = [];
-          for (const item of json) {
-            if (
-              typeof item === 'object' &&
-              item !== null &&
-              'id' in item &&
-              'first_name' in item &&
-              'last_name' in item &&
-              'role' in item
-            ) {
-              const staff: SessionStaff = {
-                id: String(item.id),
-                first_name: String(item.first_name),
-                last_name: String(item.last_name),
-                role: String(item.role),
-              };
-              if ('type' in item && typeof item.type === 'string') {
-                staff.type = item.type;
-              }
-              if ('subjects' in item && Array.isArray(item.subjects)) {
-                const subjects: Array<{ id: string; name: string }> = [];
-                for (const subj of item.subjects) {
-                  if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
-                    subjects.push({
-                      id: String(subj.id),
-                      name: String(subj.name),
-                    });
-                  }
-                }
-                if (subjects.length > 0) {
-                  staff.subjects = subjects;
-                }
-              }
-              result.push(staff);
-            }
-          }
-          return result.length > 0 ? result : undefined;
-        };
-
         const students = parseSessionStudentsFromJson(result.students);
-        const staff = parseStaff(result.staff);
+        const staff = parseSessionStaffFromJson(result.staff);
 
         setData({
           ...result,
@@ -411,9 +306,10 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
     return students.map((student) => ({
       student_id: student.id,
       student: student as unknown as Tables<'students'>,
-      planned_absence: 'planned_absence' in student ? Boolean(student.planned_absence) : false,
-      is_rescheduled: 'is_rescheduled' in student ? Boolean(student.is_rescheduled) : false,
-      is_credited: 'is_credited' in student ? Boolean(student.is_credited) : false,
+      planned_absence: Boolean(student.planned_absence),
+      is_extra: Boolean(student.is_extra),
+      is_rescheduled: Boolean(student.is_rescheduled),
+      is_credited: Boolean(student.is_credited),
     }));
   }, [data?.students]);
 
@@ -472,7 +368,11 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
   // Process students with attendance status
   const studentsData = useMemo(() => {
     return sessionsStudents.map((ss) => {
-      const plannedStatus: 'attending' | 'absent' = ss.planned_absence ? 'absent' : 'attending';
+      const plannedStatus: ProcessedStudent['plannedStatus'] = ss.planned_absence
+        ? 'absent'
+        : ss.is_extra
+          ? 'attending-extra'
+          : 'attending';
       const studentId = ss.student_id || (ss.student && 'id' in ss.student ? String(ss.student.id) : '');
       const actualAttendance = studentId ? actualStudentAttendance[studentId] : undefined;
       const wasTrialActual = actualAttendance?.was_trial ?? false;

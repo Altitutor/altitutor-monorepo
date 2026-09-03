@@ -8,6 +8,8 @@ export const sessionsKeys = {
   list: (filters: string) => [...sessionsKeys.lists(), { filters }] as const,
   listRange: (rangeStart: string, rangeEnd: string) =>
     [...sessionsKeys.lists(), 'range', rangeStart, rangeEnd] as const,
+  listOriginalRange: (rangeStart: string, rangeEnd: string) =>
+    [...sessionsKeys.lists(), 'original-range', rangeStart, rangeEnd] as const,
   details: () => [...sessionsKeys.all, 'detail'] as const,
   detail: (id: string) => [...sessionsKeys.details(), id] as const,
   detailsBatch: (sessionIds: string[]) =>
@@ -29,6 +31,15 @@ export function useTutorSessionsInRange(rangeStart: string, rangeEnd: string) {
   return useQuery({
     queryKey: sessionsKeys.listRange(rangeStart, rangeEnd),
     queryFn: () => sessionsApi.getSessionsInDateRange(rangeStart, rangeEnd),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+export function useTutorSessionsOriginallyInRange(rangeStart: string, rangeEnd: string) {
+  return useQuery({
+    queryKey: sessionsKeys.listOriginalRange(rangeStart, rangeEnd),
+    queryFn: () => sessionsApi.getSessionsOriginallyInDateRange(rangeStart, rangeEnd),
     staleTime: 1000 * 60 * 3,
     gcTime: 1000 * 60 * 5,
   });

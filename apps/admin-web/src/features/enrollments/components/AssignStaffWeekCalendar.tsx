@@ -371,7 +371,7 @@ export function AssignStaffWeekCalendar({
                               type: (s.type as 'CLASS' | 'PRIVATE' | 'GROUP') || 'CLASS',
                               created_at: new Date().toISOString(),
                               updated_at: new Date().toISOString(),
-                              billing_type: 'CLASS',
+                              billing_type: cls?.billing_type ?? 'CLASS',
                               admin_shift_id: null,
                               status: 'SCHEDULED',
                               subject_id: cls && 'subject_id' in cls ? cls.subject_id : null,

@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(9);
+SELECT plan(12);
 
 INSERT INTO public.automation_rules (
   id,
@@ -145,6 +145,43 @@ SELECT is(
   ),
   0::BIGINT,
   'a linked parent feed does not aggregate the student lifecycle event'
+);
+
+SELECT lives_ok(
+  $$UPDATE public.students
+    SET birthday = CASE
+      WHEN birthday = DATE '2000-01-02' THEN DATE '2000-01-03'
+      ELSE DATE '2000-01-02'
+    END
+    WHERE id = '10000000-0000-0000-0000-000000000001'$$,
+  'updating a student birthday succeeds'
+);
+
+SELECT is(
+  (
+    SELECT count(*)
+    FROM public.domain_events
+    WHERE event_name = 'student.properties_changed'
+      AND subject_id = '10000000-0000-0000-0000-000000000001'
+      AND payload->'changes' ? 'birthday'
+      AND recorded_at >= transaction_timestamp()
+  ),
+  1::BIGINT,
+  'updating a student birthday records an explicit property lifecycle event'
+);
+
+SELECT is(
+  (
+    SELECT count(*)
+    FROM public.vadmin_domain_event_feed
+    WHERE event_name = 'student.properties_changed'
+      AND linked_entity_type = 'student'
+      AND linked_entity_id = '10000000-0000-0000-0000-000000000001'
+      AND payload->'changes' ? 'birthday'
+      AND recorded_at >= transaction_timestamp()
+  ),
+  1::BIGINT,
+  'the birthday property event appears in the student activity feed'
 );
 
 SELECT * FROM finish();

@@ -6,6 +6,9 @@ export type ResendViaSmsAvailability = 'hidden' | 'unavailable' | 'offer' | 'con
 export const AMBIGUOUS_SMS_RESEND_CONFIRM =
   'The Mac may still deliver this iMessage. Resend via SMS anyway? The recipient could get both.';
 
+export const UNCONFIRMED_SEND_HINT =
+  'The Mac did not confirm this send. The recipient may or may not have it. Resend via SMS if you need it delivered.';
+
 export function asAppleService(value: string | null | undefined): AppleService | null {
   if (value === 'SMS' || value === 'iMessage') return value;
   return null;

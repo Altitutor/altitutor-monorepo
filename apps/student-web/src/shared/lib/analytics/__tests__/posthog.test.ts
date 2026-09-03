@@ -1,6 +1,7 @@
 import {
   sanitizeStudentAnalyticsPathname,
   sanitizeStudentAnalyticsUrl,
+  getStudentAnalyticsSurface,
 } from "../posthog";
 
 describe("sanitizeStudentAnalyticsPathname", () => {
@@ -19,6 +20,14 @@ describe("sanitizeStudentAnalyticsPathname", () => {
     expect(sanitizeStudentAnalyticsPathname("/dashboard/classes")).toBe(
       "/dashboard/classes",
     );
+  });
+});
+
+describe("getStudentAnalyticsSurface", () => {
+  it("tags public booking routes separately from the logged-in app", () => {
+    expect(getStudentAnalyticsSurface("/booking/trial-session")).toBe("booking");
+    expect(getStudentAnalyticsSurface("/b/[token]")).toBe("booking");
+    expect(getStudentAnalyticsSurface("/dashboard/classes")).toBe("application");
   });
 });
 

@@ -17,6 +17,8 @@ on:
       - 'supabase/functions/**'
       - 'supabase/migrations/**'
       - 'supabase/scripts/**'
+      - 'supabase/seed/**'
+      - 'supabase/config.toml'
       - 'supabase/templates/**'
       - 'scripts/**'
       - 'turbo.json'
@@ -276,10 +278,10 @@ jobs:
       - name: Start local Supabase and install browsers
         run: |
           set -euo pipefail
-          # A fresh `supabase start` applies migrations and seed. Do not follow
-          # it with `db reset` — that recreates the database and reapplies
-          # everything. Studio, image proxy, analytics, and mail UI are unused
-          # by pgTAP and Playwright.
+          # A fresh `supabase start` applies migrations and the cheap automatic
+          # seed. Do not follow it with `db reset` — that recreates the
+          # database and reapplies everything. Studio, image proxy, analytics,
+          # and mail UI are unused by pgTAP and Playwright.
           if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge &
           else
@@ -297,6 +299,10 @@ jobs:
             | grep -i supabase \
             | grep -v '<none>' \
             | xargs docker save -o /tmp/supabase-docker-images.tar
+
+      - name: Apply UCAT study-plan fixtures
+        if: needs.web-system-tests-needed.outputs.database == 'true' || needs.web-system-tests-needed.outputs.ucat == 'true'
+        run: bash supabase/scripts/apply-ucat-test-seed.sh
 
       - name: Test database contracts
         if: needs.web-system-tests-needed.outputs.database == 'true'

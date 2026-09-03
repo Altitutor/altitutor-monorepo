@@ -28,6 +28,7 @@ import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters'
 import { LogAbsenceDialog } from './absences';
 import { SessionsTableRow } from './SessionsTableRow';
 import { useUninvoicedSessions } from '@/features/reconciliation/api/queries';
+import { useStudentSessionBillingDetails } from '../hooks/useStudentSessionBillingDetails';
 
 const SESSION_TYPES = [
   'CLASS',
@@ -194,6 +195,14 @@ export function SessionsTable({
   });
 
   const modals = useSessionsTableModals(refetch);
+
+  const { invoiceDetailsById, previewsBySessionId } = useStudentSessionBillingDetails({
+    enabled: isStudentAttendanceView,
+    studentId,
+    sessions: allSessions,
+    classesById,
+    sessionStudents,
+  });
 
   const { data: uninvoicedSessions = [] } = useUninvoicedSessions();
   const uninvoicedSessionsStudentsIds = useMemo(() => {
@@ -498,6 +507,8 @@ export function SessionsTable({
                   onCopySessionId={handleCopySessionId}
                   router={router}
                   uninvoicedSessionsStudentsIds={uninvoicedSessionsStudentsIds}
+                  invoiceDetailsById={invoiceDetailsById}
+                  invoicePreviewsBySessionId={previewsBySessionId}
                 />
               ))
             )}

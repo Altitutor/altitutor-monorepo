@@ -34,6 +34,7 @@ import type {
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
   ProjectWithoutLead,
+  SessionBillingAdjustmentIssue,
 } from '../types';
 import { AssignTaskDropdown } from './AssignTaskDropdown';
 import { getStatusLabel } from '@/features/tasks/utils/taskUtils';
@@ -44,6 +45,44 @@ import { useConversationsByContact } from '@/features/messages/api/queries';
 import type { AggregatedConversation } from '@/features/messages/types';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useReconciliationHandlers } from './ReconciliationActions';
+
+export function SessionBillingAdjustmentsTable({
+  items,
+  isLoading,
+}: {
+  items: SessionBillingAdjustmentIssue[];
+  isLoading?: boolean;
+}) {
+  const handlers = useReconciliationHandlers();
+  return (
+    <ReconciliationTable
+      title="Session billing adjustments"
+      items={items}
+      isLoading={isLoading}
+      columns={['Created', 'Session', 'Operation', 'Status', 'Attempts', 'Problem']}
+      renderRow={(item) => (
+        <TableRow key={item.adjustment_id}>
+          <TableCell>{format(new Date(item.created_at), 'MMM d, yyyy HH:mm')}</TableCell>
+          <TableCell>
+            <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.session_id)}>
+              {item.session_start_at ? format(new Date(item.session_start_at), 'MMM d, yyyy HH:mm') : 'Session'}
+            </ReconciliationTableLinkButton>
+          </TableCell>
+          <TableCell>{item.kind.replaceAll('_', ' ')}</TableCell>
+          <TableCell>
+            <Badge variant={item.status === 'failed' ? 'destructive' : 'secondary'}>{item.status}</Badge>
+          </TableCell>
+          <TableCell>
+            {item.attempt_count}/{item.max_attempts}
+          </TableCell>
+          <TableCell className="max-w-[28rem] whitespace-normal">
+            {item.last_error ?? item.issue.replaceAll('_', ' ')}
+          </TableCell>
+        </TableRow>
+      )}
+    />
+  );
+}
 
 /** Handlers used to open student / staff / parent modals from a message contact row. */
 type ContactProfileHandlers = {
@@ -60,10 +99,7 @@ function contactRowOpensProfile(contact: AggregatedConversation['contact'] | nul
   return false;
 }
 
-function openContactProfile(
-  contact: AggregatedConversation['contact'] | null,
-  handlers: ContactProfileHandlers
-) {
+function openContactProfile(contact: AggregatedConversation['contact'] | null, handlers: ContactProfileHandlers) {
   if (!contact) return;
   if (contact.contact_type === 'STUDENT' && contact.student_id) {
     handlers.onOpenStudent(contact.student_id);
@@ -179,22 +215,13 @@ export function ReconciliationTable<T>({
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-6 w-6"
-            onClick={() => setIsExpanded(!isExpanded)}
-          >
-            {isExpanded ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
+          <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setIsExpanded(!isExpanded)}>
+            {isExpanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
           </Button>
           <h3 className="text-lg font-semibold">{title}</h3>
-          <Badge 
-            variant={items.length === 0 ? "secondary" : "destructive"}
-            className={items.length === 0 ? "bg-accent text-accent-foreground" : undefined}
+          <Badge
+            variant={items.length === 0 ? 'secondary' : 'destructive'}
+            className={items.length === 0 ? 'bg-accent text-accent-foreground' : undefined}
           >
             {items.length}
           </Badge>
@@ -215,37 +242,37 @@ export function ReconciliationTable<T>({
             searchPlaceholder={searchPlaceholder}
           />
           <div className="rounded-md border overflow-x-auto">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {columns.map((col) => (
-                  <TableHead key={col}>{col}</TableHead>
-                ))}
-                <TableHead className="whitespace-nowrap">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {isLoading ? (
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={columns.length + 1} className="text-center h-24">
-                    Loading...
-                  </TableCell>
+                  {columns.map((col) => (
+                    <TableHead key={col}>{col}</TableHead>
+                  ))}
+                  <TableHead className="whitespace-nowrap">Actions</TableHead>
                 </TableRow>
-              ) : items.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={columns.length + 1} className="text-center h-24 text-muted-foreground">
-                    No items found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                pagedItems.map((item, index) => {
-                  const absoluteIndex = (page - 1) * pageSize + index;
-                  return renderRow(item, absoluteIndex);
-                })
-              )}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length + 1} className="text-center h-24">
+                      Loading...
+                    </TableCell>
+                  </TableRow>
+                ) : items.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={columns.length + 1} className="text-center h-24 text-muted-foreground">
+                      No items found
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  pagedItems.map((item, index) => {
+                    const absoluteIndex = (page - 1) * pageSize + index;
+                    return renderRow(item, absoluteIndex);
+                  })
+                )}
+              </TableBody>
+            </Table>
+          </div>
         </>
       )}
 
@@ -266,13 +293,7 @@ export function ReconciliationTable<T>({
 }
 
 // Specific table components for each type
-export function UninvoicedSessionsTable({
-  items,
-  isLoading,
-}: {
-  items: UninvoicedSession[];
-  isLoading?: boolean;
-}) {
+export function UninvoicedSessionsTable({ items, isLoading }: { items: UninvoicedSession[]; isLoading?: boolean }) {
   const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
@@ -283,8 +304,16 @@ export function UninvoicedSessionsTable({
       renderRow={(item, index) => {
         const wasTrialPlanned = item.was_trial ?? false;
         // Calculate planned attendance status
-        let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
-        
+        let plannedStatus:
+          | 'attending'
+          | 'attending-extra'
+          | 'attending-trial'
+          | 'attending-extra-trial'
+          | 'absent'
+          | 'rescheduled'
+          | 'credited'
+          | 'unplanned' = 'attending';
+
         if (item.planned_absence) {
           if (item.is_rescheduled) {
             plannedStatus = 'rescheduled';
@@ -298,7 +327,7 @@ export function UninvoicedSessionsTable({
         } else {
           plannedStatus = wasTrialPlanned ? 'attending-trial' : 'attending';
         }
-        
+
         // Calculate actual attendance status
         const wasTrialActual = item.actual_was_trial ?? false;
         let actualStatus: 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged' = 'not-logged';
@@ -312,12 +341,10 @@ export function UninvoicedSessionsTable({
 
         // Use a combination of fields to ensure unique keys, even if sessions_students_id has duplicates
         const uniqueKey = `${item.sessions_students_id}-${item.session_id}-${index}`;
-        
+
         return (
           <TableRow key={uniqueKey}>
-            <TableCell>
-              {format(new Date(item.session_start_at), 'MMM d, yyyy')}
-            </TableCell>
+            <TableCell>{format(new Date(item.session_start_at), 'MMM d, yyyy')}</TableCell>
             <TableCell>
               <ReconciliationTableLinkButton
                 className="font-medium"
@@ -327,9 +354,7 @@ export function UninvoicedSessionsTable({
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <ReconciliationTableLinkButton
-                onClick={() => handlers.onOpenSession(item.session_id)}
-              >
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.session_id)}>
                 {item.session_short_name?.trim() || '—'}
               </ReconciliationTableLinkButton>
             </TableCell>
@@ -356,13 +381,7 @@ export function UninvoicedSessionsTable({
   );
 }
 
-export function VoidInvoiceSessionsTable({
-  items,
-  isLoading,
-}: {
-  items: VoidInvoiceSession[];
-  isLoading?: boolean;
-}) {
+export function VoidInvoiceSessionsTable({ items, isLoading }: { items: VoidInvoiceSession[]; isLoading?: boolean }) {
   const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
@@ -372,7 +391,15 @@ export function VoidInvoiceSessionsTable({
       columns={['Date', 'Student', 'Session', 'Invoice number', 'Planned', 'Actual']}
       renderRow={(item, index) => {
         const wasTrialPlanned = item.was_trial ?? false;
-        let plannedStatus: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'unplanned' = 'attending';
+        let plannedStatus:
+          | 'attending'
+          | 'attending-extra'
+          | 'attending-trial'
+          | 'attending-extra-trial'
+          | 'absent'
+          | 'rescheduled'
+          | 'credited'
+          | 'unplanned' = 'attending';
 
         if (item.planned_absence) {
           if (item.is_rescheduled) {
@@ -401,16 +428,12 @@ export function VoidInvoiceSessionsTable({
         const uniqueKey = `${item.sessions_students_id}-${item.void_invoice_id}-${index}`;
         const invoiceNumberLabel =
           item.void_stripe_invoice_number?.trim() ||
-          (item.void_stripe_invoice_id
-            ? item.void_stripe_invoice_id.slice(0, 12)
-            : item.void_invoice_id.slice(0, 8));
+          (item.void_stripe_invoice_id ? item.void_stripe_invoice_id.slice(0, 12) : item.void_invoice_id.slice(0, 8));
         const sessionLabel = item.session_short_name?.trim() || '—';
 
         return (
           <TableRow key={uniqueKey}>
-            <TableCell>
-              {format(new Date(item.session_start_at), 'MMM d, yyyy')}
-            </TableCell>
+            <TableCell>{format(new Date(item.session_start_at), 'MMM d, yyyy')}</TableCell>
             <TableCell>
               <ReconciliationTableLinkButton
                 className="font-medium"
@@ -420,9 +443,7 @@ export function VoidInvoiceSessionsTable({
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <ReconciliationTableLinkButton
-                onClick={() => handlers.onOpenSession(item.session_id)}
-              >
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.session_id)}>
                 {sessionLabel}
               </ReconciliationTableLinkButton>
             </TableCell>
@@ -454,13 +475,7 @@ export function VoidInvoiceSessionsTable({
   );
 }
 
-export function UnpaidInvoicesTable({
-  items,
-  isLoading,
-}: {
-  items: UnpaidInvoice[];
-  isLoading?: boolean;
-}) {
+export function UnpaidInvoicesTable({ items, isLoading }: { items: UnpaidInvoice[]; isLoading?: boolean }) {
   const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
@@ -476,9 +491,7 @@ export function UnpaidInvoicesTable({
 
         return (
           <TableRow key={item.id}>
-            <TableCell>
-              {format(new Date(item.invoice_date), 'MMM d, yyyy')}
-            </TableCell>
+            <TableCell>{format(new Date(item.invoice_date), 'MMM d, yyyy')}</TableCell>
             <TableCell>
               <ReconciliationTableLinkButton
                 className="font-medium"
@@ -510,13 +523,7 @@ export function UnpaidInvoicesTable({
   );
 }
 
-export function UnloggedSessionsTable({
-  items,
-  isLoading,
-}: {
-  items: UnloggedSession[];
-  isLoading?: boolean;
-}) {
+export function UnloggedSessionsTable({ items, isLoading }: { items: UnloggedSession[]; isLoading?: boolean }) {
   const handlers = useReconciliationHandlers();
   return (
     <ReconciliationTable
@@ -529,9 +536,7 @@ export function UnloggedSessionsTable({
 
         return (
           <TableRow key={item.session_id}>
-            <TableCell>
-              {format(new Date(item.start_at), 'MMM d, yyyy')}
-            </TableCell>
+            <TableCell>{format(new Date(item.start_at), 'MMM d, yyyy')}</TableCell>
             <TableCell>
               <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.session_id)}>
                 {item.session_name}
@@ -544,9 +549,7 @@ export function UnloggedSessionsTable({
                 <div className="flex flex-col gap-1">
                   {tutors.map((staff) => {
                     const label =
-                      `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim() ||
-                      staff.email ||
-                      staff.id;
+                      `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim() || staff.email || staff.id;
                     return (
                       <ReconciliationTableLinkButton key={staff.id} onClick={() => handlers.onOpenStaff(staff.id)}>
                         {label}
@@ -566,13 +569,7 @@ export function UnloggedSessionsTable({
   );
 }
 
-export function UnassignedTasksTable({
-  items,
-  isLoading,
-}: {
-  items: UnassignedTask[];
-  isLoading?: boolean;
-}) {
+export function UnassignedTasksTable({ items, isLoading }: { items: UnassignedTask[]; isLoading?: boolean }) {
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
@@ -586,24 +583,15 @@ export function UnassignedTasksTable({
         renderRow={(item, _index) => (
           <TableRow key={item.id}>
             <TableCell className="max-w-xs truncate" title={item.title}>
-              <ReconciliationTableLinkButton
-                className="font-medium"
-                onClick={() => setSelectedTaskId(item.id)}
-              >
+              <ReconciliationTableLinkButton className="font-medium" onClick={() => setSelectedTaskId(item.id)}>
                 {item.title}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <Badge variant="secondary">
-                {getStatusLabel((item.status ?? 'backlog') as TaskStatus)}
-              </Badge>
+              <Badge variant="secondary">{getStatusLabel((item.status ?? 'backlog') as TaskStatus)}</Badge>
             </TableCell>
-            <TableCell>
-              {item.issue?.name ?? item.project?.name ?? '—'}
-            </TableCell>
-            <TableCell>
-              {item.due_date ? format(new Date(item.due_date), 'MMM d, yyyy') : '—'}
-            </TableCell>
+            <TableCell>{item.issue?.name ?? item.project?.name ?? '—'}</TableCell>
+            <TableCell>{item.due_date ? format(new Date(item.due_date), 'MMM d, yyyy') : '—'}</TableCell>
             <TableCell className={ACTIONS_CELL}>
               <div className="flex flex-nowrap items-center gap-2">
                 <AssignTaskDropdown taskId={item.id} />
@@ -626,13 +614,7 @@ export function UnassignedTasksTable({
   );
 }
 
-export function ProjectsWithoutLeadTable({
-  items,
-  isLoading,
-}: {
-  items: ProjectWithoutLead[];
-  isLoading?: boolean;
-}) {
+export function ProjectsWithoutLeadTable({ items, isLoading }: { items: ProjectWithoutLead[]; isLoading?: boolean }) {
   const handlers = useReconciliationHandlers();
 
   return (
@@ -643,27 +625,18 @@ export function ProjectsWithoutLeadTable({
       columns={['Project', 'Status', 'Priority', 'Target', 'Created by']}
       renderRow={(item, _index) => {
         const creator = item.creator;
-        const creatorName = creator
-          ? `${creator.first_name ?? ''} ${creator.last_name ?? ''}`.trim() || '—'
-          : '—';
-        const targetLabel = item.target_date
-          ? format(new Date(item.target_date), 'MMM d, yyyy')
-          : '—';
+        const creatorName = creator ? `${creator.first_name ?? ''} ${creator.last_name ?? ''}`.trim() || '—' : '—';
+        const targetLabel = item.target_date ? format(new Date(item.target_date), 'MMM d, yyyy') : '—';
 
         return (
           <TableRow key={item.id}>
             <TableCell className="max-w-xs truncate" title={item.name}>
-              <ReconciliationTableLinkButton
-                className="font-medium"
-                onClick={() => handlers.onOpenProject(item.id)}
-              >
+              <ReconciliationTableLinkButton className="font-medium" onClick={() => handlers.onOpenProject(item.id)}>
                 {item.name}
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <Badge variant="secondary">
-                {getProjectStatusLabel((item.status ?? 'backlog') as ProjectStatus)}
-              </Badge>
+              <Badge variant="secondary">{getProjectStatusLabel((item.status ?? 'backlog') as ProjectStatus)}</Badge>
             </TableCell>
             <TableCell>
               {item.priority !== null && item.priority !== undefined
@@ -684,13 +657,7 @@ export function ProjectsWithoutLeadTable({
   );
 }
 
-export function UnassignedClassesTable({
-  items,
-  isLoading,
-}: {
-  items: UnassignedClass[];
-  isLoading?: boolean;
-}) {
+export function UnassignedClassesTable({ items, isLoading }: { items: UnassignedClass[]; isLoading?: boolean }) {
   const handlers = useReconciliationHandlers();
 
   return (
@@ -702,10 +669,7 @@ export function UnassignedClassesTable({
       renderRow={(item, _index) => (
         <TableRow key={item.class_id}>
           <TableCell>
-            <ReconciliationTableLinkButton
-              className="font-medium"
-              onClick={() => handlers.onOpenClass(item.class_id)}
-            >
+            <ReconciliationTableLinkButton className="font-medium" onClick={() => handlers.onOpenClass(item.class_id)}>
               {item.class_display_name}
             </ReconciliationTableLinkButton>
           </TableCell>
@@ -763,9 +727,7 @@ export function MessagesToFollowUpTable() {
   const { data: conversations, isPending } = useConversationsByContact();
   const handlers = useReconciliationHandlers();
 
-  const toFollowUpItems = (conversations ?? []).filter((c) =>
-    c.conversations.some((conv) => conv.needs_follow_up)
-  );
+  const toFollowUpItems = (conversations ?? []).filter((c) => c.conversations.some((conv) => conv.needs_follow_up));
 
   return (
     <ReconciliationTable
@@ -845,7 +807,7 @@ export function StudentsWithoutClassesTable({
   const handlers = useReconciliationHandlers();
   const subjectMap = useMemo(() => {
     const map = new Map<string, Tables<'subjects'>>();
-    subjects.forEach(s => map.set(s.id, s));
+    subjects.forEach((s) => map.set(s.id, s));
     return map;
   }, [subjects]);
 
@@ -856,23 +818,23 @@ export function StudentsWithoutClassesTable({
       isLoading={isLoading}
       columns={['Date', 'Student', 'Subject']}
       renderRow={(item, _index) => {
-        const subject = subjectMap.get(item.subject_id) || {
-          id: item.subject_id,
-          name: item.subject_name,
-          short_name: item.subject_short_name,
-          long_name: item.subject_long_name,
-          curriculum: item.subject_curriculum,
-          year_level: item.subject_year_level,
-        } as Tables<'subjects'>;
+        const subject =
+          subjectMap.get(item.subject_id) ||
+          ({
+            id: item.subject_id,
+            name: item.subject_name,
+            short_name: item.subject_short_name,
+            long_name: item.subject_long_name,
+            curriculum: item.subject_curriculum,
+            year_level: item.subject_year_level,
+          } as Tables<'subjects'>);
         const { style, textColorClass } = getSubjectColorStyle(subject);
         const defaultClass = !subject?.color ? 'bg-gray-100 text-gray-800' : '';
-        
+
         return (
           <TableRow key={`${item.student_id}-${item.subject_id}`}>
             <TableCell>
-              {item.subject_added_at 
-                ? format(new Date(item.subject_added_at), 'MMM d, yyyy')
-                : '—'}
+              {item.subject_added_at ? format(new Date(item.subject_added_at), 'MMM d, yyyy') : '—'}
             </TableCell>
             <TableCell>
               <ReconciliationTableLinkButton
@@ -918,9 +880,7 @@ export function TrialStudentsNotSignedUpTable({
         <TableRow key={item.student_id}>
           <TableCell>
             {item.first_trial_session_date && item.first_trial_session_id ? (
-              <ReconciliationTableLinkButton
-                onClick={() => handlers.onOpenSession(item.first_trial_session_id!)}
-              >
+              <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.first_trial_session_id!)}>
                 {format(new Date(item.first_trial_session_date), 'MMM d, yyyy')}
               </ReconciliationTableLinkButton>
             ) : item.first_trial_session_date ? (

@@ -6,7 +6,6 @@
 
 import type { Database } from '@altitutor/shared';
 import {
-  PAY_CATEGORIES,
   determinePayCategory,
   generateEmployeeExternalId,
   getSessionPriority,
@@ -44,7 +43,7 @@ export type TutorLogExportData = {
 
 export type ProcessTutorLogsForExportOptions = {
   /**
-   * Class-like sessions with zero attended students (Homework Help excluded).
+ * Class-like sessions with zero attended students (Homework Help is a separate type).
    * - exclude: omit from export and list them in excludedClasses (default / QuickBooks behaviour)
    * - include_all: keep them in the export pipeline
    * - only_empty: keep only those rows
@@ -85,7 +84,7 @@ export type ProcessTutorLogsResult = {
  * Process tutor logs and generate QuickBooks entries
  * Handles overlapping sessions by reducing units of lower priority sessions
  * Groups entries by type: admin shifts, meetings, class sessions
- * Excludes class sessions with no students attended (Homework Help classes are always included)
+ * Excludes class sessions with no students attended. Homework Help is always included.
  */
 export function processTutorLogsForExport(
   tutorLogs: TutorLogExportData[],
@@ -106,9 +105,8 @@ export function processTutorLogsForExport(
       return false;
     }
 
-    const isHomeworkHelp = log.subjectName === 'Homework Help';
     const isEmptyClass =
-      isClassType(log.sessionType) && log.attendedStudentCount === 0 && !isHomeworkHelp;
+      isClassType(log.sessionType) && log.attendedStudentCount === 0;
 
     if (emptyMode === 'include_all') {
       return true;
@@ -182,13 +180,7 @@ function processStaffEntries(logs: TutorLogExportData[]): QuickBooksEntry[] {
         return null;
       }
       
-      const basePriority = getSessionPriority(log.sessionType);
-      // Homework Help should have lower priority than other classes
-      // while still remaining above admin shifts.
-      const priority =
-        payCategory === PAY_CATEGORIES.HOMEWORK_HELP && basePriority > 0
-          ? basePriority - 0.5
-          : basePriority;
+      const priority = getSessionPriority(log.sessionType);
 
       const employeeExternalId = generateEmployeeExternalId(
         log.staffFirstName,
@@ -335,6 +327,8 @@ function generateComments(log: TutorLogExportData): string {
     subjectDisplay = formatSessionType(log.sessionType);
   } else if (log.sessionType === 'ADMIN_SHIFT' || log.sessionType === 'ADMIN_MEETING') {
     subjectDisplay = 'Admin Shift';
+  } else if (log.sessionType === 'HOMEWORK_HELP') {
+    subjectDisplay = 'Homework Help';
   } else {
     subjectDisplay = log.subjectLongName || log.subjectName || 'Unknown Subject';
   }

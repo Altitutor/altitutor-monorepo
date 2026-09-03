@@ -7,6 +7,7 @@
 import {
   calculateSessionPrice,
   formatCurrency,
+  grossUpInvoiceAmount,
 } from '../pricing';
 import type { SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
 import type { StudentSubsidyRow } from '@/features/students/api/subsidies';
@@ -460,5 +461,19 @@ describe('formatCurrency', () => {
 
   it('should round cents correctly', () => {
     expect(formatCurrency(9999, 'aud')).toBe('$99.99');
+  });
+});
+
+describe('grossUpInvoiceAmount', () => {
+  it('matches the billing runner domestic fee calculation', () => {
+    expect(grossUpInvoiceAmount(10000, false, 0.0175, 0.029, 30)).toBe(10209);
+  });
+
+  it('uses the international rate for an international card', () => {
+    expect(grossUpInvoiceAmount(10000, true, 0.0175, 0.029, 30)).toBe(10330);
+  });
+
+  it('does not add fees to a free session', () => {
+    expect(grossUpInvoiceAmount(0, false, 0.0175, 0.029, 30)).toBe(0);
   });
 });

@@ -1,12 +1,11 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, TablesUpdate, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
 import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
-import { Checkbox, Input, Label } from "@altitutor/ui";
+import { Input, Label, Switch } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import {
   AlertDialog,
@@ -29,11 +28,16 @@ import { useStudentClasses, type StudentClass } from '@/features/students/hooks/
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getSubjectColorStyle } from '@/shared/utils';
+import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import {
   invalidateStudentClassSurfaces,
   invalidateStudentDetail,
 } from '@/shared/lib/query-invalidation';
+import {
+  currentEnrolledClassIds,
+  groupStudentClassesBySubject,
+} from '@/features/students/utils/classEnrollments';
 type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
@@ -59,6 +63,7 @@ export function ClassesTab({
   
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [isEditMode, setIsEditMode] = useState(false);
+  const [showPreviousEnrollments, setShowPreviousEnrollments] = useState(false);
   const [inPersonDetails, setInPersonDetails] = useState<TablesUpdate<'students'>>({
     school: student.school,
     curriculum: student.curriculum,
@@ -73,31 +78,6 @@ export function ClassesTab({
     availability_sunday_am: student.availability_sunday_am,
     availability_sunday_pm: student.availability_sunday_pm,
   });
-  
-  // Responsive: detect when container is too small for full cards
-  // Use window width instead of container ref for more reliable detection
-  const [useCompactCards, setUseCompactCards] = useState(false);
-  
-  useEffect(() => {
-    const checkSize = () => {
-      // Use window innerWidth for more reliable mobile detection
-      // Account for padding (p-6 = 24px each side = 48px total) and subject pill (~80-100px)
-      // So if window is < 640px, the card area will be < ~500px
-      const windowWidth = window.innerWidth;
-      const shouldUseCompact = windowWidth < 640;
-      setUseCompactCards(shouldUseCompact);
-    };
-    
-    // Check initially
-    checkSize();
-    
-    // Listen to window resize
-    window.addEventListener('resize', checkSize);
-    
-    return () => {
-      window.removeEventListener('resize', checkSize);
-    };
-  }, []);
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -115,12 +95,16 @@ export function ClassesTab({
   const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
   
-  // Prepare data for timetable view
-  const timetableClasses = classes.map(c => c.class);
+  // Prepare data for timetable view (current enrollments only)
+  const currentClasses = useMemo(
+    () => classes.filter((classData) => !classData.isPreviousEnrollment),
+    [classes]
+  );
+  const timetableClasses = currentClasses.map(c => c.class);
   const timetableSubjects: Record<string, Tables<'subjects'>> = {};
   const timetableStaff: Record<string, Tables<'staff'>[]> = {};
   const timetableStudents: Record<string, Tables<'students'>[]> = {};
-  classes.forEach(c => {
+  currentClasses.forEach(c => {
     if (c.subject) {
       timetableSubjects[c.class.id] = c.subject;
     }
@@ -128,45 +112,10 @@ export function ClassesTab({
     timetableStudents[c.class.id] = c.students || [];
   });
 
-  // Group classes by subject
-  const classesBySubject = useMemo(() => {
-    const grouped: Record<string, StudentClass[]> = {};
-    const classesWithoutMatchingSubject: StudentClass[] = [];
-    const studentSubjectIds = new Set(studentSubjects.map(s => s.id));
-    
-    // Add all student subjects (even if they have no classes)
-    studentSubjects.forEach(subject => {
-      grouped[subject.id] = [];
-    });
-    
-    // Group classes by subject
-    classes.forEach(classData => {
-      if (classData.subject) {
-        const subjectId = classData.subject.id;
-        // Check if student has this subject
-        if (studentSubjectIds.has(subjectId)) {
-          // Student has this subject - add to grouped
-          if (!grouped[subjectId]) {
-            grouped[subjectId] = [];
-          }
-          grouped[subjectId].push(classData);
-        } else {
-          // Student doesn't have this subject - add to bottom section
-          classesWithoutMatchingSubject.push(classData);
-        }
-      } else {
-        // Class has no subject - add to bottom section
-        classesWithoutMatchingSubject.push(classData);
-      }
-    });
-    
-    // Add classes without matching subjects at the end
-    if (classesWithoutMatchingSubject.length > 0) {
-      grouped['__no_subject__'] = classesWithoutMatchingSubject;
-    }
-    
-    return grouped;
-  }, [classes, studentSubjects]);
+  const classesBySubject = useMemo(
+    () => groupStudentClassesBySubject(classes, studentSubjects, showPreviousEnrollments),
+    [classes, studentSubjects, showPreviousEnrollments]
+  );
 
   // Modal handlers
   const handleClassClick = (classId: string) => {
@@ -203,8 +152,12 @@ export function ClassesTab({
     setPendingSameSubjectEnroll(null);
   };
 
+  const findClass = (classId: string) =>
+    classes.find((candidate) => candidate.class.id === classId && !candidate.isPreviousEnrollment)
+    ?? classes.find((candidate) => candidate.class.id === classId);
+
   const openChangeClassModal = (classId: string) => {
-    const cls = classes.find(c => c.class.id === classId);
+    const cls = findClass(classId);
     if (cls) {
       setSelectedClass(cls);
       setIsChangeClassModalOpen(true);
@@ -212,7 +165,7 @@ export function ClassesTab({
   };
 
   const openUnenrollModal = (classId: string) => {
-    const cls = classes.find(c => c.class.id === classId);
+    const cls = findClass(classId);
     if (cls) {
       setSelectedClass(cls);
       setIsUnenrollModalOpen(true);
@@ -220,7 +173,7 @@ export function ClassesTab({
   };
 
   const openUnenrollmentLink = (classId: string) => {
-    const cls = classes.find((candidate) => candidate.class.id === classId);
+    const cls = findClass(classId);
     if (cls) {
       setSelectedClass(cls);
       setIsUnenrollmentLinkOpen(true);
@@ -348,9 +301,9 @@ export function ClassesTab({
 
   // Handle removing a subject
   const handleRemoveSubject = async (subjectId: string) => {
-    // Check if student is enrolled in any classes for this subject
-    const subjectClasses = classesBySubject[subjectId] || [];
-    if (subjectClasses.length > 0) {
+    // Check if student is enrolled in any current classes for this subject
+    const subjectClasses = classesBySubject.find((group) => group.subjectId === subjectId)?.classes || [];
+    if (subjectClasses.some((classData) => !classData.isPreviousEnrollment)) {
       toast({
         title: 'Cannot Remove Subject',
         description: 'Cannot remove subject because the student is enrolled in classes for this subject. Please unenroll from all classes first.',
@@ -400,6 +353,24 @@ export function ClassesTab({
     }
   };
 
+  const handleCancelEdit = () => {
+    setInPersonDetails({
+      school: student.school,
+      curriculum: student.curriculum,
+      year_level: student.year_level,
+      availability_monday: student.availability_monday,
+      availability_tuesday: student.availability_tuesday,
+      availability_wednesday: student.availability_wednesday,
+      availability_thursday: student.availability_thursday,
+      availability_friday: student.availability_friday,
+      availability_saturday_am: student.availability_saturday_am,
+      availability_saturday_pm: student.availability_saturday_pm,
+      availability_sunday_am: student.availability_sunday_am,
+      availability_sunday_pm: student.availability_sunday_pm,
+    });
+    setIsEditMode(false);
+  };
+
   const handleSave = async () => {
     try {
       await studentsApi.updateStudent(student.id, inPersonDetails);
@@ -442,12 +413,41 @@ export function ClassesTab({
     return null;
   }
 
+  const renderClassCard = (classData: StudentClass) => {
+    const isPrevious = Boolean(classData.isPreviousEnrollment);
+    return (
+      <ClassCard
+        key={classData.enrollment?.id ?? classData.class.id}
+        class={classData.class}
+        subject={classData.subject}
+        staff={classData.staff}
+        students={classData.students}
+        enrollment={classData.enrollment}
+        greyedOut={isPrevious}
+        onClick={() => handleClassClick(classData.class.id)}
+        onChangeClass={isPrevious ? undefined : () => openChangeClassModal(classData.class.id)}
+        onUnenroll={isPrevious ? undefined : () => openUnenrollModal(classData.class.id)}
+        onSendUnenrollmentLink={isPrevious ? undefined : () => openUnenrollmentLink(classData.class.id)}
+        hideActions={isPrevious}
+      />
+    );
+  };
+
   return (
     <>
-      <div className="flex-1 h-full flex flex-col">
+      <div className="flex-1 h-full min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
         <div className="space-y-5 mb-6">
           <div>
-            <h3 className="text-base font-medium mb-3">Details</h3>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-base font-medium">Details</h3>
+              {!isEditMode && (
+                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
             <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
               <Label htmlFor="in-person-school">School</Label>
               {isEditMode ? (
@@ -468,131 +468,80 @@ export function ClassesTab({
           </div>
           <Separator />
           <div>
-            <h3 className="text-base font-medium mb-3">Availability</h3>
-            <div className="flex flex-wrap gap-2">
-              {[
-                ['availability_monday', 'Monday'],
-                ['availability_tuesday', 'Tuesday'],
-                ['availability_wednesday', 'Wednesday'],
-                ['availability_thursday', 'Thursday'],
-                ['availability_friday', 'Friday'],
-                ['availability_saturday_am', 'Saturday AM'],
-                ['availability_saturday_pm', 'Saturday PM'],
-                ['availability_sunday_am', 'Sunday AM'],
-                ['availability_sunday_pm', 'Sunday PM'],
-              ].map(([key, label]) => isEditMode ? (
-                <Label key={key} className="flex items-center gap-2 rounded-md border px-3 py-2 font-normal">
-                  <Checkbox
-                    checked={Boolean(inPersonDetails[key as keyof TablesUpdate<'students'>])}
-                    onCheckedChange={(checked) => setInPersonDetails((current) => ({ ...current, [key]: checked === true }))}
-                  />
-                  {label}
-                </Label>
-              ) : (
-                <Badge key={key} variant={student[key as keyof Tables<'students'>] ? 'success' : 'outline'}>
-                  {label}
-                </Badge>
-              ))}
-            </div>
+            <h3 className="text-lg font-semibold mb-4">Availability</h3>
+            <AvailabilityFields
+              isEditing={isEditMode}
+              getValue={(key) => Boolean(
+                isEditMode
+                  ? inPersonDetails[key as keyof TablesUpdate<'students'>]
+                  : student[key as keyof Tables<'students'>]
+              )}
+              onCheckedChange={(key: AvailabilitySlotKey, checked) => {
+                setInPersonDetails((current) => ({ ...current, [key]: checked }));
+              }}
+            />
           </div>
           <Separator />
         </div>
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h3 className="text-base font-medium">Classes</h3>
-          
-          {!isEditMode ? (
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              {/* View Mode Selector */}
-              <SegmentedControl
-                value={viewMode}
-                onValueChange={(v) => setViewMode(v as ViewMode)}
-                options={[
-                  { value: 'table', label: 'Table' },
-                  { value: 'calendar', label: 'Calendar' },
-                ]}
+              <Switch
+                id="show-previous-enrollments"
+                checked={showPreviousEnrollments}
+                onCheckedChange={setShowPreviousEnrollments}
               />
-              
-              <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
+              <Label htmlFor="show-previous-enrollments" className="text-sm font-normal whitespace-nowrap">
+                Show previous enrollments
+              </Label>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <SubjectSearchPopover
-                selectedSubjects={studentSubjects}
-                onSelectSubject={handleAddSubject}
-                trigger={
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Add Subject</span>
-                  </Button>
-                }
-              />
-            </div>
-          )}
+            <SegmentedControl
+              value={viewMode}
+              onValueChange={(v) => setViewMode(v as ViewMode)}
+              options={[
+                { value: 'table', label: 'Table' },
+                { value: 'calendar', label: 'Calendar' },
+              ]}
+            />
+          </div>
         </div>
 
-        {/* Content Area - Takes remaining space and scrolls */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {viewMode === 'table' ? (
-            <ScrollArea className="h-full">
-              <div className="space-y-4">
-                {Object.entries(classesBySubject)
-                  .sort(([a], [b]) => {
-                    // Put __no_subject__ entries at the end
-                    if (a === '__no_subject__') return 1;
-                    if (b === '__no_subject__') return -1;
-                    return 0;
-                  })
-                  .map(([subjectId, subjectClasses]) => {
-                  // Handle classes without subjects (shown at bottom)
-                  if (subjectId === '__no_subject__') {
+        {viewMode === 'table' ? (
+              <div className="space-y-4 pb-6">
+                {classesBySubject.map((group) => {
+                  if (group.subjectId === '__no_subject__') {
                     return (
-                      <div key={subjectId} className="space-y-2">
-                        {subjectClasses.map(classData => (
-                          <ClassCard
-                            key={classData.class.id}
-                            class={classData.class}
-                            subject={classData.subject}
-                            staff={classData.staff}
-                            students={classData.students}
-                            onClick={() => handleClassClick(classData.class.id)}
-                            onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
-                            onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
-                            onSendUnenrollmentLink={isEditMode ? () => openUnenrollmentLink(classData.class.id) : undefined}
-                            hideActions={!isEditMode}
-                            compact={useCompactCards}
-                          />
-                        ))}
+                      <div key={group.subjectId} className="space-y-2">
+                        {group.classes.map(renderClassCard)}
                       </div>
                     );
                   }
-                  
-                  const subject = studentSubjects.find(s => s.id === subjectId);
+
+                  const subject = group.subject;
                   if (!subject) return null;
-                  
-                  const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
+
+                  const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
                   const { style, textColorClass } = getSubjectColorStyle(subject);
                   const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                  
+                  const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
+
                   return (
-                    <div key={subjectId} className="flex items-start gap-4">
-                      {/* Subject Pill */}
+                    <div key={group.subjectId} className="flex items-start gap-4">
                       <div className="flex-shrink-0 pt-2">
                         <Badge
                           className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
                           style={style.backgroundColor ? style : undefined}
                         >
                           <span>{shortName}</span>
-                          {isEditMode && (
+                          {isEditMode && group.isAssignedSubject && (
                             <button
                               type="button"
                               className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRemoveSubject(subjectId);
+                                void handleRemoveSubject(group.subjectId);
                               }}
                               title="Remove subject"
                             >
@@ -601,61 +550,65 @@ export function ClassesTab({
                           )}
                         </Badge>
                       </div>
-                      
-                      {/* Class Cards - Show all classes for this subject stacked, with add class below */}
-                      <div className="flex-1 space-y-2">
-                        {subjectClasses.map(classData => (
-                          <ClassCard
-                            key={classData.class.id}
-                            class={classData.class}
-                            subject={classData.subject}
-                            staff={classData.staff}
-                            students={classData.students}
-                            onClick={() => handleClassClick(classData.class.id)}
-                            onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
-                            onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
-                            onSendUnenrollmentLink={isEditMode ? () => openUnenrollmentLink(classData.class.id) : undefined}
-                            hideActions={!isEditMode}
-                            compact={useCompactCards}
-                          />
-                        ))}
-                        <div
-                          className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
-                            student.status === 'ACTIVE' 
-                              ? 'hover:border-primary/50 cursor-pointer' 
-                              : 'opacity-50 cursor-not-allowed'
-                          }`}
-                          onClick={() => {
-                            handleAddClassClick(
-                              subjectId,
-                              subjectClasses.length,
-                              subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
-                            );
-                          }}
-                        >
-                          <Button 
-                            type="button"
-                            variant="ghost" 
-                            size="sm" 
-                            className="flex items-center gap-2"
-                            disabled={student.status !== 'ACTIVE'}
+
+                      <div className="flex-1 space-y-2 min-w-0">
+                        {group.classes.map(renderClassCard)}
+                        {group.isAssignedSubject && (
+                          <div
+                            className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
+                              student.status === 'ACTIVE'
+                                ? 'hover:border-primary/50 cursor-pointer'
+                                : 'opacity-50 cursor-not-allowed'
+                            }`}
+                            onClick={() => {
+                              handleAddClassClick(
+                                group.subjectId,
+                                currentClassCount,
+                                subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
+                              );
+                            }}
                           >
-                            <Plus className="h-4 w-4" />
-                            <span>Add Class</span>
-                          </Button>
-                        </div>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="flex items-center gap-2"
+                              disabled={student.status !== 'ACTIVE'}
+                            >
+                              <Plus className="h-4 w-4" />
+                              <span>Add Class</span>
+                            </Button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
                 })}
-                
-                {Object.keys(classesBySubject).length === 0 && (
+
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 pt-2">
+                    <SubjectSearchPopover
+                      selectedSubjects={studentSubjects}
+                      onSelectSubject={handleAddSubject}
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Add subject
+                        </button>
+                      }
+                    />
+                  </div>
+                </div>
+
+                {studentSubjects.length === 0 && classesBySubject.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>No subjects assigned. Add a subject to get started.</p>
                   </div>
                 )}
-                
-                {/* Actions Section - Only show in edit mode */}
+
                 {isEditMode && student.status === 'DISCONTINUED' && (
                   <div className="mt-8 pt-6 border-t">
                     <h4 className="text-sm font-medium mb-4">Actions</h4>
@@ -682,9 +635,8 @@ export function ClassesTab({
                   </div>
                 )}
               </div>
-            </ScrollArea>
           ) : (
-            <div className="h-full overflow-hidden">
+            <div className="h-[min(70dvh,640px)] min-h-[360px]">
               <CalendarView
                 classes={timetableClasses}
                 classSubjects={timetableSubjects}
@@ -697,13 +649,17 @@ export function ClassesTab({
           )}
         </div>
 
-        {/* Edit Mode Footer - Sticky at bottom */}
         {isEditMode && (
-          <div className="border-t pt-4 mt-4 flex-shrink-0 bg-background">
-            <div className="flex justify-end">
-              <Button variant="default" onClick={() => void handleSave()}>
-                Save
-              </Button>
+          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+            <div className="flex w-full justify-end">
+              <div className="flex space-x-2">
+                <Button variant="outline" type="button" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button variant="default" onClick={() => void handleSave()}>
+                  Save
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -734,7 +690,7 @@ export function ClassesTab({
         context="student"
         student={student}
         studentSubjects={studentSubjects}
-        enrolledClassIds={classes.map(c => c.class.id)}
+        enrolledClassIds={currentEnrolledClassIds(classes)}
         onFetchClasses={isEnrollModalSubjectId ? () => fetchClassesForSubject(isEnrollModalSubjectId) : undefined}
         subjectId={isEnrollModalSubjectId || undefined}
         onEnroll={handleEnroll}

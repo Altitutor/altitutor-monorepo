@@ -51,7 +51,7 @@ const SESSION_TYPE_ITEMS: { id: string; label: string }[] = SESSION_TYPES.map((t
 
 function getParentLogAttendanceStatus(
   tutorLog: SessionDetailsTutorLog | null,
-  parentId: string
+  parentId: string,
 ): 'attended' | 'did-not-attend' | 'not-logged' {
   if (!tutorLog?.parentAttendance?.length) return 'not-logged';
   const row = tutorLog.parentAttendance.find((p) => p.parent_id === parentId);
@@ -297,7 +297,7 @@ export function SessionDetailsTab({
           subjectId,
           classId,
         },
-        { keepDefaultValues: false }
+        { keepDefaultValues: false },
       );
       setSelectedSubject(subjectForReset as Tables<'subjects'> | null);
       setSelectedClass(classForReset);
@@ -651,11 +651,7 @@ export function SessionDetailsTab({
                                   Undo Log Absence
                                 </DropdownMenuItem>
                               ) : null}
-                              {allowAbsenceLogging &&
-                              !data.plannedAbsence &&
-                              !data.hasInvoiceItems &&
-                              sessionId &&
-                              onLogAbsenceStudent ? (
+                              {allowAbsenceLogging && !data.plannedAbsence && sessionId && onLogAbsenceStudent ? (
                                 <DropdownMenuItem
                                   onClick={(e) => {
                                     e.stopPropagation();

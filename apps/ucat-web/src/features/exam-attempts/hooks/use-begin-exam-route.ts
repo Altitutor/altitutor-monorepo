@@ -46,11 +46,13 @@ export function useBeginExamRoute({
   resourceId,
   title,
   exitHref,
+  studyPlanTaskId,
 }: {
   kind: Exclude<ExamAttemptKind, "practice">;
   resourceId: string;
   title: string;
   exitHref: string;
+  studyPlanTaskId?: string | null;
 }) {
   const router = useRouter();
   const { setLocal } = useActiveExamAttempt();
@@ -70,6 +72,7 @@ export function useBeginExamRoute({
       engineSnapshot: INITIAL_ENGINE_SNAPSHOT,
       segmentTimeLimitSeconds: null,
       questionSetIdForMockSet: firstMockQuestionSetId,
+      studyPlanTaskId: kind === "set" ? studyPlanTaskId : null,
       examMeta: {
         sourceType: exam.sourceType,
         sourceId: exam.sourceId,
@@ -81,5 +84,5 @@ export function useBeginExamRoute({
     });
     setLocal(attempt);
     router.push("/exam");
-  }, [exitHref, kind, resourceId, router, setLocal, title]);
+  }, [exitHref, kind, resourceId, router, setLocal, studyPlanTaskId, title]);
 }

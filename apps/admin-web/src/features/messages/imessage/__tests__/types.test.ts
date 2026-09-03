@@ -6,7 +6,7 @@ describe('getCommandStatusLabel', () => {
     ['claimed', 'Claimed'],
     ['succeeded', 'Succeeded'],
     ['failed', 'Failed'],
-    ['ambiguous', 'Ambiguous'],
+    ['ambiguous', 'Unconfirmed'],
     ['cancelled', 'Cancelled'],
   ] as const)('formats %s', (status, expected) => {
     expect(getCommandStatusLabel(status)).toBe(expected);

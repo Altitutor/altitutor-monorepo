@@ -31,6 +31,7 @@ export function captureRegistrationEvent(
   properties: SafeRegistrationProperties = {},
 ) {
   captureStudentEvent(event, {
+    product: "in-person",
     journey: "student_registration",
     registration_subject_key: registrationSubjectKey,
     ...properties,

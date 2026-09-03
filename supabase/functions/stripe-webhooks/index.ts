@@ -2092,6 +2092,14 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           typeof creditNote.out_of_band_amount === "number"
             ? creditNote.out_of_band_amount
             : null;
+        const billingAdjustmentId =
+          typeof creditNote.metadata?.billing_adjustment_id === "string"
+            ? creditNote.metadata.billing_adjustment_id
+            : null;
+        const sourceInvoiceItemId =
+          typeof creditNote.metadata?.source_invoice_item_id === "string"
+            ? creditNote.metadata.source_invoice_item_id
+            : null;
 
         const { data: invoice, error: findErr } = await supabase
           .from("invoices")
@@ -2120,6 +2128,8 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 refund_amount_cents: refundCents,
                 credit_amount_cents: creditCents,
                 out_of_band_amount_cents: outOfBandCents,
+                billing_adjustment_id: billingAdjustmentId,
+                source_invoice_item_id: sourceInvoiceItemId,
               },
               { onConflict: "stripe_credit_note_id" },
             );

@@ -5,15 +5,14 @@ import Stripe from 'npm:stripe@16.6.0';
 
 // Shared helpers
 import {
-  loadBillingSettings,
-  loadBillingPricing,
-  loadPricingOverrides,
-  loadSubsidies,
+  getInvoicedSessionsStudentsIds,
   loadBillingInfo,
+  loadBillingPricing,
+  loadClasses,
+  loadPricingOverrides,
   loadStudentEmails,
   loadSubjects,
-  loadClasses,
-  getInvoicedSessionsStudentsIds,
+  loadSubsidies,
 } from '../billing-runner/shared/data-loading.ts';
 import { processStudentInvoicing } from '../billing-runner/shared/student-processing.ts';
 import { getAdelaideDateString } from '../billing-runner/shared/utils.ts';
@@ -40,7 +39,9 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
   }
 
   const STRIPE_SECRET_KEY = Deno.env.get('STRIPE_SECRET_KEY')?.trim();
-  if (!STRIPE_SECRET_KEY) return json({ error: 'Stripe key not configured' }, 500);
+  if (!STRIPE_SECRET_KEY) {
+    return json({ error: 'Stripe key not configured' }, 500);
+  }
 
   // Check if using test or live Stripe keys
   const isStripeTestKey = STRIPE_SECRET_KEY.startsWith('sk_test_');
@@ -70,9 +71,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
     const apiKey = req.headers.get('apikey');
 
     // Check if this is a service role request
-    const bearerToken = authHeader?.startsWith('Bearer ')
-      ? authHeader.substring(7).trim()
-      : authHeader;
+    const bearerToken = authHeader?.startsWith('Bearer ') ? authHeader.substring(7).trim() : authHeader;
 
     if (apiKey === supabaseServiceKey || bearerToken === supabaseServiceKey) {
       isServiceRole = true;
@@ -86,7 +85,8 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           const supabase = createClient(supabaseUrl, supabaseServiceKey, {
             auth: { persistSession: false },
           });
-          const { data: { user }, error: userError } = await supabase.auth.getUser(adminToken);
+          const { data: { user }, error: userError } = await supabase.auth
+            .getUser(adminToken);
 
           if (!userError && user) {
             // Check if user is admin staff
@@ -96,14 +96,19 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
               .eq('user_id', user.id)
               .maybeSingle();
 
-            if (staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE') {
+            if (
+              staffData?.role === 'ADMINSTAFF' && staffData?.status === 'ACTIVE'
+            ) {
               isAdminUser = true;
             }
           }
         }
       } catch (err) {
         // Auth check failed, continue with normal flow
-        console.error('[billing-single] Admin token check failed:', err instanceof Error ? err.message : String(err));
+        console.error(
+          '[billing-single] Admin token check failed:',
+          err instanceof Error ? err.message : String(err),
+        );
       }
     }
 
@@ -113,7 +118,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
         {
           error: 'Unauthorized: This function can only be called by service role or admin staff',
         },
-        403
+        403,
       );
     }
   } catch (authErr: unknown) {
@@ -122,7 +127,9 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
   }
 
   const stripe = new Stripe(STRIPE_SECRET_KEY, { apiVersion: '2024-06-20' });
-  const supabase = createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } });
+  const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+    auth: { persistSession: false },
+  });
   const resendApiKey = Deno.env.get('RESEND_API_KEY')?.trim();
 
   try {
@@ -135,7 +142,9 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
     }
 
     // *** EDGE CASE: Check if session is already invoiced ***
-    const invoicedSet = await getInvoicedSessionsStudentsIds(supabase, [sessions_students_id]);
+    const invoicedSet = await getInvoicedSessionsStudentsIds(supabase, [
+      sessions_students_id,
+    ]);
     if (invoicedSet.has(sessions_students_id)) {
       return json(
         {
@@ -143,7 +152,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           sessions_students_id,
           message: 'This session has already been invoiced and cannot be invoiced again.',
         },
-        400
+        400,
       );
     }
 
@@ -163,7 +172,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           subject_id,
           class_id
         )
-      `
+      `,
       )
       .eq('id', sessions_students_id)
       .single();
@@ -175,7 +184,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           sessions_students_id,
           message: ssError?.message || 'Could not find session_student record',
         },
-        404
+        404,
       );
     }
 
@@ -187,53 +196,23 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           sessions_students_id,
           message: 'Could not load session data',
         },
-        404
+        404,
       );
     }
 
-    // *** EDGE CASE: Check for planned absence ***
-    // Allow invoicing if planned_absence = true BUT tutor log shows they actually attended
-    if (sessionStudent.planned_absence) {
-      // First, check if there's a tutor log for this session
-      const { data: tutorLog, error: tlError } = await supabase
-        .from('tutor_logs')
-        .select('id')
-        .eq('session_id', session.id)
-        .maybeSingle();
-
-      if (tlError || !tutorLog) {
-        return json(
-          {
-            error: 'Planned absence cannot be invoiced',
-            sessions_students_id,
-            message:
-              'This session is marked as a planned absence. To invoice it, a tutor log must exist showing the student actually attended.',
-          },
-          400
-        );
-      }
-
-      // Check if the tutor log shows the student actually attended
-      const { data: tutorLogAttendance, error: tlaError } = await supabase
-        .from('tutor_logs_student_attendance')
-        .select('attended')
-        .eq('tutor_log_id', tutorLog.id)
-        .eq('student_id', sessionStudent.student_id)
-        .eq('attended', true)
-        .maybeSingle();
-
-      // If no tutor log showing attendance, reject planned absence
-      if (tlaError || !tutorLogAttendance) {
-        return json(
-          {
-            error: 'Planned absence cannot be invoiced',
-            sessions_students_id,
-            message:
-              'This session is marked as a planned absence. To invoice it, a tutor log must exist showing the student actually attended.',
-          },
-          400
-        );
-      }
+    const { data: isChargeable, error: chargeableError } = await supabase.rpc(
+      'session_student_is_chargeable',
+      { p_sessions_students_id: sessions_students_id },
+    );
+    if (chargeableError || !isChargeable) {
+      return json(
+        {
+          error: 'Session is not chargeable',
+          sessions_students_id,
+          message: chargeableError?.message ?? 'The current session obligation does not require a charge.',
+        },
+        409,
+      );
     }
 
     // *** EDGE CASE: Check if session is billable ***
@@ -244,26 +223,47 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           sessions_students_id,
           message: 'This session does not have a billing_type and cannot be invoiced.',
         },
-        400
+        400,
       );
     }
 
     const studentId = sessionStudent.student_id;
+
+    const { data: controlledAdjustments, error: adjustmentCheckError } = await supabase
+      .from('session_billing_adjustments')
+      .select('id')
+      .eq('sessions_students_id', sessions_students_id)
+      .in('status', ['pending', 'processing', 'retryable', 'failed'])
+      .limit(1);
+    if (adjustmentCheckError) throw adjustmentCheckError;
+    if ((controlledAdjustments?.length ?? 0) > 0) {
+      return json(
+        {
+          error: 'billing_adjustment_pending',
+          sessions_students_id,
+          message:
+            'This session is controlled by a pending billing adjustment. Resolve it in Financial reconciliation.',
+        },
+        409,
+      );
+    }
+
     const invoiceDate = getAdelaideDateString(session.start_at); // Session date in Australia/Adelaide (YYYY-MM-DD)
     const sessionDate = new Date(session.start_at);
 
     // Load all required data
     const [
-      billingSettings,
       pricingByBillingType,
       { overridesBySubjectAndBilling, pricingOverrides },
       subsidies,
       billingByStudent,
       { parentEmailsByStudent, studentEmailById },
     ] = await Promise.all([
-      loadBillingSettings(supabase),
       loadBillingPricing(supabase),
-      loadPricingOverrides(supabase, session.subject_id ? [session.subject_id] : []),
+      loadPricingOverrides(
+        supabase,
+        session.subject_id ? [session.subject_id] : [],
+      ),
       loadSubsidies(supabase),
       loadBillingInfo(supabase),
       loadStudentEmails(supabase),
@@ -295,10 +295,6 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
       studentSessions,
       invoiceDate,
       targetDate: sessionDate,
-      feePercentDom: billingSettings.feePercentDom,
-      feePercentIntl: billingSettings.feePercentIntl,
-      feeFixedCents: billingSettings.feeFixedCents,
-      domesticCountry: billingSettings.domesticCountry,
       pricingByBillingType,
       overridesBySubjectAndBilling,
       pricingOverrides,
@@ -306,12 +302,12 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
       classById,
       subjectById,
       billingByStudent,
-        parentEmailsByStudent,
+      parentEmailsByStudent,
       studentEmailById,
-        isStripeTestKey,
-        isStripeLiveKey,
-        resendApiKey,
-      });
+      isStripeTestKey,
+      isStripeLiveKey,
+      resendApiKey,
+    });
 
     if (result.error) {
       return json(
@@ -321,7 +317,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           invoiceId: result.invoiceId,
           message: result.error,
         },
-        500
+        500,
       );
     }
 
@@ -332,7 +328,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
           sessions_students_id,
           message: 'Invoice processing completed but no invoice ID was returned.',
         },
-        500
+        500,
       );
     }
 
@@ -357,7 +353,7 @@ serveWithSentry('billing-single', async (req: Request, sentry) => {
         message: err.message || 'An unexpected error occurred',
         sessions_students_id: requestBody?.sessions_students_id ?? null,
       },
-      500
+      500,
     );
   }
 });

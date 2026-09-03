@@ -1,6 +1,7 @@
 "use client";
 
 import posthog from "posthog-js";
+import { buildPosthogIdentityHeaders } from "./in-person-booking-event";
 
 export const STUDENT_ANALYTICS_CONTEXT = {
   app: "student-web",
@@ -17,6 +18,13 @@ export function getStudentAnalyticsSurface(pathname: string) {
     return "auth";
   }
   if (pathname.startsWith("/billing")) return "checkout";
+  if (
+    pathname.startsWith("/booking") ||
+    pathname.startsWith("/booking-success") ||
+    pathname.startsWith("/b/")
+  ) {
+    return "booking";
+  }
   return "application";
 }
 
@@ -62,6 +70,40 @@ export function captureStudentEvent(
   posthog.capture(event, {
     ...STUDENT_ANALYTICS_CONTEXT,
     ...properties,
+  });
+}
+
+/** Waits for PostHog init so first-paint booking events are not dropped. */
+export function captureStudentEventWhenReady(
+  event: string,
+  properties: Record<string, unknown> = {},
+) {
+  if (typeof window === "undefined") return;
+  if (posthog.__loaded) {
+    captureStudentEvent(event, properties);
+    return;
+  }
+
+  const startedAt = Date.now();
+  const timer = window.setInterval(() => {
+    if (posthog.__loaded) {
+      window.clearInterval(timer);
+      captureStudentEvent(event, properties);
+    } else if (Date.now() - startedAt > 5000) {
+      window.clearInterval(timer);
+    }
+  }, 100);
+}
+
+export function posthogIdentityHeaders(): Record<string, string> {
+  if (!posthog.__loaded) return {};
+
+  return buildPosthogIdentityHeaders({
+    distinctId: posthog.get_distinct_id(),
+    sessionId:
+      typeof posthog.get_session_id === "function"
+        ? posthog.get_session_id()
+        : null,
   });
 }
 

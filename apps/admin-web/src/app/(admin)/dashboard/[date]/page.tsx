@@ -23,6 +23,7 @@ import { ProjectsList } from '@/features/projects/components/ProjectsList';
 import { NoteEditor } from '@/features/notes/components/NoteEditor';
 import { DashboardReconciliationCard } from '@/features/reconciliation/components/DashboardReconciliationCard';
 import { DashboardReportsCard } from '@/features/reports/components/DashboardReportsCard';
+import { DashboardUpdatesCard } from '@/features/sessions/components/DashboardUpdatesCard';
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
 import { useDebounce, useCurrentStaff } from '@/shared/hooks';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
@@ -433,7 +434,10 @@ export default function DashboardDatePage({ params }: { params: { date: string }
           </CardContent>
         </Card>
 
-        <DashboardReportsCard />
+        <div className="flex flex-col gap-6">
+          <DashboardUpdatesCard date={dateStr} onOpenSession={handleSessionClick} />
+          <DashboardReportsCard />
+        </div>
       </div>
 
       <div className="grid grid-cols-1 items-stretch gap-6 md:grid-cols-2 xl:grid-cols-3">

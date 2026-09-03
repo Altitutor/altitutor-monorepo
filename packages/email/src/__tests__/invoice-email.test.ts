@@ -1,4 +1,7 @@
-import { buildInvoiceNotificationEmail } from "../index";
+import {
+  buildCreditNoteNotificationEmail,
+  buildInvoiceNotificationEmail,
+} from "../index";
 
 describe("buildInvoiceNotificationEmail", () => {
   it("shows pay CTA, unpaid copy, and line items for unpaid invoices", () => {
@@ -66,5 +69,29 @@ describe("buildInvoiceNotificationEmail", () => {
     expect(email.html).toContain("14/09/2026");
     expect(email.html).toContain("Maths Tutoring - 08/08/2026");
     expect(email.text).toContain("Amount paid: AUD $245.00");
+  });
+});
+
+describe("buildCreditNoteNotificationEmail", () => {
+  it("explains that a paid-invoice credit remains on account", () => {
+    const email = buildCreditNoteNotificationEmail({
+      creditNoteNumber: "CN-1042",
+      amount: "AUD $92.00",
+      remainsOnAccount: true,
+    });
+
+    expect(email.subject).toContain("CN-1042");
+    expect(email.text).toContain("AUD $92.00");
+    expect(email.text).toContain("applied to future invoices");
+  });
+
+  it("explains that an open invoice amount was reduced", () => {
+    const email = buildCreditNoteNotificationEmail({
+      creditNoteNumber: "CN-1043",
+      amount: "AUD $90.00",
+      remainsOnAccount: false,
+    });
+
+    expect(email.text).toContain("amount due on your invoice has been reduced");
   });
 });

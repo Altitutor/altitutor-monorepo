@@ -13,7 +13,8 @@ interface Class {
   start_time: string;
   end_time: string;
   room: string | null;
-  subject_name: string;
+  subject_name: string | null;
+  session_type: 'CLASS' | 'HOMEWORK_HELP';
   subject_curriculum: SubjectCurriculum | string | null;
   enrollment_status: string;
   schedule_rows: Json | null;
@@ -127,7 +128,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No classes found</p>
+          <p className="text-muted-foreground">No scheduled offerings found</p>
         </Card>
       </div>
     );
@@ -190,11 +191,11 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
                             minHeight: '45px'
                           }}
                           onClick={() => onClassClick(position.class.class_id)}
-                          title={position.class.subject_name}
+                          title={position.class.subject_name ?? 'Homework Help'}
                         >
                           {/* Subject name */}
                           <div className="font-semibold truncate text-xs leading-tight">
-                            {position.class.subject_name}
+                            {position.class.subject_name ?? 'Homework Help'}
                           </div>
                           
                           {/* Room */}
