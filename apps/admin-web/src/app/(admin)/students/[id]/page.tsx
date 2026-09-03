@@ -45,6 +45,7 @@ import {
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
 import { classesApi } from '@/shared/api';
 import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
+import { currentEnrolledClassIds } from '@/features/students/utils/classEnrollments';
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
@@ -460,7 +461,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           context="student"
           student={student}
           studentSubjects={studentSubjects}
-          enrolledClassIds={studentClasses.map(c => c.class.id)}
+          enrolledClassIds={currentEnrolledClassIds(studentClasses)}
           onFetchClasses={fetchClassesForEnrollment}
           onEnroll={handleEnroll}
           currentStaffId={currentStaff.id}

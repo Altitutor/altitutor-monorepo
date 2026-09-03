@@ -2,6 +2,7 @@
 
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
+import { currentEnrolledClassIds } from '@/features/students/utils/classEnrollments';
 import { EnrollStudentModal } from '@/features/enrollments';
 import { classesApi } from '@/features/classes/api';
 
@@ -35,7 +36,7 @@ export function EnrollStudentModalWrapper({
 
   const student = studentWithSubjects?.student || null;
   const studentSubjects = studentWithSubjects?.subjects || [];
-  const enrolledClassIds = studentClasses.map((c) => c.class.id);
+  const enrolledClassIds = currentEnrolledClassIds(studentClasses);
 
   // Fetch classes for the subject using API function
   const fetchClassesForSubject = async (subjId: string) => {

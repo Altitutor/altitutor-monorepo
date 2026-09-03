@@ -46,6 +46,7 @@ import { IssuePill } from '@/features/issues';
 import { classesApi } from '@/shared/api';
 import { ONLINE_PRODUCT_NAMES, type Tables, type ClassWithExpandedSubject } from "@altitutor/shared";
 import { useStudentClasses } from '../hooks/useStudentClasses';
+import { currentEnrolledClassIds } from '../utils/classEnrollments';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -394,13 +395,11 @@ export function ViewStudentModal({
                 ) : null}
 
                 {isInPerson ? (
-                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-                  <div className="p-6">
-                    <ClassesTab
-                      student={student}
-                      onStudentUpdated={onStudentUpdated}
-                    />
-                  </div>
+                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  <ClassesTab
+                    student={student}
+                    onStudentUpdated={onStudentUpdated}
+                  />
                 </SegmentedTabPanelContent>
                 ) : null}
 
@@ -664,7 +663,7 @@ export function ViewStudentModal({
           context="student"
           student={student}
           studentSubjects={studentSubjects}
-          enrolledClassIds={studentClasses.map(c => c.class.id)}
+          enrolledClassIds={currentEnrolledClassIds(studentClasses)}
           onFetchClasses={fetchClassesForEnrollment}
           onEnroll={handleEnroll}
           currentStaffId={currentStaff.id}

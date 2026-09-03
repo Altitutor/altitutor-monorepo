@@ -4,6 +4,8 @@ import {
   getDayShortName,
   formatDate,
   formatShortDate,
+  formatDayMonth,
+  formatEnrollmentPeriod,
   isOverdue,
   formatTimeHHMM,
   dateStringToUtcStart,
@@ -111,6 +113,30 @@ describe('datetime utilities', () => {
 
     it('should return empty string for invalid date', () => {
       expect(formatShortDate('invalid-date')).toBe('');
+    });
+  });
+
+  describe('formatDayMonth', () => {
+    it('formats an Adelaide calendar day as d MMM', () => {
+      expect(formatDayMonth('2024-09-03T00:00:00+09:30')).toBe('3 Sep');
+    });
+
+    it('returns empty string for null/undefined/invalid dates', () => {
+      expect(formatDayMonth(null)).toBe('');
+      expect(formatDayMonth(undefined)).toBe('');
+      expect(formatDayMonth('invalid-date')).toBe('');
+    });
+  });
+
+  describe('formatEnrollmentPeriod', () => {
+    it('shows only the enrollment date when there is no unenrollment', () => {
+      expect(formatEnrollmentPeriod('2024-09-03T00:00:00+09:30')).toBe('3 Sep');
+    });
+
+    it('shows enrollment and unenrollment dates as d MMM – d MMM', () => {
+      expect(
+        formatEnrollmentPeriod('2024-09-03T00:00:00+09:30', '2025-03-12T00:00:00+10:30')
+      ).toBe('3 Sep – 12 Mar');
     });
   });
 

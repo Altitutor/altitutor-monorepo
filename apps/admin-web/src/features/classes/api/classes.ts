@@ -351,6 +351,119 @@ export const classesApi = {
   },
 
   /**
+   * Get a student's class enrollments, including previous (unenrolled) ones.
+   */
+  getStudentClassEnrollments: async (studentId: string): Promise<Array<{
+    class: Tables<'classes'>;
+    subject?: Tables<'subjects'>;
+    staff: Tables<'staff'>[];
+    students: Tables<'students'>[];
+    enrollment: Tables<'classes_students'>;
+  }>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const nowIso = new Date().toISOString();
+
+    type EnrollmentRow = Tables<'classes_students'> & {
+      class: (Tables<'classes'> & { subject_details?: Tables<'subjects'> | null }) | null;
+    };
+    type StaffRow = { class_id: string; staff: Tables<'staff'> | null };
+    type StudentRow = { class_id: string; student: Tables<'students'> | null };
+
+    const { data: enrollmentRows, error: enrollmentsError } = await supabase
+      .from('classes_students')
+      .select(`
+        id,
+        class_id,
+        student_id,
+        enrolled_at,
+        enrolled_by,
+        unenrolled_at,
+        unenrolled_by,
+        created_at,
+        created_by,
+        updated_at,
+        class:classes(
+          *,
+          subject_details:subjects(*)
+        )
+      `)
+      .eq('student_id', studentId)
+      .order('enrolled_at', { ascending: false });
+
+    if (enrollmentsError) throw enrollmentsError;
+
+    const enrollments = (enrollmentRows ?? []) as EnrollmentRow[];
+    const classIds = [...new Set(
+      enrollments
+        .map((row) => row.class?.id)
+        .filter((id): id is string => Boolean(id))
+    )];
+
+    const classStaff: Record<string, Tables<'staff'>[]> = {};
+    const classStudents: Record<string, Tables<'students'>[]> = {};
+    for (const classId of classIds) {
+      classStaff[classId] = [];
+      classStudents[classId] = [];
+    }
+
+    if (classIds.length > 0) {
+      const [{ data: staffRows, error: staffError }, { data: studentRows, error: studentsError }] =
+        await Promise.all([
+          supabase
+            .from('classes_staff')
+            .select('class_id, staff:staff!class_assignments_staff_id_fkey(*)')
+            .in('class_id', classIds)
+            .is('unassigned_at', null),
+          supabase
+            .from('classes_students')
+            .select('class_id, student:students(*)')
+            .in('class_id', classIds)
+            .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`),
+        ]);
+
+      if (staffError) throw staffError;
+      if (studentsError) throw studentsError;
+
+      ((staffRows ?? []) as StaffRow[]).forEach((row) => {
+        if (row.staff && row.class_id) {
+          classStaff[row.class_id] = classStaff[row.class_id] ?? [];
+          classStaff[row.class_id].push(row.staff);
+        }
+      });
+
+      ((studentRows ?? []) as StudentRow[]).forEach((row) => {
+        if (row.student && row.class_id) {
+          classStudents[row.class_id] = classStudents[row.class_id] ?? [];
+          classStudents[row.class_id].push(row.student);
+        }
+      });
+    }
+
+    return enrollments.flatMap((row) => {
+      if (!row.class) return [];
+      const { subject_details, ...classBase } = row.class;
+      return [{
+        class: classBase,
+        subject: subject_details ?? undefined,
+        staff: classStaff[classBase.id] ?? [],
+        students: classStudents[classBase.id] ?? [],
+        enrollment: {
+          id: row.id,
+          class_id: row.class_id,
+          student_id: row.student_id,
+          enrolled_at: row.enrolled_at,
+          enrolled_by: row.enrolled_by,
+          unenrolled_at: row.unenrolled_at,
+          unenrolled_by: row.unenrolled_by,
+          created_at: row.created_at,
+          created_by: row.created_by,
+          updated_at: row.updated_at,
+        },
+      }];
+    });
+  },
+
+  /**
    * Get classes with details for a specific staff member (via classes_staff)
    */
   getClassesForStaffWithDetails: async (staffId: string): Promise<{ 

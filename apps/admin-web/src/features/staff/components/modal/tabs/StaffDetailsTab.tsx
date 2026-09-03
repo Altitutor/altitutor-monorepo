@@ -5,7 +5,6 @@ import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { Checkbox } from "@altitutor/ui";
 import { PhoneInput } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
@@ -61,21 +60,6 @@ const formSchema = z.object({
     z.null()
   ]).optional(),
   hasParkingRemote: z.enum(['VIRTUAL', 'PHYSICAL', 'NONE']).nullable().optional(),
-  
-  // Availability checkboxes
-  availability_monday: z.boolean(),
-  availability_tuesday: z.boolean(),
-  availability_wednesday: z.boolean(),
-  availability_thursday: z.boolean(),
-  availability_friday: z.boolean(),
-  availability_saturday_am: z.boolean(),
-  availability_saturday_pm: z.boolean(),
-  availability_sunday_am: z.boolean(),
-  availability_sunday_pm: z.boolean(),
-  // Session-type availability
-  drafting_availability: z.boolean(),
-  trial_session_availability: z.boolean(),
-  subsidy_interview_availability: z.boolean(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -129,18 +113,6 @@ export function StaffDetailsTab({
       status: staffMember?.status === 'ACTIVE' || staffMember?.status === 'INACTIVE' || staffMember?.status === 'TRIAL' ? staffMember.status : undefined,
       officeKeyNumber: null,
       hasParkingRemote: 'NONE' as const,
-      availability_monday: false,
-      availability_tuesday: false,
-      availability_wednesday: false,
-      availability_thursday: false,
-      availability_friday: false,
-      availability_saturday_am: false,
-      availability_saturday_pm: false,
-      availability_sunday_am: false,
-      availability_sunday_pm: false,
-      drafting_availability: false,
-      trial_session_availability: false,
-      subsidy_interview_availability: false,
     },
   });
 
@@ -167,18 +139,6 @@ export function StaffDetailsTab({
         status,
         officeKeyNumber: staffMember.office_key_number || null,
         hasParkingRemote: ((staffMember.has_parking_remote === 'VIRTUAL' || staffMember.has_parking_remote === 'PHYSICAL' || staffMember.has_parking_remote === 'NONE') ? staffMember.has_parking_remote : 'NONE') as 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null,
-        availability_monday: !!staffMember.availability_monday,
-        availability_tuesday: !!staffMember.availability_tuesday,
-        availability_wednesday: !!staffMember.availability_wednesday,
-        availability_thursday: !!staffMember.availability_thursday,
-        availability_friday: !!staffMember.availability_friday,
-        availability_saturday_am: !!staffMember.availability_saturday_am,
-        availability_saturday_pm: !!staffMember.availability_saturday_pm,
-        availability_sunday_am: !!staffMember.availability_sunday_am,
-        availability_sunday_pm: !!staffMember.availability_sunday_pm,
-        drafting_availability: !!staffMember.drafting_availability,
-        trial_session_availability: !!staffMember.trial_session_availability,
-        subsidy_interview_availability: !!staffMember.subsidy_interview_availability,
       };
       form.reset(resetValues);
       hasResetRef.current = true;
@@ -477,95 +437,6 @@ export function StaffDetailsTab({
 
               <Separator className="my-6" />
 
-              {/* Availability Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Availability</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Weekdays</h4>
-                    {[
-                      { key: 'availability_monday', label: 'Monday' },
-                      { key: 'availability_tuesday', label: 'Tuesday' },
-                      { key: 'availability_wednesday', label: 'Wednesday' },
-                      { key: 'availability_thursday', label: 'Thursday' },
-                      { key: 'availability_friday', label: 'Friday' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Controller
-                          control={form.control}
-                          name={key as keyof FormData}
-                          render={({ field }) => (
-                            <Checkbox 
-                              id={key} 
-                              checked={field.value as boolean}
-                              onCheckedChange={field.onChange}
-                              disabled={isLoading}
-                            />
-                          )}
-                        />
-                        <Label htmlFor={key}>{label}</Label>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Weekends</h4>
-                    {[
-                      { key: 'availability_saturday_am', label: 'Saturday AM' },
-                      { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                      { key: 'availability_sunday_am', label: 'Sunday AM' },
-                      { key: 'availability_sunday_pm', label: 'Sunday PM' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Controller
-                          control={form.control}
-                          name={key as keyof FormData}
-                          render={({ field }) => (
-                            <Checkbox 
-                              id={key} 
-                              checked={field.value as boolean}
-                              onCheckedChange={field.onChange}
-                              disabled={isLoading}
-                            />
-                          )}
-                        />
-                        <Label htmlFor={key}>{label}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Session-Type Availability Section */}
-              <div className="mt-4">
-                <h4 className="font-medium mb-3">Session-Type Availability</h4>
-                <div className="space-y-3">
-                  {[
-                    { key: 'drafting_availability', label: 'Drafting Sessions' },
-                    { key: 'trial_session_availability', label: 'Trial Sessions' },
-                    { key: 'subsidy_interview_availability', label: 'Subsidy Interviews' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Controller
-                        control={form.control}
-                        name={key as keyof FormData}
-                        render={({ field }) => (
-                          <Checkbox 
-                            id={key} 
-                            checked={field.value as boolean}
-                            onCheckedChange={field.onChange}
-                            disabled={isLoading}
-                          />
-                        )}
-                      />
-                      <Label htmlFor={key}>{label}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <Separator className="my-6" />
-
               {/* Account Section */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Account</h3>
@@ -834,72 +705,6 @@ export function StaffDetailsTab({
           </div>
         );
       })()}
-
-      <Separator className="my-6" />
-
-      {/* Availability Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Availability</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium mb-3">Weekdays</h4>
-            <div className="space-y-2">
-              {[
-                { key: 'availability_monday', label: 'Monday' },
-                { key: 'availability_tuesday', label: 'Tuesday' },
-                { key: 'availability_wednesday', label: 'Wednesday' },
-                { key: 'availability_thursday', label: 'Thursday' },
-                { key: 'availability_friday', label: 'Friday' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-3">Weekends</h4>
-            <div className="space-y-2">
-              {[
-                { key: 'availability_saturday_am', label: 'Saturday AM' },
-                { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                { key: 'availability_sunday_am', label: 'Sunday AM' },
-                { key: 'availability_sunday_pm', label: 'Sunday PM' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Session-Type Availability Section */}
-        <div className="mt-6">
-          <h4 className="font-medium mb-3">Session-Type Availability</h4>
-          <div className="space-y-2">
-            {[
-              { key: 'drafting_availability', label: 'Drafting Sessions' },
-              { key: 'trial_session_availability', label: 'Trial Sessions' },
-              { key: 'subsidy_interview_availability', label: 'Subsidy Interviews' },
-            ].map(({ key, label }) => (
-              <div key={key} className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       <Separator className="my-6" />
 
