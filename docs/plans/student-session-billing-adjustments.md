@@ -73,7 +73,7 @@ An original has at most one current Replacement session. When changing it:
 
 Keep the existing `Log absence…` workflow. For every selected Session, AdminStaff explicitly chooses `Reschedule` or `Credit`; one batch may contain both choices. Existing absences use `Manage absence…` to change treatment, select another replacement, or genuinely undo the Planned absence. Do not encode replacement refusal or the previous-day notice policy as billing branches.
 
-Treatment changes require a broad factual reason category and optional note. Admin attendance edits preview any financial consequence; TutorWeb records attendance without displaying financial amounts. Successful Credit note and Restoration charge notifications go to configured invoice recipients only after Stripe succeeds.
+Treatment changes may include an optional internal note. The existing reason category is retained as internal audit metadata with a stable default, but is not presented as an AdminStaff decision because it does not affect billing. Admin attendance edits preview any financial consequence; TutorWeb records attendance without displaying financial amounts. Successful Credit note and Restoration charge notifications go to configured invoice recipients only after Stripe succeeds.
 
 ## Cutover and reconciliation
 

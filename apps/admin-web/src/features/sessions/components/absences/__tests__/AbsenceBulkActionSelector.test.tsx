@@ -15,7 +15,7 @@ const mockReplacementSession = {
   long_name: 'Replacement session',
   created_at: null,
   updated_at: null,
-} as RescheduleSession;
+} as unknown as RescheduleSession;
 
 jest.mock('../../../hooks', () => ({
   useAvailableRescheduleSessions: () => ({

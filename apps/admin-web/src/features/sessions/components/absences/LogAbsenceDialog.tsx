@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Button, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Textarea } from '@altitutor/ui';
+import { Button, Label, Textarea } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../../hooks';
 import { useMissingStudentSession, useInitialStudentForAbsence } from '../../hooks/useAbsenceInitialData';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
@@ -12,7 +12,6 @@ import type {
   AbsenceDecision,
   AbsenceOperation,
   AbsenceAction,
-  AbsenceReasonCategory,
   RescheduleSession,
   StudentSession,
 } from '../../types/absence';
@@ -51,7 +50,6 @@ export function LogAbsenceDialog({
   const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [reasonCategory, setReasonCategory] = useState<AbsenceReasonCategory>('approved_absence');
   const [reasonNote, setReasonNote] = useState('');
 
   // Student search and pagination
@@ -153,7 +151,6 @@ export function LogAbsenceDialog({
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
-      setReasonCategory('approved_absence');
       setReasonNote('');
     }
   }, [isOpen]);
@@ -265,7 +262,7 @@ export function LogAbsenceDialog({
         operations,
         staffId,
         reason: {
-          category: reasonCategory,
+          category: 'approved_absence',
           note: reasonNote.trim() || undefined,
         },
       });
@@ -387,32 +384,14 @@ export function LogAbsenceDialog({
                   Select action for {selectedSessionsArray.length} session
                   {selectedSessionsArray.length !== 1 ? 's' : ''}
                 </div>
-                <div className="grid gap-3 mt-4 sm:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label htmlFor="absence-reason">Reason</Label>
-                    <Select
-                      value={reasonCategory}
-                      onValueChange={(value) => setReasonCategory(value as AbsenceReasonCategory)}
-                    >
-                      <SelectTrigger id="absence-reason">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="approved_absence">Approved absence</SelectItem>
-                        <SelectItem value="extended_absence">Extended absence</SelectItem>
-                        <SelectItem value="admin_discretion">Admin discretion</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="absence-note">Internal note (optional)</Label>
-                    <Textarea
-                      id="absence-note"
-                      value={reasonNote}
-                      onChange={(event) => setReasonNote(event.target.value)}
-                      placeholder="Add context for the audit history"
-                    />
-                  </div>
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="absence-note">Internal note (optional)</Label>
+                  <Textarea
+                    id="absence-note"
+                    value={reasonNote}
+                    onChange={(event) => setReasonNote(event.target.value)}
+                    placeholder="Add context for the audit history"
+                  />
                 </div>
               </div>
             )}
@@ -503,7 +482,7 @@ export function LogAbsenceDialog({
       case 'select-sessions':
         return 'Select which future sessions the student will be absent from';
       case 'process-sessions':
-        return 'Choose whether to reschedule or credit each session and record why';
+        return 'Choose whether to reschedule or credit each session';
       case 'message':
         return 'Notify the student/parent about the processed absences';
       default:
