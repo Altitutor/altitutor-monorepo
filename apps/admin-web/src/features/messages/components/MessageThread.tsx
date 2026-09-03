@@ -23,6 +23,7 @@ import { useSendMessage } from '../api/mutations';
 import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
 import {
   AMBIGUOUS_SMS_RESEND_CONFIRM,
+  UNCONFIRMED_SEND_HINT,
   asAppleService,
   asOwnedNumberProvider,
   defaultPhoneSmsSender,
@@ -944,7 +945,12 @@ export function MessageThread({
                         <div className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
                         {direction === 'OUTBOUND' && m.status && (
-                          <span className={outboundStatusClassName(m.status, asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE')}>• {formatMessageStatus(m.status)}</span>
+                          <span
+                            className={outboundStatusClassName(m.status, asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE')}
+                            title={m.status === 'AMBIGUOUS' ? UNCONFIRMED_SEND_HINT : undefined}
+                          >
+                            • {formatMessageStatus(m.status)}
+                          </span>
                         )}
                         {(() => {
                           const resend = resendViaSmsAvailability({
