@@ -60,7 +60,7 @@ test("a student can reach classes, resources, and billing @compat", async ({
   await signIn(page);
 
   const surfaces = [
-    ["/classes", "My Classes"],
+    ["/classes", "My Schedule"],
     ["/resources", "Resources"],
     ["/billing", "Billing & Payments"],
   ] as const;
