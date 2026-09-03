@@ -75,7 +75,7 @@ export function getCommandStatusLabel(status: ImessageCommandStatus): string {
     case 'failed':
       return 'Failed';
     case 'ambiguous':
-      return 'Ambiguous';
+      return 'Unconfirmed';
     case 'cancelled':
       return 'Cancelled';
     default: {

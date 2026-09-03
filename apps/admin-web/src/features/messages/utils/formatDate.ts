@@ -112,7 +112,7 @@ export function formatMessageStatus(status: string): string {
     'SENT': 'Sent',
     'DELIVERED': 'Delivered',
     'READ': 'Read',
-    'AMBIGUOUS': 'Ambiguous',
+    'AMBIGUOUS': 'Unconfirmed',
     'FAILED': 'Failed',
     'UNDELIVERED': 'Undelivered',
   };

@@ -195,8 +195,8 @@ export function MessagingSettingsPage() {
 
       <section className="rounded-lg border bg-card p-5 space-y-4" aria-labelledby="command-failures">
         <div>
-          <h2 id="command-failures" className="text-lg font-semibold">Recent failed or ambiguous commands</h2>
-          <p className="text-sm text-muted-foreground">Review operations whose outcome needs attention.</p>
+          <h2 id="command-failures" className="text-lg font-semibold">Recent failed or unconfirmed commands</h2>
+          <p className="text-sm text-muted-foreground">Review operations whose outcome needs attention. Unconfirmed means the Mac did not confirm whether Messages.app accepted the send.</p>
         </div>
         {commands.data?.length ? (
           <div className="divide-y">
@@ -217,7 +217,7 @@ export function MessagingSettingsPage() {
             ))}
           </div>
         ) : (
-          <p className="text-sm text-muted-foreground">No recent failures or ambiguous outcomes.</p>
+          <p className="text-sm text-muted-foreground">No recent failures or unconfirmed outcomes.</p>
         )}
       </section>
 
