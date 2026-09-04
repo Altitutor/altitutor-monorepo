@@ -209,6 +209,7 @@ export async function fetchAllStaffTierSummaries(admin: AdminClient): Promise<
     nextTierNumber: number | null;
     isEligibleForReview: boolean;
     lastCheckIn: LastCheckInInfo | null;
+    metrics: Record<string, number> | null;
   }>
 > {
   const { data: staffList, error } = await admin
@@ -240,6 +241,7 @@ export async function fetchAllStaffTierSummaries(admin: AdminClient): Promise<
           nextTierNumber: nextTier,
           isEligibleForReview: isEligible,
           lastCheckIn: progress.lastCheckIn,
+          metrics: progress.metrics,
         };
       } catch {
         return {
@@ -252,6 +254,7 @@ export async function fetchAllStaffTierSummaries(admin: AdminClient): Promise<
           nextTierNumber: nextTier,
           isEligibleForReview: false,
           lastCheckIn: null,
+          metrics: null,
         };
       }
     })

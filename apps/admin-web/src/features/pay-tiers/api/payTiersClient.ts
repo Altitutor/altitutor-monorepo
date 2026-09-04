@@ -111,6 +111,7 @@ export const payTiersClient = {
         nextTierNumber: number | null;
         isEligibleForReview: boolean;
         lastCheckIn: { sessionId: string; startAt: string; longName: string | null } | null;
+        metrics: Record<string, number> | null;
       }>;
     }>(res);
   },
