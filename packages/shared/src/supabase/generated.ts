@@ -38488,6 +38488,16 @@ export type Database = {
         Args: { file_path: string }
         Returns: string
       }
+      get_staff_pay_tier_summary_data: {
+        Args: { p_staff_ids: string[] }
+        Returns: {
+          last_check_in_long_name: string
+          last_check_in_session_id: string
+          last_check_in_start_at: string
+          metrics: Json
+          staff_id: string
+        }[]
+      }
       get_student_subjects: {
         Args: { student_id: string }
         Returns: {
