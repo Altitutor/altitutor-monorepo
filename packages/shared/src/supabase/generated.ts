@@ -38449,6 +38449,10 @@ export type Database = {
         }[]
       }
       get_billing_cron_secret: { Args: never; Returns: string }
+      get_chargeable_sessions_students_ids: {
+        Args: { p_sessions_students_ids: string[] }
+        Returns: string[]
+      }
       get_excluded_fields_for_table: {
         Args: { table_name: string }
         Returns: string[]
