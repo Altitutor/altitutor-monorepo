@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { RadioGroup, RadioGroupItem, Label, Button, SearchableSelect } from '@altitutor/ui';
+import { RadioGroup, RadioGroupItem, Label, Button, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { formatDate, formatTimeHHMM } from '@/shared/utils/datetime';
 import type { AbsenceAction, RescheduleSession } from '../../types/absence';
 import { useAvailableRescheduleSessions } from '../../hooks';
@@ -51,9 +51,9 @@ function SessionSelect({
       searchPlaceholder="Search sessions..."
       emptyMessage="No sessions match"
       trigger={
-        <Button variant="outline" className="w-full justify-start">
+        <SearchableSelectFieldTrigger>
           {selectedSession ? getSessionDisplay(selectedSession) : 'Select session to reschedule to...'}
-        </Button>
+        </SearchableSelectFieldTrigger>
       }
       contentWidth="100%"
       align="start"

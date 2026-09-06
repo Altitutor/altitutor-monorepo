@@ -1,5 +1,11 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
 import { serveWithSentry } from '../_shared/sentry.ts';
+import {
+  buildStudentPaymentMethodInsert,
+  decidePersistFromSetupIntent,
+  isPaymentMethodUniqueViolation,
+  stripeId,
+} from '../_shared/student-payment-method.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
@@ -16,6 +22,118 @@ function json(resp: unknown, status = 200) {
       ...corsHeaders 
     },
   });
+}
+
+type PersistSetupIntentOutcome =
+  | { verified: true }
+  | { verified: false; retryable: boolean; code: string };
+
+type PersistDb = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{
+          data: { stripe_customer_id?: string } | null;
+          error: { code?: string } | null;
+        }>;
+      } & Promise<{
+        data: { stripe_payment_method_id?: string }[] | null;
+        error: { code?: string } | null;
+      }>;
+    };
+    insert: (row: ReturnType<typeof buildStudentPaymentMethodInsert>) => Promise<{
+      error: { code?: string } | null;
+    }>;
+  };
+};
+
+async function persistSucceededSetupIntent(input: {
+  stripe: Stripe;
+  supabaseService: PersistDb;
+  studentId: string;
+  setupIntentId: string;
+}): Promise<PersistSetupIntentOutcome> {
+  const { stripe, supabaseService, studentId, setupIntentId } = input;
+
+  const { data: billing, error: billingError } = await supabaseService
+    .from('students_billing')
+    .select('stripe_customer_id')
+    .eq('student_id', studentId)
+    .maybeSingle();
+
+  if (billingError || !billing?.stripe_customer_id) {
+    return { verified: false, retryable: true, code: 'billing_not_initialized' };
+  }
+
+  let setupIntent: Stripe.SetupIntent;
+  try {
+    setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+  } catch {
+    return { verified: false, retryable: true, code: 'setup_intent_not_found' };
+  }
+
+  const decision = decidePersistFromSetupIntent({
+    studentId,
+    stripeCustomerId: billing.stripe_customer_id,
+    setupIntent: {
+      id: setupIntent.id,
+      status: setupIntent.status,
+      customer: stripeId(setupIntent.customer),
+      payment_method: stripeId(setupIntent.payment_method),
+      metadata: setupIntent.metadata ?? {},
+    },
+  });
+
+  if (decision.action === 'reject') {
+    return {
+      verified: false,
+      retryable: decision.retryable,
+      code: decision.code,
+    };
+  }
+
+  const { data: existingMethods, error: existingError } = await supabaseService
+    .from('student_payment_methods')
+    .select('id, stripe_payment_method_id')
+    .eq('student_id', studentId);
+
+  if (existingError) {
+    return { verified: false, retryable: true, code: 'payment_query_failed' };
+  }
+
+  if (
+    existingMethods?.some(
+      (method) => method.stripe_payment_method_id === decision.paymentMethodId,
+    )
+  ) {
+    return { verified: true };
+  }
+
+  const paymentMethod = await stripe.paymentMethods.retrieve(
+    decision.paymentMethodId,
+  );
+  const card =
+    paymentMethod && typeof paymentMethod === 'object' && 'card' in paymentMethod
+      ? (paymentMethod.card ?? null)
+      : null;
+
+  const { error: insertError } = await supabaseService
+    .from('student_payment_methods')
+    .insert(
+      buildStudentPaymentMethodInsert({
+        studentId,
+        paymentMethodId: decision.paymentMethodId,
+        isDefault: !existingMethods || existingMethods.length === 0,
+        card,
+      }),
+    );
+
+  if (insertError && !isPaymentMethodUniqueViolation(insertError)) {
+    console.error('[payment-methods] Failed to save payment method:', insertError);
+    return { verified: false, retryable: true, code: 'payment_persist_failed' };
+  }
+
+  return { verified: true };
 }
 
 serveWithSentry('payment-methods', async (req: Request, sentry) => {
@@ -40,7 +158,7 @@ serveWithSentry('payment-methods', async (req: Request, sentry) => {
 
   // Parse body first to check if this is a registration flow
   const body = await req.json();
-  const { action, studentId, paymentMethodId, email, name, registrationToken } = body;
+  const { action, studentId, paymentMethodId, email, name, registrationToken, setupIntentId } = body;
 
   // Check if this is a registration flow (no auth required)
   const isRegistrationFlow = !!registrationToken;
@@ -369,6 +487,27 @@ serveWithSentry('payment-methods', async (req: Request, sentry) => {
       return json({ success: true, message: 'Payment method deleted' });
 
     } else if (action === 'verify_payment_method') {
+      if (typeof setupIntentId === 'string' && setupIntentId) {
+        const persisted = await persistSucceededSetupIntent({
+          stripe,
+          supabaseService: supabaseService as unknown as PersistDb,
+          studentId: targetStudentId,
+          setupIntentId,
+        });
+        if (persisted.verified) {
+          return json({
+            verified: true,
+            message: 'Payment method verified',
+          });
+        }
+        if (!persisted.retryable) {
+          return json({
+            verified: false,
+            code: persisted.code,
+          });
+        }
+      }
+
       // Verify that student has at least one payment method
       const { data: paymentMethods, error: pmError } = await supabaseService
         .from('student_payment_methods')
@@ -383,7 +522,7 @@ serveWithSentry('payment-methods', async (req: Request, sentry) => {
       if (!paymentMethods || paymentMethods.length === 0) {
         // Stripe's webhook may still be persisting a successfully attached
         // payment method. The registration client polls this expected state.
-        return json({ verified: false });
+        return json({ verified: false, code: 'webhook_pending' });
       }
 
       return json({

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -59,7 +60,7 @@ import {
 } from '@/shared/lib/query-invalidation';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+  const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();

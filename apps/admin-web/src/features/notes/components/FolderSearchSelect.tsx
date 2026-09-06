@@ -2,13 +2,13 @@
 
 import { useMemo } from 'react';
 import {
-  Button,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { Check, ChevronDown, Folder } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -96,11 +96,8 @@ export function FolderSearchSelect({
         const displayLabel = selected?.name || 'No folder';
 
         const propertiesTrigger = (
-          <Button
-            type="button"
-            variant="field"
+          <SearchableSelectFieldTrigger
             disabled={!editable}
-            className="w-full justify-start"
             onPointerDown={(event) => {
               if (!editable) {
                 event.preventDefault();
@@ -108,13 +105,11 @@ export function FolderSearchSelect({
               }
             }}
           >
-            <div className="flex items-center gap-2 w-full min-w-0">
-              <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
-              <span className={cn('truncate', !field.value && 'text-muted-foreground')}>
-                {displayLabel}
-              </span>
-            </div>
-          </Button>
+            <Folder className="h-4 w-4 text-muted-foreground shrink-0" />
+            <span className={cn('truncate', !field.value && 'text-muted-foreground')}>
+              {displayLabel}
+            </span>
+          </SearchableSelectFieldTrigger>
         );
 
         const defaultTrigger = (

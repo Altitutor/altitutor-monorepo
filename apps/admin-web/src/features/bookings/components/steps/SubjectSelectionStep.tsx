@@ -1,4 +1,4 @@
-import { Button, SearchableSelect } from '@altitutor/ui';
+import { Button, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { formatSubjectDisplay } from '../../utils/bookingHelpers';
 import type { Tables } from '@altitutor/shared';
@@ -49,11 +49,11 @@ export function SubjectSelectionStep({
             onSelectSubject={(subject) => onSelectSubject(subject.id)}
             initialSubjects={studentSubjects || []}
             trigger={
-              <Button variant="outline" className="w-full justify-start">
+              <SearchableSelectFieldTrigger>
                 {studentSubjects && studentSubjects.length > 0
                   ? 'Select subject (shows student subjects, type to search all)'
                   : 'Select subject'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         )}

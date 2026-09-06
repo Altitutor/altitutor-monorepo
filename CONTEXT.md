@@ -2,6 +2,13 @@
 
 ## Student relationships
 
+- **Student merge** — An administrator-confirmed consolidation of records that represent the same person into one retained Student, preserving their history and explicitly resolving conflicting details. Matching names or contact details suggest review but do not establish that two records represent the same person.
+  _Avoid_: Automatic deduplication, deleting a duplicate
+
+- **Retained Student** — The Student whose identity continues after a Student merge and brings together the confirmed person's relationships and history. The choice of retained Student is separate from the choice of retained login or customer used for future billing.
+
+- **Retained login** — The single authentication account selected to provide Student access after a Student merge, including its already connected Sign-in methods. Other accounts lose access to the merged Student without losing unrelated roles; moving a Sign-in method between accounts is a separate, student-assisted process.
+
 - **Student** — A person known to Altitutor whose identity, contact details, communication history, notes, and financial history are shared across their relationship modes. A Student does not become a different record when a relationship mode starts or ends.
   _Avoid_: Online student record, in-person student record, student account status
 

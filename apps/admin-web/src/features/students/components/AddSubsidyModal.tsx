@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Label,
-  SearchableSelect,
-  Input,
-  SmartDatePickerField,
-} from '@altitutor/ui';
+import { Button, Label, SearchableSelect, SearchableSelectFieldTrigger, Input, SmartDatePickerField } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
@@ -125,11 +119,11 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
             selectedSubjects={selectedSubject ? [selectedSubject] : []}
             onSelectSubject={setSelectedSubject}
             trigger={
-              <Button variant="outline" className="w-full justify-start">
+              <SearchableSelectFieldTrigger>
                 {selectedSubject
                   ? `${selectedSubject.curriculum} ${selectedSubject.year_level ? `Year ${selectedSubject.year_level}` : ''} ${selectedSubject.name}`
                   : 'Select a subject'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         </div>

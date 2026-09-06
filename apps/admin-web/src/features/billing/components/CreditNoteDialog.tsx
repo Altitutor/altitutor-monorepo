@@ -1,22 +1,7 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-  Button,
-  Label,
-  Checkbox,
-  Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Textarea,
-  useToast,
-  SearchableSelect,
-  SmartDatePickerField,
-} from '@altitutor/ui';
+import { Button, Label, Checkbox, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea, useToast, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
 import type { InvoiceItemRow } from '../types';
@@ -236,9 +221,9 @@ export function CreditNoteDialog({
                 getItemLabel={(item) => item.label}
                 placeholder="Select reason"
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal" id="credit-note-reason">
+                  <SearchableSelectFieldTrigger id="credit-note-reason">
                     {CREDIT_NOTE_REASONS.find((r) => r.id === reason)?.label ?? 'Select reason'}
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </div>
@@ -346,9 +331,9 @@ export function CreditNoteDialog({
                       getItemLabel={(item) => item.label}
                       placeholder="Select how to credit"
                       trigger={
-                        <Button variant="outline" className="w-full justify-start font-normal">
+                        <SearchableSelectFieldTrigger>
                           {selectedDestination?.label ?? 'Select how to credit'}
-                        </Button>
+                        </SearchableSelectFieldTrigger>
                       }
                     />
                   </div>

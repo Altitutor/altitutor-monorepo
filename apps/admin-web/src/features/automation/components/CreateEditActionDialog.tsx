@@ -4,7 +4,7 @@ import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { Button } from '@altitutor/ui';
+import { Button, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import {
   Form,
   FormControl,
@@ -483,11 +483,11 @@ export function CreateEditActionDialog({
                         getItemLabel={(i) => i.label}
                         placeholder="Select action type"
                         trigger={
-                          <Button variant="outline" className="w-full justify-start font-normal">
+                          <SearchableSelectFieldTrigger>
                             <span className={cn(!selected && 'text-muted-foreground')}>
                               {selected ? selected.label : 'Select action type'}
                             </span>
-                          </Button>
+                          </SearchableSelectFieldTrigger>
                         }
                       />
                     </FormControl>
@@ -603,11 +603,11 @@ export function CreateEditActionDialog({
                               allowClear
                               clearLabel="Unassigned"
                               trigger={
-                                <Button variant="outline" className="w-full justify-start font-normal">
+                                <SearchableSelectFieldTrigger>
                                   <span className={cn(!selected && 'text-muted-foreground')}>
                                     {selected ? `${selected.first_name} ${selected.last_name}` : 'Unassigned'}
                                   </span>
-                                </Button>
+                                </SearchableSelectFieldTrigger>
                               }
                             />
                           </FormControl>
@@ -699,11 +699,11 @@ export function CreateEditActionDialog({
                             getItemLabel={(i) => i.label}
                             placeholder="Todo"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 <span className={cn(!selected && 'text-muted-foreground')}>
                                   {selected ? selected.label : 'Todo'}
                                 </span>
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -809,11 +809,11 @@ export function CreateEditActionDialog({
                               placeholder="Select a sender"
                               loading={isLoadingSenders}
                               trigger={
-                                <Button variant="outline" className="w-full justify-start font-normal">
+                                <SearchableSelectFieldTrigger>
                                   <span className={cn(!selected && 'text-muted-foreground')}>
                                     {selected ? getItemLabel(selected) : 'Select a sender'}
                                   </span>
-                                </Button>
+                                </SearchableSelectFieldTrigger>
                               }
                             />
                           </FormControl>
@@ -867,11 +867,11 @@ export function CreateEditActionDialog({
                             getItemLabel={(i) => i.label}
                             placeholder="Single Contact"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 <span className={cn(!selected && 'text-muted-foreground')}>
                                   {selected ? selected.label : 'Single Contact'}
                                 </span>
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -950,9 +950,9 @@ export function CreateEditActionDialog({
                             getItemLabel={(item) => item.label}
                             placeholder="Automatic from recipient"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 {selected.label}
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -1069,11 +1069,11 @@ export function CreateEditActionDialog({
                             getItemLabel={(i) => i.label}
                             placeholder="Single Staff Member"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 <span className={cn(!selected && 'text-muted-foreground')}>
                                   {selected ? selected.label : 'Single Staff Member'}
                                 </span>
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -1118,11 +1118,11 @@ export function CreateEditActionDialog({
                               getItemLabel={(i) => i.label}
                               placeholder="Select staff member"
                               trigger={
-                                <Button variant="outline" className="w-full justify-start font-normal">
+                                <SearchableSelectFieldTrigger>
                                   <span className={cn(!selected && 'text-muted-foreground')}>
                                     {selected ? selected.label : 'Select staff member'}
                                   </span>
-                                </Button>
+                                </SearchableSelectFieldTrigger>
                               }
                             />
                           </FormControl>

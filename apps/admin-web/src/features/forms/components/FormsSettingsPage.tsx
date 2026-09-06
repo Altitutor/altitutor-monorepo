@@ -19,6 +19,7 @@ import {
   Label,
   RichTextEditor,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
   SegmentedControl,
   Separator,
   Switch,
@@ -182,9 +183,9 @@ function OptionSelect<T extends { value: string; label: string }>({
       getItemLabel={(item) => item.label}
       placeholder={placeholder}
       trigger={
-        <Button type="button" variant="outline" className="w-full justify-start font-normal">
+        <SearchableSelectFieldTrigger>
           {selected?.label ?? placeholder}
-        </Button>
+        </SearchableSelectFieldTrigger>
       }
     />
   );

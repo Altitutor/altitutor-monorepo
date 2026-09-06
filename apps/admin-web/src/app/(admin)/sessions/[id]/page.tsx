@@ -198,6 +198,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
             onOpenSession={handleOpenSession}
             onOpenStudent={entityModals.openStudent}
             onOpenStaff={handleOpenStaff}
+            onOpenParent={entityModals.openParent}
             onOpenClass={handleOpenClass}
             onMessageStudent={handleMessageStudent}
             onMessageStaff={handleMessageStaff}

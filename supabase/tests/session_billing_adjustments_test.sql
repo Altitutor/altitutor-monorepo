@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(24);
+SELECT plan(28);
 
 SELECT is(
   public.derive_session_absence_billing_treatment(false, false, false),
@@ -72,6 +72,32 @@ SELECT
   'f0000000-0000-4000-8000-000000000002'::uuid AS sessions_students_id,
   '10000000-0000-0000-0000-000000000001'::uuid AS student_id,
   'f0000000-0000-4000-8000-000000000001'::uuid AS session_id;
+
+SELECT is(
+  public.get_chargeable_sessions_students_ids(
+    ARRAY[(SELECT sessions_students_id FROM billing_adjustment_fixture)]
+  ),
+  ARRAY[(SELECT sessions_students_id FROM billing_adjustment_fixture)],
+  'batch chargeability includes an ordinary billable attendance'
+);
+
+UPDATE public.sessions_students ss
+SET was_trial = true
+FROM billing_adjustment_fixture fixture
+WHERE ss.id = fixture.sessions_students_id;
+
+SELECT is(
+  public.get_chargeable_sessions_students_ids(
+    ARRAY[(SELECT sessions_students_id FROM billing_adjustment_fixture)]
+  ),
+  ARRAY[]::uuid[],
+  'batch chargeability excludes a trial attendance in a billable session'
+);
+
+UPDATE public.sessions_students ss
+SET was_trial = false
+FROM billing_adjustment_fixture fixture
+WHERE ss.id = fixture.sessions_students_id;
 
 UPDATE public.sessions_students ss
 SET
@@ -441,6 +467,26 @@ SELECT is(
   ),
   true,
   'the billing worker can execute the internal adjustment queue'
+);
+
+SELECT is(
+  has_function_privilege(
+    'authenticated',
+    'public.get_chargeable_sessions_students_ids(uuid[])',
+    'EXECUTE'
+  ),
+  false,
+  'authenticated clients cannot call the batch chargeability helper'
+);
+
+SELECT is(
+  has_function_privilege(
+    'service_role',
+    'public.get_chargeable_sessions_students_ids(uuid[])',
+    'EXECUTE'
+  ),
+  true,
+  'the billing worker can call the batch chargeability helper'
 );
 
 INSERT INTO public.session_billing_adjustments (

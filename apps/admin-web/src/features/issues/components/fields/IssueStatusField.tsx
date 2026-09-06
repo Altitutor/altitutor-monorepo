@@ -1,12 +1,12 @@
 'use client';
 
 import {
-  Button,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils';
@@ -48,10 +48,10 @@ export function IssueStatusField({ form }: IssueStatusFieldProps) {
                 getItemId={(option) => option.value}
                 fullWidth
                 trigger={
-                  <Button type="button" variant="field" className="w-full justify-start font-normal">
+                  <SearchableSelectFieldTrigger>
                     <StatusIcon className={cn('h-4 w-4', iconColor)} />
                     <span>{label}</span>
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </FormControl>

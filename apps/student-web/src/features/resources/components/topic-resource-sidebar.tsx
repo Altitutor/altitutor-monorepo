@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  formatResourceFileLabel,
   formatResourceTypeLabel,
   groupFilesByType,
   pairFilesWithSolutions,
@@ -39,14 +40,14 @@ export function buildTopicResourceSidebarItems({
     const pairs = pairFilesWithSolutions(typeFiles);
     const items: ResourceSidebarItem[] = pairs.map(({ primary, solution }) => ({
       key: primary.id,
-      label: `${primary.code} · ${primary.filename}`,
+      label: formatResourceFileLabel(primary),
       href: fileHref(primary.code),
       active: primary.id === activeFileId,
       children: solution
         ? [
             {
               key: solution.id,
-              label: `${solution.code} · ${solution.filename}`,
+              label: formatResourceFileLabel(solution),
               href: fileHref(solution.code),
               active: solution.id === activeFileId,
             },

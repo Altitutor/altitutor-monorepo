@@ -78,6 +78,8 @@ export interface SearchableSelectProps<T> {
   onOpenChange?: (open: boolean) => void;
   /** Show chevron on the right side of the trigger button (default: true) */
   showChevron?: boolean;
+  /** Button variant for the default trigger (default: field) */
+  triggerVariant?: 'outline' | 'field';
   /** Render the portaled menu with the light UCAT editor palette. */
   forceLight?: boolean;
 }
@@ -120,6 +122,7 @@ export function SearchableSelect<T>({
   open: controlledOpen,
   onOpenChange,
   showChevron = true,
+  triggerVariant = 'field',
   forceLight = false,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
@@ -226,7 +229,7 @@ export function SearchableSelect<T>({
 
   const defaultTrigger = (
     <Button
-      variant="outline"
+      variant={triggerVariant}
       role="combobox"
       aria-label={ariaLabel}
       aria-expanded={open}
@@ -243,7 +246,7 @@ export function SearchableSelect<T>({
         {displayValue}
       </span>
       {showChevron && (
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground opacity-50" aria-hidden />
       )}
     </Button>
   );

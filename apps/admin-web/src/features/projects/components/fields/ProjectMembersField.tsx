@@ -12,6 +12,7 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  SearchableSelectFieldTrigger,
   SearchableSelectInline,
 } from '@altitutor/ui';
 import { Users } from 'lucide-react';
@@ -86,21 +87,24 @@ export function ProjectMembersField({
       }}
     >
       <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="field"
-          disabled={!enabled}
-          className={
-            variant === 'pills'
-              ? 'h-8 rounded-full px-3 text-xs'
-              : 'w-full justify-start'
-          }
-        >
-          <div className="flex items-center gap-2 w-full min-w-0">
-            <Users className={variant === 'pills' ? 'h-3 w-3 text-muted-foreground flex-shrink-0' : 'h-4 w-4 text-muted-foreground flex-shrink-0'} />
+        {variant === 'pills' ? (
+          <Button
+            type="button"
+            variant="field"
+            disabled={!enabled}
+            className="h-8 rounded-full px-3 text-xs"
+          >
+            <div className="flex items-center gap-2 w-full min-w-0">
+              <Users className="h-3 w-3 text-muted-foreground flex-shrink-0" />
+              <span className="truncate text-left">{summary}</span>
+            </div>
+          </Button>
+        ) : (
+          <SearchableSelectFieldTrigger disabled={!enabled}>
+            <Users className="h-4 w-4 text-muted-foreground flex-shrink-0" />
             <span className="truncate text-left">{summary}</span>
-          </div>
-        </Button>
+          </SearchableSelectFieldTrigger>
+        )}
       </PopoverTrigger>
       <PopoverContent
         align="start"

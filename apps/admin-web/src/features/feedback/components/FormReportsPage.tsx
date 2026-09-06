@@ -5,6 +5,7 @@ import {
   Button,
   DataTableToolbar,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
   SegmentedControl,
   Table,
   TableBody,
@@ -242,9 +243,9 @@ export function FormReportsPage() {
             placeholder="Select a form"
             searchPlaceholder="Search forms..."
             trigger={
-              <Button type="button" variant="outline" className="w-full justify-start font-normal">
+              <SearchableSelectFieldTrigger>
                 {selectedForm?.name ?? 'Select a form'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         </div>

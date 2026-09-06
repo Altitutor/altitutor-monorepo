@@ -2,7 +2,124 @@ import { formatSessionDate } from '@altitutor/shared';
 
 export { formatSessionDate };
 
+export const HOMEWORK_HELP_DISPLAY_NAME = 'Homework help';
+
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+
+type SessionTiming = {
+  session_id: string;
+  session_type: string;
+  start_at: string | null;
+  end_at: string | null;
+};
+
+type SessionPerson = {
+  id: string;
+  first_name: string;
+  last_name: string;
+};
+
+export function isHomeworkHelpSessionType(sessionType: string | null | undefined): boolean {
+  return sessionType === 'HOMEWORK_HELP';
+}
+
+export function sessionsAreBackToBack(
+  earlier: { end_at: string | null },
+  later: { start_at: string | null },
+): boolean {
+  if (!earlier.end_at || !later.start_at) return false;
+  return new Date(earlier.end_at).getTime() === new Date(later.start_at).getTime();
+}
+
+export function collectAdjacentHomeworkHelpSessions<T extends SessionTiming>(
+  sessions: T[],
+  anchorSessionId: string,
+): T[] {
+  const anchor = sessions.find((session) => session.session_id === anchorSessionId);
+  if (!anchor || !isHomeworkHelpSessionType(anchor.session_type)) {
+    return anchor ? [anchor] : [];
+  }
+
+  const homeworkSessions = sessions.filter(
+    (session) =>
+      isHomeworkHelpSessionType(session.session_type) &&
+      session.start_at &&
+      session.end_at,
+  );
+
+  const byStart = [...homeworkSessions].sort(
+    (a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime(),
+  );
+
+  const chains: T[][] = [];
+  let currentChain: T[] = [];
+
+  for (const session of byStart) {
+    if (currentChain.length === 0) {
+      currentChain = [session];
+      continue;
+    }
+
+    const previous = currentChain[currentChain.length - 1]!;
+    if (sessionsAreBackToBack(previous, session)) {
+      currentChain.push(session);
+    } else {
+      chains.push(currentChain);
+      currentChain = [session];
+    }
+  }
+
+  if (currentChain.length > 0) {
+    chains.push(currentChain);
+  }
+
+  const matchingChain = chains.find((chain) =>
+    chain.some((session) => session.session_id === anchorSessionId),
+  );
+
+  return matchingChain ?? [anchor];
+}
+
+export function mergeUniquePeople<T extends SessionPerson>(
+  lists: Array<Array<T> | null | undefined>,
+): T[] {
+  const seen = new Set<string>();
+  const merged: T[] = [];
+
+  for (const list of lists) {
+    for (const person of list ?? []) {
+      if (seen.has(person.id)) continue;
+      seen.add(person.id);
+      merged.push(person);
+    }
+  }
+
+  return merged;
+}
+
+export function getMergedSessionTimeRange<T extends SessionTiming>(sessions: T[]): {
+  start_at: string | null;
+  end_at: string | null;
+} {
+  const timedSessions = sessions.filter((session) => session.start_at && session.end_at);
+  if (timedSessions.length === 0) {
+    return { start_at: null, end_at: null };
+  }
+
+  const startAt = timedSessions.reduce((earliest, session) =>
+    new Date(session.start_at!).getTime() < new Date(earliest).getTime()
+      ? session.start_at!
+      : earliest,
+  timedSessions[0]!.start_at!);
+
+  const endAt = timedSessions.reduce((latest, session) =>
+    new Date(session.end_at!).getTime() > new Date(latest).getTime()
+      ? session.end_at!
+      : latest,
+  timedSessions[0]!.end_at!);
+
+  return { start_at: startAt, end_at: endAt };
+}
 
 /**
  * Flattened session data from vstudent_session_detail view
@@ -51,6 +168,10 @@ export type FlattenedSessionDetail = {
  * Prefers session long_name when present (e.g. from view); otherwise builds from parts.
  */
 export function getSessionTitle(session: FlattenedSessionDetail): string {
+  if (isHomeworkHelpSessionType(session.session_type)) {
+    return HOMEWORK_HELP_DISPLAY_NAME;
+  }
+
   const withLongName = session as { long_name?: string | null };
   if (withLongName.long_name?.trim()) return withLongName.long_name.trim();
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from "@altitutor/ui";
+import { Button, SearchableSelectFieldTrigger } from "@altitutor/ui";
 import { 
   AlertTriangle,
   Loader2,
@@ -368,9 +368,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                           placeholder="Select curriculum"
                           allowClear
                           trigger={
-                            <Button variant="outline" className="w-full justify-start font-normal">
+                            <SearchableSelectFieldTrigger>
                               {field.value ? CURRICULUM_OPTIONS.find((c) => c.id === field.value)?.label ?? field.value : 'Select curriculum'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       </FormControl>
@@ -395,9 +395,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                           placeholder="Select discipline"
                           allowClear
                           trigger={
-                            <Button variant="outline" className="w-full justify-start font-normal">
+                            <SearchableSelectFieldTrigger>
                               {field.value ? DISCIPLINE_OPTIONS.find((d) => d.id === field.value)?.label ?? field.value : 'Select discipline'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       </FormControl>

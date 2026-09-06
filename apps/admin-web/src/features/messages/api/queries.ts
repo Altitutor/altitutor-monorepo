@@ -231,6 +231,22 @@ export async function ensureConversationForContact(contactId: string, ownedNumbe
   return ensureConversation(contactId, defaultOwnedNumberId);
 }
 
+export interface RelatedMessageContact {
+  id: string;
+  phone_e164: string;
+  is_current: boolean;
+}
+
+export async function getMessageContactsForStudent(studentId: string): Promise<RelatedMessageContact[]> {
+  const { data, error } = await getSupabaseClient().rpc('student_message_contacts', { p_student_id: studentId });
+  if (error) throw error;
+  if (!Array.isArray(data)) return [];
+  return data.flatMap((row) => {
+    if (!row || typeof row !== 'object' || Array.isArray(row) || typeof row.id !== 'string' || typeof row.phone_e164 !== 'string') return [];
+    return [{ id: row.id, phone_e164: row.phone_e164, is_current: row.is_current === true }];
+  });
+}
+
 // Helper to get contact ID from student/staff/parent ID
 export async function getContactIdByRelatedId(relatedId: string, type: 'student' | 'staff' | 'parent'): Promise<string | null> {
   const supabase = getSupabaseClient();

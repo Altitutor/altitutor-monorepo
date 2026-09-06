@@ -2,6 +2,13 @@ import type { Database, Json, ResourceFile } from '@altitutor/shared';
 import { mapTopicFile } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
+import {
+  collectAdjacentHomeworkHelpSessions,
+  getMergedSessionTimeRange,
+  isHomeworkHelpSessionType,
+  mergeUniquePeople,
+  type FlattenedSessionDetail,
+} from '@/features/sessions/utils/session-helpers';
 type StudentSessionBase = Database['public']['Views']['vstudent_session_base']['Row'];
 
 export interface StudentSessionWithStaff extends Omit<StudentSessionBase, 'staff' | 'students'> {
@@ -131,7 +138,55 @@ export const studentSessionsApi = {
         throw error;
       }
 
-      return data;
+      if (!data) return null;
+
+      if (!isHomeworkHelpSessionType(data.session_type) || !data.start_at) {
+        return data;
+      }
+
+      const sessionDay = data.start_at.slice(0, 10);
+      const utcStart = dateStringToUtcStart(sessionDay);
+      const utcEnd = dateStringToUtcEnd(sessionDay);
+
+      const { data: sameDaySessions, error: sameDayError } = await supabase
+        .from('vstudent_session_detail')
+        .select('*')
+        .eq('session_type', 'HOMEWORK_HELP')
+        .gte('start_at', utcStart)
+        .lte('start_at', utcEnd);
+
+      if (sameDayError) throw sameDayError;
+
+      const relatedSessions = collectAdjacentHomeworkHelpSessions(
+        (sameDaySessions ?? []) as FlattenedSessionDetail[],
+        sessionId,
+      );
+
+      if (relatedSessions.length <= 1) {
+        return data;
+      }
+
+      const mergedTimeRange = getMergedSessionTimeRange(relatedSessions);
+      const mergedStudents = mergeUniquePeople(
+        relatedSessions.map((session) => {
+          const students = (session as { students?: StudentSessionWithStaff['students'] }).students;
+          return Array.isArray(students) ? students : [];
+        }),
+      );
+      const mergedStaff = mergeUniquePeople(
+        relatedSessions.map((session) => {
+          const staff = (session as { staff?: StudentSessionWithStaff['staff'] }).staff;
+          return Array.isArray(staff) ? staff : [];
+        }),
+      );
+
+      return {
+        ...data,
+        start_at: mergedTimeRange.start_at,
+        end_at: mergedTimeRange.end_at,
+        students: mergedStudents,
+        staff: mergedStaff,
+      };
     } catch (error) {
       console.error('Error getting session with details:', error);
       throw error;

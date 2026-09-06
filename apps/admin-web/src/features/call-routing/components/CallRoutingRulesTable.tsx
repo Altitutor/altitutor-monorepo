@@ -7,6 +7,7 @@ import {
   Label,
   Switch,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
 import {
@@ -329,9 +330,9 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
                   </div>
                 )}
                 trigger={
-                  <Button variant="outline" id="edit-rule-type" className={TRIGGER_BUTTON_CLASS}>
+                  <SearchableSelectFieldTrigger id="edit-rule-type" className={TRIGGER_BUTTON_CLASS}>
                     {RULE_TYPES.find((t) => t.id === ruleType)?.label ?? 'Select rule type'}
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </div>
@@ -380,9 +381,9 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
                     searchPlaceholder="Search message types..."
                     emptyMessage="No message types found"
                     trigger={
-                      <Button variant="outline" id="edit-message-type" className={TRIGGER_BUTTON_CLASS}>
+                      <SearchableSelectFieldTrigger id="edit-message-type" className={TRIGGER_BUTTON_CLASS}>
                         {MESSAGE_TYPES.find((t) => t.id === messageType)?.label ?? 'Select message type'}
-                      </Button>
+                      </SearchableSelectFieldTrigger>
                     }
                   />
                 </div>
@@ -458,12 +459,12 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
                 searchPlaceholder="Search phone numbers..."
                 emptyMessage="No phone numbers found"
                 trigger={
-                  <Button variant="outline" id="add-owned-number" className={TRIGGER_BUTTON_CLASS}>
+                  <SearchableSelectFieldTrigger id="add-owned-number" className={TRIGGER_BUTTON_CLASS}>
                     {(() => {
                       const n = ownedNumbers.find((num) => num.id === selectedOwnedNumberId);
                       return n ? ((n.label || n.phone_e164) ?? '') : 'Select phone number';
                     })()}
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </div>
@@ -491,9 +492,9 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
                   </div>
                 )}
                 trigger={
-                  <Button variant="outline" id="add-rule-type" className={TRIGGER_BUTTON_CLASS}>
+                  <SearchableSelectFieldTrigger id="add-rule-type" className={TRIGGER_BUTTON_CLASS}>
                     {RULE_TYPES.find((t) => t.id === ruleType)?.label ?? 'Select rule type'}
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </div>
@@ -542,9 +543,9 @@ export function CallRoutingRulesTable({ rules, ownedNumbers, onUpdate }: CallRou
                     searchPlaceholder="Search message types..."
                     emptyMessage="No message types found"
                     trigger={
-                      <Button variant="outline" id="add-message-type" className={TRIGGER_BUTTON_CLASS}>
+                      <SearchableSelectFieldTrigger id="add-message-type" className={TRIGGER_BUTTON_CLASS}>
                         {MESSAGE_TYPES.find((t) => t.id === messageType)?.label ?? 'Select message type'}
-                      </Button>
+                      </SearchableSelectFieldTrigger>
                     }
                   />
                 </div>

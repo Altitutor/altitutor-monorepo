@@ -1,13 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Label,
-  Input,
-  SearchableSelect,
-  SmartDatePickerField,
-} from '@altitutor/ui';
+import { Button, Label, Input, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
@@ -129,11 +123,11 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
             selectedSubjects={selectedSubject ? [selectedSubject] : []}
             onSelectSubject={setSelectedSubject}
             trigger={
-              <Button variant="outline" className="w-full justify-start">
+              <SearchableSelectFieldTrigger>
                 {selectedSubject
                   ? `${selectedSubject.curriculum} ${selectedSubject.year_level ? `Year ${selectedSubject.year_level}` : ''} ${selectedSubject.name}`
                   : 'Select a subject'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         </div>
@@ -152,9 +146,9 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
             getItemLabel={(item) => item.label}
             placeholder="Select billing type"
             trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="billing-type">
+              <SearchableSelectFieldTrigger id="billing-type">
                 {billingType || 'Select billing type'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         </div>
@@ -188,9 +182,9 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
             getItemLabel={(item) => item.label}
             placeholder="Select currency"
             trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="currency">
+              <SearchableSelectFieldTrigger id="currency">
                 {currency || 'Select currency'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         </div>

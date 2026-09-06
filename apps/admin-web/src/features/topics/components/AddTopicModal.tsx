@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Input,
-  Label,
-  SearchableSelect,
-} from '@altitutor/ui';
+import { Button, Input, Label, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
@@ -147,9 +142,9 @@ export function AddTopicModal({
             placeholder="Select subject"
             disabled={!!preselectedSubjectId || subjectsLoading}
             trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="subject_id">
+              <SearchableSelectFieldTrigger id="subject_id">
                 {subjects.find((s) => s.id === form.watch('subject_id'))?.long_name ?? 'Select subject'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
           {form.formState.errors.subject_id && (
@@ -177,11 +172,11 @@ export function AddTopicModal({
             placeholder="None (root topic)"
             disabled={!selectedSubjectId || !!preselectedParentId}
             trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="parent_id">
+              <SearchableSelectFieldTrigger id="parent_id">
                 {form.watch('parent_id') === 'none' || !form.watch('parent_id')
                   ? 'None (root topic)'
                   : availableParentTopics.find((t) => t.id === form.watch('parent_id'))?.name ?? 'None (root topic)'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
         </div>

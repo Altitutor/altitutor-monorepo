@@ -9,6 +9,13 @@ const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 const hostname =
   typeof window === "undefined" ? undefined : window.location.hostname;
 
+// Production builds also run in previews and local smoke tests.
+const replayEnabled =
+  process.env.NODE_ENV === "production" &&
+  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") === "production" &&
+  typeof window !== "undefined" &&
+  window.location.hostname === "ucat.altitutor.com";
+
 Sentry.init({
   dsn,
   enabled: shouldEnableClientSentry(dsn, hostname),
@@ -20,15 +27,19 @@ Sentry.init({
   beforeSendTransaction: (event) =>
     shouldSendClientSentryTransaction(hostname) ? event : null,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
-  replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: process.env.NODE_ENV === "production" ? 1 : 0,
+  replaysSessionSampleRate: replayEnabled ? 0.05 : 0,
+  replaysOnErrorSampleRate: replayEnabled ? 1 : 0,
   integrations: [
-    Sentry.replayIntegration({
-      maskAllText: true,
-      maskAllInputs: true,
-      blockAllMedia: true,
-      block: ["iframe[src^='https://js.stripe.com']"],
-    }),
+    ...(replayEnabled
+      ? [
+          Sentry.replayIntegration({
+            maskAllText: true,
+            maskAllInputs: true,
+            blockAllMedia: true,
+            block: ["iframe[src^='https://js.stripe.com']"],
+          }),
+        ]
+      : []),
     Sentry.feedbackIntegration({
       autoInject: false,
       showBranding: false,

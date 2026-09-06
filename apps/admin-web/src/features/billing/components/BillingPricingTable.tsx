@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Input,
-  Button,
-  Label,
-  SearchableSelect,
-} from '@altitutor/ui';
+import { Input, Button, Label, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { pricingApi, type BillingPricingRow } from '../api/pricing';
 import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
@@ -158,9 +153,9 @@ export function BillingPricingTable({ pricing, onUpdate }: BillingPricingTablePr
                 getItemLabel={(item) => item.label}
                 placeholder="Select currency"
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal" id="edit-currency">
+                  <SearchableSelectFieldTrigger id="edit-currency">
                     {currency || 'Select currency'}
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </div>

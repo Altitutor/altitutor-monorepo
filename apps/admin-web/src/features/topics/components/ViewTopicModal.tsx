@@ -24,7 +24,7 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
-import { SearchableSelect } from '@altitutor/ui';
+import { SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { TrashIcon, Loader2, AlertTriangle, ExternalLink, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
@@ -314,14 +314,11 @@ export function ViewTopicModal({
                           searchPlaceholder="Search subjects..."
                           emptyMessage="No subjects found"
                           trigger={
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start font-normal"
-                            >
+                            <SearchableSelectFieldTrigger>
                               {form.watch('subject_id')
                                 ? subjects.find((s) => s.id === form.watch('subject_id'))?.long_name ?? 'Select subject'
                                 : 'Select subject'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       </div>
@@ -350,14 +347,11 @@ export function ViewTopicModal({
                           allowClear
                           clearLabel="None (root topic)"
                           trigger={
-                            <Button
-                              variant="outline"
-                              className="w-full justify-start font-normal"
-                            >
+                            <SearchableSelectFieldTrigger>
                               {form.watch('parent_id') && form.watch('parent_id') !== 'none'
                                 ? availableParents.find((t) => t.id === form.watch('parent_id'))?.name ?? 'None (root topic)'
                                 : 'None (root topic)'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       </div>

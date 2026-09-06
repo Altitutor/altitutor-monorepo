@@ -66,7 +66,7 @@ async function isPendingPaymentMethodVerification(
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { token, action } = body;
+    const { token, action, setupIntentId } = body;
 
     if (!token) {
       return NextResponse.json(
@@ -91,6 +91,9 @@ export async function POST(request: NextRequest) {
       body: {
         action,
         registrationToken: token, // Pass token for registration flow
+        ...(typeof setupIntentId === "string" && setupIntentId
+          ? { setupIntentId }
+          : {}),
       },
     });
 

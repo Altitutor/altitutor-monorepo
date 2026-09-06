@@ -6,6 +6,7 @@ import Stripe from 'npm:stripe@16.6.0';
 // Shared helpers
 import { calculateAdelaideDateRange, getAdelaideDateString } from './shared/utils.ts';
 import {
+  getChargeableSessionsStudentsIds,
   getInvoicedSessionsStudentsIds,
   loadBillingInfo,
   loadBillingPricing,
@@ -293,6 +294,10 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     if (ssErr) throw ssErr;
 
     const ssIdsForDate = (ssRows ?? []).map((row: { id: string }) => row.id);
+    const chargeableSessionsStudentsIds = await getChargeableSessionsStudentsIds(
+      supabase,
+      ssIdsForDate,
+    );
     const { data: controlledAdjustments, error: controlledAdjustmentsError } = ssIdsForDate.length > 0
       ? await supabase
         .from('session_billing_adjustments')
@@ -316,6 +321,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         id: string;
       }) =>
         (!row.planned_absence || (!row.is_credited && !row.is_rescheduled)) &&
+        chargeableSessionsStudentsIds.has(row.id) &&
         !adjustmentControlledIds.has(row.id)
       )
       .map((row: { id: string }) => row.id);
@@ -333,6 +339,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         id: string;
       }) =>
         (!row.planned_absence || (!row.is_credited && !row.is_rescheduled)) &&
+        chargeableSessionsStudentsIds.has(row.id) &&
         !adjustmentControlledIds.has(row.id) &&
         !invoicedSessionsStudentsIds.has(row.id),
     );

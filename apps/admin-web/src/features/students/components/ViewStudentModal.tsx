@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
+import { DuplicateStudentSuggestion } from '@/features/student-merges/components/DuplicateStudentSuggestion';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -78,10 +80,11 @@ interface ViewStudentModalProps {
 export function ViewStudentModal({
   isOpen,
   onClose,
-  studentId,
+  studentId: requestedStudentId,
   onStudentUpdated,
   defaultTab = 'details',
 }: ViewStudentModalProps) {
+  const studentId = useCanonicalStudentId(requestedStudentId, isOpen);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
@@ -300,6 +303,7 @@ export function ViewStudentModal({
                         <X className="h-4 w-4" />
                       </Button>
                       <div className="flex-1">
+                        <DuplicateStudentSuggestion studentId={student.id} />
                         <SheetTitle>
                           {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
                         </SheetTitle>

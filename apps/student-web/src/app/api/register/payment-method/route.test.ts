@@ -23,12 +23,14 @@ jest.mock("@/shared/lib/supabase/server", () => ({
 const mockedGetServerSupabaseClient = jest.mocked(getServerSupabaseClient);
 const mockedCaptureApiError = jest.mocked(captureApiError);
 
-function paymentMethodRequest() {
+function paymentMethodRequest(
+  body: Record<string, unknown> = {
+    action: "verify_payment_method",
+    token: "registration-token",
+  },
+) {
   return {
-    json: async () => ({
-      action: "verify_payment_method",
-      token: "registration-token",
-    }),
+    json: async () => body,
   } as NextRequest;
 }
 
@@ -129,5 +131,36 @@ describe("POST /api/register/payment-method", () => {
         result_code: "edge_function_error",
       },
     );
+  });
+
+  it("forwards the succeeded setup intent so verification does not wait on the webhook", async () => {
+    const invoke = jest.fn().mockResolvedValue({
+      data: { verified: true, message: "Payment method verified" },
+      error: null,
+    });
+    mockedGetServerSupabaseClient.mockReturnValue({
+      functions: { invoke },
+    } as unknown as ReturnType<typeof getServerSupabaseClient>);
+
+    const response = await POST(
+      paymentMethodRequest({
+        action: "verify_payment_method",
+        token: "registration-token",
+        setupIntentId: "seti_123",
+      }),
+    );
+
+    expect(invoke).toHaveBeenCalledWith("payment-methods", {
+      body: {
+        action: "verify_payment_method",
+        registrationToken: "registration-token",
+        setupIntentId: "seti_123",
+      },
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({
+      verified: true,
+      message: "Payment method verified",
+    });
   });
 });
