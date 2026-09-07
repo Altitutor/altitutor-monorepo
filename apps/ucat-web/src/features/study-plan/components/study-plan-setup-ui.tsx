@@ -12,6 +12,11 @@ import {
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { testDateBounds } from "@/features/study-plan/lib/test-date-bounds";
+import {
+  TARGET_SCORE_MAX,
+  TARGET_SCORE_MIN,
+  TARGET_SCORE_STEP,
+} from "@/features/study-plan/lib/target-score";
 
 export type GoalYearOption = { year: number };
 
@@ -141,6 +146,43 @@ export function StudyPlanStepIndicator({
   );
 }
 
+const GOAL_FIELD_LABEL_CLASS =
+  "text-base font-semibold tracking-tight text-foreground";
+
+function GoalFieldRow({
+  label,
+  labelId,
+  description,
+  align = "start",
+  className,
+  children,
+}: {
+  label: string;
+  labelId: string;
+  description?: ReactNode;
+  align?: "start" | "center";
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        "grid grid-cols-1 gap-3 sm:grid-cols-[minmax(0,16rem)_minmax(0,1fr)] sm:gap-8",
+        align === "center" ? "sm:items-center" : "sm:items-start",
+        className,
+      )}
+    >
+      <div className="min-w-0 space-y-1">
+        <p id={labelId} className={GOAL_FIELD_LABEL_CLASS}>
+          {label}
+        </p>
+        {description}
+      </div>
+      <div className="min-w-0 w-full">{children}</div>
+    </div>
+  );
+}
+
 export function StudyPlanGoalFields({
   idPrefix,
   targetScore,
@@ -176,7 +218,13 @@ export function StudyPlanGoalFields({
     () => (testYear != null ? testDateBounds(testYear) : null),
     [testYear],
   );
-  const scoreProgress = ((targetScore - 900) / (2700 - 900)) * 100;
+  const scoreProgress =
+    ((targetScore - TARGET_SCORE_MIN) /
+      (TARGET_SCORE_MAX - TARGET_SCORE_MIN)) *
+    100;
+  const yearLabelId = `${idPrefix}-year-label`;
+  const dateLabelId = `${idPrefix}-date-label`;
+  const targetLabelId = `${idPrefix}-target-label`;
   const selectTriggerClass = cn(
     STUDY_SETUP_FIELD_CLASS,
     "h-auto justify-between font-normal hover:bg-muted [&_svg]:text-muted-foreground",
@@ -192,144 +240,66 @@ export function StudyPlanGoalFields({
     if (
       value !== "" &&
       Number.isInteger(parsedScore) &&
-      parsedScore >= 900 &&
-      parsedScore <= 2700
+      parsedScore >= TARGET_SCORE_MIN &&
+      parsedScore <= TARGET_SCORE_MAX
     ) {
       onTargetScoreChange(parsedScore);
     }
   }
 
   return (
-    <div className={cn(UCAT_CARD_CHROME, "space-y-6 p-6 sm:p-8")}>
-      <div className="grid gap-6 lg:grid-cols-[0.8fr_1.2fr] lg:items-start">
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.18em] text-primary dark:text-accent">
-            Your working target
-          </p>
-          <label className="mt-2 flex items-baseline gap-2">
-            <span className="sr-only">Target UCAT score</span>
-            <input
-              id={`${idPrefix}-target`}
-              type="number"
-              inputMode="numeric"
-              min={900}
-              max={2700}
-              step={10}
-              required
-              aria-label="Target UCAT score"
-              value={targetScoreDraft}
-              disabled={disabled}
-              onChange={(event) => updateTargetScoreDraft(event.target.value)}
-              onBlur={() => setTargetScoreDraft(String(targetScore))}
-              className="w-40 rounded-md bg-transparent text-5xl font-black tabular-nums tracking-tight text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-            />
-            <span className="text-sm font-medium text-muted-foreground">
-              / 2700
-            </span>
-          </label>
-          <button
-            type="button"
+    <div className={cn(UCAT_CARD_CHROME, "p-6 sm:p-8")}>
+      <div>
+        <GoalFieldRow
+          label="UCAT year"
+          labelId={yearLabelId}
+          align="center"
+          className="border-b border-border/60 pb-6"
+        >
+          <SearchableSelect<GoalYearOption>
+            items={yearOptions}
+            value={selectedYear}
+            onValueChange={(option) => {
+              onTestYearChange(option?.year ?? null);
+              onTestDateChange("");
+            }}
+            getItemLabel={(item) => String(item.year)}
+            getItemId={(item) => String(item.year)}
+            placeholder="Select your UCAT year"
+            ariaLabel="UCAT year"
+            searchPlaceholder="Search years…"
+            emptyMessage="No matching year."
             disabled={disabled}
-            className="mt-3 text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline disabled:opacity-50"
-            onClick={onTargetUnsure}
-          >
-            Not sure what to set?
-          </button>
-          <AnimatePresence initial={false}>
-            {targetUnsure ? (
-              <motion.p
-                initial={
-                  reduceMotion ? false : { opacity: 0, height: 0, y: -4 }
+            fullWidth
+            triggerClassName={selectTriggerClass}
+            contentWidth="var(--radix-popover-trigger-width)"
+          />
+        </GoalFieldRow>
+
+        <AnimatePresence initial={false}>
+          {testYear != null ? (
+            <motion.div
+              initial={reduceMotion ? false : { opacity: 0, height: 0, y: -8 }}
+              animate={{ opacity: 1, height: "auto", y: 0 }}
+              exit={{ opacity: 0, height: 0, y: -8 }}
+              transition={{ duration: reduceMotion ? 0 : 0.24 }}
+              className="overflow-hidden"
+            >
+              <GoalFieldRow
+                label="Exact date (optional)"
+                labelId={dateLabelId}
+                className="border-b border-border/60 py-6"
+                description={
+                  <p className="text-sm text-muted-foreground">
+                    Leave this blank if you do not know your date yet.
+                  </p>
                 }
-                animate={{ opacity: 1, height: "auto", y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -4 }}
-                transition={{ duration: reduceMotion ? 0 : 0.24 }}
-                className="mt-2 overflow-hidden rounded-xl bg-muted/60 px-3 py-2 text-sm text-muted-foreground"
               >
-                We’ll use 2200 as a sensible working target. It is not a
-                prediction, and you can change it any time.
-              </motion.p>
-            ) : null}
-          </AnimatePresence>
-        </div>
-
-        <div className="space-y-4">
-          <div className="rounded-2xl bg-muted/55 p-5">
-            <div className="relative pb-8 pt-5">
-              <div className="h-4 overflow-hidden rounded-full bg-gradient-to-r from-accent/35 via-accent/70 to-accent" />
-              <div
-                className="absolute top-0 -translate-x-1/2"
-                style={{ left: `${scoreProgress}%` }}
-              >
-                <div className="rounded-md bg-primary px-2 py-1 text-xs font-bold tabular-nums text-primary-foreground shadow dark:bg-accent dark:text-accent-foreground">
-                  {targetScore}
-                </div>
-                <div className="mx-auto h-7 w-0.5 bg-primary dark:bg-accent" />
-              </div>
-              <input
-                type="range"
-                min={900}
-                max={2700}
-                step={10}
-                value={targetScore}
-                disabled={disabled}
-                onChange={(event) =>
-                  onTargetScoreChange(Number(event.target.value))
-                }
-                aria-label="Target UCAT score"
-                className="absolute inset-x-0 top-3 h-7 w-full cursor-pointer opacity-0"
-              />
-              <div className="mt-3 grid grid-cols-3 text-[11px] font-semibold text-muted-foreground">
-                <span>
-                  900
-                  <br />
-                  lowest total
-                </span>
-                <span className="text-center">1800</span>
-                <span className="text-right">
-                  2700
-                  <br />
-                  highest total
-                </span>
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <span className="block">UCAT year</span>
-            <SearchableSelect<GoalYearOption>
-              items={yearOptions}
-              value={selectedYear}
-              onValueChange={(option) => {
-                onTestYearChange(option?.year ?? null);
-                onTestDateChange("");
-              }}
-              getItemLabel={(item) => String(item.year)}
-              getItemId={(item) => String(item.year)}
-              placeholder="Select your UCAT year"
-              ariaLabel="UCAT year"
-              searchPlaceholder="Search years…"
-              emptyMessage="No matching year."
-              disabled={disabled}
-              triggerClassName={selectTriggerClass}
-              contentWidth="var(--radix-popover-trigger-width)"
-            />
-          </div>
-
-          <AnimatePresence initial={false}>
-            {testYear != null ? (
-              <motion.div
-                initial={reduceMotion ? false : { opacity: 0, height: 0, y: -8 }}
-                animate={{ opacity: 1, height: "auto", y: 0 }}
-                exit={{ opacity: 0, height: 0, y: -8 }}
-                transition={{ duration: reduceMotion ? 0 : 0.24 }}
-                className="overflow-hidden"
-              >
-                <label
-                  className="block space-y-2 text-sm text-muted-foreground"
-                  htmlFor={`${idPrefix}-date`}
+                <div
+                  role="group"
+                  aria-labelledby={dateLabelId}
+                  className="w-full min-w-0"
                 >
-                  <span>Exact date (optional)</span>
                   <SmartDatePickerField
                     value={testDate || null}
                     onChange={(value) => onTestDateChange(value ?? "")}
@@ -343,14 +313,109 @@ export function StudyPlanGoalFields({
                     disabled={disabled}
                     className={STUDY_SETUP_FIELD_CLASS}
                   />
-                  <span className="block text-xs text-muted-foreground/75">
-                    Leave this blank if you do not know your date yet.
-                  </span>
-                </label>
-              </motion.div>
-            ) : null}
-          </AnimatePresence>
-        </div>
+                </div>
+              </GoalFieldRow>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
+
+        <GoalFieldRow
+          label="Target score"
+          labelId={targetLabelId}
+          className="pt-6"
+          description={
+            <div className="space-y-2">
+              <button
+                type="button"
+                disabled={disabled}
+                className="text-left text-sm text-muted-foreground transition-colors hover:text-foreground hover:underline disabled:opacity-50"
+                onClick={onTargetUnsure}
+              >
+                Not sure what to set?
+              </button>
+              <AnimatePresence initial={false}>
+                {targetUnsure ? (
+                  <motion.p
+                    initial={
+                      reduceMotion ? false : { opacity: 0, height: 0, y: -4 }
+                    }
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -4 }}
+                    transition={{ duration: reduceMotion ? 0 : 0.24 }}
+                    className="overflow-hidden text-sm text-muted-foreground"
+                  >
+                    We’ll use 2200 as a sensible working target. It is not a
+                    prediction, and you can change it any time.
+                  </motion.p>
+                ) : null}
+              </AnimatePresence>
+            </div>
+          }
+        >
+          <div className="w-full min-w-0">
+            <label className="flex items-baseline gap-2">
+              <span className="sr-only">Target UCAT score</span>
+              <input
+                id={`${idPrefix}-target`}
+                type="number"
+                inputMode="numeric"
+                min={TARGET_SCORE_MIN}
+                max={TARGET_SCORE_MAX}
+                step={TARGET_SCORE_STEP}
+                required
+                aria-label="Target UCAT score"
+                value={targetScoreDraft}
+                disabled={disabled}
+                onChange={(event) => updateTargetScoreDraft(event.target.value)}
+                onBlur={() => setTargetScoreDraft(String(targetScore))}
+                className="w-40 max-w-full bg-transparent text-5xl font-black tabular-nums tracking-tight text-foreground outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+              />
+              <span className="text-sm font-medium text-muted-foreground">
+                / {TARGET_SCORE_MAX}
+              </span>
+            </label>
+
+            <div className="relative mt-4">
+              <div className="relative h-7">
+                <div className="absolute inset-x-2 top-1/2 h-2 -translate-y-1/2 rounded-full bg-gradient-to-r from-accent/35 via-accent/70 to-accent" />
+                <div
+                  className="pointer-events-none absolute top-1/2 size-4 -translate-x-1/2 -translate-y-1/2 rounded-full bg-primary shadow-sm ring-2 ring-background dark:bg-accent"
+                  style={{
+                    left: `calc(0.5rem + (100% - 1rem) * ${scoreProgress / 100})`,
+                  }}
+                />
+                <input
+                  type="range"
+                  min={TARGET_SCORE_MIN}
+                  max={TARGET_SCORE_MAX}
+                  step={TARGET_SCORE_STEP}
+                  value={targetScore}
+                  disabled={disabled}
+                  onChange={(event) =>
+                    onTargetScoreChange(Number(event.target.value))
+                  }
+                  aria-label="Adjust target UCAT score"
+                  className="absolute inset-y-0 left-2 right-2 h-7 w-[calc(100%-1rem)] cursor-pointer opacity-0"
+                />
+              </div>
+              <div className="mt-2 grid grid-cols-3 text-[11px] font-semibold text-muted-foreground">
+                <span>
+                  {TARGET_SCORE_MIN}
+                  <br />
+                  lowest total
+                </span>
+                <span className="text-center">
+                  {(TARGET_SCORE_MIN + TARGET_SCORE_MAX) / 2}
+                </span>
+                <span className="text-right">
+                  {TARGET_SCORE_MAX}
+                  <br />
+                  highest total
+                </span>
+              </div>
+            </div>
+          </div>
+        </GoalFieldRow>
       </div>
 
       <AnimatePresence initial={false}>
@@ -361,7 +426,7 @@ export function StudyPlanGoalFields({
             exit={{ opacity: 0, height: 0, y: -4 }}
             transition={{ duration: reduceMotion ? 0 : 0.2 }}
             role="alert"
-            className="flex overflow-hidden rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
+            className="mt-6 flex overflow-hidden rounded-xl border border-amber-500/25 bg-amber-500/10 px-4 py-3 text-sm text-foreground"
           >
             <AlertTriangle
               className="mr-3 mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400"
