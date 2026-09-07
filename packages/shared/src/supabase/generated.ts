@@ -38960,6 +38960,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      invoice_lifecycle_event_payload: {
+        Args: { row_data: Json }
+        Returns: Json
+      }
       is_adminstaff_active: { Args: never; Returns: boolean }
       is_current_student_active_in_person: { Args: never; Returns: boolean }
       is_notes_folder_tutor_documentation_ancestor: {
