@@ -423,7 +423,7 @@ test("every web app runs Playwright against a production build", async () => {
   }
 });
 
-test("browser CI bounds startup and releases generated build artifacts", async () => {
+test("browser CI uses valid readiness probes and releases build artifacts", async () => {
   const workflow = await readFile(ciWorkflowPath, "utf8");
 
   for (const app of APPS) {
@@ -440,8 +440,13 @@ test("browser CI bounds startup and releases generated build artifacts", async (
   );
   assert.match(
     studentConfig,
-    /timeout: process\.env\.CI \? 900_000 : 300_000/u,
-    "student-web must allow its Docker-constrained CI production build to finish",
+    /url: `\$\{baseURL\}\/login`/u,
+    "student-web must probe a local route instead of its cross-portal root redirect",
+  );
+  assert.match(
+    studentConfig,
+    /timeout: 300_000/u,
+    "student-web must bound readiness failures",
   );
 });
 

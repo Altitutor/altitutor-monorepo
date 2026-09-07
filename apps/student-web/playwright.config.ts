@@ -98,12 +98,11 @@ export default defineConfig({
       "pnpm exec next build",
       "pnpm exec next start -p 3011 -H 127.0.0.1",
     ].join(" && "),
-    url: baseURL,
+    // The student root redirects to marketing-web. Probe a route owned by this
+    // server so Playwright does not wait on a portal that this suite never starts.
+    url: `${baseURL}/login`,
     reuseExistingServer: !process.env.CI,
-    // The production build shares a constrained CI runner with the local
-    // Supabase Docker stack. Keep local failures fast while allowing that
-    // release build to finish before Playwright starts checking readiness.
-    timeout: process.env.CI ? 900_000 : 300_000,
+    timeout: 300_000,
     env: {
       ...readLocalSupabaseEnvironment(),
       NEXT_PUBLIC_ADMIN_PORTAL_URL: "http://localhost:3000",
