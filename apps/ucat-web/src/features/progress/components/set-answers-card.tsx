@@ -2,6 +2,7 @@
 
 import {
   formatUcatQuestionDifficulty,
+  UCAT_QUESTION_DIFFICULTY_STUDENT_EXPLANATION,
   ucatQuestionDifficultyPercent,
 } from "@altitutor/shared";
 import {
@@ -11,7 +12,7 @@ import {
   type ClipboardEvent,
   type ReactNode,
 } from "react";
-import { ArrowLeft, ArrowRight, Flag } from "lucide-react";
+import { ArrowLeft, ArrowRight, Flag, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Badge,
@@ -19,6 +20,7 @@ import {
   CardContent,
   CardHeader,
   CardTitle,
+  Separator,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -34,7 +36,6 @@ import { useRefreshedContentCache } from "@/features/question-engine/hooks/use-r
 import { ResultsQuestionViewer } from "@/features/question-engine/components/results-question-viewer";
 import {
   AnswerExplanation,
-  hasAnswerExplanation,
   OptionText,
 } from "@/features/question-engine/components/question-content";
 import {
@@ -48,7 +49,12 @@ import type {
 import { formatTimeSeconds } from "../lib/format-time";
 import { buildQuestionAttemptInsight } from "../lib/attempt-insights";
 import { projectStoredQuestionAttemptReview } from "../lib/attempt-response-review";
-import { getWrongAnswerExplanations } from "../lib/question-insight-evidence";
+import {
+  getAnswerExplanationCardModel,
+  shouldShowQuestionExplanationInInsight,
+} from "../lib/answer-explanation-card";
+import { getWrongAnswerInsightItems } from "../lib/question-insight-evidence";
+import type { RemediationLessonLink } from "../lib/remediation-learning-modules";
 import { AttemptInsightCard } from "./attempt-insight-card";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
 import { contentSnapshotVersion } from "@/features/content-ratings/lib";
@@ -69,6 +75,7 @@ type QuestionAttemptForCard = {
   categoryName?: string | null;
   categoryDescription?: string | null;
   isFlagged?: boolean;
+  remediationLessons?: RemediationLessonLink[];
 };
 
 type SetAnswersCardProps = {
@@ -185,11 +192,15 @@ function MeterRow({
   value,
   max,
   tone = "primary",
+  hint,
+  displayValue,
 }: {
   label: string;
   value: number | null | undefined;
   max: number;
   tone?: "primary" | "muted" | "amber";
+  hint?: string;
+  displayValue?: string;
 }) {
   const pct =
     value != null && max > 0
@@ -198,9 +209,29 @@ function MeterRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-3 text-xs">
-        <span className="text-muted-foreground">{label}</span>
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          {label}
+          {hint ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                    aria-label={`What ${label.toLowerCase()} means`}
+                  >
+                    <Info className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[280px]">
+                  {hint}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+        </span>
         <span className="font-medium tabular-nums">
-          {value != null ? formatTimeSeconds(value) : "—"}
+          {displayValue ?? (value != null ? formatTimeSeconds(value) : "—")}
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -221,44 +252,42 @@ function MeterRow({
 }
 
 function ExplanationContent({ question }: { question: QuestionItem }) {
-  const optionsWithExplanations = question.options.filter((option) =>
-    hasAnswerExplanation(option),
-  );
+  const model = getAnswerExplanationCardModel(question);
 
-  if (!hasAnswerExplanation(question) && optionsWithExplanations.length === 0) {
+  if (model.kind === "empty") {
     return (
       <p className="text-sm text-muted-foreground">No explanation available.</p>
     );
   }
 
+  if (model.kind === "question") {
+    return (
+      <AnswerExplanation
+        text={question.answerExplanation}
+        json={question.answerExplanationJson}
+        textTone="theme"
+      />
+    );
+  }
+
+  const options = question.options.filter((option) =>
+    model.optionIds.includes(option.id),
+  );
+
   return (
-    <div className="space-y-3">
-      {hasAnswerExplanation(question) ? (
-        <AnswerExplanation
-          text={question.answerExplanation}
-          json={question.answerExplanationJson}
-          textTone="theme"
-        />
-      ) : null}
-      {optionsWithExplanations.length > 0 ? (
-        <div className="space-y-2">
-          {optionsWithExplanations.map((option) => (
-            <div
-              key={option.id}
-              className="rounded-md border border-border p-3"
-            >
-              <div className="mb-1 text-xs font-medium text-muted-foreground">
-                <OptionText option={option} textTone="theme" />
-              </div>
-              <AnswerExplanation
-                text={option.answerExplanation}
-                json={option.answerExplanationJson}
-                textTone="theme"
-              />
-            </div>
-          ))}
+    <div className="space-y-2">
+      {options.map((option) => (
+        <div key={option.id} className="rounded-md border border-border p-3">
+          <div className="mb-1 text-xs font-medium text-muted-foreground">
+            <OptionText option={option} textTone="theme" />
+          </div>
+          <AnswerExplanation
+            text={option.answerExplanation}
+            json={option.answerExplanationJson}
+            textTone="theme"
+          />
         </div>
-      ) : null}
+      ))}
     </div>
   );
 }
@@ -327,16 +356,24 @@ export function SetAnswersCard({
       )
     : false;
   const resultBadge = getAttemptResultBadge(currentAttempt, notAnswered);
-  const wrongAnswerExplanations = currentQuestion
-    ? getWrongAnswerExplanations(currentQuestion, currentProjection?.review)
+  const wrongAnswerItems = currentQuestion
+    ? getWrongAnswerInsightItems(currentQuestion, currentProjection?.review)
     : [];
+  const showQuestionExplanationInInsight = currentQuestion
+    ? shouldShowQuestionExplanationInInsight(
+        currentQuestion,
+        currentAttempt?.result,
+      )
+    : false;
+  const explanationCardModel = currentQuestion
+    ? getAnswerExplanationCardModel(currentQuestion)
+    : { kind: "empty" as const };
   const questionInsight = buildQuestionAttemptInsight({
     result: currentAttempt?.result ?? "not_attempted",
     timeSpentSeconds: currentAttempt?.timeSpentSeconds ?? null,
     averageTimeSeconds: currentAttempt?.averageTimeSeconds ?? null,
     averageTimeSampleSize: currentAttempt?.averageTimeSampleSize ?? 0,
     wasFlagged: currentAttempt?.isFlagged ?? false,
-    wrongAnswerExplanations,
   });
 
   const points = currentProjection?.points;
@@ -597,6 +634,16 @@ export function SetAnswersCard({
           <AttemptInsightCard
             label="Question insight"
             insight={questionInsight}
+            wrongAnswerItems={wrongAnswerItems}
+            questionExplanation={
+              showQuestionExplanationInInsight && currentQuestion
+                ? {
+                    text: currentQuestion.answerExplanation,
+                    json: currentQuestion.answerExplanationJson,
+                  }
+                : null
+            }
+            remediationLessons={currentAttempt?.remediationLessons ?? []}
             ratingContextKey={`${ratingContextKey}:question:${currentQuestion?.id ?? currentAttempt?.questionId ?? viewingIndex}`}
           />
         ) : null}
@@ -614,21 +661,32 @@ export function SetAnswersCard({
             {currentQuestion ? (
               <>
                 <ExplanationContent question={currentQuestion} />
-                {hasAnswerExplanation(currentQuestion) ||
-                currentQuestion.options.some(hasAnswerExplanation) ? (
+                {explanationCardModel.kind !== "empty" ? (
                   <ContentRatingControls
                     className="border-t border-border/60 pt-3"
                     descriptor={(() => {
                       const displayedContent = {
-                        explanation: JSON.stringify({
-                          text: currentQuestion.answerExplanation ?? null,
-                          json: currentQuestion.answerExplanationJson ?? null,
-                          options: currentQuestion.options.map((option) => ({
-                            id: option.id,
-                            text: option.answerExplanation ?? null,
-                            json: option.answerExplanationJson ?? null,
-                          })),
-                        }),
+                        explanation: JSON.stringify(
+                          explanationCardModel.kind === "question"
+                            ? {
+                                text: currentQuestion.answerExplanation ?? null,
+                                json:
+                                  currentQuestion.answerExplanationJson ?? null,
+                              }
+                            : {
+                                options: currentQuestion.options
+                                  .filter((option) =>
+                                    explanationCardModel.optionIds.includes(
+                                      option.id,
+                                    ),
+                                  )
+                                  .map((option) => ({
+                                    id: option.id,
+                                    text: option.answerExplanation ?? null,
+                                    json: option.answerExplanationJson ?? null,
+                                  })),
+                              },
+                        ),
                       };
                       return {
                         targetType: "answer_explanation" as const,
@@ -650,7 +708,7 @@ export function SetAnswersCard({
           <Card className={cn(UCAT_CARD_CHROME, "min-w-0")}>
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-medium">
-                Question timing
+                Question timing and difficulty
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
@@ -674,6 +732,22 @@ export function SetAnswersCard({
                   max={timingMax}
                   tone="amber"
                 />
+              ) : null}
+              {currentAttempt?.difficulty != null ? (
+                <>
+                  <Separator />
+                  <MeterRow
+                    label="Difficulty"
+                    hint={UCAT_QUESTION_DIFFICULTY_STUDENT_EXPLANATION}
+                    value={ucatQuestionDifficultyPercent(
+                      currentAttempt.difficulty,
+                    )}
+                    max={100}
+                    displayValue={formatUcatQuestionDifficulty(
+                      currentAttempt.difficulty,
+                    )}
+                  />
+                </>
               ) : null}
             </CardContent>
           </Card>
@@ -721,34 +795,6 @@ export function SetAnswersCard({
                   <span className="text-sm text-muted-foreground">—</span>
                 )}
               </div>
-              {currentAttempt?.difficulty != null ? (
-                <div className="flex items-start justify-between gap-4">
-                  <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                    Difficulty
-                  </div>
-                  <div className="min-w-0 flex-1 space-y-1.5">
-                    <div className="text-right text-xs tabular-nums">
-                      {formatUcatQuestionDifficulty(currentAttempt.difficulty)}
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-muted">
-                      <div
-                        className="h-full rounded-full bg-primary"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            Math.max(
-                              0,
-                              ucatQuestionDifficultyPercent(
-                                currentAttempt.difficulty,
-                              ),
-                            ),
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ) : null}
             </CardContent>
           </Card>
         </div>

@@ -51,6 +51,7 @@ import { useRouter } from "next/navigation";
 import { Separator } from "@altitutor/ui";
 import { X } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { PropertyForm, PropertyFormRow } from "@/shared/components/PropertyForm";
 import { useSubjectActions } from "../hooks";
 import { SubjectImageField } from "./SubjectImageField";
 import { cn } from "@/shared/utils";
@@ -516,42 +517,42 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
               </Form>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div className="text-sm font-medium">Name:</div>
-                  <div>{subject.name}</div>
-                  
-                  <div className="text-sm font-medium">Year Level:</div>
-                  <div>{subject.year_level || '-'}</div>
-                  
-                  <div className="text-sm font-medium">Curriculum:</div>
-                  <div>
-                    {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
-                  </div>
-                  
-                  <div className="text-sm font-medium">Discipline:</div>
-                  <div>
-                    {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
-                  </div>
-                  
-                  <div className="text-sm font-medium">Level:</div>
-                  <div>{subject.level || '-'}</div>
-                  
-                  <div className="text-sm font-medium">Color:</div>
-                  <div className="flex items-center gap-2">
-                    {subject.color ? (
-                      <>
-                        <div
-                          className="w-6 h-6 rounded border border-gray-300"
-                          style={{ backgroundColor: subject.color }}
-                        />
-                        <span className="text-sm">{subject.color}</span>
-                      </>
-                    ) : (
-                      '-'
-                    )}
-                  </div>
-                  
-                </div>
+                <PropertyForm>
+                  <PropertyFormRow label="Name">
+                    <div>{subject.name}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Year level">
+                    <div>{subject.year_level || '-'}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Curriculum">
+                    <div>
+                      {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
+                    </div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Discipline">
+                    <div>
+                      {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
+                    </div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Level">
+                    <div>{subject.level || '-'}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Color">
+                    <div className="flex items-center gap-2">
+                      {subject.color ? (
+                        <>
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300"
+                            style={{ backgroundColor: subject.color }}
+                          />
+                          <span className="text-sm">{subject.color}</span>
+                        </>
+                      ) : (
+                        '-'
+                      )}
+                    </div>
+                  </PropertyFormRow>
+                </PropertyForm>
                 
                 <Separator className="my-4" />
                 

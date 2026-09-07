@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import { Button } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Textarea } from '@altitutor/ui';
@@ -14,6 +13,7 @@ import { useUpdateProfile } from '../../hooks';
 import type { Tables } from '@altitutor/shared';
 import { z } from 'zod';
 import { isValidPhoneNumber } from 'react-phone-number-input';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 type StaffProfile = Tables<'staff'>;
 
@@ -158,39 +158,36 @@ export function DetailsTab({ profile }: DetailsTabProps) {
           </div>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div>
-            <Label htmlFor="phone">Phone Number</Label>
-            <PhoneInput
-              value={formData.phone_number || ''}
-              onChange={handlePhoneChange}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="profile-image">Public Profile Picture</Label>
-            <input
-              id="profile-image"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => setSelectedImage(event.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="profile-bio">Public Bio</Label>
-            <Textarea
-              id="profile-bio"
-              value={formData.profile_bio || ''}
-              onChange={(event) => handleInputChange('profile_bio', event.target.value)}
-              rows={6}
-              placeholder="Short public bio for the About page"
-            />
-            <p className="text-xs text-muted-foreground">
-              Plain text. Use blank lines for paragraph breaks.
-            </p>
-          </div>
+        <form onSubmit={handleSubmit}>
+          <PropertyForm>
+            <PropertyFormRow label="Phone number">
+              <PhoneInput
+                value={formData.phone_number || ''}
+                onChange={handlePhoneChange}
+              />
+            </PropertyFormRow>
+            <PropertyFormRow label="Public profile picture" htmlFor="profile-image">
+              <input
+                id="profile-image"
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={(event) => setSelectedImage(event.target.files?.[0] ?? null)}
+                className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
+              />
+            </PropertyFormRow>
+            <PropertyFormRow label="Public bio" htmlFor="profile-bio" valueClassName="space-y-1">
+              <Textarea
+                id="profile-bio"
+                value={formData.profile_bio || ''}
+                onChange={(event) => handleInputChange('profile_bio', event.target.value)}
+                rows={6}
+                placeholder="Short public bio for the About page"
+              />
+              <p className="text-xs text-muted-foreground">
+                Plain text. Use blank lines for paragraph breaks.
+              </p>
+            </PropertyFormRow>
+          </PropertyForm>
         </form>
       </div>
     );
@@ -207,57 +204,50 @@ export function DetailsTab({ profile }: DetailsTabProps) {
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">Profile Picture:</div>
-        <div>
-          {profileImageUrl ? (
-            <Image
-              src={profileImageUrl}
-              alt={`${profile.first_name} ${profile.last_name}`}
-              width={80}
-              height={80}
-              className="h-20 w-20 rounded-full object-cover"
-              unoptimized
-            />
-          ) : (
-            '-'
-          )}
-        </div>
-
-        <div className="text-sm font-medium">First Name:</div>
-        <div>
+      <PropertyForm>
+        <PropertyFormRow label="Profile picture">
+          <div>
+            {profileImageUrl ? (
+              <Image
+                src={profileImageUrl}
+                alt={`${profile.first_name} ${profile.last_name}`}
+                width={80}
+                height={80}
+                className="h-20 w-20 rounded-full object-cover"
+                unoptimized
+              />
+            ) : (
+              '-'
+            )}
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="First name">
           <TruncatedText text={profile.first_name || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Last Name:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Last name">
           <TruncatedText text={profile.last_name || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Email:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Email">
           <TruncatedText text={profile.email || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Phone Number:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Phone number">
           <TruncatedText text={profile.phone_number || '-'} />
-        </div>
-
-        <div className="text-sm font-medium">Public Bio:</div>
-        <div className="whitespace-pre-wrap text-sm">
-          {profile.profile_bio || '-'}
-        </div>
-        
-        <div className="text-sm font-medium">Role:</div>
-        <div>
-          {profile.role ? (
-            <Badge variant="outline">{profile.role}</Badge>
-          ) : (
-            '-'
-          )}
-        </div>
-      </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Public bio">
+          <div className="whitespace-pre-wrap text-sm">
+            {profile.profile_bio || '-'}
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Role">
+          <div>
+            {profile.role ? (
+              <Badge variant="outline">{profile.role}</Badge>
+            ) : (
+              '-'
+            )}
+          </div>
+        </PropertyFormRow>
+      </PropertyForm>
     </div>
   );
 }

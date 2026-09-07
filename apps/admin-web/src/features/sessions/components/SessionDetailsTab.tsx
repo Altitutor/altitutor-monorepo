@@ -32,6 +32,7 @@ import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSele
 import { ClassSelectPopover } from '@/features/classes/components/ClassSelectPopover';
 import type { MinimalClass } from '@/features/classes/api/classes';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
+import { PropertyForm } from '@/shared/components/PropertyForm';
 
 const SESSION_TYPES = Supabase.Constants.public.Enums.session_type;
 
@@ -337,7 +338,7 @@ export function SessionDetailsTab({
             })}
             className="space-y-4"
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+            <PropertyForm className="items-center">
               <Label htmlFor="session-type">Type</Label>
               <div>
                 <Controller
@@ -450,7 +451,7 @@ export function SessionDetailsTab({
                   </div>
                 </>
               )}
-            </div>
+            </PropertyForm>
           </form>
         ) : (
           <SessionInfoGrid

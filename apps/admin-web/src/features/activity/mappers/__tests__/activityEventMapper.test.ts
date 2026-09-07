@@ -87,6 +87,77 @@ describe('lifecycle activity mapper', () => {
     expect(result.message).toBe('issued invoice INV-1042 for Tuesday UCAT and Thursday UCAT');
   });
 
+  it('includes card vs credit-balance settlement on a paid invoice', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.paid',
+      subject_type: 'invoice',
+      payload: {
+        amount_paid_cents: 15000,
+        amount_paid_from_balance_cents: 2000,
+        amount_paid_from_card_cents: 13000,
+        currency: 'AUD',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+
+    expect(result.message).toBe(
+      'recorded invoice INV-1042 as paid ($150.00 AUD, $20.00 AUD from credit balance, $130.00 AUD from card)'
+    );
+  });
+
+  it('describes a credit-balance-only payment without a card portion', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.paid',
+      subject_type: 'invoice',
+      payload: {
+        amount_paid_cents: 8000,
+        amount_paid_from_balance_cents: 8000,
+        amount_paid_from_card_cents: 0,
+        currency: 'AUD',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+
+    expect(result.message).toBe('recorded invoice INV-1042 as paid ($80.00 AUD from credit balance)');
+  });
+
+  it('describes sending an invoice notification and a declined card attempt', () => {
+    expect(mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.notification_sent',
+      subject_type: 'invoice',
+      payload: {
+        recipient_count: 2,
+        display: { invoice_name: 'INV-1042' },
+      },
+    })).message).toBe('sent the invoice notification for invoice INV-1042 to 2 recipients');
+
+    const declined = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.payment_attempted',
+      subject_type: 'invoice',
+      payload: {
+        outcome: 'declined',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+    expect(declined.message).toBe('attempted to charge the card for invoice INV-1042 (declined)');
+    expect(declined.iconColor).toBe('red');
+  });
+
+  it('includes the credit-note amount in the added event', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.credit_note_added',
+      subject_type: 'invoice',
+      payload: {
+        credit_note_type: 'refund',
+        amount_cents: 5000,
+        currency: 'AUD',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+
+    expect(result.message).toBe('added a Refund credit note of $50.00 AUD to invoice INV-1042');
+  });
+
   it('marks snapshotted entity names as clickable message parts', () => {
     const studentId = '10000000-0000-4000-8000-000000000010';
     const sessionId = '10000000-0000-4000-8000-000000000011';
@@ -243,6 +314,7 @@ describe('lifecycle activity mapper', () => {
     };
 
     expect(mapActivityEventsToDisplay(response).map((event) => event.id)).toEqual(['2', '1']);
+    expect(mapActivityEventsToDisplay(response, { chronological: true }).map((event) => event.id)).toEqual(['1', '2']);
     expect(mapActivityEventToDisplay(response.events[0]).performedAt).toBe(
       '2026-08-30T10:00:00.000Z'
     );

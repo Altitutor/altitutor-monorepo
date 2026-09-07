@@ -23,10 +23,10 @@ describe("UCAT question difficulty", () => {
     expect(ucatQuestionDifficultyForTarget(undefined)).toBeNull();
   });
 
-  it("formats the canonical proportion-incorrect meaning", () => {
+  it("formats difficulty as a percentage without internal jargon", () => {
     expect(ucatQuestionDifficultyPercent(0)).toBe(0);
     expect(ucatQuestionDifficultyPercent(0.82)).toBe(82);
     expect(ucatQuestionDifficultyPercent(1)).toBe(100);
-    expect(formatUcatQuestionDifficulty(0.82)).toBe("82% expected incorrect");
+    expect(formatUcatQuestionDifficulty(0.82)).toBe("82%");
   });
 });

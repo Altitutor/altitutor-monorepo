@@ -604,82 +604,71 @@ export function StaffDetailsTab({
         };
 
         return (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">First Name:</div>
-            <div>
+          <PropertyForm>
+            <PropertyFormRow label="First name">
               <TruncatedText text={staffMember.first_name || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Last Name:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Last name">
               <TruncatedText text={staffMember.last_name || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Email:</div>
-            <div className="flex items-center gap-2">
-              <TruncatedText text={staffMember.email || '-'} className="flex-1 min-w-0" />
-              {staffMember.email && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 flex-shrink-0"
-                  onClick={() => handleCopy(staffMember.email!, 'email')}
-                >
-                  {copiedField === 'email' ? (
-                    <Check className="h-3 w-3" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-            </div>
-            
-            <div className="text-sm font-medium">Phone Number:</div>
-            <div className="flex items-center gap-2">
-              <TruncatedText text={staffMember.phone_number || '-'} className="flex-1 min-w-0" />
-              {staffMember.phone_number && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 flex-shrink-0"
-                  onClick={() => handleCopy(staffMember.phone_number!, 'phone')}
-                >
-                  {copiedField === 'phone' ? (
-                    <Check className="h-3 w-3" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-            </div>
-
-            <div className="text-sm font-medium">Birthday:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Email">
+              <div className="flex items-center gap-2">
+                <TruncatedText text={staffMember.email || '-'} className="flex-1 min-w-0" />
+                {staffMember.email && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => handleCopy(staffMember.email!, 'email')}
+                  >
+                    {copiedField === 'email' ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Phone number">
+              <div className="flex items-center gap-2">
+                <TruncatedText text={staffMember.phone_number || '-'} className="flex-1 min-w-0" />
+                {staffMember.phone_number && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => handleCopy(staffMember.phone_number!, 'phone')}
+                  >
+                    {copiedField === 'phone' ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Birthday">
               <TruncatedText text={staffMember.birthday || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Office Key Number:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Office key number">
               <TruncatedText text={staffMember.office_key_number?.toString() || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Parking Remote:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Parking remote">
               <TruncatedText text={staffMember.has_parking_remote || 'None'} />
-            </div>
-            
-            <div className="text-sm font-medium">Role:</div>
-            <div>
-              <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
-            </div>
-            
-            <div className="text-sm font-medium">Status:</div>
-            <div>
-              <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
-            </div>
-            
-            <div className="text-sm font-medium">Subjects:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Role">
+              <div>
+                <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Status">
+              <div>
+                <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Subjects">
               {staffSubjects.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {staffSubjects.map((subject) => {
@@ -701,8 +690,8 @@ export function StaffDetailsTab({
               ) : (
                 <span className="text-muted-foreground">No subjects assigned</span>
               )}
-            </div>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
         );
       })()}
 

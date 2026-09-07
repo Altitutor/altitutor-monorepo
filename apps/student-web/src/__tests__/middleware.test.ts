@@ -119,6 +119,16 @@ describe("student session middleware", () => {
     );
   });
 
+  it("redirects an anonymous development root to the development marketing landing", async () => {
+    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
+    const response = await middleware(
+      new NextRequest("https://student.development.altitutor.com/"),
+    );
+    expect(response.headers.get("location")).toBe(
+      "https://development.altitutor.com/online-learning/",
+    );
+  });
+
   it("treats invalid JWT verification as an instrumented outage", async () => {
     mockGetClaims.mockResolvedValue({
       data: null,

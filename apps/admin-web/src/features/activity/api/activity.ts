@@ -94,8 +94,8 @@ export const activityApi = {
     let query = supabase
       .from('vadmin_domain_event_feed')
       .select('*')
-      .order('recorded_at', { ascending: false })
-      .order('id', { ascending: false })
+      .order('recorded_at', { ascending: params.recordedAtOrder === 'asc' })
+      .order('id', { ascending: params.recordedAtOrder === 'asc' })
       .range(offset, offset + limit - 1);
 
     if (type && id) {
@@ -177,6 +177,15 @@ export const activityApi = {
     activityApi.getActivityEvents({
       entityType: 'admin_shift',
       entityId: adminShiftId,
+      limit,
+      offset,
+    }),
+
+  getInvoiceActivity: (invoiceId: string, limit = 50, offset = 0) =>
+    activityApi.getActivityEvents({
+      entityType: 'invoice',
+      entityId: invoiceId,
+      recordedAtOrder: 'asc',
       limit,
       offset,
     }),

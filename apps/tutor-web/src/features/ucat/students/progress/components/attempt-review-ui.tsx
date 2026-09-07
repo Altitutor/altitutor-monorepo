@@ -4,6 +4,7 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { ArrowLeft, ArrowRight, Flag, Info } from 'lucide-react'
 import {
   formatUcatQuestionDifficulty,
+  UCAT_QUESTION_DIFFICULTY_STUDENT_EXPLANATION,
   ucatQuestionDifficultyPercent,
 } from '@altitutor/shared'
 import {
@@ -14,6 +15,7 @@ import {
   CardHeader,
   CardTitle,
   SegmentedControl,
+  Separator,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -382,19 +384,43 @@ function TimingMeter({
   value,
   max,
   tone = 'primary',
+  hint,
+  displayValue,
 }: {
   label: string
   value: number | null
   max: number
   tone?: 'primary' | 'muted' | 'amber'
+  hint?: string
+  displayValue?: string
 }) {
   const width = value != null ? Math.min(100, (value / max) * 100) : 0
   return (
     <div className="space-y-1.5">
-      <div className="flex justify-between gap-3 text-xs">
-        <span className="text-muted-foreground">{label}</span>
+      <div className="flex items-center justify-between gap-3 text-xs">
+        <span className="inline-flex items-center gap-1 text-muted-foreground">
+          {label}
+          {hint ? (
+            <TooltipProvider delayDuration={200}>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <button
+                    type="button"
+                    className="inline-flex cursor-help text-muted-foreground hover:text-foreground"
+                    aria-label={`What ${label.toLowerCase()} means`}
+                  >
+                    <Info className="h-3.5 w-3.5" aria-hidden />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent side="top" className="max-w-[280px]">
+                  {hint}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          ) : null}
+        </span>
         <span className="font-medium tabular-nums">
-          {value != null ? formatTimeSeconds(value) : '—'}
+          {displayValue ?? (value != null ? formatTimeSeconds(value) : '—')}
         </span>
       </div>
       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -544,7 +570,7 @@ export function AttemptQuestionReview({
         <Card className={tutorCardCn()}>
           <CardHeader className="pb-3">
             <CardTitle className="text-base font-medium">
-              Question timing
+              Question timing and difficulty
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -568,6 +594,18 @@ export function AttemptQuestionReview({
                 max={timingMax}
                 tone="amber"
               />
+            ) : null}
+            {attempt.difficulty != null ? (
+              <>
+                <Separator />
+                <TimingMeter
+                  label="Difficulty"
+                  hint={UCAT_QUESTION_DIFFICULTY_STUDENT_EXPLANATION}
+                  value={ucatQuestionDifficultyPercent(attempt.difficulty)}
+                  max={100}
+                  displayValue={formatUcatQuestionDifficulty(attempt.difficulty)}
+                />
+              </>
             ) : null}
           </CardContent>
         </Card>
@@ -605,32 +643,6 @@ export function AttemptQuestionReview({
                 <span className="text-sm text-muted-foreground">—</span>
               )}
             </div>
-            {attempt.difficulty != null ? (
-              <div className="flex items-start justify-between gap-4">
-                <div className="shrink-0 text-xs font-medium text-muted-foreground">
-                  Difficulty
-                </div>
-                <div className="min-w-0 flex-1 space-y-1.5">
-                  <div className="text-right text-xs tabular-nums">
-                    {formatUcatQuestionDifficulty(attempt.difficulty)}
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-muted">
-                    <div
-                      className="h-full rounded-full bg-primary"
-                      style={{
-                        width: `${Math.min(
-                          100,
-                          Math.max(
-                            0,
-                            ucatQuestionDifficultyPercent(attempt.difficulty),
-                          ),
-                        )}%`,
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            ) : null}
           </CardContent>
         </Card>
       </div>

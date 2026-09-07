@@ -100,6 +100,14 @@ export const clickableCardInteractiveCn = cn(
   clickableCardFocusWithinCn,
 );
 
+/**
+ * Selected chooser state. Matches selected nav/list rows — muted fill in
+ * light mode, white overlay in dark mode. Never primary/accent (those are
+ * the same teal in dark theme).
+ */
+export const clickableCardSelectedCn =
+  'bg-muted hover:bg-muted dark:bg-white/[0.11] dark:hover:bg-white/[0.11]';
+
 /** Append extra classes to interactive card styles. */
 export function clickableCardInteractiveWith(...parts: Array<string | undefined>) {
   return cn(clickableCardInteractiveCn, ...parts);

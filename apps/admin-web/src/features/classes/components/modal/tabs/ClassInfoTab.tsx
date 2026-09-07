@@ -15,6 +15,7 @@ import { buildClassScheduleProposal, resolveClassScheduleRows, validateClassSche
 import { calculateStandardClassSessionPrice, resolveStandardClassRate } from '../../../utils/classPricing';
 import { partitionClassScheduleTimeline } from '../../../utils/classScheduleTimeline';
 import { GeneratedTimetablePreview } from '../../GeneratedTimetablePreview';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((label, value) => ({ label, value }));
 const FREQUENCIES = [{ label: 'Every week', value: 1 as const }, { label: 'Every fortnight', value: 2 as const }];
@@ -210,7 +211,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
       <form id="class-edit-form" className="space-y-6" onSubmit={(event) => { event.preventDefault(); void (plan ? apply() : preview()); }}>
         {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
         {busy && rows.length === 0 ? <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div> : !plan ? <>
-          <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+          <PropertyForm className="items-center">
             <Label>Offering type:</Label>
             <div>
               <SearchableSelect<(typeof OFFERING_TYPES)[number]> items={OFFERING_TYPES} value={OFFERING_TYPES.find((item) => item.value === sessionType) ?? null} onValueChange={(item) => { setSessionType(item?.value ?? 'CLASS'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} disabled />
@@ -243,11 +244,11 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
 
             <Label>Repeat:</Label>
             <SearchableSelect<(typeof FREQUENCIES)[number]> items={FREQUENCIES} value={FREQUENCIES.find((item) => item.value === frequencyWeeks) ?? null} onValueChange={(item) => { setFrequencyWeeks(item?.value ?? 1); markChanged(); }} getItemId={(item) => String(item.value)} getItemLabel={(item) => item.label} disabled={busy} />
-          </div>
+          </PropertyForm>
           <div className="space-y-3 border-t pt-6">
             <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this scheduled offering runs. Changes only reconcile future Sessions.</p></div>
             {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
-              <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} /></div>
+              <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} fullWidth /></div>
               <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
               <div className="space-y-2"><Label>End</Label><Input type="time" value={row.endTime} disabled={busy} onChange={(event) => updateRow(row.id, { endTime: event.target.value })} /></div>
               <div className="space-y-2"><Label>Room</Label><Input value={row.room} disabled={busy} onChange={(event) => updateRow(row.id, { room: event.target.value })} /></div>
@@ -277,14 +278,42 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
 
   return <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
     <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Scheduled offering information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
-    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-      <div className="text-sm font-medium">Offering type:</div><div>{classData.session_type === 'HOMEWORK_HELP' ? 'Homework Help' : 'Class'}</div>
-      <div className="text-sm font-medium">Level:</div><div>{classData.level || '-'}</div>
-      <div className="text-sm font-medium">Status:</div><div><ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} /></div>
-      {classData.session_type === 'CLASS' ? <><div className="text-sm font-medium">Subject:</div><div>{subject ? (() => { const { style, textColorClass } = getSubjectColorStyle(subject); return <Badge className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass} style={style.backgroundColor ? style : undefined}>{subject.long_name ?? ''}</Badge>; })() : '-'}</div></> : null}
-      <div className="text-sm font-medium">Session Start Date:</div><div>{classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'Not set'}</div>
-      <div className="text-sm font-medium">Session End Date:</div><div>{classData.session_end_date ? format(new Date(classData.session_end_date), 'MMM d, yyyy') : 'Not set'}</div>
-    </div>
+    <PropertyForm>
+      <PropertyFormRow label="Offering type">
+        {classData.session_type === 'HOMEWORK_HELP' ? 'Homework Help' : 'Class'}
+      </PropertyFormRow>
+      <PropertyFormRow label="Level">
+        {classData.level || '-'}
+      </PropertyFormRow>
+      <PropertyFormRow label="Status">
+        <div>
+          <ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} />
+        </div>
+      </PropertyFormRow>
+      {classData.session_type === 'CLASS' ? (
+        <PropertyFormRow label="Subject">
+          {subject ? (() => {
+            const { style, textColorClass } = getSubjectColorStyle(subject);
+            return (
+              <div>
+                <Badge
+                  className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass}
+                  style={style.backgroundColor ? style : undefined}
+                >
+                  {subject.long_name ?? ''}
+                </Badge>
+              </div>
+            );
+          })() : '-'}
+        </PropertyFormRow>
+      ) : null}
+      <PropertyFormRow label="Session start date">
+        {classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'Not set'}
+      </PropertyFormRow>
+      <PropertyFormRow label="Session end date">
+        {classData.session_end_date ? format(new Date(classData.session_end_date), 'MMM d, yyyy') : 'Not set'}
+      </PropertyFormRow>
+    </PropertyForm>
     <div className="space-y-3">
       <h3 className="text-base font-semibold">Schedule and standard price</h3>
       {isScheduleLoading ? (

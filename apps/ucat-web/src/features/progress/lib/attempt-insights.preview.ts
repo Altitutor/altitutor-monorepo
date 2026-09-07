@@ -170,10 +170,6 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
     input: {
       ...QUESTION_BASE,
       result: "partial",
-      wrongAnswerExplanations: [
-        "This statement goes further than the information provided allows.",
-        "This statement reverses the relationship described in the passage.",
-      ],
     },
     expectedRuleId: "question.partial_default",
   },
@@ -238,9 +234,6 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
     input: {
       ...QUESTION_BASE,
       result: "incorrect",
-      wrongAnswerExplanations: [
-        "This option introduces an assumption that is not supported by the information in the question.",
-      ],
     },
     expectedRuleId: "question.incorrect_balanced",
   },

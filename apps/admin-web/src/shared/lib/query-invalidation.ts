@@ -84,6 +84,7 @@ export function invalidateInvoiceDetail(queryClient: QueryClient, invoiceId: str
     invalidate(queryClient, invoicesKeys.detail(invoiceId)),
     invalidate(queryClient, ['invoice-stripe-details', invoiceId]),
     invalidate(queryClient, [...invoicesKeys.details(), invoiceId, 'credit-notes']),
+    invalidate(queryClient, activityKeys.invoice(invoiceId)),
   ]);
 }
 

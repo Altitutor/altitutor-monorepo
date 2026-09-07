@@ -2,11 +2,11 @@
 
 import { useMemo } from 'react';
 import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { SmartDatePickerField } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { BookingConfirmationCalendar } from '../BookingConfirmationCalendar';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 const DURATION_MINUTES = 45;
 
@@ -86,18 +86,16 @@ export function StaffInterviewTimeStep({
         Set the date and time for the staff interview (45 minutes)
       </p>
 
-      <div className="grid grid-cols-2 gap-4">
-        <div className="space-y-2">
-          <Label htmlFor="interview-date">Date</Label>
+      <PropertyForm>
+        <PropertyFormRow label="Date">
           <SmartDatePickerField
             value={startAtDate}
             onChange={(value) => {
               if (value) handleDateTimeChange(value, startAtTime);
             }}
           />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="interview-time">Time</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Time" htmlFor="interview-time">
           <Input
             id="interview-time"
             type="time"
@@ -107,8 +105,8 @@ export function StaffInterviewTimeStep({
               handleDateTimeChange(startAtDate, time);
             }}
           />
-        </div>
-      </div>
+        </PropertyFormRow>
+      </PropertyForm>
 
       {sessionsData && startAt && effectiveEndAt && (
         <div className="mt-6">

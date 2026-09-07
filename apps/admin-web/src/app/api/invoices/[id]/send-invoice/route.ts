@@ -5,6 +5,7 @@ import Stripe from 'stripe';
 import { getErrorMessage } from '@/shared/utils';
 import { sendEmail } from '@/shared/lib/email';
 import { buildInvoiceNotificationEmail } from '@altitutor/email';
+import { recordInvoiceOperatorEvent } from '@/features/billing/lib/recordInvoiceOperatorEvent';
 
 export async function POST(
   request: NextRequest,
@@ -24,9 +25,9 @@ export async function POST(
     // Check if user is admin staff
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role, status')
+      .select('id, role, status')
       .eq('user_id', session.user.id)
-      .single<{ role: string; status: string }>();
+      .single<{ id: string; role: string; status: string }>();
 
     if (staffError || !staffData || staffData.role !== 'ADMINSTAFF' || staffData.status !== 'ACTIVE') {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -196,6 +197,16 @@ export async function POST(
         { status: 500 }
       );
     }
+
+    await recordInvoiceOperatorEvent({
+      invoiceId,
+      studentId: invoice.student_id,
+      eventName: 'invoice.notification_sent',
+      actorStaffId: staffData.id,
+      payload: {
+        recipient_count: sent.length,
+      },
+    });
 
     return NextResponse.json({
       success: true,

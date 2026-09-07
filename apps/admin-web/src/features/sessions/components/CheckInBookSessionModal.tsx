@@ -5,7 +5,6 @@ import { useQuery } from '@tanstack/react-query';
 import {
   Button,
   Input,
-  Label,
   SearchableSelect,
   Separator,
   Table,
@@ -36,6 +35,7 @@ import { Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getTodayAdelaideDate, adelaideWallDateTimePlusMinutesUtcIso } from '@/features/bookings/utils/dateTimeHelpers';
 import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { useCurrentStaff } from '@/shared/hooks';
 import { staffApi } from '@/features/staff/api/staff';
 import type { CheckInModalPrefill, CheckInSessionType } from '@/shared/contexts/QuickActionsContext';
@@ -312,33 +312,28 @@ export function CheckInBookSessionModal({
       }
     >
       <div className="space-y-6 p-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
-                <div className="min-w-0 space-y-2">
-                  <Label htmlFor="checkin-date">Date</Label>
+              <PropertyForm>
+                <PropertyFormRow label="Date">
                   <SmartDatePickerField value={date} onChange={(value) => setDate(value ?? '')} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label htmlFor="checkin-time">Start time</Label>
+                </PropertyFormRow>
+                <PropertyFormRow label="Start time" htmlFor="checkin-time">
                   <Input id="checkin-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="checkin-duration">Duration</Label>
-                <SearchableSelect<DurationItem>
-                  items={DURATION_ITEMS}
-                  value={durationValue}
-                  onValueChange={(item) => item && setDurationMinutes(item.minutes)}
-                  getItemId={(d) => String(d.minutes)}
-                  getItemLabel={(d) => d.label}
-                  placeholder="Select duration"
-                  searchPlaceholder="Search duration…"
-                  emptyMessage="No duration matches"
-                  disabled={submitting}
-                  className="w-full"
-                  triggerClassName="w-full"
-                />
-              </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Duration">
+                  <SearchableSelect<DurationItem>
+                    items={DURATION_ITEMS}
+                    value={durationValue}
+                    onValueChange={(item) => item && setDurationMinutes(item.minutes)}
+                    getItemId={(d) => String(d.minutes)}
+                    getItemLabel={(d) => d.label}
+                    placeholder="Select duration"
+                    searchPlaceholder="Search duration…"
+                    emptyMessage="No duration matches"
+                    disabled={submitting}
+                    ariaLabel="Duration"
+                  />
+                </PropertyFormRow>
+              </PropertyForm>
 
               {canManageStudentsAndParents && (
                 <>

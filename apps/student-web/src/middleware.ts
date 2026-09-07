@@ -8,7 +8,7 @@ import {
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
-import { MARKETING_LANDING_URL } from "@/shared/lib/marketing-home-url";
+import { getMarketingLandingUrl } from "@/shared/lib/marketing-home-url";
 
 const SESSION_DEADLINE_MS = 10_000;
 const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
@@ -107,7 +107,8 @@ function captureRecoveredClockSkew(startedAt: number) {
 /** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
 export async function handleAuthRequest(request: NextRequest) {
   const startedAt = Date.now();
-  const { pathname, search, origin } = request.nextUrl;
+  const { pathname, search, origin, host } = request.nextUrl;
+  const marketingLandingUrl = getMarketingLandingUrl(host);
   if (request.method === "OPTIONS") return forwardRequest(request, null);
 
   if (pathname.startsWith("/auth/callback&")) {
@@ -178,7 +179,7 @@ export async function handleAuthRequest(request: NextRequest) {
       if (isUnauthenticatedSessionError(error)) {
         if (pathname === "/") {
           return applyMetadata(
-            NextResponse.redirect(MARKETING_LANDING_URL),
+            NextResponse.redirect(marketingLandingUrl),
             cookies,
             responseHeaders,
           );
@@ -200,7 +201,7 @@ export async function handleAuthRequest(request: NextRequest) {
     const userId = claims.data?.claims?.sub;
     if (missingSession || !userId) {
       if (pathname === "/") {
-        return applyMetadata(NextResponse.redirect(MARKETING_LANDING_URL), cookies, responseHeaders);
+        return applyMetadata(NextResponse.redirect(marketingLandingUrl), cookies, responseHeaders);
       }
       const loginUrl = new URL("/login", origin);
       loginUrl.searchParams.set("next", `${pathname}${search}`);

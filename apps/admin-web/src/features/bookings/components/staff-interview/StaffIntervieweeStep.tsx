@@ -1,7 +1,6 @@
 'use client';
 
 import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { useForm, Controller, type Resolver } from 'react-hook-form';
@@ -13,6 +12,7 @@ import { staffKeys } from '@/features/staff/hooks/useStaffQuery';
 import { staffApi } from '@/features/staff/api/staff';
 import { useCreateStaff } from '@/features/staff/hooks/useStaffQuery';
 import { StaffCard } from '@/shared/components/StaffCard';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import type { Tables, TablesInsert } from '@altitutor/shared';
 
 const createStaffFormSchema = z.object({
@@ -131,9 +131,8 @@ export function StaffIntervieweeStep({
         </div>
 
         <form onSubmit={handleCreateStaff} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name</Label>
+          <PropertyForm>
+            <PropertyFormRow label="First name *" htmlFor="firstName" valueClassName="space-y-1">
               <Input
                 id="firstName"
                 {...form.register('firstName')}
@@ -144,9 +143,8 @@ export function StaffIntervieweeStep({
                   {form.formState.errors.firstName.message}
                 </p>
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Last name *" htmlFor="lastName" valueClassName="space-y-1">
               <Input
                 id="lastName"
                 {...form.register('lastName')}
@@ -157,21 +155,16 @@ export function StaffIntervieweeStep({
                   {form.formState.errors.lastName.message}
                 </p>
               )}
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Email" htmlFor="email">
               <Input
                 id="email"
                 type="email"
                 {...form.register('email')}
                 disabled={createStaffMutation.isPending}
               />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phoneNumber">Phone Number</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Phone number">
               <Controller
                 control={form.control}
                 name="phoneNumber"
@@ -184,8 +177,8 @@ export function StaffIntervieweeStep({
                   />
                 )}
               />
-            </div>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
 
           <Button
             type="submit"

@@ -54,6 +54,7 @@ import { EditTopicFileModal } from './EditTopicFileModal';
 import { buildTopicTree } from '../utils/codes';
 import { Plus } from 'lucide-react';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { useTopicActions } from '../hooks/useTopicActions';
 import { FlashcardManager } from '@/features/flashcards';
 
@@ -417,51 +418,52 @@ export function ViewTopicModal({
               ) : (
                 // View Mode
                 <div className="space-y-6">
-                  <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                    <div className="text-sm font-medium">Name:</div>
-                    <div>{topic.name}</div>
-                    
-                    <div className="text-sm font-medium">Subject:</div>
-                    <div>
+                  <PropertyForm>
+                    <PropertyFormRow label="Name">
+                      <div>{topic.name}</div>
+                    </PropertyFormRow>
+                    <PropertyFormRow label="Subject">
                       {subject ? (() => {
                         const { style, textColorClass } = getSubjectColorStyle(subject);
                         const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                         return (
-                          <Badge 
-                            className={defaultClass || textColorClass}
-                            style={style.backgroundColor ? style : undefined}
-                          >
-                            {subject?.long_name ?? ''}
-                          </Badge>
+                          <div>
+                            <Badge 
+                              className={defaultClass || textColorClass}
+                              style={style.backgroundColor ? style : undefined}
+                            >
+                              {subject?.long_name ?? ''}
+                            </Badge>
+                          </div>
                         );
                       })() : (
-                        'N/A'
+                        <div>N/A</div>
                       )}
-                    </div>
-                    
-                    <div className="text-sm font-medium">Parent:</div>
-                    <div>
-                      {topic.parent_id ? (
-                        <button
-                          onClick={() => {
-                            const parentTopic = allTopics.find(t => t.id === topic.parent_id);
-                            if (parentTopic) {
-                              setViewTopicId(topic.parent_id);
-                              setIsViewTopicModalOpen(true);
-                            }
-                          }}
-                          className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
-                        >
-                          {allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'}
-                        </button>
-                      ) : (
-                        'None (root topic)'
-                      )}
-                    </div>
-                    
-                    <div className="text-sm font-medium">Topic Code:</div>
-                    <div>{topic.code || 'N/A'}</div>
-                </div>
+                    </PropertyFormRow>
+                    <PropertyFormRow label="Parent">
+                      <div>
+                        {topic.parent_id ? (
+                          <button
+                            onClick={() => {
+                              const parentTopic = allTopics.find(t => t.id === topic.parent_id);
+                              if (parentTopic) {
+                                setViewTopicId(topic.parent_id);
+                                setIsViewTopicModalOpen(true);
+                              }
+                            }}
+                            className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+                          >
+                            {allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'}
+                          </button>
+                        ) : (
+                          'None (root topic)'
+                        )}
+                      </div>
+                    </PropertyFormRow>
+                    <PropertyFormRow label="Topic code">
+                      <div>{topic.code || 'N/A'}</div>
+                    </PropertyFormRow>
+                  </PropertyForm>
               
               <Separator className="my-4" />
               

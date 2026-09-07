@@ -10,4 +10,5 @@ export { ClassActivityTab } from './tabs/ClassActivityTab';
 export { SessionActivityTab } from './tabs/SessionActivityTab';
 export { ParentActivityTab } from './tabs/ParentActivityTab';
 export { TaskActivityTab } from './tabs/TaskActivityTab';
+export { InvoiceActivityTab } from './tabs/InvoiceActivityTab';
 

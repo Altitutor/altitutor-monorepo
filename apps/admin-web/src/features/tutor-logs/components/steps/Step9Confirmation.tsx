@@ -19,6 +19,7 @@ import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { FileCard } from '@/shared/components/files/FileCard';
 import { TopicCard } from '../TopicCard';
 import { useStep9ConfirmationData } from '../../hooks/useStep9ConfirmationData';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 type Step9ConfirmationProps = {
   title?: string;
@@ -98,33 +99,34 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <div>
         <h3 className="text-lg font-semibold mb-4">Session information</h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <div className="text-sm font-medium text-muted-foreground">Day:</div>
-          <div className="text-sm">{session?.start_at ? formatSessionDate(session.start_at) : '—'}</div>
-
-          <div className="text-sm font-medium text-muted-foreground">Time:</div>
-          <div className="text-sm">{formatSessionTime()}</div>
-
-          <div className="text-sm font-medium text-muted-foreground">Subject:</div>
-          <div className="text-sm">
-            {subject ? (
-              (() => {
-                const { style, textColorClass } = getSubjectColorStyle(subject);
-                const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                return (
-                  <Badge
-                    className={defaultClass || textColorClass}
-                    style={style.backgroundColor ? style : undefined}
-                  >
-                    {subject?.long_name ?? ''}
-                  </Badge>
-                );
-              })()
-            ) : (
-              '—'
-            )}
-          </div>
-        </div>
+        <PropertyForm>
+          <PropertyFormRow label="Day">
+            <div className="text-sm">{session?.start_at ? formatSessionDate(session.start_at) : '—'}</div>
+          </PropertyFormRow>
+          <PropertyFormRow label="Time">
+            <div className="text-sm">{formatSessionTime()}</div>
+          </PropertyFormRow>
+          <PropertyFormRow label="Subject">
+            <div className="text-sm">
+              {subject ? (
+                (() => {
+                  const { style, textColorClass } = getSubjectColorStyle(subject);
+                  const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+                  return (
+                    <Badge
+                      className={defaultClass || textColorClass}
+                      style={style.backgroundColor ? style : undefined}
+                    >
+                      {subject?.long_name ?? ''}
+                    </Badge>
+                  );
+                })()
+              ) : (
+                '—'
+              )}
+            </div>
+          </PropertyFormRow>
+        </PropertyForm>
       </div>
 
       <Separator />

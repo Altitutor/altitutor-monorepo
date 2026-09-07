@@ -8,6 +8,12 @@ import {
   fetchAttemptReviewQuestionMetadata,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
+import {
+  matchRemediationLearningModules,
+  questionTagIdsFromMetadata,
+  type RemediationLessonLink,
+} from "@/features/progress/lib/remediation-learning-modules";
+import { fetchRemediationCatalog } from "@/features/progress/server/remediation-learning-modules";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import {
   buildAttemptReviewExam,
@@ -65,6 +71,7 @@ export type SetAttemptDetailResponse = {
     selectedOptionId: string | null;
     /** Canonical persisted response snapshot used by answer-scheme review. */
     answerSnapshot: unknown;
+    remediationLessons: RemediationLessonLink[];
   }[];
 };
 
@@ -168,10 +175,10 @@ export async function GET(
   const questionIds = orderedAttempts.map(
     ({ snapshot }) => snapshot.question.id,
   );
-  const questionMetadata = await fetchAttemptReviewQuestionMetadata(
-    supabase,
-    questionIds,
-  );
+  const [questionMetadata, remediationCatalog] = await Promise.all([
+    fetchAttemptReviewQuestionMetadata(supabase, questionIds),
+    fetchRemediationCatalog(supabase),
+  ]);
   const attemptsByQuestionId = new Map(
     (questionAttemptsRaw ?? []).map((qa) => {
       const snapshot = parseAttemptContentSnapshot(qa.content_snapshot);
@@ -234,6 +241,10 @@ export async function GET(
 
     const selectedOptionId = attemptData?.selectedOptionId ?? null;
     const answerSnapshot = attemptData?.answerSnapshot ?? null;
+    const questionTags =
+      snapshotMetadata.questionTags.length > 0
+        ? snapshotMetadata.questionTags
+        : (metadata?.questionTags ?? []);
 
     return {
       questionNumber,
@@ -245,10 +256,7 @@ export async function GET(
       averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
       timeBurdenSeconds,
       difficulty: snapshotMetadata.difficulty ?? metadata?.difficulty ?? null,
-      questionTags:
-        snapshotMetadata.questionTags.length > 0
-          ? snapshotMetadata.questionTags
-          : (metadata?.questionTags ?? []),
+      questionTags,
       isFlagged: attemptData?.isFlagged ?? false,
       answerScheme,
       result,
@@ -257,6 +265,15 @@ export async function GET(
       questionStemCategoryId,
       selectedOptionId,
       answerSnapshot,
+      remediationLessons: matchRemediationLearningModules(
+        {
+          result,
+          questionTagIds: questionTagIdsFromMetadata(questionTags),
+          stemCategoryId: questionStemCategoryId,
+          sectionId: snapshot.stem.sectionId ?? null,
+        },
+        remediationCatalog,
+      ),
     };
   });
 

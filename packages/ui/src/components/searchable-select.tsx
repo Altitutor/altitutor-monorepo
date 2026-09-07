@@ -69,7 +69,7 @@ export interface SearchableSelectProps<T> {
   /** Additional class names */
   className?: string;
   triggerClassName?: string;
-  /** Make the trigger wrapper fill its parent container. */
+  /** Make the trigger wrapper fill its parent container. Form fields should pass true. Compact toolbar/button triggers can omit it. */
   fullWidth?: boolean;
   /** Accessible name for the default combobox trigger. */
   ariaLabel?: string;
@@ -255,7 +255,8 @@ export function SearchableSelect<T>({
     <Popover open={open} onOpenChange={setOpen} modal={false}>
       <span
         ref={triggerRef}
-        className={cn("inline-flex max-w-full", fullWidth ? "w-full" : "w-fit")}
+        data-searchable-select-trigger=""
+        className={cn("flex max-w-full", fullWidth ? "w-full min-w-0" : "w-fit")}
       >
         <PopoverTrigger asChild>
           {trigger ?? defaultTrigger}

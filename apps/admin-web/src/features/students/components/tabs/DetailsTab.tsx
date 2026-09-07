@@ -443,59 +443,54 @@ export function DetailsTab({
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">First Name:</div>
-        <div>
+      <PropertyForm>
+        <PropertyFormRow label="First name">
           <TruncatedText text={student.first_name || '-'} />
-        </div>
-
-        <div className="text-sm font-medium">Last Name:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Last name">
           <TruncatedText text={student.last_name || '-'} />
-        </div>
-
-        <div className="text-sm font-medium">Student Email:</div>
-        <div className="flex items-center gap-2">
-          <TruncatedText text={student.email || '-'} className="flex-1 min-w-0" />
-          {student.email && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => handleCopy(student.email!, 'email')}
-            >
-              {copiedField === 'email' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            </Button>
-          )}
-        </div>
-
-        <div className="text-sm font-medium">Student Phone:</div>
-        <div className="flex items-center gap-2">
-          <TruncatedText text={student.phone || '-'} className="flex-1 min-w-0" />
-          {student.phone && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => handleCopy(student.phone!, 'phone')}
-            >
-              {copiedField === 'phone' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-            </Button>
-          )}
-        </div>
-
-        <div className="text-sm font-medium">Birthday:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Student email">
+          <div className="flex items-center gap-2">
+            <TruncatedText text={student.email || '-'} className="flex-1 min-w-0" />
+            {student.email && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => handleCopy(student.email!, 'email')}
+              >
+                {copiedField === 'email' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              </Button>
+            )}
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Student phone">
+          <div className="flex items-center gap-2">
+            <TruncatedText text={student.phone || '-'} className="flex-1 min-w-0" />
+            {student.phone && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => handleCopy(student.phone!, 'phone')}
+              >
+                {copiedField === 'phone' ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+              </Button>
+            )}
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Birthday">
           <TruncatedText text={student.birthday || '-'} />
-        </div>
-
-        <div className="text-sm font-medium">Account class:</div>
-        <div>
-          <Badge variant="outline">
-            {student.account_class === 'internal_test' ? 'Internal / test' : 'External customer'}
-          </Badge>
-        </div>
-      </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Account class">
+          <div>
+            <Badge variant="outline">
+              {student.account_class === 'internal_test' ? 'Internal / test' : 'External customer'}
+            </Badge>
+          </div>
+        </PropertyFormRow>
+      </PropertyForm>
 
       <Separator className="my-6" />
 

@@ -173,55 +173,52 @@ export function ParentDetailsTab({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">First Name:</div>
-        <div>
+      <PropertyForm>
+        <PropertyFormRow label="First name">
           <TruncatedText text={parent.first_name || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Last Name:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Last name">
           <TruncatedText text={parent.last_name || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Email:</div>
-        <div className="flex items-center gap-2">
-          <TruncatedText text={parent.email || '-'} className="flex-1 min-w-0" />
-          {parent.email && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => copy(parent.email!, 'email')}
-            >
-              {copiedField === 'email' ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
-            </Button>
-          )}
-        </div>
-        
-        <div className="text-sm font-medium">Phone:</div>
-        <div className="flex items-center gap-2">
-          <TruncatedText text={parent.phone || '-'} className="flex-1 min-w-0" />
-          {parent.phone && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => copy(parent.phone!, 'phone')}
-            >
-              {copiedField === 'phone' ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Email">
+          <div className="flex items-center gap-2">
+            <TruncatedText text={parent.email || '-'} className="flex-1 min-w-0" />
+            {parent.email && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => copy(parent.email!, 'email')}
+              >
+                {copiedField === 'email' ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Phone">
+          <div className="flex items-center gap-2">
+            <TruncatedText text={parent.phone || '-'} className="flex-1 min-w-0" />
+            {parent.phone && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => copy(parent.phone!, 'phone')}
+              >
+                {copiedField === 'phone' ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+          </div>
+        </PropertyFormRow>
+      </PropertyForm>
 
       <Separator className="my-6" />
 

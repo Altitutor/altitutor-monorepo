@@ -25,6 +25,7 @@ import { SubjectSelectionStep } from './steps/SubjectSelectionStep';
 import { ConfirmationStep } from './steps/ConfirmationStep';
 import { BookSessionNotifyStep } from './BookSessionNotifyStep';
 import { useDialogHotkeys } from '@/shared/hooks';
+import { cn } from '@/shared/utils';
 
 export interface BookSessionModalProps {
   isOpen: boolean;
@@ -319,10 +320,15 @@ export function BookSessionModal({
             {renderStepContent()}
           </div>
         ) : (
-          <div className="h-full overflow-y-auto">
-            <div className="p-6">
-              {renderStepContent()}
-            </div>
+          <div
+            className={cn(
+              'flex h-full min-h-0 flex-1 flex-col p-6',
+              currentStepId === 'trial-contact' && !isCreatingTrialStudent
+                ? 'overflow-hidden'
+                : 'overflow-y-auto',
+            )}
+          >
+            {renderStepContent()}
           </div>
         )}
       </AdminDialogShell>

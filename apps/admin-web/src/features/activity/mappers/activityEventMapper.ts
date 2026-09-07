@@ -107,6 +107,52 @@ function titleCase(value: string): string {
   return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
 }
 
+function cents(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) return Number(value);
+  return undefined;
+}
+
+function integer(value: unknown): number | undefined {
+  const parsed = cents(value);
+  return parsed != null && Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function formatCents(amountCents: number, currency: string): string {
+  return `$${(amountCents / 100).toFixed(2)} ${currency}`;
+}
+
+function invoiceCurrency(payload: Payload): string {
+  return text(payload.currency) || 'AUD';
+}
+
+function invoicePaidSettlement(payload: Payload): string {
+  const paid = cents(payload.amount_paid_cents);
+  if (paid == null) return '';
+  const currency = invoiceCurrency(payload);
+  const fromBalance = cents(payload.amount_paid_from_balance_cents) ?? 0;
+  const fromCard = cents(payload.amount_paid_from_card_cents) ?? Math.max(0, paid - fromBalance);
+  const total = formatCents(paid, currency);
+  if (fromBalance > 0 && fromCard > 0) {
+    return ` (${total}, ${formatCents(fromBalance, currency)} from credit balance, ${formatCents(fromCard, currency)} from card)`;
+  }
+  if (fromBalance > 0) {
+    return ` (${total} from credit balance)`;
+  }
+  return ` (${total})`;
+}
+
+function invoiceCreditNoteAmount(payload: Payload): string {
+  const amount = cents(payload.amount_cents);
+  return amount == null ? '' : ` of ${formatCents(amount, invoiceCurrency(payload))}`;
+}
+
+function invoiceNotificationRecipients(payload: Payload): string {
+  const count = integer(payload.recipient_count);
+  if (count == null || count < 1) return '';
+  return ` to ${count} ${count === 1 ? 'recipient' : 'recipients'}`;
+}
+
 const DATE_CHANGE_FIELDS = new Set(['birthday', 'due_date', 'start_date', 'target_date']);
 
 function formatChangedValue(fieldName: string, value: unknown): string | undefined {
@@ -169,6 +215,7 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
   const invoiceWithSessions = invoiceSessions.length
     ? `${invoice} for ${formatList(invoiceSessions)}`
     : invoice;
+  const paymentAttemptDeclined = text(payload.outcome) === 'declined';
 
   const catalog: Record<string, [string, ActivityIconType, ActivityIconColor]> = {
     'student.created': [`created ${student}`, 'user-plus', 'green'],
@@ -240,11 +287,19 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'session.deleted': ['deleted the session', 'x', 'red'],
 
     'invoice.issued': [`issued ${invoiceWithSessions}`, 'file', 'blue'],
-    'invoice.paid': [`recorded ${invoiceWithSessions} as paid`, 'check', 'green'],
+    'invoice.paid': [`recorded ${invoiceWithSessions} as paid${invoicePaidSettlement(payload)}`, 'check', 'green'],
     'invoice.payment_failed': [`recorded a failed payment for ${invoiceWithSessions}`, 'x', 'red'],
+    'invoice.payment_attempted': [
+      paymentAttemptDeclined
+        ? `attempted to charge the card for ${invoiceWithSessions} (declined)`
+        : `attempted to charge the card for ${invoiceWithSessions}`,
+      paymentAttemptDeclined ? 'x' : 'check',
+      paymentAttemptDeclined ? 'red' : 'blue',
+    ],
+    'invoice.notification_sent': [`sent the invoice notification for ${invoiceWithSessions}${invoiceNotificationRecipients(payload)}`, 'file', 'blue'],
     'invoice.voided': [`voided ${invoiceWithSessions}`, 'x', 'red'],
     'invoice.refunded': [`refunded ${invoiceWithSessions}`, 'arrow-left', 'purple'],
-    'invoice.credit_note_added': [`added a ${titleCase(text(payload.credit_note_type) || 'credit')} credit note to ${invoiceWithSessions}`, 'file', 'purple'],
+    'invoice.credit_note_added': [`added a ${titleCase(text(payload.credit_note_type) || 'credit')} credit note${invoiceCreditNoteAmount(payload)} to ${invoiceWithSessions}`, 'file', 'purple'],
     'invoice.credit_note_voided': [`voided the credit note for ${invoiceWithSessions}`, 'x', 'red'],
 
     'task.created': [`created ${task}`, 'flag', 'green'],
@@ -331,9 +386,13 @@ export function mapActivityEventToDisplay(
 }
 
 export function mapActivityEventsToDisplay(
-  response: ActivityEventsResponse
+  response: ActivityEventsResponse,
+  options?: { chronological?: boolean }
 ): ActivityEventDisplay[] {
+  const direction = options?.chronological ? 1 : -1;
   return response.events
     .map(mapActivityEventToDisplay)
-    .sort((a, b) => new Date(b.performedAt).getTime() - new Date(a.performedAt).getTime());
+    .sort((a, b) => (
+      (new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()) * direction
+    ));
 }

@@ -1056,11 +1056,11 @@ const attemptReviewTour: ContextualTour = {
     },
     {
       icon: <TrendingUp className={iconClassName} />,
-      title: "Question timing and properties",
+      title: "Question timing and difficulty",
       content: (
         <p>
-          Compare your time with the available benchmark and inspect the
-          question properties used to describe this item.
+          Compare your time with the available benchmark, check the difficulty,
+          and inspect the question properties used to describe this item.
         </p>
       ),
       selector: "#tour-attempt-question-properties",

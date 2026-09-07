@@ -1,5 +1,8 @@
 import type { ReviewContract } from "@altitutor/ucat-response-contract";
-import { evaluatePersistedQuestionResponse } from "@/features/question-engine/lib/response-state";
+import {
+  evaluatePersistedQuestionResponse,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 import type { QuestionItem } from "@/features/question-engine/model/types";
 
 export type StoredQuestionAttemptResponse = {
@@ -27,9 +30,15 @@ export function projectStoredQuestionAttemptReview(
 ): { points: number; review: ReviewContract } | null {
   if (!attempt) return null;
 
+  const storedAnswer =
+    attempt.answerSnapshot ??
+    (attempt.selectedOptionId
+      ? snapshotQuestionResponse(question, attempt.selectedOptionId)
+      : undefined);
+
   const evaluation = evaluatePersistedQuestionResponse(
     question,
-    attempt.answerSnapshot,
+    storedAnswer,
   );
 
   return {
