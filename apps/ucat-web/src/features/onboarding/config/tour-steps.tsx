@@ -136,8 +136,8 @@ const dashboardTour: ContextualTour = {
       title: "Your activation checklist",
       content: (
         <p>
-          These first milestones help you explore every section, create a Study
-          plan, complete real work, and review your first result.
+          These first milestones help you set a goal, choose a Study plan, learn
+          the question interface, try a real question, and invite a friend.
         </p>
       ),
       selector: "[data-tour='dashboard-activation-card']",

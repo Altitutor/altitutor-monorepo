@@ -1,15 +1,20 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { ArrowRight, Check, Circle, ListChecks } from "lucide-react";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import {
   UCAT_GUIDED_SAMPLER_DECIDED,
   UCAT_REFERRAL_SHARED,
   UCAT_STUDY_PLAN_DECIDED,
 } from "@/features/onboarding/lib/activation-milestones";
+import {
+  buildQuestionEngineTutorialHref,
+  isQuestionEngineTutorialSatisfied,
+} from "@/features/onboarding/lib/question-engine-tutorial-gate";
 import { useProgressAttempts } from "@/features/progress/hooks/use-progress-attempts";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { ReferralDialog } from "@/features/subscription/components/referral-dialog";
@@ -34,6 +39,8 @@ type ChecklistItem = {
 export function DashboardActivationChecklist() {
   const [referralOpen, setReferralOpen] = useState(false);
   const progress = useOnboardingProgress();
+  const { isLoading: tutorialGateLoading, tutorialKind } =
+    useQuestionEngineTutorialGate();
   const planQuery = useStudyPlan();
   const attemptsQuery = useProgressAttempts({
     source: "all",
@@ -42,7 +49,12 @@ export function DashboardActivationChecklist() {
     dateRange: "all",
   });
 
-  if (progress.isLoading || planQuery.isLoading || attemptsQuery.isLoading) {
+  if (
+    progress.isLoading ||
+    tutorialGateLoading ||
+    planQuery.isLoading ||
+    attemptsQuery.isLoading
+  ) {
     return <Skeleton className="h-56 w-full rounded-2xl" />;
   }
 
@@ -62,6 +74,12 @@ export function DashboardActivationChecklist() {
       complete: progress.isCompleted(UCAT_STUDY_PLAN_DECIDED),
       href: "/study-plan/setup?section=plan",
       action: "Choose",
+    },
+    {
+      label: "Learn the question interface",
+      complete: isQuestionEngineTutorialSatisfied(progress.isCompleted),
+      href: buildQuestionEngineTutorialHref("/dashboard", tutorialKind),
+      action: "Start",
     },
     {
       label: "Do your first UCAT question",

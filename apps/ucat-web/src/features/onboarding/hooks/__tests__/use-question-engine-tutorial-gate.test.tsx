@@ -36,20 +36,34 @@ function mockGateState({
 describe("useQuestionEngineTutorialGate", () => {
   it.each([
     ["new", "full"],
-    ["familiar", "controls"],
+    ["familiar", "full"],
     ["experienced", "controls"],
     [null, "choose"],
   ])("selects %s familiarity guidance", (familiarity, tutorialKind) => {
     mockGateState({ familiarity });
 
-    expect(renderHook(() => useQuestionEngineTutorialGate()).result.current)
-      .toEqual(expect.objectContaining({
+    expect(
+      renderHook(() => useQuestionEngineTutorialGate()).result.current,
+    ).toEqual(
+      expect.objectContaining({
         isBlocked: true,
         tutorialKind,
-      }));
+      }),
+    );
   });
 
-  it("lets an experienced student continue after either engine tutorial", () => {
+  it("lets a familiar student continue after the Altitutor-controls tutorial", () => {
+    mockGateState({
+      familiarity: "familiar",
+      completed: ["ucat-question-engine-controls-intro"],
+    });
+
+    expect(
+      renderHook(() => useQuestionEngineTutorialGate()).result.current.isReady,
+    ).toBe(true);
+  });
+
+  it("lets an experienced student continue after the full tutorial", () => {
     mockGateState({
       familiarity: "experienced",
       completed: ["ucat-question-engine-intro"],

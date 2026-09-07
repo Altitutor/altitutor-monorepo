@@ -123,7 +123,7 @@
 - **Formal account email** — A billing, security, access, or other administrative message sent by Altitutor without a tutor-style personal signature.
   _Avoid_: Coaching email, marketing email
 
-- **Initial UCAT familiarity** — A student’s self-described UCAT experience when they complete onboarding: new, familiar, or experienced. It is persisted as onboarding context and personalises the introductory teaching series; later activity does not silently rewrite it.
+- **Initial UCAT familiarity** — A student’s self-described UCAT experience when they complete onboarding: new, familiar, or experienced. It is persisted as onboarding context and personalises the introductory teaching series and which Question-interface tutorial they receive; later activity does not silently rewrite it.
   _Avoid_: Ability level, current proficiency, inferred experience
 
 - **Progress-guidance campaign** — A lifecycle campaign prompted by a student’s observed practice, results, or preparation gaps. It recommends a useful next step from current evidence and remains separate from the familiarity-based onboarding series.
@@ -942,10 +942,13 @@
 - **Guided UCAT sampler** — The short, sequential first experience of Verbal Reasoning, Decision Making, Quantitative Reasoning, and Situational Judgement during Signup onboarding. It uses authentic question controls, adapts the amount of guidance to the student's stated familiarity, and teaches controls in the section where they are useful. It is unscored, consumes no quota, creates no Attempt evidence, and must not be described as a diagnostic.
   _Avoid_: Diagnostic test, scored attempt, question-engine tour
 
-- **Contextual app tutorial** — A first-visit, replayable walkthrough that explains one stable area of Altitutor UCAT and may ask the student to use a real highlighted control. It is separate from Signup onboarding, the UCAT activation checklist, and the Study guidance orb.
+- **Contextual app tutorial** — A first-visit, replayable walkthrough that explains one stable area of Altitutor UCAT and may ask the student to use a real highlighted control. It is separate from Signup onboarding and the Study guidance orb. Completing a tutorial may tick a matching UCAT activation checklist item; the tutorial still owns completion and replay.
   _Avoid_: Signup onboarding, activation task, Study guidance, Guided UCAT sampler
 
-- **UCAT activation checklist** — The temporary dashboard checklist that follows Signup onboarding and leads a new student through exploring every UCAT section, building a Study plan, completing their first Study plan task, and reviewing their first real result. It supports the Study plan's next recommendation rather than acting as a second plan, and disappears after completion.
+- **Question-interface tutorial** — The Contextual app tutorial for the question engine. New and familiar students receive the full walkthrough of official UCAT controls plus Altitutor extras; experienced students receive the Altitutor-controls walkthrough only. Completing either walkthrough finishes the matching UCAT activation checklist item and unblocks the first real attempt.
+  _Avoid_: Guided UCAT sampler, question-engine tour as a sampler synonym
+
+- **UCAT activation checklist** — The temporary dashboard checklist that follows Signup onboarding and leads a new student through finishing setup: UCAT year and target, Study plan choice, the Question-interface tutorial, a first real question, and referring a friend. It supports the Study plan's next recommendation rather than acting as a second plan, and disappears after completion.
   _Avoid_: Product tour, permanent task list, second Study plan
 
 - **Section score estimate** — The app's current estimate of a student’s latent UCAT cognitive-section score on the 300-900 scale at a point in time. It is derived from attempt evidence and should be treated as uncertain, not as a known score.

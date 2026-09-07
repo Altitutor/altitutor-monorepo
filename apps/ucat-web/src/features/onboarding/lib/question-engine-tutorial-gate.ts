@@ -8,22 +8,19 @@ export type QuestionEngineTutorialKind = "full" | "controls" | "choose";
 export function getQuestionEngineTutorialKind(
   familiarity: string | null | undefined,
 ): QuestionEngineTutorialKind {
-  if (familiarity === "new") return "full";
-  if (familiarity === "familiar" || familiarity === "experienced") {
-    return "controls";
-  }
+  if (familiarity === "new" || familiarity === "familiar") return "full";
+  if (familiarity === "experienced") return "controls";
   return "choose";
 }
 
+/** Either walkthrough counts so existing completions are not shown again. */
 export function isQuestionEngineTutorialSatisfied(
-  kind: QuestionEngineTutorialKind,
   isCompleted: (tourId: string) => boolean,
 ): boolean {
-  const fullCompleted = isCompleted(UCAT_QUESTION_ENGINE_TOUR);
-  if (kind === "full") return fullCompleted;
-
-  const controlsCompleted = isCompleted(UCAT_QUESTION_ENGINE_CONTROLS_TOUR);
-  return fullCompleted || controlsCompleted;
+  return (
+    isCompleted(UCAT_QUESTION_ENGINE_TOUR) ||
+    isCompleted(UCAT_QUESTION_ENGINE_CONTROLS_TOUR)
+  );
 }
 
 export function buildQuestionEngineTutorialHref(
@@ -44,7 +41,9 @@ export function buildQuestionEngineTutorialHref(
 }
 
 export function isQuestionEngineTutorialPath(pathname: string): boolean {
-  return pathname === "/exam/tutorial" || pathname === "/exam/controls-tutorial";
+  return (
+    pathname === "/exam/tutorial" || pathname === "/exam/controls-tutorial"
+  );
 }
 
 export function isQuestionEnginePath(pathname: string): boolean {

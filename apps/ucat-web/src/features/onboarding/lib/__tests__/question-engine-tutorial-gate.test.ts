@@ -19,9 +19,9 @@ describe("question engine tutorial gate helpers", () => {
   });
 
   it("rejects unsafe returnTo values", () => {
-    expect(buildQuestionEngineTutorialHref("https://evil.example", "full")).toBe(
-      "/exam/tutorial?returnTo=%2Fdashboard",
-    );
+    expect(
+      buildQuestionEngineTutorialHref("https://evil.example", "full"),
+    ).toBe("/exam/tutorial?returnTo=%2Fdashboard");
     expect(buildQuestionEngineTutorialHref("//evil.example", "full")).toBe(
       "/exam/tutorial?returnTo=%2Fdashboard",
     );
@@ -29,18 +29,21 @@ describe("question engine tutorial gate helpers", () => {
 
   it("selects guidance from UCAT familiarity rather than sampler completion", () => {
     expect(getQuestionEngineTutorialKind("new")).toBe("full");
-    expect(getQuestionEngineTutorialKind("familiar")).toBe("controls");
+    expect(getQuestionEngineTutorialKind("familiar")).toBe("full");
     expect(getQuestionEngineTutorialKind("experienced")).toBe("controls");
     expect(getQuestionEngineTutorialKind(null)).toBe("choose");
     expect(getQuestionEngineTutorialKind("unexpected")).toBe("choose");
   });
 
-  it("accepts the full tutorial as satisfying experienced guidance", () => {
-    const completed = (tourId: string) => tourId === "ucat-question-engine-intro";
+  it("treats either question-interface tutorial as complete for every familiarity", () => {
+    const fullCompleted = (tourId: string) =>
+      tourId === "ucat-question-engine-intro";
+    const controlsCompleted = (tourId: string) =>
+      tourId === "ucat-question-engine-controls-intro";
 
-    expect(isQuestionEngineTutorialSatisfied("controls", completed)).toBe(true);
-    expect(isQuestionEngineTutorialSatisfied("choose", completed)).toBe(true);
-    expect(isQuestionEngineTutorialSatisfied("full", completed)).toBe(true);
+    expect(isQuestionEngineTutorialSatisfied(fullCompleted)).toBe(true);
+    expect(isQuestionEngineTutorialSatisfied(controlsCompleted)).toBe(true);
+    expect(isQuestionEngineTutorialSatisfied(() => false)).toBe(false);
   });
 
   it("detects question-engine routes that require the tutorial", () => {
