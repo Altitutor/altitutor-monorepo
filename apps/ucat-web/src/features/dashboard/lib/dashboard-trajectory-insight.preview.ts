@@ -65,14 +65,46 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_PREVIEW_CASES = [
   },
   {
     label: "No exact test date",
-    condition: "Confidence is usable but no exact UCAT test date is stored.",
-    input: { ...BASE_INPUT, state: state("no_test_date", { testDay: null }) },
+    condition:
+      "Confidence is usable but no exact UCAT test date is stored, with no recent improvement or section gap.",
+    input: {
+      ...BASE_INPUT,
+      weakestSection: null,
+      state: state("no_test_date", { testDay: null }),
+    },
     expectedRuleId: "dashboard_trajectory.no_test_date",
   },
   {
+    label: "Bounded outlook improving",
+    condition:
+      "A bounded outlook has a stored estimate improvement of at least 20 points.",
+    input: {
+      ...BASE_INPUT,
+      weakestSection: null,
+      recentImprovement: 40,
+      state: state("no_test_date", { testDay: null }),
+    },
+    expectedRuleId: "dashboard_trajectory.bounded_outlook_improving",
+  },
+  {
+    label: "Bounded outlook section gap",
+    condition:
+      "A bounded outlook has a generated Study plan section gap and no recent improvement.",
+    input: {
+      ...BASE_INPUT,
+      state: state("no_test_date", { testDay: null }),
+    },
+    expectedRuleId: "dashboard_trajectory.bounded_outlook_section_gap",
+  },
+  {
     label: "Test beyond forecast window",
-    condition: "The exact test date lies beyond the reliable forecast horizon.",
-    input: { ...BASE_INPUT, state: state("long_range", { testDay: 180 }) },
+    condition:
+      "The exact test date lies beyond the reliable forecast horizon, with no recent improvement or section gap.",
+    input: {
+      ...BASE_INPUT,
+      weakestSection: null,
+      state: state("long_range", { testDay: 180 }),
+    },
     expectedRuleId: "dashboard_trajectory.long_range",
   },
   {

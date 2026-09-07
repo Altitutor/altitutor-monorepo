@@ -4,6 +4,8 @@ export const DASHBOARD_TRAJECTORY_INSIGHT_RULE_IDS = [
   "dashboard_trajectory.projection_unavailable",
   "dashboard_trajectory.building_baseline",
   "dashboard_trajectory.early_estimate",
+  "dashboard_trajectory.bounded_outlook_improving",
+  "dashboard_trajectory.bounded_outlook_section_gap",
   "dashboard_trajectory.no_test_date",
   "dashboard_trajectory.long_range",
   "dashboard_trajectory.on_track",
@@ -32,6 +34,52 @@ export type DashboardTrajectoryInsightInput = {
   recentImprovement: number | null;
   studyPlanEnabled: boolean;
 };
+
+function positiveSectionGap(
+  weakestSection: { name: string; gap: number } | null,
+): { name: string; gap: number } | null {
+  return weakestSection && weakestSection.gap > 0 ? weakestSection : null;
+}
+
+function largestStudyPlanSectionGapBody(section: {
+  name: string;
+  gap: number;
+}): string {
+  return `${section.name} still has the largest section gap at ${section.gap} points below its Study plan target, so today’s work keeps focus there.`;
+}
+
+function buildBoundedOutlookInsight({
+  fallback,
+  weakestSection,
+  recentImprovement,
+  studyPlanEnabled,
+}: {
+  fallback: DashboardTrajectoryInsight;
+  weakestSection: { name: string; gap: number } | null;
+  recentImprovement: number | null;
+  studyPlanEnabled: boolean;
+}): DashboardTrajectoryInsight {
+  const gap = positiveSectionGap(weakestSection);
+  if (recentImprovement) {
+    return {
+      ruleId: "dashboard_trajectory.bounded_outlook_improving",
+      title: `Your estimate is up ${recentImprovement} points`,
+      body: gap
+        ? largestStudyPlanSectionGapBody(gap)
+        : studyPlanEnabled
+          ? "Keep following today's Study plan. More timed practice will keep this estimate moving."
+          : "Keep using your next steps. More timed practice will keep this estimate moving.",
+    };
+  }
+  if (gap) {
+    return {
+      ruleId: "dashboard_trajectory.bounded_outlook_section_gap",
+      title: `${gap.name} still has the largest section gap`,
+      body: `It's ${gap.gap} points below its Study plan target. Start with today's next step and keep practising.`,
+    };
+  }
+  return fallback;
+}
 
 export function buildDashboardTrajectoryInsight({
   projectionUnavailable = false,
@@ -74,17 +122,27 @@ export function buildDashboardTrajectoryInsight({
         body: "Your score estimate has a wide range. More timed practice will make it more accurate and allow us to generate a score projection.",
       };
     case "no_test_date":
-      return {
-        ruleId: "dashboard_trajectory.no_test_date",
-        title: `Your ${state.forecastHorizonDays}-day score projection`,
-        body: "You haven't set your UCAT test date yet. We'll be able to better tailor your study plan once we have an exact test date.",
-      };
+      return buildBoundedOutlookInsight({
+        weakestSection,
+        recentImprovement,
+        studyPlanEnabled,
+        fallback: {
+          ruleId: "dashboard_trajectory.no_test_date",
+          title: "This is a 120-day outlook",
+          body: `An exact test date isn't booked yet, so this chart shows the next ${state.forecastHorizonDays} days rather than exam day. Keep following today's work.`,
+        },
+      });
     case "long_range":
-      return {
-        ruleId: "dashboard_trajectory.long_range",
-        title: "Your test is beyond the reliable forecast window",
-        body: `Your score projection shows the next ${state.forecastHorizonDays} days. It will become more useful as your test approaches.`,
-      };
+      return buildBoundedOutlookInsight({
+        weakestSection,
+        recentImprovement,
+        studyPlanEnabled,
+        fallback: {
+          ruleId: "dashboard_trajectory.long_range",
+          title: "Your test is beyond the reliable forecast window",
+          body: `Your score projection shows the next ${state.forecastHorizonDays} days. We'll judge exam-day progress once your test is inside that window. Keep following today's work.`,
+        },
+      });
     case "on_track":
       return {
         ruleId: recentImprovement
@@ -94,7 +152,7 @@ export function buildDashboardTrajectoryInsight({
           ? `Your estimate is up ${recentImprovement} points`
           : "Even your low-end projection meets your target",
         body: weakestSection
-          ? `${weakestSection.name} still has the largest section gap at ${weakestSection.gap} points below its Study plan target, so today’s work keeps focus there.`
+          ? largestStudyPlanSectionGapBody(weakestSection)
           : studyPlanEnabled
             ? "Keep following today’s Study plan so more practice can confirm that you’re on track."
             : "Keep using your next steps to practice more and confirm that you’re on track.",
