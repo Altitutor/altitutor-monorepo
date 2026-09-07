@@ -49,6 +49,7 @@ export interface ProcessSessionBillingAdjustmentsOptions {
   isStripeLiveKey: boolean;
   resendApiKey?: string;
   limit?: number;
+  adjustmentIds?: string[];
 }
 
 export interface ProcessSessionBillingAdjustmentsResult {
@@ -271,12 +272,14 @@ export async function processSessionBillingAdjustments(
   options: ProcessSessionBillingAdjustmentsOptions,
 ): Promise<ProcessSessionBillingAdjustmentsResult> {
   const { supabase, stripe } = options;
-  const { data, error } = await supabase.rpc(
-    'claim_session_billing_adjustments',
-    {
+  const { data, error } = options.adjustmentIds
+    ? await supabase.rpc('claim_session_billing_adjustments_by_ids', {
+      p_adjustment_ids: options.adjustmentIds,
       p_limit: options.limit ?? 25,
-    },
-  );
+    })
+    : await supabase.rpc('claim_session_billing_adjustments', {
+      p_limit: options.limit ?? 25,
+    });
   if (error) throw error;
 
   const adjustments = (data ?? []) as SessionBillingAdjustment[];

@@ -37963,6 +37963,37 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_session_billing_adjustments_by_ids: {
+        Args: { p_adjustment_ids: string[]; p_limit?: number }
+        Returns: {
+          amount_cents: number | null
+          attempt_count: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          depends_on_adjustment_id: string | null
+          id: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["session_billing_adjustment_kind"]
+          last_error: string | null
+          max_attempts: number
+          next_attempt_at: string
+          reason_category: string
+          reason_note: string | null
+          sessions_students_id: string
+          source_credit_note_id: string | null
+          source_invoice_item_id: string | null
+          status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "session_billing_adjustments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_ucat_lifecycle_email: {
         Args: {
           p_campaign_key: string

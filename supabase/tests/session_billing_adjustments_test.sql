@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(28);
+SELECT plan(39);
 
 SELECT is(
   public.derive_session_absence_billing_treatment(false, false, false),
@@ -549,6 +549,266 @@ SELECT is(
   ),
   'processing',
   'a dependent charge proceeds when its prerequisite is safely superseded'
+);
+
+INSERT INTO public.session_billing_adjustments (
+  id, sessions_students_id, kind, status, reason_category, idempotency_key,
+  next_attempt_at
+)
+VALUES
+  (
+    'f5000000-0000-4000-8000-000000000004',
+    (SELECT sessions_students_id FROM billing_adjustment_fixture),
+    'session_charge',
+    'pending',
+    'system_reconciliation',
+    'test:future-pending',
+    now() + interval '1 day'
+  ),
+  (
+    'f5000000-0000-4000-8000-000000000005',
+    (SELECT sessions_students_id FROM billing_adjustment_fixture),
+    'session_charge',
+    'retryable',
+    'system_reconciliation',
+    'test:future-retryable',
+    now() + interval '1 day'
+  ),
+  (
+    'f5000000-0000-4000-8000-000000000006',
+    (SELECT sessions_students_id FROM billing_adjustment_fixture),
+    'session_charge',
+    'pending',
+    'system_reconciliation',
+    'test:targeted-due',
+    now() - interval '1 minute'
+  ),
+  (
+    'f5000000-0000-4000-8000-000000000007',
+    (SELECT sessions_students_id FROM billing_adjustment_fixture),
+    'session_charge',
+    'pending',
+    'system_reconciliation',
+    'test:unrelated-due',
+    now() - interval '1 minute'
+  );
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.vadmin_reconciliation_session_billing_adjustments
+    WHERE adjustment_id = 'f5000000-0000-4000-8000-000000000004'
+  ),
+  0,
+  'normal future-pending work is hidden from Financial reconciliation'
+);
+
+SELECT is(
+  (
+    SELECT issue
+    FROM public.vadmin_reconciliation_session_billing_adjustments
+    WHERE adjustment_id = 'f5000000-0000-4000-8000-000000000005'
+  ),
+  'retryable_adjustment',
+  'retryable work remains visible during its backoff window'
+);
+
+CREATE TEMP TABLE targeted_claimed_adjustments AS
+SELECT * FROM public.claim_session_billing_adjustments_by_ids(
+  ARRAY['f5000000-0000-4000-8000-000000000006'::uuid],
+  25
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM targeted_claimed_adjustments),
+  1,
+  'targeted claiming returns the requested due adjustment'
+);
+
+SELECT is(
+  (
+    SELECT status::text
+    FROM public.session_billing_adjustments
+    WHERE id = 'f5000000-0000-4000-8000-000000000006'
+  ),
+  'processing',
+  'targeted claiming leases the requested adjustment'
+);
+
+SELECT is(
+  (
+    SELECT status::text
+    FROM public.session_billing_adjustments
+    WHERE id = 'f5000000-0000-4000-8000-000000000007'
+  ),
+  'pending',
+  'targeted claiming leaves unrelated due adjustments untouched'
+);
+
+SELECT is(
+  has_function_privilege(
+    'authenticated',
+    'public.claim_session_billing_adjustments_by_ids(uuid[],integer)',
+    'EXECUTE'
+  ),
+  false,
+  'authenticated clients cannot directly claim targeted billing work'
+);
+
+INSERT INTO public.session_billing_adjustments (
+  id, sessions_students_id, kind, status, reason_category, idempotency_key,
+  next_attempt_at
+)
+VALUES (
+  'f5000000-0000-4000-8000-000000000008',
+  (SELECT sessions_students_id FROM billing_adjustment_fixture),
+  'session_charge',
+  'pending',
+  'system_reconciliation',
+  'test:immediate-credit-pass',
+  now() - interval '1 minute'
+);
+
+INSERT INTO public.session_billing_adjustments (
+  id, sessions_students_id, kind, status, reason_category, idempotency_key,
+  next_attempt_at, depends_on_adjustment_id
+)
+VALUES (
+  'f5000000-0000-4000-8000-000000000009',
+  (SELECT sessions_students_id FROM billing_adjustment_fixture),
+  'session_charge',
+  'pending',
+  'system_reconciliation',
+  'test:immediate-dependent-pass',
+  now() - interval '1 minute',
+  'f5000000-0000-4000-8000-000000000008'
+);
+
+CREATE TEMP TABLE first_dependency_pass AS
+SELECT * FROM public.claim_session_billing_adjustments_by_ids(
+  ARRAY[
+    'f5000000-0000-4000-8000-000000000008'::uuid,
+    'f5000000-0000-4000-8000-000000000009'::uuid
+  ],
+  25
+);
+
+SELECT is(
+  (SELECT count(*)::integer FROM first_dependency_pass),
+  1,
+  'the first immediate pass claims only the ready prerequisite'
+);
+
+SELECT is(
+  (SELECT id FROM first_dependency_pass),
+  'f5000000-0000-4000-8000-000000000008'::uuid,
+  'the dependent adjustment waits for prerequisite success'
+);
+
+UPDATE public.session_billing_adjustments
+SET status = 'succeeded', completed_at = now()
+WHERE id = 'f5000000-0000-4000-8000-000000000008';
+
+CREATE TEMP TABLE second_dependency_pass AS
+SELECT * FROM public.claim_session_billing_adjustments_by_ids(
+  ARRAY[
+    'f5000000-0000-4000-8000-000000000008'::uuid,
+    'f5000000-0000-4000-8000-000000000009'::uuid
+  ],
+  25
+);
+
+SELECT is(
+  (SELECT id FROM second_dependency_pass),
+  'f5000000-0000-4000-8000-000000000009'::uuid,
+  'a later immediate pass claims the newly unblocked dependent adjustment'
+);
+
+INSERT INTO public.sessions (
+  id, type, subject_id, start_at, end_at, status, billing_type
+)
+SELECT
+  'f0000000-0000-4000-8000-000000000010',
+  source.type,
+  source.subject_id,
+  now() + interval '2 days',
+  now() + interval '2 days 90 minutes',
+  'ACTIVE',
+  source.billing_type
+FROM public.sessions source
+WHERE source.billing_type IS NOT NULL
+LIMIT 1;
+
+INSERT INTO public.sessions_students (
+  id, session_id, student_id, planned_absence, is_credited, is_rescheduled, was_trial
+)
+VALUES (
+  'f0000000-0000-4000-8000-000000000011',
+  'f0000000-0000-4000-8000-000000000010',
+  '10000000-0000-0000-0000-000000000001',
+  false, false, false, false
+);
+
+INSERT INTO public.invoices (
+  id, student_id, stripe_invoice_id, invoice_date, amount_due_cents,
+  amount_paid_cents, currency, status
+)
+VALUES (
+  'f1000000-0000-4000-8000-000000000010',
+  '10000000-0000-0000-0000-000000000001',
+  'in_immediate_adjustment_test',
+  CURRENT_DATE,
+  9000,
+  9000,
+  'AUD',
+  'paid'
+);
+
+INSERT INTO public.invoice_items (
+  id, invoice_id, sessions_students_id, stripe_invoice_item_id, amount_cents,
+  description, is_subsidy, is_fee, line_kind, session_id, student_id
+)
+VALUES (
+  'f2000000-0000-4000-8000-000000000010',
+  'f1000000-0000-4000-8000-000000000010',
+  'f0000000-0000-4000-8000-000000000011',
+  'ii_immediate_adjustment_test',
+  9000,
+  'Immediate adjustment command test',
+  false,
+  false,
+  'session_charge',
+  'f0000000-0000-4000-8000-000000000010',
+  '10000000-0000-0000-0000-000000000001'
+);
+
+CREATE TEMP TABLE logged_absence_command AS
+SELECT public.log_student_absences_with_billing(
+  jsonb_build_array(jsonb_build_object(
+    'student_id', '10000000-0000-0000-0000-000000000001',
+    'original_sessions_students_id', 'f0000000-0000-4000-8000-000000000011',
+    'action', 'credit'
+  )),
+  '00000000-0000-0000-0000-000000000001',
+  'approved_absence',
+  'immediate command test'
+) AS result;
+
+SELECT is(
+  (SELECT jsonb_array_length(result->'billing_adjustment_ids') FROM logged_absence_command),
+  1,
+  'the absence command returns the exact adjustment IDs it enqueued'
+);
+
+SELECT is(
+  (
+    SELECT adjustment.kind::text
+    FROM logged_absence_command command
+    JOIN public.session_billing_adjustments adjustment
+      ON adjustment.id = (command.result->'billing_adjustment_ids'->>0)::uuid
+  ),
+  'credit_note',
+  'the returned adjustment ID identifies the absence credit work'
 );
 
 SELECT * FROM finish();

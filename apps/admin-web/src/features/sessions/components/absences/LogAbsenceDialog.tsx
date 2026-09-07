@@ -51,6 +51,7 @@ export function LogAbsenceDialog({
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
   const [reasonNote, setReasonNote] = useState('');
+  const [billingWarning, setBillingWarning] = useState<string | undefined>();
 
   // Student search and pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -152,6 +153,7 @@ export function LogAbsenceDialog({
       setErrorMessage('');
       setHasInitialized(false);
       setReasonNote('');
+      setBillingWarning(undefined);
     }
   }, [isOpen]);
 
@@ -268,6 +270,7 @@ export function LogAbsenceDialog({
       });
 
       if (result.success) {
+        setBillingWarning(result.warning);
         setProcessedSessionsForMessage(sessionsSnapshot);
         setStep('message');
       } else {
@@ -431,6 +434,7 @@ export function LogAbsenceDialog({
             decisions={decisions}
             selectedSessionsArray={processedSessionsForMessage}
             rescheduledSessionsMap={rescheduledSessionsMap}
+            billingWarning={billingWarning}
           />
         );
 

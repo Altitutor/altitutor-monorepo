@@ -5,6 +5,23 @@ import type { Database, Json } from '@altitutor/shared';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 
 const REASON_CATEGORIES = new Set(['approved_absence', 'extended_absence', 'admin_discretion']);
+const BILLING_RETRY_WARNING = 'Absence saved; billing queued for retry.';
+
+type BillingRunnerResult = {
+  skipped?: boolean;
+  adjustments?: {
+    claimed?: number;
+    succeeded?: number;
+    failed?: number;
+  };
+};
+
+function getAdjustmentIds(data: unknown): string[] {
+  if (!data || typeof data !== 'object' || !('billing_adjustment_ids' in data)) return [];
+  const ids = (data as { billing_adjustment_ids?: unknown }).billing_adjustment_ids;
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id): id is string => typeof id === 'string');
+}
 
 export async function POST(request: Request) {
   try {
@@ -18,6 +35,14 @@ export async function POST(request: Request) {
     } = await userClient.auth.getUser();
 
     if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await userClient.auth.getSession();
+    if (sessionError || !session) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -87,7 +112,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: errorResult.error || 'Failed to log absences' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, data });
+    const adjustmentIds = getAdjustmentIds(data);
+    if (adjustmentIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data,
+        billing: { status: 'not_required' },
+      });
+    }
+
+    const billingAbortController = new AbortController();
+    const billingTimeout = setTimeout(() => billingAbortController.abort(), 25_000);
+    try {
+      const billingResponse = await fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          apikey: supabaseServiceKey,
+          'x-admin-token': session.access_token,
+        },
+        body: JSON.stringify({ adjustmentsOnly: true, adjustmentIds }),
+        signal: billingAbortController.signal,
+      });
+      const billingData = (await billingResponse.json()) as BillingRunnerResult;
+      const adjustments = billingData.adjustments;
+      if (!billingResponse.ok || billingData.skipped || (adjustments?.failed ?? 0) > 0) {
+        throw new Error('Immediate billing adjustment processing did not complete');
+      }
+
+      return NextResponse.json({
+        success: true,
+        data,
+        billing: {
+          status: 'processed',
+          claimed: adjustments?.claimed ?? 0,
+          succeeded: adjustments?.succeeded ?? 0,
+          failed: adjustments?.failed ?? 0,
+        },
+      });
+    } catch (billingError) {
+      captureApiError(billingError, '/api/absences/log/immediate-billing');
+      console.error('Absence saved but immediate billing processing failed:', billingError);
+      return NextResponse.json({
+        success: true,
+        data,
+        billing: { status: 'queued' },
+        warning: BILLING_RETRY_WARNING,
+      });
+    } finally {
+      clearTimeout(billingTimeout);
+    }
   } catch (error) {
     captureApiError(error, '/api/absences/log');
     console.error('Unexpected error in log absences API route:', error);

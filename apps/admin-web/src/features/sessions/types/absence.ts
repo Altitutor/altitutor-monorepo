@@ -66,6 +66,13 @@ export interface LogAbsencesResponse {
   success: boolean;
   data?: unknown;
   error?: string;
+  billing?: {
+    status: 'not_required' | 'processed' | 'queued';
+    claimed?: number;
+    succeeded?: number;
+    failed?: number;
+  };
+  warning?: string;
 }
 
 /**

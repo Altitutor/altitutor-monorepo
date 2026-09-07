@@ -5,7 +5,7 @@ import { MessageThread } from '@/features/messages/components/MessageThread';
 import { Composer } from '@/features/messages/components/Composer';
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { MessageSquare, ChevronDown, Check, CheckCircle2 } from 'lucide-react';
+import { MessageSquare, ChevronDown, Check, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { formatDateTime } from '@/shared/utils';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
@@ -56,6 +56,7 @@ interface AbsenceMessageScreenProps {
   decisions: AbsenceDecision[];
   selectedSessionsArray: StudentSession[];
   rescheduledSessionsMap: Map<string, RescheduleSession>;
+  billingWarning?: string;
 }
 
 export function AbsenceMessageScreen({
@@ -63,6 +64,7 @@ export function AbsenceMessageScreen({
   decisions,
   selectedSessionsArray,
   rescheduledSessionsMap,
+  billingWarning,
 }: AbsenceMessageScreenProps) {
   const [selectedRecipient, setSelectedRecipient] = useState<RecipientOption | null>(null);
   const [contactId, setContactId] = useState<string | null>(null);
@@ -197,6 +199,13 @@ export function AbsenceMessageScreen({
             </span>
             {' '}({decisions.length} session{decisions.length !== 1 ? 's' : ''} processed)
           </p>
+        </div>
+      )}
+
+      {billingWarning && (
+        <div className="mb-4 flex flex-shrink-0 items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 dark:border-amber-800 dark:bg-amber-900/20">
+          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600 dark:text-amber-400" />
+          <p className="text-sm text-amber-800 dark:text-amber-200">{billingWarning}</p>
         </div>
       )}
 
