@@ -9,6 +9,7 @@ export {
   useProjectActivity,
   useIssueActivity,
   useAdminShiftActivity,
+  useInvoiceActivity,
   activityKeys,
   ACTIVITY_PAGE_SIZE,
 } from './useActivityEvents';

@@ -1,6 +1,8 @@
+import { headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { MARKETING_LANDING_URL } from '@/shared/lib/marketing-home-url';
+import { getMarketingLandingUrl } from '@/shared/lib/marketing-home-url';
 
-export default function AppEntryRedirect() {
-  redirect(MARKETING_LANDING_URL);
+export default async function AppEntryRedirect() {
+  const host = (await headers()).get('host') ?? undefined;
+  redirect(getMarketingLandingUrl(host));
 }

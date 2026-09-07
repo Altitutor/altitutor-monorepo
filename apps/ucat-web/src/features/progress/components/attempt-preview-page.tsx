@@ -50,7 +50,7 @@ function requestedAttempt(): AttemptPreviewKind {
 }
 
 function resultForQuestion(index: number, accuracy: number) {
-  if (index === 0) return "incorrect" as const;
+  if (index === 0 || index === 1) return "incorrect" as const;
   const sample = (index * 37 + 19) % 100;
   if (sample < accuracy) return "correct" as const;
   if (sample > 96) return "not_attempted" as const;
@@ -104,6 +104,7 @@ type PreviewQuestionAttempt = {
   questionNumber: number;
   questionId: string;
   selectedOptionId: string | null;
+  answerSnapshot?: unknown;
   result: "correct" | "partial" | "incorrect" | "not_attempted";
   score: number;
   timeSpentSeconds: number | null;
@@ -115,6 +116,7 @@ type PreviewQuestionAttempt = {
   categoryName: string;
   categoryDescription: string;
   isFlagged: boolean;
+  remediationLessons: Array<{ id: string; title: string; href: string }>;
 };
 
 function buildReviewContent(
@@ -157,6 +159,8 @@ function buildReviewContent(
           index: 4,
           text: "Cold Claire sells vanilla ice cream",
           answerKeyValue: null,
+          answerExplanation:
+            "Cold Claire is the only shop that sells ice cream in cups. Chill Phil sells chocolate in cones, and Frosty Frank must sell vanilla, so Cold Claire sells chocolate, not vanilla.",
           selectionCount: 14,
           totalAnswered: 100,
           percentage: 14,
@@ -179,6 +183,62 @@ function buildReviewContent(
         correctOptionId: "preview-dm-option-c",
         answerExplanation:
           "Cold Claire is the only shop using cups, so Icy Ian, Frosty Frank and Chill Phil all use cones. Chill Phil sells chocolate. Frosty Frank sells a different flavour from the other three, so Frosty Frank must sell vanilla and the other three — including Icy Ian — must sell chocolate.",
+      };
+    }
+
+    if (index === 1) {
+      return {
+        id: "preview-dm-binary",
+        index,
+        questionSetId: `preview-${attempt}-set`,
+        stemId: "preview-dm-binary-stem",
+        sectionName: "Decision Making",
+        sectionDisplayColumns: 1,
+        stemText:
+          "A clinic recorded whether five follow-up statements were supported by its trial notes.",
+        questionText: "Drag Yes or No onto each statement.",
+        responseType: "drag_and_drop",
+        answerScheme: "decision_making_binary_placement",
+        answerExplanation:
+          "Judge each statement only against what the notes actually say. If a claim is stronger than the notes, or introduces a new fact, it is not supported.",
+        options: [
+          {
+            id: "preview-bin-1",
+            index: 0,
+            text: "Every patient improved after the first session.",
+            answerKeyValue: "yes" as const,
+            answerExplanation:
+              "The notes only say some patients improved. Treating that as every patient is too strong.",
+          },
+          {
+            id: "preview-bin-2",
+            index: 1,
+            text: "The trial compared two different appointment lengths.",
+            answerKeyValue: "no" as const,
+            answerExplanation:
+              "Appointment length is never mentioned, so this cannot be concluded from the notes.",
+          },
+          {
+            id: "preview-bin-3",
+            index: 2,
+            text: "Follow-up notes were collected for each enrolled patient.",
+            answerKeyValue: "yes" as const,
+          },
+          {
+            id: "preview-bin-4",
+            index: 3,
+            text: "The clinic published the results in a journal.",
+            answerKeyValue: "no" as const,
+          },
+          {
+            id: "preview-bin-5",
+            index: 4,
+            text: "Patients who missed a session were still included in the notes.",
+            answerKeyValue: "yes" as const,
+            answerExplanation:
+              "Missed sessions are not discussed, so this statement is not supported.",
+          },
+        ],
       };
     }
 
@@ -236,14 +296,15 @@ function buildReviewContent(
 
   const questionAttempts = chartData.map((question, index) => {
     const currentQuestion = questions[index]!;
+    const isPlacement = currentQuestion.responseType === "drag_and_drop";
     const correctOptionIndex = currentQuestion.options.findIndex(
       (option) => option.answerKeyValue === "correct",
     );
     const selectedOptionIndex =
-      question.result === "correct"
-        ? correctOptionIndex
-        : question.result === "not_attempted"
-          ? -1
+      isPlacement || question.result === "not_attempted"
+        ? -1
+        : question.result === "correct"
+          ? correctOptionIndex
           : (correctOptionIndex + 1) % currentQuestion.options.length;
     const timeSpentSeconds = question.timeSpentSeconds ?? averageSeconds;
     const categoryIndex = Math.floor(index / 4) % 2;
@@ -254,6 +315,23 @@ function buildReviewContent(
         selectedOptionIndex < 0
           ? null
           : (currentQuestion.options[selectedOptionIndex]?.id ?? null),
+      answerSnapshot: isPlacement
+        ? {
+            type: "ucat_response_v1",
+            questionId: currentQuestion.id,
+            answerScheme: "decision_making_binary_placement",
+            response: {
+              kind: "placement",
+              placements: {
+                "preview-bin-1": "no",
+                "preview-bin-2": "yes",
+                "preview-bin-3": "yes",
+                "preview-bin-4": "no",
+                "preview-bin-5": "no",
+              },
+            },
+          }
+        : undefined,
       result: question.result,
       score: question.score ?? 0,
       timeSpentSeconds,
@@ -289,6 +367,16 @@ function buildReviewContent(
           ? "Placeholder category covering interpretation and inference."
           : "Placeholder category covering evidence and conclusion matching.",
       isFlagged: (index + 1) % 9 === 0,
+      remediationLessons:
+        question.result === "incorrect" || question.result === "partial"
+          ? [
+              {
+                id: "preview-related-lesson",
+                title: "Must be true vs could be true",
+                href: "/learn/sections/2",
+              },
+            ]
+          : [],
     };
   });
 

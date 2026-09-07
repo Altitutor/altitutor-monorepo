@@ -3,7 +3,6 @@
 import Link from 'next/link';
 import { MARKETING_TOKENS } from '@altitutor/shared';
 import { AuthPageHeader } from '@/features/auth/components/AuthPageHeader';
-import { MARKETING_LANDING_URL } from '@/shared/lib/marketing-home-url';
 import { cn } from '@/shared/utils';
 
 const { typography: typo } = MARKETING_TOKENS;
@@ -33,7 +32,7 @@ export function LoginPageLayout({
 
   return (
     <div className="relative flex min-h-dvh flex-col bg-background text-foreground">
-      <AuthPageHeader backHref={MARKETING_LANDING_URL} />
+      <AuthPageHeader />
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         <div className="w-full max-w-md">

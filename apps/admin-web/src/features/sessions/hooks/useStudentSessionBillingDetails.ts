@@ -28,6 +28,7 @@ import {
   calculateSessionPrice,
   grossUpInvoiceAmount,
 } from '@/shared/utils/pricing';
+import { formatDayMonth } from '@/shared/utils/datetime';
 
 export type SessionInvoiceDetails = {
   invoiceNumber: string;
@@ -50,6 +51,8 @@ type UseStudentSessionBillingDetailsOptions = {
   sessionStudents: Record<string, Array<{
     id: string;
     planned_absence?: boolean;
+    was_trial?: boolean;
+    actual_was_trial?: boolean | null;
     sessions_students_id?: string | null;
     invoice_status_payload?: { invoice_id?: string | null } | null;
   }>>;
@@ -85,11 +88,7 @@ export function formatBillingDate(sessionStartAt: string): string {
     Number(parts.find((part) => part.type === type)?.value);
   const billingDate = new Date(Date.UTC(value('year'), value('month') - 1, value('day') - 1, 12));
 
-  return new Intl.DateTimeFormat('en-AU', {
-    timeZone: 'UTC',
-    day: 'numeric',
-    month: 'short',
-  }).format(billingDate);
+  return formatDayMonth(billingDate);
 }
 
 export function buildSessionInvoicePreviews({
@@ -156,6 +155,8 @@ export function buildSessionInvoicePreviews({
       if (
         !student?.sessions_students_id ||
         student.planned_absence ||
+        student.was_trial ||
+        student.actual_was_trial ||
         student.invoice_status_payload ||
         !billingType ||
         !subjectId ||

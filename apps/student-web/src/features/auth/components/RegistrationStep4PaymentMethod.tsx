@@ -36,6 +36,7 @@ import {
   captureRegistrationEvent,
   captureRegistrationOperationalError,
 } from "@/features/registration/lib/registration-observability";
+import { completeRegistrationPaymentSetup } from "@/features/registration/lib/complete-registration-payment-setup";
 
 interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
@@ -216,81 +217,60 @@ function PaymentForm({
         return;
       }
 
-      if (setupIntent && setupIntent.status === "succeeded") {
+      if (setupIntent?.status === "succeeded") {
         captureRegistrationEvent(
           "student_registration_payment_setup_succeeded",
         );
-        // Wait a moment for webhook to process, then verify
-        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
 
-        // Verify payment method was saved
+      const verifyPaymentMethod = async (setupIntentId: string) => {
         const verifyResponse = await fetch("/api/register/payment-method", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             token,
             action: "verify_payment_method",
+            setupIntentId,
           }),
         });
+        return (await verifyResponse.json()) as {
+          verified?: boolean;
+          code?: string;
+        };
+      };
 
-        const verifyData = await verifyResponse.json();
+      const result = await completeRegistrationPaymentSetup({
+        setupIntent,
+        verify: verifyPaymentMethod,
+      });
 
-        if (!verifyData.verified) {
-          captureRegistrationEvent(
-            "student_registration_payment_verification_pending",
-            {
-              http_status: verifyResponse.status,
-              result_code: verifyData.code || "webhook_pending",
-              retry_number: 0,
-            },
-          );
-          // Payment method might still be processing, wait a bit more
-          await new Promise((resolve) => setTimeout(resolve, 2000));
-
-          const retryResponse = await fetch("/api/register/payment-method", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              token,
-              action: "verify_payment_method",
-            }),
-          });
-
-          const retryData = await retryResponse.json();
-
-          if (!retryData.verified) {
-            captureRegistrationEvent(
-              "student_registration_payment_verification_failed",
-              {
-                http_status: retryResponse.status,
-                result_code:
-                  retryData.code || "verification_failed_after_retry",
-                retry_number: 1,
-              },
-            );
-            captureRegistrationOperationalError(
-              new Error("Payment method verification failed after retry"),
-              "payment_verification",
-              retryData.code || "verification_failed_after_retry",
-            );
-            setError(
-              "Payment method added but verification failed. Please try again.",
-            );
-            setIsProcessing(false);
-            return;
-          }
-        }
-
-        toast({
-          title: "Success",
-          description: "Payment method added and verified successfully",
-        });
-        captureRegistrationEvent("student_registration_payment_verified", {
-          result_code: "verified",
-        });
-
-        onSuccess();
+      if (!result.ok) {
+        captureRegistrationEvent(
+          "student_registration_payment_verification_failed",
+          {
+            result_code: result.resultCode,
+            retry_number: 1,
+          },
+        );
+        captureRegistrationOperationalError(
+          new Error("Payment method verification failed after retry"),
+          "payment_verification",
+          result.resultCode,
+        );
+        setError(result.message);
+        setIsProcessing(false);
+        return;
       }
+
+      toast({
+        title: "Success",
+        description: "Payment method added and verified successfully",
+      });
+      captureRegistrationEvent("student_registration_payment_verified", {
+        result_code: "verified",
+      });
+
+      onSuccess();
     } catch (err) {
       captureRegistrationEvent("student_registration_payment_setup_failed", {
         result_code: "unexpected_client_error",

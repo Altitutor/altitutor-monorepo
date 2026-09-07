@@ -3,12 +3,12 @@
 import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { SmartDatePickerField } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
 import { useCurrentStaff } from '@/shared/hooks';
 import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import type { TablesInsert } from '@altitutor/shared';
 
 const DAY_OPTIONS = [
@@ -154,10 +154,9 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               {error}
             </div>
           )}
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="day">Day of Week *</Label>
+
+          <PropertyForm>
+            <PropertyFormRow label="Day of week *">
               <SearchableSelect<(typeof DAY_OPTIONS)[number]>
                 items={[...DAY_OPTIONS]}
                 value={DAY_OPTIONS.find((d) => d.value === dayOfWeek) ?? null}
@@ -165,13 +164,10 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
                 getItemLabel={(o) => o.label}
                 getItemId={(o) => o.value}
                 placeholder="Select day"
+                ariaLabel="Day of week"
               />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-time">Start Time *</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Start time *" htmlFor="start-time">
               <Input
                 id="start-time"
                 type="time"
@@ -179,10 +175,8 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
                 onChange={(e) => setStartTime(e.target.value)}
                 required
               />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="end-time">End Time *</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="End time *" htmlFor="end-time" valueClassName="space-y-1">
               <Input
                 id="end-time"
                 type="time"
@@ -193,12 +187,8 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               <p className="text-xs text-muted-foreground">
                 Admin staff work 3.5 hours (15 min early, 15 min late)
               </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="session-start-date">Session Start Date (Optional)</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Session start date" valueClassName="space-y-1">
               <SmartDatePickerField
                 value={sessionStartDate}
                 onChange={(value) => setSessionStartDate(value ?? '')}
@@ -206,10 +196,8 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               <p className="text-xs text-muted-foreground">
                 Leave empty to create sessions from today. Set a future date to delay session creation.
               </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="session-end-date">Session End Date (Optional)</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Session end date" valueClassName="space-y-1">
               <SmartDatePickerField
                 value={sessionEndDate}
                 onChange={(value) => setSessionEndDate(value ?? '')}
@@ -218,8 +206,8 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               <p className="text-xs text-muted-foreground">
                 Leave empty to create sessions until end of year. Set an end date to limit session creation.
               </p>
-            </div>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
         </form>
     </AdminDialogShell>
   );

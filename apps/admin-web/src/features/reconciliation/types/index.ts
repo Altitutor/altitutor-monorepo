@@ -208,7 +208,7 @@ export interface SessionBillingAdjustmentIssue {
   max_attempts: number;
   next_attempt_at: string;
   last_error: string | null;
-  issue: 'failed_adjustment' | 'blocked_by_failed_dependency' | 'overdue_adjustment' | 'pending_adjustment';
+  issue: 'failed_adjustment' | 'blocked_by_failed_dependency' | 'overdue_adjustment' | 'retryable_adjustment';
   created_at: string;
   updated_at: string;
 }

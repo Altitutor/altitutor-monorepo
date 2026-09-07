@@ -132,7 +132,7 @@ export async function syncSubscriptionInvoiceFromStripe(
   }
 
   const { data: billing, error: billErr } = await supabase
-    .from('students_billing')
+    .from('vinternal_student_billing_customers')
     .select('student_id')
     .eq('stripe_customer_id', customerId)
     .maybeSingle();

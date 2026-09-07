@@ -27,7 +27,7 @@ export function useQuestionEngineTutorialGate() {
   const isBlocked =
     !isLoading &&
     !isUnavailable &&
-    !isQuestionEngineTutorialSatisfied(tutorialKind, progress.isCompleted);
+    !isQuestionEngineTutorialSatisfied(progress.isCompleted);
 
   return {
     isLoading,

@@ -23,6 +23,15 @@ import { AdminSettingsCard } from "@/shared/components";
 export default function SettingsPage() {
   const settingsSections = [
       {
+        title: "Student records",
+        items: [{
+          title: "Duplicate students",
+          description: "Review possible matches and merge student records",
+          href: "/settings/duplicate-students",
+          icon: Users,
+        }],
+      },
+      {
       title: "Scheduling",
       items: [
           {

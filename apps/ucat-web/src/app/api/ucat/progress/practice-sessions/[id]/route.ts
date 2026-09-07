@@ -8,6 +8,12 @@ import {
   fetchAttemptReviewQuestionMetadata,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
+import {
+  matchRemediationLearningModules,
+  questionTagIdsFromMetadata,
+  type RemediationLessonLink,
+} from "@/features/progress/lib/remediation-learning-modules";
+import { fetchRemediationCatalog } from "@/features/progress/server/remediation-learning-modules";
 import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
 import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
 import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
@@ -47,6 +53,7 @@ export type PracticeAttemptDetailResponse = {
     questionStemCategoryId: string | null;
     selectedOptionId: string | null;
     answerSnapshot: unknown;
+    remediationLessons: RemediationLessonLink[];
   }[];
 };
 
@@ -129,7 +136,7 @@ export async function GET(
   );
 
   const questionIds = orderedQuestions.map((q) => q.questionId);
-  const [questionAttemptsResult, questionMetadata] =
+  const [questionAttemptsResult, questionMetadata, remediationCatalog] =
     await Promise.all([
       supabase
         .from("vstudent_ucat_my_question_attempts")
@@ -139,6 +146,7 @@ export async function GET(
         .eq("student_practice_session_id", sessionId)
         .eq("is_submitted", true),
       fetchAttemptReviewQuestionMetadata(supabase, questionIds),
+      fetchRemediationCatalog(supabase),
     ]);
 
   const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
@@ -218,6 +226,17 @@ export async function GET(
         questionStemCategoryId: attemptData?.questionStemCategoryId ?? null,
         selectedOptionId: attemptData?.selectedOptionId ?? null,
         answerSnapshot: attemptData?.answerSnapshot ?? null,
+        remediationLessons: matchRemediationLearningModules(
+          {
+            result,
+            questionTagIds: questionTagIdsFromMetadata(
+              metadata?.questionTags ?? [],
+            ),
+            stemCategoryId: attemptData?.questionStemCategoryId ?? null,
+            sectionId: s.ucat_section_id ?? null,
+          },
+          remediationCatalog,
+        ),
       };
     },
   );

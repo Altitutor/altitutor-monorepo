@@ -1,3 +1,5 @@
+import { splitDateRangeIntoWindows } from '../lib/availability-range';
+
 export interface AvailableSlot {
   start_at: string;
   end_at: string;
@@ -13,17 +15,29 @@ export interface GetAvailableSlotsParams {
   duration_minutes?: number;
 }
 
+async function fetchAvailableSlotsWindow(params: GetAvailableSlotsParams): Promise<AvailableSlot[]> {
+  const query = new URLSearchParams({
+    start_date: params.start_date,
+    end_date: params.end_date,
+    session_type: params.session_type,
+    ...(params.subject_id ? { subject_id: params.subject_id } : {}),
+    ...(params.duration_minutes ? { duration_minutes: String(params.duration_minutes) } : {}),
+  });
+  const response = await fetch(`/api/bookings/availability?${query.toString()}`);
+  if (!response.ok) throw new Error('Failed to fetch availability');
+  return await response.json() as AvailableSlot[];
+}
+
 export const availabilityApi = {
   async getAvailableSlots(params: GetAvailableSlotsParams): Promise<AvailableSlot[]> {
-    const query = new URLSearchParams({
-      start_date: params.start_date,
-      end_date: params.end_date,
-      session_type: params.session_type,
-      ...(params.subject_id ? { subject_id: params.subject_id } : {}),
-      ...(params.duration_minutes ? { duration_minutes: String(params.duration_minutes) } : {}),
-    });
-    const response = await fetch(`/api/bookings/availability?${query.toString()}`);
-    if (!response.ok) throw new Error('Failed to fetch availability');
-    return await response.json() as AvailableSlot[];
+    const windows = splitDateRangeIntoWindows(params.start_date, params.end_date);
+    if (windows.length === 0) {
+      throw new Error('Invalid availability date range');
+    }
+
+    const results = await Promise.all(
+      windows.map((window) => fetchAvailableSlotsWindow({ ...params, ...window })),
+    );
+    return results.flat();
   },
 };

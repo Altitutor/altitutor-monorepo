@@ -85,6 +85,8 @@ export const EVENT_NAMES: DomainEventOption[] = [
   { value: 'invoice.issued', label: 'Student invoiced', entityType: 'invoices' },
   { value: 'invoice.paid', label: 'Invoice paid', entityType: 'invoices' },
   { value: 'invoice.payment_failed', label: 'Invoice payment failed', entityType: 'invoices' },
+  { value: 'invoice.payment_attempted', label: 'Invoice card charge attempted', entityType: 'invoices' },
+  { value: 'invoice.notification_sent', label: 'Invoice notification sent', entityType: 'invoices' },
   { value: 'invoice.voided', label: 'Invoice voided', entityType: 'invoices' },
   { value: 'invoice.refunded', label: 'Invoice refunded', entityType: 'invoices' },
   { value: 'invoice.credit_note_added', label: 'Credit note added', entityType: 'invoices' },

@@ -2,6 +2,13 @@ import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
 
+// Production builds also run in previews and local smoke tests.
+const replayEnabled =
+  process.env.NODE_ENV === "production" &&
+  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") === "production" &&
+  typeof window !== "undefined" &&
+  window.location.hostname === "admin.altitutor.com";
+
 Sentry.init({
   dsn,
   enabled: Boolean(dsn),
@@ -10,13 +17,17 @@ Sentry.init({
   sendDefaultPii: false,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
   replaysSessionSampleRate: 0,
-  replaysOnErrorSampleRate: process.env.NODE_ENV === "production" ? 1 : 0,
+  replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,
   integrations: [
-    Sentry.replayIntegration({
-      maskAllText: true,
-      maskAllInputs: true,
-      blockAllMedia: true,
-    }),
+    ...(replayEnabled
+      ? [
+          Sentry.replayIntegration({
+            maskAllText: true,
+            maskAllInputs: true,
+            blockAllMedia: true,
+          }),
+        ]
+      : []),
     Sentry.feedbackIntegration({
       autoInject: false,
       showBranding: false,

@@ -16,6 +16,7 @@ interface ActivityFeedProps {
   isFetchingNextPage?: boolean;
   onLoadMore?: () => void;
   onOpenFormResponse?: (responseId: string) => void;
+  chronological?: boolean;
 }
 
 export function ActivityFeed({
@@ -27,11 +28,12 @@ export function ActivityFeed({
   isFetchingNextPage = false,
   onLoadMore,
   onOpenFormResponse,
+  chronological = false,
 }: ActivityFeedProps) {
   const activities = useMemo(() => {
     if (!data) return [];
-    return mapActivityEventsToDisplay(data);
-  }, [data]);
+    return mapActivityEventsToDisplay(data, { chronological });
+  }, [data, chronological]);
 
   if (isLoading) {
     return (

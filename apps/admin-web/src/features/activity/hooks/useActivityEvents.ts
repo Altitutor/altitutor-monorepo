@@ -302,3 +302,22 @@ export function useAdminShiftActivity(
 
   return toFeedResult(query);
 }
+
+export function useInvoiceActivity(
+  invoiceId: string | null,
+  enabled = true,
+  limit = ACTIVITY_PAGE_SIZE
+): ActivityFeedQueryResult {
+  const query = useInfiniteQuery({
+    queryKey: [...activityKeys.invoice(invoiceId || ''), { limit }] as const,
+    queryFn: ({ pageParam }) =>
+      activityApi.getInvoiceActivity(invoiceId!, limit, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: getNextOffset,
+    enabled: enabled && !!invoiceId,
+    staleTime: ACTIVITY_STALE_TIME,
+    gcTime: 1000 * 60 * 5,
+  });
+
+  return toFeedResult(query);
+}

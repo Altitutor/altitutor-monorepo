@@ -1,8 +1,11 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { dirname, resolve } from "node:path";
-import type {
-  FindWordItemContent,
-  UcatSkillTrainerDifficulty,
+import {
+  extractSkillTrainerPlainText,
+  findFindWordClickableTokens,
+  findFindWordKeywordOccurrences,
+  type FindWordItemContent,
+  type UcatSkillTrainerDifficulty,
 } from "@altitutor/shared";
 
 type WikipediaPage = {
@@ -393,6 +396,10 @@ function cleanParagraph(paragraph: string): string {
     .trim();
 }
 
+function isPlaceableKeyword(passage: string, text: string): boolean {
+  return findFindWordKeywordOccurrences(passage, { id: "kw", text }).length > 0;
+}
+
 function selectKeywords(
   rng: Rng,
   title: string,
@@ -402,16 +409,12 @@ function selectKeywords(
   const titleTokens = new Set(
     tokenize(title).map((token) => token.toLowerCase()),
   );
-  const tokenMatches = [
-    ...passage.matchAll(
-      /\b[\p{L}][\p{L}'-]{2,}\b|\b\d+(?:[.,]\d+)*(?:%|st|nd|rd|th)?\b/gu,
-    ),
-  ];
   const counts = new Map<string, KeywordCandidate>();
 
   for (const pattern of DATE_PATTERNS) {
     for (const match of passage.matchAll(pattern)) {
       const text = match[0].replace(/[.,;:!?]+$/g, "");
+      if (!isPlaceableKeyword(passage, text)) continue;
       const lower = text.toLowerCase();
       const position = match.index ?? 0;
       if (!counts.has(lower)) {
@@ -431,12 +434,13 @@ function selectKeywords(
     }
   }
 
-  for (const match of tokenMatches) {
-    const text = match[0].replace(/[.,;:!?]+$/g, "");
+  for (const token of findFindWordClickableTokens(passage)) {
+    const text = token.text.replace(/[.,;:!?]+$/g, "");
+    if (!isPlaceableKeyword(passage, text)) continue;
     const lower = text.toLowerCase();
     if (STOP_WORDS.has(lower)) continue;
     if (/^[a-z][a-z'-]{0,3}$/.test(text)) continue;
-    const position = match.index ?? 0;
+    const position = token.start;
     const sentenceStart = isSentenceStart(passage, position);
     if (
       sentenceStart &&
@@ -491,7 +495,7 @@ function selectKeywords(
     const available = candidates.filter(
       (candidate) =>
         !selected.some((text) => text.toLowerCase() === candidate.lower) &&
-        passage.toLowerCase().includes(candidate.lower),
+        isPlaceableKeyword(passage, candidate.text),
     );
     if (!available.length) break;
     const candidate = weightedKeywordPick(
@@ -552,40 +556,20 @@ function weightedKeywordPick(
 }
 
 function tokenize(text: string): string[] {
-  return [
-    ...text.matchAll(
-      /\b[\p{L}][\p{L}'-]{2,}\b|\b\d+(?:[.,]\d+)*(?:%|st|nd|rd|th)?\b/gu,
-    ),
-  ].map((match) => match[0]);
+  return findFindWordClickableTokens(text).map((token) => token.text);
 }
 
 function validateItem(item: FindWordSeedItem): void {
-  const plain = extractPlainText(item.content.passage);
+  const plain = extractSkillTrainerPlainText(item.content.passage, {
+    blockSeparator: "\n",
+  });
   for (const keyword of item.content.keywords) {
-    if (!plain.toLowerCase().includes(keyword.text.toLowerCase())) {
-      throw new Error(`Keyword "${keyword.text}" missing from ${item.title}`);
+    if (!isPlaceableKeyword(plain, keyword.text)) {
+      throw new Error(
+        `Keyword "${keyword.text}" is not a whole word in ${item.title}`,
+      );
     }
   }
-}
-
-function extractPlainText(doc: Record<string, unknown>): string {
-  const parts: string[] = [];
-  const walk = (node: unknown) => {
-    if (!node || typeof node !== "object") return;
-    const record = node as {
-      type?: string;
-      text?: string;
-      content?: unknown[];
-    };
-    if (record.type === "text" && typeof record.text === "string") {
-      parts.push(record.text);
-      return;
-    }
-    if (Array.isArray(record.content)) record.content.forEach(walk);
-    if (record.type === "paragraph") parts.push("\n");
-  };
-  walk(doc);
-  return parts.join("").trim();
 }
 
 function sqlString(value: string): string {

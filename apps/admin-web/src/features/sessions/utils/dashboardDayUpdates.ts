@@ -43,6 +43,7 @@ export type DashboardDayStaff = {
   planned_absence?: boolean;
   is_swapped?: boolean;
   is_swapped_in?: boolean;
+  was_trial?: boolean;
   swapped_staff?: {
     id: string;
     first_name: string;
@@ -70,7 +71,8 @@ export type DashboardDayUpdateKind =
   | 'extra_student'
   | 'staff_swap'
   | 'staff_absence'
-  | 'extra_staff';
+  | 'extra_staff'
+  | 'trial_tutor';
 
 export type DashboardDayUpdateItem = {
   kind: DashboardDayUpdateKind;
@@ -93,6 +95,7 @@ export type DashboardDayUpdates = {
   staffSwaps: DashboardDayUpdateItem[];
   staffAbsences: DashboardDayUpdateItem[];
   extraStaff: DashboardDayUpdateItem[];
+  trialTutors: DashboardDayUpdateItem[];
 };
 
 export type BuildDashboardDayUpdatesInput = {
@@ -108,6 +111,10 @@ export type BuildDashboardDayUpdatesInput = {
 
 function personName(person: { first_name: string | null; last_name: string | null }): string {
   return `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim() || 'Unknown';
+}
+
+function isPlannedTrialStaff(member: DashboardDayStaff): boolean {
+  return member.was_trial === true && !member.planned_absence;
 }
 
 function timestampMs(value: string | null | undefined): number | null {
@@ -210,6 +217,66 @@ function pairStaffSwaps(staff: DashboardDayStaff[]): {
   return { pairs, usedOutgoingIds, usedIncomingIds };
 }
 
+export const DASHBOARD_UPDATES_TYPE_SECTIONS: Array<{
+  key: keyof DashboardDayUpdates;
+  title: string;
+}> = [
+  { key: 'meetings', title: 'Meetings' },
+  { key: 'timeChanges', title: 'Rescheduled sessions' },
+  { key: 'studentAbsences', title: 'Student absences' },
+  { key: 'extraStudents', title: 'Extra students' },
+  { key: 'staffSwaps', title: 'Staff swaps' },
+  { key: 'staffAbsences', title: 'Staff absences' },
+  { key: 'trialTutors', title: 'Trial tutors' },
+  { key: 'extraStaff', title: 'Extra staff' },
+];
+
+const DASHBOARD_UPDATE_KIND_SECTION_KEY: Record<DashboardDayUpdateKind, keyof DashboardDayUpdates> = {
+  meeting: 'meetings',
+  time_change: 'timeChanges',
+  student_absence: 'studentAbsences',
+  extra_student: 'extraStudents',
+  staff_swap: 'staffSwaps',
+  staff_absence: 'staffAbsences',
+  trial_tutor: 'trialTutors',
+  extra_staff: 'extraStaff',
+};
+
+export function getDashboardDayUpdateKindLabel(kind: DashboardDayUpdateKind): string {
+  const sectionKey = DASHBOARD_UPDATE_KIND_SECTION_KEY[kind];
+  return DASHBOARD_UPDATES_TYPE_SECTIONS.find((section) => section.key === sectionKey)?.title ?? kind;
+}
+
+export type DashboardDayUpdateGroup = {
+  key: string;
+  title: string;
+  items: DashboardDayUpdateItem[];
+};
+
+export type DashboardUpdatesSortMode = 'time' | 'type' | 'staff' | 'student';
+
+export const DASHBOARD_UPDATES_SORT_OPTIONS: Array<{
+  id: DashboardUpdatesSortMode;
+  label: string;
+}> = [
+  { id: 'time', label: 'Time' },
+  { id: 'type', label: 'Type' },
+  { id: 'staff', label: 'Staff' },
+  { id: 'student', label: 'Student' },
+];
+
+const STAFF_UPDATE_KINDS = new Set<DashboardDayUpdateKind>([
+  'staff_swap',
+  'staff_absence',
+  'extra_staff',
+  'trial_tutor',
+]);
+
+const STUDENT_UPDATE_KINDS = new Set<DashboardDayUpdateKind>([
+  'student_absence',
+  'extra_student',
+]);
+
 function byStartThenLabel(a: DashboardDayUpdateItem, b: DashboardDayUpdateItem): number {
   const aMs = timestampMs(a.startAt) ?? 0;
   const bMs = timestampMs(b.startAt) ?? 0;
@@ -221,6 +288,137 @@ function byStartThenLabel(a: DashboardDayUpdateItem, b: DashboardDayUpdateItem):
   return (a.incomingName ?? '').localeCompare(b.incomingName ?? '');
 }
 
+function byStaffThenLabel(a: DashboardDayUpdateItem, b: DashboardDayUpdateItem): number {
+  const aIsStaff = STAFF_UPDATE_KINDS.has(a.kind);
+  const bIsStaff = STAFF_UPDATE_KINDS.has(b.kind);
+  if (aIsStaff !== bIsStaff) return aIsStaff ? -1 : 1;
+
+  const aKey = aIsStaff ? (a.personName ?? '') : a.sessionLabel;
+  const bKey = bIsStaff ? (b.personName ?? '') : b.sessionLabel;
+  const keyCmp = aKey.localeCompare(bKey);
+  if (keyCmp !== 0) return keyCmp;
+  return byStartThenLabel(a, b);
+}
+
+function byStudentThenLabel(a: DashboardDayUpdateItem, b: DashboardDayUpdateItem): number {
+  const aIsStudent = STUDENT_UPDATE_KINDS.has(a.kind);
+  const bIsStudent = STUDENT_UPDATE_KINDS.has(b.kind);
+  if (aIsStudent !== bIsStudent) return aIsStudent ? -1 : 1;
+
+  const aKey = aIsStudent ? (a.personName ?? '') : a.sessionLabel;
+  const bKey = bIsStudent ? (b.personName ?? '') : b.sessionLabel;
+  const keyCmp = aKey.localeCompare(bKey);
+  if (keyCmp !== 0) return keyCmp;
+  return byStartThenLabel(a, b);
+}
+
+export function flattenDashboardDayUpdates(updates: DashboardDayUpdates): DashboardDayUpdateItem[] {
+  return [
+    ...updates.meetings,
+    ...updates.timeChanges,
+    ...updates.studentAbsences,
+    ...updates.extraStudents,
+    ...updates.staffSwaps,
+    ...updates.staffAbsences,
+    ...updates.extraStaff,
+    ...updates.trialTutors,
+  ];
+}
+
+export function sortDashboardDayUpdateItems(
+  items: DashboardDayUpdateItem[],
+  mode: Exclude<DashboardUpdatesSortMode, 'type'>
+): DashboardDayUpdateItem[] {
+  const sorted = [...items];
+  switch (mode) {
+    case 'time':
+      sorted.sort(byStartThenLabel);
+      break;
+    case 'staff':
+      sorted.sort(byStaffThenLabel);
+      break;
+    case 'student':
+      sorted.sort(byStudentThenLabel);
+      break;
+  }
+  return sorted;
+}
+
+function getDashboardDayUpdateGroupKey(
+  item: DashboardDayUpdateItem,
+  mode: Exclude<DashboardUpdatesSortMode, 'type'>
+): string {
+  switch (mode) {
+    case 'time':
+      return item.startAt ?? '__no_time__';
+    case 'staff':
+      if (STAFF_UPDATE_KINDS.has(item.kind)) {
+        return `staff:${item.personName ?? ''}`;
+      }
+      return `session:${item.sessionLabel}`;
+    case 'student':
+      if (STUDENT_UPDATE_KINDS.has(item.kind)) {
+        return `student:${item.personName ?? ''}`;
+      }
+      return `session:${item.sessionLabel}`;
+  }
+}
+
+function getDashboardDayUpdateGroupTitle(
+  item: DashboardDayUpdateItem,
+  mode: Exclude<DashboardUpdatesSortMode, 'type'>
+): string {
+  switch (mode) {
+    case 'time':
+      if (!item.startAt) return 'Time not set';
+      return format(new Date(item.startAt), 'h:mm a');
+    case 'staff':
+      if (STAFF_UPDATE_KINDS.has(item.kind)) {
+        return item.personName ?? 'Unknown staff';
+      }
+      return item.sessionLabel;
+    case 'student':
+      if (STUDENT_UPDATE_KINDS.has(item.kind)) {
+        return item.personName ?? 'Unknown student';
+      }
+      return item.sessionLabel;
+  }
+}
+
+export function groupDashboardDayUpdateItems(
+  updates: DashboardDayUpdates,
+  mode: DashboardUpdatesSortMode
+): DashboardDayUpdateGroup[] {
+  if (mode === 'type') {
+    return DASHBOARD_UPDATES_TYPE_SECTIONS
+      .map(({ key, title }) => ({
+        key,
+        title,
+        items: updates[key],
+      }))
+      .filter((group) => group.items.length > 0);
+  }
+
+  const sorted = sortDashboardDayUpdateItems(flattenDashboardDayUpdates(updates), mode);
+  const groups: DashboardDayUpdateGroup[] = [];
+
+  for (const item of sorted) {
+    const key = getDashboardDayUpdateGroupKey(item, mode);
+    const last = groups[groups.length - 1];
+    if (last?.key === key) {
+      last.items.push(item);
+    } else {
+      groups.push({
+        key,
+        title: getDashboardDayUpdateGroupTitle(item, mode),
+        items: [item],
+      });
+    }
+  }
+
+  return groups;
+}
+
 export function hasDashboardDayUpdates(updates: DashboardDayUpdates): boolean {
   return (
     updates.meetings.length > 0 ||
@@ -229,7 +427,8 @@ export function hasDashboardDayUpdates(updates: DashboardDayUpdates): boolean {
     updates.extraStudents.length > 0 ||
     updates.staffSwaps.length > 0 ||
     updates.staffAbsences.length > 0 ||
-    updates.extraStaff.length > 0
+    updates.extraStaff.length > 0 ||
+    updates.trialTutors.length > 0
   );
 }
 
@@ -258,6 +457,7 @@ export function buildDashboardDayUpdates({
     staffSwaps: [],
     staffAbsences: [],
     extraStaff: [],
+    trialTutors: [],
   };
 
   for (const session of sessions) {
@@ -348,6 +548,17 @@ export function buildDashboardDayUpdates({
     }
 
     for (const member of staff) {
+      if (isPlannedTrialStaff(member)) {
+        updates.trialTutors.push({
+          kind: 'trial_tutor',
+          sessionId: session.id,
+          sessionLabel: label,
+          startAt: session.start_at,
+          endAt: session.end_at,
+          personName: personName(member),
+        });
+      }
+
       if (member.planned_absence) {
         if (usedOutgoingIds.has(member.id)) continue;
         updates.staffAbsences.push({
@@ -390,6 +601,7 @@ export function buildDashboardDayUpdates({
   updates.staffSwaps.sort(byStartThenLabel);
   updates.staffAbsences.sort(byStartThenLabel);
   updates.extraStaff.sort(byStartThenLabel);
+  updates.trialTutors.sort(byStartThenLabel);
 
   return updates;
 }

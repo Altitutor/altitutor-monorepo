@@ -44,7 +44,7 @@ export function ClassesTable() {
   if (!classes || classes.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        You do not have any scheduled offerings yet.
+        You do not have any classes yet.
       </div>
     );
   }

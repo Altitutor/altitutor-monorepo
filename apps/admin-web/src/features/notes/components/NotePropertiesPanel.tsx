@@ -1,5 +1,6 @@
 'use client';
 
+import { Form } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 
 import type { Folder, NoteFormData } from '../types';
@@ -24,30 +25,32 @@ export function NotePropertiesPanel({
   onViewModeInteract,
 }: NotePropertiesPanelProps) {
   return (
-    <div className={embedded ? undefined : 'space-y-6'}>
-      {!embedded ? (
-        <h3 className="text-sm font-semibold text-foreground">Properties</h3>
-      ) : null}
-      <div className="space-y-4">
-        <FolderSearchSelect
-          form={form}
-          folders={folders}
-          variant="properties"
-          editable={editable}
-          onDisabledInteract={onViewModeInteract}
-        />
-        <ProjectSearchSelect
-          form={form}
-          variant="properties"
-          editable={editable}
-          onDisabledInteract={onViewModeInteract}
-        />
-        <TutorDocumentationSelect
-          form={form}
-          editable={editable}
-          onDisabledInteract={onViewModeInteract}
-        />
+    <Form {...form}>
+      <div className={embedded ? undefined : 'space-y-6'}>
+        {!embedded ? (
+          <h3 className="text-sm font-semibold text-foreground">Properties</h3>
+        ) : null}
+        <div className="space-y-4">
+          <FolderSearchSelect
+            form={form}
+            folders={folders}
+            variant="properties"
+            editable={editable}
+            onDisabledInteract={onViewModeInteract}
+          />
+          <ProjectSearchSelect
+            form={form}
+            variant="properties"
+            editable={editable}
+            onDisabledInteract={onViewModeInteract}
+          />
+          <TutorDocumentationSelect
+            form={form}
+            editable={editable}
+            onDisabledInteract={onViewModeInteract}
+          />
+        </div>
       </div>
-    </div>
+    </Form>
   );
 }

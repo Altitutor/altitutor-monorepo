@@ -275,7 +275,7 @@ describe('ParentDetailsTab', () => {
       );
 
       // Find copy button by looking for the Copy icon button near email field
-      const emailSection = screen.getByText('Email:').closest('div')?.nextElementSibling;
+      const emailSection = screen.getByText('Email').closest('div')?.nextElementSibling;
       const copyButton = emailSection?.querySelector('button');
       expect(copyButton).toBeInTheDocument();
       if (copyButton) {
@@ -302,7 +302,7 @@ describe('ParentDetailsTab', () => {
 
       // Check icon should be visible (Check component from lucide-react)
       // Find button near email field
-      const emailSection = screen.getByText('Email:').closest('div')?.nextElementSibling;
+      const emailSection = screen.getByText('Email').closest('div')?.nextElementSibling;
       const copyButton = emailSection?.querySelector('button');
       expect(copyButton).toBeInTheDocument();
       // Check that it contains Check icon (copiedField === 'email')

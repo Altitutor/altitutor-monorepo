@@ -25,7 +25,9 @@ import { getErrorMessage } from '@/shared/utils';
 import { format } from 'date-fns';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { AdminLoadingSkeleton } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { invalidateInvoiceDetail } from '@/shared/lib/query-invalidation';
+import { InvoiceActivityTab } from '@/features/activity/components';
 
 export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -85,6 +87,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         title: 'Success',
         description: recipientText,
       });
+      await invalidateInvoiceDetail(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -161,8 +164,6 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   const subtotalCents = invoice?.subtotal_cents;
   const totalCents = invoice?.total_cents;
-  const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
-  const hasCreditBalance = amountPaidFromBalanceCents > 0;
 
   if (isLoading) {
     return <AdminLoadingSkeleton />;
@@ -217,73 +218,51 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         {/* Invoice Information */}
         <div>
           <h3 className="text-lg font-semibold mb-4">Invoice Information</h3>
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className="text-sm font-medium text-muted-foreground">Student:</div>
-            <div className="text-sm">
-              {invoice.student ? (
-                <Button
-                  variant="link"
-                  size="sm"
-                  className="h-auto p-0 text-sm justify-start"
-                  onClick={() => modals.openStudentModal(invoice.student!.id)}
-                >
-                  {invoice.student.first_name} {invoice.student.last_name}
-                </Button>
-              ) : (
-                <span className="text-muted-foreground">-</span>
-              )}
-            </div>
-            
-            <div className="text-sm font-medium text-muted-foreground">Invoice Date:</div>
-            <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
-            
-            <div className="text-sm font-medium text-muted-foreground">Status:</div>
-            <div className="text-sm">
-              {getInvoiceStatusBadge(toInvoiceStatusPayload(invoice))}
-            </div>
-            
+          <PropertyForm>
+            <PropertyFormRow label="Student">
+              <div className="text-sm">
+                {invoice.student ? (
+                  <Button
+                    variant="link"
+                    size="sm"
+                    className="h-auto p-0 text-sm justify-start"
+                    onClick={() => modals.openStudentModal(invoice.student!.id)}
+                  >
+                    {invoice.student.first_name} {invoice.student.last_name}
+                  </Button>
+                ) : (
+                  <span className="text-muted-foreground">-</span>
+                )}
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Invoice date">
+              <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Status">
+              <div className="text-sm">
+                {getInvoiceStatusBadge(toInvoiceStatusPayload(invoice))}
+              </div>
+            </PropertyFormRow>
             {subtotalCents !== null && subtotalCents !== undefined && (
-              <>
-                <div className="text-sm font-medium text-muted-foreground">Subtotal:</div>
+              <PropertyFormRow label="Subtotal">
                 <div className="text-sm">
                   {formatInvoiceAmount(subtotalCents, invoice.currency || 'AUD')}
                 </div>
-              </>
+              </PropertyFormRow>
             )}
-            
             {totalCents !== null && totalCents !== undefined && (
-              <>
-                <div className="text-sm font-medium text-muted-foreground">Total:</div>
+              <PropertyFormRow label="Total">
                 <div className="text-sm">
                   {formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}
                 </div>
-              </>
+              </PropertyFormRow>
             )}
-            
-            {hasCreditBalance && (
-              <>
-                <div className="text-sm font-medium text-muted-foreground">Paid from Credit Balance:</div>
-                <div className="text-sm text-green-600 dark:text-green-400">
-                  {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
-                </div>
-              </>
-            )}
-            
-            <div className="text-sm font-medium text-muted-foreground">Amount Due:</div>
-            <div className="text-sm font-semibold">
-              {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
-            </div>
-            
-            <div className="text-sm font-medium text-muted-foreground">Amount Paid:</div>
-            <div className="text-sm">
-              {formatInvoiceAmount(invoice.amount_paid_cents, invoice.currency || 'AUD')}
-              {hasCreditBalance && (
-                <span className="text-xs text-muted-foreground ml-2">
-                  ({formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')} from credit)
-                </span>
-              )}
-            </div>
-          </div>
+            <PropertyFormRow label="Amount due">
+              <div className="text-sm font-semibold">
+                {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
+              </div>
+            </PropertyFormRow>
+          </PropertyForm>
         </div>
 
         <Separator />
@@ -344,6 +323,13 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
               )}
             </div>
           )}
+        </div>
+
+        <Separator />
+
+        <div>
+          <h3 className="text-lg font-semibold mb-4">Activity</h3>
+          <InvoiceActivityTab invoiceId={id} isOpen />
         </div>
 
         {/* Credit Notes and Refunds */}

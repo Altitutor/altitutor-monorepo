@@ -16,6 +16,8 @@ import { getBookingSteps, canProceedToNextStep, getSessionTypeLabel } from '../u
 import { showSessionBookedToast } from '@/shared/utils/toastHelpers';
 import { getErrorMessage } from '@/shared/utils';
 import { isSlotInPast } from '../utils/dateTimeHelpers';
+import { emptyStudentParentDraft, toTrialParentPayload, splitStudentParentDrafts } from '@/features/students/utils/studentParentDrafts';
+import { linkStudentParents } from '@/features/students/api/linkStudentParents';
 
 export interface BookSessionFlowState {
   currentStep: number;
@@ -129,10 +131,10 @@ export function useBookSessionFlow({
         student_email: '',
         student_phone: initialCreateStudent.phoneOwner === 'student' ? initialCreateStudent.phone : '',
         skip_parent_details: initialCreateStudent.phoneOwner === 'student',
-        parent_first_name: '',
-        parent_last_name: '',
-        parent_email: '',
-        parent_phone: initialCreateStudent.phoneOwner === 'parent' ? initialCreateStudent.phone : '',
+        parents:
+          initialCreateStudent.phoneOwner === 'parent'
+            ? [{ ...emptyStudentParentDraft(), phone: initialCreateStudent.phone }]
+            : [],
       });
     } else if (initialStudentId && !originalSessionId) {
       // Regular booking flow (not rescheduling)
@@ -306,7 +308,7 @@ export function useBookSessionFlow({
     // For trial-contact step, validate form and show errors if invalid
     if (currentStepId === 'trial-contact' && isCreatingTrialStudent && trialContactFormRef) {
       // Trigger validation only on required fields
-      const isValid = await trialContactFormRef.trigger(['student_first_name', 'student_last_name', 'student_phone']);
+      const isValid = await trialContactFormRef.trigger('student_first_name');
       if (!isValid) {
         // Form is invalid - errors will be shown on individual fields via FormMessage
         // Also show a toast with summary
@@ -315,12 +317,6 @@ export function useBookSessionFlow({
         
         if (errors.student_first_name) {
           errorMessages.push('Student first name is required');
-        }
-        if (errors.student_last_name) {
-          errorMessages.push('Student last name is required');
-        }
-        if (errors.student_phone) {
-          errorMessages.push('Student phone number is required');
         }
         
         if (errorMessages.length > 0) {
@@ -401,7 +397,7 @@ export function useBookSessionFlow({
 
     // For trial/subsidy with a new student, create the student as part of booking
     if (isCreatingTrialStudent && !selectedStudentId && trialContactData) {
-      if (!trialContactData.student_first_name || !trialContactData.student_last_name || !trialContactData.student_phone) {
+      if (!trialContactData.student_first_name?.trim()) {
         toast({
           title: 'Missing Information',
           description: 'Please fill in all required student fields',
@@ -419,6 +415,16 @@ export function useBookSessionFlow({
           : null;
 
         if (sessionType === 'TRIAL_SESSION') {
+          const trialParentPayload = toTrialParentPayload(
+            (trialContactData.parents ?? []).map((parent) => ({
+              existing_id: parent.existing_id,
+              first_name: parent.first_name || '',
+              last_name: parent.last_name || '',
+              email: parent.email || '',
+              phone: parent.phone ?? null,
+            })),
+            trialContactData.skip_parent_details
+          );
           const sessionId = await createBooking.mutateAsync({
             session_type: sessionType,
             start_at: selectedSlot.startAt,
@@ -426,20 +432,14 @@ export function useBookSessionFlow({
             staff_id: selectedStaffId,
             trial_student_data: {
               student_first_name: trialContactData.student_first_name,
-              student_last_name: trialContactData.student_last_name,
-              student_phone: trialContactData.student_phone,
+              student_last_name: trialContactData.student_last_name?.trim() || '',
+              student_phone: trialContactData.student_phone?.trim() || '',
               student_email: trialContactData.student_email || undefined,
               curriculum: trialContactData.curriculum || undefined,
               year_level: yearLevel || undefined,
               subject_ids: trialContactData.subject_ids || undefined,
             },
-            trial_parent_data: {
-              skip_parent_details: trialContactData.skip_parent_details,
-              parent_first_name: trialContactData.parent_first_name || undefined,
-              parent_last_name: trialContactData.parent_last_name || undefined,
-              parent_email: trialContactData.parent_email || undefined,
-              parent_phone: trialContactData.parent_phone || undefined,
-            },
+            trial_parent_data: trialParentPayload,
           });
 
           showSessionBookedToast({
@@ -479,6 +479,24 @@ export function useBookSessionFlow({
           end_at: selectedSlot.endAt,
           staff_id: selectedStaffId,
         });
+
+        if (!trialContactData.skip_parent_details) {
+          const { existingIds, newParents } = splitStudentParentDrafts(
+            (trialContactData.parents ?? []).map((parent) => ({
+              existing_id: parent.existing_id,
+              first_name: parent.first_name || '',
+              last_name: parent.last_name || '',
+              email: parent.email || '',
+              phone: parent.phone ?? null,
+            }))
+          );
+          await linkStudentParents({
+            studentId: createdStudent.id,
+            existingParentIds: existingIds,
+            newParents,
+            sessionId,
+          });
+        }
 
         showSessionBookedToast({
           toast,

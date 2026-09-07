@@ -69,6 +69,7 @@ export function snapshotQuestionMetadata(snapshot: UcatAttemptContentSnapshot) {
   const questionTags: AttemptReviewQuestionTag[] = (snapshot.question.tags ?? [])
     .filter((tag) => Boolean(tag.name))
     .map((tag) => ({
+      id: tag.id ?? null,
       name: tag.name as string,
       description: tag.description
         ? extractTextFromRichJson(tag.description as JsonLike) || null

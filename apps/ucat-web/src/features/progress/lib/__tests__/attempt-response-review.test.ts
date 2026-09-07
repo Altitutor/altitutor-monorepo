@@ -49,4 +49,28 @@ describe("projectStoredQuestionAttemptReview", () => {
       outcome: "partial",
     });
   });
+
+  it("reconstructs a multiple-choice review from selectedOptionId when no snapshot is stored", () => {
+    const multipleChoice: QuestionItem = {
+      ...question,
+      id: "single-choice",
+      responseType: "multiple_choice",
+      answerScheme: "single_choice",
+      options: [
+        { id: "option-a", index: 0, text: "A", answerKeyValue: "correct" },
+        { id: "option-b", index: 1, text: "B", answerKeyValue: null },
+      ],
+    };
+
+    const projection = projectStoredQuestionAttemptReview(multipleChoice, {
+      selectedOptionId: "option-b",
+    });
+
+    expect(projection?.review).toEqual({
+      kind: "single_select",
+      selectedOptionId: "option-b",
+      correctOptionId: "option-a",
+      outcome: "incorrect",
+    });
+  });
 });

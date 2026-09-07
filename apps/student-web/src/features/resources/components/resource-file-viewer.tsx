@@ -2,17 +2,13 @@
 
 import { useMemo } from 'react';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
+import { ResourcePdfPages } from './resource-pdf-pages';
 
-/**
- * Append PDF viewer hash params that hide the toolbar (and therefore
- * the download button) on browsers that honour them (Chrome / Edge /
- * Safari built-in PDF viewers). Fully removing only the download button
- * isn't possible across all browsers without bundling pdf.js, so we
- * hide the whole toolbar.
- */
-function withPdfViewerParams(url: string): string {
-  const separator = url.includes('#') ? '&' : '#';
-  return `${url}${separator}toolbar=0&navpanes=0`;
+function isPdfResource(mimetype: string | null, filename: string): boolean {
+  return (
+    (mimetype ?? '').toLowerCase().includes('pdf') ||
+    filename.toLowerCase().endsWith('.pdf')
+  );
 }
 
 export function ResourceFileViewer({
@@ -21,15 +17,20 @@ export function ResourceFileViewer({
   resourceType,
   externalUrl,
   signedUrl,
+  frameClassName,
 }: {
   filename: string;
   mimetype: string | null;
   resourceType: string;
   externalUrl: string | null;
   signedUrl: string | null;
+  frameClassName?: string;
 }) {
-  const isPdf = useMemo(() => (mimetype ?? '').includes('pdf'), [mimetype]);
-  const isImage = useMemo(() => (mimetype ?? '').startsWith('image/'), [mimetype]);
+  const isPdf = isPdfResource(mimetype, filename);
+  const isImage = useMemo(
+    () => (mimetype ?? '').startsWith('image/'),
+    [mimetype],
+  );
 
   const videoEmbed = useMemo(() => {
     if (resourceType !== 'VIDEO' || !externalUrl) {
@@ -37,11 +38,6 @@ export function ResourceFileViewer({
     }
     return parseExternalVideoEmbed(externalUrl);
   }, [resourceType, externalUrl]);
-
-  const pdfSrc = useMemo(
-    () => (signedUrl && isPdf ? withPdfViewerParams(signedUrl) : null),
-    [signedUrl, isPdf],
-  );
 
   if (videoEmbed) {
     return (
@@ -60,22 +56,33 @@ export function ResourceFileViewer({
   if (externalUrl && !videoEmbed) {
     return (
       <div className="space-y-2">
-        <p className="text-sm text-muted-foreground">This resource is hosted outside Altitutor.</p>
-        <p className="break-all font-mono text-xs text-muted-foreground">{externalUrl}</p>
+        <p className="text-sm text-muted-foreground">
+          This resource is hosted outside Altitutor.
+        </p>
+        <p className="break-all font-mono text-xs text-muted-foreground">
+          {externalUrl}
+        </p>
       </div>
     );
   }
 
   if (!signedUrl) {
-    return <p className="text-sm text-muted-foreground">File preview unavailable.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">File preview unavailable.</p>
+    );
   }
 
-  if (isPdf && pdfSrc) {
+  if (isPdf) {
     return (
-      <iframe
-        src={pdfSrc}
-        title={filename}
-        className="sticky top-4 block h-[calc(100dvh-var(--navbar-height)-4rem)] w-full rounded-md border"
+      <ResourcePdfPages
+        url={signedUrl}
+        filename={filename}
+        className={[
+          'h-[calc(100dvh-var(--navbar-height)-4rem)] w-full',
+          frameClassName,
+        ]
+          .filter(Boolean)
+          .join(' ')}
       />
     );
   }
@@ -91,5 +98,9 @@ export function ResourceFileViewer({
     );
   }
 
-  return <p className="text-sm text-muted-foreground">This file type cannot be previewed inline.</p>;
+  return (
+    <p className="text-sm text-muted-foreground">
+      This file type cannot be previewed inline.
+    </p>
+  );
 }

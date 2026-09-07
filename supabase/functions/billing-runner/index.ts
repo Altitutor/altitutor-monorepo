@@ -6,6 +6,7 @@ import Stripe from 'npm:stripe@16.6.0';
 // Shared helpers
 import { calculateAdelaideDateRange, getAdelaideDateString } from './shared/utils.ts';
 import {
+  getChargeableSessionsStudentsIds,
   getInvoicedSessionsStudentsIds,
   loadBillingInfo,
   loadBillingPricing,
@@ -17,6 +18,10 @@ import {
 } from './shared/data-loading.ts';
 import { processStudentInvoicing } from './shared/student-processing.ts';
 import { processSessionBillingAdjustments } from './shared/session-billing-adjustments.ts';
+import {
+  normalizeTargetedAdjustmentIds,
+  processTargetedSessionBilling,
+} from './shared/targeted-session-billing.ts';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -112,6 +117,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
   let dateOverride: string | null = null;
   let cursor: string | null = null;
   let batchLimit: number | null = null;
+  let adjustmentsOnly = false;
+  let adjustmentIds: string[] = [];
+  let requestedAdjustmentIds: unknown;
   let requestBody: Record<string, unknown> | null = null;
 
   if (req.method === 'POST') {
@@ -121,6 +129,8 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         requestBody = JSON.parse(bodyText) as Record<string, unknown>;
         dateOverride = (requestBody.date as string | undefined) || null;
         cursor = (requestBody.cursor as string | undefined) || null;
+        adjustmentsOnly = requestBody.adjustmentsOnly === true;
+        requestedAdjustmentIds = requestBody.adjustmentIds;
         if (requestBody.limit != null) {
           const parsedLimit = Number(requestBody.limit);
           if (!Number.isNaN(parsedLimit) && parsedLimit > 0) {
@@ -218,6 +228,14 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     ? Math.min(batchLimit, 50) // Hard cap to avoid overly large batches
     : 20;
 
+  if (adjustmentsOnly) {
+    const normalizedAdjustmentIds = normalizeTargetedAdjustmentIds(requestedAdjustmentIds);
+    if (!normalizedAdjustmentIds) {
+      return json({ error: 'adjustmentIds must contain between 1 and 100 UUIDs' }, 400);
+    }
+    adjustmentIds = normalizedAdjustmentIds;
+  }
+
   try {
     const lock = await acquireBillingRunnerLock(supabase, runId);
     if (!lock.acquired) {
@@ -232,6 +250,29 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       });
     }
     lockAcquired = true;
+
+    if (adjustmentsOnly) {
+      // A successful credit can make an already-due dependent replacement
+      // claimable, so make bounded passes over only the command's adjustment IDs.
+      const adjustmentResult = await processTargetedSessionBilling(
+        adjustmentIds,
+        () => processSessionBillingAdjustments({
+          supabase,
+          stripe,
+          isStripeTestKey,
+          isStripeLiveKey,
+          resendApiKey,
+          adjustmentIds,
+          limit: adjustmentIds.length,
+        }),
+      );
+
+      return json({
+        ok: true,
+        adjustmentsOnly: true,
+        adjustments: adjustmentResult,
+      });
+    }
 
     const adjustmentResult = await processSessionBillingAdjustments({
       supabase,
@@ -293,6 +334,10 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     if (ssErr) throw ssErr;
 
     const ssIdsForDate = (ssRows ?? []).map((row: { id: string }) => row.id);
+    const chargeableSessionsStudentsIds = await getChargeableSessionsStudentsIds(
+      supabase,
+      ssIdsForDate,
+    );
     const { data: controlledAdjustments, error: controlledAdjustmentsError } = ssIdsForDate.length > 0
       ? await supabase
         .from('session_billing_adjustments')
@@ -316,6 +361,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         id: string;
       }) =>
         (!row.planned_absence || (!row.is_credited && !row.is_rescheduled)) &&
+        chargeableSessionsStudentsIds.has(row.id) &&
         !adjustmentControlledIds.has(row.id)
       )
       .map((row: { id: string }) => row.id);
@@ -333,6 +379,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
         id: string;
       }) =>
         (!row.planned_absence || (!row.is_credited && !row.is_rescheduled)) &&
+        chargeableSessionsStudentsIds.has(row.id) &&
         !adjustmentControlledIds.has(row.id) &&
         !invoicedSessionsStudentsIds.has(row.id),
     );

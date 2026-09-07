@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import type { Database } from '@altitutor/shared';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { captureApiError } from '@/lib/sentry/capture-api-error';
+import { isValidAvailabilityDateRange } from '@/features/bookings/lib/availability-range';
 
 const SESSION_TYPES = new Set<Database['public']['Enums']['session_type']>([
   'DRAFTING',
@@ -22,10 +23,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid availability request' }, { status: 400 });
     }
 
-    const start = new Date(`${startDate}T00:00:00Z`);
-    const end = new Date(`${endDate}T00:00:00Z`);
-    const rangeDays = (end.getTime() - start.getTime()) / 86_400_000;
-    if (!Number.isFinite(rangeDays) || rangeDays < 0 || rangeDays > 31) {
+    if (!isValidAvailabilityDateRange(startDate, endDate)) {
       return NextResponse.json({ error: 'Date range must be between 0 and 31 days' }, { status: 400 });
     }
     if (!Number.isInteger(duration) || duration < 15 || duration > 240) {

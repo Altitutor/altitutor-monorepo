@@ -12,6 +12,10 @@ interface PropertyFormRowProps {
   valueClassName?: string;
 }
 
+/** Stretch SearchableSelect triggers to the value column. Underscores in this class are Tailwind descendant combinators. */
+export const propertyFormSelectStretchClassName =
+  '[&_[data-searchable-select-trigger]]:w-full [&_[data-searchable-select-trigger]]:min-w-0';
+
 /**
  * Standard label/value layout for editable entity properties in Admin Web.
  */
@@ -20,6 +24,7 @@ export function PropertyForm({ className, ...props }: PropertyFormProps) {
     <div
       className={cn(
         'grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-start gap-x-4 gap-y-3',
+        propertyFormSelectStretchClassName,
         className,
       )}
       {...props}
@@ -45,7 +50,9 @@ export function PropertyFormRow({
       ) : (
         <div className={labelClasses}>{label}</div>
       )}
-      <div className={cn('min-w-0 [&>*]:w-full', valueClassName)}>{children}</div>
+      <div className={cn('min-w-0 [&>*]:w-full', propertyFormSelectStretchClassName, valueClassName)}>
+        {children}
+      </div>
     </>
   );
 }

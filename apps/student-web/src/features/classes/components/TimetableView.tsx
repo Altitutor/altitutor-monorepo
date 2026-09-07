@@ -128,7 +128,7 @@ export function TimetableView({ classes, onClassClick }: TimetableViewProps) {
     return (
       <div className="flex items-center justify-center h-full">
         <Card className="p-8 text-center">
-          <p className="text-muted-foreground">No scheduled offerings found</p>
+          <p className="text-muted-foreground">No classes found</p>
         </Card>
       </div>
     );

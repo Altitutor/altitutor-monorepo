@@ -382,6 +382,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     onOpenSession={handleOpenSession}
                     onOpenStudent={entityModals.openStudent}
                     onOpenStaff={handleOpenStaff}
+                    onOpenParent={entityModals.openParent}
                     onOpenClass={handleOpenClass}
                     onMessageStudent={handleMessageStudent}
                     onMessageStaff={handleMessageStaff}

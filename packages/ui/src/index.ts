@@ -34,6 +34,7 @@ export * from './components/scroll-area';
 export * from './components/segmented-control';
 export * from './components/segmented-tab-panel';
 export * from './components/searchable-select';
+export * from './components/searchable-select-field-trigger';
 export * from './components/searchable-select-inline';
 export * from './components/search-from-dropdown';
 export * from './components/select';

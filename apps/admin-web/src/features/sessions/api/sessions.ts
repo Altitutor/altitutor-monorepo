@@ -588,7 +588,8 @@ export const sessionsApi = {
   },
 
   /**
-   * Assign a staff member to a session
+   * Assign a staff member to a session.
+   * Duplicate (session_id, staff_id) is idempotent: return the existing row.
    */
   assignStaffToSession: async (
     sessionId: string,
@@ -596,15 +597,29 @@ export const sessionsApi = {
     type: string = 'MAIN_TUTOR'
   ): Promise<Tables<'sessions_staff'>> => {
     try {
+      const client = getSupabaseClient() as SupabaseClient<Database>;
       const payload: TablesInsert<'sessions_staff'> = {
         id: crypto.randomUUID(),
         session_id: sessionId,
         staff_id: staffId,
         type: type as TablesInsert<'sessions_staff'>['type'],
       };
-      const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_staff').insert(payload).select().single();
-      if (error) throw error;
-      return data as Tables<'sessions_staff'>;
+      const { data, error } = await client.from('sessions_staff').insert(payload).select().single();
+      if (!error) {
+        return data as Tables<'sessions_staff'>;
+      }
+      if (error.code !== '23505') {
+        throw error;
+      }
+      const { data: existing, error: existingError } = await client
+        .from('sessions_staff')
+        .select()
+        .eq('session_id', sessionId)
+        .eq('staff_id', staffId)
+        .single();
+      if (existingError) throw existingError;
+      if (!existing) throw error;
+      return existing;
     } catch (error) {
       console.error('Error assigning staff to session:', error);
       throw error;

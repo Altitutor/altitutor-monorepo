@@ -1,17 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Input,
-  Label,
-  SearchableSelect,
-} from '@altitutor/ui';
+import { Button, Input, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { useCreateTopic, useTopicsBySubject } from '../hooks';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
 import type { Tables } from '@altitutor/shared';
@@ -135,69 +131,66 @@ export function AddTopicModal({
         </>
       }
     >
-      <form id="add-topic-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="subject_id">Subject *</Label>
-          <SearchableSelect<Tables<'subjects'>>
-            items={subjects}
-            value={subjects.find((s) => s.id === form.watch('subject_id')) ?? null}
-            onValueChange={handleSubjectChange}
-            getItemId={(item) => item.id}
-            getItemLabel={(item) => item?.long_name ?? item.name ?? ''}
-            placeholder="Select subject"
-            disabled={!!preselectedSubjectId || subjectsLoading}
-            trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="subject_id">
-                {subjects.find((s) => s.id === form.watch('subject_id'))?.long_name ?? 'Select subject'}
-              </Button>
-            }
-          />
-          {form.formState.errors.subject_id && (
-            <p className="text-sm text-destructive">{form.formState.errors.subject_id.message}</p>
-          )}
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="parent_id">Parent Topic (Optional)</Label>
-          <SearchableSelect<{ id: string; label: string }>
-            items={[
-              { id: 'none', label: 'None (root topic)' },
-              ...availableParentTopics.map((t) => ({ id: t.id, label: t.name })),
-            ]}
-            value={
-              form.watch('parent_id') === 'none' || !form.watch('parent_id')
-                ? { id: 'none', label: 'None (root topic)' }
-                : availableParentTopics.find((t) => t.id === form.watch('parent_id'))
-                  ? { id: form.watch('parent_id')!, label: availableParentTopics.find((t) => t.id === form.watch('parent_id'))!.name }
-                  : null
-            }
-            onValueChange={(v) => form.setValue('parent_id', v?.id ?? 'none')}
-            getItemId={(item) => item.id}
-            getItemLabel={(item) => item.label}
-            placeholder="None (root topic)"
-            disabled={!selectedSubjectId || !!preselectedParentId}
-            trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="parent_id">
-                {form.watch('parent_id') === 'none' || !form.watch('parent_id')
-                  ? 'None (root topic)'
-                  : availableParentTopics.find((t) => t.id === form.watch('parent_id'))?.name ?? 'None (root topic)'}
-              </Button>
-            }
-          />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="name">Topic Name *</Label>
-          <Input
-            id="name"
-            {...form.register('name')}
-            placeholder="Enter topic name"
-            disabled={createTopicMutation.isPending}
-          />
-          {form.formState.errors.name && (
-            <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
-          )}
-        </div>
+      <form id="add-topic-form" onSubmit={form.handleSubmit(onSubmit)}>
+        <PropertyForm>
+          <PropertyFormRow label="Subject *" htmlFor="subject_id" valueClassName="space-y-1">
+            <SearchableSelect<Tables<'subjects'>>
+              items={subjects}
+              value={subjects.find((s) => s.id === form.watch('subject_id')) ?? null}
+              onValueChange={handleSubjectChange}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item?.long_name ?? item.name ?? ''}
+              placeholder="Select subject"
+              disabled={!!preselectedSubjectId || subjectsLoading}
+              trigger={
+                <SearchableSelectFieldTrigger id="subject_id">
+                  {subjects.find((s) => s.id === form.watch('subject_id'))?.long_name ?? 'Select subject'}
+                </SearchableSelectFieldTrigger>
+              }
+            />
+            {form.formState.errors.subject_id && (
+              <p className="text-sm text-destructive">{form.formState.errors.subject_id.message}</p>
+            )}
+          </PropertyFormRow>
+          <PropertyFormRow label="Parent topic (optional)" htmlFor="parent_id">
+            <SearchableSelect<{ id: string; label: string }>
+              items={[
+                { id: 'none', label: 'None (root topic)' },
+                ...availableParentTopics.map((t) => ({ id: t.id, label: t.name })),
+              ]}
+              value={
+                form.watch('parent_id') === 'none' || !form.watch('parent_id')
+                  ? { id: 'none', label: 'None (root topic)' }
+                  : availableParentTopics.find((t) => t.id === form.watch('parent_id'))
+                    ? { id: form.watch('parent_id')!, label: availableParentTopics.find((t) => t.id === form.watch('parent_id'))!.name }
+                    : null
+              }
+              onValueChange={(v) => form.setValue('parent_id', v?.id ?? 'none')}
+              getItemId={(item) => item.id}
+              getItemLabel={(item) => item.label}
+              placeholder="None (root topic)"
+              disabled={!selectedSubjectId || !!preselectedParentId}
+              trigger={
+                <SearchableSelectFieldTrigger id="parent_id">
+                  {form.watch('parent_id') === 'none' || !form.watch('parent_id')
+                    ? 'None (root topic)'
+                    : availableParentTopics.find((t) => t.id === form.watch('parent_id'))?.name ?? 'None (root topic)'}
+                </SearchableSelectFieldTrigger>
+              }
+            />
+          </PropertyFormRow>
+          <PropertyFormRow label="Topic name *" htmlFor="name" valueClassName="space-y-1">
+            <Input
+              id="name"
+              {...form.register('name')}
+              placeholder="Enter topic name"
+              disabled={createTopicMutation.isPending}
+            />
+            {form.formState.errors.name && (
+              <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
+            )}
+          </PropertyFormRow>
+        </PropertyForm>
       </form>
     </AdminDialogShell>
   );

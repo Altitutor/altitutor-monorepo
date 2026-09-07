@@ -6,6 +6,7 @@ import { useStaffById } from '@/features/staff/hooks/useStaffQuery';
 import { useSessionsWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 import { BookingConfirmationCalendar } from '../BookingConfirmationCalendar';
 import { formatSlotDateTime } from '../../utils/dateTimeHelpers';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 export interface StaffInterviewConfirmStepProps {
   intervieweeStaffId: string;
@@ -68,31 +69,32 @@ export function StaffInterviewConfirmStep({
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-          <div className="text-sm font-medium text-muted-foreground">Candidate (interviewee)</div>
-          <div className="text-sm">
-            {interviewee
-              ? `${interviewee.first_name} ${interviewee.last_name}`
-              : 'Loading...'}
-          </div>
-
-          <div className="text-sm font-medium text-muted-foreground">Interviewer</div>
-          <div className="text-sm">
-            {interviewer
-              ? `${interviewer.first_name} ${interviewer.last_name}`
-              : 'Loading...'}
-          </div>
-
-          <div className="text-sm font-medium text-muted-foreground">Date & Time</div>
-          <div className="text-sm">
-            {startAt && endAt
-              ? formatSlotDateTime(startAt)
-              : '—'}
-          </div>
-
-          <div className="text-sm font-medium text-muted-foreground">Duration</div>
-          <div className="text-sm">45 minutes</div>
-        </div>
+        <PropertyForm>
+          <PropertyFormRow label="Candidate (interviewee)">
+            <div className="text-sm">
+              {interviewee
+                ? `${interviewee.first_name} ${interviewee.last_name}`
+                : 'Loading...'}
+            </div>
+          </PropertyFormRow>
+          <PropertyFormRow label="Interviewer">
+            <div className="text-sm">
+              {interviewer
+                ? `${interviewer.first_name} ${interviewer.last_name}`
+                : 'Loading...'}
+            </div>
+          </PropertyFormRow>
+          <PropertyFormRow label="Date & time">
+            <div className="text-sm">
+              {startAt && endAt
+                ? formatSlotDateTime(startAt)
+                : '—'}
+            </div>
+          </PropertyFormRow>
+          <PropertyFormRow label="Duration">
+            <div className="text-sm">45 minutes</div>
+          </PropertyFormRow>
+        </PropertyForm>
       </div>
 
       {sessionsData && startAt && endAt && (

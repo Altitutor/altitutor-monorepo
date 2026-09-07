@@ -42,6 +42,7 @@ import { ViewTopicModal } from '@/features/topics/components/ViewTopicModal';
 import { buildTopicTree } from '@/features/topics/utils/codes';
 import { FlashcardManager } from '@/features/flashcards';
 import { AdminLoadingSkeleton } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Topic name is required'),
@@ -362,46 +363,47 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
         ) : (
           <>
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div className="text-sm font-medium">Name:</div>
-                <div>{topic.name}</div>
-                
-                <div className="text-sm font-medium">Subject:</div>
-                <div>
+              <PropertyForm>
+                <PropertyFormRow label="Name">
+                  <div>{topic.name}</div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Subject">
                   {subject ? (() => {
                     const { style, textColorClass } = getSubjectColorStyle(subject);
                     const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                     return (
-                      <Badge 
-                        className={defaultClass || textColorClass}
-                        style={style.backgroundColor ? style : undefined}
-                      >
-                        {subject?.long_name ?? ''}
-                      </Badge>
+                      <div>
+                        <Badge 
+                          className={defaultClass || textColorClass}
+                          style={style.backgroundColor ? style : undefined}
+                        >
+                          {subject?.long_name ?? ''}
+                        </Badge>
+                      </div>
                     );
                   })() : (
-                    'N/A'
+                    <div>N/A</div>
                   )}
-                </div>
-                
-                <div className="text-sm font-medium">Parent:</div>
-                <div>
-                  {topic.parent_id ? (
-                    <button
-                      onClick={() => {
-                        if (topic?.subject_id) {
-                          router.push(`/subjects/${topic.subject_id}/topics/${topic.parent_id}`);
-                        }
-                      }}
-                      className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
-                    >
-                      {allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'}
-                    </button>
-                  ) : (
-                    'None (root topic)'
-                  )}
-                </div>
-              </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Parent">
+                  <div>
+                    {topic.parent_id ? (
+                      <button
+                        onClick={() => {
+                          if (topic?.subject_id) {
+                            router.push(`/subjects/${topic.subject_id}/topics/${topic.parent_id}`);
+                          }
+                        }}
+                        className="text-blue-600 hover:underline focus:outline-none focus:ring-2 focus:ring-blue-500 rounded px-1"
+                      >
+                        {allTopics.find(t => t.id === topic.parent_id)?.name || 'Unknown'}
+                      </button>
+                    ) : (
+                      'None (root topic)'
+                    )}
+                  </div>
+                </PropertyFormRow>
+              </PropertyForm>
             
               <Separator className="my-4" />
               

@@ -109,12 +109,26 @@ describe("buildQuestionAttemptInsight", () => {
     const insight = buildQuestionAttemptInsight({
       result: "incorrect",
       timeSpentSeconds: 12,
-      averageTimeSeconds: 55,
+      averageTimeSeconds: null,
       averageTimeSampleSize: 3,
+      timeBurdenSeconds: null,
     });
 
     expect(insight.title).toBe("Find where your approach went wrong");
     expect(insight.body).toContain("first point where they diverged");
+  });
+
+  it("uses expected time to correct when the successful cohort is too small", () => {
+    const insight = buildQuestionAttemptInsight({
+      result: "incorrect",
+      timeSpentSeconds: 2,
+      averageTimeSeconds: null,
+      averageTimeSampleSize: 0,
+      timeBurdenSeconds: 35,
+    });
+
+    expect(insight.title).toBe("You answered too quickly and got it wrong");
+    expect(insight.body).toContain("94% faster than the expected time");
   });
 
   it("acknowledges a useful flag even without a timing signal", () => {
@@ -159,45 +173,9 @@ describe("buildQuestionAttemptInsight", () => {
     expect(insight.title).toBe(
       "Your timing was fine — the reasoning needs work",
     );
-  });
-
-  it("incorporates the selected wrong option's explanation", () => {
-    const insight = buildQuestionAttemptInsight({
-      result: "incorrect",
-      timeSpentSeconds: 60,
-      averageTimeSeconds: 60,
-      averageTimeSampleSize: 10,
-      wrongAnswerExplanations: [
-        "This conclusion assumes every candidate used the same method, which the passage does not establish.",
-      ],
-    });
-
-    expect(insight.body).toContain("For the answer you chose:");
-    expect(insight.body).toContain(
-      "This conclusion assumes every candidate used the same method",
+    expect(insight.body).toBe(
+      "You used about the same amount of time as students who got this question right. Use the explanation to find where your reasoning diverged.",
     );
-    expect(insight.body).not.toContain(
-      "Use the explanation to find where your reasoning diverged",
-    );
-  });
-
-  it("incorporates the wrong statement's explanation for a partial result", () => {
-    const insight = buildQuestionAttemptInsight({
-      result: "partial",
-      timeSpentSeconds: 60,
-      averageTimeSeconds: 60,
-      averageTimeSampleSize: 10,
-      wrongAnswerExplanations: [
-        "The passage says some candidates improved, not that every candidate did.",
-        "The passage describes an association rather than proving a cause.",
-      ],
-    });
-
-    expect(insight.ruleId).toBe("question.partial_default");
-    expect(insight.body).toContain("For the answers that missed:");
-    expect(insight.body).toContain("some candidates improved");
-    expect(insight.body).toContain("association rather than proving a cause");
-    expect(insight.body).not.toContain("what kept this from full marks");
   });
 
   it("keeps generic partial coaching when the wrong statement has no explanation", () => {
@@ -210,20 +188,6 @@ describe("buildQuestionAttemptInsight", () => {
 
     expect(insight.body).toBe(
       "Use the explanation below to see what kept this from full marks.",
-    );
-  });
-
-  it("falls back to generic coaching when the selected option has no explanation", () => {
-    const insight = buildQuestionAttemptInsight({
-      result: "incorrect",
-      timeSpentSeconds: 60,
-      averageTimeSeconds: 60,
-      averageTimeSampleSize: 10,
-      wrongAnswerExplanations: ["   "],
-    });
-
-    expect(insight.body).toContain(
-      "Use the explanation to find where your reasoning diverged",
     );
   });
 

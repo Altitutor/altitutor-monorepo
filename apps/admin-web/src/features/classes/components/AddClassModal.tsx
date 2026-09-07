@@ -28,6 +28,7 @@ import {
   validateClassScheduleRows,
 } from '../utils/classScheduleForm';
 import { GeneratedTimetablePreview } from './GeneratedTimetablePreview';
+import { PropertyForm } from '@/shared/components/PropertyForm';
 
 const DAY_OPTIONS = [
   { value: 0, label: 'Sunday' },
@@ -251,7 +252,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       <div className="space-y-5">
           {step === 0 && (
             <div className="space-y-5">
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+              <PropertyForm className="items-center">
                 <Label>Offering type *</Label>
                 <SearchableSelect<(typeof OFFERING_TYPE_OPTIONS)[number]>
                   items={OFFERING_TYPE_OPTIONS}
@@ -303,7 +304,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                   onChange={(value) => setEndDate(value ?? '')}
                   minDate={startDate || undefined}
                 />
-              </div>
+              </PropertyForm>
               <p className="text-sm text-muted-foreground">
                 Sessions use Australia/Adelaide time and are generated only inside these dates.
               </p>
@@ -312,7 +313,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
 
           {step === 1 && (
             <div className="space-y-5">
-              <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+              <PropertyForm className="items-center">
                 <Label>Repeat</Label>
                 <SearchableSelect<(typeof FREQUENCY_OPTIONS)[number]>
                   items={FREQUENCY_OPTIONS}
@@ -324,7 +325,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                   getItemId={(option) => String(option.value)}
                   getItemLabel={(option) => option.label}
                 />
-              </div>
+              </PropertyForm>
 
               <div className="space-y-3 border-t pt-5">
                 {rows.map((row, index) => (
@@ -337,6 +338,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
                         onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })}
                         getItemId={(day) => String(day.value)}
                         getItemLabel={(day) => day.label}
+                        fullWidth
                       />
                     </div>
                     <div className="space-y-2">

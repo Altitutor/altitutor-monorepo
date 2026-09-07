@@ -29,6 +29,7 @@ import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQue
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getSubjectColorStyle } from '@/shared/utils';
 import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import {
   invalidateStudentClassSurfaces,
@@ -448,23 +449,26 @@ export function ClassesTab({
                 </Button>
               )}
             </div>
-            <div className="grid grid-cols-2 gap-x-4 gap-y-3 text-sm">
-              <Label htmlFor="in-person-school">School</Label>
-              {isEditMode ? (
-                <Input id="in-person-school" value={inPersonDetails.school ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, school: event.target.value || null }))} />
-              ) : <div>{student.school || '—'}</div>}
-              <Label htmlFor="in-person-curriculum">Curriculum</Label>
-              {isEditMode ? (
-                <select id="in-person-curriculum" className="h-10 rounded-md border border-input bg-background px-3" value={inPersonDetails.curriculum ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, curriculum: (event.target.value || null) as Tables<'students'>['curriculum'] }))}>
-                  <option value="">Not set</option>
-                  {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((value) => <option key={value} value={value}>{value}</option>)}
-                </select>
-              ) : <div>{student.curriculum || '—'}</div>}
-              <Label htmlFor="in-person-year-level">Year level</Label>
-              {isEditMode ? (
-                <Input id="in-person-year-level" type="number" min={1} max={13} value={inPersonDetails.year_level ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, year_level: event.target.value ? Number(event.target.value) : null }))} />
-              ) : <div>{student.year_level ? `Year ${student.year_level}` : '—'}</div>}
-            </div>
+            <PropertyForm>
+              <PropertyFormRow label="School" htmlFor={isEditMode ? 'in-person-school' : undefined}>
+                {isEditMode ? (
+                  <Input id="in-person-school" value={inPersonDetails.school ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, school: event.target.value || null }))} />
+                ) : <div>{student.school || '—'}</div>}
+              </PropertyFormRow>
+              <PropertyFormRow label="Curriculum" htmlFor={isEditMode ? 'in-person-curriculum' : undefined}>
+                {isEditMode ? (
+                  <select id="in-person-curriculum" className="h-10 rounded-md border border-input bg-background px-3" value={inPersonDetails.curriculum ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, curriculum: (event.target.value || null) as Tables<'students'>['curriculum'] }))}>
+                    <option value="">Not set</option>
+                    {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                ) : <div>{student.curriculum || '—'}</div>}
+              </PropertyFormRow>
+              <PropertyFormRow label="Year level" htmlFor={isEditMode ? 'in-person-year-level' : undefined}>
+                {isEditMode ? (
+                  <Input id="in-person-year-level" type="number" min={1} max={13} value={inPersonDetails.year_level ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, year_level: event.target.value ? Number(event.target.value) : null }))} />
+                ) : <div>{student.year_level ? `Year ${student.year_level}` : '—'}</div>}
+              </PropertyFormRow>
+            </PropertyForm>
           </div>
           <Separator />
           <div>

@@ -9,6 +9,9 @@ export type UcatQuestionDifficultyTarget = keyof typeof UCAT_QUESTION_DIFFICULTY
 export const UCAT_QUESTION_DIFFICULTY_DEFINITION =
   "Proportion of the target UCAT candidate cohort expected to answer incorrectly on first exposure under realistic section timing and without assistance.";
 
+export const UCAT_QUESTION_DIFFICULTY_STUDENT_EXPLANATION =
+  "Closer to 100% is harder; closer to 0% is easier. 0% means students are expected to get this right; 50% means about half are expected to get it wrong.";
+
 export function ucatQuestionDifficultyForTarget(
   target: string | null | undefined,
 ): number | null {
@@ -23,5 +26,5 @@ export function ucatQuestionDifficultyPercent(difficulty: number): number {
 }
 
 export function formatUcatQuestionDifficulty(difficulty: number): string {
-  return `${ucatQuestionDifficultyPercent(difficulty)}% expected incorrect`;
+  return `${ucatQuestionDifficultyPercent(difficulty)}%`;
 }

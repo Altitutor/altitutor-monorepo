@@ -12,6 +12,10 @@ describe('formatBillingDate', () => {
   it('handles month and year boundaries', () => {
     expect(formatBillingDate('2026-01-01T00:30:00Z')).toBe('31 Dec');
   });
+
+  it('always abbreviates the month to three letters', () => {
+    expect(formatBillingDate('2026-08-01T01:30:00Z')).toBe('31 Jul');
+  });
 });
 
 describe('buildSessionInvoicePreviews', () => {
@@ -122,6 +126,52 @@ describe('buildSessionInvoicePreviews', () => {
       subsidies: [],
       preferences: {
         auto_bill_enabled: true,
+        invoice_email_to_student: true,
+        invoice_email_to_parents: true,
+      },
+      defaultPaymentMethod: null,
+      billingSettings: [],
+    });
+
+    expect(previews).toEqual({});
+  });
+
+  it('does not preview an invoice for a trial attendance in a billable class session', () => {
+    const rpcSession = {
+      id: 'session-1',
+      type: 'CLASS',
+      billing_type: 'CLASS',
+      class_id: null,
+      subject_id: 'subject-1',
+      start_at: '2026-08-01T01:30:00Z',
+      end_at: '2026-08-01T03:00:00Z',
+    } as unknown as Tables<'sessions'>;
+
+    const previews = buildSessionInvoicePreviews({
+      studentId: 'student-1',
+      sessions: [rpcSession],
+      classesById: {},
+      sessionStudents: {
+        'session-1': [{
+          id: 'student-1',
+          planned_absence: false,
+          was_trial: true,
+          actual_was_trial: true,
+          sessions_students_id: 'session-student-1',
+          invoice_status_payload: null,
+        }],
+      },
+      billingPricing: [{
+        billing_type: 'CLASS',
+        hourly_rate_cents: 10000,
+        currency: 'AUD',
+        created_at: '2026-01-01T00:00:00Z',
+        updated_at: '2026-01-01T00:00:00Z',
+      }],
+      pricingOverrides: [],
+      subsidies: [],
+      preferences: {
+        auto_bill_enabled: false,
         invoice_email_to_student: true,
         invoice_email_to_parents: true,
       },

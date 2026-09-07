@@ -7,7 +7,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, D
 import type { Tables } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
 import { formatDate } from '@/shared/utils/datetime';
-import { cn, getSubjectColorStyle, clickableCardInteractiveCn } from '@/shared/utils';
+import { cn, getSubjectColorStyle, clickableCardInteractiveCn, clickableCardSelectedCn } from '@/shared/utils';
 
 interface StudentCardProps {
   student: Tables<'students'>;
@@ -49,14 +49,10 @@ export function StudentCard({
   return (
     <div
       className={cn(
-        'group relative flex items-start gap-3 rounded-lg border bg-card p-3 transition-all',
-        isSelecting
-          ? isSelected
-            ? 'border-primary bg-primary/5'
-            : 'cursor-pointer'
-          : onClick
-            ? 'cursor-pointer'
-            : '',
+        'group relative flex items-start gap-3 rounded-lg border p-3 transition-all outline-none',
+        !isSelected && 'bg-card',
+        (isSelecting || onClick) && 'cursor-pointer',
+        isSelected && clickableCardSelectedCn,
         (isSelecting || onClick) && !isSelected && clickableCardInteractiveCn,
       )}
       onClick={isSelecting || onClick ? onClick : undefined}

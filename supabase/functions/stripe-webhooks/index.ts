@@ -46,12 +46,31 @@ import {
   isUcatPaidAcquisitionConversion,
   isUcatSubscriptionRenewal,
 } from "./shared/posthog.ts";
+import {
+  buildStudentPaymentMethodInsert,
+  isPaymentMethodUniqueViolation,
+} from "../_shared/student-payment-method.ts";
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+function storedCreditNoteMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+  memo: string | null | undefined,
+): Record<string, unknown> {
+  const stored =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? { ...metadata }
+      : {};
+  const trimmedMemo = typeof memo === "string" ? memo.trim() : "";
+  if (trimmedMemo && (typeof stored.memo !== "string" || !String(stored.memo).trim())) {
+    stored.memo = trimmedMemo.slice(0, 500);
+  }
+  return stored;
 }
 
 async function getUcatSubjectId(
@@ -380,7 +399,12 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         };
         const paymentMethodId = si.payment_method as string;
         const customerId = si.customer as string;
-        const studentId = si.metadata?.student_id;
+        const originalStudentId = si.metadata?.student_id;
+        const { data: resolvedStudentId, error: resolveError } = originalStudentId
+          ? await supabase.rpc("resolve_merged_student_id", { p_student_id: originalStudentId })
+          : { data: null, error: null };
+        if (resolveError) throw resolveError;
+        const studentId = resolvedStudentId as string | null;
 
         if (!paymentMethodId || !customerId) {
           await supabase
@@ -405,6 +429,19 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           return json({ received: true });
         }
 
+        const { data: historicalCustomer, error: historyError } = await supabase
+          .from("student_billing_customer_history").select("student_id")
+          .eq("stripe_customer_id", customerId).maybeSingle();
+        if (historyError) throw historyError;
+        if (historicalCustomer) {
+          const { data: primaryBilling, error: primaryError } = await supabase
+            .from("students_billing").select("stripe_customer_id").eq("student_id", studentId).maybeSingle();
+          if (primaryError) throw primaryError;
+          if (primaryBilling?.stripe_customer_id !== customerId) {
+            await supabase.from("stripe_webhook_events").update({ processed: true, processed_at: new Date().toISOString(), error_message: "Saved card belongs to a historical merged customer" }).eq("stripe_event_id", event.id);
+            return json({ received: true });
+          }
+        }
         try {
           // Retrieve payment method details from Stripe
           const pm = await stripe.paymentMethods.retrieve(paymentMethodId);
@@ -443,19 +480,16 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           // Insert the new payment method
           const { error: insertErr } = await supabase
             .from("student_payment_methods")
-            .insert({
-              student_id: studentId,
-              stripe_payment_method_id: paymentMethodId,
-              is_default: isFirstPaymentMethod, // Set as default if it's the first one
-              card_brand: card.brand || "unknown",
-              card_last4: card.last4 || "0000",
-              card_exp_month: card.exp_month || 1,
-              card_exp_year: card.exp_year || new Date().getFullYear() + 5,
-              card_country: card.country || null,
-              card_fingerprint: card.fingerprint || null,
-            });
+            .insert(
+              buildStudentPaymentMethodInsert({
+                studentId,
+                paymentMethodId,
+                isDefault: isFirstPaymentMethod,
+                card,
+              }),
+            );
 
-          if (insertErr) {
+          if (insertErr && !isPaymentMethodUniqueViolation(insertErr)) {
             console.error(
               "[webhook] Failed to save payment method:",
               insertErr,
@@ -1363,7 +1397,12 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           return json({ received: true });
         }
 
-        const studentId = session.metadata?.student_id;
+        const originalStudentId = session.metadata?.student_id;
+        const { data: resolvedStudentId, error: resolveError } = originalStudentId
+          ? await supabase.rpc("resolve_merged_student_id", { p_student_id: originalStudentId })
+          : { data: null, error: null };
+        if (resolveError) throw resolveError;
+        const studentId = resolvedStudentId as string | null;
         if (!studentId) {
           console.warn(
             "[webhook] checkout.session.completed: missing student_id in metadata",
@@ -1409,13 +1448,10 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
             // Ensure students_billing exists (Checkout may have created new customer)
             const customerId = session.customer as string;
             if (customerId) {
-              await supabase.from("students_billing").upsert(
-                {
-                  student_id: studentId,
-                  stripe_customer_id: customerId,
-                },
-                { onConflict: "student_id" },
-              );
+              const { error: customerError } = await supabase.rpc("record_student_billing_customer", {
+                p_student_id: studentId, p_customer_id: customerId,
+              });
+              if (customerError) throw customerError;
             }
 
             const planFields = await resolveUcatPlanFields(
@@ -2071,6 +2107,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           currency?: string;
           reason?: string;
           status?: string;
+          memo?: string | null;
           metadata?: Record<string, unknown>;
           refund?: string | null;
           refunds?: Array<{ amount_refunded?: number }> | null;
@@ -2124,7 +2161,10 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 currency: creditNote.currency ?? "aud",
                 reason: creditNote.reason ?? null,
                 status: creditNote.status ?? "issued",
-                metadata: creditNote.metadata ?? {},
+                metadata: storedCreditNoteMetadata(
+                  creditNote.metadata,
+                  creditNote.memo,
+                ),
                 refund_amount_cents: refundCents,
                 credit_amount_cents: creditCents,
                 out_of_band_amount_cents: outOfBandCents,

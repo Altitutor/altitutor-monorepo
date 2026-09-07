@@ -2,7 +2,6 @@ import { useState, useEffect, useRef } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
 import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
@@ -12,6 +11,7 @@ import { Controller, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { sessionsApi } from '@/features/sessions/api/sessions';
 import { useQuery } from '@tanstack/react-query';
 import { format } from 'date-fns';
@@ -154,9 +154,8 @@ export function AdminShiftInfoTab({
           onSubmit={form.handleSubmit(onSubmit)} 
           className="space-y-6"
         >
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="status">Status</Label>
+          <PropertyForm>
+            <PropertyFormRow label="Status" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="status"
@@ -171,6 +170,7 @@ export function AdminShiftInfoTab({
                       getItemId={(o) => o.value}
                       placeholder="Select status"
                       disabled={isLoading}
+                      ariaLabel="Status"
                     />
                   );
                 }}
@@ -178,10 +178,9 @@ export function AdminShiftInfoTab({
               {form.formState.errors.status && (
                 <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
               )}
-            </div>
-            
-            <div>
-              <Label htmlFor="dayOfWeek">Day of Week</Label>
+            </PropertyFormRow>
+
+            <PropertyFormRow label="Day of week" valueClassName="space-y-1">
               <Controller
                 key={`dayOfWeek-${editKey}`}
                 control={form.control}
@@ -198,6 +197,7 @@ export function AdminShiftInfoTab({
                       getItemId={(o) => String(o.value)}
                       placeholder="Select day"
                       disabled={isLoading}
+                      ariaLabel="Day of week"
                     />
                   );
                 }}
@@ -205,21 +205,18 @@ export function AdminShiftInfoTab({
               {form.formState.errors.dayOfWeek && (
                 <p className="text-sm text-red-500">{form.formState.errors.dayOfWeek.message}</p>
               )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="startTime">Start Time *</Label>
+            </PropertyFormRow>
+
+            <PropertyFormRow label="Start time *" htmlFor="startTime" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="startTime"
                 render={({ field }) => (
-                  <Input 
-                    id="startTime" 
+                  <Input
+                    id="startTime"
                     type="time"
                     {...field}
-                    disabled={isLoading} 
+                    disabled={isLoading}
                     required
                   />
                 )}
@@ -227,19 +224,18 @@ export function AdminShiftInfoTab({
               {form.formState.errors.startTime && (
                 <p className="text-sm text-red-500">{form.formState.errors.startTime.message}</p>
               )}
-            </div>
-            
-            <div>
-              <Label htmlFor="endTime">End Time *</Label>
+            </PropertyFormRow>
+
+            <PropertyFormRow label="End time *" htmlFor="endTime" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="endTime"
                 render={({ field }) => (
-                  <Input 
-                    id="endTime" 
+                  <Input
+                    id="endTime"
                     type="time"
                     {...field}
-                    disabled={isLoading} 
+                    disabled={isLoading}
                     required
                   />
                 )}
@@ -247,12 +243,9 @@ export function AdminShiftInfoTab({
               {form.formState.errors.endTime && (
                 <p className="text-sm text-red-500">{form.formState.errors.endTime.message}</p>
               )}
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="sessionStartDate">Session Start Date (Optional)</Label>
+            </PropertyFormRow>
+
+            <PropertyFormRow label="Session start date" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="sessionStartDate"
@@ -268,10 +261,9 @@ export function AdminShiftInfoTab({
               {form.formState.errors.sessionStartDate && (
                 <p className="text-sm text-red-500">{form.formState.errors.sessionStartDate.message}</p>
               )}
-            </div>
-            
-            <div>
-              <Label htmlFor="sessionEndDate">Session End Date (Optional)</Label>
+            </PropertyFormRow>
+
+            <PropertyFormRow label="Session end date" valueClassName="space-y-1">
               <Controller
                 control={form.control}
                 name="sessionEndDate"
@@ -288,8 +280,8 @@ export function AdminShiftInfoTab({
               {form.formState.errors.sessionEndDate && (
                 <p className="text-sm text-red-500">{form.formState.errors.sessionEndDate.message}</p>
               )}
-            </div>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
 
           {futureSessions.length > 0 && (
             <Alert>
@@ -315,40 +307,35 @@ export function AdminShiftInfoTab({
         </Button>
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">Day:</div>
-        <div>{getDayOfWeek(adminShiftData.day_of_week)}</div>
-        
-        <div className="text-sm font-medium">Time:</div>
-        <div>
+      <PropertyForm>
+        <PropertyFormRow label="Day">
+          {getDayOfWeek(adminShiftData.day_of_week)}
+        </PropertyFormRow>
+        <PropertyFormRow label="Time">
           {formatTime(adminShiftData.start_time)} - {formatTime(adminShiftData.end_time)}
-        </div>
-        
-        <div className="text-sm font-medium">Status:</div>
-        <div>
-          <Badge className={getStatusBadgeColor(adminShiftData.status)}>
-            {adminShiftData.status}
-          </Badge>
-        </div>
-        
-        <div className="text-sm font-medium">Session Start Date:</div>
-        <div>
-          {adminShiftData.session_start_date 
+        </PropertyFormRow>
+        <PropertyFormRow label="Status">
+          <div>
+            <Badge className={getStatusBadgeColor(adminShiftData.status)}>
+              {adminShiftData.status}
+            </Badge>
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Session start date">
+          {adminShiftData.session_start_date
             ? format(new Date(adminShiftData.session_start_date), 'MMM d, yyyy')
-            : adminShiftData.created_at 
+            : adminShiftData.created_at
               ? format(new Date(adminShiftData.created_at), 'MMM d, yyyy')
               : 'Not set'}
-        </div>
-        
-        <div className="text-sm font-medium">Session End Date:</div>
-        <div>
-          {adminShiftData.session_end_date 
+        </PropertyFormRow>
+        <PropertyFormRow label="Session end date">
+          {adminShiftData.session_end_date
             ? format(new Date(adminShiftData.session_end_date), 'MMM d, yyyy')
             : adminShiftData.created_at
               ? `Dec 31, ${new Date(adminShiftData.created_at).getFullYear()}`
               : 'Not set'}
-        </div>
-      </div>
+        </PropertyFormRow>
+      </PropertyForm>
     </div>
   );
 }

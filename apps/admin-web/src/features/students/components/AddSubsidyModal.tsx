@@ -1,17 +1,12 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Label,
-  SearchableSelect,
-  Input,
-  SmartDatePickerField,
-} from '@altitutor/ui';
+import { Button, SearchableSelect, SearchableSelectFieldTrigger, Input, SmartDatePickerField } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { useQueryClient } from '@tanstack/react-query';
 import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { createSubsidy, type CreateSubsidyInput } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
@@ -118,24 +113,21 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
         </>
       }
     >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="subject">Subject</Label>
+      <PropertyForm>
+        <PropertyFormRow label="Subject">
           <SubjectSearchPopover
             selectedSubjects={selectedSubject ? [selectedSubject] : []}
             onSelectSubject={setSelectedSubject}
             trigger={
-              <Button variant="outline" className="w-full justify-start">
+              <SearchableSelectFieldTrigger>
                 {selectedSubject
                   ? `${selectedSubject.curriculum} ${selectedSubject.year_level ? `Year ${selectedSubject.year_level}` : ''} ${selectedSubject.name}`
                   : 'Select a subject'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="billing-type">Billing Type</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Billing type">
           <SearchableSelect<{ value: string; label: string }>
             items={[
               { value: 'CLASS', label: 'CLASS' },
@@ -152,10 +144,8 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
             getItemId={(o) => o.value}
             placeholder="Select billing type"
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="price">Subsidy Price Per Hour (in dollars)</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Subsidy price per hour (in dollars)" htmlFor="price" valueClassName="space-y-1">
           <Input
             id="price"
             type="number"
@@ -168,10 +158,8 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
           <p className="text-xs text-muted-foreground">
             The student will pay the minimum of this subsidy rate and the default hourly rate for this billing type.
           </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="currency">Currency</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Currency">
           <SearchableSelect<{ value: string; label: string }>
             items={[
               { value: 'AUD', label: 'AUD' },
@@ -183,25 +171,21 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
             getItemId={(o) => o.value}
             placeholder="Select currency"
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="effective-from">Effective From</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Effective from">
           <SmartDatePickerField
             value={effectiveFrom}
             onChange={(value) => setEffectiveFrom(value ?? '')}
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="effective-until">Effective Until (optional - leave empty for indefinitely)</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Effective until (optional — leave empty for indefinitely)">
           <SmartDatePickerField
             value={effectiveUntil}
             onChange={(value) => setEffectiveUntil(value ?? '')}
             minDate={effectiveFrom || undefined}
           />
-        </div>
-      </div>
+        </PropertyFormRow>
+      </PropertyForm>
     </AdminDialogShell>
   );
 }

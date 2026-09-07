@@ -1,11 +1,23 @@
-import type { ReactNode } from "react";
+"use client";
+
+import React, { type ReactNode } from "react";
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { Sparkles } from "lucide-react";
+import { BookOpen, Sparkles } from "lucide-react";
 import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { AnswerExplanation } from "@/features/question-engine/components/question-content";
 import type { AttemptInsight } from "../lib/attempt-insights";
+import type { RemediationLessonLink } from "../lib/remediation-learning-modules";
+import type { WrongAnswerInsightItem } from "../lib/question-insight-evidence";
+import { WrongAnswerInsightList } from "./wrong-answer-insight-list";
 import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
 import { contentSnapshotVersion } from "@/features/content-ratings/lib";
+
+type QuestionExplanation = {
+  text?: string;
+  json?: Record<string, unknown> | null;
+};
 
 type AttemptInsightCardProps = {
   label: "Overall insight" | "Question insight";
@@ -13,6 +25,9 @@ type AttemptInsightCardProps = {
   ratingContextKey: string;
   className?: string;
   children?: ReactNode;
+  wrongAnswerItems?: readonly WrongAnswerInsightItem[];
+  questionExplanation?: QuestionExplanation | null;
+  remediationLessons?: readonly RemediationLessonLink[];
 };
 
 export function AttemptInsightCard({
@@ -21,8 +36,35 @@ export function AttemptInsightCard({
   ratingContextKey,
   className,
   children,
+  wrongAnswerItems = [],
+  questionExplanation = null,
+  remediationLessons = [],
 }: AttemptInsightCardProps) {
-  const displayedContent = { title: insight.title, body: insight.body };
+  const showQuestionExplanation = Boolean(
+    questionExplanation?.text || questionExplanation?.json,
+  );
+  const showWrongAnswers =
+    label === "Question insight" && wrongAnswerItems.length > 0;
+  const displayedContent = {
+    title: insight.title,
+    body: [
+      showQuestionExplanation
+        ? (questionExplanation?.text?.trim() ?? "")
+        : "",
+      showWrongAnswers
+        ? wrongAnswerItems
+            .map(
+              (item) =>
+                item.option.answerExplanation?.trim() || item.option.text,
+            )
+            .join("\n\n")
+        : showQuestionExplanation
+          ? ""
+          : insight.body,
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
+  };
   const isQuestionInsight = label === "Question insight";
 
   return (
@@ -45,9 +87,42 @@ export function AttemptInsightCard({
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
-          {insight.body}
-        </p>
+        <div className="space-y-4">
+          {showQuestionExplanation && questionExplanation ? (
+            <AnswerExplanation
+              text={questionExplanation.text}
+              json={questionExplanation.json}
+              textTone="theme"
+            />
+          ) : null}
+          {showWrongAnswers ? (
+            <WrongAnswerInsightList items={wrongAnswerItems} />
+          ) : showQuestionExplanation ? null : (
+            <p className="whitespace-pre-line text-sm leading-relaxed text-muted-foreground">
+              {insight.body}
+            </p>
+          )}
+        </div>
+        {remediationLessons.length > 0 ? (
+          <div className="mt-4 space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-muted-foreground">
+              Related lessons
+            </p>
+            <ul className="space-y-1.5">
+              {remediationLessons.map((lesson) => (
+                <li key={lesson.id}>
+                  <Link
+                    href={lesson.href}
+                    className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline"
+                  >
+                    <BookOpen className="size-3.5 shrink-0" aria-hidden />
+                    {lesson.title}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
         <ContentRatingControls
           className="mt-3"
           descriptor={{

@@ -163,6 +163,7 @@ export interface ActivityEventsParams {
   performedByIds?: string[];
   performedAtGte?: string;
   performedAtLte?: string;
+  recordedAtOrder?: 'asc' | 'desc';
   or?: string;
   limit?: number;
   offset?: number;

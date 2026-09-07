@@ -76,7 +76,8 @@ export function TimeSlotPicker({
 
   const { data: slots, isLoading } = useAvailableSlots(params);
 
-  // Check for slots in a wider range (next 12 weeks) to determine if any slots exist
+  // Check for slots in a wider range (next 12 weeks) to determine if any slots exist.
+  // The availability client splits this into <=31-day windows to match the API cap.
   const wideRangeParams: GetAvailableSlotsParams = {
     start_date: format(minBookingDate, 'yyyy-MM-dd'),
     end_date: format(addDays(minBookingDate, 84), 'yyyy-MM-dd'), // 12 weeks

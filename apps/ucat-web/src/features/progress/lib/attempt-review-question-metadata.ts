@@ -16,6 +16,7 @@ import {
 type SupabaseServerClient = Awaited<ReturnType<typeof getSupabaseServerClient>>;
 
 export type AttemptReviewQuestionTag = {
+  id?: string | null;
   name: string;
   description: string | null;
 };

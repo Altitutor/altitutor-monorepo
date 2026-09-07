@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { VERIFIED_USER_ID_HEADER } from "@altitutor/shared";
 import { HydrationBoundary, QueryClient, dehydrate } from "@tanstack/react-query";
+import { PortalAccessDenied } from "@/features/auth/components/PortalAccessDenied";
 import { PortalAccessUnavailable } from "@/features/auth/components/PortalAccessUnavailable";
 import { loadTutorPortalAccess } from "@/features/auth/server/portal-access";
 import TutorClientLayout from "./client-layout";
@@ -15,7 +16,7 @@ export default async function TutorLayout({
   const access = await loadTutorPortalAccess(verifiedUserId);
 
   if (access.status === "unauthenticated") redirect("/login");
-  if (access.status === "denied") redirect("/login?error=access_denied");
+  if (access.status === "denied") return <PortalAccessDenied />;
   if (access.status === "unavailable") return <PortalAccessUnavailable />;
 
   const queryClient = new QueryClient();

@@ -159,6 +159,25 @@ VALUES
     TRUE
   );
 
+INSERT INTO public.sessions_students (session_id, student_id)
+VALUES (
+  'fa710000-0000-4000-8000-000000000032',
+  '10000000-0000-0000-0000-000000000001'
+);
+
+INSERT INTO public.tutor_logs_student_attendance (
+  tutor_log_id,
+  student_id,
+  attended,
+  created_by
+)
+VALUES (
+  'fa710000-0000-4000-8000-000000000042',
+  '10000000-0000-0000-0000-000000000001',
+  TRUE,
+  'fa710000-0000-4000-8000-000000000001'
+);
+
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 
 CREATE TEMP TABLE computed_metrics AS

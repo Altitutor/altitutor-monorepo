@@ -1,16 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Button,
-  Label,
-  Input,
-  SearchableSelect,
-  SmartDatePickerField,
-} from '@altitutor/ui';
+import { Button, Input, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { updateSubsidy, type UpdateSubsidyInput, type StudentSubsidyRow } from '../api/subsidies';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import type { Tables } from '@altitutor/shared';
@@ -122,24 +117,21 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
         </>
       }
     >
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <Label htmlFor="subject">Subject</Label>
+      <PropertyForm>
+        <PropertyFormRow label="Subject">
           <SubjectSearchPopover
             selectedSubjects={selectedSubject ? [selectedSubject] : []}
             onSelectSubject={setSelectedSubject}
             trigger={
-              <Button variant="outline" className="w-full justify-start">
+              <SearchableSelectFieldTrigger>
                 {selectedSubject
                   ? `${selectedSubject.curriculum} ${selectedSubject.year_level ? `Year ${selectedSubject.year_level}` : ''} ${selectedSubject.name}`
                   : 'Select a subject'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="billing-type">Billing Type</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Billing type" htmlFor="billing-type">
           <SearchableSelect<{ id: string; label: string }>
             items={[
               { id: 'CLASS', label: 'CLASS' },
@@ -152,15 +144,13 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
             getItemLabel={(item) => item.label}
             placeholder="Select billing type"
             trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="billing-type">
+              <SearchableSelectFieldTrigger id="billing-type">
                 {billingType || 'Select billing type'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="price">Subsidy Price Per Hour (in dollars)</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Subsidy price per hour (in dollars)" htmlFor="price" valueClassName="space-y-1">
           <Input
             id="price"
             type="number"
@@ -173,10 +163,8 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
           <p className="text-xs text-muted-foreground">
             The student will pay the minimum of this subsidy rate and the default hourly rate for this billing type.
           </p>
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="currency">Currency</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Currency" htmlFor="currency">
           <SearchableSelect<{ id: string; label: string }>
             items={[
               { id: 'AUD', label: 'AUD' },
@@ -188,30 +176,26 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
             getItemLabel={(item) => item.label}
             placeholder="Select currency"
             trigger={
-              <Button variant="outline" className="w-full justify-start font-normal" id="currency">
+              <SearchableSelectFieldTrigger id="currency">
                 {currency || 'Select currency'}
-              </Button>
+              </SearchableSelectFieldTrigger>
             }
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="effective-from">Effective From</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Effective from">
           <SmartDatePickerField
             value={effectiveFrom}
             onChange={(value) => setEffectiveFrom(value ?? '')}
           />
-        </div>
-
-        <div className="space-y-2">
-          <Label htmlFor="effective-until">Effective Until (optional - leave empty for indefinitely)</Label>
+        </PropertyFormRow>
+        <PropertyFormRow label="Effective until (optional — leave empty for indefinitely)">
           <SmartDatePickerField
             value={effectiveUntil}
             onChange={(value) => setEffectiveUntil(value ?? '')}
             minDate={effectiveFrom || undefined}
           />
-        </div>
-      </div>
+        </PropertyFormRow>
+      </PropertyForm>
     </AdminDialogShell>
   );
 }

@@ -23,6 +23,7 @@ interface ActivityTabLayoutProps {
   isFetchingNextPage?: boolean;
   onLoadMore?: () => void;
   onOpenFormResponse?: (responseId: string) => void;
+  chronological?: boolean;
 }
 
 export function ActivityTabLayout({
@@ -37,6 +38,7 @@ export function ActivityTabLayout({
   isFetchingNextPage,
   onLoadMore,
   onOpenFormResponse,
+  chronological = false,
 }: ActivityTabLayoutProps) {
   return (
     <div className="h-full space-y-6">
@@ -60,6 +62,7 @@ export function ActivityTabLayout({
         isFetchingNextPage={isFetchingNextPage}
         onLoadMore={onLoadMore}
         onOpenFormResponse={onOpenFormResponse}
+        chronological={chronological}
       />
 
       {footer}

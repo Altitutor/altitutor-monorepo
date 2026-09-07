@@ -74,7 +74,18 @@ jest.mock('../AbsenceBulkActionSelector', () => ({
 }));
 
 jest.mock('../AbsenceMessageScreen', () => ({
-  AbsenceMessageScreen: () => <div>Message</div>,
+  AbsenceMessageScreen: ({
+    billingWarning,
+    billingStatus,
+  }: {
+    billingWarning?: string;
+    billingStatus?: string;
+  }) => (
+    <div>
+      Message {billingWarning}
+      <span data-testid="billing-status">{billingStatus}</span>
+    </div>
+  ),
 }));
 
 describe('LogAbsenceDialog', () => {
@@ -125,5 +136,31 @@ describe('LogAbsenceDialog', () => {
         },
       });
     });
+  });
+
+  it('shows staff when billing was queued for retry after the absence was saved', async () => {
+    mutateAsync.mockResolvedValueOnce({
+      success: true,
+      billing: { status: 'queued' },
+      warning: 'Absence saved; billing queued for retry.',
+    });
+
+    render(
+      <LogAbsenceDialog
+        isOpen
+        onClose={jest.fn()}
+        staffId="staff-1"
+        initialStudentId="student-1"
+        initialSessionId="session-1"
+      />,
+    );
+
+    await screen.findByRole('heading', { name: 'Process Absences' });
+    fireEvent.click(screen.getByRole('button', { name: 'Choose credit' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: /Confirm All Actions/ })).toBeEnabled());
+    fireEvent.click(screen.getByRole('button', { name: /Confirm All Actions/ }));
+
+    expect(await screen.findByText(/Absence saved; billing queued for retry\./)).toBeInTheDocument();
+    expect(screen.getByTestId('billing-status')).toHaveTextContent('queued');
   });
 });

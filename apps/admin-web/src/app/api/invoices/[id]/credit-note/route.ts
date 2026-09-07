@@ -187,6 +187,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       ...(email_type && { email_type }),
       metadata: {
         ...(internal_note ? { internal_note } : {}),
+        ...(memo ? { memo } : {}),
         created_by_staff_id: staffData.id,
         created_by_staff_name:
           [staffData.first_name, staffData.last_name].filter(Boolean).join(' ').trim() || staffData.id,

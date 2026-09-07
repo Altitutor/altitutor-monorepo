@@ -98,7 +98,9 @@ export default defineConfig({
       "pnpm exec next build",
       "pnpm exec next start -p 3011 -H 127.0.0.1",
     ].join(" && "),
-    url: baseURL,
+    // The student root redirects to marketing-web. Probe a route owned by this
+    // server so Playwright does not wait on a portal that this suite never starts.
+    url: `${baseURL}/login`,
     reuseExistingServer: !process.env.CI,
     timeout: 300_000,
     env: {

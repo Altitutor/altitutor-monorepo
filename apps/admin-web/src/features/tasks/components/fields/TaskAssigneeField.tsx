@@ -7,7 +7,7 @@ import {
   FormItem,
   FormMessage,
   SearchableSelect,
-  fieldTriggerClassName,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { Check, User } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -52,29 +52,23 @@ export function TaskAssigneeField({
 
   const trigger = (
     <FormControl>
-      <button
-        type="button"
-        className={fieldTriggerClassName}
-        disabled={!enabled}
-      >
-        <div className="flex items-center gap-2 flex-1">
-          {selectedAssignee ? (
-            <>
-              <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium flex-shrink-0">
-                {assigneeInitials}
-              </div>
-              <span>
-                {selectedAssignee.first_name} {selectedAssignee.last_name}
-              </span>
-            </>
-          ) : (
-            <>
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Assign</span>
-            </>
-          )}
-        </div>
-      </button>
+      <SearchableSelectFieldTrigger disabled={!enabled}>
+        {selectedAssignee ? (
+          <>
+            <div className="w-5 h-5 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium flex-shrink-0">
+              {assigneeInitials}
+            </div>
+            <span>
+              {selectedAssignee.first_name} {selectedAssignee.last_name}
+            </span>
+          </>
+        ) : (
+          <>
+            <User className="h-4 w-4 text-muted-foreground" />
+            <span className="text-muted-foreground">Assign</span>
+          </>
+        )}
+      </SearchableSelectFieldTrigger>
     </FormControl>
   );
 

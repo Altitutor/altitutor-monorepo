@@ -202,26 +202,50 @@ export function extractSkillTrainerPlainText(
   return text;
 }
 
+export type FindWordClickableToken = {
+  text: string;
+  start: number;
+  end: number;
+};
+
+export function findFindWordClickableTokens(
+  plainText: string,
+): FindWordClickableToken[] {
+  const pattern = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
+  const tokens: FindWordClickableToken[] = [];
+  for (const match of plainText.matchAll(pattern)) {
+    const text = match[0];
+    const start = match.index ?? 0;
+    tokens.push({ text, start, end: start + text.length });
+  }
+  return tokens;
+}
+
 export function findFindWordKeywordOccurrences(
   plainText: string,
   keyword: Pick<FindWordKeyword, "id" | "text">,
 ): FindWordKeywordOccurrence[] {
   const needle = keyword.text.trim();
   if (!needle) return [];
-  const haystack = plainText.toLocaleLowerCase();
   const lowerNeedle = needle.toLocaleLowerCase();
+  const tokens = findFindWordClickableTokens(plainText);
   const occurrences: FindWordKeywordOccurrence[] = [];
-  let cursor = 0;
 
-  while (cursor <= haystack.length - lowerNeedle.length) {
-    const index = haystack.indexOf(lowerNeedle, cursor);
-    if (index === -1) break;
-    occurrences.push({
-      keyword_id: keyword.id,
-      start: index,
-      end: index + lowerNeedle.length,
-    });
-    cursor = index + Math.max(1, lowerNeedle.length);
+  for (let startIndex = 0; startIndex < tokens.length; startIndex += 1) {
+    for (let endIndex = startIndex; endIndex < tokens.length; endIndex += 1) {
+      const start = tokens[startIndex]!.start;
+      const end = tokens[endIndex]!.end;
+      const lowerSpan = plainText.slice(start, end).toLocaleLowerCase();
+      if (lowerSpan === lowerNeedle) {
+        occurrences.push({
+          keyword_id: keyword.id,
+          start,
+          end,
+        });
+        break;
+      }
+      if (lowerSpan.length >= lowerNeedle.length) break;
+    }
   }
 
   return occurrences;

@@ -136,8 +136,8 @@ const dashboardTour: ContextualTour = {
       title: "Your activation checklist",
       content: (
         <p>
-          These first milestones help you explore every section, create a Study
-          plan, complete real work, and review your first result.
+          These first milestones help you set a goal, choose a Study plan, learn
+          the question interface, try a real question, and invite a friend.
         </p>
       ),
       selector: "[data-tour='dashboard-activation-card']",
@@ -1056,11 +1056,11 @@ const attemptReviewTour: ContextualTour = {
     },
     {
       icon: <TrendingUp className={iconClassName} />,
-      title: "Question timing and properties",
+      title: "Question timing and difficulty",
       content: (
         <p>
-          Compare your time with the available benchmark and inspect the
-          question properties used to describe this item.
+          Compare your time with the available benchmark, check the difficulty,
+          and inspect the question properties used to describe this item.
         </p>
       ),
       selector: "#tour-attempt-question-properties",

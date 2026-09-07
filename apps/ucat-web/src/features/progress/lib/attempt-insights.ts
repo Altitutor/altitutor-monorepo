@@ -66,8 +66,8 @@ export type QuestionAttemptInsightInput = {
   timeSpentSeconds: number | null;
   averageTimeSeconds: number | null;
   averageTimeSampleSize: number;
+  timeBurdenSeconds?: number | null;
   wasFlagged?: boolean;
-  wrongAnswerExplanations?: readonly string[];
 };
 
 const MIN_RECENT_ATTEMPTS = 3;
@@ -76,8 +76,50 @@ const RELIABLE_QUESTION_TIME_SAMPLE = 5;
 const QUICK_QUESTION_TIME_RATIO = 0.75;
 const SLOW_QUESTION_TIME_RATIO = 1.25;
 
+type QuestionTimingReference = {
+  seconds: number;
+  source: "cohort" | "burden";
+};
+
 function roundedPercent(value: number): string {
   return `${Math.round(value)}%`;
+}
+
+function questionTimingReference(
+  input: QuestionAttemptInsightInput,
+): QuestionTimingReference | null {
+  if (input.timeSpentSeconds == null || input.timeSpentSeconds <= 0) {
+    return null;
+  }
+  if (
+    input.averageTimeSeconds != null &&
+    input.averageTimeSeconds > 0 &&
+    input.averageTimeSampleSize >= RELIABLE_QUESTION_TIME_SAMPLE
+  ) {
+    return { seconds: input.averageTimeSeconds, source: "cohort" };
+  }
+  if (input.timeBurdenSeconds != null && input.timeBurdenSeconds > 0) {
+    return { seconds: input.timeBurdenSeconds, source: "burden" };
+  }
+  return null;
+}
+
+function fasterThanExpected(
+  percent: number,
+  source: QuestionTimingReference["source"],
+): string {
+  return source === "cohort"
+    ? `You were ${percent}% faster than students who got this question right.`
+    : `You were ${percent}% faster than the expected time to get this question right.`;
+}
+
+function longerThanExpected(
+  percent: number,
+  source: QuestionTimingReference["source"],
+): string {
+  return source === "cohort"
+    ? `You took ${percent}% longer than students who got this question right.`
+    : `You took ${percent}% longer than the expected time to get this question right.`;
 }
 
 function paceSentence(pacePercent: number | null | undefined): string {
@@ -89,22 +131,6 @@ function paceSentence(pacePercent: number | null | undefined): string {
     return ` You worked at ${formatSpeedPercentAsMultiplier(pacePercent)} exam speed; keep the sound reasoning and let familiarity build the speed.`;
   }
   return ` Your ${formatSpeedPercentAsMultiplier(pacePercent)} exam speed was around exam pace.`;
-}
-
-function selectedAnswerFeedback(
-  input: QuestionAttemptInsightInput,
-  fallback: string,
-): string {
-  const explanations = (input.wrongAnswerExplanations ?? [])
-    .map((explanation) => explanation.trim())
-    .filter(Boolean);
-  if (explanations.length === 0) return fallback;
-  if (explanations.length === 1) {
-    return `For the answer you chose: ${explanations[0]}`;
-  }
-  return `For the answers that missed:\n${explanations
-    .map((explanation) => `• ${explanation}`)
-    .join("\n")}`;
 }
 
 export function buildAttemptOverallInsight(
@@ -244,18 +270,18 @@ export function buildAttemptOverallInsight(
 export function buildQuestionAttemptInsight(
   input: QuestionAttemptInsightInput,
 ): AttemptInsight & { ruleId: QuestionInsightRuleId } {
-  const hasReliableTiming =
-    input.timeSpentSeconds != null &&
-    input.timeSpentSeconds > 0 &&
-    input.averageTimeSeconds != null &&
-    input.averageTimeSeconds > 0 &&
-    input.averageTimeSampleSize >= RELIABLE_QUESTION_TIME_SAMPLE;
-  const timeRatio = hasReliableTiming
-    ? input.timeSpentSeconds! / input.averageTimeSeconds!
-    : null;
+  const timing = questionTimingReference(input);
+  const timeRatio =
+    timing != null && input.timeSpentSeconds != null
+      ? input.timeSpentSeconds / timing.seconds
+      : null;
+  const fasterPercent =
+    timeRatio != null ? Math.round((1 - timeRatio) * 100) : 0;
+  const longerPercent =
+    timeRatio != null ? Math.round((timeRatio - 1) * 100) : 0;
 
   if (input.result === "correct") {
-    if (timeRatio == null) {
+    if (timeRatio == null || timing == null) {
       return {
         ruleId: "question.correct_no_timing",
         title: "Correct — check what made it work",
@@ -267,7 +293,10 @@ export function buildQuestionAttemptInsight(
       return {
         ruleId: "question.correct_efficient",
         title: "Efficient and correct",
-        body: `You answered ${Math.round((1 - timeRatio) * 100)}% faster than the average student who got this question right. Make sure the speed came from a method you can repeat.`,
+        body:
+          timing.source === "cohort"
+            ? `You answered ${fasterPercent}% faster than the average student who got this question right. Make sure the speed came from a method you can repeat.`
+            : `You answered ${fasterPercent}% faster than the expected time to get this question right. Make sure the speed came from a method you can repeat.`,
         tone: "positive",
       };
     }
@@ -275,52 +304,58 @@ export function buildQuestionAttemptInsight(
       return {
         ruleId: "question.correct_balanced",
         title: "Correct at a solid pace",
-        body: "You got the question right in about the same time as other students who answered it correctly. Review the method briefly, then move on.",
+        body:
+          timing.source === "cohort"
+            ? "You got the question right in about the same time as other students who answered it correctly. Review the method briefly, then move on."
+            : "You got the question right in about the expected time. Review the method briefly, then move on.",
         tone: "positive",
       };
     }
     return {
       ruleId: "question.correct_slow",
       title: "Correct, but slower than it needed to be",
-      body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than the average student who got this question right. Keep the sound reasoning, but check the explanation for a shorter route.`,
+      body:
+        timing.source === "cohort"
+          ? `You took ${longerPercent}% longer than the average student who got this question right. Keep the sound reasoning, but check the explanation for a shorter route.`
+          : `You took ${longerPercent}% longer than the expected time to get this question right. Keep the sound reasoning, but check the explanation for a shorter route.`,
       tone: "positive",
     };
   }
 
   if (input.result === "partial") {
-    if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
+    if (timeRatio != null && timing != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.partial_rushed",
         title: "Almost — you may have moved on too soon",
-        body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. ${selectedAnswerFeedback(input, "Use the explanation to find what would have completed the answer.")}`,
+        body: `${fasterThanExpected(fasterPercent, timing.source)} Use the explanation to find what would have completed the answer.`,
         tone: "coaching",
       };
     }
-    if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
+    if (timeRatio != null && timing != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.partial_slow",
         title: "Partly right, and it took longer than it should",
-        body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. ${selectedAnswerFeedback(input, "The explanation can show where your approach became long or uncertain.")}`,
+        body: `${longerThanExpected(longerPercent, timing.source)} The explanation can show where your approach became long or uncertain.`,
         tone: "coaching",
       };
     }
     return {
       ruleId: "question.partial_default",
       title: "Close — see what kept this from full marks",
-      body: selectedAnswerFeedback(
-        input,
-        "Use the explanation below to see what kept this from full marks.",
-      ),
+      body: "Use the explanation below to see what kept this from full marks.",
       tone: "coaching",
     };
   }
 
   if (input.result === "not_attempted") {
-    if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
+    if (timeRatio != null && timing != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
       return {
         ruleId: "question.not_attempted_slow",
         title: "You spent too long without answering",
-        body: `You spent ${Math.round((timeRatio - 1) * 100)}% longer than the average successful time without submitting an answer. Decide earlier whether to commit, flag, or move on.`,
+        body:
+          timing.source === "cohort"
+            ? `You spent ${longerPercent}% longer than the average successful time without submitting an answer. Decide earlier whether to commit, flag, or move on.`
+            : `You spent ${longerPercent}% longer than the expected time without submitting an answer. Decide earlier whether to commit, flag, or move on.`,
         tone: "coaching",
       };
     }
@@ -340,20 +375,20 @@ export function buildQuestionAttemptInsight(
     };
   }
 
-  if (timeRatio != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
+  if (timeRatio != null && timing != null && timeRatio < QUICK_QUESTION_TIME_RATIO) {
     return {
       ruleId: "question.incorrect_rushed",
       title: "You answered too quickly and got it wrong",
-      body: `You were ${Math.round((1 - timeRatio) * 100)}% faster than students who got this question right. ${selectedAnswerFeedback(input, "Use the explanation to spot the check or reasoning you skipped.")}`,
+      body: `${fasterThanExpected(fasterPercent, timing.source)} Use the explanation to spot the check or reasoning you skipped.`,
       tone: "coaching",
     };
   }
 
-  if (timeRatio != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
+  if (timeRatio != null && timing != null && timeRatio > SLOW_QUESTION_TIME_RATIO) {
     return {
       ruleId: "question.incorrect_slow",
       title: "You spent too long and still got it wrong",
-      body: `You took ${Math.round((timeRatio - 1) * 100)}% longer than students who got this question right. ${selectedAnswerFeedback(input, "Learn the intended method from the explanation.")} Next time, decide earlier to move on when that method is not clear.`,
+      body: `${longerThanExpected(longerPercent, timing.source)} Learn the intended method from the explanation. Next time, decide earlier to move on when that method is not clear.`,
       tone: "coaching",
     };
   }
@@ -362,10 +397,7 @@ export function buildQuestionAttemptInsight(
     return {
       ruleId: "question.incorrect_flagged",
       title: "Good call to flag this one",
-      body: selectedAnswerFeedback(
-        input,
-        "Now use the explanation below to see what you were unsure about.",
-      ),
+      body: "Now use the explanation below to see what you were unsure about.",
       tone: "neutral",
     };
   }
@@ -380,8 +412,10 @@ export function buildQuestionAttemptInsight(
       ? "Find where your approach went wrong"
       : "Your timing was fine — the reasoning needs work",
     body: noTiming
-      ? `${selectedAnswerFeedback(input, "Compare your approach with the explanation and find the first point where they diverged.")} Redo the question from there before moving on.`
-      : `You used about the same amount of time as students who got this question right. ${selectedAnswerFeedback(input, "Use the explanation to find where your reasoning diverged.")}`,
+      ? "Compare your approach with the explanation and find the first point where they diverged. Redo the question from there before moving on."
+      : timing?.source === "burden"
+        ? "You used about the expected time. Use the explanation to find where your reasoning diverged."
+        : "You used about the same amount of time as students who got this question right. Use the explanation to find where your reasoning diverged.",
     tone: "coaching",
   };
 }

@@ -337,8 +337,12 @@ export default function BookTrialPage() {
                   <div className="text-sm font-medium text-muted-foreground">Email:</div>
                   <div className="text-sm">{contactData.student_email}</div>
                   
-                  <div className="text-sm font-medium text-muted-foreground">Phone:</div>
-                  <div className="text-sm">{contactData.student_phone}</div>
+                  {contactData.student_phone && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Phone:</div>
+                      <div className="text-sm">{contactData.student_phone}</div>
+                    </>
+                  )}
                   
                   <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
                   <div className="text-sm">
@@ -469,14 +473,8 @@ export default function BookTrialPage() {
             if (errors.student_first_name) {
               errorMessages.push('Student first name is required');
             }
-            if (errors.student_last_name) {
-              errorMessages.push('Student last name is required');
-            }
             if (errors.student_email) {
               errorMessages.push(`Student email: ${errors.student_email.message || 'is invalid'}`);
-            }
-            if (errors.student_phone) {
-              errorMessages.push('Student phone number is required');
             }
             if (errors.curriculum) {
               errorMessages.push('Please select a curriculum');

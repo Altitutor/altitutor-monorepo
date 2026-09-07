@@ -8,6 +8,12 @@ import {
   fetchAttemptReviewQuestionMetadata,
   type AttemptReviewQuestionTag,
 } from "@/features/progress/lib/attempt-review-question-metadata";
+import {
+  matchRemediationLearningModules,
+  questionTagIdsFromMetadata,
+  type RemediationLessonLink,
+} from "@/features/progress/lib/remediation-learning-modules";
+import { fetchRemediationCatalog } from "@/features/progress/server/remediation-learning-modules";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
 import {
   buildAttemptReviewExam,
@@ -70,6 +76,7 @@ export type MockAttemptDetailResponse = {
     categoryName: string | null;
     categoryDescription: string | null;
     questionStemCategoryId: string | null;
+    remediationLessons: RemediationLessonLink[];
   }[];
   /** Indices (0-based) after which to draw set divider (last question index of each set except final) */
   setBoundaryIndices: number[];
@@ -226,7 +233,10 @@ export async function GET(
         (a.row.attempted_at ?? "").localeCompare(b.row.attempted_at ?? "");
     });
   const allQuestionIds = orderedSnapshotAttempts.map(({ snapshot }) => snapshot.question.id);
-  const questionMetadata = await fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds);
+  const [questionMetadata, remediationCatalog] = await Promise.all([
+    fetchAttemptReviewQuestionMetadata(supabase, allQuestionIds),
+    fetchRemediationCatalog(supabase),
+  ]);
 
   for (let setIndex = 0; setIndex < mockSetIds.length; setIndex++) {
     const questionSetId = mockSetIds[setIndex];
@@ -283,6 +293,10 @@ export async function GET(
         const questionStemCategoryId =
           attemptData?.questionStemCategoryId ?? snapshotMetadata.questionStemCategoryId;
         const categoryDescription = snapshotMetadata.categoryDescription;
+        const questionTags =
+          snapshotMetadata.questionTags.length > 0
+            ? snapshotMetadata.questionTags
+            : (metadata?.questionTags ?? []);
 
         questionAttempts.push({
           questionNumber: globalQuestionNumber,
@@ -295,7 +309,7 @@ export async function GET(
           averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
           timeBurdenSeconds,
           difficulty: snapshotMetadata.difficulty ?? metadata?.difficulty ?? null,
-          questionTags: snapshotMetadata.questionTags.length > 0 ? snapshotMetadata.questionTags : (metadata?.questionTags ?? []),
+          questionTags,
           isFlagged: attemptData?.isFlagged ?? false,
           answerScheme,
           result,
@@ -304,6 +318,15 @@ export async function GET(
           categoryName,
           categoryDescription,
           questionStemCategoryId,
+          remediationLessons: matchRemediationLearningModules(
+            {
+              result,
+              questionTagIds: questionTagIdsFromMetadata(questionTags),
+              stemCategoryId: questionStemCategoryId,
+              sectionId: snapshot.stem.sectionId ?? null,
+            },
+            remediationCatalog,
+          ),
         });
     }
 

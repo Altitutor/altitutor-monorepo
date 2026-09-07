@@ -99,7 +99,7 @@ function formatPillDisplayDate(value: string | null | undefined): string | null 
   if (!value) return null;
   const date = new Date(value);
   if (isNaN(date.getTime())) return null;
-  return `${date.getUTCDate()} ${PILL_MONTHS[date.getUTCMonth()]}`;
+  return `${date.getUTCDate()} ${PILL_MONTHS[date.getUTCMonth()]} ${date.getUTCFullYear()}`;
 }
 
 function dateToIsoDate(date: Date): string {
@@ -119,7 +119,7 @@ function getThisWeekend(from: Date): Date {
 }
 
 function formatDateOption(date: Date): string {
-  return format(date, 'EEE, MMM d');
+  return format(date, 'EEE, d MMM yyyy');
 }
 
 function isDateAllowed(date: Date, minDate?: string | null, maxDate?: string | null): boolean {

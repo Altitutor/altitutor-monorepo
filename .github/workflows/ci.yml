@@ -312,38 +312,50 @@ jobs:
         if: needs.web-system-tests-needed.outputs.admin == 'true'
         env:
           CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-        run: pnpm --filter admin-web test:e2e
+        run: |
+          trap 'rm -rf apps/admin-web/.next-e2e' EXIT
+          pnpm --filter admin-web test:e2e
 
       - name: Run marketing browser journeys
         if: needs.web-system-tests-needed.outputs.marketing == 'true'
         env:
           CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
           MARKETING_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-        run: pnpm --filter marketing-web test:e2e
+        run: |
+          trap 'rm -rf apps/marketing-web/.next-e2e' EXIT
+          pnpm --filter marketing-web test:e2e
 
       - name: Run student browser journeys
         if: needs.web-system-tests-needed.outputs.student == 'true'
         env:
           CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
           STUDENT_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-        run: pnpm --filter student-web test:e2e
+        run: |
+          trap 'rm -rf apps/student-web/.next-e2e' EXIT
+          pnpm --filter student-web test:e2e
 
       - name: Run tutor browser journeys
         if: needs.web-system-tests-needed.outputs.tutor == 'true'
         env:
           CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-        run: pnpm --filter tutor-web test:e2e
+        run: |
+          trap 'rm -rf apps/tutor-web/.next-e2e' EXIT
+          pnpm --filter tutor-web test:e2e
 
       - name: Run UCAT desktop browser journeys
         if: needs.web-system-tests-needed.outputs.ucat == 'true' && github.ref_name != 'main' && github.event_name != 'workflow_dispatch'
-        run: pnpm --filter ucat-web test:e2e:desktop
+        run: |
+          trap 'rm -rf apps/ucat-web/.next-e2e' EXIT
+          pnpm --filter ucat-web test:e2e:desktop
 
       - name: Run UCAT production browser matrix
         if: needs.web-system-tests-needed.outputs.ucat == 'true' && (github.ref_name == 'main' || github.event_name == 'workflow_dispatch')
         env:
           UCAT_E2E_FULL_BROWSER_MATRIX: "true"
           CI_RELEASE_GATE: "true"
-        run: pnpm --filter ucat-web test:e2e
+        run: |
+          trap 'rm -rf apps/ucat-web/.next-e2e' EXIT
+          pnpm --filter ucat-web test:e2e
 
       - name: Preserve Playwright diagnostics
         if: always()

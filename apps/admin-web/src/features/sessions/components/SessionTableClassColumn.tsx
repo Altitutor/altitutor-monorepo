@@ -81,15 +81,24 @@ export function SessionTableClassColumn({
   const cls = session.class_id ? classesById[session.class_id] : undefined;
   const canOpenClass = Boolean(session.class_id);
 
-  const label = subject?.short_name?.trim() || subject?.long_name?.trim();
-  const title = subject?.long_name?.trim() || subject?.short_name?.trim() || cls?.long_name?.trim() || undefined;
+  const isHomeworkHelp = session.type === 'HOMEWORK_HELP';
+  const label = isHomeworkHelp
+    ? 'Homework help'
+    : subject?.short_name?.trim() || subject?.long_name?.trim();
+  const title = isHomeworkHelp
+    ? 'Homework help'
+    : subject?.long_name?.trim() || subject?.short_name?.trim() || cls?.long_name?.trim() || undefined;
 
   return (
     <div className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
       <Badge className={cn('shrink-0', getSessionTypeBadgeColor(session.type))}>
         {formatSessionType(session.type)}
       </Badge>
-      {subject && label ? (
+      {isHomeworkHelp ? (
+        <span title={title} className="inline-flex max-w-[10rem] shrink truncate text-xs font-medium">
+          Homework help
+        </span>
+      ) : subject && label ? (
         <SubjectPill
           subject={subject}
           title={title}

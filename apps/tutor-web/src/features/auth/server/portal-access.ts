@@ -138,7 +138,7 @@ export const loadTutorPortalAccess = cache(
         return { status: "unavailable" };
       }
       if (
-        profile.data?.status === "ACTIVE" &&
+        (profile.data?.status === "ACTIVE" || profile.data?.status === "TRIAL") &&
         (profile.data.role === "TUTOR" || profile.data.role === "ADMINSTAFF")
       ) {
         return { status: "allowed", userId, profile: profile.data };

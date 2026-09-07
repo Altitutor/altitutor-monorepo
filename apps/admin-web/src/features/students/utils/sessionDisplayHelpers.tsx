@@ -28,6 +28,12 @@ export function formatDate(dateString: string): string {
   }
 }
 
+const HOMEWORK_HELP_DISPLAY_NAME = 'Homework help';
+
+function isHomeworkHelpSession(session: Tables<'sessions'>): boolean {
+  return session.type === 'HOMEWORK_HELP';
+}
+
 /**
  * Short display name for a session/class from database only.
  * Uses session.short_name, then class.short_name; no building from subject parts.
@@ -37,6 +43,7 @@ export function getClassShortDisplay(
   classesById: Record<string, Tables<'classes'>>,
   _subjectsById: Record<string, Tables<'subjects'>>
 ): string {
+  if (isHomeworkHelpSession(session)) return HOMEWORK_HELP_DISPLAY_NAME;
   if (session.short_name?.trim()) return session.short_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
   return cls?.short_name?.trim() ?? '';
@@ -51,6 +58,7 @@ export function getClassDisplay(
   classesById: Record<string, Tables<'classes'>>,
   _subjectsById: Record<string, Tables<'subjects'>>
 ): string {
+  if (isHomeworkHelpSession(session)) return HOMEWORK_HELP_DISPLAY_NAME;
   if (session.long_name?.trim()) return session.long_name.trim();
   const cls = session.class_id ? classesById[session.class_id] : undefined;
   return cls?.long_name?.trim() ?? '';

@@ -24,6 +24,7 @@ interface SessionBillingAdjustment {
   currency: string;
   reason_category: string;
   reason_note: string | null;
+  created_by: string | null;
   idempotency_key: string;
 }
 
@@ -49,6 +50,7 @@ export interface ProcessSessionBillingAdjustmentsOptions {
   isStripeLiveKey: boolean;
   resendApiKey?: string;
   limit?: number;
+  adjustmentIds?: string[];
 }
 
 export interface ProcessSessionBillingAdjustmentsResult {
@@ -205,6 +207,7 @@ async function issueCreditNote(
     invoiceStatus: invoice.status,
     reasonCategory: adjustment.reason_category,
     reasonNote: adjustment.reason_note,
+    createdByStaffId: adjustment.created_by,
   });
   const creditNote = await stripe.creditNotes.create(
     command.params,
@@ -219,7 +222,10 @@ async function issueCreditNote(
       currency: creditNote.currency,
       reason: creditNote.reason,
       status: creditNote.status,
-      metadata: creditNote.metadata,
+      metadata: {
+        ...(creditNote.metadata ?? {}),
+        ...(creditNote.memo ? { memo: creditNote.memo } : {}),
+      },
       credit_amount_cents: invoice.status === 'paid' ? adjustment.amount_cents : null,
       source_invoice_item_id: invoiceItem.id,
       billing_adjustment_id: adjustment.id,
@@ -271,12 +277,14 @@ export async function processSessionBillingAdjustments(
   options: ProcessSessionBillingAdjustmentsOptions,
 ): Promise<ProcessSessionBillingAdjustmentsResult> {
   const { supabase, stripe } = options;
-  const { data, error } = await supabase.rpc(
-    'claim_session_billing_adjustments',
-    {
+  const { data, error } = options.adjustmentIds
+    ? await supabase.rpc('claim_session_billing_adjustments_by_ids', {
+      p_adjustment_ids: options.adjustmentIds,
       p_limit: options.limit ?? 25,
-    },
-  );
+    })
+    : await supabase.rpc('claim_session_billing_adjustments', {
+      p_limit: options.limit ?? 25,
+    });
   if (error) throw error;
 
   const adjustments = (data ?? []) as SessionBillingAdjustment[];

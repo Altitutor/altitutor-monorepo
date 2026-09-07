@@ -8,8 +8,8 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-  Button,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
   SmartDatePickerField,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
@@ -75,12 +75,10 @@ export function ProjectPropertiesFields({
                   getItemId={(o) => o.value}
                   fullWidth
                   trigger={
-                    <Button variant="field" className="w-full justify-start">
-                      <div className="flex items-center gap-2 w-full min-w-0">
-                        <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
-                        <span className="truncate">{getProjectStatusLabel(field.value)}</span>
-                      </div>
-                    </Button>
+                    <SearchableSelectFieldTrigger>
+                      <StatusIcon className={cn('h-4 w-4', statusIconColor)} />
+                      <span className="truncate">{getProjectStatusLabel(field.value)}</span>
+                    </SearchableSelectFieldTrigger>
                   }
                 />
               </FormControl>
@@ -110,12 +108,10 @@ export function ProjectPropertiesFields({
                   getItemId={(o) => String(o.value)}
                   fullWidth
                   trigger={
-                    <Button variant="field" className="w-full justify-start">
-                      <div className="flex items-center gap-2 w-full min-w-0">
-                        <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
-                        <span className="truncate">{getProjectPriorityLabel(p)}</span>
-                      </div>
-                    </Button>
+                    <SearchableSelectFieldTrigger>
+                      <PriorityIcon className={cn('h-4 w-4', priorityIconColor)} />
+                      <span className="truncate">{getProjectPriorityLabel(p)}</span>
+                    </SearchableSelectFieldTrigger>
                   }
                 />
               </FormControl>
@@ -153,14 +149,14 @@ export function ProjectPropertiesFields({
                 searchPlaceholder="Search staff..."
                 emptyMessage={leadSearchQuery ? 'No staff match your search' : 'No staff found'}
                 trigger={
-                  <Button variant="field" className="w-full justify-start">
-                    <div className="flex items-center gap-2 flex-1 min-w-0">
-                      <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                      <span className="truncate text-left">
-                        {selectedLead ? `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim() : 'Assign lead'}
-                      </span>
-                    </div>
-                  </Button>
+                  <SearchableSelectFieldTrigger>
+                    <User className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                    <span className="truncate text-left">
+                      {selectedLead
+                        ? `${selectedLead.first_name || ''} ${selectedLead.last_name || ''}`.trim()
+                        : 'Assign lead'}
+                    </span>
+                  </SearchableSelectFieldTrigger>
                 }
                 allowClear
                 loading={isLeadLoading}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { addDays, format, isValid, parse } from 'date-fns';
@@ -23,7 +24,6 @@ import { ProjectsList } from '@/features/projects/components/ProjectsList';
 import { NoteEditor } from '@/features/notes/components/NoteEditor';
 import { DashboardReconciliationCard } from '@/features/reconciliation/components/DashboardReconciliationCard';
 import { DashboardReportsCard } from '@/features/reports/components/DashboardReportsCard';
-import { DashboardUpdatesCard } from '@/features/sessions/components/DashboardUpdatesCard';
 import { useDailyNote, useUpdateDailyNote } from '@/features/notes/api/dailyQueries';
 import { useDebounce, useCurrentStaff } from '@/shared/hooks';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
@@ -34,6 +34,26 @@ type ViewMode = 'calendar' | 'table';
 
 const DATE_FORMAT = 'yyyy-MM-dd';
 const NOTE_MENTION_TYPES = ['issues', 'tasks', 'students', 'staff', 'parents', 'classes', 'subjects'] as const;
+
+const DashboardUpdatesCard = dynamic(
+  () =>
+    import('@/features/sessions/components/DashboardUpdatesCard').then((mod) => ({
+      default: mod.DashboardUpdatesCard,
+    })),
+  {
+    ssr: false,
+    loading: () => (
+      <Card className="flex w-full max-h-[520px] flex-col overflow-hidden">
+        <CardHeader className="flex flex-row items-center justify-between gap-4 px-4 pb-2 pt-3">
+          <CardTitle className="text-lg font-semibold">Updates</CardTitle>
+        </CardHeader>
+        <CardContent className="flex min-h-0 flex-1 items-center justify-center border-t py-8">
+          <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+        </CardContent>
+      </Card>
+    ),
+  }
+);
 
 function getValidDateString(value: string): string | null {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;

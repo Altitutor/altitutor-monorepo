@@ -13,4 +13,5 @@ export const activityKeys = {
   issue: (issueId: string) => [...activityKeys.all, 'issue', issueId] as const,
   project: (projectId: string) => [...activityKeys.all, 'project', projectId] as const,
   adminShift: (adminShiftId: string) => [...activityKeys.all, 'adminShift', adminShiftId] as const,
+  invoice: (invoiceId: string) => [...activityKeys.all, 'invoice', invoiceId] as const,
 };

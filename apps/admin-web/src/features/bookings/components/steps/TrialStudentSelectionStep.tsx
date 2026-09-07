@@ -59,6 +59,7 @@ export function TrialStudentSelectionStep({
         </div>
 
         <AdminTrialContactForm
+          key="trial-create-student-first-name-only"
           onSubmit={onFormSubmit}
           defaultValues={trialContactData || undefined}
           onFormReady={onFormReady}
@@ -69,12 +70,12 @@ export function TrialStudentSelectionStep({
   }
 
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex min-h-0 flex-1 flex-col gap-4">
+      <p className="shrink-0 text-sm text-muted-foreground">
         Search for an existing student or create a new one on the spot.
       </p>
 
-      <div className="flex gap-2">
+      <div className="flex shrink-0 gap-2">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -95,14 +96,16 @@ export function TrialStudentSelectionStep({
         </Button>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="trial-student-search">Existing Students</Label>
+      <div className="flex min-h-0 flex-1 flex-col gap-2">
+        <Label htmlFor="trial-student-search" className="shrink-0">
+          Existing Students
+        </Label>
         {isLoading ? (
-          <div className="flex items-center justify-center py-8">
+          <div className="flex min-h-0 flex-1 items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : students && students.length > 0 ? (
-          <div className="max-h-[400px] space-y-2 overflow-y-auto">
+          <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
             {students.map((student) => (
               <div
                 key={student.id}
@@ -119,11 +122,11 @@ export function TrialStudentSelectionStep({
             ))}
           </div>
         ) : studentSearch.length >= 2 ? (
-          <div className="py-8 text-center text-muted-foreground">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
             <p>No students found</p>
           </div>
         ) : (
-          <div className="py-8 text-center text-muted-foreground">
+          <div className="flex min-h-0 flex-1 items-center justify-center text-muted-foreground">
             <p>Type at least 2 characters to search</p>
           </div>
         )}

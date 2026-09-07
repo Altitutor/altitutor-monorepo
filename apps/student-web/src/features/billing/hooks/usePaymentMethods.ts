@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useId } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -8,6 +8,7 @@ import { useAuthStore } from '@/shared/lib/supabase/auth';
 export function usePaymentMethods() {
   const queryClient = useQueryClient();
   const { user, loading: authLoading } = useAuthStore();
+  const instanceId = useId().replace(/[^a-zA-Z0-9_-]/g, '');
 
   const query = useQuery({
     queryKey: ['payment-methods'],
@@ -29,7 +30,7 @@ export function usePaymentMethods() {
 
     const supabase = getSupabaseClient();
     const channel = supabase
-      .channel(`payment-methods-${studentId}`)
+      .channel(`payment-methods-${studentId}-${instanceId}`)
       .on(
         'postgres_changes',
         {
@@ -84,9 +85,9 @@ export function usePaymentMethods() {
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      void supabase.removeChannel(channel);
     };
-  }, [studentId, queryClient]);
+  }, [instanceId, studentId, queryClient]);
 
   // Fallback: Poll for updates after optimistic updates
   // This ensures we get updates even if real-time isn't working or is delayed

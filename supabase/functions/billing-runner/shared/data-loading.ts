@@ -339,3 +339,31 @@ export async function getInvoicedSessionsStudentsIds(
 
   return new Set((invoicedIds || []).map((id: string) => id));
 }
+
+/**
+ * Resolve canonical chargeability in one database round trip.
+ */
+export async function getChargeableSessionsStudentsIds(
+  supabase: SupabaseClient,
+  sessionsStudentsIds: string[],
+): Promise<Set<string>> {
+  if (sessionsStudentsIds.length === 0) {
+    return new Set();
+  }
+
+  const { data: chargeableIds, error } = await supabase.rpc(
+    'get_chargeable_sessions_students_ids',
+    {
+      p_sessions_students_ids: sessionsStudentsIds,
+    },
+  );
+
+  if (error) {
+    console.error('[billing-runner] Error checking session chargeability:', error);
+    throw new Error(
+      `Could not verify session chargeability: ${error.message}`,
+    );
+  }
+
+  return new Set(chargeableIds || []);
+}

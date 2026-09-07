@@ -2,14 +2,15 @@
 
 import { useMemo, useState } from 'react';
 import {
+  Button,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
-  Button,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
-import { ArrowUpRight, Check, ChevronDown, FolderKanban, Link2 } from 'lucide-react';
+import { ArrowUpRight, Check, FolderKanban, Link2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils';
 import { useIssues } from '@/features/issues/api/queries';
@@ -118,19 +119,16 @@ export function TaskLinkField({
               searchPlaceholder="Search issues and projects..."
               emptyMessage="No results found"
               trigger={
-                <Button variant="field" className="w-full justify-start">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {activeLink?.type === 'project' ? (
-                      <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    ) : (
-                      <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-                    )}
-                    <span className={cn('truncate text-left', !activeLink && 'text-muted-foreground')}>
-                      {activeLink?.name || 'Issue or project'}
-                    </span>
-                    <ChevronDown className="h-4 w-4 text-muted-foreground ml-auto" />
-                  </div>
-                </Button>
+                <SearchableSelectFieldTrigger>
+                  {activeLink?.type === 'project' ? (
+                    <FolderKanban className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  ) : (
+                    <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  )}
+                  <span className={cn('truncate text-left', !activeLink && 'text-muted-foreground')}>
+                    {activeLink?.name || 'Issue or project'}
+                  </span>
+                </SearchableSelectFieldTrigger>
               }
               allowClear
               clearLabel="No link"

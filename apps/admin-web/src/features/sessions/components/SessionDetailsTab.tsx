@@ -1,16 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
-import {
-  AccountClassBadge,
-  Badge,
-  Separator,
-  Button,
-  Input,
-  Label,
-  SearchableSelect,
-  SmartDatePickerField,
-} from '@altitutor/ui';
+import { AccountClassBadge, Badge, Separator, Button, Input, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -41,6 +32,7 @@ import { SubjectSelectPopover } from '@/features/subjects/components/SubjectSele
 import { ClassSelectPopover } from '@/features/classes/components/ClassSelectPopover';
 import type { MinimalClass } from '@/features/classes/api/classes';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
+import { PropertyForm } from '@/shared/components/PropertyForm';
 
 const SESSION_TYPES = Supabase.Constants.public.Enums.session_type;
 
@@ -138,6 +130,7 @@ type SessionDetailsTabProps = {
   onOpenSession: (sessionId: string) => void;
   onOpenStudent: (studentId: string) => void;
   onOpenStaff: (staffId: string) => void;
+  onOpenParent: (parentId: string) => void;
   onOpenClass: (classId: string) => void;
   onMessageStudent: (studentId: string) => void;
   onMessageStaff: (staffId: string) => void;
@@ -196,6 +189,7 @@ export function SessionDetailsTab({
   onOpenSession,
   onOpenStudent,
   onOpenStaff,
+  onOpenParent,
   onOpenClass,
   onMessageStudent,
   onMessageStaff,
@@ -344,7 +338,7 @@ export function SessionDetailsTab({
             })}
             className="space-y-4"
           >
-            <div className="grid grid-cols-[minmax(0,1fr)_minmax(0,2fr)] items-center gap-x-4 gap-y-3">
+            <PropertyForm className="items-center">
               <Label htmlFor="session-type">Type</Label>
               <div>
                 <Controller
@@ -360,9 +354,9 @@ export function SessionDetailsTab({
                       placeholder="Session type"
                       disabled={isUpdating}
                       trigger={
-                        <Button variant="outline" className="w-full justify-start font-normal" id="session-type">
+                        <SearchableSelectFieldTrigger id="session-type">
                           {SESSION_TYPE_ITEMS.find((t) => t.id === field.value)?.label ?? 'Session type'}
-                        </Button>
+                        </SearchableSelectFieldTrigger>
                       }
                     />
                   )}
@@ -428,9 +422,9 @@ export function SessionDetailsTab({
                           }}
                           placeholder="Select subject"
                           trigger={
-                            <Button variant="outline" className="w-full justify-start" disabled={isUpdating}>
+                            <SearchableSelectFieldTrigger disabled={isUpdating}>
                               {displaySubject?.long_name ?? 'Select subject'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       )}
@@ -457,7 +451,7 @@ export function SessionDetailsTab({
                   </div>
                 </>
               )}
-            </div>
+            </PropertyForm>
           </form>
         ) : (
           <SessionInfoGrid
@@ -948,9 +942,13 @@ export function SessionDetailsTab({
                     {parentsData.map((row) => (
                       <TableRow key={row.parent.id}>
                         <TableCell>
-                          <span className="font-medium">
+                          <button
+                            type="button"
+                            onClick={() => onOpenParent(row.parent.id)}
+                            className="text-left hover:underline font-medium"
+                          >
                             {row.parent.first_name} {row.parent.last_name}
-                          </span>
+                          </button>
                         </TableCell>
                         <TableCell>
                           <AttendanceCell status={getParentLogAttendanceStatus(tutorLog, row.parent.id)} />

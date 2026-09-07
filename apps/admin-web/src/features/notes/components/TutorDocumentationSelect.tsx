@@ -1,13 +1,13 @@
 'use client';
 
 import {
-  Button,
   FormControl,
   FormField,
   FormItem,
   FormLabel,
   FormMessage,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { Eye } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -56,11 +56,8 @@ export function TutorDocumentationSelect({
                 getItemLabel={(option) => option.label}
                 fullWidth
                 trigger={
-                  <Button
-                    type="button"
-                    variant="field"
+                  <SearchableSelectFieldTrigger
                     disabled={!editable}
-                    className="w-full justify-start"
                     onPointerDown={(event) => {
                       if (!editable) {
                         event.preventDefault();
@@ -68,13 +65,11 @@ export function TutorDocumentationSelect({
                       }
                     }}
                   >
-                    <div className="flex items-center gap-2 w-full min-w-0">
-                      <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
-                      <span className={cn('truncate', !field.value && 'text-muted-foreground')}>
-                        {selected.label}
-                      </span>
-                    </div>
-                  </Button>
+                    <Eye className="h-4 w-4 text-muted-foreground shrink-0" />
+                    <span className={cn('truncate', !field.value && 'text-muted-foreground')}>
+                      {selected.label}
+                    </span>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </FormControl>

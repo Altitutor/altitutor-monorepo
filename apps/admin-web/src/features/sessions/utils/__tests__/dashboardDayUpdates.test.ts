@@ -1,6 +1,9 @@
 import {
   buildDashboardDayUpdates,
+  getDashboardDayUpdateKindLabel,
+  groupDashboardDayUpdateItems,
   hasDashboardDayUpdates,
+  sortDashboardDayUpdateItems,
   type DashboardDaySession,
   type DashboardDayStaff,
   type DashboardDayStudent,
@@ -47,6 +50,7 @@ function staff(overrides: Partial<DashboardDayStaff> = {}): DashboardDayStaff {
 
 const classesById = {
   'class-1': { id: 'class-1', short_name: '12MATH tue 4:15', long_name: 'Year 12 Methods' },
+  'class-2': { id: 'class-2', short_name: '11ENG tue 6:00', long_name: 'Year 11 English' },
 } as unknown as Record<string, Tables<'classes'>>;
 
 const emptySubjects = {} as Record<string, Tables<'subjects'>>;
@@ -253,6 +257,44 @@ describe('buildDashboardDayUpdates', () => {
     expect(updates.extraStudents).toEqual([]);
   });
 
+  it('lists staff with planned trial attendance as trial tutors', () => {
+    const updates = buildDashboardDayUpdates({
+      sessions: [session()],
+      sessionStudents: {},
+      sessionStaff: {
+        'session-1': [
+          staff({ id: 'staff-1', first_name: 'Jane', last_name: 'Tutor', was_trial: true }),
+          staff({ id: 'staff-2', first_name: 'Bob', last_name: 'Regular', was_trial: false }),
+        ],
+      },
+      classesById,
+      subjectsById: emptySubjects,
+    });
+
+    expect(updates.trialTutors).toEqual([
+      expect.objectContaining({
+        kind: 'trial_tutor',
+        personName: 'Jane Tutor',
+        sessionLabel: '12MATH tue 4:15',
+      }),
+    ]);
+  });
+
+  it('does not list absent trial staff as trial tutors', () => {
+    const updates = buildDashboardDayUpdates({
+      sessions: [session()],
+      sessionStudents: {},
+      sessionStaff: {
+        'session-1': [staff({ was_trial: true, planned_absence: true })],
+      },
+      classesById,
+      subjectsById: emptySubjects,
+    });
+
+    expect(updates.trialTutors).toEqual([]);
+    expect(updates.staffAbsences).toHaveLength(1);
+  });
+
   it('lists a staff swap as one row and keeps unpaired absences and extra staff', () => {
     const updates = buildDashboardDayUpdates({
       sessions: [session()],
@@ -361,5 +403,143 @@ describe('buildDashboardDayUpdates', () => {
     });
 
     expect(updates.extraStaff).toEqual([]);
+  });
+});
+
+describe('sortDashboardDayUpdateItems', () => {
+  const morning = {
+    kind: 'student_absence' as const,
+    sessionId: 'session-1',
+    sessionLabel: '12MATH',
+    startAt: '2026-09-03T06:45:00.000Z',
+    endAt: '2026-09-03T08:15:00.000Z',
+    personName: 'Alice Chen',
+  };
+  const afternoon = {
+    kind: 'staff_absence' as const,
+    sessionId: 'session-2',
+    sessionLabel: '11ENG',
+    startAt: '2026-09-03T10:00:00.000Z',
+    endAt: '2026-09-03T11:30:00.000Z',
+    personName: 'Jane Tutor',
+  };
+  const meeting = {
+    kind: 'meeting' as const,
+    sessionId: 'session-3',
+    sessionLabel: 'Admin meeting',
+    startAt: '2026-09-03T12:00:00.000Z',
+    endAt: '2026-09-03T13:00:00.000Z',
+  };
+
+  it('sorts by session start time', () => {
+    const sorted = sortDashboardDayUpdateItems([afternoon, meeting, morning], 'time');
+    expect(sorted.map((item) => item.sessionId)).toEqual(['session-1', 'session-2', 'session-3']);
+  });
+
+  it('groups staff updates before others when sorting by staff', () => {
+    const sorted = sortDashboardDayUpdateItems([meeting, afternoon, morning], 'staff');
+    expect(sorted[0].kind).toBe('staff_absence');
+    expect(sorted[1].kind).toBe('student_absence');
+    expect(sorted[2].kind).toBe('meeting');
+  });
+
+  it('groups student updates before others when sorting by student', () => {
+    const sorted = sortDashboardDayUpdateItems([meeting, afternoon, morning], 'student');
+    expect(sorted[0].kind).toBe('student_absence');
+    expect(sorted[1].kind).toBe('staff_absence');
+    expect(sorted[2].kind).toBe('meeting');
+  });
+});
+
+describe('groupDashboardDayUpdateItems', () => {
+  const updates = buildDashboardDayUpdates({
+    sessions: [
+      session({
+        id: 'session-1',
+        start_at: '2026-09-03T06:45:00.000Z',
+        end_at: '2026-09-03T08:15:00.000Z',
+        original_start_at: '2026-09-03T06:45:00.000Z',
+        original_end_at: '2026-09-03T08:15:00.000Z',
+      }),
+      session({
+        id: 'session-2',
+        class_id: 'class-2',
+        start_at: '2026-09-03T10:00:00.000Z',
+        end_at: '2026-09-03T11:30:00.000Z',
+        original_start_at: '2026-09-03T10:00:00.000Z',
+        original_end_at: '2026-09-03T11:30:00.000Z',
+      }),
+    ],
+    sessionStudents: {
+      'session-1': [student({ planned_absence: true })],
+      'session-2': [
+        student({
+          id: 'student-2',
+          first_name: 'Bob',
+          last_name: 'Lee',
+          planned_absence: true,
+        }),
+      ],
+    },
+    sessionStaff: {
+      'session-1': [staff({ planned_absence: true })],
+      'session-2': [staff({ id: 'staff-2', first_name: 'Sam', last_name: 'Cover', planned_absence: true })],
+    },
+    classesById,
+    subjectsById: emptySubjects,
+    classStaffAssignments: [
+      {
+        class_id: 'class-1',
+        staff_id: 'staff-1',
+        assigned_at: '2026-01-01T00:00:00.000Z',
+        unassigned_at: null,
+      },
+    ],
+  });
+
+  it('groups by update type with section titles', () => {
+    const groups = groupDashboardDayUpdateItems(updates, 'type');
+    expect(groups.map((group) => group.title)).toEqual([
+      'Student absences',
+      'Staff absences',
+    ]);
+    expect(groups[0]?.items).toHaveLength(2);
+    expect(groups[1]?.items).toHaveLength(2);
+  });
+
+  it('groups by session start time', () => {
+    const groups = groupDashboardDayUpdateItems(updates, 'time');
+    expect(groups).toHaveLength(2);
+    expect(groups[0]?.items).toHaveLength(2);
+    expect(groups[1]?.items).toHaveLength(2);
+    expect(groups[0]?.title).toMatch(/\d+:\d+ [AP]M/);
+  });
+
+  it('groups by staff name for staff-related updates', () => {
+    const groups = groupDashboardDayUpdateItems(updates, 'staff');
+    expect(groups.map((group) => group.title)).toEqual([
+      'Jane Tutor',
+      'Sam Cover',
+      '11ENG tue 6:00',
+      '12MATH tue 4:15',
+    ]);
+  });
+
+  it('groups by student name for student-related updates', () => {
+    const groups = groupDashboardDayUpdateItems(updates, 'student');
+    expect(groups.map((group) => group.title)).toEqual([
+      'Alice Chen',
+      'Bob Lee',
+      '11ENG tue 6:00',
+      '12MATH tue 4:15',
+    ]);
+  });
+});
+
+describe('getDashboardDayUpdateKindLabel', () => {
+  it('returns the type section title for each update kind', () => {
+    expect(getDashboardDayUpdateKindLabel('meeting')).toBe('Meetings');
+    expect(getDashboardDayUpdateKindLabel('trial_tutor')).toBe('Trial tutors');
+    expect(getDashboardDayUpdateKindLabel('staff_swap')).toBe('Staff swaps');
   });
 });

@@ -9582,6 +9582,24 @@ export type Database = {
         }
         Relationships: []
       }
+      student_billing_customer_history: {
+        Row: {
+          billing_snapshot: Json
+          stripe_customer_id: string
+          student_id: string
+        }
+        Insert: {
+          billing_snapshot: Json
+          stripe_customer_id: string
+          student_id: string
+        }
+        Update: {
+          billing_snapshot?: Json
+          stripe_customer_id?: string
+          student_id?: string
+        }
+        Relationships: []
+      }
       student_calendar_subscriptions: {
         Row: {
           created_at: string
@@ -9641,6 +9659,88 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
+      }
+      student_contact_history: {
+        Row: {
+          contact_id: string
+          student_id: string
+        }
+        Insert: {
+          contact_id: string
+          student_id: string
+        }
+        Update: {
+          contact_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_contact_history_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_contact_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_contact_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_contact_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_contact_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_contact_history_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      student_duplicate_dismissals: {
+        Row: {
+          actor_user_id: string
+          created_at: string
+          fingerprint: string
+          student_a: string
+          student_b: string
+        }
+        Insert: {
+          actor_user_id?: string
+          created_at?: string
+          fingerprint: string
+          student_a: string
+          student_b: string
+        }
+        Update: {
+          actor_user_id?: string
+          created_at?: string
+          fingerprint?: string
+          student_a?: string
+          student_b?: string
+        }
+        Relationships: []
       }
       student_exit_request_enrolments: {
         Row: {
@@ -9965,6 +10065,51 @@ export type Database = {
             referencedColumns: ["student_id"]
           },
         ]
+      }
+      student_merge_history: {
+        Row: {
+          actor_user_id: string
+          choices: Json
+          merged_at: string
+          retained_student_id: string
+          snapshot: Json
+          source_student_id: string
+        }
+        Insert: {
+          actor_user_id: string
+          choices: Json
+          merged_at?: string
+          retained_student_id: string
+          snapshot: Json
+          source_student_id: string
+        }
+        Update: {
+          actor_user_id?: string
+          choices?: Json
+          merged_at?: string
+          retained_student_id?: string
+          snapshot?: Json
+          source_student_id?: string
+        }
+        Relationships: []
+      }
+      student_merge_retired_logins: {
+        Row: {
+          retained_student_id: string
+          retired_at: string
+          user_id: string
+        }
+        Insert: {
+          retained_student_id: string
+          retired_at?: string
+          user_id: string
+        }
+        Update: {
+          retained_student_id?: string
+          retired_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       student_online_product_relationships: {
         Row: {
@@ -22946,6 +23091,14 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      vinternal_student_billing_customers: {
+        Row: {
+          is_primary: boolean | null
+          stripe_customer_id: string | null
+          student_id: string | null
+        }
+        Relationships: []
       }
       vinternal_ucat_email_campaign_metrics: {
         Row: {
@@ -37810,6 +37963,37 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_session_billing_adjustments_by_ids: {
+        Args: { p_adjustment_ids: string[]; p_limit?: number }
+        Returns: {
+          amount_cents: number | null
+          attempt_count: number
+          completed_at: string | null
+          created_at: string
+          created_by: string | null
+          currency: string
+          depends_on_adjustment_id: string | null
+          id: string
+          idempotency_key: string
+          kind: Database["public"]["Enums"]["session_billing_adjustment_kind"]
+          last_error: string | null
+          max_attempts: number
+          next_attempt_at: string
+          reason_category: string
+          reason_note: string | null
+          sessions_students_id: string
+          source_credit_note_id: string | null
+          source_invoice_item_id: string | null
+          status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          updated_at: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "session_billing_adjustments"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
       claim_ucat_lifecycle_email: {
         Args: {
           p_campaign_key: string
@@ -38137,6 +38321,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      credit_note_lifecycle_event_payload: {
+        Args: {
+          adjustment_reason_category: string
+          adjustment_reason_note: string
+          row_data: Json
+        }
+        Returns: Json
+      }
       current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_student_portal_access: { Args: never; Returns: Json }
@@ -38166,6 +38358,10 @@ export type Database = {
       discontinue_student: {
         Args: { p_discontinued_by: string; p_student_id: string }
         Returns: Json
+      }
+      dismiss_student_duplicate: {
+        Args: { p_a: string; p_b: string; p_fingerprint: string }
+        Returns: undefined
       }
       dispatch_due_automation_executions: { Args: never; Returns: number }
       domain_entity_display_name: {
@@ -38449,6 +38645,10 @@ export type Database = {
         }[]
       }
       get_billing_cron_secret: { Args: never; Returns: string }
+      get_chargeable_sessions_students_ids: {
+        Args: { p_sessions_students_ids: string[] }
+        Returns: string[]
+      }
       get_excluded_fields_for_table: {
         Args: { table_name: string }
         Returns: string[]
@@ -38768,6 +38968,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      invoice_lifecycle_event_payload: {
+        Args: { row_data: Json }
+        Returns: Json
+      }
       is_adminstaff_active: { Args: never; Returns: boolean }
       is_current_student_active_in_person: { Args: never; Returns: boolean }
       is_notes_folder_tutor_documentation_ancestor: {
@@ -38845,6 +39049,15 @@ export type Database = {
         Args: never
         Returns: number
       }
+      merge_students: {
+        Args: {
+          p_choices: Json
+          p_fingerprint: string
+          p_retained: string
+          p_source: string
+        }
+        Returns: string
+      }
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       normalize_ucat_catalog_text: { Args: { value: string }; Returns: string }
       notify_overdue_invoices: { Args: never; Returns: number }
@@ -38868,6 +39081,10 @@ export type Database = {
       }
       preview_class_deletion: { Args: { p_class_id: string }; Returns: Json }
       preview_class_schedule: { Args: { p_proposal: Json }; Returns: Json }
+      preview_student_merge: {
+        Args: { p_retained: string; p_source: string }
+        Returns: Json
+      }
       purge_expired_class_session_tombstones: { Args: never; Returns: number }
       qualify_ucat_paid_referral: {
         Args: {
@@ -38939,6 +39156,10 @@ export type Database = {
           p_subject_type: string
         }
         Returns: string
+      }
+      record_student_billing_customer: {
+        Args: { p_customer_id: string; p_student_id: string }
+        Returns: undefined
       }
       record_ucat_resend_email_event: {
         Args: {
@@ -39056,6 +39277,10 @@ export type Database = {
           p_student_id: string
           p_subject_id?: string
         }
+        Returns: string
+      }
+      resolve_merged_student_id: {
+        Args: { p_student_id: string }
         Returns: string
       }
       resolve_ucat_signup_email_state: {
@@ -39346,6 +39571,10 @@ export type Database = {
         Args: { p_tour_id: string; p_version?: number }
         Returns: Json
       }
+      student_duplicate_candidates: {
+        Args: { p_student_id?: string }
+        Returns: Json
+      }
       student_full_name_lower: {
         Args: { p_first_name: string; p_last_name: string }
         Returns: string
@@ -39371,6 +39600,11 @@ export type Database = {
         Returns: {
           resource_id: string
         }[]
+      }
+      student_merge_snapshot: { Args: { p_ids: string[] }; Returns: Json }
+      student_message_contacts: {
+        Args: { p_student_id: string }
+        Returns: Json
       }
       student_reset_onboarding_progress: { Args: never; Returns: Json }
       student_reset_onboarding_tour: {

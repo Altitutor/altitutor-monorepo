@@ -1,12 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect } from 'react';
-import {
-  Input,
-  Button,
-  Label,
-  SearchableSelect,
-} from '@altitutor/ui';
+import { Input, Button, Label, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { QuickFilter } from '@altitutor/shared';
 import { useCreateQuickFilter, useUpdateQuickFilter, useDeleteQuickFilter } from '../hooks/useQuickFilters';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -252,9 +247,9 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
                   getItemLabel={(item) => item.label}
                   placeholder="Select entity"
                   trigger={
-                    <Button variant="outline" className="w-full justify-start font-normal">
+                    <SearchableSelectFieldTrigger>
                       {selectedEntity?.label ?? 'Select entity'}
-                    </Button>
+                    </SearchableSelectFieldTrigger>
                   }
                 />
               </div>
@@ -280,9 +275,9 @@ export function QuickFiltersTable({ filters, onUpdate, onCreateTrigger }: QuickF
                   getItemLabel={(item) => item.label}
                   placeholder="Select scope"
                   trigger={
-                    <Button variant="outline" className="w-full justify-start font-normal">
+                    <SearchableSelectFieldTrigger>
                       {SCOPE_OPTIONS.find((s) => s.id === (formData.user_id ? 'personal' : 'global'))?.label ?? 'Select scope'}
-                    </Button>
+                    </SearchableSelectFieldTrigger>
                   }
                 />
               </div>
