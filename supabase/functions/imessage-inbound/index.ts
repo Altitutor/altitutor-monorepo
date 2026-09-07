@@ -25,6 +25,10 @@ import {
   parseIMessageEvent,
 } from "../_shared/imessage.ts";
 import { updateMessageFromDeliveryEvent } from "./delivery.ts";
+import {
+  normalizeInboundReactionType,
+  type MessageReactionType,
+} from "./reactions.ts";
 
 interface OwnedNumber {
   id: string;
@@ -44,7 +48,7 @@ interface NormalizedMessage {
   isGroup: boolean;
   groupName: string;
   isReaction: boolean;
-  reactionType: string | null;
+  reactionType: MessageReactionType | null;
   associatedMessageGuid: string | null;
   status: "SENT" | "DELIVERED" | "READ" | "FAILED" | "RECEIVED";
   deliveredAt: string | null;
@@ -151,7 +155,10 @@ function normalizeMessage(event: ParsedIMessageEvent): NormalizedMessage {
       payload.SenderName,
     ) ?? "Group Chat",
     isReaction: booleanValue(payload.isReaction, payload.IsReaction),
-    reactionType: firstString(payload.reactionType, payload.ReactionType),
+    reactionType: normalizeInboundReactionType(
+      firstString(payload.reactionType, payload.ReactionType) ??
+        stringOrNumber(payload.reactionType, payload.ReactionType),
+    ),
     associatedMessageGuid: firstString(
       payload.associatedMessageGuid,
       payload.AssociatedMessageGuid,
