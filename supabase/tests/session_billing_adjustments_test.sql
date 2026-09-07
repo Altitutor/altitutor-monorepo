@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(46);
+SELECT plan(47);
 
 SELECT is(
   private.session_billing_cutoff_at('2026-07-13 06:30:00+00'::timestamptz),
@@ -934,6 +934,68 @@ SELECT is(
   ),
   'credit_note',
   'the returned adjustment ID identifies the absence credit work'
+);
+
+CREATE TEMP TABLE in_flight_credit AS
+SELECT *
+FROM public.claim_session_billing_adjustments_by_ids(
+  ARRAY[(
+    SELECT (result->'billing_adjustment_ids'->>0)::uuid
+    FROM logged_absence_command
+  )],
+  25
+);
+
+INSERT INTO public.tutor_logs (id, session_id, created_by, session_type)
+SELECT
+  'f4000000-0000-4000-8000-000000000010',
+  'f0000000-0000-4000-8000-000000000010',
+  '00000000-0000-0000-0000-000000000001',
+  session.type
+FROM public.sessions session
+WHERE session.id = 'f0000000-0000-4000-8000-000000000010';
+
+INSERT INTO public.tutor_logs_student_attendance (
+  tutor_log_id, student_id, attended, was_trial, created_by
+)
+VALUES (
+  'f4000000-0000-4000-8000-000000000010',
+  '10000000-0000-0000-0000-000000000001',
+  true,
+  false,
+  '00000000-0000-0000-0000-000000000001'
+);
+
+INSERT INTO public.credit_notes (
+  id, invoice_id, stripe_credit_note_id, amount_cents, currency, reason,
+  status, source_invoice_item_id, billing_adjustment_id
+)
+SELECT
+  'f3000000-0000-4000-8000-000000000010',
+  'f1000000-0000-4000-8000-000000000010',
+  'cn_in_flight_attendance_test',
+  9000,
+  'AUD',
+  'approved absence',
+  'issued',
+  'f2000000-0000-4000-8000-000000000010',
+  adjustment.id
+FROM in_flight_credit adjustment;
+
+UPDATE public.session_billing_adjustments
+SET status = 'succeeded', completed_at = now()
+WHERE id = (SELECT id FROM in_flight_credit);
+
+SELECT is(
+  (
+    SELECT count(*)::integer
+    FROM public.session_billing_adjustments
+    WHERE sessions_students_id = 'f0000000-0000-4000-8000-000000000011'
+      AND kind = 'restoration_charge'
+      AND status = 'pending'
+  ),
+  1,
+  'attendance recorded while a credit is processing is restored after the credit note persists'
 );
 
 SELECT * FROM finish();
