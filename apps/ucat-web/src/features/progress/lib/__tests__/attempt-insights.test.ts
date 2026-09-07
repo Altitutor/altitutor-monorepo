@@ -109,12 +109,26 @@ describe("buildQuestionAttemptInsight", () => {
     const insight = buildQuestionAttemptInsight({
       result: "incorrect",
       timeSpentSeconds: 12,
-      averageTimeSeconds: 55,
+      averageTimeSeconds: null,
       averageTimeSampleSize: 3,
+      timeBurdenSeconds: null,
     });
 
     expect(insight.title).toBe("Find where your approach went wrong");
     expect(insight.body).toContain("first point where they diverged");
+  });
+
+  it("uses expected time to correct when the successful cohort is too small", () => {
+    const insight = buildQuestionAttemptInsight({
+      result: "incorrect",
+      timeSpentSeconds: 2,
+      averageTimeSeconds: null,
+      averageTimeSampleSize: 0,
+      timeBurdenSeconds: 35,
+    });
+
+    expect(insight.title).toBe("You answered too quickly and got it wrong");
+    expect(insight.body).toContain("94% faster than the expected time");
   });
 
   it("acknowledges a useful flag even without a timing signal", () => {

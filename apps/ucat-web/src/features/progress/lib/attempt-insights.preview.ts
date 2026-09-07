@@ -219,7 +219,7 @@ export const QUESTION_INSIGHT_PREVIEW_CASES = [
   },
   {
     label: "Incorrect without timing",
-    condition: "An incorrect answer has no reliable successful cohort timing.",
+    condition: "An incorrect answer has no reliable successful cohort timing or expected time.",
     input: {
       ...QUESTION_BASE,
       result: "incorrect",

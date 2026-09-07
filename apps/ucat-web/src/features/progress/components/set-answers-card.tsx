@@ -373,6 +373,7 @@ export function SetAnswersCard({
     timeSpentSeconds: currentAttempt?.timeSpentSeconds ?? null,
     averageTimeSeconds: currentAttempt?.averageTimeSeconds ?? null,
     averageTimeSampleSize: currentAttempt?.averageTimeSampleSize ?? 0,
+    timeBurdenSeconds: currentAttempt?.timeBurdenSeconds ?? null,
     wasFlagged: currentAttempt?.isFlagged ?? false,
   });
 
