@@ -8,6 +8,7 @@ const REASON_CATEGORIES = new Set(['approved_absence', 'extended_absence', 'admi
 const BILLING_RETRY_WARNING = 'Absence saved; billing queued for retry.';
 
 type BillingRunnerResult = {
+  ok?: boolean;
   adjustmentsOnly?: boolean;
   skipped?: boolean;
   adjustments?: {
@@ -25,6 +26,7 @@ function isCompletedTargetedBillingRun(
 } {
   const adjustments = data.adjustments;
   return (
+    data.ok === true &&
     data.adjustmentsOnly === true &&
     adjustments !== undefined &&
     [adjustments.claimed, adjustments.succeeded, adjustments.failed].every(

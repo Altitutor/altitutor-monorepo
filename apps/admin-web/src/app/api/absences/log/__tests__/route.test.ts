@@ -169,6 +169,18 @@ describe('POST /api/absences/log', () => {
       response: { ok: true, status: 200, json: async () => ({ ok: true }) },
     },
     {
+      name: 'the runner reports an unsuccessful request',
+      response: {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: false,
+          adjustmentsOnly: true,
+          adjustments: { claimed: 0, succeeded: 0, failed: 0 },
+        }),
+      },
+    },
+    {
       name: 'one of the targeted adjustments fails',
       response: {
         ok: true,

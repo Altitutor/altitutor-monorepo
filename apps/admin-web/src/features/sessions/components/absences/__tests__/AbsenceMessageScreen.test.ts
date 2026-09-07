@@ -18,21 +18,23 @@ describe('buildAbsenceDetails', () => {
       [creditDecision],
       [session],
       new Map(),
-      true,
+      'queued',
     );
 
-    expect(details).toContain('credit is being processed');
+    expect(details).toContain('billing credit is being processed');
     expect(details).not.toContain('credit has been applied');
+    expect(details).not.toContain('account');
   });
 
-  it('describes a successfully processed credit as applied', () => {
+  it('describes a completed credit without promising an account balance', () => {
     const details = buildAbsenceDetails(
       [creditDecision],
       [session],
       new Map(),
-      false,
+      'processed',
     );
 
-    expect(details).toContain('credit has been applied');
+    expect(details).toContain('this session has been credited');
+    expect(details).not.toContain('account');
   });
 });

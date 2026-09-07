@@ -12,6 +12,7 @@ import type {
   AbsenceDecision,
   AbsenceOperation,
   AbsenceAction,
+  AbsenceBillingStatus,
   RescheduleSession,
   StudentSession,
 } from '../../types/absence';
@@ -52,6 +53,7 @@ export function LogAbsenceDialog({
   const [hasInitialized, setHasInitialized] = useState(false);
   const [reasonNote, setReasonNote] = useState('');
   const [billingWarning, setBillingWarning] = useState<string | undefined>();
+  const [billingStatus, setBillingStatus] = useState<AbsenceBillingStatus | undefined>();
 
   // Student search and pagination
   const [searchQuery, setSearchQuery] = useState('');
@@ -154,6 +156,7 @@ export function LogAbsenceDialog({
       setHasInitialized(false);
       setReasonNote('');
       setBillingWarning(undefined);
+      setBillingStatus(undefined);
     }
   }, [isOpen]);
 
@@ -271,6 +274,7 @@ export function LogAbsenceDialog({
 
       if (result.success) {
         setBillingWarning(result.warning);
+        setBillingStatus(result.billing?.status);
         setProcessedSessionsForMessage(sessionsSnapshot);
         setStep('message');
       } else {
@@ -435,6 +439,7 @@ export function LogAbsenceDialog({
             selectedSessionsArray={processedSessionsForMessage}
             rescheduledSessionsMap={rescheduledSessionsMap}
             billingWarning={billingWarning}
+            billingStatus={billingStatus}
           />
         );
 

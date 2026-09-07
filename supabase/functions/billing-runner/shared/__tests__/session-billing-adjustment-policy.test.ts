@@ -31,6 +31,19 @@ describe('session billing Stripe policy', () => {
     expect(command.params.email_type).toBe('none');
   });
 
+  it('reuses the durable Stripe idempotency key when a credit is retried', () => {
+    const firstAttempt = buildSessionCreditNoteCommand({
+      ...baseCredit,
+      invoiceStatus: 'paid',
+    });
+    const retryAttempt = buildSessionCreditNoteCommand({
+      ...baseCredit,
+      invoiceStatus: 'paid',
+    });
+
+    expect(retryAttempt.idempotencyKey).toBe(firstAttempt.idempotencyKey);
+  });
+
   it('reduces an open invoice without creating a customer balance credit', () => {
     const command = buildSessionCreditNoteCommand({
       ...baseCredit,

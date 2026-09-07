@@ -75,6 +75,8 @@ export interface LogAbsencesResponse {
   warning?: string;
 }
 
+export type AbsenceBillingStatus = NonNullable<LogAbsencesResponse['billing']>['status'];
+
 /**
  * Response from undo absences API
  */

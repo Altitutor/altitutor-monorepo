@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(42);
+SELECT plan(46);
 
 SELECT is(
   private.session_billing_cutoff_at('2026-07-13 06:30:00+00'::timestamptz),
@@ -713,6 +713,61 @@ SELECT is(
   ),
   'pending',
   'targeted claiming leaves unrelated due adjustments untouched'
+);
+
+SELECT public.fail_session_billing_adjustment(
+  'f5000000-0000-4000-8000-000000000006',
+  'transient Stripe timeout'
+);
+
+SELECT is(
+  (
+    SELECT status::text
+    FROM public.session_billing_adjustments
+    WHERE id = 'f5000000-0000-4000-8000-000000000006'
+  ),
+  'retryable',
+  'a transient processing failure leaves the durable adjustment retryable'
+);
+
+SELECT ok(
+  (
+    SELECT next_attempt_at > now()
+    FROM public.session_billing_adjustments
+    WHERE id = 'f5000000-0000-4000-8000-000000000006'
+  ),
+  'a transient failure receives a bounded retry backoff'
+);
+
+UPDATE public.session_billing_adjustments
+SET next_attempt_at = now() - interval '1 minute'
+WHERE id = 'f5000000-0000-4000-8000-000000000006';
+
+CREATE TEMP TABLE retry_claimed_adjustment AS
+SELECT * FROM public.claim_session_billing_adjustments_by_ids(
+  ARRAY['f5000000-0000-4000-8000-000000000006'::uuid],
+  25
+);
+
+SELECT is(
+  (SELECT attempt_count FROM retry_claimed_adjustment),
+  2,
+  'the scheduled or targeted runner can claim the failed adjustment again'
+);
+
+UPDATE public.session_billing_adjustments
+SET status = 'succeeded', completed_at = now()
+WHERE id = 'f5000000-0000-4000-8000-000000000006'
+  AND status = 'processing';
+
+SELECT is(
+  (
+    SELECT status::text
+    FROM public.session_billing_adjustments
+    WHERE id = 'f5000000-0000-4000-8000-000000000006'
+  ),
+  'succeeded',
+  'a retried adjustment can complete without creating a second queue intent'
 );
 
 SELECT is(

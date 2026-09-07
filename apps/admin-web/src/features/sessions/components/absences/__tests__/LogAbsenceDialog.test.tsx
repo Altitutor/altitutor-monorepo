@@ -74,8 +74,17 @@ jest.mock('../AbsenceBulkActionSelector', () => ({
 }));
 
 jest.mock('../AbsenceMessageScreen', () => ({
-  AbsenceMessageScreen: ({ billingWarning }: { billingWarning?: string }) => (
-    <div>Message {billingWarning}</div>
+  AbsenceMessageScreen: ({
+    billingWarning,
+    billingStatus,
+  }: {
+    billingWarning?: string;
+    billingStatus?: string;
+  }) => (
+    <div>
+      Message {billingWarning}
+      <span data-testid="billing-status">{billingStatus}</span>
+    </div>
   ),
 }));
 
@@ -152,5 +161,6 @@ describe('LogAbsenceDialog', () => {
     fireEvent.click(screen.getByRole('button', { name: /Confirm All Actions/ }));
 
     expect(await screen.findByText(/Absence saved; billing queued for retry\./)).toBeInTheDocument();
+    expect(screen.getByTestId('billing-status')).toHaveTextContent('queued');
   });
 });
