@@ -20,7 +20,9 @@ export function getAnswerExplanationCardModel(
     const optionIds = question.options
       .filter(hasExplanation)
       .map((option) => option.id);
-    return optionIds.length > 0 ? { kind: "options", optionIds } : { kind: "empty" };
+    return optionIds.length > 0
+      ? { kind: "options", optionIds }
+      : { kind: "empty" };
   }
 
   return hasExplanation(question) ? { kind: "question" } : { kind: "empty" };
