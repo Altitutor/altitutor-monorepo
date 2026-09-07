@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useRef, useState } from "react";
+import React, { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { captureUcatObservedFirstTouchInBrowser } from "@altitutor/shared";
@@ -58,7 +58,7 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
   return null;
 }
 
-export function UcatPostHogIdentity() {
+function UcatPostHogIdentityWithAccess() {
   const { user, isLoading } = useAuth();
   const access = useUcatAccess();
   const userId = user?.id ?? null;
@@ -92,6 +92,20 @@ export function UcatPostHogIdentity() {
   ]);
 
   return null;
+}
+
+export function UcatPostHogIdentity() {
+  const pathname = usePathname();
+  const isAuthTransition =
+    getUcatAnalyticsSurface(pathname) === "auth" ||
+    pathname.startsWith("/auth/");
+
+  // Password and social authentication finish with a full-document handoff.
+  // Do not start an entitlement request while Safari is leaving the auth page:
+  // WebKit can abort both requests together and strand the user on login.
+  if (isAuthTransition) return null;
+
+  return <UcatPostHogIdentityWithAccess />;
 }
 
 export function UcatPostHogProvider({
