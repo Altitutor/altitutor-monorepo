@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     const sessionType = body.session_type === 'SUBSIDY_INTERVIEW' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION';
 
     // Validation
-    if (!body.student_first_name || !body.student_last_name || 
+    if (!body.student_first_name ||
         !body.student_email || !body.curriculum || 
         !body.start_at || !body.end_at) {
       return NextResponse.json(
@@ -118,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Call database function (parameters must be in order: required first, then optional)
     const { data, error } = await supabase.rpc('create_public_trial_booking', {
       p_student_first_name: body.student_first_name,
-      p_student_last_name: body.student_last_name,
+      p_student_last_name: body.student_last_name || '',
       p_student_email: body.student_email,
       p_student_phone: body.student_phone || null,
       p_curriculum: body.curriculum,
