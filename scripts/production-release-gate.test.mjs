@@ -423,6 +423,28 @@ test("every web app runs Playwright against a production build", async () => {
   }
 });
 
+test("browser CI bounds startup and releases generated build artifacts", async () => {
+  const workflow = await readFile(ciWorkflowPath, "utf8");
+
+  for (const app of APPS) {
+    assert.match(
+      workflow,
+      new RegExp(`trap 'rm -rf apps/${app}/\\.next-e2e' EXIT`, "u"),
+      `${app} must release its generated E2E build before the next portal runs`,
+    );
+  }
+
+  const studentConfig = await readFile(
+    new URL("../apps/student-web/playwright.config.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(
+    studentConfig,
+    /timeout: process\.env\.CI \? 900_000 : 300_000/u,
+    "student-web must allow its Docker-constrained CI production build to finish",
+  );
+});
+
 test("data-backed portal E2E servers receive the local service-role key", async () => {
   for (const app of ["admin-web", "student-web", "tutor-web", "ucat-web"]) {
     const config = await readFile(

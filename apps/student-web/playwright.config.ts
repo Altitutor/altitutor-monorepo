@@ -100,7 +100,10 @@ export default defineConfig({
     ].join(" && "),
     url: baseURL,
     reuseExistingServer: !process.env.CI,
-    timeout: 300_000,
+    // The production build shares a constrained CI runner with the local
+    // Supabase Docker stack. Keep local failures fast while allowing that
+    // release build to finish before Playwright starts checking readiness.
+    timeout: process.env.CI ? 900_000 : 300_000,
     env: {
       ...readLocalSupabaseEnvironment(),
       NEXT_PUBLIC_ADMIN_PORTAL_URL: "http://localhost:3000",
