@@ -8,6 +8,7 @@ const REASON_CATEGORIES = new Set(['approved_absence', 'extended_absence', 'admi
 const BILLING_RETRY_WARNING = 'Absence saved; billing queued for retry.';
 
 type BillingRunnerResult = {
+  adjustmentsOnly?: boolean;
   skipped?: boolean;
   adjustments?: {
     claimed?: number;
@@ -15,6 +16,22 @@ type BillingRunnerResult = {
     failed?: number;
   };
 };
+
+function isCompletedTargetedBillingRun(
+  data: BillingRunnerResult,
+): data is BillingRunnerResult & {
+  adjustmentsOnly: true;
+  adjustments: { claimed: number; succeeded: number; failed: number };
+} {
+  const adjustments = data.adjustments;
+  return (
+    data.adjustmentsOnly === true &&
+    adjustments !== undefined &&
+    [adjustments.claimed, adjustments.succeeded, adjustments.failed].every(
+      (count) => Number.isInteger(count) && (count ?? -1) >= 0,
+    )
+  );
+}
 
 function getAdjustmentIds(data: unknown): string[] {
   if (!data || typeof data !== 'object' || !('billing_adjustment_ids' in data)) return [];
@@ -136,19 +153,25 @@ export async function POST(request: Request) {
         signal: billingAbortController.signal,
       });
       const billingData = (await billingResponse.json()) as BillingRunnerResult;
-      const adjustments = billingData.adjustments;
-      if (!billingResponse.ok || billingData.skipped || (adjustments?.failed ?? 0) > 0) {
+      if (
+        !billingResponse.ok ||
+        billingData.skipped ||
+        !isCompletedTargetedBillingRun(billingData) ||
+        billingData.adjustments.failed > 0
+      ) {
         throw new Error('Immediate billing adjustment processing did not complete');
       }
+
+      const { adjustments } = billingData;
 
       return NextResponse.json({
         success: true,
         data,
         billing: {
           status: 'processed',
-          claimed: adjustments?.claimed ?? 0,
-          succeeded: adjustments?.succeeded ?? 0,
-          failed: adjustments?.failed ?? 0,
+          claimed: adjustments.claimed,
+          succeeded: adjustments.succeeded,
+          failed: adjustments.failed,
         },
       });
     } catch (billingError) {

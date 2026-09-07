@@ -1,6 +1,18 @@
 BEGIN;
 
-SELECT plan(39);
+SELECT plan(42);
+
+SELECT is(
+  private.session_billing_cutoff_at('2026-07-13 06:30:00+00'::timestamptz),
+  '2026-07-12 11:30:00+00'::timestamptz,
+  'the billing cutoff is 9pm Adelaide on the previous winter day'
+);
+
+SELECT is(
+  private.session_billing_cutoff_at('2026-01-13 05:30:00+00'::timestamptz),
+  '2026-01-12 10:30:00+00'::timestamptz,
+  'the billing cutoff is 9pm Adelaide on the previous summer day'
+);
 
 SELECT is(
   public.derive_session_absence_billing_treatment(false, false, false),
@@ -72,6 +84,64 @@ SELECT
   'f0000000-0000-4000-8000-000000000002'::uuid AS sessions_students_id,
   '10000000-0000-0000-0000-000000000001'::uuid AS student_id,
   'f0000000-0000-4000-8000-000000000001'::uuid AS session_id;
+
+INSERT INTO public.sessions (
+  id,
+  type,
+  subject_id,
+  start_at,
+  end_at,
+  status,
+  billing_type
+)
+SELECT
+  'f0000000-0000-4000-8000-000000000020',
+  source.type,
+  source.subject_id,
+  '2099-01-13 05:30:00+00'::timestamptz,
+  '2099-01-13 07:00:00+00'::timestamptz,
+  'ACTIVE',
+  source.billing_type
+FROM public.sessions source
+WHERE source.billing_type IS NOT NULL
+LIMIT 1;
+
+INSERT INTO public.sessions_students (
+  id,
+  session_id,
+  student_id,
+  planned_absence,
+  is_credited,
+  is_rescheduled,
+  was_trial
+)
+VALUES (
+  'f0000000-0000-4000-8000-000000000021',
+  'f0000000-0000-4000-8000-000000000020',
+  '10000000-0000-0000-0000-000000000001',
+  false,
+  false,
+  false,
+  false
+);
+
+CREATE TEMP TABLE future_session_charge AS
+SELECT public.enqueue_session_billing_adjustment(
+  'f0000000-0000-4000-8000-000000000021',
+  NULL,
+  'system_reconciliation',
+  'cutoff test'
+) AS adjustment_id;
+
+SELECT is(
+  (
+    SELECT next_attempt_at
+    FROM public.session_billing_adjustments
+    WHERE id = (SELECT adjustment_id FROM future_session_charge)
+  ),
+  '2099-01-12 10:30:00+00'::timestamptz,
+  'a future replacement charge waits for the normal Adelaide billing cutoff'
+);
 
 SELECT is(
   public.get_chargeable_sessions_students_ids(

@@ -159,6 +159,47 @@ describe('POST /api/absences/log', () => {
     );
   });
 
+  it.each([
+    {
+      name: 'the runner lock is already held',
+      response: { ok: true, status: 200, json: async () => ({ ok: true, skipped: true }) },
+    },
+    {
+      name: 'the runner response is malformed',
+      response: { ok: true, status: 200, json: async () => ({ ok: true }) },
+    },
+    {
+      name: 'one of the targeted adjustments fails',
+      response: {
+        ok: true,
+        status: 200,
+        json: async () => ({
+          ok: true,
+          adjustmentsOnly: true,
+          adjustments: { claimed: 1, succeeded: 0, failed: 1 },
+        }),
+      },
+    },
+  ])('queues durable work when $name', async ({ response: billingResponse }) => {
+    mockFetch.mockResolvedValueOnce(billingResponse);
+
+    const response = await POST({
+      json: async () => ({
+        operations: [creditOperation],
+        reasonCategory: 'approved_absence',
+      }),
+    } as Request);
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual(
+      expect.objectContaining({
+        success: true,
+        billing: { status: 'queued' },
+        warning: 'Absence saved; billing queued for retry.',
+      }),
+    );
+  });
+
   it('does not invoke billing when the absence creates no financial adjustment', async () => {
     mockRpc.mockResolvedValueOnce({
       data: { success: true, operations: [creditOperation], billing_adjustment_ids: [] },
