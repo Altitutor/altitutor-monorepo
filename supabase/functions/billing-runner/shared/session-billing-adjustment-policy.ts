@@ -9,9 +9,16 @@ export interface CreditNoteCommandInput {
   invoiceStatus: 'open' | 'paid';
   reasonCategory: string;
   reasonNote: string | null;
+  createdByStaffId?: string | null;
+}
+
+function stripeMetadataValue(value: string | null | undefined): string | undefined {
+  const trimmed = value?.trim();
+  return trimmed ? trimmed.slice(0, 500) : undefined;
 }
 
 export function buildSessionCreditNoteCommand(input: CreditNoteCommandInput) {
+  const reasonNote = stripeMetadataValue(input.reasonNote);
   return {
     idempotencyKey: input.idempotencyKey,
     params: {
@@ -22,7 +29,7 @@ export function buildSessionCreditNoteCommand(input: CreditNoteCommandInput) {
         amount: line.amountCents,
       })),
       reason: 'order_change' as const,
-      memo: input.reasonNote ?? 'Session absence credit',
+      memo: reasonNote ?? 'Session absence credit',
       ...(input.invoiceStatus === 'paid' ? { credit_amount: input.amountCents } : {}),
       email_type: 'none' as const,
       metadata: {
@@ -30,6 +37,9 @@ export function buildSessionCreditNoteCommand(input: CreditNoteCommandInput) {
         source_invoice_item_id: input.sourceInvoiceItemId,
         sessions_students_id: input.sessionsStudentsId,
         reason_category: input.reasonCategory,
+        memo: reasonNote ?? 'Session absence credit',
+        ...(reasonNote ? { reason_note: reasonNote } : {}),
+        ...(input.createdByStaffId ? { created_by_staff_id: input.createdByStaffId } : {}),
       },
     },
   };

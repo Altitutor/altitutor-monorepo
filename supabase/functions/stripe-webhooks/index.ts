@@ -58,6 +58,21 @@ function json(resp: unknown, status = 200) {
   });
 }
 
+function storedCreditNoteMetadata(
+  metadata: Record<string, unknown> | null | undefined,
+  memo: string | null | undefined,
+): Record<string, unknown> {
+  const stored =
+    metadata && typeof metadata === "object" && !Array.isArray(metadata)
+      ? { ...metadata }
+      : {};
+  const trimmedMemo = typeof memo === "string" ? memo.trim() : "";
+  if (trimmedMemo && (typeof stored.memo !== "string" || !String(stored.memo).trim())) {
+    stored.memo = trimmedMemo.slice(0, 500);
+  }
+  return stored;
+}
+
 async function getUcatSubjectId(
   supabase: SupabaseClient,
 ): Promise<string | null> {
@@ -2092,6 +2107,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           currency?: string;
           reason?: string;
           status?: string;
+          memo?: string | null;
           metadata?: Record<string, unknown>;
           refund?: string | null;
           refunds?: Array<{ amount_refunded?: number }> | null;
@@ -2145,7 +2161,10 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 currency: creditNote.currency ?? "aud",
                 reason: creditNote.reason ?? null,
                 status: creditNote.status ?? "issued",
-                metadata: creditNote.metadata ?? {},
+                metadata: storedCreditNoteMetadata(
+                  creditNote.metadata,
+                  creditNote.memo,
+                ),
                 refund_amount_cents: refundCents,
                 credit_amount_cents: creditCents,
                 out_of_band_amount_cents: outOfBandCents,

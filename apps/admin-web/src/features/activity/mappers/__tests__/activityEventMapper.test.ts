@@ -143,19 +143,46 @@ describe('lifecycle activity mapper', () => {
     expect(declined.iconColor).toBe('red');
   });
 
-  it('includes the credit-note amount in the added event', () => {
-    const result = mapActivityEventToDisplay(makeEvent({
+  it('includes the credit-note amount and why it was added', () => {
+    const manual = mapActivityEventToDisplay(makeEvent({
       event_name: 'invoice.credit_note_added',
       subject_type: 'invoice',
       payload: {
         credit_note_type: 'refund',
         amount_cents: 5000,
         currency: 'AUD',
+        reason: 'duplicate',
+        memo: 'Duplicate invoice line',
         display: { invoice_name: 'INV-1042' },
       },
+      actor_staff_id: '00000000-0000-0000-0000-000000000001',
     }));
 
-    expect(result.message).toBe('added a Refund credit note of $50.00 AUD to invoice INV-1042');
+    expect(manual.message).toBe(
+      'added a Refund credit note of $50.00 AUD to invoice INV-1042 (Duplicate invoice line)'
+    );
+    expect(manual.performedBy.name).toBe('Staff');
+
+    const absenceCredit = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.credit_note_added',
+      subject_type: 'invoice',
+      payload: {
+        credit_note_type: 'credit',
+        amount_cents: 9000,
+        currency: 'AUD',
+        reason: 'order_change',
+        reason_category: 'approved_absence',
+        reason_note: 'Sick with flu',
+        memo: 'Session absence credit',
+        display: { invoice_name: 'INV-1042', actor_name: 'Admin User' },
+      },
+      actor_staff_id: '00000000-0000-0000-0000-000000000001',
+    }));
+
+    expect(absenceCredit.message).toBe(
+      'added a Credit credit note of $90.00 AUD to invoice INV-1042 (Approved Absence: Sick with flu)'
+    );
+    expect(absenceCredit.performedBy.name).toBe('Admin User');
   });
 
   it('marks snapshotted entity names as clickable message parts', () => {

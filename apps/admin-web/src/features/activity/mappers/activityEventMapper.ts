@@ -147,6 +147,26 @@ function invoiceCreditNoteAmount(payload: Payload): string {
   return amount == null ? '' : ` of ${formatCents(amount, invoiceCurrency(payload))}`;
 }
 
+const GENERIC_SESSION_CREDIT_MEMO = 'Session absence credit';
+
+function invoiceCreditNoteWhy(payload: Payload): string {
+  const category = text(payload.reason_category);
+  const reasonNote = text(payload.reason_note);
+  const memo = text(payload.memo);
+  const internalNote = text(payload.internal_note);
+  const stripeReason = text(payload.reason);
+  const note = reasonNote
+    || (memo && memo !== GENERIC_SESSION_CREDIT_MEMO ? memo : undefined)
+    || internalNote;
+
+  if (category) {
+    return note ? ` (${titleCase(category)}: ${note})` : ` (${titleCase(category)})`;
+  }
+  if (note) return ` (${note})`;
+  if (stripeReason) return ` (${titleCase(stripeReason)})`;
+  return '';
+}
+
 function invoiceNotificationRecipients(payload: Payload): string {
   const count = integer(payload.recipient_count);
   if (count == null || count < 1) return '';
@@ -299,7 +319,7 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     'invoice.notification_sent': [`sent the invoice notification for ${invoiceWithSessions}${invoiceNotificationRecipients(payload)}`, 'file', 'blue'],
     'invoice.voided': [`voided ${invoiceWithSessions}`, 'x', 'red'],
     'invoice.refunded': [`refunded ${invoiceWithSessions}`, 'arrow-left', 'purple'],
-    'invoice.credit_note_added': [`added a ${titleCase(text(payload.credit_note_type) || 'credit')} credit note${invoiceCreditNoteAmount(payload)} to ${invoiceWithSessions}`, 'file', 'purple'],
+    'invoice.credit_note_added': [`added a ${titleCase(text(payload.credit_note_type) || 'credit')} credit note${invoiceCreditNoteAmount(payload)} to ${invoiceWithSessions}${invoiceCreditNoteWhy(payload)}`, 'file', 'purple'],
     'invoice.credit_note_voided': [`voided the credit note for ${invoiceWithSessions}`, 'x', 'red'],
 
     'task.created': [`created ${task}`, 'flag', 'green'],

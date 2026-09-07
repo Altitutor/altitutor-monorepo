@@ -4,8 +4,8 @@
 
 CREATE OR REPLACE FUNCTION public.credit_note_lifecycle_event_payload(
   row_data JSONB,
-  adjustment_reason_category TEXT DEFAULT NULL,
-  adjustment_reason_note TEXT DEFAULT NULL
+  adjustment_reason_category TEXT,
+  adjustment_reason_note TEXT
 )
 RETURNS JSONB
 LANGUAGE SQL
@@ -27,11 +27,11 @@ AS $function$
     'internal_note', NULLIF(row_data->'metadata'->>'internal_note', ''),
     'reason_category', COALESCE(
       NULLIF(row_data->'metadata'->>'reason_category', ''),
-      adjustment_reason_category
+      NULLIF(adjustment_reason_category, '')
     ),
     'reason_note', COALESCE(
       NULLIF(row_data->'metadata'->>'reason_note', ''),
-      adjustment_reason_note
+      NULLIF(adjustment_reason_note, '')
     ),
     'billing_adjustment_id', row_data->'billing_adjustment_id'
   ));
@@ -63,6 +63,8 @@ DECLARE
   metadata JSONB := '{}'::JSONB;
   entities JSONB := '[]'::JSONB;
   payload JSONB := '{}'::JSONB;
+  invoice_number TEXT;
+  metadata_actor_id UUID;
 BEGIN
   IF TG_OP <> 'INSERT' THEN old_row := to_jsonb(OLD); END IF;
   IF TG_OP <> 'DELETE' THEN new_row := to_jsonb(NEW); END IF;
@@ -90,18 +92,26 @@ BEGIN
     WHERE adjustment.id = capture.adjustment_id;
   END IF;
 
+  BEGIN
+    metadata_actor_id := NULLIF(BTRIM(metadata->>'created_by_staff_id'), '')::UUID;
+  EXCEPTION
+    WHEN invalid_text_representation THEN
+      metadata_actor_id := NULL;
+  END;
+
   actor_id := COALESCE(
-    NULLIF(metadata->>'created_by_staff_id', '')::UUID,
+    metadata_actor_id,
     adjustment_created_by,
     public.current_staff_id()
   );
 
-  SELECT invoice.student_id INTO student_id
+  SELECT invoice.student_id, invoice.stripe_invoice_number
+  INTO student_id, invoice_number
   FROM public.invoices AS invoice
-  WHERE invoice.id = invoice_id;
+  WHERE invoice.id = capture.invoice_id;
 
   entities := jsonb_build_array(
-    public.domain_event_entity('invoice', invoice_id, 'subject'),
+    public.domain_event_entity('invoice', invoice_id, 'subject', invoice_number),
     public.domain_event_entity('student', student_id, 'related')
   );
   payload := public.credit_note_lifecycle_event_payload(
@@ -142,7 +152,10 @@ WITH resolved AS (
   SELECT
     event.id AS event_id,
     COALESCE(
-      NULLIF(credit_note.metadata->>'created_by_staff_id', '')::UUID,
+      CASE
+        WHEN credit_note.metadata->>'created_by_staff_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          THEN (credit_note.metadata->>'created_by_staff_id')::UUID
+      END,
       adjustment.created_by
     ) AS actor_id,
     public.credit_note_lifecycle_event_payload(
@@ -153,15 +166,19 @@ WITH resolved AS (
     NULLIF(BTRIM(CONCAT_WS(' ', staff.first_name, staff.last_name)), '') AS actor_name
   FROM public.domain_events event
   JOIN public.credit_notes credit_note
-    ON credit_note.id = NULLIF(event.payload->>'credit_note_id', '')::UUID
+    ON credit_note.id = (event.payload->>'credit_note_id')::UUID
   LEFT JOIN public.session_billing_adjustments adjustment
     ON adjustment.id = credit_note.billing_adjustment_id
   LEFT JOIN public.staff staff
     ON staff.id = COALESCE(
-      NULLIF(credit_note.metadata->>'created_by_staff_id', '')::UUID,
+      CASE
+        WHEN credit_note.metadata->>'created_by_staff_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+          THEN (credit_note.metadata->>'created_by_staff_id')::UUID
+      END,
       adjustment.created_by
     )
   WHERE event.event_name IN ('invoice.credit_note_added', 'invoice.credit_note_voided')
+    AND event.payload->>'credit_note_id' ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
 )
 UPDATE public.domain_events event
 SET

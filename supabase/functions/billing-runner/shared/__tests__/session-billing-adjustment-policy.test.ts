@@ -28,7 +28,26 @@ describe('session billing Stripe policy', () => {
       amount: 9000,
     }]);
     expect(command.params.metadata.billing_adjustment_id).toBe('adjustment-1');
+    expect(command.params.metadata.reason_category).toBe('approved_absence');
+    expect(command.params.metadata.memo).toBe('Session absence credit');
     expect(command.params.email_type).toBe('none');
+  });
+
+  it('records the absence why and staff actor on Stripe metadata', () => {
+    const command = buildSessionCreditNoteCommand({
+      ...baseCredit,
+      invoiceStatus: 'open',
+      reasonNote: 'Sick with flu',
+      createdByStaffId: '00000000-0000-0000-0000-000000000001',
+    });
+
+    expect(command.params.memo).toBe('Sick with flu');
+    expect(command.params.metadata).toMatchObject({
+      reason_category: 'approved_absence',
+      reason_note: 'Sick with flu',
+      memo: 'Sick with flu',
+      created_by_staff_id: '00000000-0000-0000-0000-000000000001',
+    });
   });
 
   it('reuses the durable Stripe idempotency key when a credit is retried', () => {
