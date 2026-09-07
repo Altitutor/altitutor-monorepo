@@ -90,7 +90,8 @@ export const useMessagingUiStore = create<MessagingUiState>()(
       clearDraft: (key) =>
         set((state) => {
           if (!(key in state.drafts)) return state;
-          const { [key]: _removed, ...rest } = state.drafts;
+          const rest = { ...state.drafts };
+          delete rest[key];
           return { drafts: rest };
         }),
     }),

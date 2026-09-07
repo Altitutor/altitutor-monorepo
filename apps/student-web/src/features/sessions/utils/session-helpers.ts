@@ -147,6 +147,7 @@ export type FlattenedSessionDetail = {
   subject_year_level: number | null;
   subject_short_name: string | null;
   subject_long_name: string | null;
+  long_name?: string | null;
   // Related data
   students?: Array<{
     id: string;
@@ -172,8 +173,7 @@ export function getSessionTitle(session: FlattenedSessionDetail): string {
     return HOMEWORK_HELP_DISPLAY_NAME;
   }
 
-  const withLongName = session as { long_name?: string | null };
-  if (withLongName.long_name?.trim()) return withLongName.long_name.trim();
+  if (session.long_name?.trim()) return session.long_name.trim();
 
   const parts: string[] = [];
   // Add curriculum

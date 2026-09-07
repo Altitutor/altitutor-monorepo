@@ -1,7 +1,6 @@
 import {
   applyUnreadToCachedConversations,
   unreadBadgeDeltaForCache,
-  type ConversationUnreadTarget,
 } from '../conversationUnreadCache';
 
 const contactA = {

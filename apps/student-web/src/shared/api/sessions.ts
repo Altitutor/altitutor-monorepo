@@ -7,9 +7,9 @@ import {
   getMergedSessionTimeRange,
   isHomeworkHelpSessionType,
   mergeUniquePeople,
-  type FlattenedSessionDetail,
 } from '@/features/sessions/utils/session-helpers';
 type StudentSessionBase = Database['public']['Views']['vstudent_session_base']['Row'];
+type StudentSessionDetail = Database['public']['Views']['vstudent_session_detail']['Row'];
 
 export interface StudentSessionWithStaff extends Omit<StudentSessionBase, 'staff' | 'students'> {
   staff: Array<{
@@ -27,6 +27,9 @@ export interface StudentSessionWithStaff extends Omit<StudentSessionBase, 'staff
   }>;
 }
 
+type SessionStudent = StudentSessionWithStaff['students'][number];
+type SessionStaff = StudentSessionWithStaff['staff'][number];
+
 type TutorLogTopicJson = {
   id: string;
   topic_id: string;
@@ -40,6 +43,69 @@ type TutorLogFileJson = {
   topics_files_id: string;
   topic_id: string;
 };
+
+function isJsonRecord(value: Json): value is { [key: string]: Json | undefined } {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function parseSessionStudents(raw: Json | null): StudentSessionWithStaff['students'] {
+  if (!Array.isArray(raw)) return [];
+  const students: StudentSessionWithStaff['students'] = [];
+  for (const row of raw) {
+    if (!isJsonRecord(row)) continue;
+    if (
+      typeof row.id !== 'string' ||
+      typeof row.first_name !== 'string' ||
+      typeof row.last_name !== 'string'
+    ) {
+      continue;
+    }
+    const student: SessionStudent = {
+      id: row.id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+    };
+    if (typeof row.year_level === 'number') {
+      student.year_level = row.year_level;
+    }
+    students.push(student);
+  }
+  return students;
+}
+
+function parseSessionStaff(raw: Json | null): StudentSessionWithStaff['staff'] {
+  if (!Array.isArray(raw)) return [];
+  const staff: StudentSessionWithStaff['staff'] = [];
+  for (const row of raw) {
+    if (!isJsonRecord(row)) continue;
+    if (
+      typeof row.id !== 'string' ||
+      typeof row.first_name !== 'string' ||
+      typeof row.last_name !== 'string'
+    ) {
+      continue;
+    }
+    const member: SessionStaff = {
+      id: row.id,
+      first_name: row.first_name,
+      last_name: row.last_name,
+    };
+    if (typeof row.role === 'string') {
+      member.role = row.role;
+    }
+    if (typeof row.type === 'string') {
+      member.type = row.type;
+    }
+    staff.push(member);
+  }
+  return staff;
+}
+
+function hasSessionTiming(
+  session: StudentSessionDetail,
+): session is StudentSessionDetail & { session_id: string; session_type: string } {
+  return typeof session.session_id === 'string' && typeof session.session_type === 'string';
+}
 
 function parseTutorLogTopics(raw: Json | null): TutorLogTopicJson[] {
   if (!raw || !Array.isArray(raw)) return [];
@@ -98,23 +164,11 @@ export const studentSessionsApi = {
 
     if (error) throw error;
 
-    return (data || []).map((session) => {
-      const sessionWithRelations = session as StudentSessionBase & {
-        staff?: unknown;
-        students?: unknown;
-      };
-      const staff = Array.isArray(sessionWithRelations.staff)
-        ? (sessionWithRelations.staff as StudentSessionWithStaff['staff'])
-        : [];
-      const students = Array.isArray(sessionWithRelations.students)
-        ? (sessionWithRelations.students as StudentSessionWithStaff['students'])
-        : [];
-      return {
-        ...session,
-        staff,
-        students,
-      } as StudentSessionWithStaff;
-    });
+    return (data || []).map((session) => ({
+      ...session,
+      staff: parseSessionStaff(session.staff),
+      students: parseSessionStudents(session.students),
+    }));
   },
 
   /**
@@ -158,7 +212,7 @@ export const studentSessionsApi = {
       if (sameDayError) throw sameDayError;
 
       const relatedSessions = collectAdjacentHomeworkHelpSessions(
-        (sameDaySessions ?? []) as FlattenedSessionDetail[],
+        (sameDaySessions ?? []).filter(hasSessionTiming),
         sessionId,
       );
 
@@ -168,16 +222,10 @@ export const studentSessionsApi = {
 
       const mergedTimeRange = getMergedSessionTimeRange(relatedSessions);
       const mergedStudents = mergeUniquePeople(
-        relatedSessions.map((session) => {
-          const students = (session as { students?: StudentSessionWithStaff['students'] }).students;
-          return Array.isArray(students) ? students : [];
-        }),
+        relatedSessions.map((session) => parseSessionStudents(session.students)),
       );
       const mergedStaff = mergeUniquePeople(
-        relatedSessions.map((session) => {
-          const staff = (session as { staff?: StudentSessionWithStaff['staff'] }).staff;
-          return Array.isArray(staff) ? staff : [];
-        }),
+        relatedSessions.map((session) => parseSessionStaff(session.staff)),
       );
 
       return {

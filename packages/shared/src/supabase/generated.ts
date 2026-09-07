@@ -38321,6 +38321,14 @@ export type Database = {
         }
         Returns: undefined
       }
+      credit_note_lifecycle_event_payload: {
+        Args: {
+          adjustment_reason_category: string
+          adjustment_reason_note: string
+          row_data: Json
+        }
+        Returns: Json
+      }
       current_staff_id: { Args: never; Returns: string }
       current_student_id: { Args: never; Returns: string }
       current_student_portal_access: { Args: never; Returns: Json }
