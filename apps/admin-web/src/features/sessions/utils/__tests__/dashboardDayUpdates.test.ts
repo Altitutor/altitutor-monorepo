@@ -1,5 +1,6 @@
 import {
   buildDashboardDayUpdates,
+  getDashboardDayUpdateKindLabel,
   groupDashboardDayUpdateItems,
   hasDashboardDayUpdates,
   sortDashboardDayUpdateItems,
@@ -532,5 +533,13 @@ describe('groupDashboardDayUpdateItems', () => {
       '11ENG tue 6:00',
       '12MATH tue 4:15',
     ]);
+  });
+});
+
+describe('getDashboardDayUpdateKindLabel', () => {
+  it('returns the type section title for each update kind', () => {
+    expect(getDashboardDayUpdateKindLabel('meeting')).toBe('Meetings');
+    expect(getDashboardDayUpdateKindLabel('trial_tutor')).toBe('Trial tutors');
+    expect(getDashboardDayUpdateKindLabel('staff_swap')).toBe('Staff swaps');
   });
 });

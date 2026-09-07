@@ -231,6 +231,22 @@ export const DASHBOARD_UPDATES_TYPE_SECTIONS: Array<{
   { key: 'extraStaff', title: 'Extra staff' },
 ];
 
+const DASHBOARD_UPDATE_KIND_SECTION_KEY: Record<DashboardDayUpdateKind, keyof DashboardDayUpdates> = {
+  meeting: 'meetings',
+  time_change: 'timeChanges',
+  student_absence: 'studentAbsences',
+  extra_student: 'extraStudents',
+  staff_swap: 'staffSwaps',
+  staff_absence: 'staffAbsences',
+  trial_tutor: 'trialTutors',
+  extra_staff: 'extraStaff',
+};
+
+export function getDashboardDayUpdateKindLabel(kind: DashboardDayUpdateKind): string {
+  const sectionKey = DASHBOARD_UPDATE_KIND_SECTION_KEY[kind];
+  return DASHBOARD_UPDATES_TYPE_SECTIONS.find((section) => section.key === sectionKey)?.title ?? kind;
+}
+
 export type DashboardDayUpdateGroup = {
   key: string;
   title: string;

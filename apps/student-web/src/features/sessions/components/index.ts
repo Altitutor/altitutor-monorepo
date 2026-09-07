@@ -1,4 +1,5 @@
 export * from './StudentSessionsCalendarView';
+export * from './StudentTodaySessionsCalendarView';
 export * from './StudentSessionsCard';
 export * from './SessionHoverTooltip';
 export * from './SessionModal';

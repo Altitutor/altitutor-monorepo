@@ -2,12 +2,13 @@
 
 import { useMemo, useState } from 'react';
 import { format } from 'date-fns';
-import { Card, CardContent, CardHeader, CardTitle, SearchableSelect } from '@altitutor/ui';
+import { Card, CardContent, CardHeader, CardTitle, Badge, SearchableSelect } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { clickableCardFocusRingCn, clickableCardHoverCn, cn } from '@/shared/utils';
 import { useDashboardDayUpdates } from '../hooks/useDashboardDayUpdates';
 import {
   DASHBOARD_UPDATES_SORT_OPTIONS,
+  getDashboardDayUpdateKindLabel,
   groupDashboardDayUpdateItems,
   hasDashboardDayUpdates,
   type DashboardDayUpdateItem,
@@ -45,9 +46,11 @@ function formatUsualTime(item: DashboardDayUpdateItem): string | null {
 function UpdateRow({
   item,
   onOpenSession,
+  showTypeBadge,
 }: {
   item: DashboardDayUpdateItem;
   onOpenSession: (sessionId: string) => void;
+  showTypeBadge: boolean;
 }) {
   const timeLabel = formatCurrentTime(item);
   const usualLabel = item.kind === 'time_change' ? formatUsualTime(item) : null;
@@ -71,14 +74,21 @@ function UpdateRow({
       type="button"
       onClick={() => onOpenSession(item.sessionId)}
       className={cn(
-        'flex w-full flex-col rounded-md px-4 py-2 text-left transition-colors',
+        'flex w-full gap-2 rounded-md px-4 py-2 text-left transition-colors',
         clickableCardHoverCn,
         clickableCardFocusRingCn
       )}
     >
-      <span className="truncate text-sm font-medium leading-5">{primary}</span>
-      {secondary ? (
-        <span className="truncate text-xs leading-5 text-muted-foreground">{secondary}</span>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <span className="truncate text-sm font-medium leading-5">{primary}</span>
+        {secondary ? (
+          <span className="truncate text-xs leading-5 text-muted-foreground">{secondary}</span>
+        ) : null}
+      </div>
+      {showTypeBadge ? (
+        <Badge variant="secondary" className="shrink-0 self-start whitespace-nowrap text-[10px] font-medium leading-4">
+          {getDashboardDayUpdateKindLabel(item.kind)}
+        </Badge>
       ) : null}
     </button>
   );
@@ -120,9 +130,7 @@ export function DashboardUpdatesCard({
           placeholder="Sort by"
           searchPlaceholder="Search sort..."
           emptyMessage="No options found"
-          className="w-[140px] shrink-0"
-          fullWidth
-          triggerClassName="h-9"
+          triggerClassName="h-9 w-auto"
         />
       </CardHeader>
       <CardContent className="min-h-0 flex-1 overflow-auto p-0">
@@ -147,6 +155,7 @@ export function DashboardUpdatesCard({
                       key={updateRowKey(item, index)}
                       item={item}
                       onOpenSession={onOpenSession}
+                      showTypeBadge={sortMode !== 'type'}
                     />
                   ))}
                 </div>

@@ -10,20 +10,20 @@ import { Button, type ButtonProps } from './button';
 export type SearchableSelectFieldTriggerProps = ButtonProps;
 
 /** Field-style SearchableSelect trigger with muted hover and trailing chevron. */
-export function SearchableSelectFieldTrigger({
-  className,
-  children,
-  ...props
-}: SearchableSelectFieldTriggerProps) {
+export const SearchableSelectFieldTrigger = React.forwardRef<
+  HTMLButtonElement,
+  SearchableSelectFieldTriggerProps
+>(function SearchableSelectFieldTrigger({ className, children, ...props }, ref) {
   return (
     <Button
       type="button"
       variant="field"
       className={cn('w-full justify-between font-normal', className)}
       {...props}
+      ref={ref}
     >
       <span className="flex min-w-0 flex-1 items-center gap-2 text-left">{children}</span>
       <ChevronDown className={searchableSelectChevronClassName} aria-hidden />
     </Button>
   );
-}
+});

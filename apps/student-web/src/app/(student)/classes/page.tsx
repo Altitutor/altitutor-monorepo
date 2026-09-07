@@ -72,7 +72,7 @@ export default function ClassesPage() {
         </div>
 
         <div id="tour-classes-enrolments">
-          <h2 className="mb-4 text-2xl font-semibold">Scheduled offerings</h2>
+          <h2 className="mb-4 text-2xl font-semibold">Classes</h2>
           <ClassesTable />
         </div>
 
