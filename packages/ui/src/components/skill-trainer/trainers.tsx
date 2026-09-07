@@ -1,13 +1,14 @@
 "use client";
 
-import type {
-  CalculatorMathsItemContent,
-  FindConceptItemContent,
-  FindWordKeywordOccurrence,
-  FindWordItemContent,
-  MentalMathsItemContent,
-  NumpadSpeedItemContent,
-  QuickSyllogismItemContent,
+import {
+  findFindWordClickableTokens,
+  type CalculatorMathsItemContent,
+  type FindConceptItemContent,
+  type FindWordKeywordOccurrence,
+  type FindWordItemContent,
+  type MentalMathsItemContent,
+  type NumpadSpeedItemContent,
+  type QuickSyllogismItemContent,
 } from "@altitutor/shared";
 import {
   DndContext,
@@ -50,8 +51,6 @@ type PassageSegment = {
   found?: boolean;
 };
 
-const FIND_WORD_TOKEN_PATTERN = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
-
 function splitSegmentsIntoParagraphs(
   segments: PassageSegment[],
 ): PassageSegment[][] {
@@ -74,13 +73,12 @@ function splitTextIntoWordSegments(text: string): PassageSegment[] {
   const segments: PassageSegment[] = [];
   let cursor = 0;
 
-  for (const match of text.matchAll(FIND_WORD_TOKEN_PATTERN)) {
-    const start = match.index ?? 0;
-    if (start > cursor) {
-      segments.push({ text: text.slice(cursor, start) });
+  for (const token of findFindWordClickableTokens(text)) {
+    if (token.start > cursor) {
+      segments.push({ text: text.slice(cursor, token.start) });
     }
-    segments.push({ text: match[0], start });
-    cursor = start + match[0].length;
+    segments.push({ text: token.text, start: token.start });
+    cursor = token.end;
   }
 
   if (cursor < text.length) {

@@ -61,7 +61,7 @@ export const ucatSkillTrainerItemFormSchema = z
             if (!findFindWordKeywordOccurrences(plain, keyword).length) {
               ctx.addIssue({
                 code: 'custom',
-                message: 'Keyword does not appear in the passage',
+                message: 'Keyword does not appear as a whole word in the passage',
                 path: ['keywords', index, 'text'],
               })
             }
