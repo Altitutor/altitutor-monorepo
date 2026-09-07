@@ -6,6 +6,7 @@ import React, {
   useState,
   type DragEventHandler,
 } from "react";
+import { createPortal } from "react-dom";
 import { Check } from "lucide-react";
 import type {
   AnswerOption,
@@ -160,6 +161,16 @@ export function OptionText({
   );
 }
 
+function capturePlacementPointer(event: React.PointerEvent) {
+  const node = event.currentTarget;
+  if (!(node instanceof HTMLElement) || !node.setPointerCapture) return;
+  try {
+    node.setPointerCapture(event.pointerId);
+  } catch {
+    // jsdom and some WebKit hosts throw when capture is unavailable.
+  }
+}
+
 type QuestionContentProps = {
   question: QuestionItem;
   readOnly?: boolean;
@@ -214,14 +225,25 @@ function PlacementQuestionContent({
     () => ({ ...placementSnapshot }),
   );
   const answersRef = useRef(answers);
+  const [pointerDragPreview, setPointerDragPreview] = useState<{
+    label: string;
+    x: number;
+    y: number;
+  } | null>(null);
   const touchDragRef = useRef<
     | {
         kind: "token";
         pointerId: number;
         choice: PlacementValue;
         sourceOptionId: string | null;
+        label: string;
       }
-    | { kind: "option"; pointerId: number; sourceOptionId: string }
+    | {
+        kind: "option";
+        pointerId: number;
+        sourceOptionId: string;
+        label: string;
+      }
     | null
   >(null);
 
@@ -280,6 +302,7 @@ function PlacementQuestionContent({
       const drag = touchDragRef.current;
       if (!drag || drag.pointerId !== event.pointerId) return;
       touchDragRef.current = null;
+      setPointerDragPreview(null);
       if (readOnly || placementDragOnly) return;
 
       const target = document.elementFromPoint(event.clientX, event.clientY);
@@ -341,9 +364,22 @@ function PlacementQuestionContent({
       }
     };
 
+    const moveTouchDrag = (event: PointerEvent) => {
+      const drag = touchDragRef.current;
+      if (!drag || drag.pointerId !== event.pointerId) return;
+      event.preventDefault();
+      setPointerDragPreview({
+        label: drag.label,
+        x: event.clientX,
+        y: event.clientY,
+      });
+    };
+
+    window.addEventListener("pointermove", moveTouchDrag, { passive: false });
     window.addEventListener("pointerup", finishTouchDrag);
     window.addEventListener("pointercancel", finishTouchDrag);
     return () => {
+      window.removeEventListener("pointermove", moveTouchDrag);
       window.removeEventListener("pointerup", finishTouchDrag);
       window.removeEventListener("pointercancel", finishTouchDrag);
     };
@@ -362,27 +398,48 @@ function PlacementQuestionContent({
     choice: PlacementValue,
     sourceOptionId: string | null,
   ) => {
-    if (event.pointerType === "mouse" || readOnly) return;
+    if (readOnly || event.button !== 0) return;
     event.preventDefault();
+    capturePlacementPointer(event);
+    const label =
+      choice === positiveToken.value
+        ? positiveToken.label
+        : negativeToken.label;
     touchDragRef.current = {
       kind: "token",
       pointerId: event.pointerId,
       choice,
       sourceOptionId,
+      label,
     };
+    setPointerDragPreview({
+      label,
+      x: event.clientX,
+      y: event.clientY,
+    });
   };
 
   const startOptionTouchDrag = (
     event: React.PointerEvent,
     sourceOptionId: string,
   ) => {
-    if (event.pointerType === "mouse" || readOnly) return;
+    if (readOnly || event.button !== 0) return;
     event.preventDefault();
+    capturePlacementPointer(event);
+    const label =
+      question.options.find((option) => option.id === sourceOptionId)?.text ??
+      "";
     touchDragRef.current = {
       kind: "option",
       pointerId: event.pointerId,
       sourceOptionId,
+      label,
     };
+    setPointerDragPreview({
+      label,
+      x: event.clientX,
+      y: event.clientY,
+    });
   };
 
   const makeHandleDrop =
@@ -729,17 +786,62 @@ function PlacementQuestionContent({
       ? optionsToTokensContent
       : tokensToOptionsContent;
 
+  const dragPreview =
+    pointerDragPreview && typeof document !== "undefined"
+      ? createPortal(
+          <div
+            data-testid="placement-drag-preview"
+            aria-hidden
+            className="pointer-events-none fixed z-[80] flex min-h-9 max-w-xs items-center justify-center rounded border border-black bg-white px-4 py-2 text-center text-[11pt] font-medium shadow-md"
+            style={{
+              left: pointerDragPreview.x,
+              top: pointerDragPreview.y,
+              transform: "translate(-50%, -50%)",
+            }}
+          >
+            {pointerDragPreview.label}
+          </div>,
+          document.body,
+        )
+      : null;
+
   if (isTwoColumn) {
     return (
-      <div
-        className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
-      >
-        <article
-          data-tour="question-engine-stem"
-          className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
-          style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
+      <>
+        <div
+          className={`flex h-full min-h-0 gap-4 font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
         >
-          <div className="space-y-3">
+          <article
+            data-tour="question-engine-stem"
+            className="flex-[3] h-full min-w-0 overflow-y-auto border-r-[6px] pr-4 py-4 sm:py-5"
+            style={{ borderRightColor: UCAT_COLORS.primaryBlue }}
+          >
+            <div className="space-y-3">
+              <RichContentBlock
+                json={question.stemJson}
+                plainText={question.stemText}
+                preloadedContent={preloadedContent?.stem}
+                paragraphSpacing
+                highlightText={highlightText}
+              />
+            </div>
+          </article>
+          <div className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
+            {content}
+          </div>
+        </div>
+        {dragPreview}
+      </>
+    );
+  }
+
+  return (
+    <>
+      <div
+        className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
+      >
+        <div className="space-y-4 py-4 sm:py-5">
+          <article data-tour="question-engine-stem" className="space-y-3">
             <RichContentBlock
               json={question.stemJson}
               plainText={question.stemText}
@@ -747,32 +849,12 @@ function PlacementQuestionContent({
               paragraphSpacing
               highlightText={highlightText}
             />
-          </div>
-        </article>
-        <div className="flex-[2] h-full min-w-0 overflow-y-auto pl-2 pr-1 py-4 sm:py-5">
+          </article>
           {content}
         </div>
       </div>
-    );
-  }
-
-  return (
-    <div
-      className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
-    >
-      <div className="space-y-4 py-4 sm:py-5">
-        <article data-tour="question-engine-stem" className="space-y-3">
-          <RichContentBlock
-            json={question.stemJson}
-            plainText={question.stemText}
-            preloadedContent={preloadedContent?.stem}
-            paragraphSpacing
-            highlightText={highlightText}
-          />
-        </article>
-        {content}
-      </div>
-    </div>
+      {dragPreview}
+    </>
   );
 }
 
