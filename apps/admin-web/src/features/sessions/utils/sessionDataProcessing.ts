@@ -34,6 +34,7 @@ export type ProcessedStudentData = {
 export type ProcessedStaffData = {
   staff: Tables<'staff'>;
   sessionsStaffId: string | null;
+  sessionsStaffType: string | null;
   swappedSessionsStaffId: string | null;
   plannedStatus: StaffPlannedStatus;
   actualStatus: StaffActualStatus;

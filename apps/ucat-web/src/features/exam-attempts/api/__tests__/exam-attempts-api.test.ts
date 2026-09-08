@@ -33,7 +33,7 @@ const syncInput: SyncExamAttemptInput = {
   questionActiveTiming: {
     questionId: "question-1",
     questionSetId: "stem-1",
-    mode: "question_stem",
+    mode: "questionStem",
     wasTimed: false,
   },
 };
