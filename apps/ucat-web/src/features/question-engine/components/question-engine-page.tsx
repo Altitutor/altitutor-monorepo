@@ -90,7 +90,11 @@ import {
   type ClientPracticeQuestionTiming,
   type PracticeQuestionTimingData,
 } from "@/features/question-engine/lib/practice-question-timing";
-import { QUESTION_ENGINE_SHORTCUT_MAP } from "@/features/question-engine/model/shortcuts";
+import {
+  ANSWER_OPTION_SHORTCUT_KEYS,
+  getAnswerOptionShortcutKey,
+  QUESTION_ENGINE_SHORTCUT_MAP,
+} from "@/features/question-engine/model/shortcuts";
 import { useExamAttemptLifecycle } from "@/features/exam-attempts/hooks/use-exam-attempt-lifecycle";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useExamAttemptLaunchGate } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-gate";
@@ -1631,7 +1635,8 @@ export function QuestionEnginePage({
         return;
       }
 
-      // Answer selection: a/b/c/d/e/f select option A/B/C/D/E/F when viewing a question (no modifiers)
+      // Answer selection: A–F via physical key. After Option dead keys (iPadOS),
+      // event.key can be composed (e.g. "ã") while event.code stays KeyA.
       const overlayActive =
         state.phase === "intro" ||
         state.showReadyDialog ||
@@ -1650,9 +1655,9 @@ export function QuestionEnginePage({
           (state.phase === "review" && state.reviewFilter)) &&
         currentQuestion &&
         !overlayActive;
-      if (isQuestionView && !event.altKey && !event.ctrlKey && !event.metaKey) {
-        const answerKeys = ["a", "b", "c", "d", "e", "f"];
-        const keyIndex = answerKeys.indexOf(key);
+      const answerKey = getAnswerOptionShortcutKey(event);
+      if (isQuestionView && answerKey) {
+        const keyIndex = ANSWER_OPTION_SHORTCUT_KEYS.indexOf(answerKey);
         if (keyIndex >= 0 && currentQuestion.options[keyIndex]) {
           if (tutorialQuestionLocked) {
             event.preventDefault();
