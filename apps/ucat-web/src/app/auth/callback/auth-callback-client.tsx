@@ -1,6 +1,7 @@
 "use client";
 
 import React, { Suspense, useEffect, useRef, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import { useSearchParams } from "next/navigation";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { otpTypeFromParam, safeNextPath } from "./auth-callback-utils";
@@ -27,7 +28,8 @@ function AuthCallbackInner() {
 
   useEffect(() => {
     const queryKey = searchParams.toString();
-    if (handledQueryRef.current === queryKey) return;
+    const previouslyHandledQuery = handledQueryRef.current;
+    if (previouslyHandledQuery === queryKey) return;
     handledQueryRef.current = queryKey;
 
     const code = searchParams.get("code");
@@ -46,7 +48,41 @@ function AuthCallbackInner() {
       window.location.hash.replace(/^#/, ""),
     ).get("error_description");
 
-    const finish = (errorMessage: string) => {
+    // Supabase removes a successfully consumed PKCE code with replaceState().
+    // If that URL mutation reaches useSearchParams before navigation completes,
+    // it is cleanup for the active callback rather than a second failed callback.
+    const hasAuthPayload = Boolean(
+      code || tokenHash || queryError || fragmentError,
+    );
+    if (!hasAuthPayload && previouslyHandledQuery !== null) return;
+
+    const finish = (
+      errorMessage: string,
+      failureStage: string,
+      errorCode?: string | null,
+    ) => {
+      Sentry.captureMessage("Auth callback failed", {
+        level: "warning",
+        fingerprint: [
+          "auth-callback-failed",
+          "ucat-web",
+          failureStage,
+          provider ?? "unknown",
+        ],
+        tags: {
+          app: "ucat-web",
+          auth_error_code: errorCode ?? "unknown",
+          auth_failure_stage: failureStage,
+          auth_intent: intent,
+          auth_provider: provider ?? "unknown",
+        },
+        extra: {
+          error_message: errorMessage,
+          has_code: Boolean(code),
+          has_query_error: Boolean(queryError || fragmentError),
+          has_token_hash: Boolean(tokenHash),
+        },
+      });
       setMessage(errorMessage);
       const errorPath = isRecoveryFlow
         ? `/forgot-password?error=${encodeURIComponent(errorMessage)}`
@@ -74,7 +110,11 @@ function AuthCallbackInner() {
           },
         });
         if (metadataError) {
-          finish(metadataError.message || "Could not finish social signup.");
+          finish(
+            metadataError.message || "Could not finish social signup.",
+            "signup_metadata",
+            metadataError.code,
+          );
           return true;
         }
 
@@ -105,13 +145,17 @@ function AuthCallbackInner() {
 
     void (async () => {
       if (queryError || fragmentError) {
-        finish(queryError || fragmentError || "Authentication was cancelled.");
+        finish(
+          queryError || fragmentError || "Authentication was cancelled.",
+          "provider_redirect",
+          searchParams.get("error_code") ?? searchParams.get("error"),
+        );
         return;
       }
 
       if (tokenHash) {
         const typesToTry = otpTypeFromParam(typeParam);
-        let lastVerifyError: { message: string } | null = null;
+        let lastVerifyError: { message: string; code?: string } | null = null;
         for (const otpType of typesToTry) {
           const { error } = await supabase.auth.verifyOtp({
             type: otpType,
@@ -134,7 +178,11 @@ function AuthCallbackInner() {
           }
           lastVerifyError = error;
         }
-        finish(lastVerifyError?.message ?? "auth_failed");
+        finish(
+          lastVerifyError?.message ?? "auth_failed",
+          "otp_verification",
+          lastVerifyError?.code,
+        );
         return;
       }
 
@@ -163,6 +211,8 @@ function AuthCallbackInner() {
                 ? "This reset link only works in the same browser where you requested it. Request a new reset email and use the Reset Password button in that email (not the long supabase.co link)."
                 : "This sign-in link only works in the same browser where you requested it. Use the main button in your email (not the long supabase.co link), or enter the 6-digit code on the signup page."
               : error.message,
+            "pkce_exchange",
+            error.code,
           );
           return;
         }
@@ -184,7 +234,7 @@ function AuthCallbackInner() {
         return;
       }
 
-      finish("auth_failed");
+      finish("auth_failed", "missing_payload");
     })();
   }, [searchParams]);
 
