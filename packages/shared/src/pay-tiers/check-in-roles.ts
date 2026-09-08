@@ -43,6 +43,48 @@ export function formatCheckInStaffRole(type: string | null | undefined): string 
   return null;
 }
 
+/** Map a sessions_staff / attendance type onto the CHECK_IN role enum (incl. legacy rows). */
+export function toCheckInStaffRole(type: string | null | undefined): CheckInStaffRole {
+  if (isCheckInReceiverRole(type)) return CHECK_IN_RECEIVER;
+  return CHECK_IN_HOST;
+}
+
+const CLASS_STAFF_ATTENDANCE_LABELS: Record<string, string> = {
+  MAIN_TUTOR: 'Main Tutor',
+  SECONDARY_TUTOR: 'Secondary Tutor',
+  TRIAL_TUTOR: 'Trial Tutor',
+};
+
+/**
+ * Label for tutor-log staff attendance type.
+ * Check-in sessions use Conducting/Receiving; other sessions use Main/Secondary/Trial.
+ */
+export function formatTutorLogStaffAttendanceLabel(
+  type: string | null | undefined,
+  sessionType?: string | null
+): string {
+  if (sessionType === 'CHECK_IN') {
+    return formatCheckInStaffRole(type) ?? formatCheckInHostLabel();
+  }
+  if (type === CHECK_IN_HOST) return formatCheckInHostLabel();
+  if (type === CHECK_IN_RECEIVER) return formatCheckInReceiverLabel();
+  if (type && type in CLASS_STAFF_ATTENDANCE_LABELS) {
+    return CLASS_STAFF_ATTENDANCE_LABELS[type]!;
+  }
+  return type ?? '';
+}
+
+export const CHECK_IN_STAFF_TYPE_OPTIONS = [
+  { value: CHECK_IN_HOST, label: formatCheckInHostLabel() },
+  { value: CHECK_IN_RECEIVER, label: formatCheckInReceiverLabel() },
+] as const;
+
+export const CLASS_STAFF_TYPE_OPTIONS = [
+  { value: 'MAIN_TUTOR' as const, label: 'Main Tutor' },
+  { value: 'SECONDARY_TUTOR' as const, label: 'Secondary Tutor' },
+  { value: 'TRIAL_TUTOR' as const, label: 'Trial Tutor' },
+] as const;
+
 export type CheckInUiStaffRole = 'host' | 'receiver';
 
 /** Default booking UI role: conducting when students/parents are present, otherwise receiving. */

@@ -5,7 +5,6 @@ import { ThemeProvider } from '@/shared/components'
 import { AuthGuard } from '@/features/auth/components/AuthGuard'
 // Legacy DbProvider removed under migration
 import { AuthProvider } from '@/features/auth/providers'
-import { ConditionalNavbar } from '@/shared/components/layouts/ConditionalNavbar'
 import { ReactQueryProvider } from '@/shared/lib/react-query/provider'
 import { MobileMenuProvider } from '@/shared/contexts/MobileMenuContext'
 import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
@@ -55,7 +54,6 @@ export default function RootLayout({
                         <AdminShellProvider>
                           <EntityModalProvider>
                             <div className="flex flex-col min-h-dvh bg-background">
-                              <ConditionalNavbar />
                               <MainContentWrapper>
                                 {children}
                               </MainContentWrapper>

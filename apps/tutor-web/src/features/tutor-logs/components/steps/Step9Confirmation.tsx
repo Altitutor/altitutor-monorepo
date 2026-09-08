@@ -1,6 +1,7 @@
 'use client';
 
 import { AccountClassBadge, Badge } from '@altitutor/ui';
+import { formatTutorLogStaffAttendanceLabel } from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '../../types';
 import { useTutorLogStep9Data } from '../../hooks/useTutorLogStep9Data';
 import { format } from 'date-fns';
@@ -56,12 +57,8 @@ export function Step9Confirmation({
             const staff = staffMap.get(sa.staffId);
             return (
               <div key={sa.staffId} className="flex items-center gap-2 text-sm">
-                <Badge variant={sa.type === 'MAIN_TUTOR' ? 'default' : 'outline'}>
-                  {sa.type === 'MAIN_TUTOR'
-                    ? 'Main Tutor'
-                    : sa.type === 'SECONDARY_TUTOR'
-                      ? 'Secondary Tutor'
-                      : 'Trial Tutor'}
+                <Badge variant={sa.type === 'MAIN_TUTOR' || sa.type === 'CHECK_IN_HOST' ? 'default' : 'outline'}>
+                  {formatTutorLogStaffAttendanceLabel(sa.type, session?.type)}
                 </Badge>
                 <span>
                   {staff?.first_name} {staff?.last_name}

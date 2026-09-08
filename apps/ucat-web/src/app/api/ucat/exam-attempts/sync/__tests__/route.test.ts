@@ -71,4 +71,31 @@ describe("PATCH /api/ucat/exam-attempts/sync", () => {
     });
     expect(mockCaptureApiError).not.toHaveBeenCalled();
   });
+
+  it("returns an expected quota rejection without reporting an exception", async () => {
+    mockSyncExamAttempt.mockRejectedValue(
+      new Error(
+        'QUOTA_EXCEEDED:{"code":"QUOTA_EXCEEDED","area":"practice","used":11,"limit":10,"period":"day"}',
+      ),
+    );
+
+    const response = await PATCH({
+      json: async () => ({
+        kind: "practice",
+        attemptId: "practice-session-1",
+        engineSnapshot: {},
+        currentSegmentEndsAt: null,
+      }),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(403);
+    await expect(response.json()).resolves.toEqual({
+      code: "QUOTA_EXCEEDED",
+      area: "practice",
+      used: 11,
+      limit: 10,
+      period: "day",
+    });
+    expect(mockCaptureApiError).not.toHaveBeenCalled();
+  });
 });

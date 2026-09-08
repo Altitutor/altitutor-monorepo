@@ -14,6 +14,7 @@ export const sessionsKeys = {
   detail: (id: string) => [...sessionsKeys.details(), id] as const,
   detailsBatch: (sessionIds: string[]) =>
     [...sessionsKeys.all, 'details-batch', [...sessionIds].sort().join(',')] as const,
+  pastDetails: () => [...sessionsKeys.lists(), 'past-details'] as const,
 };
 
 // Get all sessions (uses vtutor_sessions view)
@@ -75,5 +76,15 @@ export function useSession(sessionId: string) {
     enabled: !!sessionId,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export function usePastSessionsWithDetails(enabled = true) {
+  return useQuery({
+    queryKey: sessionsKeys.pastDetails(),
+    queryFn: sessionsApi.getPastSessionsWithDetails,
+    enabled,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
   });
 }

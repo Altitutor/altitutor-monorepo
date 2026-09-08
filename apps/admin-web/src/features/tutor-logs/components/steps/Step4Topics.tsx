@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Checkbox, SearchableSelect } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { TopicCard } from '../TopicCard';
 import { useSessionForLogging } from '../../hooks';
 import { useTopicsBySubject, useTopics } from '@/features/topics/hooks/useTopicsQuery';
@@ -25,7 +25,6 @@ type Step4TopicsProps = {
 export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsProps) {
   const { data: sessionData, isLoading: isLoadingSession } = useSessionForLogging(sessionId);
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
   const [searchFilter, setSearchFilter] = useState('');
 
   // Get subject ID from session data
@@ -81,16 +80,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
     return topics.some((t) => t.topicId === topicId);
   };
 
-  const toggleExpanded = (topicId: string) => {
-    const newExpanded = new Set(expandedTopics);
-    if (newExpanded.has(topicId)) {
-      newExpanded.delete(topicId);
-    } else {
-      newExpanded.add(topicId);
-    }
-    setExpandedTopics(newExpanded);
-  };
-
   const handleAddTopic = (topicId: string) => {
     if (!additionalTopicIds.includes(topicId)) {
       setAdditionalTopicIds([...additionalTopicIds, topicId]);
@@ -123,34 +112,26 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
 
     return childTopics.map((topic) => {
       const hasChildren = filteredSubjectTopics.some((t) => t.parent_id === topic.id);
-      const isExpanded = expandedTopics.has(topic.id);
+      const selected = isTopicSelected(topic.id);
       const parentTopic = topic.parent_id ? filteredSubjectTopics.find((t) => t.id === topic.parent_id) : undefined;
 
       return (
         <div key={topic.id}>
           <div
-            className="flex items-start gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            onClick={() => handleToggleTopic(topic.id, !selected)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleToggleTopic(topic.id, !selected);
+              }
+            }}
+            className="flex cursor-pointer items-start gap-2 rounded py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
             style={{ paddingLeft: `${depth * 20}px` }}
           >
-            {hasChildren && (
-              <button
-                type="button"
-                onClick={() => toggleExpanded(topic.id)}
-                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded mt-1"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            )}
-            {!hasChildren && <div className="w-6" />}
-            <Checkbox
-              checked={isTopicSelected(topic.id)}
-              onCheckedChange={(checked) => handleToggleTopic(topic.id, checked === true)}
-              className="mt-1"
-            />
+            <Checkbox checked={selected} tabIndex={-1} className="pointer-events-none mt-1" />
             <div className="flex-1">
               <TopicCard
                 topic={topic}
@@ -159,7 +140,7 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
               />
             </div>
           </div>
-          {isExpanded && hasChildren && renderFilteredTopicTree(topic.id, depth + 1)}
+          {hasChildren ? renderFilteredTopicTree(topic.id, depth + 1) : null}
         </div>
       );
     });
@@ -169,7 +150,7 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
     <div className="space-y-4">
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
-        Select topics covered in this session. Selecting a parent automatically selects all children.
+        Select all topic(s) taught during this session.
       </p>
 
       {subjectTopics.length > 0 && (

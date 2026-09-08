@@ -793,7 +793,8 @@ export function SessionDetailsTab({
                         <TableCell>
                           <AttendanceCell
                             status={data.actualStatus}
-                            staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
+                            staffType={data.staffType}
+                            sessionType={session?.type}
                           />
                         </TableCell>
                       </>
@@ -801,7 +802,8 @@ export function SessionDetailsTab({
                       <TableCell>
                         <AttendanceCell
                           status={data.actualStatus}
-                          staffType={data.staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined}
+                          staffType={data.staffType}
+                          sessionType={session?.type}
                         />
                       </TableCell>
                     )}

@@ -1,7 +1,9 @@
 'use client';
 
-import { Checkbox } from '@altitutor/ui';
-import { FileCard } from '@/shared/components/files/FileCard';
+import { useState } from 'react';
+import { Button, Checkbox } from '@altitutor/ui';
+import { Eye } from 'lucide-react';
+import { FilePreviewModal } from '@/shared/components/files/FilePreviewModal';
 import { useTopicsByIds, useTopicFilesByTopicIds } from '../../hooks';
 
 type TopicItem = {
@@ -28,6 +30,8 @@ export function Step6Files({ title, topics, topicFiles, onUpdate }: Step6FilesPr
   // Fetch topics and topic files using hooks
   const { data: topicsData = [], isLoading: isLoadingTopics } = useTopicsByIds(topicIds);
   const { data: filesData = {}, isLoading: isLoadingFiles } = useTopicFilesByTopicIds(topicIds);
+  const [previewFileId, setPreviewFileId] = useState<string | null>(null);
+  const [previewTopicFileId, setPreviewTopicFileId] = useState<string | null>(null);
 
   const isLoading = isLoadingTopics || isLoadingFiles;
 
@@ -71,29 +75,47 @@ export function Step6Files({ title, topics, topicFiles, onUpdate }: Step6FilesPr
               <div className="space-y-2">
                 {files.map((file) => {
                   const fileCode = file.code || '';
+                  const filename = file.file?.filename?.trim() || 'Untitled file';
+                  const selected = isFileSelected(file.id);
+                  const fileId = file.file_id ?? file.file?.id ?? null;
 
                   return (
-                    <div key={file.id} className="flex items-center gap-3">
-                      <Checkbox
-                        checked={isFileSelected(file.id)}
-                        onCheckedChange={(checked) =>
-                          handleToggleFile(file.id, topic.topicId, checked === true)
+                    <div
+                      key={file.id}
+                      role="button"
+                      tabIndex={0}
+                      aria-pressed={selected}
+                      onClick={() => handleToggleFile(file.id, topic.topicId, !selected)}
+                      onKeyDown={(event) => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault();
+                          handleToggleFile(file.id, topic.topicId, !selected);
                         }
-                      />
-                      <div className="flex-1">
-                        {file.file?.filename ? (
-                          <FileCard
-                            fileCode={fileCode}
-                            fileType={file.type}
-                            filename={file.file.filename}
-                            storagePath={file.file.storage_path}
-                            mimeType={file.file.mimetype || undefined}
-                            topicFileId={file.id}
-                          />
-                        ) : (
-                          <div className="text-sm text-muted-foreground">File name unavailable</div>
-                        )}
+                      }}
+                      className="flex cursor-pointer items-center gap-3 rounded-md p-1 hover:bg-muted/40"
+                    >
+                      <Checkbox checked={selected} tabIndex={-1} className="pointer-events-none" />
+                      <div className="min-w-0 flex-1">
+                        <span className="font-mono text-sm">{fileCode}</span>
+                        <span className="mx-2 text-muted-foreground">·</span>
+                        <span className="text-sm">{filename}</span>
                       </div>
+                      {fileId ? (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="shrink-0"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setPreviewFileId(fileId);
+                            setPreviewTopicFileId(file.id);
+                          }}
+                        >
+                          <Eye className="mr-1.5 h-4 w-4" />
+                          View
+                        </Button>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -102,8 +124,16 @@ export function Step6Files({ title, topics, topicFiles, onUpdate }: Step6FilesPr
           );
         })}
       </div>
+
+      <FilePreviewModal
+        isOpen={!!previewFileId}
+        fileId={previewFileId}
+        topicFileId={previewTopicFileId}
+        onClose={() => {
+          setPreviewFileId(null);
+          setPreviewTopicFileId(null);
+        }}
+      />
     </div>
   );
 }
-
-

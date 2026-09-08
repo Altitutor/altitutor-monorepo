@@ -93,6 +93,7 @@ export async function syncExamAttempt(
   });
   await assertPracticeSessionActive(response);
   if (!response.ok) {
+    await assertOkOrQuotaExceeded(response);
     throw await responseError(response, "Failed to sync exam attempt");
   }
   return response.json();

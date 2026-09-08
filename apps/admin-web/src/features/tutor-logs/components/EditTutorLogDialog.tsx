@@ -74,7 +74,7 @@ export function EditTutorLogDialog({
         staffAttendance: (tutorLog.staffAttendance ?? []).map((sa) => ({
           staffId: sa.staff_id,
           attended: sa.attended === true,
-          type: (sa.type || 'SECONDARY_TUTOR') as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR',
+          type: (sa.type || 'SECONDARY_TUTOR') as TutorLogFormData['staffAttendance'][number]['type'],
         })),
         studentAttendance: (tutorLog.studentAttendance ?? []).map((sa) => ({
           studentId: sa.student_id,

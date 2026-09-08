@@ -5,7 +5,7 @@ export type TutorLogFormData = {
   staffAttendance: {
     staffId: string;
     attended: boolean;
-    type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
+    type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | 'CHECK_IN_HOST' | 'CHECK_IN_RECEIVER';
   }[];
   studentAttendance: {
     studentId: string;

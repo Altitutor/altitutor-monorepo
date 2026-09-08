@@ -1,5 +1,9 @@
 import { useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
+import {
+  CHECK_IN_HOST,
+  CHECK_IN_RECEIVER,
+} from '@altitutor/shared/pay-tiers';
 import { useSessionWithDetails } from '@/features/sessions/hooks/useSessionsQuery';
 
 type StaffMember = {
@@ -12,11 +16,18 @@ type StaffMember = {
 
 function isValidStaffType(
   type: string | null | undefined
-): type is 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' {
+): type is
+  | 'MAIN_TUTOR'
+  | 'SECONDARY_TUTOR'
+  | 'TRIAL_TUTOR'
+  | 'CHECK_IN_HOST'
+  | 'CHECK_IN_RECEIVER' {
   return (
     type === 'MAIN_TUTOR' ||
     type === 'SECONDARY_TUTOR' ||
-    type === 'TRIAL_TUTOR'
+    type === 'TRIAL_TUTOR' ||
+    type === CHECK_IN_HOST ||
+    type === CHECK_IN_RECEIVER
   );
 }
 
@@ -24,11 +35,28 @@ export type SessionStaffRow = Tables<'sessions_staff'> & { staff: Tables<'staff'
 
 export type TutorLogStep2Data = {
   sessionStaff: SessionStaffRow[];
+  sessionType: string | null;
+  hasStudentsOrParents: boolean;
   isLoading: boolean;
 };
 
 export function useTutorLogStep2Data(sessionId: string): TutorLogStep2Data {
   const { data, isLoading } = useSessionWithDetails(sessionId);
+
+  const sessionType =
+    data && typeof data === 'object' && 'session_type' in data
+      ? ((data as { session_type?: string | null }).session_type ?? null)
+      : null;
+
+  const hasStudentsOrParents = useMemo(() => {
+    if (!data) return false;
+    const students = Array.isArray(data.students) ? data.students : [];
+    const parents =
+      'parents' in data && Array.isArray((data as { parents?: unknown }).parents)
+        ? ((data as { parents: unknown[] }).parents ?? [])
+        : [];
+    return students.length > 0 || parents.length > 0;
+  }, [data]);
 
   const sessionStaff = useMemo(() => {
     if (!data?.staff || !Array.isArray(data.staff)) return [];
@@ -48,7 +76,9 @@ export function useTutorLogStep2Data(sessionId: string): TutorLogStep2Data {
       swapped_sessions_staff_id: null,
       type: isValidStaffType(staffMember.type)
         ? staffMember.type
-        : ('SECONDARY_TUTOR' as const),
+        : sessionType === 'CHECK_IN'
+          ? CHECK_IN_HOST
+          : ('SECONDARY_TUTOR' as const),
       updated_at: new Date().toISOString(),
       staff: {
         id: staffMember.id,
@@ -79,7 +109,7 @@ export function useTutorLogStep2Data(sessionId: string): TutorLogStep2Data {
         user_id: null,
       },
     })) as SessionStaffRow[];
-  }, [data?.staff, sessionId]);
+  }, [data?.staff, sessionId, sessionType]);
 
-  return { sessionStaff, isLoading };
+  return { sessionStaff, sessionType, hasStudentsOrParents, isLoading };
 }

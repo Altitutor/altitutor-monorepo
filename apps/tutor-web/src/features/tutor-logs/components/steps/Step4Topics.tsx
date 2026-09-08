@@ -3,10 +3,10 @@
 import { useMemo, useState } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { Badge, Button, Checkbox, SearchableSelect } from '@altitutor/ui';
-import { Plus, ChevronRight, ChevronDown, X } from 'lucide-react';
+import { Plus, X } from 'lucide-react';
 import { useTutorLogStep4Data } from '../../hooks/useTutorLogStep4Data';
 import { formatSubjectShortName, getSubjectColorStyle } from '@/shared/utils/index';
-import { cn, navHoverStyles, navItemTransitionStyles } from '@/shared/utils/index';
+import { cn } from '@/shared/utils/index';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 
 type TopicItem = {
@@ -29,30 +29,11 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
   } = useTutorLogStep4Data(sessionId);
 
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
 
   const crossSubjectTopicOptions = useMemo(
     () => allTopics.filter((topic) => !topics.some((t) => t.topicId === topic.id)),
     [allTopics, topics]
   );
-
-  const handleToggleTopic = (topicId: string, checked: boolean) => {
-    if (checked) {
-      // Add topic and all children
-      const topicAndChildren = getTopicAndDescendants(topicId);
-      const newTopics = [...topics];
-      topicAndChildren.forEach((id) => {
-        if (!newTopics.find((t) => t.topicId === id)) {
-          newTopics.push({ topicId: id, studentIds: [] });
-        }
-      });
-      onUpdate(newTopics);
-    } else {
-      // Remove topic and all children
-      const topicAndChildren = getTopicAndDescendants(topicId);
-      onUpdate(topics.filter((t) => !topicAndChildren.includes(t.topicId)));
-    }
-  };
 
   const getTopicAndDescendants = (topicId: string): string[] => {
     const result = [topicId];
@@ -63,18 +44,24 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     return result;
   };
 
-  const isTopicSelected = (topicId: string) => {
-    return topics.some((t) => t.topicId === topicId);
+  const handleToggleTopic = (topicId: string, checked: boolean) => {
+    if (checked) {
+      const topicAndChildren = getTopicAndDescendants(topicId);
+      const newTopics = [...topics];
+      topicAndChildren.forEach((id) => {
+        if (!newTopics.find((t) => t.topicId === id)) {
+          newTopics.push({ topicId: id, studentIds: [] });
+        }
+      });
+      onUpdate(newTopics);
+    } else {
+      const topicAndChildren = getTopicAndDescendants(topicId);
+      onUpdate(topics.filter((t) => !topicAndChildren.includes(t.topicId)));
+    }
   };
 
-  const toggleExpanded = (topicId: string) => {
-    const newExpanded = new Set(expandedTopics);
-    if (newExpanded.has(topicId)) {
-      newExpanded.delete(topicId);
-    } else {
-      newExpanded.add(topicId);
-    }
-    setExpandedTopics(newExpanded);
+  const isTopicSelected = (topicId: string) => {
+    return topics.some((t) => t.topicId === topicId);
   };
 
   const renderTopicTree = (parentId: string | null, depth: number = 0) => {
@@ -82,37 +69,30 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
 
     return childTopics.map((topic) => {
       const hasChildren = subjectTopics.some((t) => t.parent_id === topic.id);
-      const isExpanded = expandedTopics.has(topic.id);
+      const selected = isTopicSelected(topic.id);
       const code = topic.code || '';
 
       return (
         <div key={topic.id}>
           <div
-            className="flex items-center gap-2 rounded-lg py-2 hover:bg-muted/40"
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            onClick={() => handleToggleTopic(topic.id, !selected)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleToggleTopic(topic.id, !selected);
+              }
+            }}
+            className="flex cursor-pointer items-center gap-2 rounded-lg py-2 hover:bg-muted/40"
             style={{ paddingLeft: `${depth * 20}px` }}
           >
-            {hasChildren && (
-              <button
-                type="button"
-                onClick={() => toggleExpanded(topic.id)}
-                className={cn('p-1 rounded', navItemTransitionStyles, navHoverStyles)}
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            )}
-            {!hasChildren && <div className="w-6" />}
-            <Checkbox
-              checked={isTopicSelected(topic.id)}
-              onCheckedChange={(checked) => handleToggleTopic(topic.id, checked === true)}
-            />
+            <Checkbox checked={selected} tabIndex={-1} className="pointer-events-none" />
             <span className="text-sm font-mono text-muted-foreground">{code}</span>
             <span>{topic.name}</span>
           </div>
-          {isExpanded && hasChildren && renderTopicTree(topic.id, depth + 1)}
+          {hasChildren ? renderTopicTree(topic.id, depth + 1) : null}
         </div>
       );
     });
@@ -146,7 +126,7 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select topics covered in this session. Selecting a parent automatically selects all children.
+        Select all topic(s) taught during this session.
       </p>
 
       {subjectTopics.length > 0 && (
@@ -248,5 +228,3 @@ export function Step4Topics({ sessionId, topics, onUpdate }: Step4TopicsProps) {
     </div>
   );
 }
-
-

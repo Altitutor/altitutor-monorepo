@@ -1,11 +1,11 @@
 import { useQueries } from '@tanstack/react-query';
 import type { Tables } from '@altitutor/shared';
 import { useTopicsByIds } from '@/features/topics/hooks/useTopicsQuery';
-import { topicsFilesApi } from '@/features/topics/api/topics-files';
+import { topicsFilesApi, type TutorTopicFileWithFileFields } from '@/features/topics/api/topics-files';
 
 export type TutorLogStep6Data = {
   topicsData: Tables<'topics'>[];
-  filesData: Record<string, Tables<'topics_files'>[]>;
+  filesData: Record<string, TutorTopicFileWithFileFields[]>;
   isLoading: boolean;
 };
 
@@ -25,10 +25,9 @@ export function useTutorLogStep6Data(topicIds: string[]): TutorLogStep6Data {
     (t): t is Tables<'topics'> => t.id != null && t.name != null
   );
 
-  const filesData: Record<string, Tables<'topics_files'>[]> = {};
+  const filesData: Record<string, TutorTopicFileWithFileFields[]> = {};
   topicIds.forEach((topicId, i) => {
-    const result = fileQueries[i]?.data;
-    filesData[topicId] = (result || []) as Tables<'topics_files'>[];
+    filesData[topicId] = fileQueries[i]?.data ?? [];
   });
 
   const isLoadingFiles = fileQueries.some((q) => q.isLoading);

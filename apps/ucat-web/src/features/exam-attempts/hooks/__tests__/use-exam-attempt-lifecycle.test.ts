@@ -23,6 +23,7 @@ import type {
 } from "@/features/question-engine/model/types";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 
 const mockReplace = jest.fn();
 const mockRefresh = jest.fn(async () => undefined);
@@ -472,6 +473,84 @@ describe("useExamAttemptLifecycle request races", () => {
         ),
       { timeout: 2_500 },
     );
+
+    unmount();
+  });
+
+  it("stops further practice snapshot syncs after a quota rejection", async () => {
+    const quotaPayload = {
+      code: "QUOTA_EXCEEDED" as const,
+      area: "practice" as const,
+      used: 11,
+      limit: 10,
+      period: "day" as const,
+    };
+    const initialState: QuestionEngineState = {
+      ...createState(),
+      phase: "question",
+      timerStartedAt: null,
+      visitedQuestionIds: ["question-1"],
+    };
+    mockBeginExamAttempt.mockResolvedValue({
+      attempt: {
+        ...createAttempt(initialState, null),
+        kind: "practice",
+        attemptId: "practice-session-1",
+        resourceId: "practice-session-1",
+        label: "Practice",
+        currentSegmentEndsAt: null,
+        engineSnapshot: initialState,
+        setAttemptIdsBySetId: {},
+        practiceSessionId: "practice-session-1",
+        wasTimed: false,
+      },
+      resumed: false,
+    });
+
+    const { result, unmount } = renderHook(usePracticeLifecycleHarness, {
+      wrapper: StrictModeWrapper,
+    });
+
+    await waitFor(() =>
+      expect(mockSyncExamAttempt).toHaveBeenCalledWith(
+        expect.objectContaining({
+          kind: "practice",
+          attemptId: "practice-session-1",
+        }),
+      ),
+    );
+
+    mockSyncExamAttempt.mockRejectedValue(new QuotaExceededError(quotaPayload));
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        selectedAnswers: { "question-1": "option-1" },
+      }));
+    });
+
+    await waitFor(
+      () =>
+        expect(mockOpenQuotaLimit).toHaveBeenCalledWith(quotaPayload, {
+          dismissAction: {
+            href: "/practice",
+            label: "Back to practice",
+          },
+        }),
+      { timeout: 2_500 },
+    );
+
+    mockSyncExamAttempt.mockClear();
+    act(() => {
+      result.current.setState((current) => ({
+        ...current,
+        flaggedIds: ["question-1"],
+      }));
+    });
+
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 1_200));
+    });
+    expect(mockSyncExamAttempt).not.toHaveBeenCalled();
 
     unmount();
   });

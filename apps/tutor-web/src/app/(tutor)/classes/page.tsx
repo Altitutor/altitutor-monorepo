@@ -1,18 +1,24 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@altitutor/ui";
 import { CalendarPlus, FileText } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CalendarSubscriptionDialog } from "@/features/calendar/components";
 import { TutorClassesTable } from "@/features/classes/components/TutorClassesTable";
+import {
+  parseClassesPageTab,
+  type ClassesPageTab,
+} from "@/features/classes/lib/classes-page-tabs";
 import { SessionsCalendarView } from "@/features/sessions/components/SessionsCalendarView";
 import { SessionModal } from "@/features/sessions/components/SessionModal";
-import {
-  LogSessionModal,
-  UnloggedSessionsTableSection,
-} from "@/features/tutor-logs/components";
+import { LogSessionModal, TutorLogsPanel } from "@/features/tutor-logs/components";
+import { useUnloggedSessions } from "@/features/tutor-logs/hooks";
 import { useCurrentStaff } from "@/features/staff/hooks/useStaffQuery";
+import {
+  SegmentedTabPanel,
+  SegmentedTabPanelContent,
+} from "@/shared/components/segmented-tab-panel";
 import { TutorPageContainer } from "@/shared/components/layouts";
 
 export default function ClassesPage() {
@@ -29,6 +35,25 @@ export default function ClassesPage() {
   >(undefined);
   const [logSessionCompletedCount, setLogSessionCompletedCount] = useState(0);
   const { data: currentStaff } = useCurrentStaff();
+  const { data: unloggedSessions } = useUnloggedSessions(currentStaff?.id ?? "");
+  const unloggedCount = unloggedSessions?.length ?? 0;
+
+  const activeTab = parseClassesPageTab(searchParams.get("tab"));
+
+  const setActiveTab = useCallback(
+    (tab: ClassesPageTab) => {
+      const nextTab = parseClassesPageTab(tab);
+      const params = new URLSearchParams(searchParams.toString());
+      if (nextTab === "timetable") {
+        params.delete("tab");
+      } else {
+        params.set("tab", nextTab);
+      }
+      const query = params.toString();
+      router.push(query ? `/classes?${query}` : "/classes", { scroll: false });
+    },
+    [router, searchParams],
+  );
 
   useEffect(() => {
     const linkedSessionId = searchParams.get("session");
@@ -36,7 +61,10 @@ export default function ClassesPage() {
 
     setSelectedSessionId(linkedSessionId);
     setIsSessionModalOpen(true);
-    router.replace("/classes", { scroll: false });
+    const params = new URLSearchParams(searchParams.toString());
+    params.delete("session");
+    const query = params.toString();
+    router.replace(query ? `/classes?${query}` : "/classes", { scroll: false });
   }, [router, searchParams]);
 
   const handleOpenSession = (sessionId: string) => {
@@ -62,6 +90,16 @@ export default function ClassesPage() {
       setLogSessionCompletedCount((c) => c + 1);
     }
   };
+
+  const tabOptions: { value: ClassesPageTab; label: string; badge?: number }[] = [
+    { value: "timetable", label: "Timetable" },
+    { value: "classes", label: "Classes" },
+    {
+      value: "tutor-logs",
+      label: "Tutor logs",
+      badge: unloggedCount > 0 ? unloggedCount : undefined,
+    },
+  ];
 
   return (
     <div className="flex min-h-full flex-col">
@@ -91,29 +129,31 @@ export default function ClassesPage() {
           </div>
         </header>
 
-        <section aria-labelledby="classes-heading" className="space-y-4">
-          <h2 id="classes-heading" className="text-2xl font-semibold">
-            Classes
-          </h2>
-          <TutorClassesTable />
-        </section>
+        <SegmentedTabPanel
+          value={activeTab}
+          onValueChange={setActiveTab}
+          className="w-full"
+          aria-label="Classes sections"
+          options={tabOptions}
+        >
+          <SegmentedTabPanelContent when="timetable" activeTab={activeTab} className="mt-6">
+            <SessionsCalendarView onOpenSession={handleOpenSession} />
+          </SegmentedTabPanelContent>
 
-        <section aria-labelledby="timetable-heading" className="space-y-4">
-          <h2 id="timetable-heading" className="text-2xl font-semibold">
-            Timetable
-          </h2>
-          <SessionsCalendarView onOpenSession={handleOpenSession} />
-        </section>
+          <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="mt-6">
+            <TutorClassesTable />
+          </SegmentedTabPanelContent>
 
-        {currentStaff?.id ? (
-          <UnloggedSessionsTableSection
-            staffId={currentStaff.id}
-            onLogSession={handleOpenLogSession}
-          />
-        ) : null}
+          <SegmentedTabPanelContent when="tutor-logs" activeTab={activeTab} className="mt-6">
+            <TutorLogsPanel
+              staffId={currentStaff?.id ?? null}
+              onLogSession={handleOpenLogSession}
+              onOpenSession={handleOpenSession}
+            />
+          </SegmentedTabPanelContent>
+        </SegmentedTabPanel>
       </TutorPageContainer>
 
-      {/* Session Modal */}
       <SessionModal
         isOpen={isSessionModalOpen}
         sessionId={selectedSessionId}
@@ -131,7 +171,6 @@ export default function ClassesPage() {
         onOpenChange={setIsCalendarDialogOpen}
       />
 
-      {/* Log Session Modal - composed at app level */}
       {currentStaff?.id && (
         <LogSessionModal
           isOpen={isLogSessionModalOpen}

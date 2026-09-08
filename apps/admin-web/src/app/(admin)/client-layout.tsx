@@ -25,7 +25,7 @@ import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialo
 import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
-import { Breadcrumb, AdminUrlSyncBoundary } from '@/shared/components';
+import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from '@/shared/components';
 import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
 import { useAdminShell } from '@/shared/contexts/AdminShellContext';
 import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
@@ -498,12 +498,13 @@ function AdminLayoutContent({
   
   return (
     <>
+      <Navbar />
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       <CommandPaletteModal
         isOpen={isCommandPaletteOpen}
         onClose={closeCommandPalette}
       />
-      <div className="flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
+      <div className="mt-[var(--navbar-height)] flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
         <SidebarNav collapsed={collapsed} />
         <div className="min-w-0 flex-1 overflow-hidden">
           <div className="relative h-full overflow-auto rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70 md:rounded-tr-none">

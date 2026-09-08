@@ -1,9 +1,18 @@
-import type { Database } from '@altitutor/shared';
+import { hasSessionStarted, type Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { dateStringToUtcEnd, dateStringToUtcStart } from '@/shared/utils/datetime';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { SessionParent, SessionStaff, SessionStudent } from '../utils/session-helpers';
 import { parseSessionParentList, parseSessionStaffList, parseSessionStudentList } from '../utils/parseSessionDetailJson';
+
+export type PastSessionWithDetails = Omit<
+  Database['public']['Views']['vtutor_session_detail']['Row'],
+  'staff' | 'students' | 'session_id'
+> & {
+  session_id: string;
+  staff: SessionStaff[];
+  students: SessionStudent[];
+};
 
 export type TutorSessionDetailsMap = {
   staff: SessionStaff[];
@@ -157,6 +166,34 @@ export const sessionsApi = {
     });
 
     return detailsMap;
+  },
+
+  /**
+   * Past sessions (start_at <= now) with staff and students from vtutor_session_detail.
+   */
+  getPastSessionsWithDetails: async (): Promise<PastSessionWithDetails[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const nowIso = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('vtutor_session_detail')
+      .select('*')
+      .lte('start_at', nowIso)
+      .order('start_at', { ascending: false })
+      .limit(1000);
+
+    if (error) throw error;
+
+    return (data ?? []).flatMap((row) => {
+      if (!row.session_id || !hasSessionStarted(row.start_at)) return [];
+      return [
+        {
+          ...row,
+          session_id: row.session_id,
+          staff: parseSessionStaffList(row.staff),
+          students: parseSessionStudentList(row.students),
+        },
+      ];
+    });
   },
 
   /**
