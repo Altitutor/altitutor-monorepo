@@ -39,6 +39,13 @@ function isJwtClockSkewError(error: AccessError | null) {
   );
 }
 
+function isPermissionDeniedError(error: AccessError | null) {
+  return (
+    error?.code === "42501" ||
+    error?.message?.toLowerCase().includes("permission denied") === true
+  );
+}
+
 function captureUnavailable(
   stage: "authentication" | "portal_access",
   startedAt: number,
@@ -143,6 +150,9 @@ export const loadAdminPortalAccess = cache(
       }
 
       if (profileResult.error) {
+        if (isPermissionDeniedError(profileResult.error)) {
+          return { status: "denied" };
+        }
         captureUnavailable("portal_access", startedAt, profileResult.error);
         return { status: "unavailable" };
       }

@@ -2,13 +2,14 @@
 
 import { useSearchParams } from 'next/navigation';
 import { LoginForm, LoginPageLayout } from '@/features/auth/components';
+import { loginErrorMessage } from '@/features/auth/utils/loginErrorMessage';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function LoginPage() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get('reset') === 'success';
-  const error = searchParams.get('error');
+  const error = loginErrorMessage(searchParams.get('error'));
 
   return (
     <LoginPageLayout>
@@ -23,7 +24,7 @@ export default function LoginPage() {
         )}
         {error && (
           <Alert variant="destructive">
-            <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
+            <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
         <LoginForm />
