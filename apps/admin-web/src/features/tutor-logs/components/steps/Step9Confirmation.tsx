@@ -197,9 +197,8 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
                     <TableCell>
                       <AttendanceCell
                         status={actualStatus}
-                        staffType={
-                          staffType as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | undefined
-                        }
+                        staffType={staffType}
+                        sessionType={session?.type}
                       />
                     </TableCell>
                   </TableRow>

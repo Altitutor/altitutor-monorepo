@@ -1,9 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { AccountClassBadge, Checkbox } from '@altitutor/ui';
+import { AccountClassBadge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Loader2, Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
@@ -26,6 +25,49 @@ type Step3StudentAttendanceProps = {
   onUpdate: (studentAttendance: StudentAttendanceItem[]) => void;
 };
 
+function AttendanceToggle({
+  attended,
+  disabled,
+  onChange,
+}: {
+  attended: boolean;
+  disabled?: boolean;
+  onChange: (attended: boolean) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 overflow-hidden rounded-md border" role="group" aria-label="Attendance">
+      <button
+        type="button"
+        disabled={disabled}
+        aria-pressed={attended}
+        onClick={() => onChange(true)}
+        className={cn(
+          'px-2.5 py-1 text-sm transition-colors disabled:opacity-50',
+          attended
+            ? 'bg-green-50 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            : 'bg-background text-muted-foreground hover:bg-muted/60'
+        )}
+      >
+        Attended
+      </button>
+      <button
+        type="button"
+        disabled={disabled}
+        aria-pressed={!attended}
+        onClick={() => onChange(false)}
+        className={cn(
+          'border-l px-2.5 py-1 text-sm transition-colors disabled:opacity-50',
+          !attended
+            ? 'bg-red-50 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            : 'bg-background text-muted-foreground hover:bg-muted/60'
+        )}
+      >
+        Did not attend
+      </button>
+    </div>
+  );
+}
+
 export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate }: Step3StudentAttendanceProps) {
   const queryClient = useQueryClient();
   const { sessionStudents, allStudents, isLoading } = useTutorLogStep3Data(sessionId);
@@ -35,7 +77,7 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
   const [isSearching, setIsSearching] = useState(false);
   const [addingStudentId, setAddingStudentId] = useState<string | null>(null);
 
-  // Initialize form data if empty when data loads
+  // Initialize form data if empty when data loads — default to planned attendance
   useEffect(() => {
     if (!isLoading && studentAttendance.length === 0 && sessionStudents.length > 0) {
       const initialAttendance = sessionStudents.map((ss) => ({
@@ -170,10 +212,9 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Select which students attended this session. You can also add additional students.
+        Confirm which students attended this session. Defaults match planned attendance.
       </p>
 
-      {/* Planned Students */}
       {sessionStudents.length > 0 && (
         <div className="space-y-3">
           <div className="font-medium">Students</div>
@@ -185,20 +226,23 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
 
             return (
               <div key={ss.student_id} className={tutorCardCn('flex items-center gap-3 p-3')}>
-                <Checkbox
-                  id={`student-${ss.student_id}`}
-                  checked={isAttended}
-                  disabled={isAdding}
-                  onCheckedChange={(checked) => handleAttendanceChange(ss.student_id, checked === true)}
-                />
-                <Label htmlFor={`student-${ss.student_id}`} className="flex flex-1 cursor-pointer items-center gap-2">
-                  <span>
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                  <span className="font-medium">
                     {student.first_name} {student.last_name}
                   </span>
                   <AccountClassBadge accountClass={student.account_class} />
-                  {ss.planned_absence && <span className="ml-2 text-xs text-muted-foreground">(Planned Absence)</span>}
-                  {student.status === 'TRIAL' && <span className="ml-2 text-xs text-muted-foreground">(Trial)</span>}
-                </Label>
+                  {ss.planned_absence && (
+                    <span className="text-xs text-muted-foreground">(Planned Absence)</span>
+                  )}
+                  {student.status === 'TRIAL' && (
+                    <span className="text-xs text-muted-foreground">(Trial)</span>
+                  )}
+                </div>
+                <AttendanceToggle
+                  attended={isAttended}
+                  disabled={isAdding}
+                  onChange={(next) => handleAttendanceChange(ss.student_id, next)}
+                />
                 {isAdding ? <Loader2 className="h-4 w-4 shrink-0 animate-spin text-muted-foreground" /> : null}
               </div>
             );

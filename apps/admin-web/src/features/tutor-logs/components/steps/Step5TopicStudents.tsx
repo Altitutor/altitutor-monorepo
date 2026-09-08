@@ -77,7 +77,7 @@ export function Step5TopicStudents({
     <div className="space-y-4">
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
-        Assign students to topics. By default, all attending students are assigned to all topics.
+        Assign students to the topics covered by each tutor during this session.
       </p>
 
       <div className="space-y-3">

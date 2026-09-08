@@ -2,8 +2,24 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
-import { Button, SearchableSelect } from '@altitutor/ui';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  SearchableSelect,
+} from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, X } from 'lucide-react';
 import {
   ExpandButton,
@@ -62,6 +78,7 @@ export function LogSessionModal({
   const [adminSelectedStaff, setAdminSelectedStaff] = useState<Tables<'staff'> | null>(null);
   const [adminStaffResults, setAdminStaffResults] = useState<Tables<'staff'>[]>([]);
   const [adminStaffSearchLoading, setAdminStaffSearchLoading] = useState(false);
+  const [showDiscardAlert, setShowDiscardAlert] = useState(false);
   const wasOpenRef = useRef(false);
 
   const createMutation = useCreateTutorLog();
@@ -108,6 +125,7 @@ export function LogSessionModal({
       setSubmissionError(null);
       setAdminSelectedStaff(null);
       setAdminStaffResults([]);
+      setShowDiscardAlert(false);
     }
   }, [isOpen, currentStaffId]);
 
@@ -161,6 +179,24 @@ export function LogSessionModal({
     if (submissionState === 'success') {
       onClose();
     }
+  };
+
+  const handleDismissAttempt = (event: Event) => {
+    event.preventDefault();
+  };
+
+  const handleRequestClose = () => {
+    if (submissionState === 'submitting') return;
+    if (submissionState === 'success') {
+      handleClose();
+      return;
+    }
+    setShowDiscardAlert(true);
+  };
+
+  const handleConfirmDiscard = () => {
+    setShowDiscardAlert(false);
+    onClose();
   };
 
   const updateFormData = (updates: Partial<TutorLogFormData>) => {
@@ -402,7 +438,13 @@ export function LogSessionModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={submissionState === 'success' ? handleClose : onClose}>
+    <>
+    <Dialog
+      open={isOpen}
+      onOpenChange={(next) => {
+        if (!next) handleRequestClose();
+      }}
+    >
       <DialogContent
         className={cn(
           'flex w-full flex-col gap-0 overflow-hidden p-0 md:max-w-4xl [&>button]:hidden',
@@ -410,6 +452,9 @@ export function LogSessionModal({
           EXPANDABLE_DIALOG_TRANSITION,
           expanded ? EXPANDED_DIALOG_CONTENT_CLASS : WIZARD_DIALOG_HEIGHT_CLASS,
         )}
+        onInteractOutside={handleDismissAttempt}
+        onPointerDownOutside={handleDismissAttempt}
+        onEscapeKeyDown={handleDismissAttempt}
       >
         {/* Header */}
         <div className={cn('flex-shrink-0', tutorDialogHeaderStrip)}>
@@ -419,7 +464,8 @@ export function LogSessionModal({
                 <Button
                   variant="outline"
                   size="icon"
-                  onClick={submissionState === 'success' ? handleClose : onClose}
+                  onClick={handleRequestClose}
+                  disabled={submissionState === 'submitting'}
                   className={tutorBtnIconOutline}
                 >
                   <X className="h-4 w-4" />
@@ -519,6 +565,22 @@ export function LogSessionModal({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    <AlertDialog open={showDiscardAlert} onOpenChange={setShowDiscardAlert}>
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Discard tutor log?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your progress will be lost if you leave now.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <AlertDialogCancel>Keep editing</AlertDialogCancel>
+          <AlertDialogAction onClick={handleConfirmDiscard}>Discard</AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+    </>
   );
 }
 

@@ -139,7 +139,7 @@ export function Step7FileStudents({
     <div className="space-y-4">
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
-        Assign students to files. By default, if a student studied a topic, they are assigned to that topic's files. You can proceed without assigning students.
+        Assign students to the file(s) they were given during this session.
       </p>
 
       {topicFiles.length === 0 ? (

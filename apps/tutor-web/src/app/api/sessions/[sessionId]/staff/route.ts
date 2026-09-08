@@ -85,7 +85,13 @@ export async function POST(
     }
     
     // Validate type
-    const validTypes = ['MAIN_TUTOR', 'SECONDARY_TUTOR', 'TRIAL_TUTOR'];
+    const validTypes = [
+      'MAIN_TUTOR',
+      'SECONDARY_TUTOR',
+      'TRIAL_TUTOR',
+      'CHECK_IN_HOST',
+      'CHECK_IN_RECEIVER',
+    ];
     if (!validTypes.includes(type)) {
       return NextResponse.json(
         { error: `Invalid type. Must be one of: ${validTypes.join(', ')}` },
@@ -125,7 +131,7 @@ export async function POST(
       id: crypto.randomUUID(),
       session_id: params.sessionId,
       staff_id: staffId,
-      type: type as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR',
+      type: type as TablesInsert<'sessions_staff'>['type'],
     };
     
     const { data, error } = await serviceClient

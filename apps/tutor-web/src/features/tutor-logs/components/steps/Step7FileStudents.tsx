@@ -85,7 +85,7 @@ export function Step7FileStudents({ topics, topicFiles, onUpdate }: Step7FileStu
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Assign students to files. By default, if a student studied a topic, they are assigned to that topic's files.
+      Assign students to the file(s) they were given during this session.
       </p>
 
       <div className="space-y-4">

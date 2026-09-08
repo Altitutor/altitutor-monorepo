@@ -5,7 +5,9 @@ import {
   defaultCheckInSessionsStaffType,
   defaultCheckInStaffUiRole,
   filterSessionsStaffMayLog,
+  formatTutorLogStaffAttendanceLabel,
   staffMaySubmitTutorLog,
+  toCheckInStaffRole,
 } from '../check-in-roles';
 
 describe('defaultCheckInStaffUiRole', () => {
@@ -17,6 +19,36 @@ describe('defaultCheckInStaffUiRole', () => {
   it('defaults staff to receiving on a staff-only check-in', () => {
     expect(defaultCheckInStaffUiRole(false)).toBe('receiver');
     expect(defaultCheckInSessionsStaffType(false)).toBe(CHECK_IN_RECEIVER);
+  });
+});
+
+describe('toCheckInStaffRole', () => {
+  it('maps modern and legacy types onto conducting/receiving', () => {
+    expect(toCheckInStaffRole(CHECK_IN_HOST)).toBe(CHECK_IN_HOST);
+    expect(toCheckInStaffRole(CHECK_IN_RECEIVER)).toBe(CHECK_IN_RECEIVER);
+    expect(toCheckInStaffRole('SECONDARY_TUTOR')).toBe(CHECK_IN_HOST);
+    expect(toCheckInStaffRole('TRIAL_TUTOR')).toBe(CHECK_IN_HOST);
+    expect(toCheckInStaffRole('MAIN_TUTOR')).toBe(CHECK_IN_RECEIVER);
+  });
+});
+
+describe('formatTutorLogStaffAttendanceLabel', () => {
+  it('uses conducting/receiving for check-in sessions', () => {
+    expect(formatTutorLogStaffAttendanceLabel(CHECK_IN_HOST, 'CHECK_IN')).toBe('Conducting');
+    expect(formatTutorLogStaffAttendanceLabel(CHECK_IN_RECEIVER, 'CHECK_IN')).toBe('Receiving');
+    expect(formatTutorLogStaffAttendanceLabel('MAIN_TUTOR', 'CHECK_IN')).toBe('Receiving');
+    expect(formatTutorLogStaffAttendanceLabel('SECONDARY_TUTOR', 'CHECK_IN')).toBe('Conducting');
+  });
+
+  it('uses main/secondary/trial labels for class sessions', () => {
+    expect(formatTutorLogStaffAttendanceLabel('MAIN_TUTOR', 'CLASS')).toBe('Main Tutor');
+    expect(formatTutorLogStaffAttendanceLabel('SECONDARY_TUTOR', 'CLASS')).toBe('Secondary Tutor');
+    expect(formatTutorLogStaffAttendanceLabel('TRIAL_TUTOR', 'CLASS')).toBe('Trial Tutor');
+  });
+
+  it('labels explicit check-in roles even without session type', () => {
+    expect(formatTutorLogStaffAttendanceLabel(CHECK_IN_HOST)).toBe('Conducting');
+    expect(formatTutorLogStaffAttendanceLabel(CHECK_IN_RECEIVER)).toBe('Receiving');
   });
 });
 
