@@ -88,8 +88,10 @@ export function PlanPickerDialogShell({
             })}
       >
         <motion.div
-          initial={(reduceMotion ?? false) ? false : { opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
+          // Opacity only — avoid transform on this wrapper so Safari does not
+          // stack it with DialogContent's translate(-50%, -50%) centering.
+          initial={(reduceMotion ?? false) ? false : { opacity: 0 }}
+          animate={{ opacity: 1 }}
           transition={{
             duration: (reduceMotion ?? false) ? 0 : 0.28,
             ease: [0.32, 0.72, 0, 1],

@@ -156,6 +156,20 @@ export function planPickerDialogChrome(className?: string) {
     "max-w-none md:!max-w-[min(96rem,calc(100vw-2rem))]",
     "border-border/60 bg-background p-4 sm:p-8",
     "data-[state=open]:duration-300 data-[state=closed]:duration-200",
+    /*
+     * DialogContent defaults combine left/top 50% centering with zoom +
+     * slide-in-from-left-1/2 / slide-in-from-top-[48%]. Safari miscomposites
+     * those enter transforms so the whole panel flies in diagonally; Chrome
+     * mostly hides it behind the card stagger. Keep fade only here and let
+     * Motion own the content/card motion.
+     */
+    "data-[state=open]:slide-in-from-bottom-0 data-[state=closed]:slide-out-to-bottom-0",
+    "sm:data-[state=open]:!zoom-in-100 sm:data-[state=closed]:!zoom-out-100",
+    "sm:data-[state=open]:!slide-in-from-left-0 sm:data-[state=open]:!slide-in-from-top-0",
+    "sm:data-[state=closed]:!slide-out-to-left-0 sm:data-[state=closed]:!slide-out-to-top-0",
+    "md:data-[state=open]:!zoom-in-100 md:data-[state=closed]:!zoom-out-100",
+    "md:data-[state=open]:!slide-in-from-left-0 md:data-[state=open]:!slide-in-from-top-0",
+    "md:data-[state=closed]:!slide-out-to-left-0 md:data-[state=closed]:!slide-out-to-top-0",
     className,
   );
 }
