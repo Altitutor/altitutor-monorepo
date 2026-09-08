@@ -260,6 +260,20 @@ export function useExamAttemptLifecycle({
     [clearLocal, replaceRoute, toast],
   );
 
+  const handleQuotaExceeded = useCallback(
+    (error: unknown): boolean => {
+      if (!(error instanceof QuotaExceededError)) return false;
+      beginBlockedRef.current = true;
+      syncBlockedRef.current = true;
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      openQuotaLimit(error.payload, {
+        dismissAction: quotaRouteFallback(error.payload.area),
+      });
+      return true;
+    },
+    [openQuotaLimit],
+  );
+
   const enqueueSync = useCallback(
     <T>(operation: () => Promise<T>): Promise<T> => {
       const result = syncQueueRef.current.then(operation, operation);
@@ -403,6 +417,7 @@ export function useExamAttemptLifecycle({
               .then(() => refresh())
               .catch((error: unknown) => {
                 if (handlePracticeSessionEnded(error)) return;
+                if (handleQuotaExceeded(error)) return;
                 // Resume state is already usable; a retry will occur on next sync.
               });
           }
@@ -484,6 +499,7 @@ export function useExamAttemptLifecycle({
     clearLocal,
     enqueueSync,
     handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   const beginIfNeeded = useCallback(async () => {
@@ -548,14 +564,7 @@ export function useExamAttemptLifecycle({
     } catch (error) {
       if (lifecycleKeyRef.current !== lifecycleKey) return;
       if (handlePracticeSessionEnded(error)) return;
-      if (error instanceof QuotaExceededError) {
-        beginBlockedRef.current = true;
-        syncBlockedRef.current = true;
-        openQuotaLimit(error.payload, {
-          dismissAction: quotaRouteFallback(error.payload.area),
-        });
-        return;
-      }
+      if (handleQuotaExceeded(error)) return;
       const activeConflict = getActiveAttemptFromConflict(error);
       if (activeConflict) {
         beginBlockedRef.current = true;
@@ -655,9 +664,9 @@ export function useExamAttemptLifecycle({
     setLocal,
     clearLocal,
     attemptStateRef,
-    openQuotaLimit,
     router,
     handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   useEffect(() => {
@@ -767,6 +776,7 @@ export function useExamAttemptLifecycle({
       })
       .catch((error: unknown) => {
         if (handlePracticeSessionEnded(error)) return;
+        if (handleQuotaExceeded(error)) return;
         // A failed background sync must not crash the question engine.
       })
       .finally(() => {
@@ -788,6 +798,7 @@ export function useExamAttemptLifecycle({
     attemptStateRef,
     enqueueSync,
     handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   useEffect(() => {
@@ -854,6 +865,7 @@ export function useExamAttemptLifecycle({
         })
         .catch((error: unknown) => {
           if (handlePracticeSessionEnded(error)) return;
+          if (handleQuotaExceeded(error)) return;
           // Keep the local engine usable and retry on the next state change.
         });
     }, delay);
@@ -872,6 +884,7 @@ export function useExamAttemptLifecycle({
     suppressQuestionTimingSyncRef,
     enqueueSync,
     handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   const activeQuestionTimingKey = latestQuestionTimingRef.current
@@ -938,7 +951,9 @@ export function useExamAttemptLifecycle({
       });
       return true;
     } catch (error) {
-      handlePracticeSessionEnded(error);
+      if (handlePracticeSessionEnded(error) || handleQuotaExceeded(error)) {
+        return false;
+      }
       // Question timing retries on the next heartbeat or transition.
       return false;
     }
@@ -953,6 +968,7 @@ export function useExamAttemptLifecycle({
     updateLocal,
     enqueueSync,
     handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   useEffect(() => {
@@ -1041,6 +1057,7 @@ export function useExamAttemptLifecycle({
         return true;
       } catch (error) {
         handlePracticeSessionEnded(error);
+        handleQuotaExceeded(error);
         return false;
       }
     },
@@ -1056,6 +1073,7 @@ export function useExamAttemptLifecycle({
       beginIfNeeded,
       enqueueSync,
       handlePracticeSessionEnded,
+      handleQuotaExceeded,
     ],
   );
 
@@ -1063,6 +1081,7 @@ export function useExamAttemptLifecycle({
     const flushLatestSnapshot = () => {
       const input = latestSyncInputRef.current;
       if (!input) return;
+      if (syncBlockedRef.current) return;
       if (isExamAttemptAtResults(input.kind, input.engineSnapshot.phase))
         return;
       syncExamAttemptKeepalive({ ...input, questionActiveTiming: null });
