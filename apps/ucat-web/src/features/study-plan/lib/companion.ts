@@ -20,11 +20,13 @@ export function selectNextStudyPlanTask(
   return (
     ordered.find(
       (task) =>
-        (task.status === "in_progress" || task.status === "partial") &&
+        task.status === "in_progress" &&
         isStudyPlanTaskActionable(task),
     ) ??
     ordered.find(
-      (task) => task.status === "planned" && isStudyPlanTaskActionable(task),
+      (task) =>
+        (task.status === "planned" || task.status === "partial") &&
+        isStudyPlanTaskActionable(task),
     ) ??
     null
   );
@@ -57,9 +59,7 @@ export function isCarryOverStudyPlanTask(
   today: string,
 ): boolean {
   return (
-    task.scheduledDate < today &&
-    task.status !== "completed" &&
-    task.status !== "skipped"
+    task.scheduledDate < today && task.status === "in_progress"
   );
 }
 
@@ -73,7 +73,11 @@ export function selectCurrentStudyPlanTasks(
       (task) =>
         task.scheduledDate === today || isCarryOverStudyPlanTask(task, today),
     )
-    .sort(byPlanOrder);
+    .sort((left, right) => {
+      const leftActive = left.status === "in_progress" ? 0 : 1;
+      const rightActive = right.status === "in_progress" ? 0 : 1;
+      return leftActive - rightActive || byPlanOrder(left, right);
+    });
 }
 
 export function getTodayStudyPlanProgress(tasks: StudyPlanTask[]): {

@@ -29,6 +29,7 @@ function taskActions() {
   return {
     error: null,
     pendingAction: null,
+    discardTask: jest.fn(),
     skipTask: jest.fn(),
     startTask: jest.fn(),
     unskipTask: jest.fn(),
@@ -176,5 +177,29 @@ describe("StudyPlanTaskList", () => {
     expect(
       screen.getByRole("button", { name: "Start recommended task" }),
     ).toBeInTheDocument();
+  });
+
+  it("offers Continue and Discard for genuinely resumable work", () => {
+    const activeTask = task("active", "2026-08-21");
+    activeTask.status = "in_progress";
+
+    render(<StudyPlanTaskList tasks={[activeTask]} today="2026-08-22" />);
+
+    expect(screen.getByRole("button", { name: "Continue" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Discard" })).toBeInTheDocument();
+  });
+
+  it("keeps partial credit distinct from active resumable work", () => {
+    const partialTask = task("partial", "2026-08-22");
+    partialTask.status = "partial";
+
+    render(<StudyPlanTaskList tasks={[partialTask]} today="2026-08-22" />);
+
+    expect(screen.getByText("Partially completed")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Start" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Skip" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Discard" }),
+    ).not.toBeInTheDocument();
   });
 });

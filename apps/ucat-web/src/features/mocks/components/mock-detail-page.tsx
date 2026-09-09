@@ -48,6 +48,7 @@ type MockDetailPageProps = {
   backHref?: string;
   backLabel?: string;
   sessionEntryContext?: SessionResourceEntryContext;
+  studyPlanTaskId?: string | null;
 };
 
 function buildMockBreadcrumbOverrides(
@@ -84,6 +85,7 @@ export function MockDetailPage({
   backHref: backHrefProp,
   backLabel: backLabelProp,
   sessionEntryContext,
+  studyPlanTaskId = null,
 }: MockDetailPageProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -122,11 +124,13 @@ export function MockDetailPage({
     resourceId: mockId,
     title: mock?.name ?? "Mock exam",
     exitHref: backHref,
+    studyPlanTaskId,
   });
   const launchPreflight = useExamAttemptLaunchPreflight({
     kind: "mock",
     resourceId: mockId,
     onLaunch: launchMock,
+    studyPlanTaskId,
   });
 
   useEffect(() => {

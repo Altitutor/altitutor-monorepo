@@ -51,7 +51,7 @@ export function selectLearningTaskOwner(
 export type LearningModuleTaskMatch = {
   completedAt: string | null;
   completedUnits: number;
-  status: "completed" | "partial";
+  status: "completed" | "in_progress";
 };
 
 type PracticeTaskRequirement = {
@@ -115,7 +115,7 @@ export function matchLearningModuleProgress(
   }
   if (progress.completionPercent > 0) {
     return {
-      status: "partial",
+      status: "in_progress",
       completedAt: null,
       completedUnits: Math.round(progress.completionPercent),
     };

@@ -54,11 +54,14 @@ export const skillTrainerApi = {
     return json.trainers;
   },
 
-  async startAttempt(trainerKey: string): Promise<SkillTrainerAttemptState> {
+  async startAttempt(
+    trainerKey: string,
+    studyPlanTaskId: string | null = null,
+  ): Promise<SkillTrainerAttemptState> {
     const res = await fetch("/api/ucat/skill-trainer-attempts", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ trainerKey }),
+      body: JSON.stringify({ trainerKey, studyPlanTaskId }),
     });
     if (!res.ok) {
       const json = (await res.json()) as { error?: string };

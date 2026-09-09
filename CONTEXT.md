@@ -1046,10 +1046,16 @@
 - **Equivalent study activity** — In-app study completed outside a Study plan action that sufficiently matches a planned task's activity type, section or skill focus, timing mode, and required volume. It may automatically satisfy that task so the student is not asked to repeat substantially the same work. Non-equivalent extra activity still contributes to progress evidence and later plan recalculation but does not complete an unrelated task.
   _Avoid_: Any activity counts, plan-only activity, duplicate required practice
 
-- **Partial study task completion** — Recorded progress when a student completes some but not all of a Study plan task's measurable volume. The task remains visibly partial; when overdue, only the uncompleted portion of non-optional Practice may contribute bounded Missed exposure debt rather than becoming a carried task. A mock or benchmark is complete only when its required attempt is finalized.
+- **Partial study task completion** — Recorded credit when a student completes some but not all of a Study plan task's measurable volume without retaining an active resumable Attempt. The task remains visibly partial and may roll over as missed work; a partly completed Learning module is instead Active Study-plan work because its saved progress is resumable. A mock or benchmark is complete only when its required Attempt is finalized.
   _Avoid_: Failed task, automatic completion, remaining-work rollover
 
-- **Study plan task controls** — The intentionally limited actions available on a generated study task: start the prescribed activity or skip it for automatic Study plan rebalancing. Students edit planning inputs such as availability, test date, and target score rather than manually moving, rewriting, or swapping generated tasks. This preserves the student-facing promise that the plan decides what to do next.
+- **Active Study-plan work** — A scheduled task backed by an activity the student can resume, such as saved Learning-module progress or an active Practice, Set, or Mock Attempt. It remains ahead of each day's new tasks until completed or explicitly discarded; Skill-trainer Attempts are never resumable.
+  _Avoid_: Any started task, partial task, carried task
+
+- **Study-plan activity exit** — Leaving or discarding an activity from within its own experience ends its current Attempt and returns its scheduled task to an unstarted state. It does not complete or skip the task; ordinary rollover may later skip it when a subsequent planned study day begins.
+  _Avoid_: Skip task, discard carried task
+
+- **Study plan task controls** — The intentionally limited actions available on generated work. An unstarted task may be started or skipped; Active Study-plan work may be continued or discarded, which ends its resumable Attempt and skips that scheduled task. Skipping a Learning task never marks the Learning module itself complete or excluded, so an incomplete module may be prescribed again. Students edit planning inputs such as availability, test date, and target score rather than manually moving, rewriting, or swapping generated tasks.
   _Avoid_: Timetable editor, drag-and-drop plan, task swap
 
 - **Study plan quota handling** — The Study plan prescribes the same academically appropriate work regardless of Online access tier; it is not weakened to fit UCAT Free quotas. A Free student can see the complete plan and complete tasks while quota remains. A task blocked by quota remains visibly locked with its reset or upgrade action, is not counted as missed, and may contribute to an access-risk warning when the target workload cannot be executed.

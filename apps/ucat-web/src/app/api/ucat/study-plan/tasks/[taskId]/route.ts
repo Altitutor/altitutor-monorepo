@@ -18,8 +18,8 @@ export async function PATCH(
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     const body = (await request.json()) as { action?: unknown };
     if (
-      body.action !== "start" &&
       body.action !== "skip" &&
+      body.action !== "discard" &&
       body.action !== "unskip" &&
       body.action !== "complete"
     ) {

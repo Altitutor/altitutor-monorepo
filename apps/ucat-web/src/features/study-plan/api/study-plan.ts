@@ -69,7 +69,7 @@ export function suggestAlternativeStudyGuidance(
 
 export async function updateStudyPlanTask(
   taskId: string,
-  action: "start" | "skip" | "unskip" | "complete",
+  action: "skip" | "discard" | "unskip" | "complete",
 ): Promise<void> {
   const response = await fetch(`/api/ucat/study-plan/tasks/${taskId}`, {
     method: "PATCH",

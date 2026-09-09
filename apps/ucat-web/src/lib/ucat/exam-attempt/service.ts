@@ -300,7 +300,7 @@ export async function getActiveExamAttempt(
       ? await admin
           .from("student_ucat_mock_attempts")
           .select(
-            "id, ucat_mock_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed",
+            "id, ucat_mock_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed, study_plan_task_id",
           )
           .eq("id", activeSlot.attempt_id)
           .eq("student_id", studentId)
@@ -317,7 +317,7 @@ export async function getActiveExamAttempt(
       ? await admin
           .from("student_practice_sessions")
           .select(
-            "id, section_key, engine_snapshot, current_segment_ends_at, completed_at, ucat_section_id, was_timed",
+            "id, section_key, engine_snapshot, current_segment_ends_at, completed_at, ucat_section_id, was_timed, study_plan_task_id",
           )
           .eq("id", activeSlot.attempt_id)
           .eq("student_id", studentId)
@@ -437,6 +437,7 @@ export async function getActiveExamAttempt(
           label,
           mockAttemptId: mockRes.data.id,
           wasTimed: mockRes.data.was_timed,
+          studyPlanTaskId: mockRes.data.study_plan_task_id,
           resultsHref,
         },
         stored,
@@ -507,6 +508,7 @@ export async function getActiveExamAttempt(
           label,
           practiceSessionId: practiceRes.data.id,
           wasTimed: practiceRes.data.was_timed,
+          studyPlanTaskId: practiceRes.data.study_plan_task_id,
           resultsHref,
         },
         stored,
@@ -1291,6 +1293,7 @@ export async function beginExamAttempt(
       wasTimed: attemptWasTimed,
       firstSetId: input.questionSetIdForMockSet,
       firstSetAttemptId,
+      studyPlanTaskId: input.studyPlanTaskId,
     });
 
     const label =
@@ -1316,6 +1319,7 @@ export async function beginExamAttempt(
         setAttemptIdsBySetId,
         practiceSessionId: null,
         wasTimed: attemptWasTimed,
+        studyPlanTaskId: input.studyPlanTaskId ?? null,
       },
       resumed: false,
     };
@@ -1335,7 +1339,7 @@ export async function beginExamAttempt(
     .is("completed_at", null)
     .is("discarded_at", null)
     .is("expired_at", null)
-    .select("id, section_key, ucat_section_id")
+    .select("id, section_key, ucat_section_id, study_plan_task_id")
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!session) throw new PracticeSessionEndedError();
@@ -1370,6 +1374,7 @@ export async function beginExamAttempt(
       setAttemptIdsBySetId: {},
       practiceSessionId: session.id,
       wasTimed: attemptWasTimed,
+      studyPlanTaskId: session.study_plan_task_id,
     },
     resumed: false,
   };

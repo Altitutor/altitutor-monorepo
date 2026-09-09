@@ -91,6 +91,7 @@ function TaskRow({
   const {
     error,
     pendingAction,
+    discardTask,
     skipTask,
     startTask,
     unskipTask,
@@ -152,7 +153,7 @@ function TaskRow({
               {task.title}
             </p>
             {task.status === "partial" ? (
-              <Badge variant="secondary">In progress</Badge>
+              <Badge variant="secondary">Partially completed</Badge>
             ) : null}
             {isSkipped ? <Badge variant="outline">Skipped</Badge> : null}
           </div>
@@ -201,7 +202,7 @@ function TaskRow({
             <Button size="sm" disabled>
               {awaitingReviewAttempt
                 ? "Finish attempt first"
-                : task.status === "partial" || task.status === "in_progress"
+                : task.status === "in_progress"
                   ? "Continue"
                   : task.taskType === "review"
                     ? "Review now"
@@ -209,7 +210,7 @@ function TaskRow({
             </Button>
             {canSkip ? (
               <Button size="sm" variant="outline" disabled>
-                Skip
+                {task.status === "in_progress" ? "Discard" : "Skip"}
               </Button>
             ) : null}
           </div>
@@ -241,7 +242,7 @@ function TaskRow({
               ) : null}
               {awaitingReviewAttempt
                 ? "Finish attempt first"
-                : task.status === "partial" || task.status === "in_progress"
+                : task.status === "in_progress"
                   ? "Continue"
                   : task.taskType === "review"
                     ? "Review now"
@@ -252,13 +253,17 @@ function TaskRow({
                 data-tour-study-plan-task-action
                 size="sm"
                 variant="outline"
-                onClick={() => void skipTask()}
+                onClick={() =>
+                  void (task.status === "in_progress"
+                    ? discardTask()
+                    : skipTask())
+                }
                 disabled={pendingAction != null}
               >
-                {pendingAction === "skip" ? (
+                {pendingAction === "skip" || pendingAction === "discard" ? (
                   <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                 ) : null}
-                Skip
+                {task.status === "in_progress" ? "Discard" : "Skip"}
               </Button>
             ) : null}
           </div>

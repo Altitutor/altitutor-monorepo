@@ -128,6 +128,7 @@ function createDatabaseHarness(
     recentTimingEvidence?: boolean;
     completedMockCount?: number;
     taskType?: "practice" | "review";
+    taskStatus?: "planned" | "in_progress" | "skipped";
     refreshDeadLetteredAt?: string;
   } = {},
 ) {
@@ -204,7 +205,7 @@ function createDatabaseHarness(
       return {
         data: {
           id: "task-today",
-          status: "planned",
+          status: options.taskStatus ?? "planned",
           task_type: options.taskType ?? "practice",
           generation_id: "generation-old",
           scheduled_date: "2026-08-11",
@@ -363,6 +364,9 @@ function createDatabaseHarness(
     }
     if (name === "get_student_ucat_activity_tag_weakness_signals") {
       return { data: [], error: null };
+    }
+    if (name === "ucat_study_plan_task_has_active_work") {
+      return { data: false, error: null };
     }
     if (name === "get_student_ucat_study_plan_forecast_history") {
       return {
@@ -523,6 +527,43 @@ describe("Study plan persistence orchestration", () => {
     expect(admin.rpc).not.toHaveBeenCalledWith(
       "replace_ucat_study_plan_generation",
       expect.anything(),
+    );
+  });
+
+  it("delegates active-task discard to the atomic attempt lifecycle", async () => {
+    const { admin, studentClient, updates } = createDatabaseHarness({
+      taskStatus: "in_progress",
+    });
+
+    await updateStudyPlanTask(studentClient, "user-1", "task-today", "discard");
+
+    expect(admin.rpc).toHaveBeenCalledWith("discard_ucat_study_plan_task", {
+      p_student_id: "student-1",
+      p_task_id: "task-today",
+    });
+    expect(updates).toHaveLength(0);
+  });
+
+  it("does not recreate orphaned in-progress state when undoing a skip", async () => {
+    const { admin, studentClient, updates } = createDatabaseHarness({
+      taskStatus: "skipped",
+    });
+
+    await updateStudyPlanTask(studentClient, "user-1", "task-today", "unskip");
+
+    expect(admin.rpc).toHaveBeenCalledWith(
+      "ucat_study_plan_task_has_active_work",
+      { p_task_id: "task-today" },
+    );
+    expect(updates).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          payload: expect.objectContaining({
+            status: "planned",
+            started_at: null,
+          }),
+        }),
+      ]),
     );
   });
 

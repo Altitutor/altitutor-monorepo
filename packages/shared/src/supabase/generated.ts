@@ -10276,6 +10276,7 @@ export type Database = {
           stem_delivery_revision: number
           stems_snapshot: Json | null
           student_id: string
+          study_plan_task_id: string | null
           total_points: number | null
           ucat_section_id: string
           unlimited: boolean
@@ -10298,6 +10299,7 @@ export type Database = {
           stem_delivery_revision?: number
           stems_snapshot?: Json | null
           student_id: string
+          study_plan_task_id?: string | null
           total_points?: number | null
           ucat_section_id: string
           unlimited?: boolean
@@ -10320,6 +10322,7 @@ export type Database = {
           stem_delivery_revision?: number
           stems_snapshot?: Json | null
           student_id?: string
+          study_plan_task_id?: string | null
           total_points?: number | null
           ucat_section_id?: string
           unlimited?: boolean
@@ -10360,6 +10363,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_practice_sessions_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_practice_sessions_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_study_plan_tasks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "student_practice_sessions_ucat_section_id_fkey"
@@ -10998,6 +11015,7 @@ export type Database = {
           started_at: string
           streak_count: number
           student_id: string
+          study_plan_task_id: string | null
           version: number
         }
         Insert: {
@@ -11016,6 +11034,7 @@ export type Database = {
           started_at?: string
           streak_count?: number
           student_id: string
+          study_plan_task_id?: string | null
           version?: number
         }
         Update: {
@@ -11034,6 +11053,7 @@ export type Database = {
           started_at?: string
           streak_count?: number
           student_id?: string
+          study_plan_task_id?: string | null
           version?: number
         }
         Relationships: [
@@ -11106,6 +11126,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_study_plan_tasks"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -11657,6 +11691,7 @@ export type Database = {
           scoring_model_version: string | null
           student_id: string
           student_mock_speed: number | null
+          study_plan_task_id: string | null
           time_taken: number | null
           total_points: number | null
           ucat_mock_id: string
@@ -11679,6 +11714,7 @@ export type Database = {
           scoring_model_version?: string | null
           student_id: string
           student_mock_speed?: number | null
+          study_plan_task_id?: string | null
           time_taken?: number | null
           total_points?: number | null
           ucat_mock_id: string
@@ -11701,6 +11737,7 @@ export type Database = {
           scoring_model_version?: string | null
           student_id?: string
           student_mock_speed?: number | null
+          study_plan_task_id?: string | null
           time_taken?: number | null
           total_points?: number | null
           ucat_mock_id?: string
@@ -11741,6 +11778,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_ucat_mock_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_mock_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_study_plan_tasks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "student_ucat_mock_attempts_ucat_mock_id_fkey"
@@ -38355,6 +38406,10 @@ export type Database = {
         Args: { p_attempt_id: string; p_student_id: string }
         Returns: boolean
       }
+      discard_ucat_study_plan_task: {
+        Args: { p_student_id: string; p_task_id: string }
+        Returns: boolean
+      }
       discontinue_student: {
         Args: { p_discontinued_by: string; p_student_id: string }
         Returns: Json
@@ -40549,6 +40604,10 @@ export type Database = {
         Returns: string
       }
       ucat_set_catalog_compact_is_deferred: { Args: never; Returns: boolean }
+      ucat_study_plan_task_has_active_work: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
       ucat_sync_component_sets_for_mock_occupancy: {
         Args: { p_mock_id: string }
         Returns: undefined

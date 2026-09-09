@@ -2158,9 +2158,9 @@ async function reconcileTasks(
             });
           }
         }
-      } else if (match?.status === "partial") {
+      } else if (match?.status === "in_progress") {
         update = {
-          status: "partial",
+          status: "in_progress",
           completed_units: match.completedUnits,
           matched_activity_type: "learning_module",
           matched_activity_id: progress!.id,
@@ -3156,7 +3156,7 @@ export async function createExtraStudyTask(
     )
   ) {
     throw new ExtraStudyUnavailableError(
-      "Finish or skip the tasks still waiting from an earlier study day before adding extra study.",
+      "Continue or discard the active tasks from an earlier study day before adding extra study.",
     );
   }
 
@@ -3529,7 +3529,7 @@ export async function updateStudyPlanTask(
   supabase: SupabaseClient<Database>,
   userId: string,
   taskId: string,
-  action: "start" | "skip" | "unskip" | "complete",
+  action: "skip" | "discard" | "unskip" | "complete",
 ): Promise<void> {
   const admin = requireAdmin();
   const studentId = await resolveStudentId(userId);
@@ -3545,6 +3545,15 @@ export async function updateStudyPlanTask(
   if (taskError) throw taskError;
   if (!task) throw new Error("Study plan task not found.");
   if (task.status === "completed") return;
+  if (action === "discard") {
+    const { data: discarded, error: discardError } = await admin.rpc(
+      "discard_ucat_study_plan_task",
+      { p_student_id: studentId, p_task_id: task.id },
+    );
+    if (discardError) throw discardError;
+    if (!discarded) throw new Error("Study plan task not found.");
+    return;
+  }
   if (action === "skip" && task.scheduled_date > todayIso()) {
     throw new Error("Future Study plan tasks cannot be skipped yet.");
   }
@@ -3552,23 +3561,24 @@ export async function updateStudyPlanTask(
   if (action === "complete" && task.task_type !== "review") {
     throw new Error("Only review tasks can be completed manually.");
   }
+  const activeWork =
+    action === "unskip"
+      ? await admin.rpc("ucat_study_plan_task_has_active_work", {
+          p_task_id: task.id,
+        })
+      : null;
+  if (activeWork?.error) throw activeWork.error;
   const update =
-    action === "start"
+    action === "unskip"
       ? {
-          status: "in_progress",
-          started_at: now,
+          status: activeWork?.data ? "in_progress" : "planned",
+          started_at: activeWork?.data ? task.started_at : null,
           skipped_at: null,
           skipped_reason: null,
         }
-      : action === "unskip"
-        ? {
-            status: task.started_at ? "in_progress" : "planned",
-            skipped_at: null,
-            skipped_reason: null,
-          }
-        : action === "complete"
-          ? { status: "completed", completed_at: now, completed_units: 1 }
-          : { status: "skipped", skipped_at: now, skipped_reason: "manual" };
+      : action === "complete"
+        ? { status: "completed", completed_at: now, completed_units: 1 }
+        : { status: "skipped", skipped_at: now, skipped_reason: "manual" };
   const { error } = await admin
     .from("ucat_student_study_plan_tasks")
     .update(update)

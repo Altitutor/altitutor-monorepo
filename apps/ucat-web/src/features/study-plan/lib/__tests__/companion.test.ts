@@ -49,6 +49,7 @@ describe("Study plan companion selectors", () => {
       id: "earlier",
       scheduledDate: "2026-07-14",
       sortOrder: 3,
+      status: "in_progress",
     });
     const today = task({ id: "today" });
     const completedEarlier = task({
@@ -69,8 +70,20 @@ describe("Study plan companion selectors", () => {
 
   it("continues an active task before starting another planned task", () => {
     const planned = task({ id: "planned", sortOrder: 0 });
-    const partial = task({ id: "partial", sortOrder: 2, status: "partial" });
-    expect(selectNextStudyPlanTask([planned, partial])?.id).toBe("partial");
+    const active = task({ id: "active", sortOrder: 2, status: "in_progress" });
+    expect(selectNextStudyPlanTask([planned, active])?.id).toBe("active");
+  });
+
+  it("does not carry unattempted or partial-credit tasks into another day", () => {
+    const planned = task({ id: "planned", scheduledDate: "2026-07-14" });
+    const partial = task({
+      id: "partial",
+      scheduledDate: "2026-07-14",
+      status: "partial",
+    });
+
+    expect(isCarryOverStudyPlanTask(planned, "2026-07-15")).toBe(false);
+    expect(isCarryOverStudyPlanTask(partial, "2026-07-15")).toBe(false);
   });
 
   it("confirms before starting a later task on the same study day", () => {
