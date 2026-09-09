@@ -50,6 +50,7 @@ import { currentEnrolledClassIds } from '@/features/students/utils/classEnrollme
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
 import { ReEnrollStudentConfirmDialog } from '@/features/students/components/ReEnrollStudentConfirmDialog';
 import { studentsApi } from '@/features/students/api';
 import { AdminLoadingSkeleton } from '@/shared/components';
@@ -109,6 +110,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const [activeTab, setActiveTab] = useState('details');
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+  const [isDiscontinuationLinkOpen, setIsDiscontinuationLinkOpen] = useState(false);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
   const [isReEnrolling, setIsReEnrolling] = useState(false);
 
@@ -217,6 +220,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             ],
           })
       : undefined,
+    onSendDiscontinuationLink: () => setIsDiscontinuationLinkOpen(true),
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
     onReEnroll: () => setIsReEnrollDialogOpen(true),
     onDelete: modals.openDeleteDialog,
@@ -469,16 +473,49 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         />
       )}
 
-      {/* Discontinue Confirmation Dialog */}
+      {/* Send Discontinuation Link Dialog */}
       {student && (
         <StudentExitRequestDialog
-          open={isDiscontinueDialogOpen}
-          onOpenChange={setIsDiscontinueDialogOpen}
+          open={isDiscontinuationLinkOpen}
+          onOpenChange={setIsDiscontinuationLinkOpen}
           studentId={student.id}
           studentName={`${student.first_name} ${student.last_name}`}
           studentPhone={student.phone}
           workflowKey="student_discontinuation"
           onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
+        />
+      )}
+
+      {student && (
+        <DiscontinueStudentConfirmDialog
+          isOpen={isDiscontinueDialogOpen}
+          onOpenChange={setIsDiscontinueDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          isDiscontinuing={isDiscontinuing}
+          onConfirm={async () => {
+            if (!currentStaff) return false;
+
+            try {
+              setIsDiscontinuing(true);
+              const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
+              if (!result.success) throw new Error(result.error);
+              await invalidateStudentDetail(queryClient, student.id);
+              toast({
+                title: 'Success',
+                description: 'Student discontinued successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Discontinue failed',
+                description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsDiscontinuing(false);
+            }
+          }}
         />
       )}
 

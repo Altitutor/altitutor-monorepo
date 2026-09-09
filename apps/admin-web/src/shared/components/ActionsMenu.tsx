@@ -39,6 +39,7 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   onBookSubsidyInterview?: () => void;
   /** Opens global book check-in with this student pre-selected */
   onBookCheckIn?: () => void;
+  onSendDiscontinuationLink?: () => void;
   onDiscontinue?: () => void;
   /** Re-enroll a discontinued student (status → ACTIVE) */
   onReEnroll?: () => void;
@@ -275,6 +276,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuItem onClick={props.onReEnroll}>
                 <UserCheck className="h-4 w-4 mr-2" />
                 Re-enroll
+              </DropdownMenuItem>
+            )}
+            {props.onSendDiscontinuationLink && (
+              <DropdownMenuItem onClick={props.onSendDiscontinuationLink}>
+                <Mail className="h-4 w-4 mr-2" />
+                Send discontinuation link
               </DropdownMenuItem>
             )}
             {props.onDiscontinue && (

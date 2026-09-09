@@ -45,6 +45,7 @@ import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
 import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -71,6 +72,7 @@ interface StudentRowActionsProps {
   onBookDraftingSession: () => void;
   onBookSubsidyInterview: () => void;
   onBookCheckIn: () => void;
+  onSendDiscontinuationLink?: () => void;
   onDiscontinue?: () => void;
   onReEnroll?: () => void;
   onDelete: () => void;
@@ -87,6 +89,7 @@ function StudentRowActions({
   onBookDraftingSession,
   onBookSubsidyInterview,
   onBookCheckIn,
+  onSendDiscontinuationLink,
   onDiscontinue,
   onReEnroll,
   onDelete,
@@ -103,6 +106,7 @@ function StudentRowActions({
     onBookDraftingSession,
     onBookSubsidyInterview,
     onBookCheckIn,
+    onSendDiscontinuationLink,
     onDiscontinue,
     onReEnroll,
     onDelete,
@@ -192,6 +196,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [, setLoadingPasswordReset] = useState(false);
   const [, setHasPasswordResetLinkSent] = useState(false);
   const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
+  const [studentForDiscontinuationLink, setStudentForDiscontinuationLink] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   const [studentToReEnroll, setStudentToReEnroll] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
   const [isReEnrolling, setIsReEnrolling] = useState(false);
 
@@ -695,6 +701,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                             ],
                           })
                         }
+                        onSendDiscontinuationLink={() => {
+                          setStudentForDiscontinuationLink(student);
+                        }}
                         onDiscontinue={() => {
                           setStudentToDiscontinue(student);
                         }}
@@ -900,17 +909,52 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         );
       })()}
 
-      {studentToDiscontinue && (
+      {studentForDiscontinuationLink && (
         <StudentExitRequestDialog
-          open={!!studentToDiscontinue}
+          open={!!studentForDiscontinuationLink}
+          onOpenChange={(open) => {
+            if (!open) setStudentForDiscontinuationLink(null);
+          }}
+          studentId={studentForDiscontinuationLink.id}
+          studentName={[studentForDiscontinuationLink.first_name, studentForDiscontinuationLink.last_name].filter(Boolean).join(' ') || 'this student'}
+          studentPhone={studentForDiscontinuationLink.phone}
+          workflowKey="student_discontinuation"
+          onCreated={refetch}
+        />
+      )}
+
+      {studentToDiscontinue && (
+        <DiscontinueStudentConfirmDialog
+          isOpen={!!studentToDiscontinue}
           onOpenChange={(open) => {
             if (!open) setStudentToDiscontinue(null);
           }}
-          studentId={studentToDiscontinue.id}
           studentName={[studentToDiscontinue.first_name, studentToDiscontinue.last_name].filter(Boolean).join(' ') || 'this student'}
-          studentPhone={studentToDiscontinue.phone}
-          workflowKey="student_discontinuation"
-          onCreated={refetch}
+          isDiscontinuing={isDiscontinuing}
+          onConfirm={async () => {
+            if (!currentStaff) return false;
+
+            try {
+              setIsDiscontinuing(true);
+              const result = await studentsApi.discontinueStudent(studentToDiscontinue.id, currentStaff.id);
+              if (!result.success) throw new Error(result.error);
+              toast({
+                title: 'Success',
+                description: 'Student discontinued successfully.',
+              });
+              await refetch();
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Discontinue failed',
+                description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsDiscontinuing(false);
+            }
+          }}
         />
       )}
 

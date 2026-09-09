@@ -26,6 +26,7 @@ const baseCallbacks = {
   onBookDraftingSession: jest.fn(),
   onBookSubsidyInterview: jest.fn(),
   onBookCheckIn: jest.fn(),
+  onSendDiscontinuationLink: jest.fn(),
   onDiscontinue: jest.fn(),
   onReEnroll: jest.fn(),
   onDelete: jest.fn(),
@@ -46,6 +47,7 @@ describe('useStudentActions', () => {
     expect(result.current.onBookSubsidyInterview).toBe(baseCallbacks.onBookSubsidyInterview);
     expect(result.current.onBookCheckIn).toBe(baseCallbacks.onBookCheckIn);
     expect(result.current.onLogAbsence).toBe(baseCallbacks.onLogAbsence);
+    expect(result.current.onSendDiscontinuationLink).toBe(baseCallbacks.onSendDiscontinuationLink);
     expect(result.current.onDiscontinue).toBe(baseCallbacks.onDiscontinue);
     expect(result.current.onReEnroll).toBeUndefined();
   });
@@ -61,6 +63,7 @@ describe('useStudentActions', () => {
 
     expect(result.current.onBookTrialSession).toBeDefined();
     expect(result.current.onDiscontinue).toBeDefined();
+    expect(result.current.onSendDiscontinuationLink).toBeDefined();
     expect(result.current.onReEnroll).toBeUndefined();
   });
 
@@ -79,6 +82,7 @@ describe('useStudentActions', () => {
     expect(result.current.onBookCheckIn).toBeUndefined();
     expect(result.current.onLogAbsence).toBeUndefined();
     expect(result.current.onDiscontinue).toBeUndefined();
+    expect(result.current.onSendDiscontinuationLink).toBeUndefined();
     expect(result.current.onReEnroll).toBe(baseCallbacks.onReEnroll);
   });
 });

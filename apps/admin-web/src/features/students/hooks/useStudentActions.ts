@@ -46,6 +46,10 @@ interface UseStudentActionsProps {
   /** Opens global book check-in with this student pre-selected */
   onBookCheckIn?: () => void;
   /**
+   * Optional callback for sending a discontinuation link
+   */
+  onSendDiscontinuationLink?: () => void;
+  /**
    * Optional callback for discontinue action
    */
   onDiscontinue?: () => void;
@@ -78,6 +82,7 @@ export function useStudentActions({
   onBookDraftingSession,
   onBookSubsidyInterview,
   onBookCheckIn,
+  onSendDiscontinuationLink,
   onDiscontinue,
   onReEnroll,
   onDelete,
@@ -103,6 +108,7 @@ export function useStudentActions({
     onBookDraftingSession: canBook ? onBookDraftingSession : undefined,
     onBookSubsidyInterview: canBook ? onBookSubsidyInterview : undefined,
     onBookCheckIn: canBook ? onBookCheckIn : undefined,
+    onSendDiscontinuationLink: canBook ? onSendDiscontinuationLink : undefined,
     onDiscontinue: canBook ? onDiscontinue : undefined,
     onReEnroll: student?.status === 'DISCONTINUED' ? onReEnroll : undefined,
     onDelete,

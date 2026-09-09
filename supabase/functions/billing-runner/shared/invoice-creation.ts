@@ -336,6 +336,10 @@ export async function saveInvoiceToDatabase(
         ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000)
           .toISOString()
         : null,
+      paid_at: finalizedInvoice.status_transitions?.paid_at
+        ? new Date(finalizedInvoice.status_transitions.paid_at * 1000)
+          .toISOString()
+        : null,
     })
     .select('id, status')
     .single();
@@ -503,8 +507,13 @@ export async function updateInvoicePaymentStatus(
   // Extract charge ID from latest_charge (can be string ID or expanded object)
   // This is critical for refund tracking - charge.refunded webhooks need this to find invoices
   let chargeId: string | null = null;
-  if (paidInvoice.latest_charge) {
-    const lc = paidInvoice.latest_charge;
+  const latestCharge = (
+    paidInvoice as Stripe.Invoice & {
+      latest_charge?: string | Stripe.Charge | null;
+    }
+  ).latest_charge;
+  if (latestCharge) {
+    const lc = latestCharge;
     chargeId = typeof lc === 'string'
       ? lc
       : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
@@ -536,8 +545,8 @@ export async function updateInvoicePaymentStatus(
       amount_paid_cents: paidInvoice.amount_paid ?? 0,
       amount_due_cents: amountDueCents,
       amount_paid_from_balance_cents: amountPaidFromBalanceCents,
-      paid_at: paidInvoice.status === 'paid'
-        ? new Date(paidInvoice.status_transitions?.paid_at * 1000).toISOString()
+      paid_at: paidInvoice.status === 'paid' && paidInvoice.status_transitions.paid_at
+        ? new Date(paidInvoice.status_transitions.paid_at * 1000).toISOString()
         : null,
     })
     .eq('id', invoiceId);

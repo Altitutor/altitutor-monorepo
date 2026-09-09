@@ -50,12 +50,56 @@ import {
   buildStudentPaymentMethodInsert,
   isPaymentMethodUniqueViolation,
 } from "../_shared/student-payment-method.ts";
+import {
+  synchronizePersistedInvoice,
+  type InvoiceLifecycleUpdate,
+} from "./shared/invoice-lifecycle-sync.ts";
 
 function json(resp: unknown, status = 200) {
   return new Response(JSON.stringify(resp), {
     status,
     headers: { "Content-Type": "application/json" },
   });
+}
+
+async function persistInvoiceLifecycle(
+  supabase: SupabaseClient,
+  stripeInvoiceId: string,
+  update: InvoiceLifecycleUpdate,
+  allowedCurrentStatuses: Stripe.Invoice.Status[],
+): Promise<{ matched: boolean }> {
+  const { data, error } = await supabase
+    .from("invoices")
+    .update(update)
+    .eq("stripe_invoice_id", stripeInvoiceId)
+    .is("deleted_at", null)
+    .in("status", allowedCurrentStatuses)
+    .select("id")
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(
+      `Failed to persist lifecycle for Stripe invoice ${stripeInvoiceId}: ${error.message}`,
+    );
+  }
+
+  if (data) return { matched: true };
+
+  // A zero-row conditional update can mean either that the runner has not
+  // inserted the invoice yet, or that another webhook already advanced it.
+  const { data: existing, error: lookupError } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("stripe_invoice_id", stripeInvoiceId)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (lookupError) {
+    throw new Error(
+      `Failed to verify Stripe invoice ${stripeInvoiceId} persistence: ${lookupError.message}`,
+    );
+  }
+
+  return { matched: existing !== null };
 }
 
 function storedCreditNoteMetadata(
@@ -722,17 +766,27 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
 
       case "invoice.finalized": {
         // Invoice finalized, ready to charge (optional, for tracking)
-        const invoice = event.data.object as {
-          id: string;
-          status?: string;
-          status_transitions?: { finalized_at?: number };
-        };
+        const invoice = event.data.object as Stripe.Invoice;
         console.log("[webhook] Invoice finalized:", invoice.id);
+
+        const { invoice: currentStripeInvoice } =
+          await synchronizePersistedInvoice({
+            stripeInvoiceId: invoice.id,
+            retrieveInvoice: (invoiceId) =>
+              retrieveInvoiceWithLines(stripe, invoiceId),
+            persistInvoice: (invoiceId, update, allowedCurrentStatuses) =>
+              persistInvoiceLifecycle(
+                supabase,
+                invoiceId,
+                update,
+                allowedCurrentStatuses,
+              ),
+          });
 
         const subSync = await syncSubscriptionInvoiceFromStripe(
           supabase,
           stripe,
-          invoice.id,
+          currentStripeInvoice,
         );
         if (!subSync.ok && !("skipped" in subSync && subSync.skipped)) {
           console.error(
@@ -740,36 +794,6 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
             subSync,
           );
         }
-
-        // Check current invoice status before updating
-        // Don't overwrite 'paid' status if invoice was already paid
-        const { data: currentInvoice } = await supabase
-          .from("invoices")
-          .select("status")
-          .eq("stripe_invoice_id", invoice.id)
-          .is("deleted_at", null)
-          .maybeSingle();
-
-        // Only update finalized_at timestamp, don't overwrite status if already paid
-        const updateData: Record<string, unknown> = {
-          finalized_at: invoice.status_transitions?.finalized_at
-            ? new Date(
-                invoice.status_transitions.finalized_at * 1000,
-              ).toISOString()
-            : new Date().toISOString(),
-        };
-
-        // Only update status if invoice is not already paid
-        // This prevents invoice.finalized from overwriting 'paid' status set by invoice.paid
-        if (currentInvoice?.status !== "paid") {
-          updateData.status = invoice.status;
-        }
-
-        await supabase
-          .from("invoices")
-          .update(updateData)
-          .eq("stripe_invoice_id", invoice.id)
-          .is("deleted_at", null);
 
         await resolveUcatInvoiceFinalizationFailedNotification(
           supabase,
@@ -785,18 +809,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
 
       case "invoice.paid": {
         // CRITICAL: Invoice payment succeeded
-        const invoice = event.data.object as {
-          id: string;
-          hosted_invoice_url?: string;
-          invoice_pdf?: string;
-          charge?: string | { id: string };
-          payment_intent?: string | { id: string };
-          subtotal?: number | null;
-          total?: number | null;
-          amount_due?: number;
-          amount_paid?: number;
-          currency?: string;
-        };
+        const invoice = event.data.object as Stripe.Invoice;
 
         // Extract charge/payment_intent from payload first (Stripe sends these on invoice.paid)
         const idFrom = (
@@ -816,69 +829,74 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         let net_cents: number | null = null;
         let receipt_url: string | null = null;
 
-        // Fallback: fetch from Stripe if payload didn't include charge/payment_intent
-        // Also needed for reliable subtotal/total (customer balance, etc.)
-        let fullInvoice: Stripe.Invoice | null = null;
+        // Always fetch the current Stripe object. Webhook snapshots can be delivered
+        // out of order, so only the retrieved invoice is authoritative lifecycle state.
+        const { invoice: fullInvoice } = await synchronizePersistedInvoice({
+          stripeInvoiceId: invoice.id,
+          retrieveInvoice: (invoiceId) =>
+            retrieveInvoiceWithLines(stripe, invoiceId, [
+              "latest_charge",
+              "payment_intent",
+            ]),
+          persistInvoice: (invoiceId, update, allowedCurrentStatuses) =>
+            persistInvoiceLifecycle(
+              supabase,
+              invoiceId,
+              update,
+              allowedCurrentStatuses,
+            ),
+        });
+
         let paidSubscriptionContext: {
           dbInvoiceId: string;
           studentId: string;
           stripeSubscriptionId: string;
         } | null = null;
-        try {
-          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id, [
-            "latest_charge",
-            "payment_intent",
-          ]);
-
-          const paidSync = await syncSubscriptionInvoiceFromStripe(
-            supabase,
-            stripe,
-            fullInvoice,
+        const paidSync = await syncSubscriptionInvoiceFromStripe(
+          supabase,
+          stripe,
+          fullInvoice,
+        );
+        if (!paidSync.ok && !("skipped" in paidSync && paidSync.skipped)) {
+          console.error(
+            "[webhook] subscription invoice sync (paid):",
+            paidSync,
           );
-          if (!paidSync.ok && !("skipped" in paidSync && paidSync.skipped)) {
-            console.error(
-              "[webhook] subscription invoice sync (paid):",
-              paidSync,
-            );
-          }
-          if (paidSync.ok) {
-            paidSubscriptionContext = {
-              dbInvoiceId: paidSync.dbInvoiceId,
-              studentId: paidSync.studentId,
-              stripeSubscriptionId: paidSync.stripeSubscriptionId,
-            };
-          }
+        }
+        if (paidSync.ok) {
+          paidSubscriptionContext = {
+            dbInvoiceId: paidSync.dbInvoiceId,
+            studentId: paidSync.studentId,
+            stripeSubscriptionId: paidSync.stripeSubscriptionId,
+          };
+        }
 
-          if (!chargeId && fullInvoice.latest_charge) {
-            const lc = fullInvoice.latest_charge;
-            chargeId =
-              typeof lc === "string"
-                ? lc
-                : lc && typeof lc === "object" && "id" in lc
-                  ? (lc as { id: string }).id
-                  : null;
-          }
-          if (
-            !chargeId &&
-            (fullInvoice as { charge?: string | { id: string } }).charge
-          ) {
-            chargeId = idFrom(
-              (fullInvoice as { charge?: string | { id: string } }).charge,
-            );
-          }
-          if (!payment_intent_id && fullInvoice.payment_intent) {
-            const pi = fullInvoice.payment_intent;
-            payment_intent_id =
-              typeof pi === "string"
-                ? pi
-                : pi && typeof pi === "object" && "id" in pi
-                  ? (pi as { id: string }).id
-                  : null;
-          }
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
-          console.error("[webhook] Error fetching invoice from Stripe:", msg);
-          // We may already have chargeId/payment_intent_id from payload
+        if (fullInvoice.status !== "paid") {
+          console.log(
+            "[webhook] Skipping stale invoice.paid side effects; current Stripe status is",
+            fullInvoice.status,
+            "for invoice:",
+            invoice.id,
+          );
+          await supabase
+            .from("stripe_webhook_events")
+            .update({ processed: true, processed_at: new Date().toISOString() })
+            .eq("stripe_event_id", event.id);
+          return json({ received: true });
+        }
+
+        const currentInvoiceWithCharge = fullInvoice as Stripe.Invoice & {
+          latest_charge?: string | Stripe.Charge | null;
+          charge?: string | Stripe.Charge | null;
+        };
+        if (!chargeId && currentInvoiceWithCharge.latest_charge) {
+          chargeId = idFrom(currentInvoiceWithCharge.latest_charge);
+        }
+        if (!chargeId && currentInvoiceWithCharge.charge) {
+          chargeId = idFrom(currentInvoiceWithCharge.charge);
+        }
+        if (!payment_intent_id && fullInvoice.payment_intent) {
+          payment_intent_id = idFrom(fullInvoice.payment_intent);
         }
 
         // Retrieve charge details if we have charge ID (for fee_cents, net_cents, receipt_url)
@@ -911,42 +929,25 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           }
         }
 
-        // Calculate amount paid from customer balance
-        // Use fullInvoice if available (has reliable subtotal/total), otherwise fall back to webhook payload
-        // When customer balance is applied: total > 0 but amount_due = 0
-        const invoiceForAmounts = fullInvoice || invoice;
-        const subtotalCents = invoiceForAmounts.subtotal ?? null;
-        const totalCents = invoiceForAmounts.total ?? null;
-        const amountDueCents = invoiceForAmounts.amount_due ?? 0;
-        const amountPaidFromBalanceCents =
-          totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
-
-        // Update invoice status to 'paid'
+        // Lifecycle and amount fields were synchronized above. Add charge-specific
+        // fields when a card charge exists; balance-paid invoices legitimately do not.
         const { error: payErr } = await supabase
           .from("invoices")
           .update({
-            status: "paid",
             stripe_charge_id: chargeId, // CRITICAL: For disputes
             stripe_payment_intent_id: payment_intent_id,
-            subtotal_cents: subtotalCents,
-            total_cents: totalCents,
-            amount_paid_cents:
-              invoiceForAmounts.amount_paid ??
-              invoiceForAmounts.amount_due ??
-              0,
-            amount_due_cents: amountDueCents,
-            amount_paid_from_balance_cents: amountPaidFromBalanceCents,
             fee_cents,
             net_cents,
             receipt_url,
-            hosted_invoice_url: invoice.hosted_invoice_url || null,
-            invoice_pdf: invoice.invoice_pdf || null,
-            paid_at: new Date().toISOString(),
           })
           .eq("stripe_invoice_id", invoice.id)
           .is("deleted_at", null);
 
-        if (payErr) console.error("[webhook] invoices update error", payErr);
+        if (payErr) {
+          throw new Error(
+            `Failed to persist payment details for Stripe invoice ${invoice.id}: ${payErr.message}`,
+          );
+        }
 
         await resolveUcatInvoicePaymentFailedNotification(supabase, invoice.id);
         await resolveUcatInvoiceFinalizationFailedNotification(
@@ -966,7 +967,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               paidSubscriptionContext.stripeSubscriptionId,
             )
             .maybeSingle();
-          const amountPaidCents = invoiceForAmounts.amount_paid ?? 0;
+          const amountPaidCents = fullInvoice.amount_paid ?? 0;
           let priorPositiveSubscriptionPayments: number | null =
             amountPaidCents > 0 ? null : 0;
           if (amountPaidCents > 0) {
@@ -993,7 +994,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               amountPaidCents,
               priorPositiveSubscriptionPayments,
             );
-          const billingReason = fullInvoice?.billing_reason ?? null;
+          const billingReason = fullInvoice.billing_reason ?? null;
           const commonPaymentProperties = {
             stripe_subscription_id:
               paidSubscriptionContext.stripeSubscriptionId,
@@ -1002,7 +1003,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
             billing_interval: subscriptionRow?.billing_interval ?? null,
             billing_reason: billingReason,
             amount_paid_cents: amountPaidCents,
-            currency: invoiceForAmounts.currency ?? null,
+            currency: fullInvoice.currency ?? null,
             is_positive_value: amountPaidCents > 0,
             is_paid_acquisition_conversion:
               isFirstPositiveSubscriptionPayment,
@@ -1244,83 +1245,34 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         // MEDIUM: Handle status changes, updates to amounts, etc.
         const invoice = event.data.object as Stripe.Invoice;
 
-        // Check current invoice status before updating
-        // Don't downgrade status from 'paid' to lower statuses (e.g., 'open')
-        const { data: currentInvoice } = await supabase
-          .from("invoices")
-          .select("status")
-          .eq("stripe_invoice_id", invoice.id)
-          .is("deleted_at", null)
-          .maybeSingle();
+        const { invoice: fullInvoice } = await synchronizePersistedInvoice({
+          stripeInvoiceId: invoice.id,
+          retrieveInvoice: (invoiceId) =>
+            retrieveInvoiceWithLines(stripe, invoiceId),
+          persistInvoice: (invoiceId, update, allowedCurrentStatuses) =>
+            persistInvoiceLifecycle(
+              supabase,
+              invoiceId,
+              update,
+              allowedCurrentStatuses,
+            ),
+        });
 
-        // Fetch full invoice from Stripe API to get reliable subtotal/total values
-        // Webhook payloads may not include these fields or may have them as null
-        let fullInvoice: Stripe.Invoice | null = null;
-        try {
-          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id);
-          const updSync = await syncSubscriptionInvoiceFromStripe(
-            supabase,
-            stripe,
-            fullInvoice,
-          );
-          if (!updSync.ok && !("skipped" in updSync && updSync.skipped)) {
-            console.error(
-              "[webhook] subscription invoice sync (updated):",
-              updSync,
-            );
-          }
-        } catch (e: unknown) {
-          const msg = e instanceof Error ? e.message : String(e);
+        const updSync = await syncSubscriptionInvoiceFromStripe(
+          supabase,
+          stripe,
+          fullInvoice,
+        );
+        if (!updSync.ok && !("skipped" in updSync && updSync.skipped)) {
           console.error(
-            "[webhook] Error fetching invoice from Stripe for invoice.updated:",
-            msg,
+            "[webhook] subscription invoice sync (updated):",
+            updSync,
           );
-          // Continue with webhook payload if fetch fails
         }
-
-        // Calculate amount paid from customer balance
-        // Use fullInvoice if available (has reliable subtotal/total), otherwise fall back to webhook payload
-        const invoiceForAmounts = fullInvoice || invoice;
-        const subtotalCents = invoiceForAmounts.subtotal ?? null;
-        const totalCents = invoiceForAmounts.total ?? null;
-        const amountDueCents = invoiceForAmounts.amount_due ?? 0;
-        const amountPaidFromBalanceCents =
-          totalCents !== null ? Math.max(0, totalCents - amountDueCents) : null;
-
-        const updateData: Record<string, unknown> = {
-          subtotal_cents: subtotalCents,
-          total_cents: totalCents,
-          amount_due_cents: amountDueCents,
-          amount_paid_cents: invoiceForAmounts.amount_paid ?? 0,
-          amount_paid_from_balance_cents: amountPaidFromBalanceCents,
-          hosted_invoice_url: invoice.hosted_invoice_url || null,
-          invoice_pdf: invoice.invoice_pdf || null,
-        };
-
-        // Only update status if it's not a downgrade from 'paid'
-        // Valid transitions: draft -> open -> paid, but not paid -> open
-        if (currentInvoice?.status === "paid" && invoice.status !== "paid") {
-          // Don't overwrite 'paid' status with lower status
-          console.log(
-            "[webhook] Skipping status update from paid to",
-            invoice.status,
-            "for invoice:",
-            invoice.id,
-          );
-        } else {
-          // Safe to update status
-          updateData.status = invoice.status;
-        }
-
-        await supabase
-          .from("invoices")
-          .update(updateData)
-          .eq("stripe_invoice_id", invoice.id)
-          .is("deleted_at", null);
 
         await updateSubscriptionBillingRetryTime(
           supabase,
-          fullInvoice ?? invoice,
+          fullInvoice,
         );
 
         await supabase
