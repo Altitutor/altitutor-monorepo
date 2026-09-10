@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { retrievePaidInvoiceWithLines } from "./shared/invoice-retrieval.ts";
 import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@16.6.0";
@@ -825,10 +826,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           stripeSubscriptionId: string;
         } | null = null;
         try {
-          fullInvoice = await retrieveInvoiceWithLines(stripe, invoice.id, [
-            "latest_charge",
-            "payment_intent",
-          ]);
+          fullInvoice = await retrievePaidInvoiceWithLines(stripe, invoice.id);
 
           const paidSync = await syncSubscriptionInvoiceFromStripe(
             supabase,
@@ -849,22 +847,8 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
             };
           }
 
-          if (!chargeId && fullInvoice.latest_charge) {
-            const lc = fullInvoice.latest_charge;
-            chargeId =
-              typeof lc === "string"
-                ? lc
-                : lc && typeof lc === "object" && "id" in lc
-                  ? (lc as { id: string }).id
-                  : null;
-          }
-          if (
-            !chargeId &&
-            (fullInvoice as { charge?: string | { id: string } }).charge
-          ) {
-            chargeId = idFrom(
-              (fullInvoice as { charge?: string | { id: string } }).charge,
-            );
+          if (!chargeId) {
+            chargeId = idFrom(fullInvoice.charge);
           }
           if (!payment_intent_id && fullInvoice.payment_intent) {
             const pi = fullInvoice.payment_intent;
