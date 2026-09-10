@@ -91,7 +91,7 @@ export function PaymentMethodsList({ paymentMethods, onAddPaymentMethod }: Payme
               isSettingDefault={settingDefault}
               onSetDefault={handleSetDefault}
               onDelete={handleDeleteClick}
-              showActions={true}
+              showActions={!method.id.startsWith('temp-')}
             />
           );
         })}
