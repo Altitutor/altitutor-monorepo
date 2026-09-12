@@ -1,10 +1,14 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useCallback, useMemo } from 'react';
+import type { JSONContent } from '@tiptap/core';
+import { useQueryClient } from '@tanstack/react-query';
 import { ActivityItem } from './ActivityItem';
 import { mapActivityEventsToDisplay } from '../mappers';
 import type { ActivityEventsResponse } from '../types';
-import { Button, Skeleton } from '@altitutor/ui';
+import { activityKeys } from '../queryKeys';
+import { useDeleteNote, useUpdateNote } from '@/shared/hooks/useNotes';
+import { Button, Skeleton, useToast } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 
 interface ActivityFeedProps {
@@ -30,10 +34,48 @@ export function ActivityFeed({
   onOpenFormResponse,
   chronological = false,
 }: ActivityFeedProps) {
+  const queryClient = useQueryClient();
+  const updateNote = useUpdateNote();
+  const deleteNote = useDeleteNote();
+  const { toast } = useToast();
   const activities = useMemo(() => {
     if (!data) return [];
     return mapActivityEventsToDisplay(data, { chronological });
   }, [data, chronological]);
+
+  const refreshActivity = useCallback(async () => {
+    await queryClient.invalidateQueries({ queryKey: activityKeys.all });
+  }, [queryClient]);
+
+  const handleUpdateNote = useCallback(async (noteId: string, note: JSONContent) => {
+    try {
+      await updateNote.mutateAsync({ noteId, note });
+      await refreshActivity();
+      toast({ title: 'Note updated' });
+    } catch (error) {
+      toast({
+        title: 'Could not update note',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  }, [refreshActivity, toast, updateNote]);
+
+  const handleDeleteNote = useCallback(async (noteId: string) => {
+    try {
+      await deleteNote.mutateAsync(noteId);
+      await refreshActivity();
+      toast({ title: 'Note deleted' });
+    } catch (error) {
+      toast({
+        title: 'Could not delete note',
+        description: error instanceof Error ? error.message : 'Please try again.',
+        variant: 'destructive',
+      });
+      throw error;
+    }
+  }, [deleteNote, refreshActivity, toast]);
 
   if (isLoading) {
     return (
@@ -74,6 +116,10 @@ export function ActivityFeed({
           key={activity.id}
           activity={activity}
           onOpenFormResponse={onOpenFormResponse}
+          onUpdateNote={handleUpdateNote}
+          onDeleteNote={handleDeleteNote}
+          isUpdatingNote={updateNote.isPending}
+          isDeletingNote={deleteNote.isPending}
         />
       ))}
 

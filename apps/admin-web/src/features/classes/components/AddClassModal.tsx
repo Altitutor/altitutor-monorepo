@@ -190,12 +190,12 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
         router,
         entityType: 'class',
         entityId: result.class_id ?? classId,
-        message: 'Scheduled offering and Sessions created successfully.',
+        message: 'Class and Sessions created successfully.',
       });
       onClassAdded();
       onClose();
     } catch (applyError) {
-      setError(applyError instanceof Error ? applyError.message : 'Unable to create this scheduled offering.');
+      setError(applyError instanceof Error ? applyError.message : 'Unable to create this class.');
     }
   };
 
@@ -206,12 +206,12 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
       fillHeight
       open={isOpen}
       onClose={onClose}
-      title="Add Scheduled Offering"
+      title="Add Class"
       subtitle={`Step ${step + 1} of 3: ${STEP_TITLES[step]}`}
       contentClassName="md:max-w-[760px]"
       headerExtra={
         <div className="px-6 pb-4">
-          <div className="flex gap-2" aria-label="Scheduled offering creation progress">
+          <div className="flex gap-2" aria-label="Class creation progress">
             {STEP_TITLES.map((title, index) => (
               <div
                 key={title}
@@ -240,7 +240,7 @@ export function AddClassModal({ isOpen, onClose, onClassAdded }: AddClassModalPr
             ) : (
               <Button type="button" onClick={handleConfirm} disabled={isBusy || !plan}>
                 {applyMutation.isPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Create Scheduled Offering
+                Create Class
               </Button>
             )}
           </div>

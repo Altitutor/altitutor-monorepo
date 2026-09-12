@@ -475,7 +475,7 @@ export function Composer({
         <div className="relative">
           <textarea
             ref={textareaRef}
-            className={`w-full text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
+            className={`w-full text-base md:text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
               isDragging && isIMessageSender ? 'border-primary border-2' : ''
             }`}
             placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
@@ -605,5 +605,3 @@ export function Composer({
     </div>
   );
 }
-
-
