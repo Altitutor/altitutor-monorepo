@@ -25,6 +25,8 @@ Altitutor monorepo (pnpm + Turborepo).
 
 - Zero lint warnings; no `any`
 - Full gate when shipping: `/check-and-commit` (`pnpm checkall`)
+- **Sentry fixes**: before committing or opening a PR for a Sentry-tracked bug,
+  follow §4 of `docs/agents/sentry-morning-maintenance.md`.
 
 ## Tracking
 
