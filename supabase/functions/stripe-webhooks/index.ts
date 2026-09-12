@@ -1,4 +1,5 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
+import { retrievePaidInvoiceWithLines } from "./shared/invoice-retrieval.ts";
 import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient, type SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import Stripe from "npm:stripe@16.6.0";
@@ -834,10 +835,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         const { invoice: fullInvoice } = await synchronizePersistedInvoice({
           stripeInvoiceId: invoice.id,
           retrieveInvoice: (invoiceId) =>
-            retrieveInvoiceWithLines(stripe, invoiceId, [
-              "latest_charge",
-              "payment_intent",
-            ]),
+            retrievePaidInvoiceWithLines(stripe, invoiceId),
           persistInvoice: (invoiceId, update, allowedCurrentStatuses) =>
             persistInvoiceLifecycle(
               supabase,
@@ -886,12 +884,8 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         }
 
         const currentInvoiceWithCharge = fullInvoice as Stripe.Invoice & {
-          latest_charge?: string | Stripe.Charge | null;
           charge?: string | Stripe.Charge | null;
         };
-        if (!chargeId && currentInvoiceWithCharge.latest_charge) {
-          chargeId = idFrom(currentInvoiceWithCharge.latest_charge);
-        }
         if (!chargeId && currentInvoiceWithCharge.charge) {
           chargeId = idFrom(currentInvoiceWithCharge.charge);
         }

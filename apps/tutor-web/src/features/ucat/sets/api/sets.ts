@@ -147,24 +147,14 @@ export const ucatSetsApi = {
   },
 
   async removeStemsFromSet(setId: string, stemIds: string[]) {
-    const detail = await this.detail(setId)
-    if (!detail) throw new Error('Set not found')
-    const stems = (detail.stems as Array<{ stem_id: string }> | null) ?? []
-    const removeIds = new Set(stemIds)
-    const nextStemIds = stems.map((s) => s.stem_id).filter((stemId) => !removeIds.has(stemId))
-    const payload: UcatQuestionSetPayload = {
-      authoringNote: detail.authoring_note,
-      description: proseMirrorToPlainText(detail.description) ?? '',
-      timingMode: detail.timing_mode ?? 'pace',
-      paceMultiplier: detail.pace_multiplier,
-      fixedTimeLimitSeconds: detail.fixed_time_limit_seconds,
-      setFormat: detail.set_format ?? 'partial_section',
-      accessScope: detail.access_scope ?? 'public',
-      sectionId: requireSetSectionId(detail),
-      referenceBlueprintId: requireReferenceBlueprintId(detail),
-      stemIds: nextStemIds,
+    const response = await fetch(`/api/ucat/question-sets/${setId}/stems`, {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ stemIds }),
+    })
+    if (!response.ok) {
+      await throwUcatLifecycleResponseError(response, 'Failed to remove stems from set')
     }
-    return this.update(setId, payload)
   },
 }
 
