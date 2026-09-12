@@ -40,6 +40,7 @@ const createWrapper = () => {
   const queryClient = new QueryClient({
     defaultOptions: { queries: { retry: false } },
   });
+  queryClient.setQueryData(['loaded-note'], { id: 'note-1', admin_revision: 1 });
   const Wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
   );
@@ -56,7 +57,7 @@ describe('useNotes', () => {
     const mockNotes: Array<Tables<'notes'> & { staff?: Tables<'staff'> | null }> = [
       {
         id: 'note-1',
-        target_type: 'student',
+        admin_revision: 1, target_type: 'student',
         target_id: 'student-1',
         note: 'Test note',
         created_by: 'staff-1',
@@ -161,7 +162,7 @@ describe('useCreateNote', () => {
   it('should create a note and invalidate queries', async () => {
     const newNote: Tables<'notes'> = {
       id: 'note-1',
-      target_type: 'student',
+      admin_revision: 1, target_type: 'student',
       target_id: 'student-1',
       note: 'New note',
       created_by: 'staff-1',
@@ -223,7 +224,7 @@ describe('useUpdateNote', () => {
   it('should update a note', async () => {
     const updatedNote: Tables<'notes'> = {
       id: 'note-1',
-      target_type: 'student',
+      admin_revision: 1, target_type: 'student',
       target_id: 'student-1',
       note: 'Updated note',
       created_by: 'staff-1',
@@ -252,7 +253,8 @@ describe('useUpdateNote', () => {
 
     expect(mockNotesApi.updateNote).toHaveBeenCalledWith(
       'note-1',
-      updatedContent
+      updatedContent,
+      1
     );
   });
 

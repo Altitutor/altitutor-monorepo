@@ -1,3 +1,4 @@
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -180,33 +181,14 @@ export const tasksApi = {
    * Create a new task
    */
   create: async (task: TaskInsert): Promise<Tables<'tasks'>> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    const { data, error } = await supabase
-      .from('tasks')
-      .insert(task)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Tables<'tasks'>;
+    return mutateWorkItem<Tables<'tasks'>>('task', task);
   },
 
   /**
    * Update a task
    */
-  update: async (taskId: string, updates: TaskUpdate): Promise<Tables<'tasks'>> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    const { data, error } = await supabase
-      .from('tasks')
-      .update(updates)
-      .eq('id', taskId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Tables<'tasks'>;
+  update: async (taskId: string, updates: TaskUpdate, revision?: number): Promise<Tables<'tasks'>> => {
+    return mutateWorkItem<Tables<'tasks'>>('task', updates, taskId, revision);
   },
 
   /**

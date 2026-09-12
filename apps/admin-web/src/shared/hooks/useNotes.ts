@@ -1,3 +1,4 @@
+import { useWorkItemRevision } from '@/features/admin-mcp/client/operations';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import type { JSONContent } from '@tiptap/core';
 import { notesApi } from '@/shared/api/notes';
@@ -81,6 +82,7 @@ export function useCreateNote() {
  * Update a note
  */
 export function useUpdateNote() {
+  const withRevision = useWorkItemRevision();
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -88,7 +90,7 @@ export function useUpdateNote() {
       noteId: string;
       note: JSONContent;
     }) => {
-      return notesApi.updateNote(params.noteId, params.note);
+      return withRevision(params.noteId, (revision) => notesApi.updateNote(params.noteId, params.note, revision));
     },
     onSuccess: () => {
       // Invalidate all notes queries

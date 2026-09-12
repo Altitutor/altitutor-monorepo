@@ -28,7 +28,7 @@ export function RenameFolderDialog({
   onClose,
   folder,
 }: RenameFolderDialogProps) {
-  const updateFolder = useUpdateFolder();
+  const updateFolder = useUpdateFolder(isOpen ? folder.id : false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),

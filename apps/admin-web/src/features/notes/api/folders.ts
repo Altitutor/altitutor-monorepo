@@ -1,3 +1,4 @@
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -75,33 +76,14 @@ export const foldersApi = {
    * Create a new folder
    */
   create: async (folder: FolderInsert): Promise<Folder> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    const { data, error } = await supabase
-      .from('notes_folders')
-      .insert(folder)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Folder;
+    return mutateWorkItem<Folder>('folder', folder);
   },
 
   /**
    * Update a folder
    */
-  update: async (folderId: string, updates: FolderUpdate): Promise<Folder> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    const { data, error } = await supabase
-      .from('notes_folders')
-      .update(updates)
-      .eq('id', folderId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Folder;
+  update: async (folderId: string, updates: FolderUpdate, revision?: number): Promise<Folder> => {
+    return mutateWorkItem<Folder>('folder', updates, folderId, revision);
   },
 
   /**

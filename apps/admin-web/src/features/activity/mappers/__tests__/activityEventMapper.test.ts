@@ -331,7 +331,7 @@ describe('lifecycle activity mapper', () => {
     });
     const liveNote = {
       id: noteId,
-      target_type: 'student',
+      admin_revision: 1, target_type: 'student',
       target_id: '10000000-0000-4000-8000-000000000041',
       note: 'Edited note',
       created_at: '2026-08-30T10:00:00.000Z',

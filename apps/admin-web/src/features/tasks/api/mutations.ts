@@ -1,3 +1,4 @@
+import { useWorkItemRevision } from '@/features/admin-mcp/client/operations';
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { tasksApi } from './tasks';
 import { tasksKeys } from './queryKeys';
@@ -67,13 +68,14 @@ export function useCreateTask() {
 /**
  * Update a task
  */
-export function useUpdateTask() {
+export function useUpdateTask(editorSession?: string | boolean) {
+  const withRevision = useWorkItemRevision(editorSession);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation<Task, Error, TaskUpdateVariables, TaskUpdateSnapshot>({
     mutationFn: async ({ id, updates }: TaskUpdateVariables) =>
-      tasksApi.update(id, updates),
+      withRevision(id, (revision) => tasksApi.update(id, updates, revision)),
     onMutate: async ({ id, updates }) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: tasksKeys.lists() }),

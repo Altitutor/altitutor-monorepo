@@ -116,7 +116,7 @@ export function TaskDetailView({
 }: TaskDetailViewProps) {
   const router = useRouter();
   const { data: task, isLoading } = useTask(taskId, enabled);
-  const updateTask = useUpdateTask();
+  const updateTask = useUpdateTask(enabled ? taskId : false);
   const deleteTask = useDeleteTask();
   const { data: currentStaff } = useCurrentStaff();
   const [selectedAssignee, setSelectedAssignee] = useState<Tables<'staff'> | null>(null);

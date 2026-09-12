@@ -31,7 +31,7 @@ export function CreateEditRichTextTemplateDialog({
 }: CreateEditRichTextTemplateDialogProps) {
   const { toast } = useToast();
   const createMutation = useCreateRichTextTemplate();
-  const updateMutation = useUpdateRichTextTemplate();
+  const updateMutation = useUpdateRichTextTemplate(isOpen);
   const slashMenuSuggestions = useSlashCommandSuggestions();
 
   const [name, setName] = useState('');

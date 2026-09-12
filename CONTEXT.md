@@ -917,6 +917,9 @@
 
 ## Projects
 
+- **Staff procedure document** — Altitutor guidance for staff carrying out work such as communications, operations, building management and marketing. These documents are distinct from development-team documentation and AI-generated business strategy reports.
+  _Avoid_: Business strategy report, development specification
+
 - **Project** — A unit of internal Altitutor staff work.
   _Avoid_: Task, Issue
 

@@ -1,3 +1,4 @@
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -16,17 +17,7 @@ export const dailyNotesApi = {
     return data as DailyNote | null;
   },
 
-  create: async (date: string): Promise<DailyNote> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await supabase
-      .from('notes_daily')
-      .insert({ date, content: '' })
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as DailyNote;
-  },
+  create: async (date: string): Promise<DailyNote> => mutateWorkItem<DailyNote>('daily_note', { date, content: '' }),
 
   ensureForDate: async (date: string): Promise<DailyNote> => {
     const existing = await dailyNotesApi.getByDate(date);
@@ -34,16 +25,7 @@ export const dailyNotesApi = {
     return dailyNotesApi.create(date);
   },
 
-  update: async (id: string, updates: DailyNoteUpdate): Promise<DailyNote> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { data, error } = await supabase
-      .from('notes_daily')
-      .update(updates)
-      .eq('id', id)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as DailyNote;
+  update: async (id: string, updates: DailyNoteUpdate, revision?: number): Promise<DailyNote> => {
+    return mutateWorkItem<DailyNote>('daily_note', updates, id, revision);
   },
 };
