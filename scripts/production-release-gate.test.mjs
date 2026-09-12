@@ -197,7 +197,9 @@ test("production verification executes every system test boundary", async () => 
   const renderTemplatesStep = webE2eJob.indexOf(
     "bash supabase/scripts/render-email-templates.sh",
   );
-  const startSupabaseStep = webE2eJob.indexOf("supabase start");
+  const startSupabaseStep = webE2eJob.indexOf(
+    "node scripts/start-local-supabase.mjs",
+  );
   assert.ok(
     renderTemplatesStep >= 0 && renderTemplatesStep < startSupabaseStep,
     "UCAT verification must render gitignored Auth email templates before starting Supabase",
@@ -209,7 +211,7 @@ test("production verification executes every system test boundary", async () => 
   );
   assert.match(
     webE2eJob,
-    /supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u,
+    /node scripts\/start-local-supabase\.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit/u,
   );
   const applyUcatSeedStep = webE2eJob.indexOf(
     "bash supabase/scripts/apply-ucat-test-seed.sh",
@@ -304,7 +306,7 @@ test("pnpm checkall runs the same system suites as CI", async () => {
   );
   assert.match(checkall, /supabase test db/u);
   assert.match(checkall, /pnpm --filter ucat-web test:e2e:critical/u);
-  assert.match(checkall, /supabase start/u);
+  assert.match(checkall, /node scripts\/start-local-supabase\.mjs/u);
   assert.match(
     checkall,
     /supabase status/u,

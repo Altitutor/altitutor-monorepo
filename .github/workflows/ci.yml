@@ -59,7 +59,7 @@ jobs:
 
       - name: Check production release gate
         run: |
-          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs
+          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs
 
       - uses: actions/cache@v4
         with:
@@ -288,7 +288,7 @@ jobs:
             pnpm --filter ucat-web exec playwright install --with-deps chromium &
           fi
           playwright_pid=$!
-          supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
+          node scripts/start-local-supabase.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
           wait "$playwright_pid"
 
       - name: Save Supabase Docker images
