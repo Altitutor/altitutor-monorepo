@@ -1,6 +1,7 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 import { fillInvoiceLinesPagination, retrieveInvoiceWithLines } from './invoice-retrieval.ts';
+import { getInvoiceSubscriptionId } from './invoice-subscription.ts';
 export { fillInvoiceLinesPagination, retrieveInvoiceWithLines } from './invoice-retrieval.ts';
 
 export type SyncSubscriptionInvoiceResult =
@@ -22,9 +23,7 @@ export function isSessionInvoiceMetadata(
 }
 
 export function getStripeSubscriptionId(invoice: Stripe.Invoice): string | null {
-  const sub = invoice.subscription;
-  if (!sub) return null;
-  return typeof sub === 'string' ? sub : sub.id;
+  return getInvoiceSubscriptionId(invoice);
 }
 
 function invoiceDateYmd(inv: Stripe.Invoice): string {
