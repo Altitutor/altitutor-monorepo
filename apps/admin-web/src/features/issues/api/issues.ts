@@ -167,7 +167,7 @@ export const issuesApi = {
         created_by_staff:staff!issues_created_by_fkey(id, first_name, last_name)
       `)
       .eq('id', issueId)
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
     return data ? ({ ...(data as unknown as Omit<IssueWithTags, 'tags'>), tags: [] }) : null;
