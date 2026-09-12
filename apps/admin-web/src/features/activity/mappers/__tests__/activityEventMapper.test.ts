@@ -321,6 +321,51 @@ describe('lifecycle activity mapper', () => {
     expect(result.entityId).toBe('10000000-0000-4000-8000-000000000004');
   });
 
+  it('uses the current note body instead of the immutable event snapshot', () => {
+    const noteId = '10000000-0000-4000-8000-000000000040';
+    const event = makeEvent({
+      event_name: 'note.added',
+      subject_type: 'note',
+      subject_id: noteId,
+      payload: { note: 'Original note' },
+    });
+    const liveNote = {
+      id: noteId,
+      target_type: 'student',
+      target_id: '10000000-0000-4000-8000-000000000041',
+      note: 'Edited note',
+      created_at: '2026-08-30T10:00:00.000Z',
+      created_by: '10000000-0000-4000-8000-000000000042',
+      updated_at: '2026-08-30T11:00:00.000Z',
+    };
+
+    const result = mapActivityEventsToDisplay({
+      events: [event],
+      relatedEntities: { notes: { [noteId]: liveNote } },
+      total: 1,
+      hasMore: false,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].noteContent).toBe('Edited note');
+  });
+
+  it('omits a note card when the live note has been deleted', () => {
+    const result = mapActivityEventsToDisplay({
+      events: [makeEvent({
+        event_name: 'note.added',
+        subject_type: 'note',
+        subject_id: '10000000-0000-4000-8000-000000000043',
+        payload: { note: 'Deleted note' },
+      })],
+      relatedEntities: { notes: {} },
+      total: 1,
+      hasMore: false,
+    });
+
+    expect(result).toEqual([]);
+  });
+
   it('displays and orders activity by when the event was recorded', () => {
     const response: ActivityEventsResponse = {
       events: [

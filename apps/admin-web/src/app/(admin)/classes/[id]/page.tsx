@@ -172,7 +172,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         </Button>
         <div className="flex-1">
           <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Scheduled Offering' : 'Scheduled Offering Details'}
+            {isEditing ? 'Edit Class' : 'Class Details'}
           </h1>
         </div>
         <ActionsMenu

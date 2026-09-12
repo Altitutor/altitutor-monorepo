@@ -246,7 +246,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
             <SearchableSelect<(typeof FREQUENCIES)[number]> items={FREQUENCIES} value={FREQUENCIES.find((item) => item.value === frequencyWeeks) ?? null} onValueChange={(item) => { setFrequencyWeeks(item?.value ?? 1); markChanged(); }} getItemId={(item) => String(item.value)} getItemLabel={(item) => item.label} disabled={busy} />
           </PropertyForm>
           <div className="space-y-3 border-t pt-6">
-            <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this scheduled offering runs. Changes only reconcile future Sessions.</p></div>
+            <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this class runs. Changes only reconcile future Sessions.</p></div>
             {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
               <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} fullWidth /></div>
               <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
@@ -277,7 +277,7 @@ export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoadin
   }
 
   return <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
-    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Scheduled offering information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
+    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Class information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
     <PropertyForm>
       <PropertyFormRow label="Offering type">
         {classData.session_type === 'HOMEWORK_HELP' ? 'Homework Help' : 'Class'}

@@ -1,7 +1,16 @@
 'use client';
 
 import { useEffect, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
-import { Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, isPanelResizeActive } from '@altitutor/ui';
+import {
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  isPanelResizeActive,
+} from '@altitutor/ui';
 import { X } from 'lucide-react';
 import {
   ExpandButton,
@@ -93,7 +102,7 @@ export function AdminDialogShell({
                   </Button>
                   <div className="min-w-0 flex-1">
                     <DialogTitle>{title}</DialogTitle>
-                    {subtitle ? <div className="mt-1 text-sm text-muted-foreground">{subtitle}</div> : null}
+                    {subtitle ? <DialogDescription className="mt-1">{subtitle}</DialogDescription> : null}
                   </div>
                 </div>
                 <div className="flex shrink-0 items-center gap-2">

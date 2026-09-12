@@ -380,11 +380,15 @@ function resolvePerformer(event: ActivityEvent, payload: Payload): { id: string;
 
 export function mapActivityEventToDisplay(
   event: ActivityEvent,
-  ..._legacyArguments: unknown[]
+  relatedEntities?: ActivityEventsResponse['relatedEntities']
 ): ActivityEventDisplay {
   const payload = asRecord(event.payload);
   const presentation = eventPresentation(event, payload);
   const recordedAt = event.recorded_at;
+  const liveNote = relatedEntities?.notes?.[event.subject_id];
+  const noteContent = event.event_name === 'note.added'
+    ? liveNote?.note ?? payload.note
+    : undefined;
   return {
     id: event.id,
     icon: presentation.icon,
@@ -399,9 +403,7 @@ export function mapActivityEventToDisplay(
     entityId: event.subject_id,
     entityType: event.subject_type === 'form_response' ? 'form_responses' : event.subject_type,
     eventType: event.event_name,
-    noteContent: event.event_name === 'note.added'
-      ? payload.note as Record<string, unknown> | string | undefined
-      : undefined,
+    noteContent: noteContent as Record<string, unknown> | string | undefined,
   };
 }
 
@@ -411,7 +413,16 @@ export function mapActivityEventsToDisplay(
 ): ActivityEventDisplay[] {
   const direction = options?.chronological ? 1 : -1;
   return response.events
-    .map(mapActivityEventToDisplay)
+    .flatMap((event) => {
+      if (
+        event.event_name === 'note.added' &&
+        response.relatedEntities.notes &&
+        !response.relatedEntities.notes[event.subject_id]
+      ) {
+        return [];
+      }
+      return [mapActivityEventToDisplay(event, response.relatedEntities)];
+    })
     .sort((a, b) => (
       (new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()) * direction
     ));

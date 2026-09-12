@@ -1,18 +1,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import type Stripe from "npm:stripe@16.6.0";
-
-function stripeObjectId(
-  value: string | { id?: string } | null | undefined,
-): string | null {
-  if (typeof value === "string") return value;
-  return value?.id ?? null;
-}
-
-export function getInvoiceSubscriptionId(
-  invoice: Pick<Stripe.Invoice, "subscription">,
-): string | null {
-  return stripeObjectId(invoice.subscription);
-}
+import { getInvoiceSubscriptionId } from "./invoice-subscription.ts";
+export { getInvoiceSubscriptionId } from "./invoice-subscription.ts";
 
 export function stripeTimestampToIso(
   timestamp: number | null | undefined,
