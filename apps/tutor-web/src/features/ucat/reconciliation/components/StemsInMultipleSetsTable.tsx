@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useCallback, useMemo, useState } from 'react'
+import React, { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Button,
   DataTableToolbar,
@@ -26,6 +26,7 @@ import { ucatSetsApi } from '@/features/ucat/sets/api/sets'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { lifecycleErrorToast } from '@/features/ucat/shared/lifecycle-errors'
 import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { runSetScopedAction } from '../lib/set-scoped-action'
 
 const ISSUE = getQuestionIssueDefinition('in-multiple-sets')
 const TRUNCATE_LEN = 80
@@ -49,7 +50,8 @@ export function StemsInMultipleSetsTable({
   const { data, isLoading } = useReconciliationData()
   const sectionsQuery = useUcatSections()
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'sets', 'section_id'])
-  const [removingKey, setRemovingKey] = useState<string | null>(null)
+  const removingSetIdsRef = useRef(new Set<string>())
+  const [removingSetIds, setRemovingSetIds] = useState<ReadonlySet<string>>(() => new Set())
 
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'section_id', label: 'Section', visibleByDefault: true },
@@ -113,31 +115,34 @@ export function StemsInMultipleSetsTable({
 
   const handleRemoveFromSet = useCallback(
     async (stemId: string, setId: string) => {
-      const key = `${stemId}:${setId}`
-      setRemovingKey(key)
-      try {
-        await ucatSetsApi.removeStemsFromSet(setId, [stemId])
-        await queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-        await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
-        toast({
-          title: 'Removed from set',
-          description: 'The question stem was removed from that set.',
-        })
-      } catch (error) {
-        toast(lifecycleErrorToast(error, 'Could not remove from set', () => undefined, (entityType, entityId) => {
-          if (entityType === 'set') {
-            onEditSet?.(entityId)
-            return true
+      await runSetScopedAction(
+        removingSetIdsRef.current,
+        setId,
+        setRemovingSetIds,
+        async () => {
+          try {
+            await ucatSetsApi.removeStemsFromSet(setId, [stemId])
+            await queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
+            await queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
+            toast({
+              title: 'Removed from set',
+              description: 'The question stem was removed from that set.',
+            })
+          } catch (error) {
+            toast(lifecycleErrorToast(error, 'Could not remove from set', () => undefined, (entityType, entityId) => {
+              if (entityType === 'set') {
+                onEditSet?.(entityId)
+                return true
+              }
+              if (entityType === 'stem') {
+                onOpenStemDialog?.(entityId)
+                return true
+              }
+              return false
+            }))
           }
-          if (entityType === 'stem') {
-            onOpenStemDialog?.(entityId)
-            return true
-          }
-          return false
-        }))
-      } finally {
-        setRemovingKey(null)
-      }
+        },
+      )
     },
     [queryClient, toast, onEditSet, onOpenStemDialog],
   )
@@ -182,7 +187,7 @@ export function StemsInMultipleSetsTable({
           key={item.id}
           item={item}
           visibleColumnKeys={tableState.state.visibleColumns}
-          removingKey={removingKey}
+          removingSetIds={removingSetIds}
           onOpenStemDialog={onOpenStemDialog}
           onEditSet={onEditSet}
           onRemoveFromSet={handleRemoveFromSet}
@@ -195,14 +200,14 @@ export function StemsInMultipleSetsTable({
 function StemInMultipleSetsRow({
   item,
   visibleColumnKeys,
-  removingKey,
+  removingSetIds,
   onOpenStemDialog,
   onEditSet,
   onRemoveFromSet,
 }: {
   item: StemInMultipleSets
   visibleColumnKeys: string[]
-  removingKey: string | null
+  removingSetIds: ReadonlySet<string>
   onOpenStemDialog?: (stemId: string) => void
   onEditSet?: (setId: string) => void
   onRemoveFromSet: (stemId: string, setId: string) => Promise<void>
@@ -225,7 +230,6 @@ function StemInMultipleSetsRow({
         <TableCell className="min-w-[280px]">
           <ul className="space-y-1.5">
             {item.sets.map((set) => {
-              const key = `${item.id}:${set.id}`
               return (
                 <li key={set.id} className="flex items-center gap-2">
                   <button
@@ -240,10 +244,10 @@ function StemInMultipleSetsRow({
                     variant="outline"
                     size="sm"
                     className={tutorBtnOutline}
-                    disabled={removingKey === key}
+                    disabled={removingSetIds.has(set.id)}
                     onClick={() => void onRemoveFromSet(item.id, set.id)}
                   >
-                    {removingKey === key ? 'Removing…' : 'Remove'}
+                    {removingSetIds.has(set.id) ? 'Removing…' : 'Remove'}
                   </Button>
                 </li>
               )

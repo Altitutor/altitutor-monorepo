@@ -40111,6 +40111,10 @@ export type Database = {
         Args: { p_feedback_question_ids?: string[] }
         Returns: Json
       }
+      tutor_ucat_remove_question_set_stems: {
+        Args: { p_set_id: string; p_stem_ids: string[] }
+        Returns: undefined
+      }
       tutor_ucat_reorder_learning_modules: {
         Args: { p_items: Json }
         Returns: undefined
