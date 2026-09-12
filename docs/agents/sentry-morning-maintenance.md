@@ -9,6 +9,21 @@ Read `docs/agents/production-error-tracking.md` for ticket identity, state
 transitions, migration of prior Sentry handoffs, and the durable run ledger.
 Create one ticket per underlying bug; link every related source to that ticket.
 
+## Execution contract
+
+Each scheduled invocation executes this workflow through reconciliation. Load
+current state from Obsidian, Sentry, Supabase, and GitHub; the setup chat is not
+run state. After access checks, continue immediately with inventory and fixes.
+For each actionable bug, deliver a validated fix and draft PR, or save actual
+investigation attempts and the specific evidence or dependency blocking a fix.
+Continue independent issues when one source or bug is blocked.
+
+Before ending, reconcile the discovered IDs against their recorded dispositions,
+save the run outcome, and release the run claim. Produce the end-of-run report
+specified in step 6, including outstanding work carried over from earlier runs.
+An access check, inventory, or empty ticket is an intermediate result. A partial
+run requires a concrete interruption or blocker and a durable resume point.
+
 ## Authority and boundaries
 
 The owner authorizes Obsidian maintenance tickets and ledger updates, read-only
@@ -51,10 +66,17 @@ combine its findings with the Sentry inventory below before prioritizing fixes.
    prove complete coverage. For exhaustive inventory, use an authenticated Sentry
    API or signed-in UI with all-time search and exhaust every page. The API is
    `GET /api/0/organizations/altitutor/issues/` with `query=is:unresolved`,
-   `environment=production`, an explicitly empty `statsPeriod`, and `limit=100`;
+   `environment=production`, `start=2000-01-01T00:00:00`, the fixed run-start UTC
+   timestamp as `end`, and `limit=100`. Omit `statsPeriod`: an empty value returns
+   HTTP 400. These explicit bounds were accepted on 2026-09-10.
+   If the service later rejects the range, report
+   the bound and adapt using the current API documentation;
    follow the response Link header's next cursor until `results="false"`.
    Deduplicate by numeric issue ID. Validate the API's effective time scope.
 3. Prefer an existing `SENTRY_AUTH_TOKEN` with `event:read` for API inventory.
+   If unavailable, load the nonempty value from the original checkout's
+   `.agents/.env.production-maintenance`. Parse this local dotenv file privately
+   as data; blank values do not override existing environment credentials.
    Read credentials privately; never print them or pass them as literal command
    arguments. The build token in `secrets/.env.development` was verified to lack
    issue-read permission during setup; do not repeatedly retry that credential.
@@ -76,6 +98,12 @@ combine its findings with the Sentry inventory below before prioritizing fixes.
    cause. Reuse the recorded branch/PR. Respect an active human or agent claim;
    before taking over a stale claim, check its task/PR activity. Record owner,
    run timestamp, branch, and intended next action before starting a fix.
+   Audit waiting tickets: a next step the agent can perform in authorized
+   development remains queued investigation work, even without new production
+   events. Resume the highest-impact such work after inventory. Reserve waiting
+   for a named external dependency, explicit human hold, or documented failed
+   reproduction attempts with a specific missing input. Evidence inspection
+   alone does not establish that development reproduction is blocked.
 
 Complete when every discovered issue has either a verified existing disposition
 or a place in the work queue, and inventory gaps are explicit.
@@ -150,6 +178,11 @@ as a substitute for triage.
    owner a specific question when user context would help, such as the action,
    approximate time, browser/app version, or a redacted recording. Continue other
    issues. Do not request production writes or direct user outreach.
+   Record the development reproduction commands actually attempted and their
+   results, or the concrete access/dependency preventing them. A proposed
+   reproduction is remaining agent work, not a completed attempt. Continue
+   eligible backlog items by impact after each fix or genuinely blocked issue;
+   finishing one PR is not the run's completion criterion.
 
 Complete when each attempted bug has either a validated targeted fix or a
 durable investigation handoff with a specific next step.
@@ -198,7 +231,77 @@ report the blocker, and stop starting fixes that cannot be handed off. If only
 Sentry synchronization fails, queue that failure in the ticket and continue
 independent work. Resume partial work by impact on the next run.
 
-Notify the owner in this task only for meaningful changes, completed fixes,
-failures, or required action. Include counts, ALTI IDs, Sentry/PR links, coverage
-or validation gaps, and precise questions. Stay quiet when nothing actionable
-changed; do not repeat unchanged requests every morning.
+## 6. Report the complete outstanding queue
+
+Every run ends with a user-visible report, including when nothing changed.
+Build it from the reconciled source inventories, canonical tickets, and current
+GitHub state, including work from previous runs and other agents. Use plain
+descriptions of the affected feature and user impact alongside IDs. Link each
+ticket, Sentry issue, and PR where applicable; identify Supabase-only findings by
+their ticket and service. Show every outstanding item, ordered by impact, rather
+than examples or only items touched this run. Use `None` for empty sections.
+Within every section, show priority explicitly and sort by the impact ordering
+in step 2: security/data loss/incorrect billing/outages first, then blocked core
+workflows, degraded features, and minor defects. Use affected users, recurrence,
+recency, and workaround availability within a tier, then oldest outstanding
+work as the tie-breaker. Preserve the same priority for an issue across sections;
+explain material priority changes in its ticket.
+
+Start with the run date, complete/partial coverage, and a sentence stating what
+the agent actually accomplished.
+
+Include a progress line comparing the previous saved report with this run:
+opening/closing outstanding canonical bugs, new or reopened bugs, new validated
+fixes, fixes newly merged into develop, fixes newly verified in production,
+noise dispositions, and duplicate consolidations. State snapshot dates and
+unknown baselines honestly. Count a carried-over PR only in queue totals, not
+as a new fix; count investigation progress separately from bug removal. Show
+agent-actionable versus externally blocked counts for issues without a fix.
+When actionable work remains but no fix or development reproduction progressed,
+state the concrete reason and the next issue to resume. These metrics describe
+work performed; creating a ticket or refreshing a status is not a fix.
+
+Then use these sections:
+
+1. **Issues without a fix:** all known actionable or uncertain findings without
+   a complete candidate fix in a retained branch, merged code, or production. Include
+   unchanged needs-info items, work in progress, abandoned fixes with no usable candidate,
+   and unprocessed findings. For each: ID, symptom/impact, investigation status,
+   blocker, next action, and owner. Distinguish uninvestigated from investigated.
+2. **Fixes awaiting review / develop merge:** all complete candidate fixes not
+   yet incorporated into `develop`, including previous runs. For each: covered
+   issue IDs, what changed, PR link or branch/commit if unpublished, validation
+   and CI result, review/merge status, and required next action. Mark failing or
+   missing checks, unpublished work, and closed PRs explicitly; a candidate fix
+   with a validation blocker is not a validated ready-to-merge fix. Verify actual
+   inclusion in `develop` using merge/commit or equivalent squash evidence, not
+   a ticket label or PR closure alone. This reporting milestone does not change
+   the authorized PR target or grant merge permission.
+3. **Investigation progressed this run:** the subset of section 1 where new
+   evidence was established but no complete fix exists. For each: what was
+   tested or learned this run, what was ruled out, what remains unknown, and the
+   next discriminating step or specific owner question. A repeated note or
+   timestamp update is not investigation progress. Cross-reference section 1;
+   count these issues once in outstanding totals.
+4. **Awaiting production:** fixes incorporated into `develop` whose production
+   deployment or effectiveness is still unverified. For each: covered IDs,
+   merge/commit or PR, deployment/verification status, and next action. Keep
+   these visible even if Sentry automatically resolved the group. Verified
+   production fixes leave the outstanding-fix queue even if branch histories
+   differ; flag any remaining branch reconciliation separately.
+
+Finish with **Resolved / noise this run** (IDs and brief evidence), **Status
+synchronization pending** (verified dispositions still needing Sentry updates),
+and any **Coverage gaps** (source, time window, unprocessed IDs, and retry step).
+Keep unchanged owner questions visible with their status without presenting
+them as newly requested information.
+
+Completion criterion: sections 1, 2, and 4 partition the known outstanding bugs;
+section 3 is a change summary, not an additional bucket. Assign one primary
+bucket per canonical bug and list all related source IDs. Count canonical bugs
+separately from Sentry groups and Supabase signatures. Account for every native
+unresolved Sentry group and outstanding Supabase finding through these buckets
+or an explicit verified-resolution/noise synchronization entry. Preserve
+tracked undeployed fixes even when native Sentry status is resolved. Report
+inaccessible or unscanned sources as unknown coverage rather than zero issues.
+Save this report or its exact snapshot in the run ledger before ending.

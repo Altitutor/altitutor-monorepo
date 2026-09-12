@@ -128,7 +128,16 @@ export function SessionModal({
 
   // Find the tutor log submitter name from staff data
   const tutorLogSubmitter = tutorLog?.created_by
-    ? staffData.find((d) => d.staff.id === tutorLog.created_by)?.staff
+    ? {
+        first_name:
+          tutorLog.created_by_first_name ??
+          staffData.find((d) => d.staff.id === tutorLog.created_by)?.staff.first_name ??
+          '',
+        last_name:
+          tutorLog.created_by_last_name ??
+          staffData.find((d) => d.staff.id === tutorLog.created_by)?.staff.last_name ??
+          '',
+      }
     : null;
 
   return (

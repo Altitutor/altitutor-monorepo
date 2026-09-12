@@ -8,6 +8,27 @@ export function isPreviousClassEnrollment(
   return new Date(unenrolledAt).getTime() <= nowMs;
 }
 
+export type ClassEnrollmentDisplayState = 'active' | 'previous' | 'hidden';
+
+/**
+ * Decide whether an enrollment belongs in the student Classes tab.
+ * Closed windows only count as history when the student had a session in them.
+ */
+export function getClassEnrollmentDisplayState(
+  enrollment: Pick<Tables<'classes_students'>, 'enrolled_at' | 'unenrolled_at'>,
+  hasOccurredSession: boolean,
+  nowMs = Date.now()
+): ClassEnrollmentDisplayState {
+  if (!enrollment.unenrolled_at) return 'active';
+
+  const enrolledMs = new Date(enrollment.enrolled_at).getTime();
+  const unenrolledMs = new Date(enrollment.unenrolled_at).getTime();
+
+  if (enrolledMs > nowMs) return 'hidden';
+  if (unenrolledMs > nowMs) return 'active';
+  return hasOccurredSession ? 'previous' : 'hidden';
+}
+
 type GroupableStudentClass = {
   class: { id: string };
   subject?: Tables<'subjects'>;

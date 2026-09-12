@@ -18,7 +18,9 @@ Discover Supabase `query_logs`/`get_logs` tools first. The connected tool set at
 setup could list projects but did not expose these log tools. If unavailable,
 use the Management API with an existing locally configured
 `SUPABASE_ACCESS_TOKEN` granting `analytics_logs_read` (OAuth: `analytics:read`).
-The setup check found no such token in the process or repository secrets files.
+If no process token is available, read the nonempty `SUPABASE_ACCESS_TOKEN` from
+the original checkout's `.agents/.env.production-maintenance`, parsing dotenv
+as data. Blank values do not override existing credentials.
 Load credentials privately into the request header, never shell arguments or
 output. A signed-in Logs Explorer UI is another fallback when available; follow
 the browser skill. Report access failure and continue Sentry work if none works.
@@ -33,6 +35,15 @@ queries to the application database `execute_sql` tool. The deprecated
 otherwise silently narrow coverage to one minute. Verify current API constraints
 when they change. See [Management API](https://supabase.com/docs/reference/api/)
 and [log query documentation](https://supabase.com/docs/guides/observability/advanced-log-filtering).
+
+Verified request requirements: set `User-Agent: Altitutor-Maintenance/1.0` and
+`Accept: application/json`; the default Python urllib client was rejected by
+Cloudflare. Format both timestamps as UTC `YYYY-MM-DDTHH:MM:SSZ`; this endpoint
+rejected the tested `+00:00` format. The production project's source column is
+`source`, not `source_name`. A successful discovery query was
+`SELECT source, count() AS log_count FROM logs GROUP BY source ORDER BY source`.
+Inspect the JSON `error` field even on HTTP 200: invalid queries return 200 with
+an error and no results. An aggregate access check does not advance scan cursors.
 
 ## Scan and disposition
 

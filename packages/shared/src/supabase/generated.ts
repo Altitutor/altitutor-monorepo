@@ -13509,27 +13509,33 @@ export type Database = {
       tutor_logs: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
+          logged_for_staff_id: string | null
           session_id: string
           session_type: Database["public"]["Enums"]["session_type"]
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
+          logged_for_staff_id?: string | null
           session_id: string
           session_type: Database["public"]["Enums"]["session_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
+          logged_for_staff_id?: string | null
           session_id?: string
           session_type?: Database["public"]["Enums"]["session_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -13556,6 +13562,34 @@ export type Database = {
           {
             foreignKeyName: "tutor_logs_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -13608,6 +13642,34 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -32230,7 +32292,12 @@ export type Database = {
       vtutor_tutor_log: {
         Row: {
           created_by: string | null
+          created_by_first_name: string | null
+          created_by_last_name: string | null
           files: Json | null
+          logged_for_first_name: string | null
+          logged_for_last_name: string | null
+          logged_for_staff_id: string | null
           notes: Json | null
           session_id: string | null
           staff_attendance: Json | null
@@ -32239,30 +32306,9 @@ export type Database = {
           tutor_log_created_at: string | null
           tutor_log_id: string | null
           tutor_log_updated_at: string | null
-        }
-        Insert: {
-          created_by?: string | null
-          files?: never
-          notes?: never
-          session_id?: string | null
-          staff_attendance?: never
-          student_attendance?: never
-          topics?: never
-          tutor_log_created_at?: string | null
-          tutor_log_id?: string | null
-          tutor_log_updated_at?: string | null
-        }
-        Update: {
-          created_by?: string | null
-          files?: never
-          notes?: never
-          session_id?: string | null
-          staff_attendance?: never
-          student_attendance?: never
-          topics?: never
-          tutor_log_created_at?: string | null
-          tutor_log_id?: string | null
-          tutor_log_updated_at?: string | null
+          updated_by: string | null
+          updated_by_first_name: string | null
+          updated_by_last_name: string | null
         }
         Relationships: [
           {
@@ -32289,6 +32335,34 @@ export type Database = {
           {
             foreignKeyName: "tutor_logs_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -32341,6 +32415,34 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -38347,6 +38449,7 @@ export type Database = {
       create_tutor_log: {
         Args: {
           p_created_by: string
+          p_logged_for_staff_id: string
           p_notes?: Json
           p_parent_attendance?: Json
           p_session_id: string
@@ -40629,6 +40732,19 @@ export type Database = {
           logged_by_staff_id: string
           operations: Json
           reason_note?: string
+        }
+        Returns: Json
+      }
+      update_tutor_log: {
+        Args: {
+          p_logged_for_staff_id: string
+          p_parent_attendance?: Json
+          p_staff_attendance?: Json
+          p_student_attendance?: Json
+          p_topic_files?: Json
+          p_topics?: Json
+          p_tutor_log_id: string
+          p_updated_by: string
         }
         Returns: Json
       }

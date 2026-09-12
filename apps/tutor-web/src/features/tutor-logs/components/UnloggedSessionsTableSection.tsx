@@ -31,6 +31,8 @@ export type UnloggedSessionsTableSectionProps = {
 };
 
 function subjectLabel(session: {
+  short_name?: string | null;
+  session_type?: string | null;
   class?: {
     level?: string | null;
     subject?: {
@@ -41,6 +43,8 @@ function subjectLabel(session: {
   } | null;
 }): string {
   return formatTutorSessionSubjectLabel({
+    short_name: session.short_name,
+    session_type: session.session_type,
     subject_curriculum: session.class?.subject?.curriculum,
     subject_year_level: session.class?.subject?.year_level,
     subject_name: session.class?.subject?.name,

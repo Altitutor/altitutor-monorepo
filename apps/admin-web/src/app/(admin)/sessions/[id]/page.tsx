@@ -144,7 +144,12 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
 
   // Process students and staff data
   const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
-  const staffData = processSessionStaff(sessionsStaff, actualStaffAttendance, helpers.hasTutorLog, tutorLog?.created_by);
+  const staffData = processSessionStaff(
+    sessionsStaff,
+    actualStaffAttendance,
+    helpers.hasTutorLog,
+    tutorLog?.created_by ?? undefined
+  );
 
   return (
     <div className="p-6">

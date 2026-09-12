@@ -38,7 +38,7 @@ export function EditTutorLogDialog({
   const [staffList, setStaffList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
   const [isStaffLoaded, setIsStaffLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('attendance');
-  const [createdBy, setCreatedBy] = useState<string>('');
+  const [loggedForStaffId, setLoggedForStaffId] = useState<string>('');
   const [formData, setFormData] = useState<Partial<TutorLogFormData>>({});
   const [isFormDataReady, setIsFormDataReady] = useState(false);
 
@@ -67,7 +67,7 @@ export function EditTutorLogDialog({
   // Initialize all form data when both tutor log and staff list are loaded
   useEffect(() => {
     if (isOpen && tutorLog && isStaffLoaded) {
-      setCreatedBy(tutorLog.created_by || '');
+      setLoggedForStaffId(tutorLog.logged_for_staff_id || '');
 
       setFormData({
         sessionId: tutorLog.session_id,
@@ -98,7 +98,7 @@ export function EditTutorLogDialog({
 
       setIsFormDataReady(true);
     } else if (!isOpen) {
-      setCreatedBy('');
+      setLoggedForStaffId('');
       setFormData({});
       setIsFormDataReady(false);
     }
@@ -157,7 +157,7 @@ export function EditTutorLogDialog({
   }, [isClassSessionType, activeTab]);
 
   const handleSubmit = async () => {
-    if (!tutorLog || !formData.sessionId || !createdBy) return;
+    if (!tutorLog || !formData.sessionId || !loggedForStaffId) return;
 
     try {
       await updateMutation.mutateAsync({
@@ -171,7 +171,7 @@ export function EditTutorLogDialog({
           topicFiles: formData.topicFiles || [],
           notes: formData.notes ?? [],
         },
-        createdBy,
+        loggedForStaffId,
       });
 
       onTutorLogUpdated?.();
@@ -182,7 +182,7 @@ export function EditTutorLogDialog({
   };
 
   const handleClose = () => {
-    setCreatedBy('');
+    setLoggedForStaffId('');
     setFormData({});
     setActiveTab('attendance');
     setIsFormDataReady(false);
@@ -270,7 +270,7 @@ export function EditTutorLogDialog({
           <Button
             type="button"
             onClick={handleSubmit}
-            disabled={isLoading || !createdBy}
+            disabled={isLoading || !loggedForStaffId}
           >
             {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             Save Changes
@@ -283,20 +283,23 @@ export function EditTutorLogDialog({
             <SegmentedTabPanelContent when="attendance" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6 space-y-8">
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold text-foreground">Created by</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Logged for</h3>
                   <div className="space-y-2 max-w-md">
                     <Label>Staff member</Label>
                     <SearchableSelect<{ id: string; first_name: string; last_name: string }>
                       items={staffList}
-                      value={staffList.find((s) => s.id === createdBy) ?? null}
-                      onValueChange={(item) => item && setCreatedBy(item.id)}
+                      value={staffList.find((s) => s.id === loggedForStaffId) ?? null}
+                      onValueChange={(item) => item && setLoggedForStaffId(item.id)}
                       getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
                       getItemId={(s) => s.id}
                       placeholder="Select staff member"
                       triggerClassName="w-full min-w-0 max-w-full"
                     />
-                    {!createdBy && (
-                      <p className="text-sm text-destructive">Created by is required</p>
+                    <p className="text-xs text-muted-foreground">
+                      Operational attribution for the assigned staff member; the original submitter is retained separately.
+                    </p>
+                    {!loggedForStaffId && (
+                      <p className="text-sm text-destructive">Logged for is required</p>
                     )}
                   </div>
                 </section>
@@ -308,7 +311,7 @@ export function EditTutorLogDialog({
                   {sessionId && isFormDataReady && (
                     <Step2StaffAttendance
                       sessionId={sessionId}
-                      currentStaffId={createdBy}
+                      currentStaffId={loggedForStaffId}
                       staffAttendance={formData.staffAttendance || []}
                       onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
                       onAddStaffToSession={handleAddStaffToSession}

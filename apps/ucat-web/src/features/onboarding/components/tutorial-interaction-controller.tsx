@@ -3,10 +3,6 @@
 import { useCallback, useEffect, useRef } from "react";
 import { useNextStep } from "nextstepjs";
 import { getTourStep } from "@/features/onboarding/config/tour-steps";
-import {
-  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
-  UCAT_QUESTION_ENGINE_TOUR,
-} from "@/features/onboarding/config/tour-catalog";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import {
   clearTutorialResume,
@@ -273,22 +269,15 @@ export function TutorialInteractionController() {
 
   useEffect(() => {
     if (!isNextStepVisible) return;
-    const postpone = (event: KeyboardEvent) => {
+    const requestLeave = (event: KeyboardEvent) => {
       if (event.key !== "Escape") return;
       event.preventDefault();
       event.stopImmediatePropagation();
-      if (
-        currentTour !== UCAT_QUESTION_ENGINE_TOUR &&
-        currentTour !== UCAT_QUESTION_ENGINE_CONTROLS_TOUR
-      ) {
-        closeNextStep();
-        return;
-      }
       requestTutorialSkipConfirmation();
     };
-    window.addEventListener("keydown", postpone, true);
-    return () => window.removeEventListener("keydown", postpone, true);
-  }, [closeNextStep, currentTour, isNextStepVisible]);
+    window.addEventListener("keydown", requestLeave, true);
+    return () => window.removeEventListener("keydown", requestLeave, true);
+  }, [isNextStepVisible]);
 
   return null;
 }

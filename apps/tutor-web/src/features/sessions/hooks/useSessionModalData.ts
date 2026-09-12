@@ -39,6 +39,8 @@ interface TutorLog {
   id: string;
   tutor_log_id: string | null;
   created_by?: string | null;
+  created_by_first_name?: string | null;
+  created_by_last_name?: string | null;
   student_attendance?: TutorLogStudentAttendance[];
   staff_attendance?: TutorLogStaffAttendance[];
   topics?: Array<{ id: string; name: string; subject_id: string }>;
@@ -196,6 +198,16 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
           tutor_log_id: logResult.tutor_log_id,
           created_by:
             'created_by' in logResult && typeof logResult.created_by === 'string' ? logResult.created_by : null,
+          created_by_first_name:
+            'created_by_first_name' in logResult &&
+            typeof logResult.created_by_first_name === 'string'
+              ? logResult.created_by_first_name
+              : null,
+          created_by_last_name:
+            'created_by_last_name' in logResult &&
+            typeof logResult.created_by_last_name === 'string'
+              ? logResult.created_by_last_name
+              : null,
           student_attendance: parseStudentAttendance(logResult.student_attendance),
           staff_attendance: parseStaffAttendance(logResult.staff_attendance),
           topics: parseTopics(logResult.topics),

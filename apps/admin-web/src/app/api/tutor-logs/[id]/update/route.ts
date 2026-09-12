@@ -1,341 +1,173 @@
 import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
+import {
+  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
+  staffMaySubmitTutorLog,
+} from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
+
+type TutorLogUpdateResult = {
+  success?: boolean;
+  error?: string;
+};
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const tutorLogId = params.id;
+    const userClient = createUserClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const [{ data: isAdmin, error: adminError }, { data: actorStaffId, error: actorError }] =
+      await Promise.all([
+        userClient.rpc('is_adminstaff_active'),
+        userClient.rpc('current_staff_id'),
+      ]);
+
+    if (adminError || !isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    if (actorError || !actorStaffId) {
+      return NextResponse.json(
+        { error: 'Failed to resolve the authenticated admin staff member' },
+        { status: 500 }
+      );
+    }
+
+    const { id: tutorLogId } = await params;
     const body = await request.json();
-    const { data, createdBy } = body as { data: TutorLogFormData; createdBy: string };
-
-    // Validate required fields
-    if (!data || !data.sessionId) {
-      return NextResponse.json(
-        { error: 'sessionId is required' },
-        { status: 400 }
-      );
-    }
-
-    if (!createdBy) {
-      return NextResponse.json(
-        { error: 'createdBy is required' },
-        { status: 400 }
-      );
-    }
+    const { data, loggedForStaffId } = body as {
+      data: TutorLogFormData;
+      loggedForStaffId: string;
+    };
 
     if (!tutorLogId) {
+      return NextResponse.json({ error: 'Tutor log ID is required' }, { status: 400 });
+    }
+    if (!data?.sessionId) {
+      return NextResponse.json({ error: 'sessionId is required' }, { status: 400 });
+    }
+    if (!loggedForStaffId) {
       return NextResponse.json(
-        { error: 'Tutor log ID is required' },
+        { error: 'loggedForStaffId is required' },
         { status: 400 }
       );
     }
 
-    // Get Supabase client with service role key for RPC call
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
     if (!supabaseUrl || !supabaseServiceKey) {
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
+    const supabase = createServiceClient<Database>(supabaseUrl, supabaseServiceKey, {
+      auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Verify tutor log exists
     const { data: existingLog, error: fetchError } = await supabase
       .from('tutor_logs')
-      .select('id, session_id')
+      .select('session_id, session:sessions!inner(type)')
       .eq('id', tutorLogId)
-      .single();
+      .maybeSingle();
 
-    if (fetchError || !existingLog) {
+    if (fetchError) {
+      captureApiError(fetchError, '/api/tutor-logs/[id]/update');
+      return NextResponse.json({ error: 'Failed to load tutor log' }, { status: 500 });
+    }
+    if (!existingLog) {
+      return NextResponse.json({ error: 'Tutor log not found' }, { status: 404 });
+    }
+    if (data.sessionId !== existingLog.session_id) {
       return NextResponse.json(
-        { error: 'Tutor log not found' },
-        { status: 404 }
+        { error: 'Tutor log session cannot be changed' },
+        { status: 400 }
       );
     }
 
-    // Prepare data for update
-    // We'll delete all related records and recreate them atomically
-    // This ensures data consistency
-    
-    // Start transaction by deleting all related records
-    // Delete in reverse order of dependencies
-    
-    // Get topic files IDs first
-    const { data: topicFilesData } = await supabase
-      .from('tutor_logs_topics_files')
-      .select('id')
-      .eq('tutor_log_id', tutorLogId);
-    
-    const topicFileIds = topicFilesData?.map(r => r.id) || [];
-    
-    // Delete topic files students
-    if (topicFileIds.length > 0) {
-      await supabase
-        .from('tutor_logs_topics_files_students')
-        .delete()
-        .in('tutor_logs_topics_files_id', topicFileIds);
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('sessions_staff')
+      .select('type')
+      .eq('session_id', existingLog.session_id)
+      .eq('staff_id', loggedForStaffId)
+      .maybeSingle();
+
+    if (assignmentError) {
+      captureApiError(assignmentError, '/api/tutor-logs/[id]/update');
+      return NextResponse.json({ error: 'Failed to verify staff assignment' }, { status: 500 });
     }
-
-    // Delete topic files
-    await supabase
-      .from('tutor_logs_topics_files')
-      .delete()
-      .eq('tutor_log_id', tutorLogId);
-
-    // Get topic IDs first
-    const { data: topicsData } = await supabase
-      .from('tutor_logs_topics')
-      .select('id')
-      .eq('tutor_log_id', tutorLogId);
-    
-    const topicIds = topicsData?.map(r => r.id) || [];
-    
-    // Delete topic students
-    if (topicIds.length > 0) {
-      await supabase
-        .from('tutor_logs_topics_students')
-        .delete()
-        .in('tutor_logs_topics_id', topicIds);
-    }
-
-    // Delete topics
-    await supabase
-      .from('tutor_logs_topics')
-      .delete()
-      .eq('tutor_log_id', tutorLogId);
-
-    // Delete student attendance
-    await supabase
-      .from('tutor_logs_student_attendance')
-      .delete()
-      .eq('tutor_log_id', tutorLogId);
-
-    // Delete parent attendance
-    await supabase
-      .from('tutor_logs_parent_attendance')
-      .delete()
-      .eq('tutor_log_id', tutorLogId);
-
-    // Delete staff attendance
-    await supabase
-      .from('tutor_logs_staff_attendance')
-      .delete()
-      .eq('tutor_log_id', tutorLogId);
-
-    // Update the tutor log itself
-    const { error: updateError } = await supabase
-      .from('tutor_logs')
-      .update({ created_by: createdBy })
-      .eq('id', tutorLogId);
-
-    if (updateError) {
-      captureApiError(updateError, "/api/tutor-logs/[id]/update");
+    if (!assignment) {
       return NextResponse.json(
-        { error: updateError.message || 'Failed to update tutor log' },
+        { error: 'The staff member logged for must be assigned to the session' },
+        { status: 400 }
+      );
+    }
+    if (!staffMaySubmitTutorLog(existingLog.session.type, assignment.type)) {
+      return NextResponse.json({ error: CHECK_IN_LOG_FORBIDDEN_MESSAGE }, { status: 403 });
+    }
+
+    const rpcParams = {
+      p_tutor_log_id: tutorLogId,
+      p_updated_by: actorStaffId,
+      p_logged_for_staff_id: loggedForStaffId,
+      p_staff_attendance: (data.staffAttendance || []).map((row) => ({
+        staffId: row.staffId,
+        attended: row.attended,
+        type: row.type,
+      })),
+      p_student_attendance: (data.studentAttendance || []).map((row) => ({
+        studentId: row.studentId,
+        attended: row.attended,
+      })),
+      p_parent_attendance: (data.parentAttendance || []).map((row) => ({
+        parentId: row.parentId,
+        attended: row.attended,
+      })),
+      p_topics: (data.topics || []).map((row) => ({
+        topicId: row.topicId,
+        studentIds: row.studentIds || [],
+      })),
+      p_topic_files: (data.topicFiles || []).map((row) => ({
+        topicsFilesId: row.topicsFilesId,
+        topicId: row.topicId,
+        studentIds: row.studentIds || [],
+      })),
+    };
+
+    const { data: result, error } = await supabase.rpc('update_tutor_log', rpcParams);
+    if (error) {
+      captureApiError(error, '/api/tutor-logs/[id]/update');
+      return NextResponse.json(
+        { error: error.message || 'Failed to update tutor log' },
         { status: 500 }
       );
     }
 
-    // Now recreate all related records
-    // Prepare data for RPC call (reuse create logic)
-    const staffAttendance = (data.staffAttendance || []).map((sa) => ({
-      staffId: sa.staffId,
-      attended: sa.attended,
-      type: sa.type,
-    }));
-
-    const studentAttendance = (data.studentAttendance || []).map((sa) => ({
-      studentId: sa.studentId,
-      attended: sa.attended,
-    }));
-
-    const parentAttendance = (data.parentAttendance || []).map((pa) => ({
-      parentId: pa.parentId,
-      attended: pa.attended,
-    }));
-
-    const topics = (data.topics || []).map((t) => ({
-      topicId: t.topicId,
-      studentIds: t.studentIds || [],
-    }));
-
-    const topicFiles = (data.topicFiles || []).map((tf) => ({
-      topicsFilesId: tf.topicsFilesId,
-      topicId: tf.topicId,
-      studentIds: tf.studentIds || [],
-    }));
-
-    // Insert staff attendance
-    if (staffAttendance.length > 0) {
-      const { error: staffError } = await supabase
-        .from('tutor_logs_staff_attendance')
-        .insert(
-          staffAttendance.map((sa) => ({
-            tutor_log_id: tutorLogId,
-            staff_id: sa.staffId,
-            attended: sa.attended,
-            type: sa.type,
-          }))
-        );
-
-      if (staffError) {
-        captureApiError(staffError, "/api/tutor-logs/[id]/update");
-        return NextResponse.json(
-          { error: staffError.message || 'Failed to update staff attendance' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Insert student attendance
-    if (studentAttendance.length > 0) {
-      const { error: studentError } = await supabase
-        .from('tutor_logs_student_attendance')
-        .insert(
-          studentAttendance.map((sa) => ({
-            tutor_log_id: tutorLogId,
-            student_id: sa.studentId,
-            attended: sa.attended,
-            created_by: createdBy,
-          }))
-        );
-
-      if (studentError) {
-        captureApiError(studentError, "/api/tutor-logs/[id]/update");
-        return NextResponse.json(
-          { error: studentError.message || 'Failed to update student attendance' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Insert parent attendance
-    if (parentAttendance.length > 0) {
-      const { error: parentError } = await supabase
-        .from('tutor_logs_parent_attendance')
-        .insert(
-          parentAttendance.map((pa) => ({
-            tutor_log_id: tutorLogId,
-            parent_id: pa.parentId,
-            attended: pa.attended,
-            created_by: createdBy,
-          }))
-        );
-
-      if (parentError) {
-        captureApiError(parentError, "/api/tutor-logs/[id]/update");
-        return NextResponse.json(
-          { error: parentError.message || 'Failed to update parent attendance' },
-          { status: 500 }
-        );
-      }
-    }
-
-    // Insert topics with students
-    for (const topic of topics) {
-      const { data: topicRecord, error: topicError } = await supabase
-        .from('tutor_logs_topics')
-        .insert({
-          tutor_log_id: tutorLogId,
-          topic_id: topic.topicId,
-          created_by: createdBy,
-        })
-        .select('id')
-        .single();
-
-      if (topicError) {
-        captureApiError(topicError, "/api/tutor-logs/[id]/update");
-        return NextResponse.json(
-          { error: topicError.message || 'Failed to update topics' },
-          { status: 500 }
-        );
-      }
-
-      // Insert topic students
-      if (topic.studentIds.length > 0 && topicRecord) {
-        const { error: topicStudentsError } = await supabase
-          .from('tutor_logs_topics_students')
-          .insert(
-            topic.studentIds.map((studentId) => ({
-              tutor_logs_topics_id: topicRecord.id,
-              student_id: studentId,
-              created_by: createdBy,
-            }))
-          );
-
-        if (topicStudentsError) {
-          captureApiError(topicStudentsError, "/api/tutor-logs/[id]/update");
-          return NextResponse.json(
-            { error: topicStudentsError.message || 'Failed to update topic students' },
-            { status: 500 }
-          );
-        }
-      }
-    }
-
-    // Insert topic files with students
-    for (const topicFile of topicFiles) {
-      const { data: fileRecord, error: fileError } = await supabase
-        .from('tutor_logs_topics_files')
-        .insert({
-          tutor_log_id: tutorLogId,
-          topics_files_id: topicFile.topicsFilesId,
-          created_by: createdBy,
-        })
-        .select('id')
-        .single();
-
-      if (fileError) {
-        captureApiError(fileError, "/api/tutor-logs/[id]/update");
-        return NextResponse.json(
-          { error: fileError.message || 'Failed to update topic files' },
-          { status: 500 }
-        );
-      }
-
-      // Insert file students
-      if (topicFile.studentIds.length > 0 && fileRecord) {
-        const { error: fileStudentsError } = await supabase
-          .from('tutor_logs_topics_files_students')
-          .insert(
-            topicFile.studentIds.map((studentId) => ({
-              tutor_logs_topics_files_id: fileRecord.id,
-              student_id: studentId,
-              created_by: createdBy,
-            }))
-          );
-
-        if (fileStudentsError) {
-          captureApiError(fileStudentsError, "/api/tutor-logs/[id]/update");
-          return NextResponse.json(
-            { error: fileStudentsError.message || 'Failed to update file students' },
-            { status: 500 }
-          );
-        }
-      }
+    const updateResult = result as TutorLogUpdateResult | null;
+    if (!updateResult?.success) {
+      return NextResponse.json(
+        { error: updateResult?.error || 'Failed to update tutor log' },
+        { status: 400 }
+      );
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    captureApiError(error, "/api/tutor-logs/[id]/update");
-    console.error('Error updating tutor log:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    captureApiError(error, '/api/tutor-logs/[id]/update');
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }

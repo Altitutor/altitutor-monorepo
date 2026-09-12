@@ -6,7 +6,6 @@ import type { CardComponentProps } from "nextstepjs";
 import { useNextStep } from "nextstepjs";
 import {
   AlertDialog,
-  AlertDialogAction,
   AlertDialogCancel,
   AlertDialogContent,
   AlertDialogDescription,
@@ -35,7 +34,10 @@ import {
   ucatOnboardingTours,
   type ContextualTourStep,
 } from "@/features/onboarding/config/tour-steps";
-import { UCAT_SURFACE_CARD } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_DIALOG_PRIMARY_ACTION,
+  UCAT_SURFACE_CARD,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 function selectorExists(selector: string) {
@@ -143,16 +145,22 @@ export function OnboardingCard({
     nextStep();
   };
 
-  const postpone = () => {
+  const requestLeave = () => {
     if (isDisplayedLast) {
       nextStep();
       return;
     }
-    if (!isQuestionEngineTour) {
-      closeNextStep();
-      return;
-    }
     setSkipConfirmationOpen(true);
+  };
+
+  const postponeTour = () => {
+    setSkipConfirmationOpen(false);
+    closeNextStep();
+  };
+
+  const skipTourPermanently = () => {
+    setSkipConfirmationOpen(false);
+    skipTour?.();
   };
 
   return createPortal(
@@ -212,13 +220,9 @@ export function OnboardingCard({
             </div>
             <button
               type="button"
-              onClick={postpone}
+              onClick={requestLeave}
               aria-label={
-                isDisplayedLast
-                  ? "Finish tutorial"
-                  : isQuestionEngineTour
-                    ? "Exit tutorial"
-                    : "Not now"
+                isDisplayedLast ? "Finish tutorial" : "Exit tutorial"
               }
               className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
@@ -326,18 +330,25 @@ export function OnboardingCard({
       >
         <AlertDialogContent className="z-[1400]">
           <AlertDialogHeader>
-            <AlertDialogTitle>Skip this tutorial?</AlertDialogTitle>
+            <AlertDialogTitle>Leave this tutorial?</AlertDialogTitle>
             <AlertDialogDescription>
               {isQuestionEngineTour
-                ? "You can replay it later from Settings. Your intended attempt will begin after you skip."
-                : "You can replay it later from Settings."}
+                ? "Skip and show later keeps this walkthrough for another visit. Skip and don't show again marks it done so your intended attempt can begin. You can replay it later from Settings."
+                : "Skip and show later keeps this walkthrough for another visit. Skip and don't show again marks it done. You can replay it later from Settings."}
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Go back</AlertDialogCancel>
-            <AlertDialogAction onClick={() => skipTour?.()}>
-              {isQuestionEngineTour ? "Skip and continue" : "Skip tutorial"}
-            </AlertDialogAction>
+          <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
+            <Button
+              type="button"
+              className={UCAT_DIALOG_PRIMARY_ACTION}
+              onClick={skipTourPermanently}
+            >
+              Skip and don&apos;t show again
+            </Button>
+            <Button type="button" variant="outline" onClick={postponeTour}>
+              Skip and show later
+            </Button>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

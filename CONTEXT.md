@@ -262,6 +262,18 @@
 
 ## Core tutoring sessions and billing
 
+- **Tutor log** — The single record of attendance, learning activity, and notes captured for one completed Session. It distinguishes the staff member who submitted it from the staff member on whose behalf it was recorded.
+  _Avoid_: Attendance record, Session completion flag
+
+- **Tutor log submitter** — The authenticated staff member who first committed a Tutor log. The submitter is immutable; when the submitter of a historical Tutor log cannot be proven, it remains unknown rather than inferred.
+  _Avoid_: Logged-for staff, attending tutor, most recent editor
+
+- **Tutor log operational attribution** — The Session-assigned staff member on whose behalf a Tutor log is recorded. It may be corrected by ADMINSTAFF; for a Check-in it must identify conducting staff.
+  _Avoid_: Tutor log submitter, arbitrary staff attribution
+
+- **Tutor log editor** — The authenticated staff member who most recently changed a Tutor log after submission. The latest editor is a convenience projection while each edit remains durably attributable in history.
+  _Avoid_: Tutor log submitter, logged-for staff
+
 - **Planned absence** — The recorded expectation that a Student will not attend an original Session. It describes expected attendance, independently of whether the Session remains payable.
 
 - **Absence billing treatment** — The AdminStaff-selected financial treatment of a Planned absence: `charge` retains the original Session billing obligation, `credit` removes it, and `replacement` removes it while assigning a Replacement session. Actual attendance makes that Session payable regardless of its Absence billing treatment.

@@ -61,6 +61,8 @@ export interface UseTutorLogsTableReturn {
     id: string;
     session_id: string;
     created_by: string | null;
+    logged_for_staff_id: string | null;
+    updated_by: string | null;
     created_at: string;
     updated_at: string | null;
   }>;
@@ -86,6 +88,8 @@ export interface UseTutorLogsTableReturn {
     id: string;
     session_id: string;
     created_by: string | null;
+    logged_for_staff_id: string | null;
+    updated_by: string | null;
     created_at: string;
     updated_at: string | null;
   }>;
@@ -94,6 +98,8 @@ export interface UseTutorLogsTableReturn {
     id: string;
     session_id: string;
     created_by: string | null;
+    logged_for_staff_id: string | null;
+    updated_by: string | null;
     created_at: string;
     updated_at: string | null;
   }>;
@@ -196,6 +202,8 @@ export function useTutorLogsTable({
       id: string;
       session_id: string;
       created_by: string | null;
+      logged_for_staff_id: string | null;
+      updated_by: string | null;
       created_at: string;
       updated_at: string | null;
     }>,

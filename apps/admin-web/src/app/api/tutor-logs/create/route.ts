@@ -30,8 +30,20 @@ export async function POST(request: Request) {
       );
     }
 
+    const { data: actorStaffId, error: actorError } = await userClient.rpc('current_staff_id');
+
+    if (actorError || !actorStaffId) {
+      return NextResponse.json(
+        { error: 'Failed to resolve the authenticated admin staff member' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
-    const { data, createdBy } = body as { data: TutorLogFormData; createdBy: string };
+    const { data, loggedForStaffId } = body as {
+      data: TutorLogFormData;
+      loggedForStaffId: string;
+    };
 
     // Validate required fields
     if (!data || !data.sessionId) {
@@ -41,9 +53,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!createdBy) {
+    if (!loggedForStaffId) {
       return NextResponse.json(
-        { error: 'createdBy is required' },
+        { error: 'loggedForStaffId is required' },
         { status: 400 }
       );
     }
@@ -77,22 +89,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Failed to verify session' }, { status: 500 });
     }
 
-    if (sessionToLog?.type === 'CHECK_IN') {
-      const { data: assignment, error: assignmentError } = await supabase
-        .from('sessions_staff')
-        .select('type')
-        .eq('session_id', data.sessionId)
-        .eq('staff_id', createdBy)
-        .maybeSingle();
+    if (!sessionToLog) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
 
-      if (assignmentError) {
-        captureApiError(assignmentError, "/api/tutor-logs/create");
-        return NextResponse.json({ error: 'Failed to verify check-in role' }, { status: 500 });
-      }
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('sessions_staff')
+      .select('type')
+      .eq('session_id', data.sessionId)
+      .eq('staff_id', loggedForStaffId)
+      .maybeSingle();
 
-      if (!staffMaySubmitTutorLog('CHECK_IN', assignment?.type)) {
-        return NextResponse.json({ error: CHECK_IN_LOG_FORBIDDEN_MESSAGE }, { status: 403 });
-      }
+    if (assignmentError) {
+      captureApiError(assignmentError, "/api/tutor-logs/create");
+      return NextResponse.json({ error: 'Failed to verify staff assignment' }, { status: 500 });
+    }
+
+    if (!assignment) {
+      return NextResponse.json(
+        { error: 'The staff member logged for must be assigned to the session' },
+        { status: 400 }
+      );
+    }
+
+    if (!staffMaySubmitTutorLog(sessionToLog.type, assignment.type)) {
+      return NextResponse.json({ error: CHECK_IN_LOG_FORBIDDEN_MESSAGE }, { status: 403 });
     }
 
     // Prepare data for RPC call
@@ -137,7 +158,8 @@ export async function POST(request: Request) {
     // Pass empty arrays as [] - the function will handle serialization issues
     const rpcParams = {
       p_session_id: data.sessionId,
-      p_created_by: createdBy,
+      p_created_by: actorStaffId,
+      p_logged_for_staff_id: loggedForStaffId,
       p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
       p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
       p_parent_attendance: parentAttendance.length > 0 ? parentAttendance : [],

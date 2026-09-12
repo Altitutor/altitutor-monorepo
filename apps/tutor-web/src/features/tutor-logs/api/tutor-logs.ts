@@ -1,5 +1,7 @@
 import { hasSessionStarted, type Database } from '@altitutor/shared';
+import { staffMaySubmitTutorLog } from '@altitutor/shared/pay-tiers';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { parseSessionStaffList } from '@/features/sessions/utils/parseSessionDetailJson';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { TutorLogFormData } from '../types';
 
@@ -97,10 +99,10 @@ export const tutorLogsApi = {
 
   /**
    * Get sessions that haven't been logged yet for the current tutor
-   * Only returns sessions that have started and have no tutor log yet (start_at <= now).
-   * Note: staffId parameter is kept for API consistency but not used (RLS handles filtering)
+   * Only returns sessions that have started, have no tutor log yet, and may be
+   * logged by the current tutor. Check-ins are limited to conducting staff.
    */
-  getUnloggedSessions: async (_staffId: string): Promise<Array<Database['public']['Views']['vtutor_sessions']['Row'] & {
+  getUnloggedSessions: async (staffId: string): Promise<Array<Database['public']['Views']['vtutor_sessions']['Row'] & {
     id: string;
     class?: { 
       id: string;
@@ -117,7 +119,7 @@ export const tutorLogsApi = {
       const { data: sessions, error: sessionsError } = await supabase
         .from('vtutor_sessions')
         .select('*')
-        .eq('session_type', 'CLASS')
+        .in('session_type', ['CLASS', 'CHECK_IN'])
         .lte('start_at', nowIso)
         .order('start_at', { ascending: false });
 
@@ -137,6 +139,31 @@ export const tutorLogsApi = {
 
       const loggedSessionIds = new Set((existingLogs || []).map((log) => log.session_id));
 
+      const unloggedCheckInIds = sessions.flatMap((session) =>
+        session.session_type === 'CHECK_IN' &&
+        session.session_id &&
+        !loggedSessionIds.has(session.session_id)
+          ? [session.session_id]
+          : [],
+      );
+      const assignmentTypeBySessionId: Record<string, string | null | undefined> = {};
+
+      if (unloggedCheckInIds.length > 0) {
+        const { data: details, error: detailsError } = await supabase
+          .from('vtutor_session_detail')
+          .select('session_id, staff')
+          .in('session_id', unloggedCheckInIds);
+
+        if (detailsError) throw detailsError;
+
+        for (const detail of details ?? []) {
+          if (!detail.session_id) continue;
+          assignmentTypeBySessionId[detail.session_id] = parseSessionStaffList(detail.staff).find(
+            (staff) => staff.id === staffId,
+          )?.type;
+        }
+      }
+
       // Filter and transform sessions to match expected format
       type TransformedSession = Database['public']['Views']['vtutor_sessions']['Row'] & {
         id: string;
@@ -148,7 +175,15 @@ export const tutorLogsApi = {
       };
       
       return (sessions || [])
-        .filter((s) => !loggedSessionIds.has(s.session_id) && hasSessionStarted(s.start_at))
+        .filter(
+          (s) =>
+            !loggedSessionIds.has(s.session_id) &&
+            hasSessionStarted(s.start_at) &&
+            staffMaySubmitTutorLog(
+              s.session_type,
+              s.session_id ? assignmentTypeBySessionId[s.session_id] : undefined,
+            ),
+        )
         .map((s): TransformedSession => {
         // Transform vtutor_sessions row to match expected format
         return {

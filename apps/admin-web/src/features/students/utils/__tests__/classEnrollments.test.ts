@@ -1,5 +1,6 @@
 import type { Tables } from '@altitutor/shared';
 import {
+  getClassEnrollmentDisplayState,
   currentEnrolledClassIds,
   groupStudentClassesBySubject,
   isPreviousClassEnrollment,
@@ -35,6 +36,42 @@ describe('isPreviousClassEnrollment', () => {
 
   it('treats a past unenrollment as previous', () => {
     expect(isPreviousClassEnrollment('2026-03-01T00:00:00+10:30', now)).toBe(true);
+  });
+});
+
+describe('getClassEnrollmentDisplayState', () => {
+  const now = Date.parse('2026-09-10T12:00:00+09:30');
+
+  it('shows open current and future enrollments as active', () => {
+    expect(getClassEnrollmentDisplayState({
+      enrolled_at: '2026-09-01T00:00:00+09:30',
+      unenrolled_at: null,
+    }, false, now)).toBe('active');
+    expect(getClassEnrollmentDisplayState({
+      enrolled_at: '2026-09-20T00:00:00+09:30',
+      unenrolled_at: null,
+    }, false, now)).toBe('active');
+  });
+
+  it('shows a completed enrollment as previous when a session occurred in its window', () => {
+    expect(getClassEnrollmentDisplayState({
+      enrolled_at: '2026-08-01T00:00:00+09:30',
+      unenrolled_at: '2026-09-01T00:00:00+09:30',
+    }, true, now)).toBe('previous');
+  });
+
+  it('hides a completed enrollment when no session occurred in its window', () => {
+    expect(getClassEnrollmentDisplayState({
+      enrolled_at: '2026-08-01T00:00:00+09:30',
+      unenrolled_at: '2026-09-01T00:00:00+09:30',
+    }, false, now)).toBe('hidden');
+  });
+
+  it('hides a future enrollment that was closed before its first session', () => {
+    expect(getClassEnrollmentDisplayState({
+      enrolled_at: '2026-09-19T00:00:00+09:30',
+      unenrolled_at: '2026-09-19T00:00:01+09:30',
+    }, false, now)).toBe('hidden');
   });
 });
 

@@ -290,7 +290,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   // Process students and staff data
   const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
-  const staffData = processSessionStaff(sessionsStaff, actualStaffAttendance, helpers.hasTutorLog, tutorLog?.created_by);
+  const staffData = processSessionStaff(
+    sessionsStaff,
+    actualStaffAttendance,
+    helpers.hasTutorLog,
+    tutorLog?.created_by ?? undefined
+  );
   type SessionsStudentRow = { student_id: string | null };
   type SessionsStaffRow = { staff_id: string | null };
   const existingStudentIds = (sessionsStudents as SessionsStudentRow[])

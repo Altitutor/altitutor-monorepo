@@ -206,10 +206,26 @@ JOIN public.session_billing_adjustments adjustment
   ON adjustment.sessions_students_id = fixture.original_assignment_id
  AND adjustment.kind = 'credit_note';
 
-INSERT INTO public.tutor_logs (id, session_id, created_by, session_type)
+INSERT INTO public.sessions_staff (session_id, staff_id, type)
+SELECT
+  session.id,
+  '00000000-0000-0000-0000-000000000001',
+  'MAIN_TUTOR'
+FROM public.sessions session
+WHERE session.id IN (
+  SELECT original_session_id FROM reschedule_matrix
+  UNION ALL
+  SELECT target_session_id FROM reschedule_matrix
+)
+ON CONFLICT (session_id, staff_id) DO NOTHING;
+
+INSERT INTO public.tutor_logs (
+  id, session_id, created_by, logged_for_staff_id, session_type
+)
 SELECT
   ('ff000000-0000-4000-8000-' || lpad(row_number() OVER (ORDER BY session.id)::text, 12, '0'))::uuid,
   session.id,
+  '00000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000001',
   session.type
 FROM public.sessions session
