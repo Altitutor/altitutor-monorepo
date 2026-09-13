@@ -14,6 +14,7 @@ section "Release-gate contracts"
 node --test \
   scripts/production-release-gate.test.mjs \
   scripts/production-web-smoke.test.mjs \
+  scripts/start-local-supabase.test.mjs \
   scripts/ucat-system-test-paths.test.mjs \
   scripts/ucat-production-smoke.test.mjs \
   scripts/web-system-test-paths.test.mjs
@@ -51,7 +52,7 @@ if supabase status >/dev/null 2>&1; then
   supabase db reset
 else
   echo "Starting a fresh local stack (applies all migrations and automatic seed)."
-  supabase start
+  node scripts/start-local-supabase.mjs
 fi
 bash supabase/scripts/apply-ucat-test-seed.sh
 

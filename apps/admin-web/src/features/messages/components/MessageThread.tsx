@@ -177,8 +177,8 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   useEffect(() => {
     const storageUrl = attachment.storage_url;
     
-    // Skip invalid local:// URLs
-    if (storageUrl?.startsWith('local://')) {
+    // Provider-owned attachment locators are not Supabase Storage object paths.
+    if (storageUrl && /^[a-z][a-z0-9+.-]*:/i.test(storageUrl) && !/^https?:/i.test(storageUrl)) {
       setUrlError(true);
       return;
     }

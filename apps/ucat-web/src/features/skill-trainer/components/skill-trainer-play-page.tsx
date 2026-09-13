@@ -358,6 +358,7 @@ function advanceToPrefetchedItem(
 
 export function SkillTrainerPlayPage({
   trainerKey,
+  studyPlanTaskId = null,
   embedded = false,
   initialState,
   localItems,
@@ -365,6 +366,7 @@ export function SkillTrainerPlayPage({
   onRestart,
 }: {
   trainerKey: UcatSkillTrainerKey;
+  studyPlanTaskId?: string | null;
   /** In-lesson embed: skip shell chrome and call onComplete when finished. */
   embedded?: boolean;
   initialState?: SkillTrainerAttemptState;
@@ -460,7 +462,7 @@ export function SkillTrainerPlayPage({
       next = await skillTrainerApi.getAttempt(currentAttemptId);
     } else {
       initialStartPromiseRef.current ??=
-        skillTrainerApi.startAttempt(trainerKey);
+        skillTrainerApi.startAttempt(trainerKey, studyPlanTaskId);
       try {
         next = await initialStartPromiseRef.current;
       } catch (error) {
@@ -470,7 +472,7 @@ export function SkillTrainerPlayPage({
     }
     applyState(next);
     return next;
-  }, [applyState, initialState, localMode, trainerKey]);
+  }, [applyState, initialState, localMode, studyPlanTaskId, trainerKey]);
 
   useEffect(() => {
     void (async () => {

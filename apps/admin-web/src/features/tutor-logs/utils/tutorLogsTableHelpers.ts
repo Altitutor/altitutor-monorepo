@@ -66,7 +66,13 @@ export function extractCreatedByStaffIds(tutorLogs: Array<{ created_by: string |
 /**
  * Filter tutor logs by staff IDs (client-side filtering for multiple staff)
  */
-export function filterTutorLogsByStaff<T extends { id: string; created_by: string | null }>(
+export function filterTutorLogsByStaff<
+  T extends {
+    id: string;
+    created_by: string | null;
+    logged_for_staff_id: string | null;
+  },
+>(
   tutorLogs: T[],
   staffFilters: string[],
   staffAttendance: Record<string, Array<{ staff_id: string }>>
@@ -78,8 +84,9 @@ export function filterTutorLogsByStaff<T extends { id: string; created_by: strin
   
   // Client-side filter for multiple staff IDs
   return tutorLogs.filter((log) => {
-    // Check if created by any selected staff
+    // Match either audit provenance or the operational attribution.
     if (log.created_by && staffFilters.includes(log.created_by)) return true;
+    if (log.logged_for_staff_id && staffFilters.includes(log.logged_for_staff_id)) return true;
     
     // Check if any selected staff attended
     const attendance = staffAttendance[log.id] || [];

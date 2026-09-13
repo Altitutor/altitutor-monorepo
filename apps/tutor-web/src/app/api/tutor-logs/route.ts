@@ -208,6 +208,7 @@ export async function POST(request: NextRequest) {
     const rpcParams = {
       p_session_id: body.sessionId,
       p_created_by: tutorId,
+      p_logged_for_staff_id: tutorId,
       p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
       p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
       p_topics: topics.length > 0 ? topics : [],
@@ -256,4 +257,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

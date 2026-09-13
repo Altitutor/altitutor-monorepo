@@ -212,7 +212,7 @@ export function describeStudyNextAction(
         title: action.task.title,
         description: action.task.description,
         rationale: action.fromEarlierStudyDay
-          ? "This was planned for an earlier study day. Finish it now, or open your Study plan to skip it without losing the rest of today’s direction."
+          ? "This active task is from an earlier study day. Continue it now, or open your Study plan to discard it without losing the rest of today’s direction."
           : action.task.rationale || null,
         meta: `About ${action.task.estimatedMinutes} min`,
         primaryLabel:

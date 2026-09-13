@@ -59,20 +59,21 @@ describe("contextual tutorial coach", () => {
       "1",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Not now" }));
-    expect(closeNextStep).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
+    expect(
+      screen.getByRole("alertdialog", { name: "Leave this tutorial?" }),
+    ).toBeInTheDocument();
+    expect(closeNextStep).not.toHaveBeenCalled();
     expect(skipTour).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Skip tutorial" }));
     fireEvent.click(
-      screen
-        .getByRole("alertdialog")
-        .querySelector("[data-dialog-primary-action]")!,
+      screen.getByRole("button", { name: "Skip and show later" }),
     );
-    expect(skipTour).toHaveBeenCalledTimes(1);
+    expect(closeNextStep).toHaveBeenCalledTimes(1);
+    expect(skipTour).not.toHaveBeenCalled();
   });
 
-  it("keeps the tutorial open when permanent skip is cancelled", () => {
+  it("keeps the tutorial open when leave is cancelled", () => {
     render(
       <OnboardingCard
         step={{
@@ -94,12 +95,13 @@ describe("contextual tutorial coach", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skip tutorial" }));
 
     expect(
-      screen.getByRole("alertdialog", { name: "Skip this tutorial?" }),
+      screen.getByRole("alertdialog", { name: "Leave this tutorial?" }),
     ).toBeInTheDocument();
     expect(skipTour).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Go back" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
     expect(skipTour).not.toHaveBeenCalled();
+    expect(closeNextStep).not.toHaveBeenCalled();
   });
 
   it("uses an app-native confirmation before permanently skipping", () => {
@@ -124,14 +126,13 @@ describe("contextual tutorial coach", () => {
     fireEvent.click(screen.getByRole("button", { name: "Skip tutorial" }));
     expect(window.confirm).not.toHaveBeenCalled();
     fireEvent.click(
-      screen
-        .getByRole("alertdialog")
-        .querySelector("[data-dialog-primary-action]")!,
+      screen.getByRole("button", { name: "Skip and don't show again" }),
     );
     expect(skipTour).toHaveBeenCalledTimes(1);
+    expect(closeNextStep).not.toHaveBeenCalled();
   });
 
-  it("uses the native skip flow for the abbreviated engine tutorial", () => {
+  it("uses the same leave options for the abbreviated engine tutorial", () => {
     mockedUseNextStep.mockReturnValue({
       currentStep: 0,
       currentTour: "ucat-question-engine-controls-intro",
@@ -158,12 +159,16 @@ describe("contextual tutorial coach", () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Skip tutorial" }));
+    fireEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
 
     expect(window.confirm).not.toHaveBeenCalled();
     expect(
-      screen.getByRole("button", { name: "Skip and continue" }),
+      screen.getByRole("button", { name: "Skip and don't show again" }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: "Skip and show later" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
   });
 
   it("shows contextual feedback from controls without changing tutorial step", () => {

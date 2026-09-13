@@ -3,7 +3,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { classesApi } from '@/features/classes/api';
 import type { Tables } from '@altitutor/shared';
-import { isPreviousClassEnrollment } from '@/features/students/utils/classEnrollments';
+import { getClassEnrollmentDisplayState } from '@/features/students/utils/classEnrollments';
 
 export interface StudentClass {
   class: Tables<'classes'>;
@@ -23,15 +23,23 @@ export function useStudentClasses(studentId: string) {
     queryKey: ['students', studentId, 'classes'],
     queryFn: async (): Promise<StudentClass[]> => {
       const enrollments = await classesApi.getStudentClassEnrollments(studentId);
-      return enrollments.map((item) => ({
-        class: item.class,
-        subject: item.subject,
-        staff: item.staff,
-        students: item.students,
-        studentCount: item.students.length,
-        enrollment: item.enrollment,
-        isPreviousEnrollment: isPreviousClassEnrollment(item.enrollment.unenrolled_at),
-      }));
+      return enrollments.flatMap((item) => {
+        const displayState = getClassEnrollmentDisplayState(
+          item.enrollment,
+          item.hasOccurredSession
+        );
+        if (displayState === 'hidden') return [];
+
+        return [{
+          class: item.class,
+          subject: item.subject,
+          staff: item.staff,
+          students: item.students,
+          studentCount: item.students.length,
+          enrollment: item.enrollment,
+          isPreviousEnrollment: displayState === 'previous',
+        }];
+      });
     },
     staleTime: 1000 * 60 * 2, // 2 minutes
     enabled: !!studentId,

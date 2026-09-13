@@ -1,6 +1,6 @@
 BEGIN;
 SET LOCAL TIME ZONE 'Australia/Adelaide';
-SELECT plan(9);
+SELECT plan(14);
 
 CREATE TEMP TABLE chosen_lesson AS
 SELECT id
@@ -71,6 +71,15 @@ SELECT is(
   'ec000000-0000-4000-8000-000000000001'::UUID,
   'learning progress is owned by the explicitly launched task'
 );
+SELECT is(
+  (
+    SELECT status
+    FROM public.ucat_student_study_plan_tasks
+    WHERE id = 'ec000000-0000-4000-8000-000000000001'
+  ),
+  'in_progress',
+  'starting durable Learning progress activates its Study-plan task'
+);
 
 SELECT public.start_ucat_learning_module(
   '10000000-0000-0000-0000-000000000002',
@@ -96,6 +105,41 @@ SELECT throws_ok(
   '22023',
   'invalid_study_plan_learning_task',
   'a second untouched future copy cannot steal learning ownership'
+);
+
+SELECT ok(
+  public.discard_ucat_study_plan_task(
+    '10000000-0000-0000-0000-000000000002',
+    'ec000000-0000-4000-8000-000000000001'
+  ),
+  'discarding active Learning skips only the current task'
+);
+SELECT is(
+  public.start_ucat_learning_module(
+    '10000000-0000-0000-0000-000000000002',
+    (SELECT id FROM chosen_lesson),
+    'ec000000-0000-4000-8000-000000000002'
+  ) ->> 'status',
+  'started',
+  'a skipped Learning task does not blacklist the module from a future task'
+);
+SELECT is(
+  (
+    SELECT study_plan_task_id
+    FROM public.ucat_student_learning_module_progress
+    WHERE student_id = '10000000-0000-0000-0000-000000000002'
+      AND learning_module_id = (SELECT id FROM chosen_lesson)
+  ),
+  'ec000000-0000-4000-8000-000000000002'::UUID,
+  'the future task can claim the existing module progress'
+);
+
+UPDATE public.ucat_student_study_plan_tasks
+SET status = 'planned', started_at = NULL, skipped_at = NULL,
+    skipped_reason = NULL
+WHERE id IN (
+  'ec000000-0000-4000-8000-000000000001',
+  'ec000000-0000-4000-8000-000000000002'
 );
 
 UPDATE public.ucat_student_learning_module_progress
@@ -184,12 +228,35 @@ CROSS JOIN LATERAL (
   SELECT id FROM public.ucat_sections ORDER BY section_number LIMIT 1
 ) section;
 
+UPDATE public.ucat_student_study_plan_tasks
+SET status = 'in_progress', started_at = now()
+WHERE id = 'ec000000-0000-4000-8000-000000000009';
+
+INSERT INTO public.ucat_student_study_plan_tasks (
+  id, generation_id, student_id, scheduled_date, sort_order, task_type,
+  status, title, estimated_minutes, section_id, target_units
+)
+SELECT
+  'ec000000-0000-4000-8000-000000000011',
+  'eb000000-0000-4000-8000-000000000009',
+  '10000000-0000-0000-0000-000000000003',
+  current_date - 1, 1, 'practice', 'planned', 'Unattempted', 15, section.id, 10
+FROM public.ucat_sections section
+ORDER BY section.section_number
+LIMIT 1;
+
 SELECT is(
   public.rollover_ucat_study_plan_for_student(
     '10000000-0000-0000-0000-000000000003'
   ),
-  1,
-  'rollover skips only earlier work when a real planned day begins'
+  2,
+  'rollover skips earlier unattempted work when a real planned day begins'
+);
+SELECT is(
+  (SELECT status FROM public.ucat_student_study_plan_tasks
+   WHERE id = 'ec000000-0000-4000-8000-000000000009'),
+  'skipped',
+  'rollover does not protect an in_progress label without resumable work'
 );
 SELECT is(
   (
@@ -206,7 +273,7 @@ SELECT is(
     FROM public.ucat_student_study_plan_exposure_debts
     WHERE student_id = '10000000-0000-0000-0000-000000000003'
   ),
-  10::NUMERIC,
+  20::NUMERIC,
   'missed required Practice records bounded exposure debt'
 );
 

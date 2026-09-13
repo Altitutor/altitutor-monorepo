@@ -64,6 +64,7 @@ export async function POST(request: NextRequest) {
       ? (body.filtersSnapshot as {
           timePerQuestionSeconds?: number | null;
           reviewTiming?: PracticeReviewTiming;
+          studyPlanTaskId?: string;
         })
       : null;
   if (
@@ -184,6 +185,10 @@ export async function POST(request: NextRequest) {
     filters_snapshot: (body.filtersSnapshot ?? null) as Json,
     stems_snapshot: (body.stemsSnapshot ?? null) as Json,
     unlimited: body.unlimited ?? false,
+    study_plan_task_id:
+      typeof filtersSnapshot?.studyPlanTaskId === "string"
+        ? filtersSnapshot.studyPlanTaskId
+        : null,
   };
 
   const { data: inserted, error: insertError } = await supabaseAdmin!

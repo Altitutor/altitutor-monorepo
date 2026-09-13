@@ -346,10 +346,21 @@ VALUES (
   (SELECT adjustment_id FROM enqueued_credit)
 );
 
-INSERT INTO public.tutor_logs (id, session_id, created_by, session_type)
+INSERT INTO public.sessions_staff (session_id, staff_id, type)
+SELECT
+  fixture.session_id,
+  '00000000-0000-0000-0000-000000000001',
+  'MAIN_TUTOR'
+FROM billing_adjustment_fixture fixture
+ON CONFLICT (session_id, staff_id) DO NOTHING;
+
+INSERT INTO public.tutor_logs (
+  id, session_id, created_by, logged_for_staff_id, session_type
+)
 SELECT
   'f4000000-0000-4000-8000-000000000001',
   fixture.session_id,
+  '00000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000001',
   sessions.type
 FROM billing_adjustment_fixture fixture
@@ -946,10 +957,21 @@ FROM public.claim_session_billing_adjustments_by_ids(
   25
 );
 
-INSERT INTO public.tutor_logs (id, session_id, created_by, session_type)
+INSERT INTO public.sessions_staff (session_id, staff_id, type)
+VALUES (
+  'f0000000-0000-4000-8000-000000000010',
+  '00000000-0000-0000-0000-000000000001',
+  'MAIN_TUTOR'
+)
+ON CONFLICT (session_id, staff_id) DO NOTHING;
+
+INSERT INTO public.tutor_logs (
+  id, session_id, created_by, logged_for_staff_id, session_type
+)
 SELECT
   'f4000000-0000-4000-8000-000000000010',
   'f0000000-0000-4000-8000-000000000010',
+  '00000000-0000-0000-0000-000000000001',
   '00000000-0000-0000-0000-000000000001',
   session.type
 FROM public.sessions session

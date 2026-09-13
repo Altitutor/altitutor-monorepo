@@ -1,5 +1,7 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
+import { fillInvoiceLinesPagination, retrieveInvoiceWithLines } from './invoice-retrieval.ts';
+export { fillInvoiceLinesPagination, retrieveInvoiceWithLines } from './invoice-retrieval.ts';
 
 export type SyncSubscriptionInvoiceResult =
   | {
@@ -31,50 +33,6 @@ function invoiceDateYmd(inv: Stripe.Invoice): string {
     inv.status_transitions?.paid_at ??
     inv.created;
   return new Date(ts * 1000).toISOString().slice(0, 10);
-}
-
-/**
- * Stripe invoice.line lists may paginate; merge all pages into `invoice.lines.data`.
- */
-export async function fillInvoiceLinesPagination(
-  stripe: Stripe,
-  inv: Stripe.Invoice,
-): Promise<Stripe.Invoice> {
-  const lines = inv.lines;
-  if (!lines?.has_more) {
-    return inv;
-  }
-
-  const all: Stripe.InvoiceLineItem[] = [...(lines.data ?? [])];
-  let startingAfter = all[all.length - 1]?.id;
-  while (startingAfter) {
-    const page = await stripe.invoices.listLineItems(inv.id, {
-      starting_after: startingAfter,
-      limit: 100,
-    });
-    all.push(...page.data);
-    if (!page.has_more) break;
-    startingAfter = page.data[page.data.length - 1]?.id;
-  }
-
-  return {
-    ...inv,
-    lines: {
-      ...lines,
-      data: all,
-      has_more: false,
-    },
-  };
-}
-
-export async function retrieveInvoiceWithLines(
-  stripe: Stripe,
-  invoiceId: string,
-  extraExpand: string[] = [],
-): Promise<Stripe.Invoice> {
-  const expand = [...new Set(['lines.data', 'customer', 'subscription', ...extraExpand])];
-  const inv = await stripe.invoices.retrieve(invoiceId, { expand });
-  return fillInvoiceLinesPagination(stripe, inv);
 }
 
 /**

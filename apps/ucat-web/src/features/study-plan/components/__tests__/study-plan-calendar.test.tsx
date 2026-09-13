@@ -1,5 +1,5 @@
 import React from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { StudyPlanCalendar } from "@/features/study-plan/components/study-plan-calendar";
 import type {
   StudyPlanResponse,
@@ -155,5 +155,26 @@ describe("StudyPlanCalendar", () => {
     fireEvent.click(screen.getByRole("button", { name: /Sunday 23 August/ }));
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("subdues past days and persistently marks today", () => {
+    const currentPlan = plan();
+    currentPlan.tasks = [
+      task("yesterday", "2026-08-21", { status: "completed" }),
+      ...currentPlan.tasks,
+    ];
+
+    const { container } = render(
+      <StudyPlanCalendar plan={currentPlan} summaryCards={<div />} />,
+    );
+
+    expect(
+      container.querySelector('[data-study-plan-date="2026-08-21"]'),
+    ).toHaveClass("opacity-45");
+    const today = container.querySelector(
+      '[data-study-plan-date="2026-08-22"]',
+    );
+    expect(today).toHaveAttribute("aria-current", "date");
+    expect(within(today as HTMLElement).getByText("Today")).toBeInTheDocument();
   });
 });

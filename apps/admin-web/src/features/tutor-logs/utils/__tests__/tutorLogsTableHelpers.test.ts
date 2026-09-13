@@ -188,10 +188,14 @@ describe('tutorLogsTableHelpers', () => {
 
   describe('filterTutorLogsByStaff', () => {
     const tutorLogs = [
-      { id: 'log-1', created_by: 'staff-1' },
-      { id: 'log-2', created_by: 'staff-2' },
-      { id: 'log-3', created_by: 'staff-3' },
-    ] as Array<{ id: string; created_by: string | null }>;
+      { id: 'log-1', created_by: 'staff-1', logged_for_staff_id: 'staff-5' },
+      { id: 'log-2', created_by: 'staff-2', logged_for_staff_id: 'staff-6' },
+      { id: 'log-3', created_by: 'staff-3', logged_for_staff_id: 'staff-7' },
+    ] as Array<{
+      id: string;
+      created_by: string | null;
+      logged_for_staff_id: string | null;
+    }>;
 
     const staffAttendance: Record<string, Array<{ staff_id: string }>> = {
       'log-2': [{ staff_id: 'staff-4' }],
@@ -220,6 +224,15 @@ describe('tutorLogsTableHelpers', () => {
       expect(result.map((r) => r.id)).toContain('log-1');
       expect(result.map((r) => r.id)).toContain('log-2');
       expect(result.map((r) => r.id)).toContain('log-3');
+    });
+
+    it('should filter logs by operational attribution when multiple staff filters', () => {
+      const result = filterTutorLogsByStaff(
+        tutorLogs,
+        ['staff-5', 'staff-999'],
+        staffAttendance
+      );
+      expect(result.map((row) => row.id)).toEqual(['log-1']);
     });
 
     it('should return empty array when no logs match filters', () => {

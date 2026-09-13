@@ -228,13 +228,17 @@ describe("dashboard next action", () => {
     expect(result.kind === "task" && result.fromEarlierStudyDay).toBe(false);
   });
 
-  it("puts unfinished earlier work ahead of today's task", () => {
+  it("puts active earlier work ahead of today's task", () => {
     const result = resolveDashboardNextAction({
       now,
       sessions: [],
       plan: plan([
         task({ id: "today" }),
-        task({ id: "earlier", scheduledDate: "2026-07-14" }),
+        task({
+          id: "earlier",
+          scheduledDate: "2026-07-14",
+          status: "in_progress",
+        }),
       ]),
       planLoadFailed: false,
       studyPlanDecided: true,

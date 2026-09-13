@@ -406,6 +406,7 @@ export async function startSkillTrainerAttempt(
   supabase: AdminClient,
   userId: string,
   trainerKey: string,
+  studyPlanTaskId: string | null = null,
 ): Promise<StartSkillTrainerAttemptResult> {
   if (!isUcatSkillTrainerKey(trainerKey)) throw new Error("TRAINER_NOT_FOUND");
   const rpcClient = supabase as unknown as {
@@ -427,6 +428,21 @@ export async function startSkillTrainerAttempt(
   if (data.status === "started") {
     if (!data.state?.attempt || !data.state.currentItem) {
       throw new Error("INVALID_START_RESPONSE");
+    }
+    if (studyPlanTaskId) {
+      const { error: linkError } = await supabase
+        .from("student_skill_trainer_attempts")
+        .update({ study_plan_task_id: studyPlanTaskId })
+        .eq("id", data.state.attempt.id)
+        .eq("student_id", data.state.attempt.student_id);
+      if (linkError) {
+        await discardSkillTrainerAttempt(
+          supabase,
+          data.state.attempt.id,
+          data.state.attempt.student_id,
+        );
+        throw new Error(linkError.message);
+      }
     }
     return { started: true, state: data.state };
   }

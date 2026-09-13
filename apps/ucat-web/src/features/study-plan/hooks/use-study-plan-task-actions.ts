@@ -18,7 +18,7 @@ import type {
 } from "@/features/study-plan/model/types";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 
-type PendingAction = "start" | "skip" | "unskip" | null;
+type PendingAction = "start" | "skip" | "discard" | "unskip" | null;
 
 function practiceStartInput(task: StudyPlanTask) {
   const config = task.launchConfig;
@@ -96,26 +96,34 @@ export function useStudyPlanTaskActions(
     setPendingAction("start");
     setError(null);
     try {
+      if (
+        taskToStart.status === "in_progress" &&
+        (taskToStart.matchedActivityType === "practice_session" ||
+          taskToStart.matchedActivityType === "set_attempt" ||
+          taskToStart.matchedActivityType === "mock_attempt")
+      ) {
+        setPendingAction(null);
+        router.push("/exam");
+        return;
+      }
       const practiceInput = practiceStartInput(taskToStart);
       if (practiceInput) {
         await createAndPersistPracticeSession(practiceInput);
-        await updateStudyPlanTask(taskToStart.id, "start");
         await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
         setPendingAction(null);
         router.push("/exam");
         return;
       }
-      await updateStudyPlanTask(taskToStart.id, "start");
-      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
       const skillTrainerKey = taskToStart.launchConfig.skillTrainerKey;
       const launchPath =
         taskToStart.taskType === "skill_trainer" &&
         typeof skillTrainerKey === "string"
-          ? `/skill-trainer/${skillTrainerKey.replaceAll("_", "-")}/play`
+          ? `/skill-trainer/${skillTrainerKey.replaceAll("_", "-")}/play?studyPlanTaskId=${encodeURIComponent(taskToStart.id)}`
           : taskToStart.taskType === "review"
             ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanReviewTaskId=${encodeURIComponent(taskToStart.id)}`
             : taskToStart.taskType === "learn" ||
-                taskToStart.taskType === "section_benchmark"
+                taskToStart.taskType === "section_benchmark" ||
+                taskToStart.taskType === "mock"
               ? `${taskToStart.launchPath}${taskToStart.launchPath.includes("?") ? "&" : "?"}studyPlanTaskId=${encodeURIComponent(taskToStart.id)}`
               : taskToStart.launchPath;
       setPendingAction(null);
@@ -175,6 +183,22 @@ export function useStudyPlanTaskActions(
     }
   }
 
+  async function discardTask() {
+    if (!task || !enabled) return;
+    setPendingAction("discard");
+    setError(null);
+    try {
+      await updateStudyPlanTask(task.id, "discard");
+      await queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+    } catch (caught) {
+      setError(
+        caught instanceof Error ? caught.message : "Could not discard this task.",
+      );
+    } finally {
+      setPendingAction(null);
+    }
+  }
+
   async function unskipTask() {
     if (!task || !enabled) return;
     setPendingAction("unskip");
@@ -200,6 +224,7 @@ export function useStudyPlanTaskActions(
     continueOutOfOrderTask,
     startCurrentRecommendedTask,
     startTask,
+    discardTask,
     skipTask,
     unskipTask,
   };

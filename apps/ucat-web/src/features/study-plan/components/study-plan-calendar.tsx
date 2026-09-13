@@ -184,6 +184,7 @@ export function StudyPlanCalendar({
     );
     const isSelected = selectedDate === day.dateKey;
     const isToday = plan.today === day.dateKey;
+    const isPast = day.dateKey < plan.today;
     const isTestDate = plan.profile?.testDate === day.dateKey;
     const usesLightText = intensity >= 3;
 
@@ -193,6 +194,7 @@ export function StudyPlanCalendar({
         data-study-plan-date={day.dateKey}
         data-tour-task-day={tasks.length ? "" : undefined}
         aria-pressed={isSelected}
+        aria-current={isToday ? "date" : undefined}
         aria-label={dayAriaLabel({
           dateKey: day.dateKey,
           isTestDate,
@@ -206,9 +208,11 @@ export function StudyPlanCalendar({
           UCAT_SURFACE_MOTION,
           "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          isSelected &&
+          isSelected && !isToday &&
             "ring-2 ring-foreground ring-offset-1 ring-offset-background",
-          isToday && !isSelected && "ring-1 ring-primary/50",
+          isToday &&
+            "ring-2 ring-primary ring-offset-1 ring-offset-background",
+          isPast && "opacity-45 grayscale-[0.2]",
           usesLightText ? "text-primary-foreground" : "text-foreground",
         )}
       >
@@ -230,6 +234,11 @@ export function StudyPlanCalendar({
               </span>
             ) : null}
           </span>
+          {isToday ? (
+            <span className="mt-auto self-center rounded-full bg-primary px-1 py-0.5 text-[7px] font-bold uppercase leading-none tracking-wide text-primary-foreground shadow-sm sm:text-[8px]">
+              Today
+            </span>
+          ) : null}
         </span>
       </button>
     );
@@ -350,8 +359,8 @@ export function StudyPlanCalendar({
                   <p className="text-sm font-medium">Still to do</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
                     {carryOverTasks.length === 1
-                      ? "One task from an earlier study day is waiting. Finish it or skip it, then your plan will move on."
-                      : `${carryOverTasks.length} tasks from earlier study days are waiting. Finish or skip them, then your plan will move on.`}
+                      ? "One active task from an earlier study day is waiting. Continue it or discard it, then your plan will move on."
+                      : `${carryOverTasks.length} active tasks from earlier study days are waiting. Continue or discard them, then your plan will move on.`}
                   </p>
                 </div>
               ) : null}

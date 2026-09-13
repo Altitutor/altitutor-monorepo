@@ -1,5 +1,5 @@
 interface StripeCustomerWithEmail {
-  deleted?: boolean;
+  deleted?: boolean | void;
   email?: string | null;
 }
 

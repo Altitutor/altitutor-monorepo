@@ -127,19 +127,36 @@ VALUES
     'ACTIVE'
   );
 
-INSERT INTO public.tutor_logs (id, session_id, session_type, created_by)
+INSERT INTO public.sessions_staff (session_id, staff_id, type)
+VALUES
+  (
+    'fa710000-0000-4000-8000-000000000031',
+    '00000000-0000-0000-0000-000000000001',
+    'MAIN_TUTOR'
+  ),
+  (
+    'fa710000-0000-4000-8000-000000000032',
+    '00000000-0000-0000-0000-000000000001',
+    'MAIN_TUTOR'
+  );
+
+INSERT INTO public.tutor_logs (
+  id, session_id, session_type, created_by, logged_for_staff_id
+)
 VALUES
   (
     'fa710000-0000-4000-8000-000000000041',
     'fa710000-0000-4000-8000-000000000031',
     'CLASS',
-    'fa710000-0000-4000-8000-000000000001'
+    'fa710000-0000-4000-8000-000000000001',
+    '00000000-0000-0000-0000-000000000001'
   ),
   (
     'fa710000-0000-4000-8000-000000000042',
     'fa710000-0000-4000-8000-000000000032',
     'CLASS',
-    'fa710000-0000-4000-8000-000000000001'
+    'fa710000-0000-4000-8000-000000000001',
+    '00000000-0000-0000-0000-000000000001'
   );
 
 INSERT INTO public.tutor_logs_staff_attendance (

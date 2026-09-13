@@ -72,7 +72,7 @@ export function useBeginExamRoute({
       engineSnapshot: INITIAL_ENGINE_SNAPSHOT,
       segmentTimeLimitSeconds: null,
       questionSetIdForMockSet: firstMockQuestionSetId,
-      studyPlanTaskId: kind === "set" ? studyPlanTaskId : null,
+      studyPlanTaskId,
       examMeta: {
         sourceType: exam.sourceType,
         sourceId: exam.sourceId,

@@ -13,6 +13,7 @@ export async function POST(request: NextRequest) {
 
   const body = (await request.json()) as {
     trainerKey?: string;
+    studyPlanTaskId?: string | null;
   };
   if (!body.trainerKey) {
     return NextResponse.json({ error: "Missing trainerKey" }, { status: 400 });
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
       auth.admin,
       auth.userId,
       body.trainerKey,
+      body.studyPlanTaskId ?? null,
     );
     timing.mark("start");
     // Keep this structured timing log until production latency has been validated.

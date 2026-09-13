@@ -1,5 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { DashboardActivationChecklist } from "@/features/dashboard/components/dashboard-activation-checklist";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
@@ -23,7 +23,12 @@ jest.mock("@/features/study-plan/hooks/use-study-plan", () => ({
   useStudyPlan: jest.fn(),
 }));
 jest.mock("@/features/subscription/components/referral-dialog", () => ({
-  ReferralDialog: () => null,
+  ReferralDialog: ({
+    open,
+  }: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+  }) => (open ? <div data-testid="referral-dialog" /> : null),
 }));
 
 const mockedUseOnboardingProgress = jest.mocked(useOnboardingProgress);
@@ -125,5 +130,34 @@ describe("DashboardActivationChecklist", () => {
     render(<DashboardActivationChecklist />);
 
     expect(screen.queryByText(/Finish setting up/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the referral dialog open when referring friends completes the last setup item", () => {
+    mockChecklist({
+      completed: [
+        "ucat-guided-sampler-decided",
+        "ucat-study-plan-decided",
+        "ucat-question-engine-intro",
+      ],
+      attemptTotal: 1,
+    });
+    const { rerender } = render(<DashboardActivationChecklist />);
+
+    fireEvent.click(screen.getByRole("button", { name: /Refer a friend/ }));
+    expect(screen.getByTestId("referral-dialog")).toBeInTheDocument();
+
+    mockChecklist({
+      completed: [
+        "ucat-guided-sampler-decided",
+        "ucat-study-plan-decided",
+        "ucat-question-engine-intro",
+        "ucat-referral-shared",
+      ],
+      attemptTotal: 1,
+    });
+    rerender(<DashboardActivationChecklist />);
+
+    expect(screen.queryByText(/Finish setting up/)).not.toBeInTheDocument();
+    expect(screen.getByTestId("referral-dialog")).toBeInTheDocument();
   });
 });

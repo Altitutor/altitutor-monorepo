@@ -183,7 +183,7 @@ export function useLogSessionFlow({
         ? { ...base, topics: [], topicFiles: [] }
         : base;
 
-    const submitPayload = { data, createdBy: selectedStaffId };
+    const submitPayload = { data, loggedForStaffId: selectedStaffId };
 
     if (selectedSession?.type === 'CHECK_IN') {
       const assignmentType = sessionData?.staff.find((s) => s.id === selectedStaffId)

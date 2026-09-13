@@ -3,6 +3,7 @@
  */
 import React from "react";
 import { act, render, waitFor } from "@testing-library/react";
+import * as Sentry from "@sentry/nextjs";
 import { AuthCallbackClient } from "@/app/auth/callback/auth-callback-client";
 import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
 
@@ -37,6 +38,12 @@ jest.mock("@/lib/supabase/client", () => ({
 jest.mock("@/lib/analytics/posthog", () => ({
   captureUcatEvent: jest.fn(),
 }));
+
+jest.mock("@sentry/nextjs", () => ({
+  captureMessage: jest.fn(),
+}));
+
+const captureMessage = jest.mocked(Sentry.captureMessage);
 
 describe("AuthCallbackClient", () => {
   beforeEach(() => {
@@ -114,6 +121,48 @@ describe("AuthCallbackClient", () => {
     expect(exchangeCodeForSession).toHaveBeenCalledWith("pkce-code");
     expect(navigateAfterAuth).toHaveBeenCalledWith(
       "/auth/continue?intent=login&provider=apple&next=%2Fdashboard",
+    );
+  });
+
+  it("does not fail when a consumed PKCE code disappears from the URL", async () => {
+    const { rerender } = render(<AuthCallbackClient />);
+
+    await waitFor(() =>
+      expect(exchangeCodeForSession).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      searchParams = new URLSearchParams(
+        "intent=login&provider=apple&next=%2Fdashboard",
+      );
+      rerender(<AuthCallbackClient />);
+    });
+
+    expect(navigateAfterAuth).not.toHaveBeenCalledWith(
+      "/login?error=auth_failed",
+    );
+  });
+
+  it("reports a genuine missing callback payload to Sentry", async () => {
+    searchParams = new URLSearchParams(
+      "intent=login&provider=apple&next=%2Fdashboard",
+    );
+
+    render(<AuthCallbackClient />);
+
+    await waitFor(() =>
+      expect(captureMessage).toHaveBeenCalledWith(
+        "Auth callback failed",
+        expect.objectContaining({
+          level: "warning",
+          tags: expect.objectContaining({
+            app: "ucat-web",
+            auth_failure_stage: "missing_payload",
+            auth_intent: "login",
+            auth_provider: "apple",
+          }),
+        }),
+      ),
     );
   });
 });

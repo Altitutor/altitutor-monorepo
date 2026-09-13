@@ -113,8 +113,8 @@ export function useCreateTutorLog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ data, createdBy }: { data: TutorLogFormData; createdBy: string }) =>
-      tutorLogsApi.createTutorLog(data, createdBy),
+    mutationFn: ({ data, loggedForStaffId }: { data: TutorLogFormData; loggedForStaffId: string }) =>
+      tutorLogsApi.createTutorLog(data, loggedForStaffId),
     onSuccess: (newLog) => {
       // Invalidate all tutor logs queries
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
@@ -136,8 +136,8 @@ export function useUpdateTutorLog() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: ({ id, data, createdBy }: { id: string; data: TutorLogFormData; createdBy: string }) =>
-      tutorLogsApi.updateTutorLog(id, data, createdBy),
+    mutationFn: ({ id, data, loggedForStaffId }: { id: string; data: TutorLogFormData; loggedForStaffId: string }) =>
+      tutorLogsApi.updateTutorLog(id, data, loggedForStaffId),
     onSuccess: (_, variables) => {
       // Invalidate all tutor logs queries
       queryClient.invalidateQueries({ queryKey: tutorLogsKeys.all });
@@ -171,5 +171,4 @@ export function useDeleteTutorLog() {
     },
   });
 }
-
 

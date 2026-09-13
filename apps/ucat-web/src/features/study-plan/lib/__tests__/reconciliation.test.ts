@@ -143,6 +143,22 @@ describe("Study plan reconciliation", () => {
     });
   });
 
+  it("treats saved learning progress as active resumable work", () => {
+    expect(
+      matchLearningModuleProgress(
+        {
+          completionPercent: 40,
+          completedAt: null,
+        },
+        "2026-07-14T12:00:00.000Z",
+      ),
+    ).toEqual({
+      status: "in_progress",
+      completedAt: null,
+      completedUnits: 40,
+    });
+  });
+
   it("only completes category practice with a matching category and broadly matching volume", () => {
     const task = {
       taskId: "practice-task",

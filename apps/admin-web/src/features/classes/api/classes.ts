@@ -402,6 +402,7 @@ export const classesApi = {
     staff: Tables<'staff'>[];
     students: Tables<'students'>[];
     enrollment: Tables<'classes_students'>;
+    hasOccurredSession: boolean;
   }>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const nowIso = new Date().toISOString();
@@ -411,6 +412,9 @@ export const classesApi = {
     };
     type StaffRow = { class_id: string; staff: Tables<'staff'> | null };
     type StudentRow = { class_id: string; student: Tables<'students'> | null };
+    type StudentSessionRow = {
+      session: Pick<Tables<'sessions'>, 'class_id' | 'start_at'> | null;
+    };
 
     const { data: enrollmentRows, error: enrollmentsError } = await supabase
       .from('classes_students')
@@ -444,13 +448,18 @@ export const classesApi = {
 
     const classStaff: Record<string, Tables<'staff'>[]> = {};
     const classStudents: Record<string, Tables<'students'>[]> = {};
+    const occurredSessionStartsByClass = new Map<string, number[]>();
     for (const classId of classIds) {
       classStaff[classId] = [];
       classStudents[classId] = [];
     }
 
     if (classIds.length > 0) {
-      const [{ data: staffRows, error: staffError }, { data: studentRows, error: studentsError }] =
+      const [
+        { data: staffRows, error: staffError },
+        { data: studentRows, error: studentsError },
+        { data: studentSessionRows, error: studentSessionsError },
+      ] =
         await Promise.all([
           supabase
             .from('classes_staff')
@@ -462,10 +471,23 @@ export const classesApi = {
             .select('class_id, student:students(*)')
             .in('class_id', classIds)
             .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`),
+          supabase
+            .from('sessions_students')
+            .select(`
+              session:sessions!inner(
+                class_id,
+                start_at
+              )
+            `)
+            .eq('student_id', studentId)
+            .in('session.class_id', classIds)
+            .eq('session.status', 'ACTIVE')
+            .lte('session.start_at', nowIso),
         ]);
 
       if (staffError) throw staffError;
       if (studentsError) throw studentsError;
+      if (studentSessionsError) throw studentSessionsError;
 
       ((staffRows ?? []) as StaffRow[]).forEach((row) => {
         if (row.staff && row.class_id) {
@@ -480,11 +502,28 @@ export const classesApi = {
           classStudents[row.class_id].push(row.student);
         }
       });
+
+      ((studentSessionRows ?? []) as StudentSessionRow[]).forEach((row) => {
+        const classId = row.session?.class_id;
+        const startAt = row.session?.start_at;
+        if (!classId || !startAt) return;
+
+        const starts = occurredSessionStartsByClass.get(classId) ?? [];
+        starts.push(new Date(startAt).getTime());
+        occurredSessionStartsByClass.set(classId, starts);
+      });
     }
 
     return enrollments.flatMap((row) => {
       if (!row.class) return [];
       const { subject_details, ...classBase } = row.class;
+      const enrolledAtMs = new Date(row.enrolled_at).getTime();
+      const unenrolledAtMs = row.unenrolled_at
+        ? new Date(row.unenrolled_at).getTime()
+        : Number.POSITIVE_INFINITY;
+      const hasOccurredSession = (occurredSessionStartsByClass.get(classBase.id) ?? [])
+        .some((startAtMs) => startAtMs >= enrolledAtMs && startAtMs < unenrolledAtMs);
+
       return [{
         class: classBase,
         subject: subject_details ?? undefined,
@@ -502,6 +541,7 @@ export const classesApi = {
           created_by: row.created_by,
           updated_at: row.updated_at,
         },
+        hasOccurredSession,
       }];
     });
   },

@@ -10276,6 +10276,7 @@ export type Database = {
           stem_delivery_revision: number
           stems_snapshot: Json | null
           student_id: string
+          study_plan_task_id: string | null
           total_points: number | null
           ucat_section_id: string
           unlimited: boolean
@@ -10298,6 +10299,7 @@ export type Database = {
           stem_delivery_revision?: number
           stems_snapshot?: Json | null
           student_id: string
+          study_plan_task_id?: string | null
           total_points?: number | null
           ucat_section_id: string
           unlimited?: boolean
@@ -10320,6 +10322,7 @@ export type Database = {
           stem_delivery_revision?: number
           stems_snapshot?: Json | null
           student_id?: string
+          study_plan_task_id?: string | null
           total_points?: number | null
           ucat_section_id?: string
           unlimited?: boolean
@@ -10360,6 +10363,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_practice_sessions_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_practice_sessions_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_study_plan_tasks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "student_practice_sessions_ucat_section_id_fkey"
@@ -10998,6 +11015,7 @@ export type Database = {
           started_at: string
           streak_count: number
           student_id: string
+          study_plan_task_id: string | null
           version: number
         }
         Insert: {
@@ -11016,6 +11034,7 @@ export type Database = {
           started_at?: string
           streak_count?: number
           student_id: string
+          study_plan_task_id?: string | null
           version?: number
         }
         Update: {
@@ -11034,6 +11053,7 @@ export type Database = {
           started_at?: string
           streak_count?: number
           student_id?: string
+          study_plan_task_id?: string | null
           version?: number
         }
         Relationships: [
@@ -11106,6 +11126,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_skill_trainer_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_study_plan_tasks"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -11657,6 +11691,7 @@ export type Database = {
           scoring_model_version: string | null
           student_id: string
           student_mock_speed: number | null
+          study_plan_task_id: string | null
           time_taken: number | null
           total_points: number | null
           ucat_mock_id: string
@@ -11679,6 +11714,7 @@ export type Database = {
           scoring_model_version?: string | null
           student_id: string
           student_mock_speed?: number | null
+          study_plan_task_id?: string | null
           time_taken?: number | null
           total_points?: number | null
           ucat_mock_id: string
@@ -11701,6 +11737,7 @@ export type Database = {
           scoring_model_version?: string | null
           student_id?: string
           student_mock_speed?: number | null
+          study_plan_task_id?: string | null
           time_taken?: number | null
           total_points?: number | null
           ucat_mock_id?: string
@@ -11741,6 +11778,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "vtutor_ucat_student_progress_summary"
             referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_ucat_mock_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_student_study_plan_tasks"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_ucat_mock_attempts_study_plan_task_id_fkey"
+            columns: ["study_plan_task_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_ucat_study_plan_tasks"
+            referencedColumns: ["id"]
           },
           {
             foreignKeyName: "student_ucat_mock_attempts_ucat_mock_id_fkey"
@@ -13458,27 +13509,33 @@ export type Database = {
       tutor_logs: {
         Row: {
           created_at: string
-          created_by: string
+          created_by: string | null
           id: string
+          logged_for_staff_id: string | null
           session_id: string
           session_type: Database["public"]["Enums"]["session_type"]
           updated_at: string
+          updated_by: string | null
         }
         Insert: {
           created_at?: string
-          created_by: string
+          created_by?: string | null
           id?: string
+          logged_for_staff_id?: string | null
           session_id: string
           session_type: Database["public"]["Enums"]["session_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Update: {
           created_at?: string
-          created_by?: string
+          created_by?: string | null
           id?: string
+          logged_for_staff_id?: string | null
           session_id?: string
           session_type?: Database["public"]["Enums"]["session_type"]
           updated_at?: string
+          updated_by?: string | null
         }
         Relationships: [
           {
@@ -13505,6 +13562,34 @@ export type Database = {
           {
             foreignKeyName: "tutor_logs_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -13557,6 +13642,34 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -32179,7 +32292,12 @@ export type Database = {
       vtutor_tutor_log: {
         Row: {
           created_by: string | null
+          created_by_first_name: string | null
+          created_by_last_name: string | null
           files: Json | null
+          logged_for_first_name: string | null
+          logged_for_last_name: string | null
+          logged_for_staff_id: string | null
           notes: Json | null
           session_id: string | null
           staff_attendance: Json | null
@@ -32188,30 +32306,9 @@ export type Database = {
           tutor_log_created_at: string | null
           tutor_log_id: string | null
           tutor_log_updated_at: string | null
-        }
-        Insert: {
-          created_by?: string | null
-          files?: never
-          notes?: never
-          session_id?: string | null
-          staff_attendance?: never
-          student_attendance?: never
-          topics?: never
-          tutor_log_created_at?: string | null
-          tutor_log_id?: string | null
-          tutor_log_updated_at?: string | null
-        }
-        Update: {
-          created_by?: string | null
-          files?: never
-          notes?: never
-          session_id?: string | null
-          staff_attendance?: never
-          student_attendance?: never
-          topics?: never
-          tutor_log_created_at?: string | null
-          tutor_log_id?: string | null
-          tutor_log_updated_at?: string | null
+          updated_by: string | null
+          updated_by_first_name: string | null
+          updated_by_last_name: string | null
         }
         Relationships: [
           {
@@ -32238,6 +32335,34 @@ export type Database = {
           {
             foreignKeyName: "tutor_logs_created_by_fkey"
             columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_logged_for_staff_id_fkey"
+            columns: ["logged_for_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
@@ -32290,6 +32415,34 @@ export type Database = {
             isOneToOne: true
             referencedRelation: "vtutor_sessions"
             referencedColumns: ["session_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "tutor_logs_updated_by_fkey"
+            columns: ["updated_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
           },
         ]
       }
@@ -38296,6 +38449,7 @@ export type Database = {
       create_tutor_log: {
         Args: {
           p_created_by: string
+          p_logged_for_staff_id: string
           p_notes?: Json
           p_parent_attendance?: Json
           p_session_id: string
@@ -38353,6 +38507,10 @@ export type Database = {
       }
       discard_ucat_skill_trainer_attempt: {
         Args: { p_attempt_id: string; p_student_id: string }
+        Returns: boolean
+      }
+      discard_ucat_study_plan_task: {
+        Args: { p_student_id: string; p_task_id: string }
         Returns: boolean
       }
       discontinue_student: {
@@ -40111,6 +40269,10 @@ export type Database = {
         Args: { p_feedback_question_ids?: string[] }
         Returns: Json
       }
+      tutor_ucat_remove_question_set_stems: {
+        Args: { p_set_id: string; p_stem_ids: string[] }
+        Returns: undefined
+      }
       tutor_ucat_reorder_learning_modules: {
         Args: { p_items: Json }
         Returns: undefined
@@ -40549,6 +40711,10 @@ export type Database = {
         Returns: string
       }
       ucat_set_catalog_compact_is_deferred: { Args: never; Returns: boolean }
+      ucat_study_plan_task_has_active_work: {
+        Args: { p_task_id: string }
+        Returns: boolean
+      }
       ucat_sync_component_sets_for_mock_occupancy: {
         Args: { p_mock_id: string }
         Returns: undefined
@@ -40570,6 +40736,19 @@ export type Database = {
           logged_by_staff_id: string
           operations: Json
           reason_note?: string
+        }
+        Returns: Json
+      }
+      update_tutor_log: {
+        Args: {
+          p_logged_for_staff_id: string
+          p_parent_attendance?: Json
+          p_staff_attendance?: Json
+          p_student_attendance?: Json
+          p_topic_files?: Json
+          p_topics?: Json
+          p_tutor_log_id: string
+          p_updated_by: string
         }
         Returns: Json
       }
