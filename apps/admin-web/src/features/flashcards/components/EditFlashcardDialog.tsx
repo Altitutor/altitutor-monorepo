@@ -24,6 +24,7 @@ import { getClozeIndexes, getImageOcclusionGroupDescription, getImageOcclusionIn
 import { AdminDialogShell } from '@/shared/components';
 import { useFlashcardImageUpload } from '../hooks/useFlashcardImageUpload';
 import { flashcardsApi, type FlashcardMutationInput } from '../api/flashcards';
+import { refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
 
 type FormState = {
   cardType: FlashcardType;
@@ -187,6 +188,7 @@ export function EditFlashcardDialog({
       setMode('edit');
       return;
     }
+    let cancelled = false;
     const indexes = flashcard?.card_type === 'text_cloze' ? getClozeIndexes(flashcard.cloze_text ?? '') : [];
     const nextForm: FormState = {
       cardType: flashcard?.card_type ?? 'text_cloze',
@@ -200,11 +202,29 @@ export function EditFlashcardDialog({
       imageFile: null,
       occlusionData: flashcard?.occlusion_data ?? null,
     };
-    setForm(nextForm);
-    initialSnapshotRef.current = formSnapshot(nextForm);
+    setForm({ ...nextForm, clozeText: '', extra: '' });
+    initialSnapshotRef.current = '';
     savedRef.current = false;
-    setEditorVersion((value) => value + 1);
     setLastClozeIndex(indexes.at(-1) ?? 1);
+    void Promise.all([
+      refreshFlashcardImageUrls(nextForm.clozeText),
+      refreshFlashcardImageUrls(nextForm.extra),
+    ]).then(([clozeText, extra]) => {
+      if (cancelled) return;
+      const refreshedForm = { ...nextForm, clozeText, extra };
+      setForm(refreshedForm);
+      initialSnapshotRef.current = formSnapshot(refreshedForm);
+      setEditorVersion((value) => value + 1);
+    }).catch((error) => {
+      console.error('Failed to refresh flashcard image URLs:', error);
+      if (cancelled) return;
+      setForm(nextForm);
+      initialSnapshotRef.current = formSnapshot(nextForm);
+      setEditorVersion((value) => value + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [defaultIndex, flashcard, open, topicId]);
 
   const syncEditorHtml = useCallback(() => {

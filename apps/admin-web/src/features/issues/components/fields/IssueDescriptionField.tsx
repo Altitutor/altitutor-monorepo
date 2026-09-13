@@ -6,15 +6,13 @@ import {
   FormField,
   FormItem,
   FormMessage,
-  RichTextEditor,
   type RichTextEditorRef,
   type JSONContent,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
-import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
-import { useAdminRichTextImageUpload } from '@/features/rich-text-images';
+import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 import type { IssueFormData } from '../../types';
 
 interface IssueDescriptionFieldProps {
@@ -24,15 +22,15 @@ interface IssueDescriptionFieldProps {
   descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
-export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagClick, descriptionRef }: IssueDescriptionFieldProps) {
+export function IssueDescriptionField({
+  form,
+  value: _value,
+  onTagClick: _onTagClick,
+  descriptionRef,
+}: IssueDescriptionFieldProps) {
   const mentionSuggestions = useMentionSuggestions();
-  const slashMenuSuggestions = useSlashCommandSuggestions();
   const localRef = useRef<RichTextEditorRef>(null);
   const effectiveRef = descriptionRef ?? localRef;
-  const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
-    context: 'issues',
-    editorRef: effectiveRef,
-  });
 
   return (
     <FormField
@@ -41,23 +39,17 @@ export function IssueDescriptionField({ form, value: _value, onTagClick: _onTagC
       render={({ field }) => (
         <FormItem>
           <FormControl>
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <RichTextEditor
-                ref={effectiveRef}
-                content={field.value || ''}
-                onChange={field.onChange}
-                onChangeDebounceMs={200}
-                placeholder="Add issue description..."
-                className="min-h-0"
-                mentionSuggestions={mentionSuggestions}
-                slashMenuSuggestions={slashMenuSuggestions}
-                onPasteImages={handlePasteImages}
-                floatingToolbar
-              />
-            </div>
+            <AdminRichTextEditorWithImages
+              ref={effectiveRef}
+              content={field.value || ''}
+              onChange={field.onChange}
+              onChangeDebounceMs={200}
+              placeholder="Add issue description..."
+              className="min-h-0"
+              context="issues"
+              mentionSuggestions={mentionSuggestions}
+              floatingToolbar
+            />
           </FormControl>
           <FormMessage />
         </FormItem>

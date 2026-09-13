@@ -22,4 +22,3 @@ const renderer = createStoredImageHtmlRenderer({
 });
 
 export const refreshFlashcardImageUrls = renderer.refresh;
-export const preloadFlashcardImages = renderer.preload;

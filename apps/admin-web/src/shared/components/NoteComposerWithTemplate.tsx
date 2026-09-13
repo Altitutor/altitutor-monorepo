@@ -39,7 +39,7 @@ export function NoteComposerWithTemplate({
 
   const handleTemplateSelect = (template: Tables<'rich_text_templates'> | null) => {
     if (!template) return;
-    insertTemplateAtEnd(
+    void insertTemplateAtEnd(
       editorRef.current?.getEditor() ?? null,
       (template.content as JSONContent | null) ?? null
     );

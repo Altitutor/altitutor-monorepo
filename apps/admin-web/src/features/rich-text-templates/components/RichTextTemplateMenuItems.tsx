@@ -14,6 +14,7 @@ import type { JSONContent } from '@tiptap/core';
 import type { Tables, Json } from '@altitutor/shared';
 import { useRichTextTemplates } from '../api/templates';
 import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
+import { resolveAdminImageUrls } from '@/features/rich-text-images';
 
 /**
  * Extracts content nodes to insert from TipTap doc format.
@@ -38,10 +39,19 @@ function getContentToInsert(templateContent: JSONContent | Record<string, unknow
 /**
  * Inserts template content at the end of the editor (append).
  */
-export function insertTemplateAtEnd(editor: Editor | null, templateContent: JSONContent | null): void {
+export async function insertTemplateAtEnd(
+  editor: Editor | null,
+  templateContent: JSONContent | null,
+): Promise<void> {
   if (!editor || editor.isDestroyed) return;
 
-  const toInsert = getContentToInsert(templateContent as Record<string, unknown>);
+  const resolvedContent = templateContent
+    ? await resolveAdminImageUrls(templateContent as Record<string, unknown>).catch(
+        () => templateContent as Record<string, unknown>,
+      )
+    : null;
+  if (!editor || editor.isDestroyed) return;
+  const toInsert = getContentToInsert(resolvedContent);
   if (toInsert.length === 0) return;
 
   const endPos = editor.state.doc.content.size;
@@ -72,8 +82,7 @@ export function RichTextTemplateMenuItems({
     if (!template) return;
     const editor = getEditor();
     const content = template.content as JSONContent | null;
-    insertTemplateAtEnd(editor, content);
-    onClose?.();
+    void insertTemplateAtEnd(editor, content).finally(() => onClose?.());
   };
 
   return (

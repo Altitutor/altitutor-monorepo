@@ -7,7 +7,6 @@ import { TaskTitleField, TaskDescriptionField } from '../fields';
 import { TaskPropertyPills } from '../fields/TaskPropertyPills';
 import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
 import { TaskNotes } from '../TaskNotes';
-import type { TaskEditorRef } from '../TaskEditor';
 import type { RichTextEditorRef } from '@altitutor/ui';
 import type { TaskFormData, TaskStatus } from '../../types';
 import type { Tables } from '@altitutor/shared';
@@ -47,7 +46,7 @@ export function TaskContentPanel({
 }: TaskContentPanelProps) {
   // Refs for fields
   const titleFieldRef = useRef<HTMLInputElement>(null);
-  const internalDescriptionRef = useRef<TaskEditorRef>(null);
+  const internalDescriptionRef = useRef<RichTextEditorRef>(null);
   const descriptionFieldRef = descriptionRefProp ?? internalDescriptionRef;
   const entityModals = useEntityModals();
 

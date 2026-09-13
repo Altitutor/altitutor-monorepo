@@ -4,6 +4,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 export type AdminRichTextImageContext =
   | 'notes'
   | 'notes_documents'
+  | 'rich_text_templates'
   | 'projects'
   | 'issues'
   | 'tasks';
@@ -22,7 +23,10 @@ export interface UploadAdminRichTextImageResult {
 const BUCKET = 'admin-rich-text-images';
 const SIGNED_URL_EXPIRY_SECONDS = 3600;
 
-function buildStoragePath(context: AdminRichTextImageContext, file: File): string {
+function buildStoragePath(
+  context: AdminRichTextImageContext,
+  file: File,
+): string {
   const timestamp = Date.now();
   const uuid = crypto.randomUUID().slice(0, 8);
   const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
@@ -30,7 +34,7 @@ function buildStoragePath(context: AdminRichTextImageContext, file: File): strin
 }
 
 export async function uploadAdminRichTextImage(
-  params: UploadAdminRichTextImageParams
+  params: UploadAdminRichTextImageParams,
 ): Promise<UploadAdminRichTextImageResult> {
   const supabase = getSupabaseClient();
 
@@ -93,13 +97,22 @@ export async function uploadAdminRichTextImage(
     .single();
 
   if (fileError || !fileRow) {
-    console.error('Failed to create files row for admin rich text image:', fileError);
+    console.error(
+      'Failed to create files row for admin rich text image:',
+      fileError,
+    );
     try {
       await supabase.storage.from(BUCKET).remove([uploadData.path]);
     } catch (cleanupError) {
-      console.error('Failed to cleanup image from storage after DB error:', cleanupError);
+      console.error(
+        'Failed to cleanup image from storage after DB error:',
+        cleanupError,
+      );
     }
-    throw fileError ?? new Error('Failed to create files row for admin rich text image');
+    throw (
+      fileError ??
+      new Error('Failed to create files row for admin rich text image')
+    );
   }
 
   const { data: signed, error: signedError } = await supabase.storage
@@ -107,8 +120,14 @@ export async function uploadAdminRichTextImage(
     .createSignedUrl(uploadData.path, SIGNED_URL_EXPIRY_SECONDS);
 
   if (signedError || !signed) {
-    console.error('Failed to create signed URL for admin rich text image:', signedError);
-    throw signedError ?? new Error('Failed to create signed URL for admin rich text image');
+    console.error(
+      'Failed to create signed URL for admin rich text image:',
+      signedError,
+    );
+    throw (
+      signedError ??
+      new Error('Failed to create signed URL for admin rich text image')
+    );
   }
 
   return {

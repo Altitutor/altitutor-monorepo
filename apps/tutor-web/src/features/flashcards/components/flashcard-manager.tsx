@@ -92,6 +92,7 @@ import { cn } from '@/shared/utils';
 import { useFlashcardMutations, useFlashcards } from '../hooks/useFlashcards';
 import { useFlashcardImageUpload } from '../hooks/useFlashcardImageUpload';
 import { flashcardsApi, type FlashcardMutationInput } from '../api/flashcards';
+import { refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
 
 type Draft = {
   topicId: string;
@@ -323,6 +324,7 @@ function FlashcardDialog({
       setMode('edit');
       return;
     }
+    let cancelled = false;
     const indexes = card?.card_type === 'text_cloze' ? getClozeIndexes(card.cloze_text ?? '') : [];
     const nextDraft: Draft = {
       topicId: card?.topic_id ?? topicId,
@@ -336,11 +338,29 @@ function FlashcardDialog({
       imageFile: null,
       occlusionData: card?.occlusion_data ?? null,
     };
-    setDraft(nextDraft);
-    initialSnapshotRef.current = draftSnapshot(nextDraft);
+    setDraft({ ...nextDraft, clozeText: '', extra: '' });
+    initialSnapshotRef.current = '';
     savedRef.current = false;
     setLastClozeIndex(indexes.at(-1) ?? 1);
-    setEditorVersion((value) => value + 1);
+    void Promise.all([
+      refreshFlashcardImageUrls(nextDraft.clozeText),
+      refreshFlashcardImageUrls(nextDraft.extra),
+    ]).then(([clozeText, extra]) => {
+      if (cancelled) return;
+      const refreshedDraft = { ...nextDraft, clozeText, extra };
+      setDraft(refreshedDraft);
+      initialSnapshotRef.current = draftSnapshot(refreshedDraft);
+      setEditorVersion((value) => value + 1);
+    }).catch((error) => {
+      console.error('Failed to refresh flashcard image URLs:', error);
+      if (cancelled) return;
+      setDraft(nextDraft);
+      initialSnapshotRef.current = draftSnapshot(nextDraft);
+      setEditorVersion((value) => value + 1);
+    });
+    return () => {
+      cancelled = true;
+    };
   }, [card, cards.length, open, topicId]);
 
   const syncEditorHtml = useCallback(() => {
