@@ -4642,6 +4642,8 @@ export type Database = {
           is_reaction: boolean
           message_sid: string | null
           messaging_service_sid: string | null
+          onboarding_journey_id: string | null
+          onboarding_purpose: string | null
           provider_error_at: string | null
           provider_error_code: string | null
           reaction_type: string | null
@@ -4675,6 +4677,8 @@ export type Database = {
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          onboarding_journey_id?: string | null
+          onboarding_purpose?: string | null
           provider_error_at?: string | null
           provider_error_code?: string | null
           reaction_type?: string | null
@@ -4708,6 +4712,8 @@ export type Database = {
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          onboarding_journey_id?: string | null
+          onboarding_purpose?: string | null
           provider_error_at?: string | null
           provider_error_code?: string | null
           reaction_type?: string | null
@@ -4761,6 +4767,13 @@ export type Database = {
             columns: ["created_by_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_onboarding_journey_id_fkey"
+            columns: ["onboarding_journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -5511,6 +5524,271 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      onboarding_action_preferences: {
+        Row: {
+          action_key: string
+          assignee_id: string | null
+          due_at: string | null
+          journey_id: string
+        }
+        Insert: {
+          action_key: string
+          assignee_id?: string | null
+          due_at?: string | null
+          journey_id: string
+        }
+        Update: {
+          action_key?: string
+          assignee_id?: string | null
+          due_at?: string | null
+          journey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_email_links: {
+        Row: {
+          email_id: string
+          journey_id: string
+          purpose: string | null
+        }
+        Insert: {
+          email_id: string
+          journey_id: string
+          purpose?: string | null
+        }
+        Update: {
+          email_id?: string
+          journey_id?: string
+          purpose?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_email_links_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_email_links_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_emails: {
+        Row: {
+          body_text: string
+          conversation_id: string | null
+          delivery_status: string
+          direction: string
+          id: string
+          ignored: boolean
+          imported_at: string
+          internet_message_id: string | null
+          occurred_at: string
+          recipients: string[]
+          sender: string
+          subject: string
+        }
+        Insert: {
+          body_text: string
+          conversation_id?: string | null
+          delivery_status?: string
+          direction: string
+          id: string
+          ignored?: boolean
+          imported_at?: string
+          internet_message_id?: string | null
+          occurred_at: string
+          recipients: string[]
+          sender: string
+          subject: string
+        }
+        Update: {
+          body_text?: string
+          conversation_id?: string | null
+          delivery_status?: string
+          direction?: string
+          id?: string
+          ignored?: boolean
+          imported_at?: string
+          internet_message_id?: string | null
+          occurred_at?: string
+          recipients?: string[]
+          sender?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      onboarding_journeys: {
+        Row: {
+          closed_at: string | null
+          closure_detail: string | null
+          closure_reason: string | null
+          contact_id: string | null
+          created_at: string
+          enquiry_at: string | null
+          enquiry_email: string | null
+          historical: boolean
+          id: string
+          is_returning: boolean
+          label: string
+          next_contact_at: string | null
+          student_id: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closure_detail?: string | null
+          closure_reason?: string | null
+          contact_id?: string | null
+          created_at?: string
+          enquiry_at?: string | null
+          enquiry_email?: string | null
+          historical?: boolean
+          id?: string
+          is_returning?: boolean
+          label: string
+          next_contact_at?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          closure_detail?: string | null
+          closure_reason?: string | null
+          contact_id?: string | null
+          created_at?: string
+          enquiry_at?: string | null
+          enquiry_email?: string | null
+          historical?: boolean
+          id?: string
+          is_returning?: boolean
+          label?: string
+          next_contact_at?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_journeys_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      onboarding_mailbox_sync: {
+        Row: {
+          cursor_url: string | null
+          folder: string
+          last_error: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          cursor_url?: string | null
+          folder: string
+          last_error?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          cursor_url?: string | null
+          folder?: string
+          last_error?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
+      onboarding_settings: {
+        Row: {
+          action_business_days: Json
+          followup_business_days: number[]
+          id: boolean
+        }
+        Insert: {
+          action_business_days?: Json
+          followup_business_days?: number[]
+          id?: boolean
+        }
+        Update: {
+          action_business_days?: Json
+          followup_business_days?: number[]
+          id?: boolean
+        }
+        Relationships: []
       }
       opening_hours: {
         Row: {
@@ -39284,6 +39562,30 @@ export type Database = {
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       normalize_ucat_catalog_text: { Args: { value: string }; Returns: string }
       notify_overdue_invoices: { Args: never; Returns: number }
+      onboarding_emails_for_journey: {
+        Args: { p_journey_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          body_text: string
+          conversation_id: string | null
+          delivery_status: string
+          direction: string
+          id: string
+          ignored: boolean
+          imported_at: string
+          internet_message_id: string | null
+          occurred_at: string
+          recipients: string[]
+          sender: string
+          subject: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "onboarding_emails"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      onboarding_evidence: { Args: { p_journey_id: string }; Returns: Json }
       precreate_admin_shift_sessions: {
         Args: {
           end_date: string
