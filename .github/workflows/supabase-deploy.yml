@@ -218,3 +218,26 @@ jobs:
           STUDENT_PRODUCTION_BASE_URL: https://student.altitutor.com
           TUTOR_PRODUCTION_BASE_URL: https://tutor.altitutor.com
           UCAT_PRODUCTION_BASE_URL: https://ucat.altitutor.com
+
+  publish-sentry-release:
+    name: Publish Sentry production release
+    needs: smoke-production
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Associate commits and record production deployment
+        uses: getsentry/action-release@ff07929a6537bac57790c3451cf4d364aca38528 # v3.7.0
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+        with:
+          environment: production
+          release: ${{ github.sha }}
+          projects: admin-web marketing-web student-web tutor-web ucat-web
+          set_commits: auto
