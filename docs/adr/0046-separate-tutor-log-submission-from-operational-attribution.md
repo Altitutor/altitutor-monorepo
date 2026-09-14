@@ -1,5 +1,5 @@
 ---
-status: accepted
+status: superseded by ADR-0048 in part
 ---
 
 # Separate Tutor log submission from operational attribution

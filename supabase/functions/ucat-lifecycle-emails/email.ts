@@ -346,9 +346,9 @@ function onboardingLesson(
   const lessons: Record<UcatFamiliarity, Record<typeof key, LessonCopy>> = {
     new: {
       onboarding_starting_point: {
-        subject: "Your first UCAT session is about 15 minutes",
-        preview: "Don't start with a mock. Do one short guided session.",
-        heading: "Start smaller than a mock",
+        subject: "Welcome to Altitutor UCAT",
+        preview: "We're excited to have you practicing with us.",
+        heading: "Welcome to Altitutor UCAT",
         paragraphs: [
           hi(
             firstName,

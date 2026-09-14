@@ -9,6 +9,10 @@ jest.mock('@/shared/contexts/EntityModalContext', () => ({
   useEntityModals: () => ({ openEntity }),
 }));
 
+jest.mock('@/shared/components/NotesEditorWithMentions', () => ({
+  NotesEditorWithMentions: () => <div role="textbox" aria-label="Edit note" />,
+}));
+
 function makeActivity(): ActivityEventDisplay {
   const student = {
     entityType: 'student' as const,
@@ -69,5 +73,55 @@ describe('ActivityItem', () => {
       'session',
       '10000000-0000-4000-8000-000000000002'
     );
+  });
+
+  it('edits and deletes note cards from the activity feed', async () => {
+    const user = userEvent.setup();
+    const onUpdateNote = jest.fn().mockResolvedValue(undefined);
+    const onDeleteNote = jest.fn().mockResolvedValue(undefined);
+    const confirmSpy = jest.spyOn(window, 'confirm').mockReturnValue(true);
+    const noteId = '10000000-0000-4000-8000-000000000005';
+    const noteActivity: ActivityEventDisplay = {
+      ...makeActivity(),
+      id: '10000000-0000-4000-8000-000000000006',
+      icon: 'note',
+      iconColor: 'gray',
+      message: 'added a note',
+      entityId: noteId,
+      entityType: 'note',
+      eventType: 'note.added',
+      noteContent: {
+        type: 'doc',
+        content: [{ type: 'paragraph', content: [{ type: 'text', text: 'Follow up' }] }],
+      },
+    };
+
+    const { rerender } = render(
+      <ActivityItem
+        activity={noteActivity}
+        onUpdateNote={onUpdateNote}
+        onDeleteNote={onDeleteNote}
+      />
+    );
+
+    await user.click(screen.getByRole('button', { name: 'Note actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
+    await user.click(screen.getByRole('button', { name: 'Save' }));
+
+    expect(onUpdateNote).toHaveBeenCalledWith(noteId, noteActivity.noteContent);
+
+    rerender(
+      <ActivityItem
+        activity={noteActivity}
+        onUpdateNote={onUpdateNote}
+        onDeleteNote={onDeleteNote}
+      />
+    );
+    await user.click(screen.getByRole('button', { name: 'Note actions' }));
+    await user.click(screen.getByRole('menuitem', { name: 'Delete' }));
+
+    expect(confirmSpy).toHaveBeenCalledWith('Are you sure you want to delete this note?');
+    expect(onDeleteNote).toHaveBeenCalledWith(noteId);
+    confirmSpy.mockRestore();
   });
 });

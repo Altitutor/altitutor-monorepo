@@ -2,9 +2,29 @@
 
 import React, { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
-import { SearchableSelect } from '../searchable-select';
+import {
+  SearchableSelect,
+  clearOptionMatchesSearch,
+} from '../searchable-select';
 
 (globalThis as typeof globalThis & { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
+
+describe('clearOptionMatchesSearch', () => {
+  it('shows the clear option when search is empty', () => {
+    expect(clearOptionMatchesSearch('None', '')).toBe(true);
+    expect(clearOptionMatchesSearch('None', '   ')).toBe(true);
+  });
+
+  it('shows the clear option when the query matches the label', () => {
+    expect(clearOptionMatchesSearch('None', 'non')).toBe(true);
+    expect(clearOptionMatchesSearch('None', 'NONE')).toBe(true);
+  });
+
+  it('hides the clear option when the query does not match', () => {
+    expect(clearOptionMatchesSearch('None', 'matt')).toBe(false);
+    expect(clearOptionMatchesSearch('None', 'alice')).toBe(false);
+  });
+});
 
 describe('SearchableSelect', () => {
   let container: HTMLDivElement;

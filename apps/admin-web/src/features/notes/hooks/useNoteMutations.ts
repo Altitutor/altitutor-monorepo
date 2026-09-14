@@ -1,3 +1,4 @@
+import { useWorkItemRevision } from '@/features/admin-mcp/client/operations';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { notesApi } from '../api/notes';
@@ -48,7 +49,8 @@ export function useCreateNote(options?: UseCreateNoteOptions) {
 /**
  * Update a note
  */
-export function useUpdateNote() {
+export function useUpdateNote(editorSession?: string | boolean) {
+  const withRevision = useWorkItemRevision(editorSession);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { data: currentStaff } = useCurrentStaff();
@@ -59,7 +61,7 @@ export function useUpdateNote() {
         ...updates,
         updated_by: currentStaff?.id ?? null,
       };
-      const result = await notesApi.update(id, updatesWithUpdater);
+      const result = await withRevision(id, (revision) => notesApi.update(id, updatesWithUpdater, revision));
       return { note: result, silent };
     },
     onSuccess: ({ note: updatedNote, silent }, { id }) => {
@@ -156,13 +158,14 @@ export function useCreateFolder() {
 /**
  * Update a folder
  */
-export function useUpdateFolder() {
+export function useUpdateFolder(editorSession?: string | boolean) {
+  const withRevision = useWorkItemRevision(editorSession);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation({
     mutationFn: async ({ id, updates }: { id: string; updates: FolderUpdate }) =>
-      foldersApi.update(id, updates),
+      withRevision(id, (revision) => foldersApi.update(id, updates, revision)),
     onSuccess: (updatedFolder, { id }) => {
       queryClient.setQueryData(foldersKeys.detail(id), updatedFolder);
 

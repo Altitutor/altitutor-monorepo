@@ -1,3 +1,4 @@
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -177,19 +178,12 @@ export const issuesApi = {
    * Create a new issue
    */
   create: async ({ issue, tags }: { issue: IssueInsert, tags?: Omit<IssueTagInsert, 'issue_id'>[] }): Promise<IssueWithTags> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const issueWithDescriptionTags: IssueInsert = {
       ...issue,
       description: await appendTagsToDescription(issue.description as JSONContent | null | undefined, tags),
     };
     
-    const { data: issueData, error: issueError } = await supabase
-      .from('issues')
-      .insert(issueWithDescriptionTags)
-      .select()
-      .single();
-
-    if (issueError) throw issueError;
+    const issueData = await mutateWorkItem<Issue>('issue', issueWithDescriptionTags);
 
     return issuesApi.get(issueData.id) as Promise<IssueWithTags>;
   },
@@ -197,19 +191,8 @@ export const issuesApi = {
   /**
    * Update an issue
    */
-  update: async (issueId: string, updates: IssueUpdate): Promise<Issue> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    const { data, error } = await supabase
-      .from('issues')
-      .update(updates)
-      .eq('id', issueId)
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return data as Issue;
+  update: async (issueId: string, updates: IssueUpdate, revision?: number): Promise<Issue> => {
+    return mutateWorkItem<Issue>('issue', updates, issueId, revision);
   },
 
   /**

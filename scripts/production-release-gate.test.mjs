@@ -83,6 +83,7 @@ test("every main push runs the migration gate before Vercel production deploys",
   );
   assert.match(workflow, /^  deploy-web:/mu);
   assert.match(workflow, /^  smoke-production:/mu);
+  assert.match(workflow, /^  publish-sentry-release:/mu);
   assert.match(workflow, /^  verify:/mu);
   assert.match(workflow, /^    uses: \.\/\.github\/workflows\/ci\.yml$/mu);
   assert.match(
@@ -94,6 +95,20 @@ test("every main push runs the migration gate before Vercel production deploys",
   assert.match(workflow, /^    environment: production$/mu);
   assert.match(workflow, /github\.ref == 'refs\/heads\/main'/u);
   assert.match(workflow, /node scripts\/production-web-smoke\.mjs/u);
+  assert.match(
+    workflow,
+    /^  publish-sentry-release:\n    name: Publish Sentry production release\n    needs: smoke-production$/mu,
+  );
+  assert.match(workflow, /fetch-depth: 0/u);
+  assert.match(workflow, /getsentry\/action-release@[0-9a-f]{40}/u);
+  assert.match(workflow, /SENTRY_AUTH_TOKEN: \$\{\{ secrets\.SENTRY_AUTH_TOKEN \}\}/u);
+  assert.match(workflow, /SENTRY_ORG: \$\{\{ secrets\.SENTRY_ORG \}\}/u);
+  assert.match(workflow, /release: \$\{\{ github\.sha \}\}/u);
+  assert.match(
+    workflow,
+    /projects: admin-web marketing-web student-web tutor-web ucat-web/u,
+  );
+  assert.match(workflow, /set_commits: auto/u);
 
   for (const app of APPS) {
     assert.match(workflow, new RegExp(`app: ${app}\\b`, "u"));

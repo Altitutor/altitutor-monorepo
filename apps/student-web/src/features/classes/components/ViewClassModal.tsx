@@ -253,7 +253,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
           </>
         ) : (
           <div className="text-center py-8 text-muted-foreground">
-            Scheduled offering not found
+            Class not found
           </div>
         )}
       </SheetContent>

@@ -147,7 +147,7 @@ export function IssueDetailView({
 }: IssueDetailViewProps) {
   const router = useRouter();
   const { data: issue, isLoading } = useIssue(issueId, enabled);
-  const updateIssue = useUpdateIssue();
+  const updateIssue = useUpdateIssue(enabled ? issueId : false);
   const deleteIssue = useDeleteIssue();
   const { data: currentStaff } = useCurrentStaff();
   const lastResetIssueIdRef = useRef<string | null>(null);

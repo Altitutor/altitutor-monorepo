@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 import type Stripe from "npm:stripe@16.6.0";
+import { getInvoiceSubscriptionId } from "./invoice-subscription.ts";
 
 const REFERRAL_COUPON_ID = "ucat-referral-next-bill-free";
 
@@ -232,7 +233,7 @@ export async function applyQueuedReferralRewardToInvoice(args: {
   invoice: Stripe.Invoice;
 }): Promise<boolean> {
   const { supabase, stripe, invoice } = args;
-  const subscriptionId = stripeId(invoice.subscription);
+  const subscriptionId = getInvoiceSubscriptionId(invoice);
   if (!subscriptionId || invoice.billing_reason !== "subscription_cycle") {
     return false;
   }

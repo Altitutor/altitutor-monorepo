@@ -4,6 +4,11 @@ import type { FlashcardReviewCard, ImageOcclusionData } from '@altitutor/shared'
 import { FlashcardReviewSession } from '../flashcard-review-session';
 
 jest.mock('@altitutor/ui', () => ({
+  createStoredImageHtmlRenderer: () => ({
+    refresh: async (html: string | null | undefined) => html ?? '',
+    preload: async () => undefined,
+    clearCache: () => undefined,
+  }),
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
   ImageOcclusionViewer: ({ imageUrl, alt, onLoad, onError }: {
     imageUrl: string;

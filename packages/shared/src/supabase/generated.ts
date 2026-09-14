@@ -280,6 +280,24 @@ export type Database = {
           },
         ]
       }
+      admin_mcp_grants: {
+        Row: {
+          client_id: string
+          granted_at: string
+          user_id: string
+        }
+        Insert: {
+          client_id: string
+          granted_at?: string
+          user_id: string
+        }
+        Update: {
+          client_id?: string
+          granted_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       admin_shifts: {
         Row: {
           created_at: string
@@ -4392,6 +4410,7 @@ export type Database = {
       }
       issues: {
         Row: {
+          admin_revision: number
           created_at: string
           created_by: string | null
           description: Json | null
@@ -4405,6 +4424,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_revision?: number
           created_at?: string
           created_by?: string | null
           description?: Json | null
@@ -4418,6 +4438,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_revision?: number
           created_at?: string
           created_by?: string | null
           description?: Json | null
@@ -4621,6 +4642,8 @@ export type Database = {
           is_reaction: boolean
           message_sid: string | null
           messaging_service_sid: string | null
+          onboarding_journey_id: string | null
+          onboarding_purpose: string | null
           provider_error_at: string | null
           provider_error_code: string | null
           reaction_type: string | null
@@ -4654,6 +4677,8 @@ export type Database = {
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          onboarding_journey_id?: string | null
+          onboarding_purpose?: string | null
           provider_error_at?: string | null
           provider_error_code?: string | null
           reaction_type?: string | null
@@ -4687,6 +4712,8 @@ export type Database = {
           is_reaction?: boolean
           message_sid?: string | null
           messaging_service_sid?: string | null
+          onboarding_journey_id?: string | null
+          onboarding_purpose?: string | null
           provider_error_at?: string | null
           provider_error_code?: string | null
           reaction_type?: string | null
@@ -4740,6 +4767,13 @@ export type Database = {
             columns: ["created_by_staff_id"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "messages_onboarding_journey_id_fkey"
+            columns: ["onboarding_journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
             referencedColumns: ["id"]
           },
           {
@@ -4911,6 +4945,7 @@ export type Database = {
       }
       notes: {
         Row: {
+          admin_revision: number
           created_at: string
           created_by: string
           id: string
@@ -4920,6 +4955,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_revision?: number
           created_at?: string
           created_by: string
           id?: string
@@ -4929,6 +4965,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_revision?: number
           created_at?: string
           created_by?: string
           id?: string
@@ -4970,6 +5007,7 @@ export type Database = {
       }
       notes_daily: {
         Row: {
+          admin_revision: number
           content: Json
           date: string
           id: string
@@ -4978,6 +5016,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          admin_revision?: number
           content?: Json
           date: string
           id?: string
@@ -4986,6 +5025,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          admin_revision?: number
           content?: Json
           date?: string
           id?: string
@@ -5026,6 +5066,7 @@ export type Database = {
       }
       notes_documents: {
         Row: {
+          admin_revision: number
           content: Json | null
           created_at: string
           created_by: string
@@ -5039,6 +5080,7 @@ export type Database = {
           updated_by: string | null
         }
         Insert: {
+          admin_revision?: number
           content?: Json | null
           created_at?: string
           created_by: string
@@ -5052,6 +5094,7 @@ export type Database = {
           updated_by?: string | null
         }
         Update: {
+          admin_revision?: number
           content?: Json | null
           created_at?: string
           created_by?: string
@@ -5146,6 +5189,7 @@ export type Database = {
       }
       notes_folders: {
         Row: {
+          admin_revision: number
           created_at: string
           created_by: string
           id: string
@@ -5154,6 +5198,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_revision?: number
           created_at?: string
           created_by: string
           id?: string
@@ -5162,6 +5207,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_revision?: number
           created_at?: string
           created_by?: string
           id?: string
@@ -5478,6 +5524,274 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      onboarding_action_preferences: {
+        Row: {
+          action_key: string
+          assignee_id: string | null
+          due_at: string | null
+          journey_id: string
+        }
+        Insert: {
+          action_key: string
+          assignee_id?: string | null
+          due_at?: string | null
+          journey_id: string
+        }
+        Update: {
+          action_key?: string
+          assignee_id?: string | null
+          due_at?: string | null
+          journey_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_assignee_id_fkey"
+            columns: ["assignee_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_action_preferences_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_email_links: {
+        Row: {
+          email_id: string
+          journey_id: string
+          purpose: string | null
+        }
+        Insert: {
+          email_id: string
+          journey_id: string
+          purpose?: string | null
+        }
+        Update: {
+          email_id?: string
+          journey_id?: string
+          purpose?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_email_links_email_id_fkey"
+            columns: ["email_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_emails"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_email_links_journey_id_fkey"
+            columns: ["journey_id"]
+            isOneToOne: false
+            referencedRelation: "onboarding_journeys"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      onboarding_emails: {
+        Row: {
+          body_text: string
+          conversation_id: string | null
+          delivery_status: string
+          direction: string
+          id: string
+          ignored: boolean
+          imported_at: string
+          internet_message_id: string | null
+          occurred_at: string
+          recipients: string[]
+          sender: string
+          subject: string
+        }
+        Insert: {
+          body_text: string
+          conversation_id?: string | null
+          delivery_status?: string
+          direction: string
+          id: string
+          ignored?: boolean
+          imported_at?: string
+          internet_message_id?: string | null
+          occurred_at: string
+          recipients: string[]
+          sender: string
+          subject: string
+        }
+        Update: {
+          body_text?: string
+          conversation_id?: string | null
+          delivery_status?: string
+          direction?: string
+          id?: string
+          ignored?: boolean
+          imported_at?: string
+          internet_message_id?: string | null
+          occurred_at?: string
+          recipients?: string[]
+          sender?: string
+          subject?: string
+        }
+        Relationships: []
+      }
+      onboarding_journeys: {
+        Row: {
+          closed_at: string | null
+          closed_evidence: Json | null
+          closure_detail: string | null
+          closure_reason: string | null
+          contact_id: string | null
+          created_at: string
+          enquiry_at: string | null
+          enquiry_email: string | null
+          historical: boolean
+          id: string
+          is_returning: boolean
+          label: string
+          next_contact_at: string | null
+          student_id: string | null
+        }
+        Insert: {
+          closed_at?: string | null
+          closed_evidence?: Json | null
+          closure_detail?: string | null
+          closure_reason?: string | null
+          contact_id?: string | null
+          created_at?: string
+          enquiry_at?: string | null
+          enquiry_email?: string | null
+          historical?: boolean
+          id?: string
+          is_returning?: boolean
+          label: string
+          next_contact_at?: string | null
+          student_id?: string | null
+        }
+        Update: {
+          closed_at?: string | null
+          closed_evidence?: Json | null
+          closure_detail?: string | null
+          closure_reason?: string | null
+          contact_id?: string | null
+          created_at?: string
+          enquiry_at?: string | null
+          enquiry_email?: string | null
+          historical?: boolean
+          id?: string
+          is_returning?: boolean
+          label?: string
+          next_contact_at?: string | null
+          student_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "onboarding_journeys_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "onboarding_journeys_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      onboarding_mailbox_sync: {
+        Row: {
+          cursor_url: string | null
+          folder: string
+          last_error: string | null
+          synced_at: string | null
+        }
+        Insert: {
+          cursor_url?: string | null
+          folder: string
+          last_error?: string | null
+          synced_at?: string | null
+        }
+        Update: {
+          cursor_url?: string | null
+          folder?: string
+          last_error?: string | null
+          synced_at?: string | null
+        }
+        Relationships: []
+      }
+      onboarding_settings: {
+        Row: {
+          action_business_days: Json
+          followup_business_days: number[]
+          id: boolean
+        }
+        Insert: {
+          action_business_days?: Json
+          followup_business_days?: number[]
+          id?: boolean
+        }
+        Update: {
+          action_business_days?: Json
+          followup_business_days?: number[]
+          id?: boolean
+        }
+        Relationships: []
       }
       opening_hours: {
         Row: {
@@ -5931,6 +6245,7 @@ export type Database = {
       }
       projects: {
         Row: {
+          admin_revision: number
           completed_at: string | null
           created_at: string
           created_by: string | null
@@ -5946,6 +6261,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
+          admin_revision?: number
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -5961,6 +6277,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
+          admin_revision?: number
           completed_at?: string | null
           created_at?: string
           created_by?: string | null
@@ -7723,6 +8040,7 @@ export type Database = {
       }
       rich_text_templates: {
         Row: {
+          admin_revision: number
           content: Json
           created_at: string | null
           created_by: string | null
@@ -7731,6 +8049,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          admin_revision?: number
           content: Json
           created_at?: string | null
           created_by?: string | null
@@ -7739,6 +8058,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          admin_revision?: number
           content?: Json
           created_at?: string | null
           created_by?: string | null
@@ -12937,6 +13257,7 @@ export type Database = {
       }
       tasks: {
         Row: {
+          admin_revision: number
           assigned_to: string | null
           completed_at: string | null
           completed_by: string | null
@@ -12958,6 +13279,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          admin_revision?: number
           assigned_to?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -12979,6 +13301,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          admin_revision?: number
           assigned_to?: string | null
           completed_at?: string | null
           completed_by?: string | null
@@ -37944,6 +38267,28 @@ export type Database = {
     }
     Functions: {
       _format_date_ordinal: { Args: { ts: string }; Returns: string }
+      admin_record_reporting_query: {
+        Args: { p_fingerprint: string; p_rows: number; p_truncated: boolean }
+        Returns: undefined
+      }
+      admin_work_item_change: {
+        Args: {
+          p_changes?: Json
+          p_id?: string
+          p_key?: string
+          p_kind: string
+          p_revision?: number
+        }
+        Returns: Json
+      }
+      admin_work_item_history: {
+        Args: { p_id: string; p_kind: string; p_offset?: number }
+        Returns: Json
+      }
+      admin_work_item_read: {
+        Args: { p_id: string; p_kind: string }
+        Returns: Json
+      }
       apply_class_schedule: {
         Args: { p_expected_proposal_hash: string; p_proposal: Json }
         Returns: Json
@@ -39038,6 +39383,7 @@ export type Database = {
       }
       get_ucat_subject_id: { Args: never; Returns: string }
       get_unread_contact_conversation_count: { Args: never; Returns: number }
+      has_admin_mcp_access: { Args: never; Returns: boolean }
       has_student_selected_subjects: {
         Args: { student_id: string }
         Returns: boolean
@@ -39219,6 +39565,30 @@ export type Database = {
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
       normalize_ucat_catalog_text: { Args: { value: string }; Returns: string }
       notify_overdue_invoices: { Args: never; Returns: number }
+      onboarding_emails_for_journey: {
+        Args: { p_journey_id: string; p_limit?: number; p_offset?: number }
+        Returns: {
+          body_text: string
+          conversation_id: string | null
+          delivery_status: string
+          direction: string
+          id: string
+          ignored: boolean
+          imported_at: string
+          internet_message_id: string | null
+          occurred_at: string
+          recipients: string[]
+          sender: string
+          subject: string
+        }[]
+        SetofOptions: {
+          from: "*"
+          to: "onboarding_emails"
+          isOneToOne: false
+          isSetofReturn: true
+        }
+      }
+      onboarding_evidence: { Args: { p_journey_id: string }; Returns: Json }
       precreate_admin_shift_sessions: {
         Args: {
           end_date: string

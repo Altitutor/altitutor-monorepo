@@ -1,7 +1,8 @@
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { otherMemberIds, type ProjectStaffRef } from '../utils/projectMembers';
+import { type ProjectStaffRef } from '../utils/projectMembers';
 import type {
   Project,
   ProjectFilters,
@@ -67,42 +68,6 @@ function withMembers(
   };
 }
 
-async function syncProjectMembers(
-  supabase: SupabaseClient<Database>,
-  projectId: string,
-  otherMemberIds: string[],
-  leadId: string | null
-): Promise<void> {
-  const desired = new Set(otherMemberIds.filter((id) => id !== leadId));
-  if (leadId) desired.add(leadId);
-
-  const { data: existing, error: existingError } = await supabase
-    .from('project_members')
-    .select('staff_id')
-    .eq('project_id', projectId);
-
-  if (existingError) throw existingError;
-
-  const existingIds = new Set((existing ?? []).map((row) => row.staff_id));
-  const toInsert = [...desired].filter((id) => !existingIds.has(id));
-  const toDelete = [...existingIds].filter((id) => !desired.has(id));
-
-  if (toDelete.length > 0) {
-    const { error } = await supabase
-      .from('project_members')
-      .delete()
-      .eq('project_id', projectId)
-      .in('staff_id', toDelete);
-    if (error) throw error;
-  }
-
-  if (toInsert.length > 0) {
-    const { error } = await supabase.from('project_members').insert(
-      toInsert.map((staff_id) => ({ project_id: projectId, staff_id }))
-    );
-    if (error) throw error;
-  }
-}
 
 export function getProjectFilterColumn(key: string): string {
   return key === 'project_lead' ? 'project_lead_id' : key;
@@ -244,78 +209,12 @@ export const projectsApi = {
   },
 
   create: async (project: ProjectInsert, memberIds?: string[]): Promise<ProjectWithLead> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    const { data: projectData, error: projectError } = await supabase
-      .from('projects')
-      .insert(project)
-      .select()
-      .single();
-
-    if (projectError) throw projectError;
-
-    await syncProjectMembers(
-      supabase,
-      projectData.id,
-      otherMemberIds(memberIds ?? [], projectData.project_lead_id),
-      projectData.project_lead_id
-    );
-
-    return projectsApi.get(projectData.id) as Promise<ProjectWithLead>;
+    const record = await mutateWorkItem<Project>('project', { ...project, member_ids: memberIds });
+    return projectsApi.get(record.id) as Promise<ProjectWithLead>;
   },
 
-  update: async (projectId: string, updates: ProjectUpdateInput): Promise<Project> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const { member_ids, ...row } = updates;
-
-    if (Object.keys(row).length > 0) {
-      const { data, error } = await supabase
-        .from('projects')
-        .update(row)
-        .eq('id', projectId)
-        .select()
-        .single();
-
-      if (error) throw error;
-
-      if (member_ids !== undefined) {
-        await syncProjectMembers(
-          supabase,
-          projectId,
-          otherMemberIds(member_ids, data.project_lead_id),
-          data.project_lead_id
-        );
-      }
-
-      return data as Project;
-    }
-
-    if (member_ids !== undefined) {
-      const { data: current, error: currentError } = await supabase
-        .from('projects')
-        .select('project_lead_id')
-        .eq('id', projectId)
-        .single();
-
-      if (currentError) throw currentError;
-
-      await syncProjectMembers(
-        supabase,
-        projectId,
-        otherMemberIds(member_ids, current.project_lead_id),
-        current.project_lead_id
-      );
-    }
-
-    const { data, error } = await supabase
-      .from('projects')
-      .select()
-      .eq('id', projectId)
-      .single();
-
-    if (error) throw error;
-    return data as Project;
-  },
+  update: async (projectId: string, updates: ProjectUpdateInput, revision?: number): Promise<Project> =>
+    mutateWorkItem<Project>('project', updates, projectId, revision),
 
   delete: async (projectId: string): Promise<void> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;

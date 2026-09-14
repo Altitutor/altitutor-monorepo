@@ -24,6 +24,7 @@ export function useSendMessage() {
       body: string; 
       selectedSenderId: string;
       resentFromMessageId?: string;
+      onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
       attachments?: Array<{
         storageUrl: string;
         filename: string;
@@ -97,6 +98,7 @@ export function useSendMessage() {
           from_number_e164: sender.sender_type === 'PHONE' ? sender.phone_e164 : null, // NULL for alphanumeric
           to_number_e164: toNumber,
           resent_from_message_id: args.resentFromMessageId ?? null,
+          ...(args.onboarding ? { onboarding_journey_id: args.onboarding.journeyId, onboarding_purpose: args.onboarding.purpose } : {}),
         })
         .select('id')
         .single();

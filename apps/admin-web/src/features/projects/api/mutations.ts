@@ -1,3 +1,4 @@
+import { useWorkItemRevision } from '@/features/admin-mcp/client/operations';
 import { useMutation, useQueryClient, type QueryKey } from '@tanstack/react-query';
 import { projectsApi } from './projects';
 import { useToast } from '@altitutor/ui';
@@ -72,12 +73,13 @@ export function useCreateProject() {
   });
 }
 
-export function useUpdateProject() {
+export function useUpdateProject(editorSession?: string | boolean) {
+  const withRevision = useWorkItemRevision(editorSession);
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
   return useMutation<Project, unknown, ProjectUpdateVariables, ProjectUpdateSnapshot>({
-    mutationFn: ({ id, updates }: ProjectUpdateVariables) => projectsApi.update(id, updates),
+    mutationFn: ({ id, updates }: ProjectUpdateVariables) => withRevision(id, (revision) => projectsApi.update(id, updates, revision)),
     onMutate: async ({ id, updates }) => {
       await Promise.all([
         queryClient.cancelQueries({ queryKey: projectKeys.lists() }),

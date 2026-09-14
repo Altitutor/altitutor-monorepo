@@ -6,14 +6,12 @@ import {
   FormField,
   FormItem,
   FormMessage,
-  RichTextEditor,
   type RichTextEditorRef,
   type JSONContent,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
-import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
-import { useAdminRichTextImageUpload } from '@/features/rich-text-images';
+import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 import type { TagEntityType } from '@/shared/utils/tagParsing';
 import type { ProjectFormData } from '../../types';
 
@@ -24,15 +22,13 @@ interface ProjectDescriptionFieldProps {
   descriptionRef?: React.RefObject<RichTextEditorRef>;
 }
 
-export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescriptionFieldProps) {
+export function ProjectDescriptionField({
+  form,
+  descriptionRef,
+}: ProjectDescriptionFieldProps) {
   const mentionSuggestions = useMentionSuggestions();
-  const slashMenuSuggestions = useSlashCommandSuggestions();
   const localRef = useRef<RichTextEditorRef>(null);
   const effectiveRef = descriptionRef ?? localRef;
-  const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
-    context: 'projects',
-    editorRef: effectiveRef,
-  });
 
   return (
     <FormField
@@ -41,23 +37,17 @@ export function ProjectDescriptionField({ form, descriptionRef }: ProjectDescrip
       render={({ field }) => (
         <FormItem>
           <FormControl>
-            <div
-              onDragOver={(e) => e.preventDefault()}
-              onDrop={handleDrop}
-            >
-              <RichTextEditor
-                ref={effectiveRef}
-                content={field.value || ''}
-                onChange={field.onChange}
-                onChangeDebounceMs={200}
-                placeholder="Add project description..."
-                className="min-h-0"
-                mentionSuggestions={mentionSuggestions}
-                slashMenuSuggestions={slashMenuSuggestions}
-                onPasteImages={handlePasteImages}
-                floatingToolbar
-              />
-            </div>
+            <AdminRichTextEditorWithImages
+              ref={effectiveRef}
+              content={field.value || ''}
+              onChange={field.onChange}
+              onChangeDebounceMs={200}
+              placeholder="Add project description..."
+              className="min-h-0"
+              context="projects"
+              mentionSuggestions={mentionSuggestions}
+              floatingToolbar
+            />
           </FormControl>
           <FormMessage />
         </FormItem>

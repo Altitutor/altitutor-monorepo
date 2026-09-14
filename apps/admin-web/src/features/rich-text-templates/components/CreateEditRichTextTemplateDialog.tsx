@@ -1,20 +1,18 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import {
-  Button,
-  Input,
-  Label,
-  RichTextEditor,
-} from '@altitutor/ui';
+import { Button, Input, Label } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
-import { useCreateRichTextTemplate, useUpdateRichTextTemplate } from '../api/templates';
+import {
+  useCreateRichTextTemplate,
+  useUpdateRichTextTemplate,
+} from '../api/templates';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
-import { useSlashCommandSuggestions } from '@/shared/hooks/useSlashCommandSuggestions';
 import type { JSONContent } from '@tiptap/core';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
+import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
 
 interface CreateEditRichTextTemplateDialogProps {
   isOpen: boolean;
@@ -31,8 +29,7 @@ export function CreateEditRichTextTemplateDialog({
 }: CreateEditRichTextTemplateDialogProps) {
   const { toast } = useToast();
   const createMutation = useCreateRichTextTemplate();
-  const updateMutation = useUpdateRichTextTemplate();
-  const slashMenuSuggestions = useSlashCommandSuggestions();
+  const updateMutation = useUpdateRichTextTemplate(isOpen);
 
   const [name, setName] = useState('');
   const [content, setContent] = useState<JSONContent | null>(null);
@@ -76,7 +73,10 @@ export function CreateEditRichTextTemplateDialog({
     }
 
     try {
-      const contentToSave = content ?? { type: 'doc', content: [{ type: 'paragraph' }] };
+      const contentToSave = content ?? {
+        type: 'doc',
+        content: [{ type: 'paragraph' }],
+      };
 
       if (template) {
         await updateMutation.mutateAsync({
@@ -105,7 +105,8 @@ export function CreateEditRichTextTemplateDialog({
       console.error('Error saving template:', error);
       toast({
         title: 'Error',
-        description: errorMessage || 'Failed to save template. Please try again.',
+        description:
+          errorMessage || 'Failed to save template. Please try again.',
         variant: 'destructive',
       });
     }
@@ -132,7 +133,9 @@ export function CreateEditRichTextTemplateDialog({
           </Button>
           <Button
             onClick={handleSave}
-            disabled={isLoading || !name.trim() || isTiptapContentEmpty(content)}
+            disabled={
+              isLoading || !name.trim() || isTiptapContentEmpty(content)
+            }
           >
             {isLoading ? 'Saving...' : 'Save'}
           </Button>
@@ -154,14 +157,16 @@ export function CreateEditRichTextTemplateDialog({
 
         <div className="space-y-2">
           <Label htmlFor="template-content">Content</Label>
-          <RichTextEditor
-            content={content ?? { type: 'doc', content: [{ type: 'paragraph' }] }}
+          <AdminRichTextEditorWithImages
+            content={
+              content ?? { type: 'doc', content: [{ type: 'paragraph' }] }
+            }
             onChange={(json) => setContent(json)}
+            context="rich_text_templates"
             placeholder="Type your template content here... (type / for commands)"
             minHeight="200px"
             className="min-h-[200px]"
             editable={!isLoading}
-            slashMenuSuggestions={slashMenuSuggestions}
           />
         </div>
       </div>

@@ -113,7 +113,7 @@ export function checkInStaffingError(input: {
 export const CHECK_IN_LOG_FORBIDDEN_MESSAGE =
   'Only a conducting staff member can log a check-in';
 
-/** Who may submit the tutor log. Check-ins are logged only by conducting staff. */
+/** Tutor-portal eligibility: receiving tutors do not see or submit Check-in logs. */
 export function staffMaySubmitTutorLog(
   sessionType: string | null | undefined,
   assignmentType: string | null | undefined

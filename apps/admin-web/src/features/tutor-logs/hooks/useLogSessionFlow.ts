@@ -1,10 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
-import {
-  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
-  defaultCheckInSessionsStaffType,
-  staffMaySubmitTutorLog,
-} from '@altitutor/shared/pay-tiers';
+import { defaultCheckInSessionsStaffType } from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from './useTutorLogsQuery';
 import { useSessionForLogging } from './useSessionForLogging';
@@ -185,16 +181,6 @@ export function useLogSessionFlow({
 
     const submitPayload = { data, loggedForStaffId: selectedStaffId };
 
-    if (selectedSession?.type === 'CHECK_IN') {
-      const assignmentType = sessionData?.staff.find((s) => s.id === selectedStaffId)
-        ?.session_staff_type;
-      if (!staffMaySubmitTutorLog('CHECK_IN', assignmentType)) {
-        setSubmissionState('error');
-        setSubmissionError(CHECK_IN_LOG_FORBIDDEN_MESSAGE);
-        return;
-      }
-    }
-
     setSubmissionState('submitting');
     setSubmissionError(null);
     try {
@@ -209,7 +195,7 @@ export function useLogSessionFlow({
           : 'Failed to submit log. Please try again.'
       );
     }
-  }, [formData, selectedStaffId, createMutation, wizardFlow, selectedSession, sessionData]);
+  }, [formData, selectedStaffId, createMutation, wizardFlow]);
 
   const handleClose = useCallback(() => {
     if (submissionState === 'success') {

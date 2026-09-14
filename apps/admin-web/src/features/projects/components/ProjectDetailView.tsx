@@ -114,7 +114,7 @@ export function ProjectDetailView({
     enabled
   );
   const { data: progressNotesData = [] } = useEntityNotes('projects', projectId, enabled);
-  const updateProject = useUpdateProject();
+  const updateProject = useUpdateProject(enabled ? projectId : false);
   const deleteProject = useDeleteProject();
   const createNote = useCreateNote();
   const lastResetProjectIdRef = useRef<string | null>(null);

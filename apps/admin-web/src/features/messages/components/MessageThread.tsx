@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
-import { useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
+import { type ReactNode, useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
+import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
@@ -70,7 +70,11 @@ function issueDescriptionMentionsToDrafts(issue: IssueWithTags): IssueTagDraft[]
     .filter((tag): tag is IssueTagDraft => !!tag);
 }
 
+export type ThreadFeedEntry = { id: string; at: string; content: ReactNode };
 interface Props {
+  /** Supplied by a unified feed; transport/reaction rendering stays shared. */
+  feed?: { key: string; messages: ThreadMessage[]; entries: ThreadFeedEntry[]; hasMore: boolean; loadMore: () => void; labelForConversation?: (id: string) => string | undefined };
+
   contactId?: string | null;
   conversationId?: string | null;
   ownedNumberId?: string | null;
@@ -406,6 +410,7 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
 }
 
 export function MessageThread({
+  feed,
   contactId,
   conversationId,
   ownedNumberId,
@@ -418,9 +423,12 @@ export function MessageThread({
 }: Props) {
   const contactMessages = useMessagesForContact(contactId ?? null, ownedNumberId);
   const conversationMessages = useMessages(conversationId ?? '');
-  const { data, fetchNextPage, hasNextPage } = conversationId
+  const query = conversationId
     ? conversationMessages
     : contactMessages;
+  const data = useMemo(() => feed ? { pages: [{ items: feed.messages }] } : query.data, [feed, query.data]);
+  const fetchNextPage = feed?.loadMore ?? query.fetchNextPage;
+  const hasNextPage = feed?.hasMore ?? query.hasNextPage;
   const qc = useQueryClient();
   const channelNonce = useId().replace(/:/g, '');
   const { data: availableSenders = [] } = useAvailableSenders();
@@ -447,7 +455,7 @@ export function MessageThread({
   });
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
-  const selectionKey = conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`;
+  const selectionKey = feed?.key ?? (conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`);
   const lastRenderedContactIdRef = useRef<string | null>(null);
   const prevContactId = useRef(selectionKey);
   
@@ -611,7 +619,14 @@ export function MessageThread({
   }, [data, isSearching, searchTerm]);
 
   // Render oldest -> newest so native wheel direction behaves normally.
-  const renderedMessages = useMemo(() => [...processedMessages].reverse(), [processedMessages]);
+  const renderedMessages = useMemo(() => {
+    if (!feed) return [...processedMessages].reverse();
+    const entries = feed.entries.map((entry) => ({ ...entry, type: 'feed' as const }));
+    return [...processedMessages, ...entries].sort((a, b) => {
+      const dateOf = (item: typeof a) => item.type === 'feed' ? item.at : item.type === 'message' ? item.created_at ?? '' : '';
+      return dateOf(a).localeCompare(dateOf(b)) || a.id.localeCompare(b.id);
+    });
+  }, [processedMessages, feed]);
 
   // Keep viewport pinned to bottom on initial contact load and while user stays near bottom.
   useLayoutEffect(() => {
@@ -809,13 +824,14 @@ export function MessageThread({
             Load older messages
           </button>
         )}
-        {processedMessages.length === 0 && !isSearching ? (
+        {renderedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
-        ) : isSearching && processedMessages.length === 0 ? (
+        ) : isSearching && renderedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">No messages found.</div>
         ) : (
           renderedMessages
             .map((item, index, arr) => {
+              if (item.type === 'feed') return <div key={item.id}>{item.content}</div>;
               if (item.type === 'separator') {
                 return (
                   <div key={item.id} className="text-center text-xs text-muted-foreground my-2 py-1">
@@ -848,6 +864,7 @@ export function MessageThread({
               
               return (
                 <div key={m.id}>
+                  {feed?.labelForConversation && <div className="text-xs text-muted-foreground mb-1">{feed.labelForConversation(m.conversation_id)}</div>}
                   {showDateSeparator && (
                     <div className="text-center text-xs text-muted-foreground my-3">
                       {formatDaySeparator(m.created_at)}

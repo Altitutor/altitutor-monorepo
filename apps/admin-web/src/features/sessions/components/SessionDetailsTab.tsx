@@ -6,7 +6,7 @@ import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil }
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { formatSessionDate } from '../utils/session-helpers';
+import { formatSessionLongDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay, type SessionTimeInput } from '@altitutor/shared';
 import { Supabase } from '@altitutor/shared';
 import { AttendanceCell } from './AttendanceCell';
@@ -455,7 +455,7 @@ export function SessionDetailsTab({
           </form>
         ) : (
           <SessionInfoGrid
-            day={session.start_at ? formatSessionDate(session.start_at) : '—'}
+            day={session.start_at ? formatSessionLongDate(session.start_at) : '—'}
             time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
             timeSubline={
               session.type ? (
@@ -517,7 +517,7 @@ export function SessionDetailsTab({
                 ) : (
                   onAddStudentToSession && (
                     <Button size="sm" variant="outline" onClick={onAddStudentToSession}>
-                      Add student
+                      + Add student
                     </Button>
                   )
                 )}
@@ -729,7 +729,7 @@ export function SessionDetailsTab({
             ) : (
               onAddStaffToSession && (
                 <Button size="sm" variant="outline" onClick={onAddStaffToSession}>
-                  Add staff
+                  + Add staff
                 </Button>
               )
             )}

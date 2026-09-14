@@ -600,14 +600,16 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         onPageSizeChange={setPageSize}
       />
 
-      {/* Add Class Modal */}
-      <AddClassModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onClassAdded={() => {
-          refetch();
-        }}
-      />
+      {/* The page owns this modal when it supplies controlled state. */}
+      {!addModalState && (
+        <AddClassModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onClassAdded={() => {
+            refetch();
+          }}
+        />
+      )}
 
       {/* Class Detail Modal */}
       {selectedClass && (

@@ -4,5 +4,11 @@
   "devCommand": "cd ../.. && pnpm turbo run dev --filter=admin-web",
   "git": {
     "deploymentEnabled": false
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/onboarding/mailbox-sync",
+      "schedule": "*/5 * * * *"
+    }
+  ]
 }

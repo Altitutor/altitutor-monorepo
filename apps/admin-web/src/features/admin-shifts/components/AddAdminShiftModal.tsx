@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useId, useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
@@ -28,6 +28,9 @@ interface AddAdminShiftModalProps {
 }
 
 export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAdminShiftModalProps) {
+  const formId = useId();
+  const startTimeId = useId();
+  const endTimeId = useId();
   const createMutation = useCreateAdminShift();
   const { data: currentStaff } = useCurrentStaff();
   const [loading, setLoading] = useState(false);
@@ -142,13 +145,13 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
           <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
-          <Button type="submit" form="add-admin-shift-form" disabled={loading}>
+          <Button type="submit" form={formId} disabled={loading}>
             {loading ? 'Creating...' : 'Create Admin Shift'}
           </Button>
         </>
       }
     >
-        <form id="add-admin-shift-form" onSubmit={handleSubmit} className="space-y-4">
+        <form id={formId} onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-3 rounded-md bg-red-50 text-red-800 text-sm">
               {error}
@@ -167,18 +170,18 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
                 ariaLabel="Day of week"
               />
             </PropertyFormRow>
-            <PropertyFormRow label="Start time *" htmlFor="start-time">
+            <PropertyFormRow label="Start time *" htmlFor={startTimeId}>
               <Input
-                id="start-time"
+                id={startTimeId}
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 required
               />
             </PropertyFormRow>
-            <PropertyFormRow label="End time *" htmlFor="end-time" valueClassName="space-y-1">
+            <PropertyFormRow label="End time *" htmlFor={endTimeId} valueClassName="space-y-1">
               <Input
-                id="end-time"
+                id={endTimeId}
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}

@@ -74,7 +74,7 @@ type DocumentMode = 'view' | 'edit';
 export function NoteDetailPage({ noteId }: NoteDetailPageProps) {
   const router = useRouter();
   const { data: note, isLoading } = useNote(noteId);
-  const updateNote = useUpdateNote();
+  const updateNote = useUpdateNote(noteId);
   const deleteNote = useDeleteNote();
   const editLock = useDocumentEditLock(noteId, true);
   const { data: folders } = useFolders();

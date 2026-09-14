@@ -1,16 +1,38 @@
 'use client';
 
 import { useCallback } from 'react';
-import {
-  PLACEHOLDER_NODE_NAME,
-  type RichTextEditorRef,
-} from '@altitutor/ui';
+import { PLACEHOLDER_NODE_NAME, type RichTextEditorRef } from '@altitutor/ui';
 import type { Node as ProseMirrorNode } from '@tiptap/pm/model';
 import { TextSelection } from '@tiptap/pm/state';
 import type { Editor } from '@tiptap/react';
 import type { SetImageOptions } from '@tiptap/extension-image';
 import { uploadAdminRichTextImage } from '../api/uploadAdminRichTextImage';
-import type { AdminRichTextImageContext } from '../api/uploadAdminRichTextImage';
+import type {
+  AdminRichTextImageContext,
+  UploadAdminRichTextImageResult,
+} from '../api/uploadAdminRichTextImage';
+
+const BUCKET = 'admin-rich-text-images';
+
+function escapeAttribute(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function replaceUploadPlaceholder(
+  html: string,
+  index: number,
+  file: File,
+  upload: UploadAdminRichTextImageResult,
+): string {
+  const attrs = `src="${escapeAttribute(upload.signedUrl)}" alt="${escapeAttribute(file.name)}" title="${escapeAttribute(file.name)}" data-file-id="${escapeAttribute(upload.fileId)}" data-storage-bucket="${BUCKET}" data-storage-path="${escapeAttribute(upload.storagePath)}"`;
+  return html
+    .replace(`src="__UPLOAD_${index}__"`, attrs)
+    .replace(`src='__UPLOAD_${index}__'`, attrs);
+}
 
 export interface UseAdminRichTextImageUploadOptions {
   context: AdminRichTextImageContext;
@@ -40,10 +62,11 @@ export function useAdminRichTextImageUpload({
           .run();
 
         try {
-          const { fileId, signedUrl } = await uploadAdminRichTextImage({
-            file,
-            context,
-          });
+          const { fileId, storagePath, signedUrl } =
+            await uploadAdminRichTextImage({
+              file,
+              context,
+            });
 
           const state = editor.state;
           const doc = state.doc;
@@ -68,6 +91,8 @@ export function useAdminRichTextImageUpload({
               alt: file.name,
               title: file.name,
               fileId,
+              storageBucket: BUCKET,
+              storagePath,
             } as Record<string, unknown>);
             const tr = state.tr
               .delete(placeholderPos, placeholderPos + placeholderSize)
@@ -79,7 +104,7 @@ export function useAdminRichTextImageUpload({
             const safePos = Math.max(0, Math.min(insertPos, docSize));
             const $resolved = doc.resolve(safePos);
             editor.view.dispatch(
-              state.tr.setSelection(TextSelection.near($resolved))
+              state.tr.setSelection(TextSelection.near($resolved)),
             );
             editor
               .chain()
@@ -89,15 +114,18 @@ export function useAdminRichTextImageUpload({
                 alt: file.name,
                 title: file.name,
                 fileId,
-              } as SetImageOptions & { fileId?: string })
+                storageBucket: BUCKET,
+                storagePath,
+              } as SetImageOptions & {
+                fileId?: string;
+                storageBucket?: string;
+                storagePath?: string;
+              })
               .run();
             insertPos = editor.state.selection.from;
           }
         } catch (error) {
-          console.error(
-            'Failed to upload admin rich text image:',
-            error
-          );
+          console.error('Failed to upload admin rich text image:', error);
           const state = editor.state;
           state.doc.descendants((node: ProseMirrorNode, pos: number) => {
             if (
@@ -113,41 +141,37 @@ export function useAdminRichTextImageUpload({
         }
       }
     },
-    [context]
+    [context],
   );
 
   const handlePasteImages = useCallback(
-    (
-      editor: Editor,
-      files: File[],
-      options?: { pastedHtml?: string }
-    ) => {
+    (editor: Editor, files: File[], options?: { pastedHtml?: string }) => {
       const insertPos = editor.state.selection.from;
 
       if (options?.pastedHtml) {
         const pastedHtml: string = options.pastedHtml;
         void (async () => {
-          const signedUrls: string[] = [];
+          const uploads: Array<UploadAdminRichTextImageResult | null> = [];
           for (const file of files) {
             try {
-              const { signedUrl } = await uploadAdminRichTextImage({
+              const upload = await uploadAdminRichTextImage({
                 file,
                 context,
               });
-              signedUrls.push(signedUrl);
+              uploads.push(upload);
             } catch (error) {
               console.error(
                 'Failed to upload admin rich text image from pasted HTML:',
-                error
+                error,
               );
-              signedUrls.push('');
+              uploads.push(null);
             }
           }
           let html: string = pastedHtml;
-          for (let i = 0; i < signedUrls.length; i += 1) {
-            if (signedUrls[i]) {
-              html = html.replace(`__UPLOAD_${i}__`, signedUrls[i]);
-            }
+          for (let i = 0; i < uploads.length; i += 1) {
+            const upload = uploads[i];
+            if (upload)
+              html = replaceUploadPlaceholder(html, i, files[i], upload);
           }
           editor
             .chain()
@@ -156,7 +180,7 @@ export function useAdminRichTextImageUpload({
               insertPos,
               html as unknown as Parameters<
                 Editor['commands']['insertContentAt']
-              >[1]
+              >[1],
             )
             .run();
         })();
@@ -165,7 +189,7 @@ export function useAdminRichTextImageUpload({
 
       void processImagesAtPosition(editor, files, insertPos);
     },
-    [context, processImagesAtPosition]
+    [context, processImagesAtPosition],
   );
 
   const handleDrop = useCallback(
@@ -177,7 +201,7 @@ export function useAdminRichTextImageUpload({
       if (!dataTransfer?.files?.length) return;
 
       const files: File[] = Array.from(dataTransfer.files).filter((file) =>
-        file.type.startsWith('image/')
+        file.type.startsWith('image/'),
       );
       if (files.length === 0) return;
 
@@ -206,8 +230,7 @@ export function useAdminRichTextImageUpload({
             const beforeEnd = before.offset + before.node.nodeSize;
             const distToBefore = coords.pos - beforeEnd;
             const distToAfter = after.offset - coords.pos;
-            insertPos =
-              distToBefore <= distToAfter ? beforeEnd : after.offset;
+            insertPos = distToBefore <= distToAfter ? beforeEnd : after.offset;
           }
         } else {
           while ($pos.depth > 0 && !$pos.parent.isBlock) {
@@ -222,7 +245,7 @@ export function useAdminRichTextImageUpload({
 
       await processImagesAtPosition(editor, files, insertPos);
     },
-    [editorRef, processImagesAtPosition]
+    [editorRef, processImagesAtPosition],
   );
 
   return { handlePasteImages, handleDrop };

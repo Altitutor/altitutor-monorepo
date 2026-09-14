@@ -3,9 +3,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
-/** Path must look like admin-rich-text-images storage path: context/timestamp_uuid_filename, no traversal. */
+const BUCKET = 'admin-rich-text-images';
 const VALID_PATH = /^[a-zA-Z0-9/_.-]+$/;
-
 const REFRESHED_URL_EXPIRY_SECONDS = 86400;
 
 export async function POST(request: NextRequest) {
@@ -14,78 +13,110 @@ export async function POST(request: NextRequest) {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
-
   if (authError) {
-    captureApiError(authError, "/api/admin/rich-text-images/signed-urls");
+    captureApiError(authError, '/api/admin/rich-text-images/signed-urls');
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
-
-  if (!user) {
+  if (!user)
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const { data: isAdmin, error: roleError } = await supabase.rpc(
+    'is_adminstaff_active',
+  );
+  if (roleError) {
+    captureApiError(roleError, '/api/admin/rich-text-images/signed-urls');
+    return NextResponse.json({ error: roleError.message }, { status: 500 });
   }
+  if (!isAdmin)
+    return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
 
   const supabaseAdmin = getServerSupabaseAdmin();
   if (!supabaseAdmin) {
     return NextResponse.json(
       { error: 'Server configuration error' },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
-  let body: { paths?: string[] };
+  let body: { paths?: unknown; fileIds?: unknown };
   try {
     body = await request.json();
   } catch {
     return NextResponse.json({ error: 'Invalid JSON body' }, { status: 400 });
   }
-
-  const paths = body.paths;
-  if (!Array.isArray(paths) || paths.length === 0) {
+  const requestedPaths = Array.isArray(body.paths) ? body.paths : [];
+  const fileIds = Array.isArray(body.fileIds)
+    ? body.fileIds.filter(
+        (id): id is string => typeof id === 'string' && id.length > 0,
+      )
+    : [];
+  if (requestedPaths.length === 0 && fileIds.length === 0) {
     return NextResponse.json(
-      { error: 'paths must be a non-empty array' },
-      { status: 400 }
+      { error: 'paths or fileIds must be a non-empty array' },
+      { status: 400 },
     );
   }
-
-  if (paths.length > 50) {
+  if (requestedPaths.length + fileIds.length > 50) {
     return NextResponse.json(
-      { error: 'Too many paths (max 50)' },
-      { status: 400 }
+      { error: 'Too many image references (max 50)' },
+      { status: 400 },
     );
   }
-
-  for (const p of paths) {
-    if (typeof p !== 'string' || !VALID_PATH.test(p) || p.includes('..')) {
+  for (const path of requestedPaths) {
+    if (
+      typeof path !== 'string' ||
+      !VALID_PATH.test(path) ||
+      path.includes('..')
+    ) {
       return NextResponse.json(
-        { error: `Invalid path: ${String(p).slice(0, 80)}` },
-        { status: 400 }
+        { error: `Invalid path: ${String(path).slice(0, 80)}` },
+        { status: 400 },
       );
     }
   }
 
-  const signedUrls: string[] = [];
-  for (const path of paths) {
-    const { data, error } = await supabaseAdmin.storage
-      .from('admin-rich-text-images')
-      .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
-
+  const paths = requestedPaths as string[];
+  if (fileIds.length > 0) {
+    const { data: files, error } = await supabaseAdmin
+      .from('files')
+      .select('id, bucket, storage_path')
+      .in('id', fileIds);
     if (error) {
-      captureApiError(error, "/api/admin/rich-text-images/signed-urls");
-      return NextResponse.json(
-        { error: error.message, path },
-        { status: error.message === 'Object not found' ? 404 : 500 }
-      );
+      captureApiError(error, '/api/admin/rich-text-images/signed-urls');
+      return NextResponse.json({ error: error.message }, { status: 500 });
     }
-
-    if (!data?.signedUrl) {
-      return NextResponse.json(
-        { error: 'No signed URL returned', path },
-        { status: 500 }
-      );
+    const pathByFileId = new Map(
+      (files ?? [])
+        .filter(
+          (file) =>
+            file.bucket === BUCKET && typeof file.storage_path === 'string',
+        )
+        .map((file) => [file.id, file.storage_path as string]),
+    );
+    for (const fileId of fileIds) {
+      const path = pathByFileId.get(fileId);
+      if (!path) {
+        return NextResponse.json(
+          { error: 'Image file not found', fileId },
+          { status: 404 },
+        );
+      }
+      paths.push(path);
     }
-
-    signedUrls.push(data.signedUrl);
   }
 
-  return NextResponse.json({ signedUrls });
+  const { data, error } = await supabaseAdmin.storage
+    .from(BUCKET)
+    .createSignedUrls(paths, REFRESHED_URL_EXPIRY_SECONDS);
+  if (error) {
+    captureApiError(error, '/api/admin/rich-text-images/signed-urls');
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  const failed = data.find((item) => item.error || !item.signedUrl);
+  if (failed) {
+    return NextResponse.json(
+      { error: failed.error ?? 'No signed URL returned', path: failed.path },
+      { status: failed.error === 'Object not found' ? 404 : 500 },
+    );
+  }
+  return NextResponse.json({ signedUrls: data.map((item) => item.signedUrl) });
 }

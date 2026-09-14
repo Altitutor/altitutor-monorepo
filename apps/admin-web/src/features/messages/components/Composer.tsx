@@ -24,6 +24,8 @@ import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
 
 interface Props {
+  onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
+  onQueued?: () => void;
   contactId: string | null;
   conversationId?: string | null;
   groupChatId?: string | null;
@@ -36,7 +38,9 @@ interface Props {
   onDraftClear?: () => void;
 }
 
-export function Composer({ 
+export function Composer({
+  onboarding,
+  onQueued,
   contactId, 
   conversationId,
   groupChatId,
@@ -231,6 +235,7 @@ export function Composer({
       
       const result = await send.mutateAsync({
         contactId,
+        onboarding,
         conversationId,
         groupChatId,
         body: body || '', // Allow empty body if attachments exist
@@ -250,6 +255,7 @@ export function Composer({
 
       // Clear attachments after successful send
       clearAll();
+      onQueued?.();
     } catch (e) {
       console.error(e);
       // Restore draft on error
@@ -475,7 +481,7 @@ export function Composer({
         <div className="relative">
           <textarea
             ref={textareaRef}
-            className={`w-full text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
+            className={`w-full text-base md:text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
               isDragging && isIMessageSender ? 'border-primary border-2' : ''
             }`}
             placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
@@ -605,5 +611,3 @@ export function Composer({
     </div>
   );
 }
-
-

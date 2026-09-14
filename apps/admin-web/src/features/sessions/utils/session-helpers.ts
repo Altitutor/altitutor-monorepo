@@ -57,6 +57,79 @@ export function getShortSessionName(session: SessionShortNameInput | null | unde
   return 'this session';
 }
 
+const SHORT_MONTH_NAMES = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+] as const;
+
+function getValidDate(value: Date | string | null | undefined): Date | null {
+  if (!value) return null;
+  const date = typeof value === 'string' ? new Date(value) : value;
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Compact session navigation date, e.g. "4 Aug". */
+export function formatSessionNavigationDate(value: Date | string | null | undefined): string {
+  const date = getValidDate(value);
+  return date ? `${date.getDate()} ${SHORT_MONTH_NAMES[date.getMonth()]}` : '';
+}
+
+/** Full session information date, e.g. "Wednesday 9 Sep 2026". */
+export function formatSessionLongDate(value: Date | string | null | undefined): string {
+  const date = getValidDate(value);
+  if (!date) return '';
+  const weekday = date.toLocaleDateString('en-US', { weekday: 'long' });
+  return `${weekday} ${date.getDate()} ${SHORT_MONTH_NAMES[date.getMonth()]} ${date.getFullYear()}`;
+}
+
+/** Searchable session selector label containing both date and time. */
+export function getSessionNavigationLabel(session: SessionShortNameInput): string {
+  const date = getValidDate(session.start_at);
+  const dateLabel = formatSessionNavigationDate(date);
+  if (!date) return getShortSessionName(session);
+
+  const startTime = formatTime(
+    `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`
+  );
+  const end = getValidDate(session.end_at);
+  const endTime = end
+    ? formatTime(
+        `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`
+      )
+    : '';
+
+  return [dateLabel, [startTime, endTime].filter(Boolean).join(' - ')].filter(Boolean).join(' · ');
+}
+
+export function getAdjacentSessionSiblings<T extends { id: string }>(
+  sessions: T[],
+  currentSessionId: string | null
+): { previous: T | null; next: T | null } {
+  if (sessions.length < 2 || !currentSessionId) {
+    return { previous: null, next: null };
+  }
+
+  const currentIndex = sessions.findIndex((session) => session.id === currentSessionId);
+  if (currentIndex < 0) {
+    return { previous: null, next: null };
+  }
+
+  return {
+    previous: sessions[currentIndex - 1] ?? null,
+    next: sessions[currentIndex + 1] ?? null,
+  };
+}
+
 /**
  * Label for session cards/calendar cells.
  * Prefers stored session names, then class names, then subject names.
@@ -109,4 +182,3 @@ export function getSessionCardDisplayName(
     ) || formatSessionType(session.type)
   );
 }
-

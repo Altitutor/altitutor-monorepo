@@ -3,10 +3,6 @@ import { NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
-import {
-  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
-  staffMaySubmitTutorLog,
-} from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 type TutorLogUpdateResult = {
@@ -81,7 +77,7 @@ export async function PUT(
 
     const { data: existingLog, error: fetchError } = await supabase
       .from('tutor_logs')
-      .select('session_id, session:sessions!inner(type)')
+      .select('session_id')
       .eq('id', tutorLogId)
       .maybeSingle();
 
@@ -101,7 +97,7 @@ export async function PUT(
 
     const { data: assignment, error: assignmentError } = await supabase
       .from('sessions_staff')
-      .select('type')
+      .select('id')
       .eq('session_id', existingLog.session_id)
       .eq('staff_id', loggedForStaffId)
       .maybeSingle();
@@ -116,10 +112,6 @@ export async function PUT(
         { status: 400 }
       );
     }
-    if (!staffMaySubmitTutorLog(existingLog.session.type, assignment.type)) {
-      return NextResponse.json({ error: CHECK_IN_LOG_FORBIDDEN_MESSAGE }, { status: 403 });
-    }
-
     const rpcParams = {
       p_tutor_log_id: tutorLogId,
       p_updated_by: actorStaffId,

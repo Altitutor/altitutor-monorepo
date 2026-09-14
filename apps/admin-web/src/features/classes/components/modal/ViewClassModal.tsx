@@ -197,7 +197,7 @@ export function ViewClassModal({
                   </Button>
                   <div className="flex-1">
                     <SheetTitle>
-                      {isEditing ? 'Edit Scheduled Offering' : 'Scheduled Offering Details'}
+                      {isEditing ? 'Edit Class' : 'Class Details'}
                     </SheetTitle>
                     <SheetDescription asChild>
                       <div className="flex flex-wrap items-center gap-2 text-lg font-medium text-muted-foreground">

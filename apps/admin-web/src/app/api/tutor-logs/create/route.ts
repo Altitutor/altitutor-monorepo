@@ -3,10 +3,6 @@ import { NextResponse } from 'next/server';
 import { createClient as createServiceClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
-import {
-  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
-  staffMaySubmitTutorLog,
-} from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 export async function POST(request: Request) {
@@ -80,7 +76,7 @@ export async function POST(request: Request) {
 
     const { data: sessionToLog, error: sessionToLogError } = await supabase
       .from('sessions')
-      .select('type')
+      .select('id')
       .eq('id', data.sessionId)
       .maybeSingle();
 
@@ -95,7 +91,7 @@ export async function POST(request: Request) {
 
     const { data: assignment, error: assignmentError } = await supabase
       .from('sessions_staff')
-      .select('type')
+      .select('id')
       .eq('session_id', data.sessionId)
       .eq('staff_id', loggedForStaffId)
       .maybeSingle();
@@ -110,10 +106,6 @@ export async function POST(request: Request) {
         { error: 'The staff member logged for must be assigned to the session' },
         { status: 400 }
       );
-    }
-
-    if (!staffMaySubmitTutorLog(sessionToLog.type, assignment.type)) {
-      return NextResponse.json({ error: CHECK_IN_LOG_FORBIDDEN_MESSAGE }, { status: 403 });
     }
 
     // Prepare data for RPC call

@@ -64,21 +64,20 @@ export async function POST(request: NextRequest) {
   }
 
   const adminClient = getServerSupabaseAdmin();
-  const signedUrls: string[] = [];
-  for (const path of paths) {
-    const { data, error } = await adminClient.storage
-      .from(BUCKET)
-      .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
-
-    if (error || !data?.signedUrl) {
-      captureApiError(error, "/api/flashcards/images/signed-urls");
-      return NextResponse.json(
-        { error: error?.message ?? 'No signed URL returned', path },
-        { status: error?.message === 'Object not found' ? 404 : 500 },
-      );
-    }
-    signedUrls.push(data.signedUrl);
+  const { data, error } = await adminClient.storage
+    .from(BUCKET)
+    .createSignedUrls(paths, REFRESHED_URL_EXPIRY_SECONDS);
+  if (error) {
+    captureApiError(error, '/api/flashcards/images/signed-urls');
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  const failed = data.find((item) => item.error || !item.signedUrl);
+  if (failed) {
+    return NextResponse.json(
+      { error: failed.error ?? 'No signed URL returned', path: failed.path },
+      { status: failed.error === 'Object not found' ? 404 : 500 },
+    );
   }
 
-  return NextResponse.json({ data: { signedUrls } });
+  return NextResponse.json({ data: { signedUrls: data.map((item) => item.signedUrl) } });
 }

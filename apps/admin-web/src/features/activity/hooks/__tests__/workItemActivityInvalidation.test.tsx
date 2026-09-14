@@ -31,6 +31,7 @@ function createHarness() {
       mutations: { retry: false },
     },
   });
+  queryClient.setQueryData(['loaded-work-items'], ['task-1', 'issue-1', 'project-1'].map((id) => ({ id, admin_revision: 1 })));
   const invalidateQueries = jest.spyOn(queryClient, 'invalidateQueries');
   const wrapper = ({ children }: { children: ReactNode }) => (
     <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>

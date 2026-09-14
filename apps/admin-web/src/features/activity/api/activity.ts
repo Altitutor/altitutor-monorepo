@@ -113,9 +113,24 @@ export const activityApi = {
       .map((row) => toActivityEvent(row as DomainFeedRow))
       .filter((event): event is ActivityEvent => event !== null);
 
+    // Activity events are immutable audit records, but note cards should show the
+    // current note body. Hydrating live rows also lets the mapper omit deleted notes.
+    const noteIds = events.flatMap((event) =>
+      event.event_name === 'note.added' ? [event.subject_id] : []
+    );
+    const notes: ActivityEventsResponse['relatedEntities']['notes'] = {};
+    if (noteIds.length > 0) {
+      const { data: noteRows, error: notesError } = await supabase
+        .from('notes')
+        .select('*')
+        .in('id', noteIds);
+      if (notesError) throw notesError;
+      for (const note of noteRows ?? []) notes[note.id] = note;
+    }
+
     return {
       events,
-      relatedEntities: emptyRelatedEntities,
+      relatedEntities: { ...emptyRelatedEntities, notes },
       total: offset + events.length,
       hasMore: events.length === limit,
     };

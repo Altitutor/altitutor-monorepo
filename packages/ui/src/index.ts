@@ -100,3 +100,4 @@ export {
   DIALOG_PRIMARY_ACTION_ATTR,
   isDialogPrimaryShortcutEvent,
 } from './lib/dialog-primary-shortcut';
+export * from './lib/stored-image-html-renderer';

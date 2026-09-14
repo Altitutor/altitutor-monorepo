@@ -28,7 +28,7 @@ export function RenameNoteDialog({
   onClose,
   note,
 }: RenameNoteDialogProps) {
-  const updateNote = useUpdateNote();
+  const updateNote = useUpdateNote(isOpen ? note.id : false);
 
   const form = useForm<FormData>({
     resolver: zodResolver(formSchema),

@@ -134,7 +134,7 @@ export function EditDocumentDialog({
   }, []);
   const { data: note, isLoading } = useNote(noteId || '', !!noteId && isOpen);
   const { data: folders } = useFolders();
-  const updateNote = useUpdateNote();
+  const updateNote = useUpdateNote(isOpen ? noteId ?? '' : false);
   const deleteNote = useDeleteNote();
   const editLock = useDocumentEditLock(noteId, !!noteId && isOpen);
   const isEditing = mode === 'edit' && editLock.isHeldByThisWindow;

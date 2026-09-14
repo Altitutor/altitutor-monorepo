@@ -1,4 +1,57 @@
-import { getSessionCardDisplayName, getShortSessionName, getSessionTitle } from '../session-helpers';
+import {
+  formatSessionLongDate,
+  formatSessionNavigationDate,
+  getAdjacentSessionSiblings,
+  getSessionNavigationLabel,
+  getSessionCardDisplayName,
+  getShortSessionName,
+  getSessionTitle,
+} from '../session-helpers';
+
+describe('getAdjacentSessionSiblings', () => {
+  const sessions = [{ id: 'first' }, { id: 'second' }, { id: 'third' }];
+
+  it('returns the sessions on either side of the current session', () => {
+    expect(getAdjacentSessionSiblings(sessions, 'second')).toEqual({
+      previous: sessions[0],
+      next: sessions[2],
+    });
+  });
+
+  it('stops at the first and last session', () => {
+    expect(getAdjacentSessionSiblings(sessions, 'first')).toEqual({
+      previous: null,
+      next: sessions[1],
+    });
+    expect(getAdjacentSessionSiblings(sessions, 'third')).toEqual({
+      previous: sessions[1],
+      next: null,
+    });
+  });
+
+  it('does not navigate when fewer than two sessions are available', () => {
+    expect(getAdjacentSessionSiblings([{ id: 'only' }], 'only')).toEqual({
+      previous: null,
+      next: null,
+    });
+  });
+});
+
+describe('session navigation date formatting', () => {
+  const start = new Date(2026, 8, 9, 16, 15);
+  const end = new Date(2026, 8, 9, 17, 45);
+
+  it('formats compact and full session dates', () => {
+    expect(formatSessionNavigationDate(start)).toBe('9 Sep');
+    expect(formatSessionLongDate(start)).toBe('Wednesday 9 Sep 2026');
+  });
+
+  it('includes the session time range in selector labels', () => {
+    expect(getSessionNavigationLabel({ start_at: start.toISOString(), end_at: end.toISOString() })).toBe(
+      '9 Sep · 4:15 PM - 5:45 PM'
+    );
+  });
+});
 
 describe('getSessionCardDisplayName', () => {
   it('uses session short_name in the compact calendar and long_name on the card', () => {
