@@ -132,7 +132,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const { openCheckInModal } = useQuickActions();
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
   
-  const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
+  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
   const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
 

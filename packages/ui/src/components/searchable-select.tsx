@@ -21,6 +21,16 @@ export interface SearchableSelectGroup<T> {
   items: T[];
 }
 
+/** Stable cmdk value for the clear/"None" option. */
+export const SEARCHABLE_SELECT_CLEAR_VALUE = "__clear__";
+
+/** Whether the clear option should appear for the current search query. */
+export function clearOptionMatchesSearch(clearLabel: string, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return clearLabel.toLowerCase().includes(query);
+}
+
 export interface SearchableSelectProps<T> {
   /** Items to display in the list (ignored when groups is provided) */
   items: T[];
@@ -160,11 +170,15 @@ export function SearchableSelect<T>({
 
   const isServerSideSearch = Boolean(onSearchChange);
   const getValue = getItemValue ?? getItemLabel;
+  // Server-side search disables cmdk filtering, so gate "None" ourselves.
+  // Client-side relies on keywords={[clearLabel]} for the same behavior.
+  const showClearOption =
+    allowClear && (!isServerSideSearch || clearOptionMatchesSearch(clearLabel, search));
 
   // When using server-side search, auto-highlight first item when results change
   const firstSelectableValue = React.useMemo(() => {
     if (!isServerSideSearch || loading) return undefined;
-    if (allowClear) return "__clear__";
+    if (showClearOption) return SEARCHABLE_SELECT_CLEAR_VALUE;
     if (groups && groups.length > 0) {
       const firstGroup = groups.find((g) => g.items.length > 0);
       const firstItem = firstGroup?.items[0];
@@ -185,7 +199,7 @@ export function SearchableSelect<T>({
   }, [
     isServerSideSearch,
     loading,
-    allowClear,
+    showClearOption,
     groups,
     items,
     getItemId,
@@ -300,10 +314,11 @@ export function SearchableSelect<T>({
                 <CommandEmpty>{emptyMessage}</CommandEmpty>
                 {groups ? (
                   <>
-                    {allowClear && (
+                    {showClearOption && (
                       <CommandGroup>
                         <CommandItem
-                          value="__clear__"
+                          value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                          keywords={[clearLabel]}
                           onSelect={() => handleSelect(null)}
                           className="flex items-center gap-2"
                         >
@@ -351,9 +366,10 @@ export function SearchableSelect<T>({
                   </>
                 ) : (
                   <CommandGroup>
-                    {allowClear && (
+                    {showClearOption && (
                       <CommandItem
-                        value="__clear__"
+                        value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                        keywords={[clearLabel]}
                         onSelect={() => handleSelect(null)}
                         className="flex items-center gap-2"
                       >

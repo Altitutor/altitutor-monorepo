@@ -309,7 +309,7 @@ describe('Tutor Logs Hooks', () => {
       expect(result.current.data?.sessions[0].id).toBe('session-2');
     });
 
-    it('should omit check-ins the staff member is only receiving', async () => {
+    it('should include receiving check-ins for adminstaff', async () => {
       const mockRpcResult = {
         sessions: [
           { id: 'class-1', type: 'CLASS', start_at: '2024-01-01T10:00:00Z' },
@@ -343,6 +343,7 @@ describe('Tutor Logs Hooks', () => {
       expect(result.current.data?.sessions.map((s) => s.id)).toEqual([
         'class-1',
         'check-in-host',
+        'check-in-receiver',
       ]);
     });
 

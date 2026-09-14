@@ -5663,6 +5663,7 @@ export type Database = {
       onboarding_journeys: {
         Row: {
           closed_at: string | null
+          closed_evidence: Json | null
           closure_detail: string | null
           closure_reason: string | null
           contact_id: string | null
@@ -5678,6 +5679,7 @@ export type Database = {
         }
         Insert: {
           closed_at?: string | null
+          closed_evidence?: Json | null
           closure_detail?: string | null
           closure_reason?: string | null
           contact_id?: string | null
@@ -5693,6 +5695,7 @@ export type Database = {
         }
         Update: {
           closed_at?: string | null
+          closed_evidence?: Json | null
           closure_detail?: string | null
           closure_reason?: string | null
           contact_id?: string | null

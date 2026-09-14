@@ -57,6 +57,62 @@
 - **Online product entitlement** — The access level currently granted within an Online product relationship, such as Altitutor UCAT free or a paid plan. Entitlement and subscription state may change without activating or ending the Student's relationship with the Product app.
   _Avoid_: Online student status, student lifecycle, active Student
 
+## In-person acquisition and onboarding
+
+- **In-person enquiry** — An identifiable person's expressed interest in tutor-led tutoring, including a parent enquiring on a child's behalf before any trial is booked. Anonymous marketing activity is not an In-person enquiry.
+  _Avoid_: Website visit, trial booking
+
+- **In-person onboarding journey** — One enquiry and progression towards ongoing tutoring for a prospective or returning Student. A genuine return after closure begins a new journey while preserving the same Student identity and the outcome of the earlier journey; rescheduling or silence within an open journey does not begin another journey.
+  _Avoid_: New Student record, permanent relationship status
+
+- **In-person conversion** — The first attended ongoing tutoring session in an In-person onboarding journey that is covered by a paid invoice, including a zero-value subsidy invoice marked paid. Both payment and attendance must be established for the corresponding session; an earlier paid invoice for a missed or cancelled session does not prevent later conversion.
+  _Avoid_: Registration conversion, invoice payment alone
+
+- **In-person onboarding queue** — The shared adminstaff queue for progressing In-person onboarding journeys, with individual actions optionally assigned to staff. Responsibility arrangements may change with operational practice and are distinct from the Student's lifecycle stage.
+  _Avoid_: Fixed stage ownership
+
+- **Onboarding follow-up action** — A staff action surfaced within the In-person onboarding queue when progression or communication requires attention. Its deadline follows an editable action-specific policy or an explicitly agreed next-contact date; creating the action does not send an automated text to staff or the family.
+  _Avoid_: Automated follow-up message, staff SMS reminder
+
+- **Returning in-person enquiry** — Renewed interest after a closed In-person onboarding journey. An attended trial satisfies the trial requirement for later journeys, which proceed directly to class placement at adminstaff discretion without a fixed elapsed-time rule.
+  _Avoid_: Two-year trial expiry, mandatory repeat trial
+
+- **Initial class placement** — Booking at least one agreed ongoing class for a Student. Unplaced requested subjects remain outstanding actions even after initial placement or In-person conversion.
+  _Avoid_: All subjects placed, onboarding complete
+
+- **Enrolment action completion** — Enrolment in at least one class for every agreed subject in an In-person onboarding journey. The action completes from the actual class enrolments; a note or partial placement does not fulfil it.
+  _Avoid_: First class added, manually completed placement task
+
+- **First onboarding check-in** — The first completed Check-in session for an In-person onboarding journey with the Student, their parent or parents, or both, due on or before the first occasion a class reaches its third attended session in that journey. Attendance is counted separately within each class, not summed across subjects; an ordinary message exchange does not by itself fulfil this milestone.
+  _Avoid_: First message reply, registration confirmation
+
+- **In-person onboarding completion** — Resolution of the first onboarding check-in and all outstanding onboarding actions after In-person conversion. Conversion alone does not remove a Student with outstanding actions from the onboarding queue.
+  _Avoid_: First payment, initial class placement
+
+- **Family enquiry** — An enquiry on behalf of children who are not yet individually identified. It remains visible until it can be linked to individual children's In-person onboarding journeys, which retain the shared communication and original enquiry date.
+  _Avoid_: One Student per parent contact, anonymous marketing lead
+
+- **Trial form completion** — Submission by adminstaff during the trial session of a Form with the Trial session purpose on behalf of the Student, linked to that Student and session; each participating Student requires their own response. It is distinct from trial attendance and In-person registration, and a missing response remains a staff recording requirement even after registration.
+  _Avoid_: Trial attendance, registration completion
+
+- **In-person registration progress** — Whether an unfinished In-person registration is before or after verified billing setup. Billing setup completion remains distinct from completion of the whole registration journey and from invoice payment.
+  _Avoid_: Current registration screen, registration complete, invoice paid
+
+- **Registration billing setup completion** — Verified satisfaction of the payment-method requirement in In-person registration, through a newly added payment method or an existing usable method accepted by the registration flow. Merely viewing the billing step does not fulfil this milestone.
+  _Avoid_: New card required, billing screen viewed, invoice payment
+
+- **Registration link sent** — A successful send of an In-person registration link to the Student or a linked parent. Generating the link or attempting an unsuccessful send does not fulfil the milestone; the recipient and subsequent follow-ups remain part of the communication history.
+  _Avoid_: Link generated, message queued
+
+- **Suggested in-person enquiry** — A captured communication identified as possible new tutoring interest and awaiting staff confirmation before entering an In-person onboarding journey or conversion reporting. Existing linked conversations continue independently of this confirmation.
+  _Avoid_: Automatically confirmed lead, every incoming email
+
+- **Historical onboarding journey** — An In-person onboarding journey already underway when funnel tracking begins, reconstructed from available evidence for operational follow-up. Missing enquiry dates remain unknown and these journeys are distinguishable from the post-launch conversion baseline.
+  _Avoid_: Assumed enquiry date, complete historical funnel
+
+- **Unresolved in-person enquiry** — Interest in tutor-led services for which progression or intentional withdrawal has not yet been established. Non-response alone does not establish intentional abandonment.
+  _Avoid_: Discontinued by silence, assumed withdrawal
+
 ## UCAT acquisition and conversion
 
 - **Observed acquisition attribution** — The first measurable campaign context through which a Student reached Altitutor UCAT, such as a tagged Reddit link or business-card QR code. It is immutable first-touch evidence and remains distinct from what the Student remembers or reports.
@@ -268,7 +324,7 @@
 - **Tutor log submitter** — The authenticated staff member who first committed a Tutor log. The submitter is immutable; when the submitter of a historical Tutor log cannot be proven, it remains unknown rather than inferred.
   _Avoid_: Logged-for staff, attending tutor, most recent editor
 
-- **Tutor log operational attribution** — The Session-assigned staff member on whose behalf a Tutor log is recorded. It may be corrected by ADMINSTAFF; for a Check-in it must identify conducting staff.
+- **Tutor log operational attribution** — The Session-assigned staff member on whose behalf a Tutor log is recorded. It may be corrected by ADMINSTAFF and is independent of whether the assigned staff member conducted or received a Check-in.
   _Avoid_: Tutor log submitter, arbitrary staff attribution
 
 - **Tutor log editor** — The authenticated staff member who most recently changed a Tutor log after submission. The latest editor is a convenience projection while each edit remains durably attributable in history.

@@ -126,7 +126,7 @@ export function useConversations() {
 
 // Removed unused Page type
 
-type MessageWithRelations = Tables<'messages'> & {
+export type MessageWithRelations = Tables<'messages'> & {
   staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name'> | null;
   message_attachments: Array<Pick<Tables<'message_attachments'>, 'id' | 'storage_url' | 'filename' | 'mime_type' | 'size_bytes'>>;
 };
@@ -813,3 +813,8 @@ export async function getConversationIdForContact(contactId: string): Promise<st
 }
 
 
+
+export type ThreadMessage = MessageWithRelations & {
+  sender: SenderInfo['sender'];
+  conversation_owned_number_id: string | null;
+};

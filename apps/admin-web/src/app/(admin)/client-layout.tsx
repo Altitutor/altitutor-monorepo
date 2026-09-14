@@ -90,6 +90,11 @@ const navItems: NavItem[] = [
     icon: MessageSquareText,
   },
   {
+    title: 'Trial students',
+    href: '/trial-students',
+    icon: Users,
+  },
+  {
     type: 'heading',
     title: 'SCHEDULING',
   },

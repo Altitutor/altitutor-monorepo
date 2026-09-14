@@ -12,6 +12,10 @@ import {
   CommandItem,
   CommandList,
 } from "./command";
+import {
+  SEARCHABLE_SELECT_CLEAR_VALUE,
+  clearOptionMatchesSearch,
+} from "./searchable-select";
 
 export interface SearchableSelectInlinePropsBase<T> {
   /** Items to display in the list */
@@ -89,15 +93,19 @@ export function SearchableSelectInline<T>({
   const inputRef = React.useRef<HTMLInputElement>(null);
   const isServerSideSearch = Boolean(onSearchChange);
   const getValue = getItemValue ?? getItemLabel;
+  const showClearOption =
+    !multiSelect &&
+    allowClear &&
+    (!isServerSideSearch || clearOptionMatchesSearch(clearLabel, search));
 
   // When using server-side search, auto-highlight first item when results change
   const firstSelectableValue = React.useMemo(() => {
     if (!isServerSideSearch || loading) return undefined;
-    if (!multiSelect && allowClear) return "__clear__";
+    if (showClearOption) return SEARCHABLE_SELECT_CLEAR_VALUE;
     const firstItem = items[0];
     if (!firstItem) return undefined;
     return `${getItemId(firstItem)}-${getValue(firstItem)}`;
-  }, [isServerSideSearch, loading, multiSelect, allowClear, items, getItemId, getValue]);
+  }, [isServerSideSearch, loading, showClearOption, items, getItemId, getValue]);
 
   React.useEffect(() => {
     if (isServerSideSearch && firstSelectableValue !== undefined) {
@@ -179,9 +187,10 @@ export function SearchableSelectInline<T>({
           <>
             <CommandEmpty>{emptyMessage}</CommandEmpty>
             <CommandGroup>
-              {!multiSelect && allowClear && (
+              {showClearOption && (
                 <CommandItem
-                  value="__clear__"
+                  value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                  keywords={[clearLabel]}
                   onSelect={() => handleSelectSingle(null)}
                   className="flex items-center gap-2"
                 >

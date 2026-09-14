@@ -24,6 +24,8 @@ import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
 
 interface Props {
+  onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
+  onQueued?: () => void;
   contactId: string | null;
   conversationId?: string | null;
   groupChatId?: string | null;
@@ -36,7 +38,9 @@ interface Props {
   onDraftClear?: () => void;
 }
 
-export function Composer({ 
+export function Composer({
+  onboarding,
+  onQueued,
   contactId, 
   conversationId,
   groupChatId,
@@ -231,6 +235,7 @@ export function Composer({
       
       const result = await send.mutateAsync({
         contactId,
+        onboarding,
         conversationId,
         groupChatId,
         body: body || '', // Allow empty body if attachments exist
@@ -250,6 +255,7 @@ export function Composer({
 
       // Clear attachments after successful send
       clearAll();
+      onQueued?.();
     } catch (e) {
       console.error(e);
       // Restore draft on error

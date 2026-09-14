@@ -238,6 +238,9 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
   const paymentAttemptDeclined = text(payload.outcome) === 'declined';
 
   const catalog: Record<string, [string, ActivityIconType, ActivityIconColor]> = {
+    'onboarding.journey_started': [`started an onboarding journey for ${student}`, 'user-plus', 'blue'],
+    'onboarding.journey_updated': [`updated the onboarding journey for ${student}`, 'user-edit', 'gray'],
+    'onboarding.action_updated': [`updated ${text(asRecord(payload.after).action_key)?.replace(/_/g, ' ') || 'an onboarding action'} for ${student}`, 'user-edit', 'blue'],
     'student.created': [`created ${student}`, 'user-plus', 'green'],
     'student.registered': [`registered ${student}`, 'check', 'green'],
     'student.user_account_created': [`created ${student}'s user account`, 'user-plus', 'green'],

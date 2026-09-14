@@ -36,6 +36,7 @@ export function FillFormDialog({
   onClose,
   sessionId,
   lockedFormId,
+  purposeFilter,
   initialRespondent,
   onSaved,
 }: {
@@ -43,6 +44,7 @@ export function FillFormDialog({
   onClose: () => void;
   sessionId?: string;
   lockedFormId?: string;
+  purposeFilter?: string;
   initialRespondent?: { type: RespondentType; id: string };
   onSaved?: (responseId: string) => void;
 }) {
@@ -76,7 +78,7 @@ export function FillFormDialog({
     const url = sessionId ? `/api/forms/session-responses?sessionId=${sessionId}` : '/api/forms/manual-responses';
     void jsonRequest<{ forms: FillForm[]; participants?: Person[] }>(url)
       .then((data) => {
-        setForms(data.forms ?? []);
+        setForms((data.forms ?? []).filter((candidate) => !purposeFilter || candidate.purpose === purposeFilter));
         const participants = data.participants ?? [];
         setSessionPeople(participants);
         if (lockedFormId) {
@@ -89,7 +91,7 @@ export function FillFormDialog({
       })
       .catch((reason) => setError(reason instanceof Error ? reason.message : 'Could not load forms.'))
       .finally(() => setLoading(false));
-  }, [initialRespondentId, initialRespondentType, lockedFormId, open, sessionId]);
+  }, [initialRespondentId, initialRespondentType, lockedFormId, open, purposeFilter, sessionId]);
 
   useEffect(() => {
     if (!open || sessionId) return;
