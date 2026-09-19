@@ -1,12 +1,13 @@
 'use client';
 
-import { Palette, User } from 'lucide-react';
+import { Layers3, Palette, User } from 'lucide-react';
 import { ClickableNavCard } from '@altitutor/ui';
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { SettingsPageHeader } from './SettingsPageHeader';
 
 const SETTINGS_LINKS = [
+  { href: '/settings/flashcards', label: 'Flashcard settings', description: 'Study-day limits and timezone.', icon: Layers3 },
   {
     href: '/settings/app',
     label: 'App settings',

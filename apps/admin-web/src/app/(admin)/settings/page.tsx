@@ -17,6 +17,7 @@ import {
   ClipboardList,
   MessageSquare,
   Printer,
+  Layers3,
 } from "lucide-react";
 import { AdminSettingsCard } from "@/shared/components";
 
@@ -168,6 +169,10 @@ export default function SettingsPage() {
           icon: GraduationCap,
           },
         ],
+      },
+      {
+        title: "Learning",
+        items: [{ title: "Flashcard presets", description: "Manage versioned FSRS study presets and Subject assignments", href: "/settings/flashcards", icon: Layers3 }],
       },
       {
       title: "System",

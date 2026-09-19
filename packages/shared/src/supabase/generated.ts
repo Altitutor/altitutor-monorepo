@@ -2843,6 +2843,143 @@ export type Database = {
           },
         ]
       }
+      flashcard_study_preset_versions: {
+        Row: {
+          created_at: string
+          created_by: string | null
+          desired_retention: number
+          fsrs_parameters: Json
+          learn_ahead_minutes: number
+          learning_steps_minutes: number[]
+          leech_reminder_interval: number
+          leech_threshold: number
+          minimum_lapse_interval_days: number
+          preset_id: string
+          relearning_steps_minutes: number[]
+          version: number
+        }
+        Insert: {
+          created_at?: string
+          created_by?: string | null
+          desired_retention?: number
+          fsrs_parameters: Json
+          learn_ahead_minutes?: number
+          learning_steps_minutes?: number[]
+          leech_reminder_interval?: number
+          leech_threshold?: number
+          minimum_lapse_interval_days?: number
+          preset_id: string
+          relearning_steps_minutes?: number[]
+          version: number
+        }
+        Update: {
+          created_at?: string
+          created_by?: string | null
+          desired_retention?: number
+          fsrs_parameters?: Json
+          learn_ahead_minutes?: number
+          learning_steps_minutes?: number[]
+          leech_reminder_interval?: number
+          leech_threshold?: number
+          minimum_lapse_interval_days?: number
+          preset_id?: string
+          relearning_steps_minutes?: number[]
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_study_preset_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_preset_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_preset_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_preset_versions_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_preset_versions_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard_study_presets"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      flashcard_study_presets: {
+        Row: {
+          archived_at: string | null
+          created_at: string
+          created_by: string | null
+          id: string
+          is_default: boolean
+          name: string
+        }
+        Insert: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name: string
+        }
+        Update: {
+          archived_at?: string | null
+          created_at?: string
+          created_by?: string | null
+          id?: string
+          is_default?: boolean
+          name?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcard_study_presets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_presets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_presets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "flashcard_study_presets_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       flashcards: {
         Row: {
           card_type: string
@@ -10282,8 +10419,292 @@ export type Database = {
           },
         ]
       }
+      student_flashcard_preferences: {
+        Row: {
+          new_cards_per_study_day: number
+          pending_timezone: string | null
+          pending_timezone_effective_at: string | null
+          review_cards_per_study_day: number
+          student_id: string
+          timezone: string
+          timezone_confirmed_at: string | null
+          updated_at: string
+        }
+        Insert: {
+          new_cards_per_study_day?: number
+          pending_timezone?: string | null
+          pending_timezone_effective_at?: string | null
+          review_cards_per_study_day?: number
+          student_id: string
+          timezone?: string
+          timezone_confirmed_at?: string | null
+          updated_at?: string
+        }
+        Update: {
+          new_cards_per_study_day?: number
+          pending_timezone?: string | null
+          pending_timezone_effective_at?: string | null
+          review_cards_per_study_day?: number
+          student_id?: string
+          timezone?: string
+          timezone_confirmed_at?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_flashcard_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      student_flashcard_preset_preferences: {
+        Row: {
+          desired_retention: number | null
+          optimized_at: string | null
+          optimized_fsrs_parameters: Json | null
+          optimizer_eligible_reviews: number
+          preset_id: string
+          student_id: string
+        }
+        Insert: {
+          desired_retention?: number | null
+          optimized_at?: string | null
+          optimized_fsrs_parameters?: Json | null
+          optimizer_eligible_reviews?: number
+          preset_id: string
+          student_id: string
+        }
+        Update: {
+          desired_retention?: number | null
+          optimized_at?: string | null
+          optimized_fsrs_parameters?: Json | null
+          optimizer_eligible_reviews?: number
+          preset_id?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_flashcard_preset_preferences_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard_study_presets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preset_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preset_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preset_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preset_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_preset_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      student_flashcard_review_logs: {
+        Row: {
+          action: string
+          answered_at: string
+          duration_ms: number | null
+          id: string
+          post_revision: number
+          post_state: Json
+          pre_revision: number
+          pre_state: Json
+          preset_id: string | null
+          preset_version: number | null
+          rating: string | null
+          recorded_at: string
+          request_fingerprint: string
+          request_id: string
+          reset_generation: number
+          result: Json
+          review_card_id: string
+          scheduler_version: string | null
+          student_id: string
+          undoes_log_id: string | null
+          undone_at: string | null
+        }
+        Insert: {
+          action: string
+          answered_at: string
+          duration_ms?: number | null
+          id?: string
+          post_revision: number
+          post_state: Json
+          pre_revision: number
+          pre_state: Json
+          preset_id?: string | null
+          preset_version?: number | null
+          rating?: string | null
+          recorded_at?: string
+          request_fingerprint: string
+          request_id: string
+          reset_generation?: number
+          result?: Json
+          review_card_id: string
+          scheduler_version?: string | null
+          student_id: string
+          undoes_log_id?: string | null
+          undone_at?: string | null
+        }
+        Update: {
+          action?: string
+          answered_at?: string
+          duration_ms?: number | null
+          id?: string
+          post_revision?: number
+          post_state?: Json
+          pre_revision?: number
+          pre_state?: Json
+          preset_id?: string | null
+          preset_version?: number | null
+          rating?: string | null
+          recorded_at?: string
+          request_fingerprint?: string
+          request_id?: string
+          reset_generation?: number
+          result?: Json
+          review_card_id?: string
+          scheduler_version?: string | null
+          student_id?: string
+          undoes_log_id?: string | null
+          undone_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "student_flashcard_review_logs_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard_study_presets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_review_card_id_fkey"
+            columns: ["review_card_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard_review_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_review_card_id_fkey"
+            columns: ["review_card_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_review_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_undoes_log_id_fkey"
+            columns: ["undoes_log_id"]
+            isOneToOne: false
+            referencedRelation: "student_flashcard_review_logs"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_undoes_log_id_fkey"
+            columns: ["undoes_log_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_flashcard_review_history"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       student_flashcard_review_states: {
         Row: {
+          buried_reason: string | null
+          buried_until: string | null
           created_at: string
           difficulty: number | null
           due_at: string
@@ -10292,15 +10713,22 @@ export type Database = {
           last_rating: string | null
           last_reviewed_at: string | null
           learning_steps: number
+          leech_at: string | null
+          leech_lapses_notified: number
           reps: number
+          reset_generation: number
           review_card_id: string
+          revision: number
           scheduled_days: number
           stability: number | null
           state: string
           student_id: string
+          suspended_at: string | null
           updated_at: string
         }
         Insert: {
+          buried_reason?: string | null
+          buried_until?: string | null
           created_at?: string
           difficulty?: number | null
           due_at?: string
@@ -10309,15 +10737,22 @@ export type Database = {
           last_rating?: string | null
           last_reviewed_at?: string | null
           learning_steps?: number
+          leech_at?: string | null
+          leech_lapses_notified?: number
           reps?: number
+          reset_generation?: number
           review_card_id: string
+          revision?: number
           scheduled_days?: number
           stability?: number | null
           state?: string
           student_id: string
+          suspended_at?: string | null
           updated_at?: string
         }
         Update: {
+          buried_reason?: string | null
+          buried_until?: string | null
           created_at?: string
           difficulty?: number | null
           due_at?: string
@@ -10326,12 +10761,17 @@ export type Database = {
           last_rating?: string | null
           last_reviewed_at?: string | null
           learning_steps?: number
+          leech_at?: string | null
+          leech_lapses_notified?: number
           reps?: number
+          reset_generation?: number
           review_card_id?: string
+          revision?: number
           scheduled_days?: number
           stability?: number | null
           state?: string
           student_id?: string
+          suspended_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -13082,6 +13522,105 @@ export type Database = {
             foreignKeyName: "students_subjects_subject_id_fkey"
             columns: ["subject_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_subjects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subject_flashcard_study_presets: {
+        Row: {
+          assigned_at: string
+          assigned_by: string | null
+          preset_id: string
+          subject_id: string
+        }
+        Insert: {
+          assigned_at?: string
+          assigned_by?: string | null
+          preset_id: string
+          subject_id: string
+        }
+        Update: {
+          assigned_at?: string
+          assigned_by?: string | null
+          preset_id?: string
+          subject_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subject_flashcard_study_presets_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_assigned_by_fkey"
+            columns: ["assigned_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_preset_id_fkey"
+            columns: ["preset_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard_study_presets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_subscription_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subject_flashcard_study_presets_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: true
             referencedRelation: "vtutor_subjects"
             referencedColumns: ["id"]
           },
@@ -24284,6 +24823,8 @@ export type Database = {
       }
       vstudent_flashcard_review_cards: {
         Row: {
+          buried_reason: string | null
+          buried_until: string | null
           card_type: string | null
           cloze_index: number | null
           cloze_text: string | null
@@ -24301,11 +24842,14 @@ export type Database = {
           last_rating: string | null
           last_reviewed_at: string | null
           learning_steps: number | null
+          leech_at: string | null
           occlusion_data: Json | null
           reps: number | null
+          revision: number | null
           scheduled_days: number | null
           stability: number | null
           state: string | null
+          suspended_at: string | null
           topic_id: string | null
         }
         Relationships: [
@@ -30913,6 +31457,164 @@ export type Database = {
             columns: ["created_by"]
             isOneToOne: false
             referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vtutor_flashcard_review_history: {
+        Row: {
+          action: string | null
+          answered_at: string | null
+          duration_ms: number | null
+          id: string | null
+          post_state: Json | null
+          pre_state: Json | null
+          rating: string | null
+          review_card_id: string | null
+          student_id: string | null
+          subject_id: string | null
+          topic_id: string | null
+          undone_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_flashcard_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstaff_flashcard_topics"
+            referencedColumns: ["topic_id"]
+          },
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_topics"
+            referencedColumns: ["topic_id"]
+          },
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_topic_id_fkey"
+            columns: ["topic_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_topics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_review_card_id_fkey"
+            columns: ["review_card_id"]
+            isOneToOne: false
+            referencedRelation: "flashcard_review_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_review_card_id_fkey"
+            columns: ["review_card_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_flashcard_review_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_flashcard_review_logs_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_in_person_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_online_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_subscription_subjects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_subject_id_fkey"
+            columns: ["subject_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_subjects"
             referencedColumns: ["id"]
           },
         ]
@@ -38556,6 +39258,24 @@ export type Database = {
         Args: { p_session_id: string }
         Returns: undefined
       }
+      commit_flashcard_review_answer: {
+        Args: {
+          p_answered_at: string
+          p_duration_ms: number
+          p_expected_revision: number
+          p_next_state: Json
+          p_preset_id: string
+          p_preset_version: number
+          p_rating: string
+          p_request_fingerprint: string
+          p_request_id: string
+          p_result: Json
+          p_review_card_id: string
+          p_scheduler_version: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
       commit_student_skill_trainer_action: {
         Args: {
           p_action_id: string
@@ -39043,6 +39763,28 @@ export type Database = {
       fail_session_billing_adjustment: {
         Args: { p_adjustment_id: string; p_error: string }
         Returns: undefined
+      }
+      flashcard_optimizer_candidates: {
+        Args: { p_now?: string }
+        Returns: {
+          eligible_reviews: number
+          preset_id: string
+          student_id: string
+        }[]
+      }
+      flashcard_review_state_json: {
+        Args: {
+          p_state: Database["public"]["Tables"]["student_flashcard_review_states"]["Row"]
+        }
+        Returns: Json
+      }
+      flashcard_study_day_bounds: {
+        Args: { p_now: string; p_timezone: string }
+        Returns: {
+          ends_at: string
+          starts_at: string
+          study_day: string
+        }[]
       }
       format_class_full_name:
         | {
@@ -39542,6 +40284,18 @@ export type Database = {
           operations: Json
           reason_category: string
           reason_note?: string
+        }
+        Returns: Json
+      }
+      manage_flashcard_review_card: {
+        Args: {
+          p_action: string
+          p_buried_until?: string
+          p_now: string
+          p_request_fingerprint: string
+          p_request_id: string
+          p_review_card_id: string
+          p_student_id: string
         }
         Returns: Json
       }
@@ -41091,6 +41845,14 @@ export type Database = {
       }
       ucat_unresolved_current_ai_assessment_findings: {
         Args: { p_stem_id: string }
+        Returns: Json
+      }
+      undo_latest_flashcard_answer: {
+        Args: {
+          p_request_fingerprint: string
+          p_request_id: string
+          p_student_id: string
+        }
         Returns: Json
       }
       undo_staff_absences: {

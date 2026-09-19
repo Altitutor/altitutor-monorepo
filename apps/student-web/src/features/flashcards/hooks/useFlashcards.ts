@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { FlashcardRating } from '@altitutor/shared';
+import type { RateFlashcardCommand } from '@altitutor/shared';
 import { flashcardsApi } from '../api/flashcards';
 
 export function useFlashcardTopic(topicId: string | null) {
@@ -35,12 +35,15 @@ export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
 export function useRateFlashcardReviewCard(topicId: string, mode: 'due' | 'all') {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ reviewCardId, rating }: { reviewCardId: string; rating: FlashcardRating }) =>
-      flashcardsApi.rateReviewCard(reviewCardId, rating),
+    mutationFn: (command: RateFlashcardCommand) => flashcardsApi.rateReviewCard(command),
     onSuccess: async () => {
       await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
       await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
       await queryClient.invalidateQueries({ queryKey: ['flashcards', 'topic', topicId] });
+    },
+    onError: async () => {
+      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
+      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
     },
   });
 }

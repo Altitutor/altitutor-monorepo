@@ -430,6 +430,33 @@
 - **Flashcard review card** — One reviewable cloze marker generated from a flashcard. A flashcard with multiple cloze markers creates one review card per marker, and each review card has its own spaced-repetition state.
   _Avoid_: Flashcard side, front/back card, note
 
+- **Flashcard study preset** — An AdminStaff-managed, immutable-versioned set of scheduling rules assigned to a Subject and shared by that Subject's flashcard review cards. Students may override desired retention per preset; daily allowances remain Student-wide and are not part of a preset.
+  _Avoid_: Deck options, tutor settings, topic settings
+
+- **Flashcard study day** — The student's daily scheduling and limit window, running from 4:00am to 4:00am in the Student's saved timezone. Changing timezone affects future boundaries without rewriting earlier study days.
+  _Avoid_: Calendar day, UTC day, session
+
+- **Flashcard daily allowance** — One Student-wide pair of New and Review limits for a Flashcard study day, shared by every Subject and filtered study view. Learning and Relearning repetitions already in progress do not consume additional allowance.
+  _Avoid_: Subject allowance, preset allowance, Topic limit
+
+- **Flashcard scheduling state** — A review card's position in the spaced-repetition lifecycle: New before introduction, Learning during initial steps, Review after graduation, or Relearning during post-lapse steps.
+  _Avoid_: Queue, rating, mastery
+
+- **Flashcard sibling** — Another flashcard review card generated from the same Flashcard, such as a different cloze marker. Sibling relationships come from shared Flashcard identity, not Topic proximity.
+  _Avoid_: Related card, adjacent card
+
+- **Buried flashcard review card** — A review card temporarily withheld until the next Flashcard study day, either through sibling burying or an explicit Student action.
+  _Avoid_: Suspended card, deleted card
+
+- **Suspended flashcard review card** — A review card withheld indefinitely until a Student or AdminStaff explicitly resumes it.
+  _Avoid_: Buried card, deleted card, inaccessible card
+
+- **Leech review card** — A review card whose repeated Review-state lapses warrant a suggestion that the Student suspend or revisit it. Leech status never suspends a card automatically.
+  _Avoid_: Automatically suspended card, difficult card
+
+- **Flashcard review history** — The immutable sequence of committed answers and explicit scheduling operations for one Student and review card, including undone and reset events.
+  _Avoid_: Current review state, mutable audit row
+
 - **Due flashcard review** — A student study mode that shows only flashcard review cards whose spaced-repetition state is due. Student ratings update the review card's next due date and scheduling state.
   _Avoid_: Quizlet mode, browse mode
 

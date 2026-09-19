@@ -26,8 +26,9 @@ jest.mock('@altitutor/ui', () => ({
   TooltipTrigger: ({ children }: React.PropsWithChildren) => <>{children}</>,
 }));
 
+const mockRateReviewCard = jest.fn();
 jest.mock('../../hooks/useFlashcards', () => ({
-  useRateFlashcardReviewCard: () => ({ mutateAsync: jest.fn() }),
+  useRateFlashcardReviewCard: () => ({ mutateAsync: mockRateReviewCard }),
 }));
 
 const occlusionData: ImageOcclusionData = {
@@ -66,10 +67,23 @@ function imageReviewCard(id: string, clozeIndex: number): FlashcardReviewCard {
     state: 'New',
     last_reviewed_at: null,
     last_rating: null,
+    revision: 0,
+    buried_until: null,
+    buried_reason: null,
+    suspended_at: null,
+    leech_at: null,
   };
 }
 
 describe('FlashcardReviewSession image transitions', () => {
+  beforeAll(() => {
+    Object.defineProperty(global.crypto, 'randomUUID', {
+      configurable: true,
+      value: jest.fn(() => '00000000-0000-4000-8000-000000000001'),
+    });
+  });
+
+  beforeEach(()=>mockRateReviewCard.mockReset());
   it('remounts the source image when moving between clozes on the same flashcard', async () => {
     render(
       <FlashcardReviewSession
@@ -92,5 +106,13 @@ describe('FlashcardReviewSession image transitions', () => {
     fireEvent.load(screen.getByRole('img', { name: 'Labelled diagram' }));
     expect(screen.queryByText('Loading image…')).not.toBeInTheDocument();
     expect(screen.getByRole('button', { name: /Show answer/ })).toBeEnabled();
+  });
+
+  it('rolls the exact card back after a failed answer and retries with the same idempotency key', async()=>{
+    const card=imageReviewCard('review-1',1);mockRateReviewCard.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(card);
+    render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[card]}/>);fireEvent.load(screen.getByRole('img',{name:'Labelled diagram'}));
+    fireEvent.click(screen.getByRole('button',{name:/Show answer/}));fireEvent.click(screen.getByRole('button',{name:/Good/}));
+    await waitFor(()=>expect(screen.getByRole('button',{name:/Good/})).toBeVisible());fireEvent.click(screen.getByRole('button',{name:/Good/}));
+    await waitFor(()=>expect(mockRateReviewCard).toHaveBeenCalledTimes(2));expect(mockRateReviewCard.mock.calls[1][0].requestId).toBe(mockRateReviewCard.mock.calls[0][0].requestId);
   });
 });

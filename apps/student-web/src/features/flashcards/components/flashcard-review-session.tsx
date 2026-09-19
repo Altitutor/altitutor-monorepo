@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, ImageOcclusionViewer, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
-import type { FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
+import type { FlashcardRating, FlashcardReviewCard, RateFlashcardCommand } from '@altitutor/shared';
 import { getImageOcclusionGroupDescription, parseClozeParts } from '@altitutor/shared';
 import { Check, Info, RotateCcw, X } from 'lucide-react';
 import { studentCardCn } from '@/shared/lib/student-visual';
@@ -10,11 +10,11 @@ import { cn } from '@/shared/utils';
 import { useRateFlashcardReviewCard } from '../hooks/useFlashcards';
 import { preloadFlashcardImages, refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
 
-const ratings: Array<{ value: FlashcardRating; label: string; key: string; className: string }> = [
-  { value: 'again', label: 'Again', key: '1', className: 'bg-red-600 text-white hover:bg-red-700' },
-  { value: 'hard', label: 'Hard', key: '2', className: 'bg-amber-600 text-white hover:bg-amber-700' },
-  { value: 'good', label: 'Good', key: '3', className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
-  { value: 'easy', label: 'Easy', key: '4', className: 'bg-blue-600 text-white hover:bg-blue-700' },
+const ratings: Array<{ value: FlashcardRating; label: string; key: string; className: string; description: string }> = [
+  { value: 'again', label: 'Again', key: '1', description: 'You could not recall the answer.', className: 'bg-red-600 text-white hover:bg-red-700' },
+  { value: 'hard', label: 'Hard', key: '2', description: 'You recalled it with serious difficulty.', className: 'bg-amber-600 text-white hover:bg-amber-700' },
+  { value: 'good', label: 'Good', key: '3', description: 'You recalled it correctly.', className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
+  { value: 'easy', label: 'Easy', key: '4', description: 'You recalled it effortlessly.', className: 'bg-blue-600 text-white hover:bg-blue-700' },
 ];
 
 const maxSessionRequeueDelayMs = 60 * 60 * 1000;
@@ -66,6 +66,9 @@ export function FlashcardReviewSession({
   const reviewedDueIdsRef = useRef<Set<string>>(new Set());
   const dueTimersRef = useRef<Map<string, number>>(new Map());
   const feedbackTimerRef = useRef<number | null>(null);
+  const cardShownAtRef = useRef<number>(Date.now());
+  const answerInFlightRef = useRef(false);
+  const failedCommandRef = useRef<RateFlashcardCommand | null>(null);
   const sessionKey = `${topicId}:${mode}`;
   const sessionKeyRef = useRef(sessionKey);
   const rateMutation = useRateFlashcardReviewCard(topicId, mode);
@@ -94,6 +97,7 @@ export function FlashcardReviewSession({
     }
 
     setDisplayCard(card);
+    cardShownAtRef.current = Date.now();
     setImageStatus(card.card_type === 'image_occlusion' ? 'loading' : 'idle');
     setImageAttempt(0);
     void Promise.all([
@@ -189,7 +193,7 @@ export function FlashcardReviewSession({
   }, [enqueueDueCard]);
 
   const rateDueCard = useCallback((rating: FlashcardRating) => {
-    if (!card || mode !== 'due') return;
+    if (!card || mode !== 'due' || answerInFlightRef.current) return;
     const feedbackClassName =
       rating === 'again'
         ? 'bg-red-600 text-white'
@@ -200,12 +204,37 @@ export function FlashcardReviewSession({
             : 'bg-blue-600 text-white';
     showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
     const reviewCardId = card.id;
+    const previousQueue = dueQueue;
+    const previousReviewedCount = reviewedDueCount;
+    const command = failedCommandRef.current?.reviewCardId === reviewCardId && failedCommandRef.current.rating === rating
+      ? failedCommandRef.current
+      : { reviewCardId, rating, requestId: crypto.randomUUID(), expectedRevision: card.revision,
+          durationMs: Date.now() - cardShownAtRef.current,
+          previewSeed: card.rating_preview_seed ?? `${card.id}:${card.revision}`, answeredAt: new Date().toISOString() };
+    answerInFlightRef.current = true;
     reviewedDueIdsRef.current.add(reviewCardId);
     setReviewedDueCount((current) => current + 1);
     setShowAnswer(false);
     setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
-    void rateReviewCard({ reviewCardId, rating }).then(scheduleDueCard);
-  }, [card, mode, rateReviewCard, scheduleDueCard, showFeedback]);
+    void rateReviewCard(command).then((nextCard) => {
+      failedCommandRef.current = null;
+      scheduleDueCard(nextCard);
+      if (nextCard.leech_suggested && window.confirm('This card has been repeatedly difficult. Suspend it for now?')) {
+        void fetch(`/api/flashcards/review-cards/${encodeURIComponent(nextCard.id)}/manage`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'suspend', requestId: crypto.randomUUID() }),
+        });
+      }
+    }).catch((error: unknown) => {
+      failedCommandRef.current = (error as { status?: number }).status === 409 ? null : command;
+      reviewedDueIdsRef.current.delete(reviewCardId);
+      setDueQueue(previousQueue);
+      setReviewedDueCount(previousReviewedCount);
+      setShowAnswer(true);
+    }).finally(() => {
+      answerInFlightRef.current = false;
+    });
+  }, [card, dueQueue, mode, rateReviewCard, reviewedDueCount, scheduleDueCard, showFeedback]);
 
   const markFreeStudyCorrect = useCallback(() => {
     showFeedback('correct', 'bg-emerald-600 text-white');
@@ -403,6 +432,7 @@ export function FlashcardReviewSession({
               variant="default"
               className={cn('h-14 flex-col gap-1', rating.className)}
               onClick={() => rateDueCard(rating.value)}
+              title={rating.description}
             >
               <span className="inline-flex items-center gap-1.5">
                 {rating.label}

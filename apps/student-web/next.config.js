@@ -29,6 +29,9 @@ const isSentrySourceMapUploadConfigured = Boolean(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  experimental: {
+    serverComponentsExternalPackages: ["@open-spaced-repetition/binding"],
+  },
   reactStrictMode: true,
   swcMinify: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",

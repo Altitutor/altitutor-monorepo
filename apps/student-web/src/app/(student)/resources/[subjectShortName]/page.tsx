@@ -14,6 +14,8 @@ import {
 import { buildTopicTree } from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { studentCardCn } from '@/shared/lib/student-visual';
+import { Button } from '@altitutor/ui';
+import Link from 'next/link';
 
 export default function ResourceSubjectDetailPage() {
   const params = useParams<{ subjectShortName: string }>();
@@ -54,7 +56,7 @@ export default function ResourceSubjectDetailPage() {
       />
 
       <div>
-        <h1 className="text-3xl font-bold tracking-tight">{subject?.long_name || subject?.name}</h1>
+        <div className="flex items-center justify-between"><h1 className="text-3xl font-bold tracking-tight">{subject?.long_name || subject?.name}</h1>{topics?.length?<Button asChild><Link href={`/resources/flashcards?topicIds=${topics.map(topic=>topic.id).join(',')}`}>Study due cards</Link></Button>:null}</div>
         <p className="mt-1 text-muted-foreground">Browse the full topic hierarchy for this subject.</p>
       </div>
 

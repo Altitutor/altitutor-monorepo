@@ -1,8 +1,12 @@
-import type { FlashcardRating, FlashcardReviewCard, FlashcardTopic } from '@altitutor/shared';
+import type { FlashcardReviewCard, FlashcardStudySnapshot, FlashcardTopic, RateFlashcardCommand } from '@altitutor/shared';
 
 async function readJson<T>(response: Response): Promise<T> {
   const json = await response.json();
-  if (!response.ok) throw new Error(json.error ?? 'Flashcard request failed');
+  if (!response.ok) {
+    const error = new Error(json.error ?? 'Flashcard request failed') as Error & { status: number };
+    error.status = response.status;
+    throw error;
+  }
   return json.data as T;
 }
 
@@ -17,20 +21,20 @@ export const flashcardsApi = {
     return readJson<FlashcardReviewCard[]>(res);
   },
 
-  async listDueReviewCards(topicIds?: string[]): Promise<FlashcardReviewCard[]> {
+  async listDueReviewCards(topicIds?: string[]): Promise<FlashcardStudySnapshot> {
     const params = new URLSearchParams({ mode: 'due' });
     if (topicIds?.length) {
       params.set('topicIds', topicIds.join(','));
     }
     const res = await fetch(`/api/flashcards/review-cards?${params.toString()}`);
-    return readJson<FlashcardReviewCard[]>(res);
+    return readJson<FlashcardStudySnapshot>(res);
   },
 
-  async rateReviewCard(reviewCardId: string, rating: FlashcardRating): Promise<FlashcardReviewCard> {
-    const res = await fetch(`/api/flashcards/review-cards/${encodeURIComponent(reviewCardId)}/rate`, {
+  async rateReviewCard(command: RateFlashcardCommand): Promise<FlashcardReviewCard> {
+    const res = await fetch(`/api/flashcards/review-cards/${encodeURIComponent(command.reviewCardId)}/rate`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ rating }),
+      body: JSON.stringify(command),
     });
     return readJson<FlashcardReviewCard>(res);
   },
