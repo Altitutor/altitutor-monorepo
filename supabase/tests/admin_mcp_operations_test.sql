@@ -9,7 +9,7 @@ create temporary table test_result as select public.admin_work_item_change('task
 select is((select result->'record'->>'title' from test_result),'Investigate retention','creates work through the public mutation interface');
 select is(public.admin_work_item_change('task',null,null,'create-test','{"title":"Investigate retention","status":"todo"}'),(select result from test_result),'retry does not duplicate creation');
 select throws_ok($$select public.admin_work_item_change('task',null,null,'create-test','{"title":"Different"}')$$,'22023','Idempotency key reused with different input','rejects changed retry payload');
-select throws_ok(format('select public.admin_work_item_change(''task'',%L,0,''stale-test'',''{"title":"Overwrite"}'')',(select result->'record'->>'id' from test_result)),'40001',null,'rejects stale updates');
+select throws_ok(format('select public.admin_work_item_change(''task'',%L,0,''stale-test'',''{"title":"Overwrite"}'')',(select result->'record'->>'id' from test_result)),'PT409',null,'rejects stale updates without triggering transaction retries');
 select throws_ok($$select public.admin_work_item_change('student',null,null,'forbidden-test','{}')$$,'22023','Unsupported work item kind','cannot mutate business records outside operations');
 select * from finish();
 rollback;
