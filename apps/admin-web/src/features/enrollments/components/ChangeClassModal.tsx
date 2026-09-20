@@ -28,7 +28,8 @@ export function ChangeClassModal({
 }: ChangeClassModalProps) {
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
   const [selectedNewClassId, setSelectedNewClassId] = useState<string | null>(null);
-  const [changeoverDate, setChangeoverDate] = useState<string>('');
+  const [firstNewClassDate, setFirstNewClassDate] = useState<string>('');
+  const [lastOldClassDate, setLastOldClassDate] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState('');
   const [dayFilters, setDayFilters] = useState<number[]>([]);
   const [timeOverlapWarning, setTimeOverlapWarning] = useState<string | null>(null);
@@ -66,7 +67,8 @@ export function ChangeClassModal({
     student,
     oldClass,
     selectedNewClassId,
-    changeoverDate,
+    firstNewClassDate,
+    lastOldClassDate,
     onChange,
     currentStaffId,
     onClose,
@@ -84,7 +86,8 @@ export function ChangeClassModal({
     if (isOpen) {
       setStep(1);
       setSelectedNewClassId(null);
-      setChangeoverDate('');
+      setFirstNewClassDate('');
+      setLastOldClassDate('');
       setSearchQuery('');
       setDayFilters([]);
       setTimeOverlapWarning(null);
@@ -116,7 +119,7 @@ export function ChangeClassModal({
   const handleNext = () => {
     if (step === 1 && selectedNewClassId) {
       setStep(2);
-    } else if (step === 2 && changeoverDate && changeoverDate.trim() !== '') {
+    } else if (step === 2 && lastOldClassDate && firstNewClassDate && lastOldClassDate < firstNewClassDate) {
       setStep(3);
     }
   };
@@ -132,7 +135,7 @@ export function ChangeClassModal({
       case 1:
         return 'Select New Class';
       case 2:
-        return 'Select Changeover Date';
+        return 'Select Final & First Sessions';
       case 3:
         return 'Summary & Confirm';
       case 4:
@@ -191,7 +194,7 @@ export function ChangeClassModal({
                   onClick={handleNext}
                   disabled={
                     (step === 1 && !selectedNewClassId) ||
-                    (step === 2 && (!changeoverDate || changeoverDate.trim() === ''))
+                    (step === 2 && (!lastOldClassDate || !firstNewClassDate || lastOldClassDate >= firstNewClassDate))
                   }
                 >
                   Next
@@ -220,7 +223,8 @@ export function ChangeClassModal({
           oldClass={oldClass}
           oldClassSubject={oldClassSubject}
           selectedNewClass={selectedNewClass}
-          changeoverDate={changeoverDate}
+          firstNewClassDate={firstNewClassDate}
+          lastOldClassDate={lastOldClassDate}
         />
       ) : (
         <div className="h-full overflow-y-auto">
@@ -240,20 +244,21 @@ export function ChangeClassModal({
                 onSearchChange={setSearchQuery}
                 onToggleDay={toggleDay}
                 onClearFilters={clearFilters}
-                onSelectClass={setSelectedNewClassId}
+                onSelectClass={id => {
+                  setSelectedNewClassId(id);
+                  setFirstNewClassDate('');
+                }}
               />
             )}
 
             {step === 2 && (
               <ChangeClassStep2SelectDate
-                changeoverDate={changeoverDate}
-                onDateChange={setChangeoverDate}
-                studentId={student.id}
-                selectedStudent={student}
+                firstNewClassDate={firstNewClassDate}
+                lastOldClassDate={lastOldClassDate}
+                onFirstDateChange={setFirstNewClassDate}
+                onLastDateChange={setLastOldClassDate}
                 selectedNewClass={selectedNewClass}
                 oldClass={oldClass}
-                oldClassSubject={oldClassSubject}
-                oldClassStaff={oldClassStaff}
               />
             )}
 
@@ -265,7 +270,8 @@ export function ChangeClassModal({
                 oldClassSubject={oldClassSubject}
                 oldClassStaff={oldClassStaff}
                 selectedNewClass={selectedNewClass}
-                changeoverDate={changeoverDate}
+                firstNewClassDate={firstNewClassDate}
+                lastOldClassDate={lastOldClassDate}
                 timeOverlapWarning={timeOverlapWarning}
               />
             )}

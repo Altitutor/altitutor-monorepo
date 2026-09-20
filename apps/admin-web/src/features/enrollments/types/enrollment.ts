@@ -87,7 +87,8 @@ export interface ChangeClassModalProps {
     studentId: string;
     oldClassId: string;
     newClassId: string;
-    changeoverDate: Date;
+    lastOldClassDate: string;
+    firstNewClassDate: string;
     staffId: string;
   }) => Promise<void>;
   

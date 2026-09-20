@@ -399,6 +399,7 @@ describe('useBreadcrumbs', () => {
         schedule_summary_long: null,
         schedule_summary_short: null,
         schedule_timezone: 'Australia/Adelaide',
+        schedule_projected_on: null,
         schedule_weekdays: [],
         schedule_rows: [],
         schedule_frequency_weeks: null,

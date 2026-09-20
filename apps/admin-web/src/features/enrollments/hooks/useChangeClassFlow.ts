@@ -1,18 +1,19 @@
 import { useState, useCallback, useEffect } from 'react';
 import type { Tables } from '@altitutor/shared';
-import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 
 interface UseChangeClassFlowProps {
   isOpen: boolean;
   student: Tables<'students'>;
   oldClass: Tables<'classes'>;
   selectedNewClassId: string | null;
-  changeoverDate: string;
+  lastOldClassDate: string;
+  firstNewClassDate: string;
   onChange: (params: {
     studentId: string;
     oldClassId: string;
     newClassId: string;
-    changeoverDate: Date;
+    lastOldClassDate: string;
+    firstNewClassDate: string;
     staffId: string;
   }) => Promise<void>;
   currentStaffId: string;
@@ -24,7 +25,8 @@ export function useChangeClassFlow({
   student,
   oldClass,
   selectedNewClassId,
-  changeoverDate,
+  lastOldClassDate,
+  firstNewClassDate,
   onChange,
   currentStaffId,
   onClose: _onClose,
@@ -40,7 +42,7 @@ export function useChangeClassFlow({
   }, [isOpen]);
 
   const handleConfirm = useCallback(async () => {
-    if (!selectedNewClassId) return;
+    if (!selectedNewClassId || !lastOldClassDate || !firstNewClassDate || lastOldClassDate >= firstNewClassDate) return;
     
     setIsChanging(true);
     try {
@@ -48,7 +50,8 @@ export function useChangeClassFlow({
         studentId: student.id,
         oldClassId: oldClass.id,
         newClassId: selectedNewClassId,
-        changeoverDate: getMidnightAdelaide(new Date(changeoverDate)),
+        lastOldClassDate,
+        firstNewClassDate,
         staffId: currentStaffId,
       });
       setChangeSuccess(true);
@@ -58,7 +61,7 @@ export function useChangeClassFlow({
     } finally {
       setIsChanging(false);
     }
-  }, [student, oldClass, selectedNewClassId, changeoverDate, onChange, currentStaffId]);
+  }, [student, oldClass, selectedNewClassId, lastOldClassDate, firstNewClassDate, onChange, currentStaffId]);
 
   return {
     isChanging,

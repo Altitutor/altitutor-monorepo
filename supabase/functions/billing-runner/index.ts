@@ -312,7 +312,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       .select('id, start_at, end_at, subject_id, class_id, billing_type')
       .gte('start_at', startIso)
       .lte('start_at', endIso)
-      .not('billing_type', 'is', null); // Only billable sessions
+      .not('billing_type', 'is', null)
+      .eq('status', 'ACTIVE')
+      .is('calendar_tombstone_until', null);
     if (sessErr) throw sessErr;
 
     if (!sessions?.length) {
