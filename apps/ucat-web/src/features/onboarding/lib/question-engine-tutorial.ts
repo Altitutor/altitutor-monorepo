@@ -13,7 +13,7 @@ export function getQuestionEngineTutorialKind(
   return "choose";
 }
 
-/** Either walkthrough counts so existing completions are not shown again. */
+/** Either walkthrough counts for the optional dashboard onboarding task. */
 export function isQuestionEngineTutorialSatisfied(
   isCompleted: (tourId: string) => boolean,
 ): boolean {
@@ -43,12 +43,5 @@ export function buildQuestionEngineTutorialHref(
 export function isQuestionEngineTutorialPath(pathname: string): boolean {
   return (
     pathname === "/exam/tutorial" || pathname === "/exam/controls-tutorial"
-  );
-}
-
-export function isQuestionEnginePath(pathname: string): boolean {
-  return (
-    pathname === "/exam" ||
-    /^\/sessions\/[^/]+\/(sets|mocks)\/[^/]+$/.test(pathname)
   );
 }

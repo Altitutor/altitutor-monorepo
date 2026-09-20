@@ -21,10 +21,6 @@ import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-ex
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
 import { useBeginExamRoute } from "@/features/exam-attempts/hooks/use-begin-exam-route";
-import {
-  buildQuestionEngineTutorialHref,
-  useQuestionEngineTutorialGate,
-} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
@@ -92,11 +88,6 @@ export function MockDetailPage({
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
-  const {
-    isLoading: questionEngineTourLoading,
-    isBlocked: questionEngineTourBlocked,
-    tutorialKind: questionEngineTutorialKind,
-  } = useQuestionEngineTutorialGate();
   const { data: mocks, isLoading, error } = useMocks();
   const { data: attempts = [] } = useMockAttemptsWithBreakdown(mockId);
   const { data: questionCount } = useMockQuestionCount(mockId);
@@ -214,16 +205,6 @@ export function MockDetailPage({
       : [];
 
   const handleLaunchMock = () => {
-    if (questionEngineTourLoading) return;
-    if (questionEngineTourBlocked) {
-      router.push(
-        buildQuestionEngineTutorialHref(
-          `${window.location.pathname}${window.location.search}`,
-          questionEngineTutorialKind,
-        ),
-      );
-      return;
-    }
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "mock" &&
       activeExamAttempt.resourceId === mockId;

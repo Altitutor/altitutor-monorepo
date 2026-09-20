@@ -23,10 +23,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
-  UCAT_QUESTION_ENGINE_TOUR,
-} from "@/features/onboarding/config/tour-catalog";
-import {
   TUTORIAL_FEEDBACK_EVENT,
   TUTORIAL_SKIP_REQUEST_EVENT,
   type TutorialFeedback,
@@ -90,10 +86,6 @@ export function OnboardingCard({
   const replay = readTutorialReplay(currentTour);
 
   const isFirst = currentStep === 0;
-  const isQuestionEngineTour =
-    currentTour === UCAT_QUESTION_ENGINE_TOUR ||
-    currentTour === UCAT_QUESTION_ENGINE_CONTROLS_TOUR;
-
   const configuredSteps = ucatOnboardingTours.find(
     (tour) => tour.tour === currentTour,
   )?.steps as ContextualTourStep[] | undefined;
@@ -357,8 +349,6 @@ export function OnboardingCard({
             <AlertDialogDescription>
               {replay
                 ? "Exit this replay and return to App settings. Your tutorial completion will not change."
-                : isQuestionEngineTour
-                ? "Skip and show later keeps this walkthrough for another visit. Skip and don't show again marks it done so your intended attempt can begin. You can replay it later from Settings."
                 : "Skip and show later keeps this walkthrough for another visit. Skip and don't show again marks it done. You can replay it later from Settings."}
             </AlertDialogDescription>
           </AlertDialogHeader>

@@ -20,7 +20,6 @@ import { PracticeReducedStartDialog } from "@/features/practice/components/pract
 import { evaluatePracticeQuotaPreflight } from "@/features/practice/lib/practice-quota-preflight";
 import {
   clearPracticeSession,
-  setPendingPracticeStart,
   type PracticeReviewTiming,
 } from "@/features/practice/lib/session-storage";
 import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
@@ -32,10 +31,6 @@ import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { Button } from "@/components/ui/button";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
-import {
-  buildQuestionEngineTutorialHref,
-  useQuestionEngineTutorialGate,
-} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 
@@ -48,11 +43,6 @@ export function PracticePage() {
     refresh: refreshActiveAttempt,
     clearLocal: clearActiveAttempt,
   } = useActiveExamAttempt();
-  const {
-    isLoading: questionEngineTourLoading,
-    isBlocked: questionEngineTourBlocked,
-    tutorialKind: questionEngineTutorialKind,
-  } = useQuestionEngineTutorialGate();
   const { data: quota } = useQuotaUsage();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const filters = usePracticeFilters({
@@ -204,7 +194,6 @@ export function PracticePage() {
   function handleStart() {
     const ucatSectionId = filters.selectedSection?.id;
     if (!ucatSectionId) return;
-    if (questionEngineTourLoading) return;
     const unlimited = filters.questionCountMode === "unlimited";
     const payload = {
       ...filters.input,
@@ -212,19 +201,6 @@ export function PracticePage() {
       reviewTiming,
     };
     const startInput = buildStartInput(payload, ucatSectionId);
-    // Create the DB session only after the engine tutorial — otherwise Resume
-    // points at the unified exam route which immediately redirects to tutorial.
-    if (questionEngineTourBlocked) {
-      setPendingPracticeStart(startInput);
-      router.push(
-        buildQuestionEngineTutorialHref(
-          "/practice",
-          questionEngineTutorialKind,
-        ),
-      );
-      return;
-    }
-
     if (activeExamAttempt) {
       pendingStartRef.current = startInput;
       setConflictActive(activeExamAttempt);
@@ -262,14 +238,11 @@ export function PracticePage() {
       disabled={
         startMutation.isPending ||
         activeAttemptLoading ||
-        questionEngineTourLoading ||
         !filters.selectedSection?.id
       }
       className={UCAT_PRIMARY_ACTION_BUTTON}
     >
-      {startMutation.isPending ||
-      activeAttemptLoading ||
-      questionEngineTourLoading
+      {startMutation.isPending || activeAttemptLoading
         ? "Loading…"
         : "Start practice"}
     </Button>
