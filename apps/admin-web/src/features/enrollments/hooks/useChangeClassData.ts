@@ -40,17 +40,8 @@ export function useChangeClassData({
       if (rpcError) throw rpcError;
       if (!rpcResult) return [];
       
-      interface RPCClass {
-        id: string;
-        day_of_week: number;
-        start_time: string;
-        end_time: string;
-        status: string;
-        room: string | null;
-        subject_id: string | null;
-        level: string | null;
-      }
-      
+      type RPCClass = Tables<'classes'>;
+
       interface RPCSubject {
         id: string;
         curriculum: string | null;
@@ -93,19 +84,7 @@ export function useChangeClassData({
       
       // Transform RPC response to match ClassWithExpandedSubject format
       return rpcClasses.map(c => ({
-        id: c.id,
-        day_of_week: c.day_of_week,
-        start_time: c.start_time,
-        end_time: c.end_time,
-        status: c.status as Tables<'classes'>['status'],
-        room: c.room,
-        level: c.level,
-        subject_id: c.subject_id,
-        created_at: null,
-        updated_at: null,
-        created_by: null,
-        session_start_date: '2026-01-01',
-        session_end_date: '2026-12-31',
+        ...c,
         subject: rpcData.classSubjects?.[c.id] as Tables<'subjects'> | undefined,
         staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
           id: s.id,
