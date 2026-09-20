@@ -857,9 +857,11 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           fullInvoice,
         );
         if (!paidSync.ok && !("skipped" in paidSync && paidSync.skipped)) {
-          console.error(
-            "[webhook] subscription invoice sync (paid):",
-            paidSync,
+          // invoice.paid can precede checkout completion's customer mapping.
+          // Keep the event retryable so the invoice and paid-conversion event
+          // are persisted once that mapping is available.
+          throw new Error(
+            `Subscription invoice sync must retry: ${paidSync.reason}`,
           );
         }
         if (paidSync.ok) {

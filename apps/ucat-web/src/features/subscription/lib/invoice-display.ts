@@ -47,10 +47,13 @@ export function isInvoiceOverdue(invoice: {
 }
 
 export function getInvoiceTotalAmount(invoice: {
+  total_cents?: number | null;
   total_charges_cents: number | null;
   total_subsidies_cents: number | null;
   amount_due_cents: number | null;
 }): number | null {
+  // Stripe totals include discounts, taxes, and adjustments omitted by line sums.
+  if (invoice.total_cents != null) return invoice.total_cents;
   if (invoice.total_charges_cents != null) {
     const subsidies = invoice.total_subsidies_cents ?? 0;
     return invoice.total_charges_cents - subsidies;

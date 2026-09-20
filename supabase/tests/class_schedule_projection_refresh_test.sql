@@ -1,4 +1,6 @@
 BEGIN;
+-- Match the fixture class timezone when current_date crosses UTC midnight.
+SET LOCAL TIME ZONE 'Australia/Adelaide';
 SELECT no_plan();
 
 CREATE TEMP TABLE schedule_fixture AS

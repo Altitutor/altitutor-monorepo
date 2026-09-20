@@ -1,6 +1,6 @@
 # UCAT founder offers
 
-Status: implemented locally on 2026-09-20; deployment pending CI/CD.
+Status: initial implementation deployed to development on 2026-09-20; sandbox E2E follow-up fixes await deployment. Production release pending.
 
 ## Confirmed direction
 
@@ -58,3 +58,25 @@ Migrations and functions ship through CI/CD. Ensure the Stripe webhook destinati
 - Founder browser journey passed: explicit no-card acceptance grants Unlimited, creates no subscription or payment checkout, and cannot consume another place on reload. Public invitation layout also inspected in the browser.
 - UCAT/AdminWeb lint and typechecks passed. All 14 build tasks passed with isolated Next build directories, avoiding running development servers.
 - The full repository gate is not green: broader database runs encountered unrelated class scheduling/transfer contracts; standalone Stripe webhook typechecking reports eight errors in existing code. A final whole critical-browser-suite rerun was interrupted during seeding by the shared local database being reset (`question_stems` temporarily absent). The founder browser journey passed independently before that interruption.
+
+
+## Sandbox end-to-end verification (2026-09-21 Adelaide)
+
+Tested Chrome against isolated local app servers, local Supabase and the development Stripe sandbox. No live payment was made.
+
+- Created a capped offer in AdminWeb; copied its invitation link; disabled and re-enabled it.
+- Accepted a two-week pass without a card. Unlimited access and the expiry date appeared; no Stripe subscription was created.
+- Purchased the monthly plan with a 20% founder discount using Stripe's test card: A$32 paid against the A$40 plan, an ongoing coupon, and no additional trial after the pass.
+- Fixed confirmation animation getting stuck when a pass already grants Unlimited (React Strict Mode/effect restart), and public pricing configuration being statically cached.
+- Fixed invoice webhook ordering: an invoice delivered before customer mapping now returns a retryable error; delivery after mapping records the paid invoice; duplicate delivery is ignored.
+- Fixed subscription billing to show the founder-adjusted next bill and Stripe's authoritative invoice total. Chrome displayed A$32 for both, with the 20% benefit explained. Practice rewards can further reduce the monthly bill to A$10 under the tested configuration.
+- Existing subscribers were redirected away from a second checkout. Canceled the sandbox subscription and verified the same student cannot reclaim the founder discount.
+- Queried development PostHog: invitation preview, discount selection and pass redemption arrived with campaign `sandbox-e2e-20260920`; actual successful-payment and cancellation events include both pass and discount codes. Payment/cancellation fixtures are marked `internal_test`.
+- Removed the temporary local webhook secret file and stopped the extra test servers/listener. The sandbox subscription is canceled.
+
+Development deployment `35517150864` passed lint, types, unit tests, builds, browser/database and migration/function deployment. The founder tables are present in development. Both Stripe environments already subscribe to checkout expiry/completion and subscription/invoice events. Both Supabase environments have Stripe and PostHog secret names configured (values were not disclosed or changed).
+
+Remaining release work: deploy the E2E fixes through the release gate, then smoke-test the deployed application before promoting to production. No manual Stripe coupons are necessary. AdminWeb's `NEXT_PUBLIC_UCAT_WEB_URL` must point at the corresponding UCAT site if overriding the production default. The development yearly plan is disabled; enable it in billing configuration only if offering yearly subscriptions is intended. No production offers were created.
+
+
+Final local validation: all 21 lint, typecheck and unit-test tasks passed; UCAT's 236 test suites / 1,131 tests and coverage passed; all 74 Edge Function tests (267 steps) passed. The full script encountered a shared `.next` build-directory collision, then the isolated UCAT production build passed (the other 13 build tasks had passed). All 118 database files / 1,117 tests passed after removing the manual sandbox fixtures and correcting the class schedule test to use its Adelaide timezone. All six critical browser journeys passed, plus the separate three-test founder/subscription suite. The one-command gate was not rerun end-to-end; its remaining checks were completed separately without resetting the shared database.

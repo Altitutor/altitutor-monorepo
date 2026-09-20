@@ -30,6 +30,7 @@ export type UcatSubscriptionInvoice = {
   status: string | null;
   paid_at: string | null;
   hosted_invoice_url: string | null;
+  total_cents?: number | null;
   total_charges_cents: number | null;
   total_subsidies_cents: number | null;
   amount_due_cents: number | null;
@@ -37,6 +38,7 @@ export type UcatSubscriptionInvoice = {
 };
 
 export type UcatSubscriptionBillingResponse = {
+  founderPercentOff?: number | null;
   subscription: UcatSubscriptionDetails | null;
   subscriptions: UcatSubscriptionDetails[];
   invoices: UcatSubscriptionInvoice[];

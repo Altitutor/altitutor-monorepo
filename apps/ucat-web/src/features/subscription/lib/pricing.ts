@@ -94,6 +94,7 @@ export function computePracticeDiscountPricing(
     plan_tier?: string | null;
     billing_interval?: string | null;
   },
+  founderPercentOff = 0,
 ): PracticeDiscountPricing {
   const billingFrequencyLabel = inferBillingFrequency({
     current_period_start: subscription.current_period_start ?? null,
@@ -102,10 +103,14 @@ export function computePracticeDiscountPricing(
   const interval =
     parseBillingInterval(subscription.billing_interval) ??
     intervalFromFrequencyLabel(billingFrequencyLabel);
-  const standardPriceCents = getStandardPriceCents(
+  const listPriceCents = getStandardPriceCents(
     config,
     subscription,
     billingFrequencyLabel,
+  );
+  const standardPriceCents = Math.max(
+    0,
+    listPriceCents - Math.round((listPriceCents * founderPercentOff) / 100),
   );
   const discountRule =
     getPublicPracticeDayDiscount(config, interval) ??
