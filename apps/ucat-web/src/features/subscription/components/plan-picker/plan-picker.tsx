@@ -1,5 +1,7 @@
 "use client";
 
+import { FounderAccessStatus } from "@/features/founder-offers/components/founder-access-status";
+import { InvitationCodeEntry } from "@/features/founder-offers/components/invitation-code-entry";
 import type { ReactNode } from "react";
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
@@ -235,6 +237,17 @@ export function PlanPicker({
 
   return (
     <div className={className}>
+      {audience === "app" && !isOnPaid ? (
+        <div className="mx-auto mb-6 max-w-xl">
+          <FounderAccessStatus />
+          <InvitationCodeEntry
+            onDiscountApplied={() => undefined}
+            onPassRedeemed={() => {
+              void handleFreePlanAction();
+            }}
+          />
+        </div>
+      ) : null}
       {isDowngradeScheduled && scheduledDowngradeEndDate ? (
         <div className="mb-6">
           <ScheduledPlanDowngradeNotice endDate={scheduledDowngradeEndDate} />
@@ -509,9 +522,7 @@ export function PlanPicker({
             <PlanPickerCta
               variant="proAccent"
               surfaceTheme={surfaceTheme}
-              isCurrentPlan={
-                unlimitedIsCurrentPlan && !isDowngradeScheduled
-              }
+              isCurrentPlan={unlimitedIsCurrentPlan && !isDowngradeScheduled}
               currentPlanActionable={currentPaidPlanActionable}
               isDowngrade={unlimitedIsDowngrade}
               disabled={

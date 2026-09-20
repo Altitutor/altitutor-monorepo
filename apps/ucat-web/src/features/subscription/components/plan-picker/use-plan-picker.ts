@@ -1,5 +1,7 @@
 "use client";
 
+import { pendingInvitation } from "@/features/founder-offers/lib/pending-invitation";
+
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
@@ -160,7 +162,17 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     access.onlineTier === "unlimited" ||
     access.onlineTier === "unlimited_trial" ||
     subscribedPlanTier === "unlimited";
-  const isOnPaid = isOnUnlimitedTier;
+  const isOnPaid = Boolean(
+    subscription &&
+      [
+        "active",
+        "trialing",
+        "past_due",
+        "unpaid",
+        "incomplete",
+        "paused",
+      ].includes(subscription.status),
+  );
   const { data: practiceDiscountProgress } = usePracticeDiscountDashboard(
     options.audience === "app" && isOnPaid,
   );
@@ -277,6 +289,8 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       interval: billingInterval,
       context: returnContext,
     });
+    const invitation = pendingInvitation();
+    if (invitation?.startsWith("F-")) params.set("offer", invitation);
     if (options.postCheckoutReturnTo) {
       params.set("redirect", options.postCheckoutReturnTo);
     }
@@ -491,7 +505,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
     freeIsCurrentPlan,
     needsOnboarding,
     isOnPaid,
-    isOnUnlimited: isOnUnlimitedTier,
+    isOnUnlimited: isOnUnlimitedTier && isOnPaid,
     isDowngradeScheduled,
     scheduledDowngradeEndDate,
     cancellationOpen,

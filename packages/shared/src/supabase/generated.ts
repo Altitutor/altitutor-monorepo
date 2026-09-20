@@ -16826,6 +16826,69 @@ export type Database = {
           },
         ]
       }
+      ucat_checkout_holds: {
+        Row: {
+          checkout_session_id: string | null
+          created_at: string
+          id: string
+          selection_key: string
+          student_id: string
+          suppress_trial: boolean
+        }
+        Insert: {
+          checkout_session_id?: string | null
+          created_at?: string
+          id?: string
+          selection_key: string
+          student_id: string
+          suppress_trial?: boolean
+        }
+        Update: {
+          checkout_session_id?: string | null
+          created_at?: string
+          id?: string
+          selection_key?: string
+          student_id?: string
+          suppress_trial?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_checkout_holds_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_checkout_holds_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_checkout_holds_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_checkout_holds_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_checkout_holds_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       ucat_communication_consent_events: {
         Row: {
           action: string
@@ -17650,6 +17713,168 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      ucat_founder_offers: {
+        Row: {
+          active: boolean
+          campaign: string
+          code: string
+          created_at: string
+          created_by: string | null
+          duration_count: number | null
+          duration_unit: string | null
+          expires_at: string | null
+          id: string
+          kind: string
+          max_redemptions: number | null
+          name: string
+          percent_off: number | null
+        }
+        Insert: {
+          active?: boolean
+          campaign: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          duration_count?: number | null
+          duration_unit?: string | null
+          expires_at?: string | null
+          id?: string
+          kind: string
+          max_redemptions?: number | null
+          name: string
+          percent_off?: number | null
+        }
+        Update: {
+          active?: boolean
+          campaign?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          duration_count?: number | null
+          duration_unit?: string | null
+          expires_at?: string | null
+          id?: string
+          kind?: string
+          max_redemptions?: number | null
+          name?: string
+          percent_off?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_founder_offers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_offers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_offers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_offers_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ucat_founder_redemptions: {
+        Row: {
+          access_ends_at: string | null
+          billing_interval: string | null
+          checkout_session_id: string | null
+          id: string
+          kind: string
+          offer_id: string
+          redeemed_at: string | null
+          reserved_at: string
+          status: string
+          stripe_subscription_id: string | null
+          student_id: string
+        }
+        Insert: {
+          access_ends_at?: string | null
+          billing_interval?: string | null
+          checkout_session_id?: string | null
+          id?: string
+          kind: string
+          offer_id: string
+          redeemed_at?: string | null
+          reserved_at?: string
+          status: string
+          stripe_subscription_id?: string | null
+          student_id: string
+        }
+        Update: {
+          access_ends_at?: string | null
+          billing_interval?: string | null
+          checkout_session_id?: string | null
+          id?: string
+          kind?: string
+          offer_id?: string
+          redeemed_at?: string | null
+          reserved_at?: string
+          status?: string
+          stripe_subscription_id?: string | null
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ucat_founder_redemptions_offer_id_fkey"
+            columns: ["offer_id"]
+            isOneToOne: false
+            referencedRelation: "ucat_founder_offers"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_redemptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_redemptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_redemptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_redemptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_founder_redemptions_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
       }
       ucat_free_quota_reset_entitlements: {
         Row: {
@@ -39221,6 +39446,32 @@ export type Database = {
           isSetofReturn: true
         }
       }
+      claim_ucat_founder_offer: {
+        Args: {
+          p_billing_interval?: string
+          p_code: string
+          p_student_id: string
+        }
+        Returns: {
+          access_ends_at: string | null
+          billing_interval: string | null
+          checkout_session_id: string | null
+          id: string
+          kind: string
+          offer_id: string
+          redeemed_at: string | null
+          reserved_at: string
+          status: string
+          stripe_subscription_id: string | null
+          student_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ucat_founder_redemptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
       claim_ucat_lifecycle_email: {
         Args: {
           p_campaign_key: string
@@ -40587,6 +40838,27 @@ export type Database = {
           p_subject_id?: string
         }
         Returns: string
+      }
+      reserve_ucat_checkout: {
+        Args: {
+          p_referral?: boolean
+          p_selection_key: string
+          p_student_id: string
+        }
+        Returns: {
+          checkout_session_id: string | null
+          created_at: string
+          id: string
+          selection_key: string
+          student_id: string
+          suppress_trial: boolean
+        }
+        SetofOptions: {
+          from: "*"
+          to: "ucat_checkout_holds"
+          isOneToOne: true
+          isSetofReturn: false
+        }
       }
       resolve_merged_student_id: {
         Args: { p_student_id: string }

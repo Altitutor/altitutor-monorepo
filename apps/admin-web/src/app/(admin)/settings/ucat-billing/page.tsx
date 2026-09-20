@@ -14,7 +14,9 @@ import { UcatPracticeDayDiscountForm } from '@/features/ucat-subscription-config
 import { UcatFreeQuotaConfigForm } from '@/features/ucat-subscription-config/components/UcatFreeQuotaConfigForm';
 import { UcatFreeTierStudentsTable } from '@/features/ucat-free-tier/components/UcatFreeTierStudentsTable';
 
-const VALID_TABS = ['subscription', 'prices', 'discounts', 'quotas', 'students'] as const;
+import { FounderOffers } from '@/features/ucat-founder-offers/components/FounderOffers';
+
+const VALID_TABS = ['subscription', 'prices', 'discounts', 'quotas', 'students', 'offers'] as const;
 type BillingTab = (typeof VALID_TABS)[number];
 
 export default function UcatBillingSettingsPage() {
@@ -80,6 +82,7 @@ export default function UcatBillingSettingsPage() {
           { value: 'discounts', label: 'Discounts' },
           { value: 'quotas', label: 'Quotas' },
           { value: 'students', label: 'Students' },
+          { value: 'offers', label: 'Founder offers' },
         ]}
       />
 
@@ -97,6 +100,10 @@ export default function UcatBillingSettingsPage() {
 
       <SegmentedTabPanelContent when="quotas" activeTab={activeTab}>
         {config ? <UcatFreeQuotaConfigForm initial={config} onSaved={load} /> : null}
+      </SegmentedTabPanelContent>
+
+      <SegmentedTabPanelContent when="offers" activeTab={activeTab}>
+        <FounderOffers />
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="students" activeTab={activeTab}>

@@ -129,7 +129,7 @@ export async function handleAuthRequest(request: NextRequest) {
   if (isNoSessionPath) return forwardRequest(request, null);
 
   const isPublicEntry =
-    pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password";
+    pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password" || pathname.startsWith("/invite/");
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const cookies: CookieToSet[] = [];

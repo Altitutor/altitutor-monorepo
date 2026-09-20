@@ -115,6 +115,16 @@
 
 ## UCAT acquisition and conversion
 
+- **Founder access pass** — An administrator-issued, time-limited grant of UCAT access that requires no payment card and does not automatically become a paid subscription. Continuing with paid access requires an explicit purchase.
+  _Avoid_: Auto-renewing trial, referral gift
+
+- **Founder offer redemption** — The confirmed grant of one administrator-issued access pass or application of one founder discount to a newly started subscription. Previewing a code or reserving a checkout place is not a redemption, and a redemption alone is not a Paid acquisition conversion.
+
+- **Founder checkout reservation** — A temporary hold on a capped founder offer while a Student completes payment checkout. The place remains held until checkout completes or is confirmed unable to complete.
+
+- **Founder discount** — An administrator-issued percentage reduction from the applicable eligible subscription price, retained while that subscription continues and lost when it ends. It does not freeze the underlying price and cannot be combined with another promotional discount.
+  _Avoid_: Lifetime price lock, permanent account discount
+
 - **Observed acquisition attribution** — The first measurable campaign context through which a Student reached Altitutor UCAT, such as a tagged Reddit link or business-card QR code. It is immutable first-touch evidence and remains distinct from what the Student remembers or reports.
   _Avoid_: Marketing source, latest touch, self-reported source
 

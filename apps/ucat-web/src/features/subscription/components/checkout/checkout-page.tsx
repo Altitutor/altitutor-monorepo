@@ -1,5 +1,7 @@
 "use client";
 
+import { InvitationCodeEntry } from "@/features/founder-offers/components/invitation-code-entry";
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -147,6 +149,10 @@ export function CheckoutPage() {
   const tierParam = searchParams.get("tier");
   const intervalParam = searchParams.get("interval");
   const contextParam = searchParams.get("context");
+  const founderCode = searchParams.get("offer") ?? undefined;
+  const [founderPercentOff, setFounderPercentOff] = useState<number | null>(
+    null,
+  );
   const referralGiftId = searchParams.get("gift") ?? undefined;
   const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
   const tier = isUcatPaidPlanTier(tierParam) ? tierParam : null;
@@ -194,6 +200,7 @@ export function CheckoutPage() {
       interval,
       returnContext: context,
       referralGiftId,
+      founderCode,
       returnTo: returnTo !== "/dashboard" ? returnTo : undefined,
     })
       .then((session) => {
@@ -206,6 +213,7 @@ export function CheckoutPage() {
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
         setReferralGiftApplied(session.referralGiftApplied);
+        setFounderPercentOff(session.founderPercentOff);
         setStandardTrialDays(session.trialEligible ? session.trialDays : 0);
       })
       .catch((error: unknown) => {
@@ -221,6 +229,7 @@ export function CheckoutPage() {
     context,
     interval,
     referralGiftId,
+    founderCode,
     returnTo,
     router,
     tier,
@@ -236,7 +245,8 @@ export function CheckoutPage() {
   const pricing =
     price && discount
       ? computeMarketingPlanPricing(
-          price.basePriceCents,
+          price.basePriceCents -
+            Math.round((price.basePriceCents * (founderPercentOff ?? 0)) / 100),
           interval,
           discount.discountPerDayCents,
           discount.maxDiscountsPerPeriod,
@@ -258,12 +268,85 @@ export function CheckoutPage() {
       : subDays(firstChargeAt, 3)
     : null;
 
+  const cancelCurrentCheckout = async () => {
+    const response = await fetch("/api/ucat/invitations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel_checkout", checkoutSessionId }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.error ?? "Could not change this checkout.");
+    }
+    setClientSecret(null);
+  };
+  const replaceOffer = (code: string | null) => {
+    rememberInvitation(code);
+    const params = new URLSearchParams(searchParams.toString());
+    if (code) params.set("offer", code);
+    else params.delete("offer");
+    params.delete("gift");
+    window.location.assign(`/checkout?${params.toString()}`);
+  };
+
   return (
     <div className="relative min-h-dvh bg-background text-foreground">
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
+        <div className="mb-6 max-w-xl">
+          {!clientSecret && checkoutSessionId ? (
+            <Button variant="outline" onClick={() => window.location.reload()}>
+              Return to payment checkout
+            </Button>
+          ) : null}
+
+          {founderCode && founderPercentOff ? (
+            <div className="rounded-xl border bg-card p-4 text-sm">
+              <p className="font-semibold">
+                {founderPercentOff}% founding-member discount applied
+              </p>
+              <p>
+                Applies while this subscription stays active. Cancellation ends
+                the discount; billing interval stays fixed.
+              </p>
+              <button
+                type="button"
+                className="mt-2 underline"
+                onClick={() => {
+                  void cancelCurrentCheckout()
+                    .then(() => replaceOffer(null))
+                    .catch((error: unknown) =>
+                      setCheckoutError(
+                        error instanceof Error
+                          ? error.message
+                          : "Could not remove offer.",
+                      ),
+                    );
+                }}
+              >
+                Remove offer
+              </button>
+            </div>
+          ) : (
+            <InvitationCodeEntry
+              beforeApply={cancelCurrentCheckout}
+              onDiscountApplied={(code) => replaceOffer(code)}
+              onPassRedeemed={() => window.location.assign("/dashboard")}
+            />
+          )}
+        </div>
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            try {
+              await cancelCurrentCheckout();
+            } catch (error) {
+              setCheckoutError(
+                error instanceof Error
+                  ? error.message
+                  : "Could not close checkout.",
+              );
+              return;
+            }
             trackSubscriptionJourneyEvent({
               eventType: "change_plan_clicked",
               journeyContext: context,
@@ -309,9 +392,33 @@ export function CheckoutPage() {
               ) : billingLoading ? (
                 <CheckoutFieldsSkeleton />
               ) : checkoutError ? (
-                <p className="rounded-xl bg-red-500/10 p-4 text-sm text-red-200">
-                  {checkoutError}
-                </p>
+                <div className="space-y-3 rounded-xl bg-destructive/10 p-4 text-sm">
+                  <p role="alert" className="text-destructive">
+                    {checkoutError}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                  >
+                    Retry checkout
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      void cancelCurrentCheckout()
+                        .then(() => window.location.reload())
+                        .catch((error: unknown) =>
+                          setCheckoutError(
+                            error instanceof Error
+                              ? error.message
+                              : "Could not close checkout.",
+                          ),
+                        );
+                    }}
+                  >
+                    Cancel open checkout and restart
+                  </Button>
+                </div>
               ) : clientSecret ? (
                 <CheckoutProvider
                   stripe={stripePromise}
@@ -397,7 +504,8 @@ export function CheckoutPage() {
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">
-                    Standard {intervalNoun(interval)}ly price
+                    {founderPercentOff ? "Founder" : "Standard"}{" "}
+                    {intervalNoun(interval)}ly price
                   </span>
                   <span className="font-semibold">
                     {formatMoneyFromMinorUnits(
