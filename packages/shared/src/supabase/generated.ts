@@ -8255,6 +8255,9 @@ export type Database = {
           source_credit_note_id: string | null
           source_invoice_item_id: string | null
           status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          stripe_credit_note_command: Json | null
+          stripe_credit_note_request_version: number | null
+          stripe_credit_note_requested_at: string | null
           updated_at: string
         }
         Insert: {
@@ -8277,6 +8280,9 @@ export type Database = {
           source_credit_note_id?: string | null
           source_invoice_item_id?: string | null
           status?: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          stripe_credit_note_command?: Json | null
+          stripe_credit_note_request_version?: number | null
+          stripe_credit_note_requested_at?: string | null
           updated_at?: string
         }
         Update: {
@@ -8299,6 +8305,9 @@ export type Database = {
           source_credit_note_id?: string | null
           source_invoice_item_id?: string | null
           status?: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          stripe_credit_note_command?: Json | null
+          stripe_credit_note_request_version?: number | null
+          stripe_credit_note_requested_at?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -38983,6 +38992,17 @@ export type Database = {
         }
         Returns: Json
       }
+      admin_work_item_edit: {
+        Args: {
+          p_action: string
+          p_changes?: Json
+          p_id: string
+          p_key?: string
+          p_kind: string
+          p_token?: string
+        }
+        Returns: Json
+      }
       admin_work_item_history: {
         Args: { p_id: string; p_kind: string; p_offset?: number }
         Returns: Json
@@ -39154,6 +39174,9 @@ export type Database = {
           source_credit_note_id: string | null
           source_invoice_item_id: string | null
           status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          stripe_credit_note_command: Json | null
+          stripe_credit_note_request_version: number | null
+          stripe_credit_note_requested_at: string | null
           updated_at: string
         }[]
         SetofOptions: {
@@ -39185,6 +39208,9 @@ export type Database = {
           source_credit_note_id: string | null
           source_invoice_item_id: string | null
           status: Database["public"]["Enums"]["session_billing_adjustment_status"]
+          stripe_credit_note_command: Json | null
+          stripe_credit_note_request_version: number | null
+          stripe_credit_note_requested_at: string | null
           updated_at: string
         }[]
         SetofOptions: {

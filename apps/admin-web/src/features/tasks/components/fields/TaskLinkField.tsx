@@ -61,10 +61,16 @@ export function TaskLinkField({
   const { data: issues = [] } = useIssues();
   const { data: projects = [] } = useProjects();
 
-  const activeLink: LinkSelection = selectedProject
-    ? { type: 'project', id: selectedProject.id, name: selectedProject.name }
-    : selectedIssue
-      ? { type: 'issue', id: selectedIssue.id, name: selectedIssue.name }
+  const projectId = form.watch('projectId');
+  const issueId = form.watch('issueId');
+  const currentProject = projects.find(item => item.id === projectId)
+    ?? (selectedProject?.id === projectId ? selectedProject : null);
+  const currentIssue = issues.find(item => item.id === issueId)
+    ?? (selectedIssue?.id === issueId ? selectedIssue : null);
+  const activeLink: LinkSelection = projectId
+    ? { type: 'project', id: projectId, name: currentProject?.name ?? null }
+    : issueId
+      ? { type: 'issue', id: issueId, name: currentIssue?.name ?? null }
       : null;
 
   const issueMatches = useMemo(() => {

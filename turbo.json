@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "concurrency": "12",
+  "concurrency": "13",
   "globalDependencies": [
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",

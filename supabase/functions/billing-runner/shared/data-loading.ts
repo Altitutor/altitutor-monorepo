@@ -1,5 +1,12 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
+interface PricingOverrideRecord {
+  hourly_rate_cents: number;
+  currency: string;
+  effective_from: string;
+  effective_until?: string | null;
+}
+
 /**
  * Load billing settings from database
  */

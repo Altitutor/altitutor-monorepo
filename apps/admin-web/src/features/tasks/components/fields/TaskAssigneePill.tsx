@@ -1,6 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { staffApi } from '@/features/staff/api/staff';
 import {
   FormControl,
   FormField,
@@ -24,7 +26,7 @@ interface TaskAssigneePillProps {
 
 export function TaskAssigneePill({
   form,
-  selectedAssignee,
+  selectedAssignee: initialAssignee,
   onAssigneeChange,
   enabled = true,
 }: TaskAssigneePillProps) {
@@ -36,14 +38,15 @@ export function TaskAssigneePill({
     enabled && open
   );
 
-  useEffect(() => {
-    const currentAssignedTo = form.getValues('assignedTo');
-    if (selectedAssignee && currentAssignedTo !== selectedAssignee.id) {
-      form.setValue('assignedTo', selectedAssignee.id, { shouldDirty: false });
-    } else if (!selectedAssignee && currentAssignedTo !== null) {
-      form.setValue('assignedTo', null, { shouldDirty: false });
-    }
-  }, [selectedAssignee, form]);
+  const assignedTo = form.watch('assignedTo');
+  const { data: fetchedAssignee } = useQuery({
+    queryKey: ['staff', 'task-assignee', assignedTo],
+    queryFn: () => staffApi.getById(assignedTo!),
+    enabled: !!assignedTo && assignedTo !== initialAssignee?.id,
+  });
+  const selectedAssignee = assignedTo === initialAssignee?.id
+    ? initialAssignee
+    : assignedTo ? fetchedAssignee ?? null : null;
 
   const assigneeInitials = selectedAssignee
     ? getUserInitials(selectedAssignee.first_name, selectedAssignee.last_name)
@@ -81,12 +84,15 @@ export function TaskAssigneePill({
     <FormField
       control={form.control}
       name="assignedTo"
-      render={({ field: _field }) => (
+      render={({ field }) => (
         <FormItem>
           <SearchableSelect<Tables<'staff'>>
             items={staffList}
             value={selectedAssignee}
-            onValueChange={onAssigneeChange}
+            onValueChange={(staff) => {
+              field.onChange(staff?.id ?? null);
+              onAssigneeChange(staff);
+            }}
             getItemId={(s) => s.id}
             getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
             getItemValue={(s) => `${s.first_name} ${s.last_name} ${s.email ?? ''}`.trim()}

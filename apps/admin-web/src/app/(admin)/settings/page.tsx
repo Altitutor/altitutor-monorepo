@@ -24,6 +24,15 @@ import { AdminSettingsCard } from "@/shared/components";
 export default function SettingsPage() {
   const settingsSections = [
       {
+        title: "AI applications",
+        items: [{
+          title: "AI connections",
+          description: "Connect AI applications and manage their business access",
+          href: "/settings/ai-connections",
+          icon: Link2,
+        }],
+      },
+      {
         title: "Student records",
         items: [{
           title: "Duplicate students",

@@ -1,0 +1,36 @@
+begin;
+select plan(17);
+insert into auth.users(id) values ('ee000000-0000-4000-8000-000000000001'),('ee000000-0000-4000-8000-000000000002');
+insert into public.staff(id,user_id,first_name,last_name,role,status) values
+('ee000000-0000-4000-8000-000000000011','ee000000-0000-4000-8000-000000000001','Alice','Editor','ADMINSTAFF','ACTIVE'),
+('ee000000-0000-4000-8000-000000000012','ee000000-0000-4000-8000-000000000002','Bob','Editor','ADMINSTAFF','ACTIVE');
+select set_config('request.jwt.claims','{"sub":"ee000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+set local role authenticated;
+create temporary table work as select public.admin_work_item_change('task',null,null,'lease-create','{"title":"Existing","description":"Important"}') as body;
+create temporary table editor as select public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'acquire') as body;
+select is((select body->>'can_edit' from editor),'true','first viewer opens in edit mode');
+select is((select body#>>'{record,description}' from editor),'Important','opening never clears content');
+select is(public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'acquire')->>'can_edit','false','another tab of the same user cannot take over');
+select is(public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'read')->>'token',null,'read does not leak the lease token');
+select throws_ok(format('update public.tasks set description=null where id=%L',(select body#>>'{record,id}' from work)),'55P03','A valid editing session is required','direct writes cannot bypass the lease');
+select throws_ok(format('select public.admin_work_item_change(''task'',%L,1,''blocked-mcp'',''{"title":"Overwrite"}'')',(select body#>>'{record,id}' from work)),'55P03','This item is being edited. Try again after its editor closes it.','non-editor writers respect the live lease');
+select lives_ok(format('select public.admin_work_item_edit(''task'',%L,''preview'',%L,''{"description":"Typing"}'')',(select body#>>'{record,id}' from work),(select body->>'token' from editor)),'owner publishes a preview');
+select is(public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'read')#>>'{preview,description}','Typing','read-only viewers see unsaved typing');
+select is(public.admin_work_item_read('task',(select (body#>>'{record,id}')::uuid from work))#>>'{record,description}','Important','preview does not overwrite saved content');
+select lives_ok(format('select public.admin_work_item_edit(''task'',%L,''save'',%L,''{"description":"Saved"}'',''save-once'')',(select body#>>'{record,id}' from work),(select body->>'token' from editor)),'explicit save succeeds without a client revision');
+select is(public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'save',(select (body->>'token')::uuid from editor),'{"description":"Saved"}','save-once')#>>'{record,admin_revision}','2','retry does not write again');
+select is(public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'read')->'preview','null'::jsonb,'save clears live preview');
+reset role;
+update admin_operations.edit_sessions set expires_at=clock_timestamp()-interval '1 second';
+set local role authenticated;
+select throws_ok(format('select public.admin_work_item_edit(''task'',%L,''heartbeat'',%L)',(select body#>>'{record,id}' from work),(select body->>'token' from editor)),'55P03',null,'expired token cannot be revived by heartbeat');
+select set_config('request.jwt.claims','{"sub":"ee000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+create temporary table bob as select public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'acquire') as body;
+select is((select body->>'can_edit' from bob),'true','new editor acquires after expiry');
+select set_config('request.jwt.claims','{"sub":"ee000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+select throws_ok(format('select public.admin_work_item_edit(''task'',%L,''save'',%L,''{"description":null}'',''stale-save'')',(select body#>>'{record,id}' from work),(select body->>'token' from editor)),'55P03',null,'stale editor cannot overwrite a new session');
+select lives_ok(format('select public.admin_work_item_edit(''task'',%L,''release'',%L)',(select body#>>'{record,id}' from work),(select body->>'token' from editor)),'late release is harmless');
+select set_config('request.jwt.claims','{"sub":"ee000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+select is(public.admin_work_item_edit('task',(select (body#>>'{record,id}')::uuid from work),'read',(select (body->>'token')::uuid from bob))->>'can_edit','true','late release does not release the new session');
+select * from finish();
+rollback;

@@ -129,6 +129,24 @@ describe("student session middleware", () => {
     );
   });
 
+  it("redirects an anonymous local root to the local marketing landing even when production marketing is configured", async () => {
+    const originalMarketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL;
+    process.env.NEXT_PUBLIC_MARKETING_URL = "https://altitutor.com";
+    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
+    try {
+      const response = await middleware(new NextRequest("http://localhost:3001/"));
+      expect(response.headers.get("location")).toBe(
+        "http://localhost:3003/online-learning/",
+      );
+    } finally {
+      if (originalMarketingUrl === undefined) {
+        delete process.env.NEXT_PUBLIC_MARKETING_URL;
+      } else {
+        process.env.NEXT_PUBLIC_MARKETING_URL = originalMarketingUrl;
+      }
+    }
+  });
+
   it("treats invalid JWT verification as an instrumented outage", async () => {
     mockGetClaims.mockResolvedValue({
       data: null,

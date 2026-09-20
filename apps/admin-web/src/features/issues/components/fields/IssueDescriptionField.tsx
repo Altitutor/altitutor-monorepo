@@ -43,7 +43,7 @@ export function IssueDescriptionField({
               ref={effectiveRef}
               content={field.value || ''}
               onChange={field.onChange}
-              onChangeDebounceMs={200}
+              onChangeDebounceMs={0}
               placeholder="Add issue description..."
               className="min-h-0"
               context="issues"

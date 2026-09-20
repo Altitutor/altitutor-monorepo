@@ -1,5 +1,7 @@
 'use client';
 
+import { useWorkItemEditable } from '@/features/work-item-editing/context';
+
 import {
   forwardRef,
   useCallback,
@@ -88,6 +90,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
     },
     ref,
   ) => {
+    const sessionEditable = useWorkItemEditable();
     const { handlePasteImages, handleDrop } = useAdminRichTextImageUpload({
       context,
       editorRef: ref as React.RefObject<RichTextEditorRef | null>,
@@ -141,21 +144,22 @@ export const AdminRichTextEditorWithImages = forwardRef<
     return (
       <div
         onDragOver={(e) => {
-          if (editorProps.editable !== false) e.preventDefault();
+          if (sessionEditable && editorProps.editable !== false) e.preventDefault();
         }}
-        onDrop={editorProps.editable === false ? undefined : handleDrop}
+        onDrop={!sessionEditable || editorProps.editable === false ? undefined : handleDrop}
       >
         <RichTextEditor
           ref={ref}
           content={editorContent}
           onChange={handleChange}
-          onChangeDebounceMs={onChangeDebounceMs}
+          onChangeDebounceMs={sessionEditable ? onChangeDebounceMs : 0}
           placeholder={placeholder}
           className={className}
           mentionSuggestions={mentionSuggestions}
           slashMenuSuggestions={slashMenuSuggestions}
-          onPasteImages={handlePasteImages}
+          onPasteImages={sessionEditable && editorProps.editable !== false ? handlePasteImages : undefined}
           {...editorProps}
+          editable={sessionEditable && editorProps.editable !== false}
         />
       </div>
     );

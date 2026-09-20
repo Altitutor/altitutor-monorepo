@@ -43,6 +43,7 @@ tasks.json
 *storybook.log
 .next
 .next-e2e
+.next-ucat-native
 .next-onboarding-prototype
 test-results/
 

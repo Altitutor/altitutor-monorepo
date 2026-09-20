@@ -336,3 +336,19 @@ Use CLI login, or set `VERCEL_TOKEN` / `EXPO_TOKEN` in `.env.shared`.
 ### Secrets not updating
 
 Redeploy the Vercel app or re-run the GitHub Actions workflow after changing secrets.
+
+## Admin MCP reporting connection
+
+Store `ADMIN_REPORTING_DATABASE_URL` in `.env.production` and, when testing development,
+`.env.development`, using each project's dedicated `admin_reporting_reader` login.
+This is separate from the administrator's `SUPABASE_DB_PASSWORD`.
+
+```bash
+# From the repository root; uploads this key only, to admin-web only.
+bash secrets/scripts/deploy-vercel.sh --only ADMIN_REPORTING_DATABASE_URL
+```
+
+Production maps to Vercel Production; development maps to Vercel Preview. Empty values
+are skipped. Redeploy admin-web afterward. The normal all-secrets deployment includes
+this key too. Password provisioning and verification are described in
+[Admin MCP setup](../docs/admin-mcp.md). Never commit the populated connection string.
