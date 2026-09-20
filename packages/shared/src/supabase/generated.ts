@@ -2096,7 +2096,7 @@ export type Database = {
           is_opted_out: boolean
           opted_out_at: string | null
           parent_id: string | null
-          phone_e164: string
+          phone_e164: string | null
           staff_id: string | null
           student_id: string | null
           updated_at: string | null
@@ -2109,7 +2109,7 @@ export type Database = {
           is_opted_out?: boolean
           opted_out_at?: string | null
           parent_id?: string | null
-          phone_e164: string
+          phone_e164?: string | null
           staff_id?: string | null
           student_id?: string | null
           updated_at?: string | null
@@ -2122,7 +2122,7 @@ export type Database = {
           is_opted_out?: boolean
           opted_out_at?: string | null
           parent_id?: string | null
-          phone_e164?: string
+          phone_e164?: string | null
           staff_id?: string | null
           student_id?: string | null
           updated_at?: string | null
