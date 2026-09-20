@@ -30,6 +30,8 @@ import { formatTime } from '@/shared/utils/datetime';
 import { useSessionNotes } from '../hooks/useSessionNotes';
 import { SessionNotes } from './SessionNotes';
 import { useSessionModalData, type ProcessedStudent, type ProcessedStaff } from '../hooks/useSessionModalData';
+import { sessionShowsParents } from '../utils/sessionParents';
+import { SessionParentsSection } from './SessionParentsSection';
 import {
   tutorBtnOutline,
   tutorCardCn,
@@ -90,10 +92,11 @@ export function SessionModal({
 }: SessionModalProps) {
   const { data: notesData } = useSessionNotes(sessionId || '');
 
-  const { session, tutorLog, allTopics, studentsData, staffData, subject, isLoading, refresh } = useSessionModalData({
-    isOpen,
-    sessionId,
-  });
+  const { session, tutorLog, allTopics, studentsData, staffData, parentsData, subject, isLoading, refresh } =
+    useSessionModalData({
+      isOpen,
+      sessionId,
+    });
 
   useEffect(() => {
     if (refreshTrigger != null && refreshTrigger > 0 && sessionId) {
@@ -123,6 +126,7 @@ export function SessionModal({
 
   const sessionTitle = getSessionTitle(session);
   const isCheckIn = session.session_type === 'CHECK_IN';
+  const showParents = sessionShowsParents(session.session_type);
   const hasTutorLog = !!tutorLog;
   const canAddTutorLog = hasSessionStarted(session.start_at);
 
@@ -298,6 +302,13 @@ export function SessionModal({
                 </div>
               )}
             </div>
+
+            {showParents && (
+              <>
+                <div className={cn(tutorModalHairline, 'my-2')} role="presentation" />
+                <SessionParentsSection parentsData={parentsData} />
+              </>
+            )}
 
             {!isCheckIn && (
               <>

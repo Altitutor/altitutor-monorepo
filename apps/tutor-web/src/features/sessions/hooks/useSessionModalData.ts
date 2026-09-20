@@ -2,7 +2,13 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { sessionsApi } from '../api/sessions';
 import type { Tables } from '@altitutor/shared';
 import type { FlattenedSessionDetail, SessionStaff, SessionStudent } from '../utils/session-helpers';
-import { parseSessionStaffList, parseSessionStudentList } from '../utils/parseSessionDetailJson';
+import {
+  parseSessionParentList,
+  parseSessionStaffList,
+  parseSessionStudentList,
+  parseTutorLogParentAttendance,
+} from '../utils/parseSessionDetailJson';
+import { processSessionParents, type ProcessedParent, type TutorLogParentAttendance } from '../utils/sessionParents';
 
 export interface UseSessionModalDataProps {
   isOpen: boolean;
@@ -43,6 +49,7 @@ interface TutorLog {
   created_by_last_name?: string | null;
   student_attendance?: TutorLogStudentAttendance[];
   staff_attendance?: TutorLogStaffAttendance[];
+  parent_attendance?: TutorLogParentAttendance[];
   topics?: Array<{ id: string; name: string; subject_id: string }>;
   files?: Array<{
     id: string;
@@ -69,6 +76,7 @@ export interface UseSessionModalDataReturn {
   allTopics: Tables<'topics'>[];
   studentsData: ProcessedStudent[];
   staffData: ProcessedStaff[];
+  parentsData: ProcessedParent[];
   subject: Tables<'subjects'> | null;
 
   // State
@@ -98,12 +106,14 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
       if (result && result.session_id) {
         const students = parseSessionStudentsFromJson(result.students);
         const staff = parseSessionStaffFromJson(result.staff);
+        const parents = parseSessionParentList(result.parents);
 
         setData({
           ...result,
           session_id: result.session_id,
           students,
           staff,
+          parents,
         } as FlattenedSessionDetail);
       } else {
         setData(null);
@@ -210,6 +220,7 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
               : null,
           student_attendance: parseStudentAttendance(logResult.student_attendance),
           staff_attendance: parseStaffAttendance(logResult.staff_attendance),
+          parent_attendance: parseTutorLogParentAttendance(logResult.parent_attendance),
           topics: parseTopics(logResult.topics),
           files: parseFiles(logResult.files),
         });
@@ -296,12 +307,14 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
       if (result && result.session_id) {
         const students = parseSessionStudentsFromJson(result.students);
         const staff = parseSessionStaffFromJson(result.staff);
+        const parents = parseSessionParentList(result.parents);
 
         setData({
           ...result,
           session_id: result.session_id,
           students,
           staff,
+          parents,
         } as FlattenedSessionDetail);
       } else {
         setData(null);
@@ -425,12 +438,18 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
     });
   }, [sessionsStaff, actualStaffAttendance, hasTutorLog]);
 
+  const parentsData = useMemo(
+    () => processSessionParents(data?.parents ?? [], tutorLog?.parent_attendance ?? [], hasTutorLog),
+    [data?.parents, tutorLog?.parent_attendance, hasTutorLog]
+  );
+
   return {
     session,
     tutorLog,
     allTopics,
     studentsData,
     staffData,
+    parentsData,
     subject,
     isLoading,
     refresh,

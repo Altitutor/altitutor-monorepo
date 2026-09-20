@@ -33333,6 +33333,7 @@ export type Database = {
           logged_for_last_name: string | null
           logged_for_staff_id: string | null
           notes: Json | null
+          parent_attendance: Json | null
           session_id: string | null
           staff_attendance: Json | null
           student_attendance: Json | null
