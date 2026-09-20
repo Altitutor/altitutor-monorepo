@@ -1544,6 +1544,7 @@ export type Database = {
           room: string | null
           schedule_anchor_date: string | null
           schedule_frequency_weeks: number | null
+          schedule_projected_on: string | null
           schedule_rows: Json
           schedule_summary_long: string | null
           schedule_summary_short: string | null
@@ -1573,6 +1574,7 @@ export type Database = {
           room?: string | null
           schedule_anchor_date?: string | null
           schedule_frequency_weeks?: number | null
+          schedule_projected_on?: string | null
           schedule_rows?: Json
           schedule_summary_long?: string | null
           schedule_summary_short?: string | null
@@ -1602,6 +1604,7 @@ export type Database = {
           room?: string | null
           schedule_anchor_date?: string | null
           schedule_frequency_weeks?: number | null
+          schedule_projected_on?: string | null
           schedule_rows?: Json
           schedule_summary_long?: string | null
           schedule_summary_short?: string | null
@@ -9052,6 +9055,7 @@ export type Database = {
           created_by: string | null
           credited_at: string | null
           credited_by: string | null
+          enrolment_absence_snapshot: Json | null
           id: string
           is_credited: boolean
           is_rescheduled: boolean
@@ -9070,6 +9074,7 @@ export type Database = {
           created_by?: string | null
           credited_at?: string | null
           credited_by?: string | null
+          enrolment_absence_snapshot?: Json | null
           id?: string
           is_credited?: boolean
           is_rescheduled?: boolean
@@ -9088,6 +9093,7 @@ export type Database = {
           created_by?: string | null
           credited_at?: string | null
           credited_by?: string | null
+          enrolment_absence_snapshot?: Json | null
           id?: string
           is_credited?: boolean
           is_rescheduled?: boolean
@@ -39340,6 +39346,17 @@ export type Database = {
         Args: { json_content: Json }
         Returns: string
       }
+      change_student_class: {
+        Args: {
+          p_first_new_date: string
+          p_last_old_date: string
+          p_new_class_id: string
+          p_old_class_id: string
+          p_staff_id: string
+          p_student_id: string
+        }
+        Returns: string[]
+      }
       claim_automation_execution: {
         Args: { p_execution_id: string }
         Returns: {
@@ -39877,6 +39894,16 @@ export type Database = {
           p_role?: string
         }
         Returns: Json
+      }
+      end_student_class_enrolment: {
+        Args: {
+          p_class_id: string
+          p_reason?: Json
+          p_staff_id: string
+          p_student_id: string
+          p_unenrolled_at: string
+        }
+        Returns: string[]
       }
       enqueue_automation_execution: {
         Args: {
@@ -40504,7 +40531,7 @@ export type Database = {
       }
       is_office_print_window_open: { Args: never; Returns: boolean }
       is_print_connector_online: {
-        Args: { p_stale_after?: string }
+        Args: { p_stale_after?: unknown }
         Returns: boolean
       }
       is_pristine_generated_class_session: {
@@ -40743,6 +40770,10 @@ export type Database = {
       }
       refresh_class_schedule_projection: {
         Args: { p_class_id: string }
+        Returns: undefined
+      }
+      refresh_due_class_schedule_projections: {
+        Args: never
         Returns: undefined
       }
       refresh_student_ucat_question_progress: {
