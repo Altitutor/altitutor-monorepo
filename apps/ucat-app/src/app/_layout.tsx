@@ -210,7 +210,8 @@ function Navigation() {
           <Stack.Screen
             name="trainer-start"
             options={{
-              title: "Skill trainer",
+              title: "",
+              headerShown: false,
               presentation: "formSheet",
               sheetAllowedDetents: [0.5, 1],
               sheetGrabberVisible: true,
