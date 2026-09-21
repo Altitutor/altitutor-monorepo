@@ -136,60 +136,63 @@ export function TrainerScoreBar({
             backgroundColor: c.card,
             paddingHorizontal: 12,
             paddingVertical: 8,
+            flexShrink: 1,
           }}
         >
           <Text
+            selectable
             style={{
               color: remaining <= 10 ? c.danger : c.text,
               fontWeight: "700",
               fontVariant: ["tabular-nums"],
             }}
           >
-            {Math.max(0, Math.ceil(remaining))}s
+            Time remaining {Math.max(0, Math.ceil(remaining))}s
           </Text>
         </View>
-        <View
-          style={{
-            borderRadius: 18,
-            backgroundColor: c.card,
-            paddingHorizontal: 12,
-            paddingVertical: 8,
-          }}
-        >
-          <Text
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View
             style={{
-              color: c.text,
-              fontWeight: "700",
-              fontVariant: ["tabular-nums"],
-            }}
-          >
-            Score {score}
-          </Text>
-        </View>
-        {streakEnabled && streak >= 2 ? (
-          <Animated.View
-            style={{
-              transform: [{ scale: bounce }],
               borderRadius: 18,
-              backgroundColor: streak >= 10 ? "#FBBF24" : c.tint,
+              backgroundColor: c.card,
               paddingHorizontal: 12,
               paddingVertical: 8,
             }}
           >
             <Text
-              accessibilityLabel={`${streak} correct in a row`}
+              selectable
               style={{
-                color: streak >= 10 ? "#451A03" : c.text,
+                color: c.text,
                 fontWeight: "700",
                 fontVariant: ["tabular-nums"],
               }}
             >
-              🔥 {streak}
+              Score {score}
             </Text>
-          </Animated.View>
-        ) : (
-          <View />
-        )}
+          </View>
+          {streakEnabled && streak >= 2 ? (
+            <Animated.View
+              style={{
+                transform: [{ scale: bounce }],
+                borderRadius: 18,
+                backgroundColor: streak >= 10 ? "#FBBF24" : c.tint,
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+            >
+              <Text
+                accessibilityLabel={`${streak} correct in a row`}
+                style={{
+                  color: streak >= 10 ? "#451A03" : c.text,
+                  fontWeight: "700",
+                  fontVariant: ["tabular-nums"],
+                }}
+              >
+                🔥 {streak}
+              </Text>
+            </Animated.View>
+          ) : null}
+        </View>
       </View>
       <TrainerFeedback feedback={feedback} />
     </View>

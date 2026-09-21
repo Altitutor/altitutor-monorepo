@@ -3,4 +3,7 @@ export type NativeButtonProps = {
   onPress: () => void;
   disabled?: boolean;
   close?: boolean;
+  secondary?: boolean;
+  block?: boolean;
+  tint?: string;
 };

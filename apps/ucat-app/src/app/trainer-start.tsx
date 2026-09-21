@@ -37,8 +37,7 @@ export default function TrainerStart() {
     <Screen>
       <Stack.Screen
         options={{
-          headerShown: false,
-          title: "",
+          title: trainer?.name ?? block.data?.trainerName ?? "Skill trainer",
           sheetAllowedDetents: howToPlay ? [1] : [0.5, 1],
           sheetInitialDetentIndex: 0,
         }}

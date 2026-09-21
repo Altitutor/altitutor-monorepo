@@ -24,29 +24,76 @@ const labels: Record<string, string> = {
   "-": "Subtract",
   "+": "Add",
   "=": "Equals",
-  Backspace: "Delete digit",
 };
+function keyCaption(key: string) {
+  return key === "sqrt" ? "√" : key;
+}
+function isDigitKey(key: string) {
+  return /^[0-9.]$/.test(key);
+}
+
+export function CalcKeyChip({ label }: { label: string }) {
+  const number = isDigitKey(label);
+  return (
+    <View
+      accessibilityLabel={labels[label] ?? label}
+      style={{
+        minHeight: 32,
+        minWidth: 32,
+        paddingHorizontal: 8,
+        alignItems: "center",
+        justifyContent: "center",
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: "#414042",
+        backgroundColor: number ? "#F5F5F5" : "#DE1F2A",
+      }}
+    >
+      <Text
+        style={{
+          color: number ? "#000000" : "#FFFFFF",
+          fontSize: label.length > 2 ? 11 : 13,
+          fontWeight: "600",
+        }}
+      >
+        {keyCaption(label)}
+      </Text>
+    </View>
+  );
+}
+
+export function CalcKeySequence({ labels }: { labels: string[] }) {
+  return (
+    <View
+      style={{
+        flexDirection: "row",
+        flexWrap: "wrap",
+        gap: 6,
+        justifyContent: "center",
+        minHeight: 32,
+      }}
+    >
+      {labels.map((label, i) => (
+        <CalcKeyChip key={`${label}-${i}`} label={label} />
+      ))}
+    </View>
+  );
+}
+
 type KeypadProps = {
   onKey: (key: string) => void;
-  numericOnly?: boolean;
   disabled?: boolean;
 };
 
-/** The web TI-108 key layout. Numeric mode emits raw answer-entry keys without performing arithmetic. */
-export function CalculatorKeypad({
-  onKey,
-  numericOnly = false,
-  disabled = false,
-}: KeypadProps) {
+/** The web TI-108 key layout. */
+export function CalculatorKeypad({ onKey, disabled = false }: KeypadProps) {
   const button = (key: string, grow = 1) => {
-    const number = /^[0-9.]$/.test(key);
+    const number = isDigitKey(key);
     return (
       <Pressable
         key={key}
         accessibilityRole="button"
-        accessibilityLabel={
-          numericOnly && key === "=" ? "Submit answer" : (labels[key] ?? key)
-        }
+        accessibilityLabel={labels[key] ?? key}
         accessibilityState={{ disabled }}
         disabled={disabled}
         onPress={() => onKey(key)}
@@ -69,36 +116,11 @@ export function CalculatorKeypad({
             fontWeight: "600",
           }}
         >
-          {key === "sqrt" ? "√" : key === "Backspace" ? "⌫" : key}
+          {keyCaption(key)}
         </Text>
       </Pressable>
     );
   };
-  if (numericOnly)
-    return (
-      <View style={{ gap: 5 }}>
-        {[
-          ["7", "8", "9", "Backspace"],
-          ["4", "5", "6", "."],
-        ].map((row, i) => (
-          <View key={i} style={{ flexDirection: "row", gap: 5 }}>
-            {row.map((key) => button(key))}
-          </View>
-        ))}
-        <View style={{ flexDirection: "row", gap: 5 }}>
-          <View style={{ flexGrow: 3, flexBasis: 10, gap: 5 }}>
-            <View style={{ flexDirection: "row", gap: 5 }}>
-              {["1", "2", "3"].map((key) => button(key))}
-            </View>
-            <View style={{ flexDirection: "row", gap: 5 }}>
-              {button("+/-")}
-              {button("0", 2)}
-            </View>
-          </View>
-          {button("=")}
-        </View>
-      </View>
-    );
   return (
     <View style={{ gap: 5 }}>
       {rows.map((row, i) => (
@@ -126,7 +148,12 @@ export function CalculatorKeypad({
 export function Calculator({
   onKey,
   disabled = false,
-}: { onKey?: (key: string) => void; disabled?: boolean } = {}) {
+  showDisplay = true,
+}: {
+  onKey?: (key: string) => void;
+  disabled?: boolean;
+  showDisplay?: boolean;
+} = {}) {
   const [state, setState] = useState(createInitialCalculatorState);
   const display = formatCalculatorDisplay(state);
   return (
@@ -143,51 +170,43 @@ export function Calculator({
         gap: 8,
       }}
     >
-      <View
-        accessibilityLiveRegion="polite"
-        style={{
-          backgroundColor: "#C5CEBD",
-          borderRadius: 3,
-          padding: 8,
-          flexDirection: "row",
-          alignItems: "center",
-          gap: 8,
-        }}
-      >
-        <Text
-          accessibilityLabel={
-            state.memoryValue !== 0 ? "Memory stored" : "Memory empty"
-          }
-          style={{ color: "#151915", fontSize: 12 }}
-        >
-          {state.memoryValue !== 0 ? "M" : ""}
-        </Text>
-        <Text
-          selectable
-          accessibilityLabel={`Calculator display ${display}`}
-          numberOfLines={1}
-          adjustsFontSizeToFit
+      {showDisplay ? (
+        <View
+          accessibilityLiveRegion="polite"
           style={{
-            flex: 1,
-            textAlign: "right",
-            color: "#101510",
-            fontSize: 29,
-            fontVariant: ["tabular-nums"],
+            backgroundColor: "#C5CEBD",
+            borderRadius: 3,
+            padding: 8,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
           }}
         >
-          {display}
-        </Text>
-      </View>
-      <Text
-        style={{
-          textAlign: "center",
-          fontSize: 11,
-          color: "#FFFFFF",
-          fontWeight: "600",
-        }}
-      >
-        TI-108 · UCAT calculator
-      </Text>
+          <Text
+            accessibilityLabel={
+              state.memoryValue !== 0 ? "Memory stored" : "Memory empty"
+            }
+            style={{ color: "#151915", fontSize: 12 }}
+          >
+            {state.memoryValue !== 0 ? "M" : ""}
+          </Text>
+          <Text
+            selectable
+            accessibilityLabel={`Calculator display ${display}`}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            style={{
+              flex: 1,
+              textAlign: "right",
+              color: "#101510",
+              fontSize: 29,
+              fontVariant: ["tabular-nums"],
+            }}
+          >
+            {display}
+          </Text>
+        </View>
+      ) : null}
       <CalculatorKeypad
         disabled={disabled}
         onKey={(key) => {

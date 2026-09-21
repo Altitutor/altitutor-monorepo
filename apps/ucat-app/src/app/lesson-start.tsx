@@ -39,15 +39,17 @@ export default function LessonStart() {
       ) : lesson.error ? (
         <Failure error={lesson.error} retry={() => void lesson.refetch()} />
       ) : (
-        <Group>
-          <Copy large>{lesson.data.module.title}</Copy>
-          {lesson.data.module.description ? (
-            <Copy>{lesson.data.module.description}</Copy>
-          ) : null}
-          <Copy muted>
-            {lesson.data.module.estimated_minutes ?? 0} min ·{" "}
-            {lesson.data.blocks.length} parts
-          </Copy>
+        <>
+          <Group>
+            <Copy large>{lesson.data.module.title}</Copy>
+            {lesson.data.module.description ? (
+              <Copy>{lesson.data.module.description}</Copy>
+            ) : null}
+            <Copy muted>
+              {lesson.data.module.estimated_minutes ?? 0} min ·{" "}
+              {lesson.data.blocks.length} parts
+            </Copy>
+          </Group>
           <Action
             title={
               lesson.data.module.completed_at
@@ -65,7 +67,7 @@ export default function LessonStart() {
             }
           />
           {start.error ? <Failure error={start.error} /> : null}
-        </Group>
+        </>
       )}
     </Screen>
   );

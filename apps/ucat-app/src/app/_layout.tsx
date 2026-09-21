@@ -8,6 +8,7 @@ import { useOnboardingAccess } from "@/features/auth/onboarding-access";
 import { ReviewNavigationProvider } from "@/features/attempts/review-navigation";
 import { TrainerToolsProvider } from "@/features/skill-trainer/components/trainer-tools";
 import { Platform, View } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AttemptBanner } from "@/features/practice/components/attempt-banner";
 import { useEffect, useState } from "react";
 import { setBackgroundColorAsync } from "expo-system-ui";
@@ -56,22 +57,24 @@ function ThemedRoot() {
         },
       }}
     >
-      <QueryClientProvider client={client}>
-        <AuthProvider>
-          <ExamToolsProvider>
-            <TrainerToolsProvider>
-              <LessonNavigationProvider>
-                <SheetNavigationProvider>
-                  <ReviewNavigationProvider>
-                    <Navigation />
-                  </ReviewNavigationProvider>
-                </SheetNavigationProvider>
-              </LessonNavigationProvider>
-            </TrainerToolsProvider>
-          </ExamToolsProvider>
-          <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
-        </AuthProvider>
-      </QueryClientProvider>
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryClientProvider client={client}>
+          <AuthProvider>
+            <ExamToolsProvider>
+              <TrainerToolsProvider>
+                <LessonNavigationProvider>
+                  <SheetNavigationProvider>
+                    <ReviewNavigationProvider>
+                      <Navigation />
+                    </ReviewNavigationProvider>
+                  </SheetNavigationProvider>
+                </LessonNavigationProvider>
+              </TrainerToolsProvider>
+            </ExamToolsProvider>
+            <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
+          </AuthProvider>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
     </ThemeProvider>
   );
 }
@@ -183,7 +186,8 @@ function Navigation() {
           <Stack.Screen
             name="calculator"
             options={{
-              title: "Calculator",
+              title: "",
+              headerShown: false,
               presentation: "formSheet",
               sheetAllowedDetents: [0.5, 1],
               sheetGrabberVisible: true,
@@ -210,8 +214,7 @@ function Navigation() {
           <Stack.Screen
             name="trainer-start"
             options={{
-              title: "",
-              headerShown: false,
+              title: "Skill trainer",
               presentation: "formSheet",
               sheetAllowedDetents: [0.5, 1],
               sheetGrabberVisible: true,

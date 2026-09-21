@@ -142,39 +142,22 @@ export const DEMO_STEPS: Record<UcatSkillTrainerKey, DemoStep[]> = {
   ],
   calculator_maths: [
     {
-      caption: "Tap the question area to begin.",
+      caption: "Work out the answer using the calculator.",
       target: "calculator-question",
+    },
+    {
+      caption: "Type the answer below the question.",
+      target: "calculator-answer",
       pressed: true,
     },
     {
-      caption: "Tap the calculator to switch focus.",
-      target: "calculator-display",
-      durationMs: 600,
-    },
-    {
-      caption: "Tap the calculator to switch focus.",
-      target: "calculator-display",
-      pressed: true,
-      durationMs: 400,
-    },
-    ...calculatorKeySteps("calculator-", [
-      { key: "2", typed: "2" },
-      { key: "4", typed: "24" },
-      { key: "+", typed: "24+" },
-      { key: "1", typed: "24+1" },
-      { key: "2", typed: "24+12" },
-    ]).map((step) => ({
-      ...step,
-      caption: "Type the calculation using the calculator.",
-    })),
-    {
-      caption: "Enter the final answer below the question.",
+      caption: "Type the answer below the question.",
       target: "calculator-answer",
       typed: "3",
       durationMs: 300,
     },
     {
-      caption: "Enter the final answer below the question.",
+      caption: "Type the answer below the question.",
       target: "calculator-answer",
       typed: "36",
       durationMs: 450,
@@ -188,7 +171,7 @@ export const DEMO_STEPS: Record<UcatSkillTrainerKey, DemoStep[]> = {
   ],
   numpad_speed: [
     {
-      caption: "Read the target sum from left to right.",
+      caption: "Read the target sequence from left to right.",
       target: "numpad-target",
     },
     ...calculatorKeySteps("numpad-", [
@@ -198,11 +181,11 @@ export const DEMO_STEPS: Record<UcatSkillTrainerKey, DemoStep[]> = {
       { key: "4", typed: "23+4" },
     ]),
     {
-      caption: "Select Submit when the sequence is complete.",
+      caption: "Press equals to submit the sequence.",
       target: "numpad-submit",
     },
     {
-      caption: "Select Submit when the sequence is complete.",
+      caption: "Press equals to submit the sequence.",
       target: "numpad-submit",
       pressed: true,
     },
@@ -220,4 +203,17 @@ export function latestDemoTyped(
     if (pick(step) && step.typed !== undefined) return step.typed;
   }
   return "";
+}
+
+export function latestDemoKeys(
+  steps: readonly DemoStep[],
+  stepIndex: number,
+): string[] {
+  const end = Math.min(Math.max(stepIndex, 0), steps.length - 1);
+  const keys: string[] = [];
+  for (let i = 0; i <= end; i += 1) {
+    const step = steps[i];
+    if (step.activeKey && step.pressed) keys.push(step.activeKey);
+  }
+  return keys;
 }

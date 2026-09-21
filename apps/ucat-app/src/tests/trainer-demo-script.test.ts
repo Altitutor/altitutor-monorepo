@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import { UCAT_SKILL_TRAINER_KEYS } from "@altitutor/shared";
 import {
   DEMO_STEPS,
+  latestDemoKeys,
   latestDemoTyped,
   type DemoStep,
 } from "../features/skill-trainer/lib/demo-script";
@@ -35,4 +36,15 @@ test("latestDemoTyped returns the newest matching typed value", () => {
     latestDemoTyped(steps, 2, (step) => step.target === "missing"),
     "",
   );
+});
+
+test("latestDemoKeys collects pressed calculator keys in order", () => {
+  const steps: DemoStep[] = [
+    { caption: "hover", target: "numpad-2" },
+    { caption: "press", target: "numpad-2", pressed: true, activeKey: "2" },
+    { caption: "hover", target: "numpad-plus" },
+    { caption: "press", target: "numpad-plus", pressed: true, activeKey: "+" },
+  ];
+  assert.deepEqual(latestDemoKeys(steps, 1), ["2"]);
+  assert.deepEqual(latestDemoKeys(steps, 3), ["2", "+"]);
 });

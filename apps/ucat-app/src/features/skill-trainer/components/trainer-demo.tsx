@@ -20,9 +20,10 @@ import Animated, {
   withTiming,
 } from "react-native-reanimated";
 import { Group, useColors } from "@/components/ui";
+import { CalcKeySequence } from "@/features/skill-trainer/components/calculator";
 import {
   DEMO_STEPS,
-  latestDemoTyped,
+  latestDemoKeys,
   type DemoStep,
 } from "@/features/skill-trainer/lib/demo-script";
 
@@ -146,48 +147,89 @@ function SyllogismTile({
   return target ? <Hit name={target}>{body}</Hit> : body;
 }
 
-const PAD_ROWS = [
-  ["7", "8", "9"],
-  ["4", "5", "6"],
-  ["1", "2", "3"],
-  [".", "0", "+"],
-] as const;
+function demoKeyName(prefix: string, key: string) {
+  if (key === "+") return `${prefix}plus`;
+  if (key === "=") return `${prefix}submit`;
+  return `${prefix}${key}`;
+}
 
-function NumberPad({
+function DemoCalcPad({
   activeKey,
   prefix,
 }: {
   activeKey?: string;
   prefix: string;
 }) {
-  const c = useColors();
+  const button = (key: string, grow = 1) => {
+    const number = /^[0-9.]$/.test(key);
+    const active = key === activeKey;
+    return (
+      <Hit
+        key={key}
+        name={demoKeyName(prefix, key)}
+        style={{
+          flex: grow,
+          minHeight: 32,
+          alignItems: "center",
+          justifyContent: "center",
+          backgroundColor: active
+            ? number
+              ? "#D0D0D0"
+              : "#9A1520"
+            : number
+              ? "#F5F5F5"
+              : "#DE1F2A",
+          borderWidth: 1,
+          borderColor: "#414042",
+          borderRadius: 5,
+        }}
+      >
+        <Text
+          style={{
+            color: number ? "#000000" : "#FFFFFF",
+            fontSize: key.length > 2 ? 11 : 14,
+            fontWeight: "600",
+          }}
+        >
+          {key === "sqrt" ? "√" : key}
+        </Text>
+      </Hit>
+    );
+  };
   return (
-    <View style={{ gap: 8 }}>
-      {PAD_ROWS.map((row) => (
-        <View key={row.join()} style={{ flexDirection: "row", gap: 8 }}>
-          {row.map((key) => (
-            <Hit
-              key={key}
-              name={`${prefix}${key === "+" ? "plus" : key}`}
-              style={{
-                flex: 1,
-                minHeight: 40,
-                alignItems: "center",
-                justifyContent: "center",
-                borderRadius: 8,
-                borderCurve: "continuous",
-                borderWidth: 1,
-                borderColor: c.border,
-                backgroundColor: key === activeKey ? c.tint : c.card,
-              }}
-            >
-              <Text style={{ color: c.text, fontSize: 16, fontWeight: "600" }}>
-                {key}
-              </Text>
-            </Hit>
-          ))}
+    <View
+      style={{
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: "#414042",
+        backgroundColor: "#507ABD",
+        padding: 8,
+        gap: 4,
+      }}
+    >
+      {[
+        ["+/-", "sqrt", "%", "÷"],
+        ["MRC", "M-", "M+", "×"],
+        ["7", "8", "9", "-"],
+        ["4", "5", "6", "+"],
+      ].map((row) => (
+        <View key={row.join()} style={{ flexDirection: "row", gap: 4 }}>
+          {row.map((key) => button(key))}
         </View>
       ))}
+      <View style={{ flexDirection: "row", gap: 4 }}>
+        <View style={{ flexGrow: 3, flexBasis: 10, gap: 4 }}>
+          {[
+            ["1", "2", "3"],
+            ["ON/C", "0", "."],
+          ].map((row) => (
+            <View key={row.join()} style={{ flexDirection: "row", gap: 4 }}>
+              {row.map((key) => button(key))}
+            </View>
+          ))}
+        </View>
+        {button("=", 1)}
+      </View>
     </View>
   );
 }
@@ -374,19 +416,10 @@ function Scene({
         </View>
       </View>
     );
-  if (trainerKey === "calculator_maths") {
-    const steps = DEMO_STEPS.calculator_maths;
-    const calculatorText = latestDemoTyped(steps, stepIndex, (elapsed) =>
-      Boolean(elapsed.activeKey),
-    );
-    const answerText = latestDemoTyped(
-      steps,
-      stepIndex,
-      (elapsed) => elapsed.target === "calculator-answer",
-    );
+  if (trainerKey === "calculator_maths")
     return (
-      <View style={{ gap: 16 }}>
-        <Hit name="calculator-question" style={{ gap: 12, alignItems: "center" }}>
+      <View style={{ gap: 16, alignItems: "center" }}>
+        <Hit name="calculator-question">
           <Text
             style={{
               color: c.text,
@@ -397,37 +430,12 @@ function Scene({
           >
             A £24 item increases by £12. What is its new price?
           </Text>
-          <View
-            style={{ flexDirection: "row", alignItems: "stretch", gap: 8 }}
-          >
-            <Hit
-              name="calculator-answer"
-              style={{
-                flex: 1,
-                minHeight: 44,
-                justifyContent: "center",
-                paddingHorizontal: 12,
-                borderRadius: 10,
-                borderCurve: "continuous",
-                borderWidth: 1,
-                borderColor: c.border,
-                backgroundColor: c.background,
-              }}
-            >
-              <Text style={{ color: c.text, fontSize: 16 }}>{answerText}</Text>
-            </Hit>
-            <Chip
-              target="calculator-submit"
-              active={step.target === "calculator-submit" && step.pressed}
-            >
-              Submit
-            </Chip>
-          </View>
         </Hit>
-        <View style={{ gap: 8 }}>
+        <View style={{ flexDirection: "row", alignItems: "stretch", gap: 8 }}>
           <Hit
-            name="calculator-display"
+            name="calculator-answer"
             style={{
+              flex: 1,
               minHeight: 44,
               justifyContent: "center",
               paddingHorizontal: 12,
@@ -438,65 +446,41 @@ function Scene({
               backgroundColor: c.background,
             }}
           >
-            <Text
-              style={{
-                color: c.text,
-                fontSize: 18,
-                fontVariant: ["tabular-nums"],
-                textAlign: "right",
-              }}
-            >
-              {calculatorText}
+            <Text style={{ color: c.text, fontSize: 18 }}>
+              {step.typed ?? (stepIndex > 3 ? "36" : "")}
             </Text>
           </Hit>
-          <NumberPad prefix="calculator-" activeKey={step.activeKey} />
+          <Chip
+            target="calculator-submit"
+            active={step.target === "calculator-submit" && step.pressed}
+          >
+            Submit
+          </Chip>
         </View>
       </View>
     );
-  }
-  const entered = latestDemoTyped(
-    DEMO_STEPS.numpad_speed,
-    stepIndex,
-    (elapsed) => Boolean(elapsed.activeKey),
-  );
+  const entered = latestDemoKeys(DEMO_STEPS.numpad_speed, stepIndex);
   return (
     <View style={{ gap: 16 }}>
-      <View style={{ gap: 12, alignItems: "center" }}>
+      <View style={{ gap: 10, alignItems: "center" }}>
         <Text style={{ color: c.secondary, fontSize: 13, fontWeight: "600" }}>
           Target sequence
         </Text>
         <Hit name="numpad-target">
-          <Text
-            style={{
-              color: c.text,
-              fontSize: 32,
-              fontWeight: "700",
-              letterSpacing: 2,
-            }}
-          >
-            23+4
-          </Text>
+          <CalcKeySequence labels={["2", "3", "+", "4"]} />
         </Hit>
         <Text style={{ color: c.secondary, fontSize: 13, fontWeight: "600" }}>
-          Your entry
+          Your sequence
         </Text>
-        <Text
-          style={{
-            color: entered ? c.text : c.secondary,
-            fontSize: 18,
-            fontVariant: ["tabular-nums"],
-          }}
-        >
-          {entered || "…"}
-        </Text>
-        <Chip
-          target="numpad-submit"
-          active={step.target === "numpad-submit" && step.pressed}
-        >
-          Submit
-        </Chip>
+        {entered.length ? (
+          <CalcKeySequence labels={entered} />
+        ) : (
+          <Text style={{ color: c.secondary, fontSize: 15 }}>
+            Press keys on the calculator…
+          </Text>
+        )}
       </View>
-      <NumberPad prefix="numpad-" activeKey={step.activeKey} />
+      <DemoCalcPad prefix="numpad-" activeKey={step.activeKey} />
     </View>
   );
 }

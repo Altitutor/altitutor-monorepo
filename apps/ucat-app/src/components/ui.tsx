@@ -30,6 +30,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { Action } from "./action";
 
 export function useColors() {
   return useAppTheme().scheme === "dark"
@@ -56,6 +57,7 @@ export function useColors() {
         danger: "#B7332C",
       };
 }
+export { Action };
 export function Screen({
   children,
   refreshing,
@@ -178,47 +180,6 @@ export function Group({
         ))}
       </View>
     </View>
-  );
-}
-export function Action({
-  title,
-  onPress,
-  disabled,
-  secondary,
-}: {
-  title: string;
-  onPress: () => void;
-  disabled?: boolean;
-  secondary?: boolean;
-}) {
-  const c = useColors();
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(disabled) }}
-      disabled={disabled}
-      onPress={onPress}
-      style={({ pressed }) => ({
-        minHeight: 48,
-        padding: 14,
-        borderRadius: 14,
-        borderCurve: "continuous",
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: secondary ? c.tint : c.accent,
-        opacity: disabled ? 0.4 : pressed ? 0.7 : 1,
-      })}
-    >
-      <Text
-        style={{
-          color: secondary ? c.accent : buttonText(c.accent),
-          fontWeight: "600",
-          fontSize: 16,
-        }}
-      >
-        {title}
-      </Text>
-    </Pressable>
   );
 }
 export function buttonText(accent: string) {

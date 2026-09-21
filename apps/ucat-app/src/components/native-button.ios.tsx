@@ -1,36 +1,61 @@
 import { Host, Button } from "@expo/ui/swift-ui";
 import {
+  accessibilityLabel,
+  buttonBorderShape,
   buttonStyle,
   controlSize,
   disabled,
+  frame,
   labelStyle,
-  accessibilityLabel,
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useAppTheme } from "@/features/settings/theme";
 import { useColors } from "./ui";
 import type { NativeButtonProps } from "./native-button.types";
+
 export function NativeButton({
   title,
   onPress,
   disabled: busy = false,
   close = false,
+  secondary = false,
+  block = false,
+  tint: tintColor,
 }: NativeButtonProps) {
   const { scheme } = useAppTheme();
   const c = useColors();
+  const color = tintColor ?? c.accent;
+  const style = close
+    ? "glass"
+    : secondary
+      ? "glass"
+      : block
+        ? "glassProminent"
+        : "glass";
   return (
-    <Host matchContents colorScheme={scheme === "dark" ? "dark" : "light"}>
+    <Host
+      matchContents={block ? { vertical: true } : true}
+      colorScheme={scheme === "dark" ? "dark" : "light"}
+      seedColor={color}
+      style={block ? { width: "100%", minHeight: 50 } : undefined}
+    >
       <Button
         label={title}
         systemImage={close ? "xmark" : undefined}
         onPress={onPress}
         modifiers={[
-          buttonStyle("glass"),
-          controlSize("regular"),
+          buttonStyle(style),
+          controlSize(block ? "large" : "regular"),
           disabled(busy),
           accessibilityLabel(title),
-          tint(c.accent),
+          tint(color),
           ...(close ? [labelStyle("iconOnly")] : []),
+          ...(block
+            ? [
+                buttonBorderShape("capsule"),
+                frame({ maxWidth: Infinity, minHeight: 50 }),
+              ]
+            : []),
         ]}
       />
     </Host>
