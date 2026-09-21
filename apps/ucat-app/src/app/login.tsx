@@ -1,16 +1,10 @@
 import { useState } from "react";
-import {
-  ActivityIndicator,
-  Pressable,
-  useWindowDimensions,
-  Text,
-  View,
-} from "react-native";
+import { useWindowDimensions, Text, View } from "react-native";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { Action, useColors } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
-import { buttonText, useColors } from "@/components/ui";
 import { useAppTheme } from "@/features/settings/theme";
 import { configured } from "@/lib/supabase";
 import { signInWithBrowser } from "@/features/auth/browser-auth";
@@ -22,7 +16,6 @@ export default function Login() {
   const short = height < 580;
   const c = useColors();
   const { scheme } = useAppTheme();
-  const onAccent = buttonText(c.accent);
   const [busy, setBusy] = useState<"login" | "signup" | null>(null);
   const [error, setError] = useState<string | null>(null);
   async function signIn(mode: "login" | "signup") {
@@ -110,7 +103,7 @@ export default function Login() {
                 justifyContent: "center",
               }}
             >
-              <AppIcon name="brain" color={onAccent} size={46} />
+              <AppIcon name="brain" color="#FFFFFF" size={46} />
             </View>
           </View>
         )}
@@ -168,52 +161,17 @@ export default function Login() {
             {error ?? "Sign-in is not configured for this build."}
           </Text>
         )}
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Sign in"
+        <Action
+          title={busy === "login" ? "Signing in…" : "Sign in"}
           disabled={Boolean(busy) || !configured}
           onPress={() => void signIn("login")}
-          style={({ pressed }) => ({
-            minHeight: short ? 44 : 56,
-            borderRadius: 18,
-            borderCurve: "continuous",
-            backgroundColor: c.accent,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: busy || pressed ? 0.6 : 1,
-          })}
-        >
-          {busy === "login" ? (
-            <ActivityIndicator color={onAccent} />
-          ) : (
-            <Text style={{ color: onAccent, fontSize: 18, fontWeight: "600" }}>
-              Sign in
-            </Text>
-          )}
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Create an account"
+        />
+        <Action
+          title={busy === "signup" ? "Creating account…" : "Create an account"}
+          secondary
           disabled={Boolean(busy) || !configured}
           onPress={() => void signIn("signup")}
-          style={({ pressed }) => ({
-            minHeight: short ? 44 : 56,
-            borderRadius: 18,
-            borderCurve: "continuous",
-            backgroundColor: c.tint,
-            alignItems: "center",
-            justifyContent: "center",
-            opacity: busy || pressed ? 0.6 : 1,
-          })}
-        >
-          {busy === "signup" ? (
-            <ActivityIndicator color={c.accent} />
-          ) : (
-            <Text style={{ color: c.accent, fontSize: 18, fontWeight: "600" }}>
-              Create an account
-            </Text>
-          )}
-        </Pressable>
+        />
         {!short && (
           <Text
             style={{

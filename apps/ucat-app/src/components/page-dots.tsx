@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { View } from "react-native";
+import { haptic } from "@/lib/haptics";
 import { useColors } from "./ui";
 
 export function PageDots({
@@ -16,7 +17,12 @@ export function PageDots({
   const dark = c.background === "#171717";
   function seek(x: number) {
     if (!count || !width) return;
-    onIndex(Math.max(0, Math.min(count - 1, Math.floor((x / width) * count))));
+    const next = Math.max(
+      0,
+      Math.min(count - 1, Math.floor((x / width) * count)),
+    );
+    if (next !== index) haptic();
+    onIndex(next);
   }
   const size = 8;
   return (
@@ -31,10 +37,14 @@ export function PageDots({
         { name: "decrement", label: "Previous question" },
       ]}
       onAccessibilityAction={(event) => {
-        if (event.nativeEvent.actionName === "increment")
+        if (event.nativeEvent.actionName === "increment") {
+          haptic();
           onIndex(Math.min(count - 1, index + 1));
-        if (event.nativeEvent.actionName === "decrement")
+        }
+        if (event.nativeEvent.actionName === "decrement") {
+          haptic();
           onIndex(Math.max(0, index - 1));
+        }
       }}
       onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
       onStartShouldSetResponder={() => true}

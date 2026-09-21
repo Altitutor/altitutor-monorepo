@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { Stack } from "expo-router/stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { withHaptic } from "@/lib/haptics";
 import { Meter, useColors } from "./ui";
 type Props = {
   previous: () => void;
@@ -43,7 +44,7 @@ export function BottomToolbar({
             icon="chevron.left"
             accessibilityLabel={previousLabel}
             disabled={previousDisabled || hidePrevious}
-            onPress={previous}
+            onPress={withHaptic(previous)}
           >
             {previousLabel}
           </Stack.Toolbar.Button>
@@ -53,7 +54,7 @@ export function BottomToolbar({
           <Stack.Toolbar.Button
             icon="square.grid.2x2"
             accessibilityLabel="Question navigator"
-            onPress={onNavigator}
+            onPress={withHaptic(onNavigator)}
           >
             Question navigator
           </Stack.Toolbar.Button>
@@ -66,7 +67,7 @@ export function BottomToolbar({
                   ? "Lesson navigator, current part completed"
                   : "Lesson navigator"
               }
-              onPress={onProgress}
+              onPress={withHaptic(onProgress)}
               style={{
                 width: 184,
                 padding: 12,
@@ -88,7 +89,7 @@ export function BottomToolbar({
             icon={reviewNext ? "checklist" : "chevron.right"}
             accessibilityLabel={nextLabel}
             disabled={nextDisabled || hideNext}
-            onPress={next}
+            onPress={withHaptic(next)}
           >
             {nextLabel}
           </Stack.Toolbar.Button>
@@ -117,7 +118,7 @@ export function BottomToolbar({
         accessibilityRole="button"
         accessibilityLabel={previousLabel}
         disabled={previousDisabled || hidePrevious}
-        onPress={previous}
+        onPress={withHaptic(previous)}
         style={{
           padding: 12,
           opacity: hidePrevious ? 0 : previousDisabled ? 0.3 : 1,
@@ -129,7 +130,7 @@ export function BottomToolbar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Question navigator"
-          onPress={onNavigator}
+          onPress={withHaptic(onNavigator)}
           style={{ padding: 16 }}
         >
           <Text style={{ color: c.accent, fontSize: 24 }}>▦</Text>
@@ -142,7 +143,7 @@ export function BottomToolbar({
               ? "Lesson navigator, current part completed"
               : "Lesson navigator"
           }
-          onPress={onProgress}
+          onPress={withHaptic(onProgress)}
           style={{
             width: 184,
             paddingVertical: 16,
@@ -161,7 +162,7 @@ export function BottomToolbar({
         accessibilityRole="button"
         accessibilityLabel={nextLabel}
         disabled={nextDisabled || hideNext}
-        onPress={next}
+        onPress={withHaptic(next)}
         style={{ padding: 12, opacity: hideNext ? 0 : nextDisabled ? 0.3 : 1 }}
       >
         <Text style={{ color: c.accent, fontSize: 26 }}>

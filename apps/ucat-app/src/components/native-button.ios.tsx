@@ -10,6 +10,7 @@ import {
   tint,
 } from "@expo/ui/swift-ui/modifiers";
 import { useAppTheme } from "@/features/settings/theme";
+import { withHaptic } from "@/lib/haptics";
 import { useColors } from "./ui";
 import type { NativeButtonProps } from "./native-button.types";
 
@@ -20,7 +21,10 @@ export function NativeButton({
   close = false,
   secondary = false,
   block = false,
+  compact = false,
+  systemImage,
   tint: tintColor,
+  accessibilityLabel: label,
 }: NativeButtonProps) {
   const { scheme } = useAppTheme();
   const c = useColors();
@@ -41,13 +45,13 @@ export function NativeButton({
     >
       <Button
         label={title}
-        systemImage={close ? "xmark" : undefined}
-        onPress={onPress}
+        systemImage={close ? "xmark" : systemImage}
+        onPress={withHaptic(onPress)}
         modifiers={[
           buttonStyle(style),
-          controlSize(block ? "large" : "regular"),
+          controlSize(block ? "large" : compact ? "small" : "regular"),
           disabled(busy),
-          accessibilityLabel(title),
+          accessibilityLabel(label ?? title),
           tint(color),
           ...(close ? [labelStyle("iconOnly")] : []),
           ...(block

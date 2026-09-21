@@ -94,6 +94,7 @@ export default function Progress() {
             sections={q.data.sectionProgress}
             projections={projections.data?.sections ?? []}
             targets={plan.data?.generation?.sectionTargets}
+            mockTarget={plan.data?.profile?.targetScore}
           />
         </>
       )}

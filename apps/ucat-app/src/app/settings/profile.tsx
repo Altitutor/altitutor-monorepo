@@ -10,6 +10,7 @@ import {
   useColors,
 } from "@/components/ui";
 import { dataApi } from "@/features/dashboard/api";
+import { withHaptic } from "@/lib/haptics";
 import { openWebSettings } from "@/features/settings/open-web-settings";
 
 export default function Profile() {
@@ -22,7 +23,9 @@ export default function Profile() {
     <Screen>
       {process.env.EXPO_OS === "ios" ? (
         <Stack.Toolbar placement="right">
-          <Stack.Toolbar.Button onPress={edit}>Edit</Stack.Toolbar.Button>
+          <Stack.Toolbar.Button onPress={withHaptic(edit)}>
+            Edit
+          </Stack.Toolbar.Button>
         </Stack.Toolbar>
       ) : (
         <Stack.Screen
@@ -30,7 +33,7 @@ export default function Profile() {
             headerRight: () => (
               <Pressable
                 accessibilityRole="button"
-                onPress={edit}
+                onPress={withHaptic(edit)}
                 style={{ padding: 12 }}
               >
                 <Text style={{ color: c.accent }}>Edit</Text>

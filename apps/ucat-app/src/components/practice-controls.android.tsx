@@ -9,6 +9,7 @@ import {
 } from "@expo/ui/jetpack-compose";
 import { useAppTheme } from "@/features/settings/theme";
 import { Copy, useColors } from "./ui";
+import { haptic, withHaptic } from "@/lib/haptics";
 import { fillMaxWidth } from "@expo/ui/jetpack-compose/modifiers";
 import type { ChoiceProps, PaceProps } from "./practice-controls.types";
 export function Choice({ label, value, onChange, options }: ChoiceProps) {
@@ -28,6 +29,7 @@ export function Choice({ label, value, onChange, options }: ChoiceProps) {
       </View>
       <Host
         colorScheme={scheme === "dark" ? "dark" : "light"}
+        seedColor={c.accent}
         matchContents={{ vertical: true }}
         style={{ flex: 1, minWidth: 0, minHeight: 44 }}
       >
@@ -43,7 +45,10 @@ export function Choice({ label, value, onChange, options }: ChoiceProps) {
           </DropdownMenu.Trigger>
           <DropdownMenu.Items>
             {options.map((o) => (
-              <DropdownMenuItem key={o.value} onClick={() => onChange(o.value)}>
+              <DropdownMenuItem
+                key={o.value}
+                onClick={withHaptic(() => onChange(o.value))}
+              >
                 <DropdownMenuItem.Text>
                   <Text>{o.label}</Text>
                 </DropdownMenuItem.Text>
@@ -70,7 +75,10 @@ export function PaceSlider({ value, onChange }: PaceProps) {
           min={0.25}
           max={2}
           steps={6}
-          onValueChange={onChange}
+          onValueChange={(next) => {
+            if (next !== value) haptic();
+            onChange(next);
+          }}
           colors={{ thumbColor: c.accent, activeTrackColor: c.accent }}
         />
       </Host>

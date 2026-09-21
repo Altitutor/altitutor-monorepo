@@ -2,6 +2,7 @@ import { Image } from "expo-image";
 import { Pressable, View } from "react-native";
 import { Stack } from "expo-router/stack";
 import { useRouter } from "expo-router";
+import { withHaptic } from "@/lib/haptics";
 import { useColors } from "./ui";
 
 export function HeaderActions({
@@ -28,7 +29,7 @@ export function HeaderActions({
             <Stack.Toolbar.Button
               icon="line.3.horizontal"
               accessibilityLabel="Attempt menu"
-              onPress={onMenu}
+              onPress={withHaptic(onMenu)}
             />
           </Stack.Toolbar>
         )}
@@ -37,20 +38,20 @@ export function HeaderActions({
             <Stack.Toolbar.Button
               icon="plus.forwardslash.minus"
               accessibilityLabel="Calculator"
-              onPress={onCalculator}
+              onPress={withHaptic(onCalculator)}
             />
           ) : !hideNotifications ? (
             <Stack.Toolbar.Button
               icon="bell"
               accessibilityLabel="Notifications"
-              onPress={notifications}
+              onPress={withHaptic(notifications)}
             />
           ) : null}
           {!onCalculator && !hideNotifications && (
             <Stack.Toolbar.Button
               icon="line.3.horizontal"
               accessibilityLabel="Menu"
-              onPress={() => router.push("/settings")}
+              onPress={withHaptic(() => router.push("/settings"))}
             >
               Menu
             </Stack.Toolbar.Button>
@@ -59,7 +60,7 @@ export function HeaderActions({
             <Stack.Toolbar.Button
               icon={flagged ? "flag.fill" : "flag"}
               accessibilityLabel={flagged ? "Unflag question" : "Flag question"}
-              onPress={onFlag}
+              onPress={withHaptic(onFlag)}
             />
           )}
         </Stack.Toolbar>
@@ -69,7 +70,7 @@ export function HeaderActions({
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={label}
-      onPress={action}
+      onPress={withHaptic(action)}
       style={{ padding: 12 }}
     >
       <Image

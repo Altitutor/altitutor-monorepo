@@ -7,6 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import { Action, Copy, Failure, Group, Loading, Screen } from "@/components/ui";
 import { dataApi } from "@/features/dashboard/api";
+import { haptic } from "@/lib/haptics";
 import { api } from "@/lib/api";
 const keys = [
   "verbal_reasoning",
@@ -114,7 +115,10 @@ export default function Practice() {
           <Switch
             accessibilityLabel="Timed session"
             value={timed}
-            onValueChange={setTimed}
+            onValueChange={(next) => {
+              haptic();
+              setTimed(next);
+            }}
           />
         </View>
         {timed && (

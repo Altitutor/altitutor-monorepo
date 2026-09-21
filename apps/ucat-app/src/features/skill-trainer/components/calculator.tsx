@@ -5,6 +5,7 @@ import {
   createInitialCalculatorState,
   formatCalculatorDisplay,
 } from "@/features/skill-trainer/lib/ucat-calculator";
+import { haptic } from "@/lib/haptics";
 
 const rows = [
   ["+/-", "sqrt", "%", "÷"],
@@ -96,7 +97,10 @@ export function CalculatorKeypad({ onKey, disabled = false }: KeypadProps) {
         accessibilityLabel={labels[key] ?? key}
         accessibilityState={{ disabled }}
         disabled={disabled}
-        onPress={() => onKey(key)}
+        onPress={() => {
+          haptic(key === "=" ? "heavy" : isDigitKey(key) ? "light" : "medium");
+          onKey(key);
+        }}
         style={({ pressed }) => ({
           flex: grow,
           minHeight: 44,

@@ -7,6 +7,7 @@ import {
   type ResponseSnapshotV1,
 } from "@altitutor/ucat-response-contract";
 import { Group, useColors, Copy } from "@/components/ui";
+import { withHaptic } from "@/lib/haptics";
 import {
   answerOptionReview,
   hasReviewedAnswer,
@@ -50,13 +51,13 @@ export function Question({
             collapsed ? "Expand question stem" : "Collapse question stem"
           }
           accessibilityState={{ expanded: !collapsed }}
-          onPress={() => {
+          onPress={withHaptic(() => {
             if (!reducedMotion)
               LayoutAnimation.configureNext(
                 LayoutAnimation.Presets.easeInEaseOut,
               );
             setCollapsedStem(collapsed ? null : q.id);
-          }}
+          })}
           style={{
             flexDirection: "row",
             justifyContent: "space-between",
@@ -125,9 +126,9 @@ export function Question({
                     checked: restored.selectedOptionId === option.id,
                     disabled: review,
                   }}
-                  onPress={() =>
-                    onAnswer(snapshotQuestionResponse(q, option.id))
-                  }
+                  onPress={withHaptic(() =>
+                    onAnswer(snapshotQuestionResponse(q, option.id)),
+                  )}
                   style={{ padding: 14, gap: 10 }}
                 >
                   <RichContent json={option.textJson} text={option.text} />
@@ -185,7 +186,7 @@ export function Question({
                             token.value,
                           disabled: review,
                         }}
-                        onPress={() =>
+                        onPress={withHaptic(() =>
                           onAnswer(
                             snapshotQuestionResponse(q, undefined, {
                               ...applyPlacementTransition({
@@ -195,8 +196,8 @@ export function Question({
                                 token: token.value,
                               }),
                             }),
-                          )
-                        }
+                          ),
+                        )}
                         style={{
                           padding: 12,
                           minHeight: 44,

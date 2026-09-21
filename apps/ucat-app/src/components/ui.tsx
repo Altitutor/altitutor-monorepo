@@ -1,4 +1,5 @@
 import { useAppTheme } from "@/features/settings/theme";
+import { useAttemptBannerInset } from "@/features/practice/components/attempt-banner-inset";
 import {
   Children,
   isValidElement,
@@ -30,6 +31,7 @@ import {
   Platform,
 } from "react-native";
 import { useRouter, type Href } from "expo-router";
+import { withHaptic } from "@/lib/haptics";
 import { Action } from "./action";
 
 export function useColors() {
@@ -74,11 +76,14 @@ export function Screen({
   }
 >) {
   const c = useColors();
+  const reserveTopInsetForBanner = useAttemptBannerInset();
   return (
     <ScrollView
       ref={scrollRef}
       {...props}
-      contentInsetAdjustmentBehavior="automatic"
+      contentInsetAdjustmentBehavior={
+        reserveTopInsetForBanner ? "never" : "automatic"
+      }
       keyboardShouldPersistTaps="handled"
       style={{ flex: 1, backgroundColor: c.background }}
       contentContainerStyle={{
@@ -182,8 +187,21 @@ export function Group({
     </View>
   );
 }
-export function buttonText(accent: string) {
-  return accent === "#93B6C3" ? "#171717" : "#FFFFFF";
+function relativeLuminance(hex: string): number {
+  const normalized = hex.replace("#", "");
+  if (normalized.length !== 6) return 0;
+  const [r, g, b] = [0, 2, 4].map((start) => {
+    const channel = parseInt(normalized.slice(start, start + 2), 16) / 255;
+    return channel <= 0.03928
+      ? channel / 12.92
+      : ((channel + 0.055) / 1.055) ** 2.4;
+  });
+  return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+}
+
+/** Label color for text sitting on a filled accent / tone button. */
+export function buttonText(background: string) {
+  return relativeLuminance(background) > 0.55 ? "#171717" : "#FFFFFF";
 }
 export function Row({
   title,
@@ -203,7 +221,13 @@ export function Row({
   return (
     <Pressable
       accessibilityRole="button"
-      onPress={href ? () => router.navigate(href) : onPress}
+      onPress={
+        href
+          ? withHaptic(() => router.navigate(href))
+          : onPress
+            ? withHaptic(onPress)
+            : undefined
+      }
       style={({ pressed }) => ({
         minHeight: 48,
         flexDirection: "row",

@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Stack } from "expo-router/stack";
 import Animated, { FadeOut, LinearTransition } from "react-native-reanimated";
 import { Copy, Failure, Group, Loading, useColors } from "@/components/ui";
+import { withHaptic } from "@/lib/haptics";
 import { api } from "@/lib/api";
 import {
   applyInboxCommand,
@@ -142,7 +143,7 @@ function ReadAllButton({
             hidden={unreadCount === 0}
             disabled={disabled || unreadCount === 0}
             accessibilityLabel="Mark all as read"
-            onPress={onPress}
+            onPress={withHaptic(onPress)}
           >
             Read All
           </Stack.Toolbar.Button>
@@ -161,7 +162,7 @@ function ReadAllButton({
                   accessibilityRole="button"
                   accessibilityLabel="Mark all as read"
                   disabled={disabled}
-                  onPress={onPress}
+                  onPress={withHaptic(onPress)}
                   style={{ padding: 12, opacity: disabled ? 0.4 : 1 }}
                 >
                   <Text style={{ color: c.accent, fontWeight: "600" }}>

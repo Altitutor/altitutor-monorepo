@@ -1,3 +1,4 @@
+import { View } from "react-native";
 import {
   Host,
   Button,
@@ -6,7 +7,8 @@ import {
   Text,
 } from "@expo/ui/jetpack-compose";
 import { useAppTheme } from "@/features/settings/theme";
-import { useColors } from "./ui";
+import { withHaptic } from "@/lib/haptics";
+import { buttonText, useColors } from "./ui";
 import type { NativeButtonProps } from "./native-button.types";
 
 export function NativeButton({
@@ -16,7 +18,9 @@ export function NativeButton({
   close = false,
   secondary = false,
   block = false,
+  compact = false,
   tint: tintColor,
+  accessibilityLabel: announced,
 }: NativeButtonProps) {
   const { scheme } = useAppTheme();
   const c = useColors();
@@ -29,23 +33,35 @@ export function NativeButton({
       ? OutlinedButton
       : FilledTonalButton;
   return (
-    <Host
-      matchContents={block ? { vertical: true } : true}
-      colorScheme={scheme === "dark" ? "dark" : "light"}
-      seedColor={color}
-      style={block ? { width: "100%", minHeight: 48 } : undefined}
+    <View
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={announced ?? title}
     >
-      <Control
-        enabled={!disabled}
-        onClick={onPress}
-        colors={
-          prominent
-            ? { containerColor: color }
-            : { contentColor: color }
+      <Host
+        matchContents={block ? { vertical: true } : true}
+        colorScheme={scheme === "dark" ? "dark" : "light"}
+        seedColor={color}
+        style={
+          block
+            ? { width: "100%", minHeight: 48 }
+            : compact
+              ? { minHeight: 32 }
+              : undefined
         }
       >
-        <Text>{label}</Text>
-      </Control>
-    </Host>
+        <Control
+          enabled={!disabled}
+          onClick={withHaptic(onPress)}
+          colors={
+            prominent
+              ? { containerColor: color, contentColor: buttonText(color) }
+              : { contentColor: color }
+          }
+        >
+          <Text>{label}</Text>
+        </Control>
+      </Host>
+    </View>
   );
 }

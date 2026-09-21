@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { dataApi } from "@/features/dashboard/api";
+import { withHaptic } from "@/lib/haptics";
 import { useColors } from "@/components/ui";
 import {
   selectCurrentStudyPlanTasks,
@@ -30,7 +31,7 @@ export function StudyOrb() {
     <Pressable
       accessibilityRole="button"
       accessibilityLabel="Open study orb"
-      onPress={() => router.push("/study-orb")}
+      onPress={withHaptic(() => router.push("/study-orb"))}
       style={{
         minHeight: 52,
         paddingHorizontal: 16,

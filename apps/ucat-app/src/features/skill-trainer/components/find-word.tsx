@@ -7,6 +7,7 @@ import {
   type FindWordItemContent,
 } from "@altitutor/shared";
 import { useColors } from "@/components/ui";
+import { haptic } from "@/lib/haptics";
 
 type Point = { x: number; y: number };
 type Rect = Point & { width: number; height: number };
@@ -69,8 +70,10 @@ function KeywordChip({
           !handlers.current.disabled &&
           !handlers.current.placed &&
           Math.hypot(gesture.dx, gesture.dy) > 6,
-        onPanResponderGrant: (_event, gesture) =>
-          handlers.current.onDrag(id, { x: gesture.moveX, y: gesture.moveY }),
+        onPanResponderGrant: (_event, gesture) => {
+          haptic("light");
+          handlers.current.onDrag(id, { x: gesture.moveX, y: gesture.moveY });
+        },
         onPanResponderMove: (_event, gesture) =>
           handlers.current.onDrag(id, { x: gesture.moveX, y: gesture.moveY }),
         onPanResponderRelease: (_event, gesture) =>
@@ -88,7 +91,10 @@ function KeywordChip({
         accessibilityHint="Select then tap the matching word in the passage, or drag this word onto it"
         accessibilityState={{ selected, disabled: disabled || placed }}
         disabled={disabled || placed}
-        onPress={onSelect}
+        onPress={() => {
+          haptic("light");
+          onSelect();
+        }}
         style={{
           minHeight: 44,
           paddingHorizontal: 14,
@@ -177,6 +183,7 @@ export function FindWord({
       return;
     setSelected(null);
     setPrompt(false);
+    haptic("medium");
     latest.current.onPlace(id, index);
   }
   async function drop(id: string, point: Point) {
@@ -263,9 +270,14 @@ export function FindWord({
                               ? "Place selected keyword here"
                               : "Select a keyword first"
                           }
-                          onPress={() =>
-                            active ? place(active, index) : setPrompt(true)
-                          }
+                          onPress={() => {
+                            if (active) {
+                              place(active, index);
+                              return;
+                            }
+                            haptic("warning");
+                            setPrompt(true);
+                          }}
                           style={{
                             borderRadius: 4,
                             backgroundColor:

@@ -10,6 +10,7 @@ import {
   useColors,
 } from "@/components/ui";
 import { attemptTitle } from "@/features/dashboard/api";
+import { withHaptic } from "@/lib/haptics";
 import { fetchAttempts, type AttemptKind } from "./api";
 export function AttemptList({
   source,
@@ -52,12 +53,12 @@ export function AttemptList({
               <Pressable
                 key={a.id}
                 accessibilityRole="button"
-                onPress={() =>
+                onPress={withHaptic(() =>
                   router.push({
                     pathname: "/review",
                     params: { kind: a.source, id: a.id },
-                  })
-                }
+                  }),
+                )}
                 style={{
                   paddingVertical: 10,
                   borderBottomWidth: 0.5,

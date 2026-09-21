@@ -3,6 +3,7 @@ import { Switch, View } from "react-native";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Action, Copy, Failure, Field, Group, Loading } from "@/components/ui";
 import { dataApi } from "@/features/dashboard/api";
+import { haptic } from "@/lib/haptics";
 import type { StudyPlanWeekday } from "@/features/study-plan/model/types";
 import { api } from "@/lib/api";
 export function StudyGoal() {
@@ -74,7 +75,13 @@ export function StudyGoal() {
                 }}
               >
                 <Copy>Enable study plan</Copy>
-                <Switch value={enabled} onValueChange={setEnabled} />
+                <Switch
+                  value={enabled}
+                  onValueChange={(next) => {
+                    haptic();
+                    setEnabled(next);
+                  }}
+                />
               </View>
               <Copy>Study days</Copy>
               {[
@@ -97,13 +104,14 @@ export function StudyGoal() {
                   <Switch
                     accessibilityLabel={day}
                     value={days.includes(i as StudyPlanWeekday)}
-                    onValueChange={(v) =>
+                    onValueChange={(v) => {
+                      haptic();
                       setDays(
                         v
                           ? [...days, i as StudyPlanWeekday]
                           : days.filter((d) => d !== i),
-                      )
-                    }
+                      );
+                    }}
                   />
                 </View>
               ))}

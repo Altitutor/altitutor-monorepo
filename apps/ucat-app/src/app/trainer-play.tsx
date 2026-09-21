@@ -42,6 +42,7 @@ import { useTrainers } from "@/features/skill-trainer/catalogue";
 import type { SubmitActionPayload } from "@/features/skill-trainer/types/attempt";
 import { api } from "@/lib/api";
 import { applyNumpadKey } from "@/features/skill-trainer/lib/numpad-input";
+import { haptic } from "@/lib/haptics";
 export default function TrainerPlay() {
   const params = useLocalSearchParams<{
     trainerKey: string;
@@ -91,6 +92,9 @@ export default function TrainerPlay() {
     );
   }
   usePreventRemove(Boolean(busy || (state && !state.isCompleted)), exit);
+  useEffect(() => {
+    if (state?.isCompleted) haptic("success");
+  }, [state?.isCompleted]);
   useEffect(() => {
     toolsRef.current = { exit };
     return () => {
@@ -502,13 +506,14 @@ function Concept({
               <Text
                 accessibilityRole="button"
                 onPress={() => {
-                  if (!disabled)
-                    submit({
-                      type: "click_occurrence",
-                      occurrence_index: occurrences.findIndex(
-                        (o) => token.start >= o.start && token.start < o.end,
-                      ),
-                    });
+                  if (disabled) return;
+                  haptic("light");
+                  submit({
+                    type: "click_occurrence",
+                    occurrence_index: occurrences.findIndex(
+                      (o) => token.start >= o.start && token.start < o.end,
+                    ),
+                  });
                 }}
                 style={{ color: c.accent }}
               >

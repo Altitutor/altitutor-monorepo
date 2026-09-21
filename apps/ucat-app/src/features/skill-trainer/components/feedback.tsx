@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Animated, Text, View } from "react-native";
 import { useReducedMotion } from "react-native-reanimated";
 import { useColors } from "@/components/ui";
+import { haptic } from "@/lib/haptics";
 
 export type TrainerFeedbackValue = {
   id: number;
@@ -18,11 +19,13 @@ export function TrainerFeedback({
   const [scale] = useState(() => new Animated.Value(1));
   const [opacity] = useState(() => new Animated.Value(0));
   const feedbackId = feedback?.id;
+  const correct = feedback?.correct;
   useEffect(() => {
     if (feedbackId == null) {
       opacity.setValue(0);
       return;
     }
+    haptic(correct ? "success" : "error");
     opacity.setValue(1);
     scale.setValue(reducedMotion ? 1 : 0.8);
     const animation = Animated.parallel([
@@ -43,7 +46,7 @@ export function TrainerFeedback({
     ]);
     animation.start();
     return () => animation.stop();
-  }, [feedbackId, opacity, reducedMotion, scale]);
+  }, [feedbackId, correct, opacity, reducedMotion, scale]);
   return (
     <View
       pointerEvents="none"
@@ -101,6 +104,29 @@ export function TrainerScoreBar({
   const c = useColors();
   const reducedMotion = useReducedMotion();
   const [bounce] = useState(() => new Animated.Value(1));
+  const previousStreak = useRef(streak);
+  const warned = useRef(false);
+  useEffect(() => {
+    if (
+      streak > previousStreak.current &&
+      (streak === 3 ||
+        streak === 5 ||
+        streak === 10 ||
+        (streak > 10 && streak % 5 === 0))
+    )
+      haptic(streak >= 10 ? "success" : "heavy");
+    previousStreak.current = streak;
+  }, [streak]);
+  useEffect(() => {
+    if (remaining > 10) {
+      warned.current = false;
+      return;
+    }
+    if (remaining > 0 && !warned.current) {
+      warned.current = true;
+      haptic("warning");
+    }
+  }, [remaining]);
   useEffect(() => {
     bounce.setValue(1);
     if (reducedMotion || streak < 2) return;

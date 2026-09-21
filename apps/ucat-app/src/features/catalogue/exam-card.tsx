@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import { Group, useColors } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
+import { withHaptic } from "@/lib/haptics";
 
 export function ExamCard({
   id,
@@ -21,9 +22,9 @@ export function ExamCard({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${title}${attempted ? ", Previously attempted" : ""}`}
-        onPress={() =>
-          router.push({ pathname: "/exam-start", params: { kind, id } })
-        }
+        onPress={withHaptic(() =>
+          router.push({ pathname: "/exam-start", params: { kind, id } }),
+        )}
         style={({ pressed }) => ({
           minHeight: 52,
           paddingVertical: 10,

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import { Copy, Group, useColors } from "@/components/ui";
+import { withHaptic } from "@/lib/haptics";
 export type NavigatorQuestion = {
   index: number;
   stemId: string;
@@ -50,7 +51,7 @@ export function QuestionGrid({
                   accessibilityRole="button"
                   accessibilityLabel={`${q.label}${q.result ? `, ${q.result.replace("_", " ")}` : q.answered ? ", answered" : ", unanswered"}${q.timing ? `, ${q.timing}` : ""}${q.flagged ? ", flagged" : ""}${q.current ? ", current" : ""}${q.disabled ? ", unavailable" : ""}`}
                   disabled={q.disabled}
-                  onPress={() => onSelect(q.index)}
+                  onPress={withHaptic(() => onSelect(q.index))}
                   style={{
                     minHeight: 62,
                     width: "100%",

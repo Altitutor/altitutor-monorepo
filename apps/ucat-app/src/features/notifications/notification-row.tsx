@@ -10,6 +10,7 @@ import {
 } from "react-native-reanimated";
 import { NativeButton } from "@/components/native-button";
 import { useAppTheme } from "@/features/settings/theme";
+import { withHaptic } from "@/lib/haptics";
 import { useColors } from "@/components/ui";
 import { swipePastDismissThreshold } from "./inbox";
 import type { UcatNotification } from "./types";
@@ -91,9 +92,9 @@ export function NotificationRow({
           accessibilityRole="button"
           accessibilityHint="Marks as read. Swipe left to unread or clear, or swipe all the way to clear"
           accessibilityLabel={`${unread ? "Unread. " : ""}${notification.title}${notification.body ? `. ${notification.body}` : ""}`}
-          onPress={() => {
+          onPress={withHaptic(() => {
             if (unread) onToggleRead();
-          }}
+          })}
           style={{
             minHeight: 64,
             backgroundColor: c.card,

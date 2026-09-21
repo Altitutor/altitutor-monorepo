@@ -1,6 +1,7 @@
 import { Pressable, Text, View } from "react-native";
 import { Image } from "expo-image";
 import { useColors } from "@/components/ui";
+import { haptic } from "@/lib/haptics";
 
 const ROWS = [
   ["7", "8", "9"],
@@ -34,7 +35,10 @@ export function NumberPad({
               accessibilityLabel={LABELS[key] ?? key}
               accessibilityState={{ disabled }}
               disabled={disabled}
-              onPress={() => onKey(key)}
+              onPress={() => {
+                haptic(key === "+/-" ? "medium" : "light");
+                onKey(key);
+              }}
               style={({ pressed }) => ({
                 flex: 1,
                 minHeight: 56,
@@ -95,7 +99,10 @@ export function NumberAnswer({
         accessibilityLabel="Delete digit"
         accessibilityState={{ disabled: disabled || !value }}
         disabled={disabled || !value}
-        onPress={onBackspace}
+        onPress={() => {
+          haptic("medium");
+          onBackspace();
+        }}
         style={{ padding: 8, opacity: value ? 1 : 0.3 }}
       >
         <Image

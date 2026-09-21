@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, Text, View } from "react-native";
 import { Copy, Group, useColors } from "@/components/ui";
+import { withHaptic } from "@/lib/haptics";
 import type { StudyPlanTask } from "../model/types";
 
 function dateKey(date: Date) {
@@ -43,7 +44,7 @@ export function StudyCalendar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Previous month"
-          onPress={() => setMonth(monthAt(month, -1))}
+          onPress={withHaptic(() => setMonth(monthAt(month, -1)))}
           style={{ padding: 10 }}
         >
           <Text style={{ color: c.accent, fontSize: 28 }}>‹</Text>
@@ -57,7 +58,7 @@ export function StudyCalendar({
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Next month"
-          onPress={() => setMonth(monthAt(month, 1))}
+          onPress={withHaptic(() => setMonth(monthAt(month, 1)))}
           style={{ padding: 10 }}
         >
           <Text style={{ color: c.accent, fontSize: 28 }}>›</Text>
@@ -132,7 +133,7 @@ export function StudyCalendar({
                       accessibilityRole="button"
                       accessibilityLabel={`${new Date(`${date}T12:00:00`).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}${taskDates.has(date) ? ", study activities" : ""}`}
                       accessibilityState={{ selected: active }}
-                      onPress={() => onSelect(date)}
+                      onPress={withHaptic(() => onSelect(date))}
                       style={{
                         width: "14.2857%",
                         height: 46,
@@ -184,10 +185,10 @@ export function StudyCalendar({
       </ScrollView>
       <Pressable
         accessibilityRole="button"
-        onPress={() => {
+        onPress={withHaptic(() => {
           onSelect(today);
           setMonth(monthAt(new Date(`${today}T12:00:00`), 0));
-        }}
+        })}
         style={{ alignSelf: "center", padding: 8 }}
       >
         <Text style={{ color: c.accent, fontWeight: "600" }}>Today</Text>

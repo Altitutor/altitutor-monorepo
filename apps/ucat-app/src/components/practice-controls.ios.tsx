@@ -13,6 +13,7 @@ import {
 } from "@expo/ui/swift-ui/modifiers";
 import { useAppTheme } from "@/features/settings/theme";
 import { Copy, useColors } from "./ui";
+import { haptic, withHaptic } from "@/lib/haptics";
 import type { ChoiceProps, PaceProps } from "./practice-controls.types";
 export function Choice({ label, value, onChange, options }: ChoiceProps) {
   const { scheme } = useAppTheme();
@@ -31,6 +32,7 @@ export function Choice({ label, value, onChange, options }: ChoiceProps) {
       </View>
       <Host
         colorScheme={scheme === "dark" ? "dark" : "light"}
+        seedColor={c.accent}
         matchContents={{ vertical: true }}
         style={{ minHeight: 44, flex: 1, minWidth: 0 }}
       >
@@ -38,7 +40,7 @@ export function Choice({ label, value, onChange, options }: ChoiceProps) {
           label={label}
           selection={value}
           onSelectionChange={(v) => {
-            if (typeof v === "number") onChange(v);
+            if (typeof v === "number") withHaptic(onChange)(v);
           }}
           modifiers={[
             pickerStyle("menu"),
@@ -80,7 +82,10 @@ export function PaceSlider({ value, onChange }: PaceProps) {
           min={0.25}
           max={2}
           step={0.25}
-          onValueChange={onChange}
+          onValueChange={(next) => {
+            if (next !== value) haptic();
+            onChange(next);
+          }}
           modifiers={[tint(c.accent)]}
         />
       </Host>
