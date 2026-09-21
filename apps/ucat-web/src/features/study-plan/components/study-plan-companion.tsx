@@ -55,6 +55,7 @@ import {
 } from "@/features/study-plan/lib/companion";
 import {
   isAlreadyOnSuggestedActivity,
+  shouldRefreshStudyPlanOnRouteChange,
   type StudyPlanCompanionMode,
 } from "@/features/study-plan/lib/companion-mode";
 import {
@@ -490,6 +491,7 @@ export function StudyPlanCompanion({
   const activityInProgressRef = useRef(activityInProgress);
   const primaryLaunchPathRef = useRef(primary?.launchPath ?? null);
   const pathnameRef = useRef(pathname);
+  const previousPathnameRef = useRef(pathname);
   activityInProgressRef.current = activityInProgress;
   primaryLaunchPathRef.current = primary?.launchPath ?? null;
   pathnameRef.current = pathname;
@@ -706,9 +708,16 @@ export function StudyPlanCompanion({
   ]);
 
   useEffect(() => {
+    const previousPathname = previousPathnameRef.current;
+    previousPathnameRef.current = pathname;
     setExpanded(false);
     reviewPromptDismissedRef.current = false;
-    if (!hidden) void query.refetch();
+    if (
+      !hidden &&
+      shouldRefreshStudyPlanOnRouteChange(previousPathname, pathname)
+    ) {
+      void query.refetch();
+    }
     // Route changes are the refresh boundary after completing or reviewing work.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname]);
@@ -850,6 +859,11 @@ export function StudyPlanCompanion({
     setPromptVisible(false);
     setExpanded(false);
     attemptReviewGuidance.startReviewing();
+  }
+
+  function openStudyPlan() {
+    setExpanded(false);
+    router.push("/study-plan", { scroll: false });
   }
 
   if (!visible) return null;
@@ -1338,12 +1352,10 @@ export function StudyPlanCompanion({
                         <Button
                           className="w-full"
                           variant="outline"
-                          asChild
+                          onClick={openStudyPlan}
                           tabIndex={expanded ? undefined : -1}
                         >
-                          <Link href="/study-plan" tabIndex={expanded ? undefined : -1}>
-                            View Study plan
-                          </Link>
+                          View Study plan
                         </Button>
                       ) : null}
                     </div>

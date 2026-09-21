@@ -40,7 +40,7 @@ export default function StudyCompanion() {
           <Group>
             {next ? (
               <>
-                <Copy large>{next.title}</Copy>
+                <Copy>{next.title}</Copy>
                 <Copy muted>{next.description}</Copy>
                 <Action
                   title={busy ? "Opening…" : "Start activity"}
@@ -85,7 +85,7 @@ export default function StudyCompanion() {
               {tasks.length ? (
                 tasks.map((task) => (
                   <Group key={task.id}>
-                    <Copy large>{task.title}</Copy>
+                    <Copy>{task.title}</Copy>
                     <Copy>{task.description}</Copy>
                     <Copy muted>
                       {task.estimatedMinutes} min ·{" "}

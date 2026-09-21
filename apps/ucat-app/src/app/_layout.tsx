@@ -10,6 +10,10 @@ import { TrainerToolsProvider } from "@/features/skill-trainer/components/traine
 import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { AttemptBanner } from "@/features/practice/components/attempt-banner";
+import {
+  AttemptBannerInsetProvider,
+  useAttemptBannerStackScreenOptions,
+} from "@/features/practice/components/attempt-banner-inset";
 import { useEffect, useState } from "react";
 import { setBackgroundColorAsync } from "expo-system-ui";
 import { AppThemeProvider, useAppTheme } from "@/features/settings/theme";
@@ -65,7 +69,9 @@ function ThemedRoot() {
                 <LessonNavigationProvider>
                   <SheetNavigationProvider>
                     <ReviewNavigationProvider>
-                      <Navigation />
+                      <AttemptBannerInsetProvider>
+                        <Navigation />
+                      </AttemptBannerInsetProvider>
                     </ReviewNavigationProvider>
                   </SheetNavigationProvider>
                 </LessonNavigationProvider>
@@ -84,6 +90,7 @@ function Navigation() {
   const access = useOnboardingAccess();
   const ready = Boolean(session && access.data?.completed && !access.error);
   const c = useColors();
+  const attemptBannerStackOptions = useAttemptBannerStackScreenOptions();
   if (loading)
     return (
       <Screen>
@@ -101,6 +108,7 @@ function Navigation() {
           headerTintColor: c.text,
           contentStyle: { backgroundColor: c.background },
           headerBackButtonDisplayMode: "minimal",
+          ...attemptBannerStackOptions,
         }}
       >
         <Stack.Protected guard={!session}>

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
@@ -206,6 +207,7 @@ function DashboardNextActionPanel({
   tourTarget?: boolean;
   guidanceSuggestionsVisible: boolean;
 }) {
+  const router = useRouter();
   const content = actionContent(action);
   const eyebrow = nextActionEyebrow(action, content);
   const openExtraStudy = useStudyPlanExtraStudyDialog();
@@ -247,7 +249,7 @@ function DashboardNextActionPanel({
         <div className="min-w-0 flex-1">
           <h2
             id="dashboard-what-now-title"
-            className="text-lg font-semibold tracking-tight"
+            className="text-base font-semibold tracking-tight"
           >
             {content.title}
           </h2>
@@ -308,8 +310,15 @@ function DashboardNextActionPanel({
             {setupPending ? "Saving…" : content.secondaryLabel}
           </Button>
         ) : content.secondaryHref && content.secondaryLabel ? (
-          <Button asChild variant="ghost" className={UCAT_NEUTRAL_ACTION_HOVER}>
-            <Link href={content.secondaryHref}>{content.secondaryLabel}</Link>
+          <Button
+            type="button"
+            variant="ghost"
+            className={UCAT_NEUTRAL_ACTION_HOVER}
+            onClick={() =>
+              router.push(content.secondaryHref!, { scroll: false })
+            }
+          >
+            {content.secondaryLabel}
           </Button>
         ) : null}
       </div>

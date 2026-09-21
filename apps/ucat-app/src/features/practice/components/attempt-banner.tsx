@@ -5,6 +5,7 @@ import { usePathname, useRouter } from "expo-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/components/ui";
+import { shouldShowAttemptBanner } from "./attempt-banner-inset";
 import { discardAttempt, loadActiveAttempt } from "./current-attempt";
 export function AttemptBanner() {
   const path = usePathname();
@@ -34,11 +35,7 @@ export function AttemptBanner() {
     };
   }, [client]);
   const active = query.data?.active;
-  if (
-    !active ||
-    ["/exam", "/calculator", "/exam-menu", "/question-navigator"].includes(path)
-  )
-    return null;
+  if (!active || !shouldShowAttemptBanner(path, true)) return null;
   const seconds = active.currentSegmentEndsAt
     ? Math.max(
         0,
