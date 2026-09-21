@@ -3,8 +3,9 @@ import { Stack } from "expo-router/stack";
 import { useQuery } from "@tanstack/react-query";
 import { Action, Copy, Failure, Group, Loading, Screen } from "@/components/ui";
 import { loadExam } from "@/features/question-engine/api/native-exam-api";
-import { segmentsFor } from "@/features/question-engine/model/native-engine";
+import { totalExamTimeLimitSeconds } from "@/features/question-engine/model/native-engine";
 import { useOpenScreen } from "@/features/navigation/use-open-screen";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 export default function ExamStart() {
   const params = useLocalSearchParams<{
     id: string;
@@ -30,11 +31,11 @@ export default function ExamStart() {
         <>
           <Group>
             <Copy large>{query.data.title}</Copy>
-            <Copy>{query.data.questions.length} questions</Copy>
-            <Copy muted>
-              {segmentsFor(query.data).some((s) => s.seconds)
-                ? "The timer continues if you leave the app. Your answers are saved as you progress."
-                : "Take your time. You can save and return to your attempt."}
+            <Copy>
+              {query.data.questions.length} questions ·{" "}
+              {formatExamDurationSeconds(
+                totalExamTimeLimitSeconds(query.data),
+              )}
             </Copy>
           </Group>
           <Action

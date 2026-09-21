@@ -54,6 +54,22 @@ export function segmentsFor(exam: QuestionEngineExam): Segment[] {
     },
   ];
 }
+
+/** Sum of timed segment limits. Null when every segment is untimed. */
+export function totalExamTimeLimitSeconds(
+  exam: QuestionEngineExam,
+): number | null {
+  let total = 0;
+  let timed = false;
+  for (const segment of segmentsFor(exam)) {
+    if (segment.seconds != null && segment.seconds > 0) {
+      total += segment.seconds;
+      timed = true;
+    }
+  }
+  return timed ? total : null;
+}
+
 export function segmentIndex(segments: Segment[], state: ExamEngineSnapshot) {
   const i = segments.findIndex((s) =>
     state.phase === "instructions"

@@ -11,6 +11,7 @@ import {
 import {
   initialSnapshot,
   segmentsFor,
+  totalExamTimeLimitSeconds,
   enterSegment,
   segmentIndex,
   remainingSeconds,
@@ -60,6 +61,19 @@ test("instructions and questions have separate server-timed segments", () => {
   assert.equal(segmentIndex(segments, answering), 1);
   assert.equal(segments[1].seconds, 60);
 });
+test("total exam time limit sums timed instructions and question segments", () => {
+  assert.equal(totalExamTimeLimitSeconds(exam), 70);
+  assert.equal(
+    totalExamTimeLimitSeconds({
+      ...exam,
+      setModeTiming: {
+        setTimeLimitSeconds: null,
+        instructionsTimeLimitSeconds: null,
+      },
+    }),
+    null,
+  );
+});
 test("mock review stays scoped to its question segment", () => {
   const mock: QuestionEngineExam = {
     ...exam,
@@ -87,6 +101,7 @@ test("mock review stays scoped to its question segment", () => {
     ],
   };
   const segments = segmentsFor(mock);
+  assert.equal(totalExamTimeLimitSeconds(mock), 35);
   const state = enterSegment(initialSnapshot(mock), segments[2]);
   assert.equal(segmentIndex(segments, { ...state, phase: "review" }), 2);
   assert.equal(state.mockCurrentSetIndex, 1);
