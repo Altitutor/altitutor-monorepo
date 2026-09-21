@@ -2,19 +2,20 @@
 
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Button, ImageOcclusionViewer, Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
-import type { FlashcardRating, FlashcardReviewCard } from '@altitutor/shared';
+import type { FlashcardRating, FlashcardReviewCard, RateFlashcardCommand } from '@altitutor/shared';
 import { getImageOcclusionGroupDescription, parseClozeParts } from '@altitutor/shared';
-import { Check, Info, RotateCcw, X } from 'lucide-react';
+import { BookOpen, Check, ExternalLink, Info, RotateCcw, X } from 'lucide-react';
+import Link from 'next/link';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { useRateFlashcardReviewCard } from '../hooks/useFlashcards';
 import { preloadFlashcardImages, refreshFlashcardImageUrls } from '../lib/refresh-flashcard-image-urls';
 
-const ratings: Array<{ value: FlashcardRating; label: string; key: string; className: string }> = [
-  { value: 'again', label: 'Again', key: '1', className: 'bg-red-600 text-white hover:bg-red-700' },
-  { value: 'hard', label: 'Hard', key: '2', className: 'bg-amber-600 text-white hover:bg-amber-700' },
-  { value: 'good', label: 'Good', key: '3', className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
-  { value: 'easy', label: 'Easy', key: '4', className: 'bg-blue-600 text-white hover:bg-blue-700' },
+const ratings: Array<{ value: FlashcardRating; label: string; key: string; className: string; description: string }> = [
+  { value: 'again', label: 'Again', key: '1', description: 'You could not recall the answer.', className: 'bg-red-600 text-white hover:bg-red-700' },
+  { value: 'hard', label: 'Hard', key: '2', description: 'You recalled it with serious difficulty.', className: 'bg-amber-600 text-white hover:bg-amber-700' },
+  { value: 'good', label: 'Good', key: '3', description: 'You recalled it correctly.', className: 'bg-emerald-600 text-white hover:bg-emerald-700' },
+  { value: 'easy', label: 'Easy', key: '4', description: 'You recalled it effortlessly.', className: 'bg-blue-600 text-white hover:bg-blue-700' },
 ];
 
 const maxSessionRequeueDelayMs = 60 * 60 * 1000;
@@ -52,11 +53,17 @@ export function FlashcardReviewSession({
   mode,
   cards,
   emptyDescription,
+  queueRevision,
+  onAnswerPendingChange,
+  onAnswerCommitted,
 }: {
   topicId: string;
   mode: 'due' | 'all';
   cards: FlashcardReviewCard[];
   emptyDescription?: string;
+  queueRevision?: number;
+  onAnswerPendingChange?: (pending: boolean) => void;
+  onAnswerCommitted?: (answerLogId: string) => void;
 }) {
   const [showAnswer, setShowAnswer] = useState(false);
   const [studyQueue, setStudyQueue] = useState<FlashcardReviewCard[]>(cards);
@@ -66,6 +73,10 @@ export function FlashcardReviewSession({
   const reviewedDueIdsRef = useRef<Set<string>>(new Set());
   const dueTimersRef = useRef<Map<string, number>>(new Map());
   const feedbackTimerRef = useRef<number | null>(null);
+  const cardShownAtRef = useRef<number>(Date.now());
+  const answerInFlightRef = useRef(false);
+  const queueRevisionRef = useRef(queueRevision);
+  const failedCommandRef = useRef<RateFlashcardCommand | null>(null);
   const sessionKey = `${topicId}:${mode}`;
   const sessionKeyRef = useRef(sessionKey);
   const rateMutation = useRateFlashcardReviewCard(topicId, mode);
@@ -73,6 +84,8 @@ export function FlashcardReviewSession({
   const card = mode === 'all' ? studyQueue[0] ?? null : dueQueue[0] ?? null;
   const [displayCard, setDisplayCard] = useState<FlashcardReviewCard | null>(card);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isAnswerPending, setIsAnswerPending] = useState(false);
   const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [imageAttempt, setImageAttempt] = useState(0);
   const freeStudyComplete = mode === 'all' && cards.length > 0 && studyQueue.length === 0;
@@ -94,6 +107,7 @@ export function FlashcardReviewSession({
     }
 
     setDisplayCard(card);
+    cardShownAtRef.current = Date.now();
     setImageStatus(card.card_type === 'image_occlusion' ? 'loading' : 'idle');
     setImageAttempt(0);
     void Promise.all([
@@ -139,27 +153,39 @@ export function FlashcardReviewSession({
 
   useEffect(() => {
     const sessionChanged = sessionKeyRef.current !== sessionKey;
-    if (sessionChanged) {
+    const authoritativeQueueChanged = queueRevisionRef.current !== queueRevision;
+    if (sessionChanged || authoritativeQueueChanged) {
       sessionKeyRef.current = sessionKey;
+      queueRevisionRef.current = queueRevision;
       reviewedDueIdsRef.current = new Set();
       dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
       dueTimersRef.current.clear();
-      setReviewedDueCount(0);
+      failedCommandRef.current = null;
+      setReviewedDueCount((current) => (sessionChanged ? 0 : Math.max(0, current - 1)));
       setShowAnswer(false);
+      setSaveError(null);
     }
     if (mode === 'all') {
       setStudyQueue(cards);
       return;
     }
-    setDueQueue(cards.filter((item) => !reviewedDueIdsRef.current.has(item.id)));
+    setDueQueue(
+      sessionChanged || authoritativeQueueChanged
+        ? cards
+        : cards.filter((item) => !reviewedDueIdsRef.current.has(item.id)),
+    );
     setDueSessionTotal((current) => (sessionChanged ? cards.length : Math.max(current, cards.length)));
-  }, [cards, mode, sessionKey]);
+  }, [cards, mode, queueRevision, sessionKey]);
 
   useEffect(() => () => {
     dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
     dueTimersRef.current.clear();
     if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
   }, []);
+
+  useEffect(() => () => {
+    onAnswerPendingChange?.(false);
+  }, [onAnswerPendingChange]);
 
   const enqueueDueCard = useCallback((nextCard: FlashcardReviewCard) => {
     reviewedDueIdsRef.current.delete(nextCard.id);
@@ -189,7 +215,8 @@ export function FlashcardReviewSession({
   }, [enqueueDueCard]);
 
   const rateDueCard = useCallback((rating: FlashcardRating) => {
-    if (!card || mode !== 'due') return;
+    if (!card || mode !== 'due' || answerInFlightRef.current) return;
+    setSaveError(null);
     const feedbackClassName =
       rating === 'again'
         ? 'bg-red-600 text-white'
@@ -198,14 +225,40 @@ export function FlashcardReviewSession({
           : rating === 'good'
             ? 'bg-emerald-600 text-white'
             : 'bg-blue-600 text-white';
-    showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
     const reviewCardId = card.id;
-    reviewedDueIdsRef.current.add(reviewCardId);
-    setReviewedDueCount((current) => current + 1);
-    setShowAnswer(false);
-    setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
-    void rateReviewCard({ reviewCardId, rating }).then(scheduleDueCard);
-  }, [card, mode, rateReviewCard, scheduleDueCard, showFeedback]);
+    const command = failedCommandRef.current?.reviewCardId === reviewCardId && failedCommandRef.current.rating === rating
+      ? failedCommandRef.current
+      : { reviewCardId, rating, requestId: crypto.randomUUID(), expectedRevision: card.revision,
+          durationMs: Date.now() - cardShownAtRef.current,
+          previewSeed: card.rating_preview_seed ?? `${card.id}:${card.revision}`, answeredAt: new Date().toISOString() };
+    answerInFlightRef.current = true;
+    setIsAnswerPending(true);
+    onAnswerPendingChange?.(true);
+    void rateReviewCard(command).then((nextCard) => {
+      failedCommandRef.current = null;
+      reviewedDueIdsRef.current.add(reviewCardId);
+      setReviewedDueCount((current) => current + 1);
+      setShowAnswer(false);
+      setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
+      showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
+      if (nextCard.answer_log_id) onAnswerCommitted?.(nextCard.answer_log_id);
+      scheduleDueCard(nextCard);
+      if (nextCard.leech_suggested && window.confirm('This card has been repeatedly difficult. Suspend it for now?')) {
+        void fetch(`/api/flashcards/review-cards/${encodeURIComponent(nextCard.id)}/manage`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'suspend', requestId: crypto.randomUUID() }),
+        });
+      }
+    }).catch((error: unknown) => {
+      failedCommandRef.current = (error as { status?: number }).status === 409 ? null : command;
+      setShowAnswer(true);
+      setSaveError('Your answer was not saved. Please try again. Your card and progress have been restored.');
+    }).finally(() => {
+      answerInFlightRef.current = false;
+      setIsAnswerPending(false);
+      onAnswerPendingChange?.(false);
+    });
+  }, [card, mode, onAnswerCommitted, onAnswerPendingChange, rateReviewCard, scheduleDueCard, showFeedback]);
 
   const markFreeStudyCorrect = useCallback(() => {
     showFeedback('correct', 'bg-emerald-600 text-white');
@@ -350,6 +403,12 @@ export function FlashcardReviewSession({
         )}
       </div>
 
+      {saveError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      ) : null}
+
       <div className={studentCardCn('space-y-6 p-6')}>
         {isImageCard && imageUrl && displayCard.occlusion_data ? (
           <div className="space-y-3">
@@ -388,47 +447,79 @@ export function FlashcardReviewSession({
             dangerouslySetInnerHTML={{ __html: displayCard.extra }}
           />
         ) : null}
+        {showAnswer && displayCard.note_links?.length ? (
+          <section className="space-y-3 rounded-xl border bg-muted/20 p-4" aria-labelledby="flashcard-notes-heading">
+            <div>
+              <h3 id="flashcard-notes-heading" className="flex items-center gap-2 text-sm font-semibold">
+                <BookOpen className="h-4 w-4" />
+                Notes and solutions
+              </h3>
+              <p className="mt-1 text-xs text-muted-foreground">Review the source material for this subtopic.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {displayCard.note_links.map((noteLink) => (
+                <Button key={noteLink.id} variant="outline" size="sm" asChild>
+                  <Link href={noteLink.href} target="_blank" rel="noreferrer">
+                    {noteLink.is_solution ? 'Solution: ' : ''}{noteLink.label}
+                    <ExternalLink className="ml-1.5 h-3.5 w-3.5" />
+                  </Link>
+                </Button>
+              ))}
+            </div>
+          </section>
+        ) : null}
       </div>
 
-      {!showAnswer ? (
-        <Button onClick={() => setShowAnswer(true)} className="w-full" disabled={!imageReady}>
-          Show answer
-          <KeyBadge>Space</KeyBadge>
-        </Button>
-      ) : mode === 'due' ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {ratings.map((rating) => (
-            <Button
-              key={rating.value}
-              variant="default"
-              className={cn('h-14 flex-col gap-1', rating.className)}
-              onClick={() => rateDueCard(rating.value)}
-            >
-              <span className="inline-flex items-center gap-1.5">
-                {rating.label}
-                <KeyBadge className="ml-0 border-white/30 bg-white/20 text-white">{rating.key}</KeyBadge>
-              </span>
-              {card.rating_previews?.[rating.value]?.label ? (
-                <span className="text-xs font-medium text-white/85">{card.rating_previews[rating.value].label}</span>
-              ) : null}
+      <div
+        data-testid="flashcard-answer-controls"
+        aria-busy={isAnswerPending}
+        className="sticky bottom-3 z-20 rounded-2xl bg-background/95 p-2 shadow-[0_12px_40px_rgb(0,0,0,0.16)] ring-1 ring-black/[0.08] backdrop-blur supports-[backdrop-filter]:bg-background/85 dark:ring-white/10"
+      >
+        {!showAnswer ? (
+          <Button onClick={() => setShowAnswer(true)} className="w-full" disabled={!imageReady}>
+            Show answer
+            <KeyBadge>Space</KeyBadge>
+          </Button>
+        ) : mode === 'due' ? (
+          <div className="space-y-2">
+            {isAnswerPending ? <p className="text-center text-xs text-muted-foreground" role="status">Saving answer…</p> : null}
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+              {ratings.map((rating) => (
+                <Button
+                  key={rating.value}
+                  variant="default"
+                  className={cn('h-14 flex-col gap-1', rating.className)}
+                  onClick={() => rateDueCard(rating.value)}
+                  disabled={isAnswerPending}
+                  title={rating.description}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {rating.label}
+                    <KeyBadge className="ml-0 border-white/30 bg-white/20 text-white">{rating.key}</KeyBadge>
+                  </span>
+                  {card.rating_previews?.[rating.value]?.label ? (
+                    <span className="text-xs font-medium text-white/85">{card.rating_previews[rating.value].label}</span>
+                  ) : null}
+                </Button>
+              ))}
+            </div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-2">
+            <Button onClick={markFreeStudyIncorrect} className="h-12 gap-1.5 bg-red-600 text-white hover:bg-red-700">
+              <X className="h-4 w-4" />
+              Incorrect
+              <KeyBadge className="border-white/30 bg-white/20 text-white">1</KeyBadge>
             </Button>
-          ))}
-        </div>
-      ) : (
-        <div className="grid grid-cols-2 gap-2">
-          <Button onClick={markFreeStudyIncorrect} className="h-12 gap-1.5 bg-red-600 text-white hover:bg-red-700">
-            <X className="h-4 w-4" />
-            Incorrect
-            <KeyBadge className="border-white/30 bg-white/20 text-white">1</KeyBadge>
-          </Button>
-          <Button onClick={markFreeStudyCorrect} className="h-12 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
-            <Check className="h-4 w-4" />
-            Correct
-            <KeyBadge className="border-white/30 bg-white/20 text-white">2</KeyBadge>
-            <KeyBadge className="border-white/30 bg-white/20 text-white">Space</KeyBadge>
-          </Button>
-        </div>
-      )}
+            <Button onClick={markFreeStudyCorrect} className="h-12 gap-1.5 bg-emerald-600 text-white hover:bg-emerald-700">
+              <Check className="h-4 w-4" />
+              Correct
+              <KeyBadge className="border-white/30 bg-white/20 text-white">2</KeyBadge>
+              <KeyBadge className="border-white/30 bg-white/20 text-white">Space</KeyBadge>
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

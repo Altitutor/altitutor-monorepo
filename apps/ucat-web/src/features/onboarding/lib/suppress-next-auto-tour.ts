@@ -1,6 +1,6 @@
 /**
- * When replaying a tour from Settings we reset the tour, navigate to its page,
- * then start it manually. {@link OnboardingAutoStart} would otherwise schedule
+ * When replaying a tour from Settings we navigate to its page, then start it
+ * manually. {@link OnboardingAutoStart} would otherwise schedule
  * the same tour about 600ms later. This flag skips that duplicate start once.
  */
 let suppressedTourId: string | null = null;

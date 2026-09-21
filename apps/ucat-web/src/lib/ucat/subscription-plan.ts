@@ -1,4 +1,5 @@
 import {
+  normalizeUcatInvitationCode,
   isUcatBillingInterval,
   isUcatPaidPlanTier,
   type UcatBillingInterval,
@@ -21,6 +22,7 @@ export type UcatCheckoutRequest = UcatCheckoutSelection & {
   returnContext?: UcatCheckoutReturnContext;
   /** A pending recipient gift or an earned Free-referrer access gift. */
   referralGiftId?: string;
+  founderCode?: string;
   /** Validated application destination resumed after successful checkout. */
   returnTo?: string;
 };
@@ -64,8 +66,14 @@ export function parseUcatCheckoutRequest(
   const raw = value as unknown as {
     returnContext?: unknown;
     referralGiftId?: unknown;
+    founderCode?: unknown;
     returnTo?: unknown;
   };
+  const founderCode =
+    raw.founderCode === undefined
+      ? undefined
+      : normalizeUcatInvitationCode(raw.founderCode);
+  if (raw.founderCode !== undefined && !founderCode) return null;
   const ctx = raw.returnContext;
   if (
     ctx !== undefined &&
@@ -87,6 +95,7 @@ export function parseUcatCheckoutRequest(
         : undefined,
     referralGiftId:
       typeof raw.referralGiftId === "string" ? raw.referralGiftId : undefined,
+    founderCode: founderCode ?? undefined,
     returnTo: typeof raw.returnTo === "string" ? raw.returnTo : undefined,
   };
 }

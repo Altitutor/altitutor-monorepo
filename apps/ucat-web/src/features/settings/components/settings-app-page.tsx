@@ -64,7 +64,7 @@ export function SettingsAppPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const { replayTour, isResetting } = useOnboardingTour();
+  const { replayTour } = useOnboardingTour();
   const isMobile = useMediaQuery("(max-width: 767px)");
   const { setTheme } = useTheme();
   const { toast } = useToast();
@@ -391,7 +391,6 @@ export function SettingsAppPage() {
                 placeholder="Replay app tour"
                 searchPlaceholder="Search tours…"
                 emptyMessage="No matching tour."
-                disabled={isResetting}
                 triggerClassName={SELECT_TRIGGER}
                 contentWidth={SELECT_CONTENT_WIDTH}
               />

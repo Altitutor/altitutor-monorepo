@@ -24,6 +24,7 @@ export function EditTaskDialog({
 
   return (
     <AdminDialogShell
+      dialogContentProps={{ onInteractOutside: (event) => event.preventDefault(), onEscapeKeyDown: (event) => event.preventDefault() }}
       hideHeader
       fillHeight
       defaultExpanded

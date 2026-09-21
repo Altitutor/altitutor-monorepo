@@ -94,7 +94,7 @@ describe("QuestionContent placement restoration", () => {
     });
   });
 
-  it("assigns a Yes token with mouse pointer dragging", () => {
+    it("assigns a Yes token with mouse pointer dragging", () => {
     const onChangePlacementSnapshot = jest.fn();
     render(
       <QuestionContent
@@ -109,6 +109,63 @@ describe("QuestionContent placement restoration", () => {
     expect(onChangePlacementSnapshot).toHaveBeenLastCalledWith({
       "statement-1": "yes",
     });
+  });
+
+  it("does not assign a token by clicking the drop box", () => {
+    const onChangePlacementSnapshot = jest.fn();
+    render(
+      <QuestionContent
+        question={question}
+        onSelectOption={() => undefined}
+        onChangePlacementSnapshot={onChangePlacementSnapshot}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByLabelText("Drop Yes or No here")[0]!);
+
+    expect(onChangePlacementSnapshot).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByLabelText("Drop Yes or No here")[0],
+    ).not.toHaveTextContent("Yes");
+  });
+
+  it("assigns a Yes token with mouse dragging when placement is drag-only", () => {
+    const onChangePlacementSnapshot = jest.fn();
+    const onPlacementClickAttempt = jest.fn();
+    render(
+      <QuestionContent
+        question={question}
+        onSelectOption={() => undefined}
+        onChangePlacementSnapshot={onChangePlacementSnapshot}
+        placementDragOnly
+        onPlacementClickAttempt={onPlacementClickAttempt}
+      />,
+    );
+
+    dragYesTokenOntoFirstStatement({ pointerType: "mouse" });
+
+    expect(onChangePlacementSnapshot).toHaveBeenLastCalledWith({
+      "statement-1": "yes",
+    });
+    expect(onPlacementClickAttempt).not.toHaveBeenCalled();
+  });
+
+  it("sets a native HTML5 drag image that shows the Yes token", () => {
+    render(
+      <QuestionContent question={question} onSelectOption={() => undefined} />,
+    );
+
+    const setDragImage = jest.fn();
+    fireEvent.dragStart(screen.getByRole("button", { name: "Yes" }), {
+      dataTransfer: {
+        ...dataTransfer({}),
+        setDragImage,
+      },
+    });
+
+    expect(setDragImage).toHaveBeenCalled();
+    const image = setDragImage.mock.calls[0]?.[0] as HTMLElement;
+    expect(image).toHaveTextContent("Yes");
   });
 
   it("moves a Yes token preview with the pointer during a drag", () => {

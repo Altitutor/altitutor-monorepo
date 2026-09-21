@@ -69,6 +69,27 @@ $remove$,
     RAISE EXCEPTION 'create_tutor_log check-in guard was not found';
   END IF;
 
+  updated_create_source := replace(
+    updated_create_source,
+    E'  v_session_type TEXT;\n  v_assignment_type TEXT;\n',
+    ''
+  );
+  updated_create_source := replace(
+    updated_create_source,
+    E'  SELECT type INTO v_session_type\n  FROM public.sessions\n  WHERE id = p_session_id;\n',
+    E'  PERFORM 1\n  FROM public.sessions\n  WHERE id = p_session_id;\n'
+  );
+  updated_create_source := replace(
+    updated_create_source,
+    E'  SELECT type INTO v_assignment_type\n  FROM public.sessions_staff\n  WHERE session_id = p_session_id\n    AND staff_id = p_logged_for_staff_id;\n',
+    E'  PERFORM 1\n  FROM public.sessions_staff\n  WHERE session_id = p_session_id\n    AND staff_id = p_logged_for_staff_id;\n'
+  );
+
+  IF updated_create_source LIKE '%v_session_type%'
+     OR updated_create_source LIKE '%v_assignment_type%' THEN
+    RAISE EXCEPTION 'create_tutor_log obsolete check-in variables were not removed';
+  END IF;
+
   EXECUTE format(
     $ddl$
 CREATE OR REPLACE FUNCTION public.create_tutor_log(
@@ -112,6 +133,27 @@ $remove$,
 
   IF updated_update_source = update_source THEN
     RAISE EXCEPTION 'update_tutor_log check-in guard was not found';
+  END IF;
+
+  updated_update_source := replace(
+    updated_update_source,
+    E'  v_session_type TEXT;\n  v_updated_by_user_id UUID;\n  v_assignment_type TEXT;\n',
+    E'  v_updated_by_user_id UUID;\n'
+  );
+  updated_update_source := replace(
+    updated_update_source,
+    E'  SELECT tl.session_id, session.type\n  INTO v_session_id, v_session_type\n  FROM public.tutor_logs tl\n  JOIN public.sessions session ON session.id = tl.session_id\n  WHERE tl.id = p_tutor_log_id;\n',
+    E'  SELECT session_id INTO v_session_id\n  FROM public.tutor_logs\n  WHERE id = p_tutor_log_id;\n'
+  );
+  updated_update_source := replace(
+    updated_update_source,
+    E'  SELECT type INTO v_assignment_type\n  FROM public.sessions_staff\n  WHERE session_id = v_session_id\n    AND staff_id = p_logged_for_staff_id;\n',
+    E'  PERFORM 1\n  FROM public.sessions_staff\n  WHERE session_id = v_session_id\n    AND staff_id = p_logged_for_staff_id;\n'
+  );
+
+  IF updated_update_source LIKE '%v_session_type%'
+     OR updated_update_source LIKE '%v_assignment_type%' THEN
+    RAISE EXCEPTION 'update_tutor_log obsolete check-in variables were not removed';
   END IF;
 
   EXECUTE format(

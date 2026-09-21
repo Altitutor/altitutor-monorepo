@@ -45,6 +45,16 @@ export function getStudyPlanCompanionMode(
   return "available";
 }
 
+/** Refetch study-plan guidance only after leaving in-progress or hidden work. */
+export function shouldRefreshStudyPlanOnRouteChange(
+  previousPathname: string,
+  nextPathname: string,
+): boolean {
+  if (previousPathname === nextPathname) return false;
+  const previousMode = getStudyPlanCompanionMode(previousPathname);
+  return previousMode === "activity" || previousMode === "hidden";
+}
+
 /** True when the student is already on the suggested next activity. */
 export function isAlreadyOnSuggestedActivity(
   pathname: string,

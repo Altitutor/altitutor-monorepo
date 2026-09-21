@@ -4,10 +4,8 @@ import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
-import { calculateFirstSessionDate, calculateLastSessionDate, formatSessionDateTime } from '@/shared/utils/schedule';
+import { useClassTransferSessions, sessionCalendarDate, sessionDateLabel } from '../../hooks/useClassTransferSessions';
 import { formatDate, cn } from '@/shared/utils';
-import { combineLocalDateAndTime } from '@/shared/utils/datetime';
-import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays } from 'date-fns';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
@@ -26,7 +24,8 @@ interface ChangeClassStep3SummaryProps {
   oldClassSubject?: Tables<'subjects'>;
   oldClassStaff?: Tables<'staff'>[];
   selectedNewClass?: ClassWithExpandedSubject;
-  changeoverDate: string;
+  lastOldClassDate: string;
+  firstNewClassDate: string;
   timeOverlapWarning: string | null;
 }
 
@@ -37,47 +36,31 @@ export function ChangeClassStep3Summary({
   oldClassSubject,
   oldClassStaff: _oldClassStaff,
   selectedNewClass,
-  changeoverDate,
+  lastOldClassDate,
+  firstNewClassDate,
   timeOverlapWarning,
 }: ChangeClassStep3SummaryProps) {
-  // Calculate session dates
-  const lastSessionOldClass = oldClass && changeoverDate
-    ? calculateLastSessionDate(oldClass, getMidnightAdelaide(new Date(changeoverDate)))
-    : null;
-  
-  const firstSessionNewClass = selectedNewClass && changeoverDate && selectedNewClass.day_of_week !== undefined && selectedNewClass.start_time
-    ? calculateFirstSessionDate(
-        selectedNewClass,
-        getMidnightAdelaide(new Date(changeoverDate))
-      )
-    : null;
+  const { data: sessions = [] } = useClassTransferSessions(oldClass.id, selectedNewClass?.id);
+  const oldSession = sessions.filter(session => session.class_id === oldClass.id && sessionCalendarDate(session.start_at, oldClass.schedule_timezone) === lastOldClassDate).at(-1);
+  const newSession = sessions.find(session => session.class_id === selectedNewClass?.id && sessionCalendarDate(session.start_at, selectedNewClass.schedule_timezone) === firstNewClassDate);
+  const lastSessionOldClass = oldSession ? new Date(oldSession.start_at) : null;
+  const firstSessionNewClass = useMemo(() => newSession ? new Date(newSession.start_at) : null, [newSession]);
 
   // Calculate billing dates
   const lastBillingDateOldClass = lastSessionOldClass ? subDays(lastSessionOldClass, 1) : null;
   const firstBillingDateNewClass = firstSessionNewClass ? subDays(firstSessionNewClass, 1) : null;
 
   // Fetch the actual session for last session date (to get invoice info)
-  const lastSessionDateStr = lastSessionOldClass ? lastSessionOldClass.toISOString().split('T')[0] : null;
+  const lastSessionDateStr = lastOldClassDate || null;
   const { data: lastSessionData } = useQuery({
-    queryKey: ['last-session-for-invoice', studentId, oldClass.id, lastSessionDateStr],
+    queryKey: ['last-session-for-invoice', studentId, oldClass.id, oldSession?.id],
     queryFn: async () => {
       if (!lastSessionDateStr || !oldClass.id) return null;
       
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
-      const startIso = new Date(`${lastSessionDateStr}T00:00:00`).toISOString();
-      const endIso = new Date(`${lastSessionDateStr}T23:59:59`).toISOString();
-      
-      // Find session for this class on this date
-      const { data: session, error } = await supabase
-        .from('sessions')
-        .select('id')
-        .eq('class_id', oldClass.id)
-        .gte('start_at', startIso)
-        .lte('start_at', endIso)
-        .maybeSingle();
-      
-      if (error || !session) return null;
-      
+      if (!oldSession) return null;
+      const session = oldSession;
+
       // Get sessions_students for this student
       const { data: sessionStudent, error: ssError } = await supabase
         .from('sessions_students')
@@ -100,7 +83,7 @@ export function ChangeClassStep3Summary({
       
       return invoiceItem.invoice as Tables<'invoices'>;
     },
-    enabled: !!lastSessionDateStr && !!oldClass.id && !!studentId,
+    enabled: !!oldSession && !!studentId,
   });
 
   // Check if invoice date has passed
@@ -134,7 +117,7 @@ export function ChangeClassStep3Summary({
 
   // Calculate billing amount for first session
   const firstSessionBillingAmount = useMemo(() => {
-    if (!firstSessionNewClass || !selectedNewClass || !selectedNewClass.subject_id || !selectedNewClass.start_time || !selectedNewClass.end_time) {
+    if (!firstSessionNewClass || !newSession) {
       return null;
     }
 
@@ -142,19 +125,6 @@ export function ChangeClassStep3Summary({
       return null;
     }
 
-    const dateStr = firstSessionNewClass.toISOString().split('T')[0];
-    const sessionStart = combineLocalDateAndTime(dateStr, selectedNewClass.start_time);
-    const sessionEnd = combineLocalDateAndTime(dateStr, selectedNewClass.end_time);
-    if (!sessionStart || !sessionEnd) {
-      return null;
-    }
-
-    const mockSession = {
-      billing_type: selectedNewClass.billing_type,
-      subject_id: selectedNewClass.subject_id,
-      start_at: sessionStart,
-      end_at: sessionEnd,
-    };
 
     const pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }> = {};
     billingPricing.forEach(p => {
@@ -176,7 +146,7 @@ export function ChangeClassStep3Summary({
     });
 
     const result = calculateSessionPrice(
-      mockSession,
+      newSession,
       studentId,
       firstSessionNewClass,
       pricingByBillingType,
@@ -186,7 +156,7 @@ export function ChangeClassStep3Summary({
     );
 
     return result;
-  }, [firstSessionNewClass, selectedNewClass, billingPricing, pricingOverrides, subsidies, studentId]);
+  }, [firstSessionNewClass, billingPricing, pricingOverrides, subsidies, studentId, newSession]);
 
   // Get student name
   const studentName = `${student.first_name} ${student.last_name}`;
@@ -207,8 +177,8 @@ export function ChangeClassStep3Summary({
     : 'choose class';
 
   // Format changeover date for display
-  const changeoverDateDisplay = changeoverDate
-    ? formatDate(new Date(changeoverDate))
+  const changeoverDateDisplay = firstNewClassDate
+    ? formatDate(new Date(`${firstNewClassDate}T12:00:00`))
     : 'choose date';
 
   return (
@@ -260,7 +230,7 @@ export function ChangeClassStep3Summary({
             <div>
               <p className="text-sm font-medium">Last Session (Old Class)</p>
               <p className="text-sm text-muted-foreground">
-                {formatSessionDateTime(lastSessionOldClass)}
+                {sessionDateLabel(lastSessionOldClass.toISOString(), oldClass.schedule_timezone)}
               </p>
             </div>
             
@@ -314,7 +284,7 @@ export function ChangeClassStep3Summary({
             <div>
               <p className="text-sm font-medium">First Session (New Class)</p>
               <p className="text-sm text-muted-foreground">
-                {formatSessionDateTime(firstSessionNewClass)}
+                {sessionDateLabel(firstSessionNewClass.toISOString(), selectedNewClass?.schedule_timezone)}
               </p>
             </div>
             

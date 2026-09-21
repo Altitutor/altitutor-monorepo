@@ -42,15 +42,17 @@ export function resolveMarketingLandingUrl({
     vercelEnvironment === 'development' ||
     vercelEnvironment === 'preview' ||
     gitCommitRef === 'develop';
+  const requestOrigin = marketingOriginFromRequestHost(requestHost);
 
+  // Local and hosted-development requests win over NEXT_PUBLIC_MARKETING_URL so a
+  // production origin pulled into .env cannot send localhost to altitutor.com.
   const marketingOrigin =
-    trimmed ||
-    marketingOriginFromRequestHost(requestHost) ||
+    requestOrigin ||
     (nodeEnv === 'development'
       ? 'http://localhost:3003'
       : isDevelopmentDeployment
         ? 'https://development.altitutor.com'
-        : 'https://altitutor.com');
+        : trimmed || 'https://altitutor.com');
 
   return new URL('/online-learning/', marketingOrigin).toString();
 }

@@ -17,12 +17,12 @@ source "$SCRIPT_DIR/common.sh"
 ONLY_SECRET=""
 if [ "${1:-}" = "--only" ]; then
     ONLY_SECRET="${2:-}"
-    if [ "$ONLY_SECRET" != "CRON_SECRET" ]; then
-        echo "Only --only CRON_SECRET is supported for targeted deployment." >&2
+    if [ "$ONLY_SECRET" != "CRON_SECRET" ] && [ "$ONLY_SECRET" != "ADMIN_REPORTING_DATABASE_URL" ]; then
+        echo "Targeted deployment supports CRON_SECRET or ADMIN_REPORTING_DATABASE_URL." >&2
         exit 1
     fi
 elif [ "$#" -gt 0 ]; then
-    echo "Usage: $0 [--only CRON_SECRET]" >&2
+    echo "Usage: $0 [--only CRON_SECRET|ADMIN_REPORTING_DATABASE_URL]" >&2
     exit 1
 fi
 
@@ -65,8 +65,10 @@ check_command "vercel" "Install with: npm install -g vercel" || exit 1
 check_command "jq" "Install with: brew install jq" || exit 1
 check_env_file "$SECRETS_DIR/.env.development" || exit 1
 check_env_file "$SECRETS_DIR/.env.production" || exit 1
-ensure_env_secret "$SECRETS_DIR/.env.development" "CRON_SECRET" || exit 1
-ensure_env_secret "$SECRETS_DIR/.env.production" "CRON_SECRET" || exit 1
+if [ -z "$ONLY_SECRET" ] || [ "$ONLY_SECRET" = "CRON_SECRET" ]; then
+    ensure_env_secret "$SECRETS_DIR/.env.development" "CRON_SECRET" || exit 1
+    ensure_env_secret "$SECRETS_DIR/.env.production" "CRON_SECRET" || exit 1
+fi
 
 # Verify Vercel token is loaded
 if [ -n "$VERCEL_TOKEN" ]; then
@@ -297,6 +299,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
+    # Restricted reporting credentials belong only to admin-web.
+    elif [[ "$key" == "ADMIN_REPORTING_DATABASE_URL" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "preview"
@@ -355,6 +360,9 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
+    # Restricted reporting credentials belong only to admin-web.
+    elif [[ "$key" == "ADMIN_REPORTING_DATABASE_URL" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "production"

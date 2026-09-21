@@ -5,9 +5,10 @@ import {
 } from "jsr:@std/assert";
 import { buildLifecyclePreview } from "./email.ts";
 
-const REPLY_HAND_FRAGMENT = "If you want a hand with this, just reply.";
+const REPLY_HAND_FRAGMENT =
+  "If you'd like a hand with this, just reply and tell me what you're finding difficult.";
 const REPLY_STUCK_FRAGMENT =
-  "If you get stuck, reply to this email — I read them.";
+  "If you have a question or aren't sure where to start, reply to this email. I'd love to help.";
 
 Deno.test(
   "weekly review contains useful evidence and no automatic commercial pitch",
@@ -44,7 +45,7 @@ Deno.test(
     const email = buildLifecyclePreview("first_score_estimate");
     assertEquals(
       email.subject,
-      "Your total score isn't the useful part",
+      "Use your results to choose what to practise next",
     );
     assertFalse(email.subject.includes("2250"));
     assertFalse(email.preview.includes("2250"));
@@ -91,8 +92,11 @@ Deno.test(
   "consistency upgrade is explicit that Free practice has not earned a discount",
   () => {
     const email = buildLifecyclePreview("upgrade_consistency");
-    assertStringIncludes(email.text, "Free practice does not bank a discount");
-    assertStringIncludes(email.text, "gets cheaper");
+    assertStringIncludes(
+      email.text,
+      "Practice on Free doesn't earn discounts towards a future subscription",
+    );
+    assertStringIncludes(email.text, "Complete at least 10 questions in a day");
   },
 );
 

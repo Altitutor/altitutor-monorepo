@@ -20,7 +20,7 @@ import {
   groupFilesByType,
   pairFilesWithSolutions,
 } from '@/features/resources/lib/helpers';
-import { FlashcardManager } from '@/features/flashcards';
+import { FlashcardManager, FlashcardReviewHistory } from '@/features/flashcards';
 import { TutorPageContainer } from '@/shared/components/layouts';
 
 export default function TutorFlashcardsPage() {
@@ -115,6 +115,7 @@ export default function TutorFlashcardsPage() {
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-6">
           {topic?.id ? <FlashcardManager topicId={topic.id} /> : null}
+          {subject?.id ? <FlashcardReviewHistory subjectId={subject.id} /> : null}
         </div>
 
         <div className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">

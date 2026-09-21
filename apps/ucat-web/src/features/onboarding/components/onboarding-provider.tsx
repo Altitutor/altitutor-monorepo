@@ -1,6 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
 import { NextStep, NextStepProvider } from "nextstepjs";
 import { useTheme } from "next-themes";
 import { OnboardingCard } from "@/features/onboarding/components/onboarding-card";
@@ -10,12 +11,17 @@ import { TutorialLifecycleController } from "@/features/onboarding/components/tu
 import { ucatOnboardingTours } from "@/features/onboarding/config/tour-steps";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { clearTutorialResume } from "@/features/onboarding/lib/tutorial-resume";
+import {
+  clearTutorialReplay,
+  readTutorialReplay,
+} from "@/features/onboarding/lib/tutorial-replay";
 
 // Keep both themes neutral: the overlay should dim the page, not tint it.
 const LIGHT_SHADOW = { rgb: "0,0,0", opacity: "0.58" } as const;
 const DARK_SHADOW = { rgb: "0,0,0", opacity: "0.7" } as const;
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
   const completeTour = useCompleteOnboardingTour();
   const { resolvedTheme } = useTheme();
   const shadow = resolvedTheme === "dark" ? DARK_SHADOW : LIGHT_SHADOW;
@@ -23,6 +29,12 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   const handleFinish = (tour: string | null) => {
     if (!tour) return;
     clearTutorialResume(tour);
+    const replay = readTutorialReplay(tour);
+    if (replay) {
+      clearTutorialReplay(tour);
+      router.push(replay.returnTo);
+      return;
+    }
     // Fire-and-forget; the mutation invalidates the progress query on success
     // so the auto-start hook won't re-trigger this tour on the next mount.
     completeTour.mutate(tour);

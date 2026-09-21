@@ -13,9 +13,8 @@
 # testing
 /coverage
 
-# next.js
-/.next/
-/.next-e2e/
+# next.js (default .next and custom NEXT_DIST_DIR)
+/.next*/
 /playwright-report/
 /test-results/
 /out/

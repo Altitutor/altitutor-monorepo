@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Suspense,
   useEffect,
   useCallback,
   useRef,
@@ -21,7 +20,7 @@ import { UcatExamToolbar } from "@/features/exam-experience/components/ucat-exam
 import { ExamExperienceProvider } from "@/features/exam-experience/context/exam-experience-context";
 import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
 import type { ExamToolbarLayout } from "@/features/interface-preferences/model/types";
-import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial-gate";
+import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
 import {
   OnboardingAutoStart,
@@ -43,7 +42,6 @@ import {
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";
 import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
-import { QuestionEngineTutorialRedirect } from "@/features/onboarding/components/question-engine-tutorial-redirect";
 import { StudyPlanCompanion } from "@/features/study-plan/components/study-plan-companion";
 import { StudyPlanCompanionProvider } from "@/features/study-plan/context/study-plan-companion-context";
 import { StudyPlanExtraStudyProvider } from "@/features/study-plan/components/study-plan-extra-study";
@@ -295,9 +293,6 @@ function AppShellInner({ children }: AppShellProps) {
     >
       <OnboardingProvider>
         <OnboardingAutoStart />
-        <Suspense fallback={null}>
-          <QuestionEngineTutorialRedirect />
-        </Suspense>
         <div
           id={UCAT_NEXTSTEP_FIXED_VIEWPORT_ID}
           className="pointer-events-none fixed inset-0 z-[1100]"

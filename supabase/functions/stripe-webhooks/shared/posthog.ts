@@ -1,6 +1,7 @@
 import type { SupabaseClient } from "jsr:@supabase/supabase-js@2";
 
 export type UcatSubscriptionAnalyticsEvent =
+  | "founder_offer_redeemed"
   | "subscription_started"
   | "subscription_payment_succeeded"
   | "subscription_renewed"
@@ -135,6 +136,21 @@ export async function captureUcatSubscriptionPosthogEvent(
     );
   }
 
+  const { data: founderClaims } = await supabase.from("ucat_founder_redemptions")
+    .select("kind, stripe_subscription_id, ucat_founder_offers(id, code, campaign)")
+    .eq("student_id", input.studentId).eq("status", "redeemed");
+  const founderProperties: Record<string, AnalyticsProperty> = {};
+  for (const claim of founderClaims ?? []) {
+    if (claim.kind === "discount" && input.properties.stripe_subscription_id && claim.stripe_subscription_id !== input.properties.stripe_subscription_id) continue;
+    const rawOffer = claim.ucat_founder_offers;
+    const offer = Array.isArray(rawOffer) ? rawOffer[0] : rawOffer;
+    if (!offer) continue;
+    const prefix = claim.kind === "access_pass" ? "founder_access" : "founder_discount";
+    founderProperties[`${prefix}_offer_id`] = offer.id;
+    founderProperties[`${prefix}_code`] = offer.code;
+    founderProperties[`${prefix}_campaign`] = offer.campaign;
+  }
+
   const url = posthogCaptureUrl(
     Deno.env.get("POSTHOG_HOST")?.trim() ?? "https://us.i.posthog.com",
   );
@@ -171,6 +187,7 @@ export async function captureUcatSubscriptionPosthogEvent(
             initial_utm_term: attribution?.first_utm_term ?? null,
             initial_referrer_domain: attribution?.first_referrer_domain ?? null,
             initial_landing_path: attribution?.first_landing_path ?? null,
+            ...founderProperties,
             ...input.properties,
           },
         }),

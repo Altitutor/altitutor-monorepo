@@ -17,11 +17,21 @@ import {
   ClipboardList,
   MessageSquare,
   Printer,
+  Layers3,
 } from "lucide-react";
 import { AdminSettingsCard } from "@/shared/components";
 
 export default function SettingsPage() {
   const settingsSections = [
+      {
+        title: "AI applications",
+        items: [{
+          title: "AI connections",
+          description: "Connect AI applications and manage their business access",
+          href: "/settings/ai-connections",
+          icon: Link2,
+        }],
+      },
       {
         title: "Student records",
         items: [{
@@ -168,6 +178,10 @@ export default function SettingsPage() {
           icon: GraduationCap,
           },
         ],
+      },
+      {
+        title: "Learning",
+        items: [{ title: "Flashcard presets", description: "Manage versioned FSRS study presets and Subject assignments", href: "/settings/flashcards", icon: Layers3 }],
       },
       {
       title: "System",

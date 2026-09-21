@@ -33,7 +33,6 @@ import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-a
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
-import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import { formatSpeedPercentAsMultiplier } from "@/features/progress/lib/format-speed-multiplier";
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
@@ -287,7 +286,6 @@ export function PracticeSessionPage() {
     refresh: refreshActiveAttempt,
     clearLocal: clearActiveAttempt,
   } = useActiveExamAttempt();
-  const { isReady: questionEngineTourReady } = useQuestionEngineTutorialGate();
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { clearLivePractice, reportLivePractice } = useStudyPlanCompanion();
   const [session, setSession] = useState<
@@ -362,9 +360,6 @@ export function PracticeSessionPage() {
   );
 
   useEffect(() => {
-    // Wait for the tutorial gate so we never begin a practice attempt that
-    // will immediately be redirected away.
-    if (!questionEngineTourReady) return;
     if (completionNavigationRef.current) return;
 
     let cancelled = false;
@@ -579,7 +574,6 @@ export function PracticeSessionPage() {
     activeExamAttempt,
     createFromPending,
     openQuotaLimit,
-    questionEngineTourReady,
     quota,
     quotaLoading,
     router,

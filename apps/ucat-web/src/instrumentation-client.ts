@@ -1,3 +1,7 @@
+import {
+  filterMobileAuthTelemetry,
+  isMobileAuthBrowserContext,
+} from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import {
   shouldEnableClientSentry,
@@ -13,8 +17,10 @@ const hostname =
 // Production builds also run in previews and local smoke tests.
 const replayEnabled =
   process.env.NODE_ENV === "production" &&
-  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") === "production" &&
+  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") ===
+    "production" &&
   typeof window !== "undefined" &&
+  !isMobileAuthBrowserContext() &&
   window.location.hostname === "ucat.altitutor.com";
 
 Sentry.init({
@@ -28,7 +34,10 @@ Sentry.init({
     return filterExpectedUcatWebError(event, hint);
   },
   beforeSendTransaction: (event) =>
-    shouldSendClientSentryTransaction(hostname) ? event : null,
+    shouldSendClientSentryTransaction(hostname)
+      ? filterMobileAuthTelemetry(event)
+      : null,
+  beforeBreadcrumb: filterMobileAuthTelemetry,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
   replaysSessionSampleRate: replayEnabled ? 0.05 : 0,
   replaysOnErrorSampleRate: replayEnabled ? 1 : 0,
@@ -36,6 +45,7 @@ Sentry.init({
     ...(replayEnabled
       ? [
           Sentry.replayIntegration({
+            beforeAddRecordingEvent: filterMobileAuthTelemetry,
             maskAllText: true,
             maskAllInputs: true,
             blockAllMedia: true,

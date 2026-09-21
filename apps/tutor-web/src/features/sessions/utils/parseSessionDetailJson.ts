@@ -97,6 +97,22 @@ export function parseSessionParentList(value: unknown): SessionParent[] {
   });
 }
 
+export function parseTutorLogParentAttendance(
+  value: unknown
+): Array<{ parent_id: string; attended: boolean }> {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item) => {
+    const record = asRecord(item);
+    if (!record || record.parent_id == null) return [];
+    return [
+      {
+        parent_id: String(record.parent_id),
+        attended: Boolean(record.attended),
+      },
+    ];
+  });
+}
+
 export function readOptionalIso(row: object, key: string): string | null {
   if (!(key in row)) return null;
   const value = (row as Record<string, unknown>)[key];

@@ -4,6 +4,8 @@ import type { NextRequest } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { POST } from "../route";
 
+jest.mock("server-only", () => ({}));
+
 jest.mock("@/lib/supabase/server", () => ({
   getSupabaseServerClient: jest.fn(),
 }));

@@ -450,8 +450,9 @@ export function SignupOnboardingWizard({
     finishPaidOnboarding();
   };
 
+  const [hasFounderGift, setHasFounderGift] = useState(false);
   const pendingGift = giftQuery.data?.pendingGift ?? null;
-  const heading = stepHeading(step, Boolean(pendingGift));
+  const heading = stepHeading(step, Boolean(pendingGift) || hasFounderGift);
   const isWideStep = step === SIGNUP_STEP.PLAN || step === SIGNUP_STEP.SAMPLER;
 
   if (signupSuccessJourney && signupSuccessPhase) {
@@ -583,6 +584,7 @@ export function SignupOnboardingWizard({
 
               {step === SIGNUP_STEP.PLAN ? (
                 <SignupCompletePlanStep
+                  onGiftReady={setHasFounderGift}
                   onComplete={handlePlanComplete}
                   onContinueCurrentPlan={handleCurrentPlanComplete}
                   returnTo={planIntent ? "/dashboard" : returnTo}

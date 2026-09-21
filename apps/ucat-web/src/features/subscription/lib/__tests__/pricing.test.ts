@@ -1,4 +1,8 @@
-import { computePracticeDiscountBillSnapshot } from "@/features/subscription/lib/pricing";
+import { defaultPublicSubscriptionConfig } from "@/features/subscription/types/public-subscription-config";
+import {
+  computePracticeDiscountBillSnapshot,
+  computePracticeDiscountPricing,
+} from "@/features/subscription/lib/pricing";
 import type { PracticeDiscountPricing } from "@/features/subscription/lib/pricing";
 
 const monthlyPricing: PracticeDiscountPricing = {
@@ -40,5 +44,38 @@ describe("computePracticeDiscountBillSnapshot", () => {
       remainingDiscountCents: 0,
       projectedBillCents: 1800,
     });
+  });
+});
+
+describe("founder subscription pricing", () => {
+  it("applies the founder percentage before earned practice credits", () => {
+    const pricing = computePracticeDiscountPricing(
+      {
+        ...defaultPublicSubscriptionConfig,
+        planPrices: [
+          {
+            tier: "unlimited",
+            interval: "month",
+            basePriceCents: 4000,
+            checkoutEnabled: true,
+            configured: true,
+          },
+        ],
+      },
+      {
+        billing_interval: "month",
+        current_period_start: "2026-09-20",
+        current_period_end: "2026-10-20",
+      },
+      20,
+    );
+    expect(pricing.standardPriceCents).toBe(3200);
+    expect(
+      computePracticeDiscountBillSnapshot(pricing, null).projectedBillCents,
+    ).toBe(3200);
+    expect(
+      computePracticeDiscountBillSnapshot(pricing, { earned: 22, cap: 22 })
+        .projectedBillCents,
+    ).toBe(1000);
   });
 });

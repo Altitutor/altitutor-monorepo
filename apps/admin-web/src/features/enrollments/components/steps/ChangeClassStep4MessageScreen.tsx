@@ -10,11 +10,9 @@ import {
   getChangeClassConfirmationMessageForClient,
   getSenderNameFromStaff,
 } from '@/features/messages/api/systemTemplates';
-import { formatSessionDateTime } from '@/shared/utils/schedule';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
 import { useCurrentStaff } from '@/shared/hooks';
-import { calculateLastSessionDate, calculateFirstSessionDate } from '@/shared/utils/schedule';
-import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { useClassTransferSessions, sessionCalendarDate, sessionDateLabel } from '../../hooks/useClassTransferSessions';
 import { useParentsForStudent } from '../../hooks/useParentsForStudent';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 
@@ -23,7 +21,8 @@ interface ChangeClassStep4MessageScreenProps {
   oldClass: Tables<'classes'>;
   oldClassSubject?: Tables<'subjects'>;
   selectedNewClass?: ClassWithExpandedSubject;
-  changeoverDate: string;
+  lastOldClassDate: string;
+  firstNewClassDate: string;
 }
 
 export function ChangeClassStep4MessageScreen({
@@ -31,7 +30,8 @@ export function ChangeClassStep4MessageScreen({
   oldClass,
   oldClassSubject,
   selectedNewClass,
-  changeoverDate,
+  lastOldClassDate,
+  firstNewClassDate,
 }: ChangeClassStep4MessageScreenProps) {
   const [selectedRecipient, setSelectedRecipient] = useState<{ type: 'student' | 'parent'; id?: string; label: string; value: string } | null>(null);
   const [contactId, setContactId] = useState<string | null>(null);
@@ -39,6 +39,8 @@ export function ChangeClassStep4MessageScreen({
   const { data: parentsData = [] } = useParentsForStudent(student?.id, !!student?.id);
   const parents = parentsData;
   const { data: currentStaff } = useCurrentStaff();
+
+  const { data: sessions } = useClassTransferSessions(oldClass.id, selectedNewClass?.id);
 
   // Build recipient options (student phone and parent phones only)
   useEffect(() => {
@@ -100,23 +102,13 @@ export function ChangeClassStep4MessageScreen({
 
   // Pre-populate message with change class template when recipient changes
   useEffect(() => {
-    if (!selectedRecipient || !oldClass || !selectedNewClass || !student || !changeoverDate || !currentStaff)
+    if (!selectedRecipient || !oldClass || !selectedNewClass || !student || !lastOldClassDate || !firstNewClassDate || !currentStaff || !sessions)
       return;
 
-    // Calculate last session date for old class
-    const lastSessionDate = calculateLastSessionDate(
-      oldClass,
-      getMidnightAdelaide(new Date(changeoverDate))
-    );
-
-    // Calculate first session date for new class
-    const firstSessionDate =
-      selectedNewClass.day_of_week !== undefined && selectedNewClass.start_time
-        ? calculateFirstSessionDate(
-            selectedNewClass,
-            getMidnightAdelaide(new Date(changeoverDate))
-          )
-        : null;
+    const oldSession = sessions.filter(session => session.class_id === oldClass.id && sessionCalendarDate(session.start_at, oldClass.schedule_timezone) === lastOldClassDate).at(-1);
+    const newSession = sessions.find(session => session.class_id === selectedNewClass.id && sessionCalendarDate(session.start_at, selectedNewClass.schedule_timezone) === firstNewClassDate);
+    const lastSessionDate = oldSession ? new Date(oldSession.start_at) : null;
+    const firstSessionDate = newSession ? new Date(newSession.start_at) : null;
 
     if (!lastSessionDate || !firstSessionDate) return;
 
@@ -128,8 +120,8 @@ export function ChangeClassStep4MessageScreen({
       : 'class';
 
     // Format session dates
-    const oldClassLastSessionDateFormatted = formatSessionDateTime(lastSessionDate);
-    const newClassFirstSessionDateFormatted = formatSessionDateTime(firstSessionDate);
+    const oldClassLastSessionDateFormatted = sessionDateLabel(lastSessionDate.toISOString(), oldClass.schedule_timezone);
+    const newClassFirstSessionDateFormatted = sessionDateLabel(firstSessionDate.toISOString(), selectedNewClass.schedule_timezone);
 
     // Get recipient name
     const recipientName =
@@ -160,11 +152,15 @@ export function ChangeClassStep4MessageScreen({
     oldClass,
     selectedNewClass,
     student,
-    changeoverDate,
+    lastOldClassDate,
+    firstNewClassDate,
+    sessions,
     currentStaff,
     oldClassSubject,
     parents,
   ]);
+
+
 
   // Build recipient options for dropdown
   const recipientOptions: Array<{ type: 'student' | 'parent'; id?: string; label: string; value: string }> = [];

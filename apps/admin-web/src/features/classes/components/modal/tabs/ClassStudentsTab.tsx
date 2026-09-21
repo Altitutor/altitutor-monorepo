@@ -125,7 +125,8 @@ export function ClassStudentsTab({
     studentId: string;
     oldClassId: string;
     newClassId: string;
-    changeoverDate: Date;
+    lastOldClassDate: string;
+    firstNewClassDate: string;
     staffId: string;
   }) => {
     try {

@@ -1,3 +1,4 @@
+import { containsMobileAuthData } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import {
   getClaimsWithJwtIssuedInFutureRetry,
@@ -22,9 +23,14 @@ type CookieToSet = {
 };
 
 function forwardRequest(request: NextRequest, userId: string | null) {
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: headersWithVerifiedUser(request.headers, userId) },
   });
+  if (containsMobileAuthData(request.url)) {
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+  }
+  return response;
 }
 
 function createDeadline() {
@@ -49,12 +55,22 @@ function createDeadline() {
 function field(error: unknown, key: string) {
   if (typeof error !== "object" || error === null) return null;
   const value = (error as Record<string, unknown>)[key];
-  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+  return typeof value === "string" || typeof value === "number"
+    ? String(value)
+    : null;
 }
 
-function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
-  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
-  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
+function applyMetadata(
+  response: NextResponse,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  cookies.forEach(({ name, value, options }) =>
+    response.cookies.set(name, value, options),
+  );
+  Object.entries(headers).forEach(([name, value]) =>
+    response.headers.set(name, value),
+  );
   response.headers.set("Cache-Control", "private, no-store");
   return response;
 }
@@ -68,12 +84,17 @@ function unavailable(
 ) {
   Sentry.captureMessage("Middleware dependency unavailable", {
     level: "error",
-    fingerprint: ["middleware-dependency-unavailable", "ucat-web", "authentication"],
+    fingerprint: [
+      "middleware-dependency-unavailable",
+      "ucat-web",
+      "authentication",
+    ],
     tags: {
       app: "ucat-web",
       dependency_stage: "authentication",
       http_status: "503",
-      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+      supabase_error_code:
+        field(error, "code") ?? field(error, "name") ?? "unknown",
     },
     extra: {
       elapsed_ms: Math.max(0, Date.now() - startedAt),
@@ -117,25 +138,48 @@ export async function handleAuthRequest(request: NextRequest) {
     redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
+  // Browser redemption must be reachable before it creates a cookie session.
+  // The ticket is in the URL fragment and validated only by the exchange API.
+  if (pathname === "/mobile-browser") {
+    const response = forwardRequest(request, null);
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
   if (pathname === "/auth/callback") return forwardRequest(request, null);
-  if (pathname === "/pricing") return NextResponse.redirect(new URL("/subscribe", origin));
+  if (pathname === "/pricing")
+    return NextResponse.redirect(new URL("/subscribe", origin));
 
   const isNoSessionPath =
     pathname === "/reset-password" ||
     pathname.startsWith("/marketing-preview/") ||
     pathname.startsWith("/api/") ||
     pathname.startsWith("/auth/") ||
-    (process.env.NODE_ENV === "development" && pathname === "/sentry-example-page");
+    (process.env.NODE_ENV === "development" &&
+      pathname === "/sentry-example-page");
   if (isNoSessionPath) return forwardRequest(request, null);
 
   const isPublicEntry =
-    pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password";
+    pathname === "/login" ||
+    pathname === "/signup" ||
+    pathname === "/forgot-password" ||
+    pathname.startsWith("/invite/");
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const cookies: CookieToSet[] = [];
-  const responseHeaders: Record<string, string> = {};
+  const responseHeaders: Record<string, string> = containsMobileAuthData(
+    request.url,
+  )
+    ? { "Referrer-Policy": "no-referrer" }
+    : {};
   if (!supabaseUrl || !supabaseAnonKey) {
-    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
+    return unavailable(
+      request,
+      startedAt,
+      { code: "missing_environment" },
+      cookies,
+      responseHeaders,
+    );
   }
 
   const deadline = createDeadline();
@@ -144,9 +188,13 @@ export async function handleAuthRequest(request: NextRequest) {
       cookies: {
         getAll: () => request.cookies.getAll(),
         setAll(updatedCookies, updatedHeaders) {
-          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach(({ name, value }) =>
+            request.cookies.set(name, value),
+          );
           updatedCookies.forEach((cookie) => {
-            const index = cookies.findIndex((current) => current.name === cookie.name);
+            const index = cookies.findIndex(
+              (current) => current.name === cookie.name,
+            );
             if (index >= 0) cookies[index] = cookie;
             else cookies.push(cookie);
           });
@@ -213,7 +261,13 @@ export async function handleAuthRequest(request: NextRequest) {
     }
     const missingSession = isUnauthenticatedSessionError(claims.error);
     if (claims.error && !missingSession) {
-      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
+      return unavailable(
+        request,
+        startedAt,
+        claims.error,
+        cookies,
+        responseHeaders,
+      );
     }
     const userId = claims.data?.claims?.sub;
     if (!userId && pathname.startsWith("/subscribe")) {
@@ -225,7 +279,11 @@ export async function handleAuthRequest(request: NextRequest) {
         ),
         origin,
       );
-      return applyMetadata(NextResponse.redirect(signupUrl), cookies, responseHeaders);
+      return applyMetadata(
+        NextResponse.redirect(signupUrl),
+        cookies,
+        responseHeaders,
+      );
     }
     if (!userId && !isPublicEntry) {
       const loginUrl = new URL(
@@ -236,7 +294,11 @@ export async function handleAuthRequest(request: NextRequest) {
         ),
         origin,
       );
-      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
+      return applyMetadata(
+        NextResponse.redirect(loginUrl),
+        cookies,
+        responseHeaders,
+      );
     }
     return applyMetadata(
       forwardRequest(request, userId ?? null),

@@ -1,4 +1,4 @@
-import { buildUcatCheckoutReturnPath } from "@/lib/ucat/subscription-plan";
+import { buildUcatCheckoutReturnPath, parseUcatCheckoutRequest } from "@/lib/ucat/subscription-plan";
 
 describe("buildUcatCheckoutReturnPath", () => {
   it("carries a quota upgrade destination through the checkout success gate", () => {
@@ -16,5 +16,29 @@ describe("buildUcatCheckoutReturnPath", () => {
     expect(buildUcatCheckoutReturnPath("practice_session")).toBe(
       "/exam?checkout=success",
     );
+  });
+});
+
+describe("parseUcatCheckoutRequest", () => {
+  it("accepts founder codes without an F- prefix", () => {
+    expect(
+      parseUcatCheckoutRequest({
+        tier: "unlimited",
+        interval: "week",
+        founderCode: "LAUNCH",
+      }),
+    ).toMatchObject({ founderCode: "LAUNCH" });
+  });
+});
+
+describe("parseUcatCheckoutRequest", () => {
+  it("accepts founder codes without an F- prefix", () => {
+    expect(
+      parseUcatCheckoutRequest({
+        tier: "unlimited",
+        interval: "week",
+        founderCode: "LAUNCH",
+      }),
+    ).toMatchObject({ founderCode: "LAUNCH" });
   });
 });

@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "concurrency": "12",
+  "concurrency": "13",
   "globalDependencies": [
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
@@ -16,9 +16,9 @@
       "dependsOn": ["^build"],
       "outputs": [".next/**", "dist/**", "build/**"]
     },
-    "lint": {},
+    "lint": { "dependsOn": ["^build"] },
     "lint:fix": {},
-    "test": {},
+    "test": { "dependsOn": ["^build"] },
     "test:coverage": {
       "outputs": ["coverage/**"]
     },

@@ -21,10 +21,6 @@ import {
   studyPlanCalendarIntensityLevel,
   studyPlanPlannedMinutes,
 } from "@/features/study-plan/lib/calendar";
-import {
-  isCarryOverStudyPlanTask,
-  selectCurrentStudyPlanTasks,
-} from "@/features/study-plan/lib/companion";
 import type {
   StudyPlanResponse,
   StudyPlanTask,
@@ -50,6 +46,23 @@ type StudyPlanCalendarProps = {
 
 function taskMinutes(tasks: StudyPlanTask[]) {
   return tasks.reduce((sum, task) => sum + task.estimatedMinutes, 0);
+}
+
+function carryOverDescription(tasks: StudyPlanTask[]): string {
+  if (tasks.length === 1) {
+    return `This task is still outstanding from ${formatStudyPlanDate(
+      tasks[0].scheduledDate,
+      { weekday: "long", day: "numeric", month: "long" },
+    )}.`;
+  }
+  const scheduledDates = new Set(tasks.map((task) => task.scheduledDate));
+  if (scheduledDates.size === 1) {
+    return `${tasks.length} tasks are still outstanding from ${formatStudyPlanDate(
+      tasks[0].scheduledDate,
+      { weekday: "long", day: "numeric", month: "long" },
+    )}.`;
+  }
+  return `${tasks.length} tasks are still outstanding from earlier study days.`;
 }
 
 function maxPlannedMinutesInMonths(
@@ -148,12 +161,15 @@ export function StudyPlanCalendar({
   ]);
 
   const [selectedDate, setSelectedDate] = useState(plan.today);
-  const carryOverTasks = plan.tasks.filter((task) =>
-    isCarryOverStudyPlanTask(task, plan.today),
+  const carryOverTasks = plan.tasks.filter(
+    (task) =>
+      task.scheduledDate < plan.today &&
+      task.status !== "completed" &&
+      task.status !== "skipped",
   );
   const selectedTasks =
     selectedDate === plan.today
-      ? selectCurrentStudyPlanTasks(plan.tasks, plan.today)
+      ? [...carryOverTasks, ...plan.todayTasks]
       : (tasksByDate.get(selectedDate) ?? []);
   const selectedDayIsIntensive = isIntensiveStudyPlanDay(
     tasksByDate.get(selectedDate) ?? [],
@@ -208,10 +224,10 @@ export function StudyPlanCalendar({
           UCAT_SURFACE_MOTION,
           "hover:shadow-sm hover:ring-1 hover:ring-foreground/20",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground focus-visible:ring-offset-2 focus-visible:ring-offset-background",
-          isSelected && !isToday &&
+          isSelected &&
+            !isToday &&
             "ring-2 ring-foreground ring-offset-1 ring-offset-background",
-          isToday &&
-            "ring-2 ring-primary ring-offset-1 ring-offset-background",
+          isToday && "ring-2 ring-primary ring-offset-1 ring-offset-background",
           isPast && "opacity-45 grayscale-[0.2]",
           usesLightText ? "text-primary-foreground" : "text-foreground",
         )}
@@ -356,11 +372,9 @@ export function StudyPlanCalendar({
               ) : null}
               {selectedDate === plan.today && carryOverTasks.length ? (
                 <div className="rounded-xl border border-amber-500/20 bg-amber-500/[0.06] px-4 py-3">
-                  <p className="text-sm font-medium">Still to do</p>
+                  <p className="text-sm font-medium">Carried over</p>
                   <p className="mt-0.5 text-xs text-muted-foreground">
-                    {carryOverTasks.length === 1
-                      ? "One active task from an earlier study day is waiting. Continue it or discard it, then your plan will move on."
-                      : `${carryOverTasks.length} active tasks from earlier study days are waiting. Continue or discard them, then your plan will move on.`}
+                    {carryOverDescription(carryOverTasks)}
                   </p>
                 </div>
               ) : null}

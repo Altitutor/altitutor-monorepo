@@ -13,6 +13,11 @@ import {
 } from "./posthog";
 import { buildEmailCtaLandingAttribution } from "@/lib/analytics/email-cta-attribution";
 
+import {
+  containsMobileAuthData,
+  filterMobileAuthTelemetry,
+} from "@/lib/privacy/mobile-auth-telemetry";
+
 let initialized = false;
 
 function PostHogPageView({ enabled }: { enabled: boolean }) {
@@ -21,6 +26,7 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
   const query = searchParams.toString();
 
   useEffect(() => {
+    if (containsMobileAuthData(`${pathname}?${query}`)) return;
     const currentSearchParams = new URLSearchParams(query);
     captureUcatObservedFirstTouchInBrowser({
       pathname,
@@ -97,6 +103,8 @@ function UcatPostHogIdentityWithAccess() {
 export function UcatPostHogIdentity() {
   const pathname = usePathname();
   const isAuthTransition =
+    pathname === "/mobile-auth" ||
+    pathname === "/mobile-browser" ||
     getUcatAnalyticsSurface(pathname) === "auth" ||
     pathname.startsWith("/auth/");
 
@@ -125,6 +133,7 @@ export function UcatPostHogProvider({
           process.env.NEXT_PUBLIC_POSTHOG_HOST ?? "https://us.i.posthog.com",
         defaults: "2026-05-30",
         capture_pageview: false,
+        before_send: (event) => filterMobileAuthTelemetry(event),
         capture_pageleave: true,
         autocapture: false,
         capture_dead_clicks: false,

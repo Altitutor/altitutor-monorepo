@@ -998,16 +998,12 @@ export const classesApi = {
   ): Promise<void> => {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      const { error } = await supabase
-        .from('classes_students')
-        .update({ 
-          unenrolled_at: (unenrolledAt || new Date()).toISOString(),
-          unenrolled_by: staffId 
-        })
-        .eq('class_id', classId)
-        .eq('student_id', studentId)
-        .is('unenrolled_at', null);
+      const { data, error } = await supabase.rpc('end_student_class_enrolment', {
+        p_student_id: studentId, p_class_id: classId,
+        p_unenrolled_at: (unenrolledAt || new Date()).toISOString(), p_staff_id: staffId,
+      });
       if (error) throw error;
+      await processEnrolmentBilling(supabase, data ?? []);
     } catch (error) {
       console.error('Error unenrolling student:', error);
       throw error;
@@ -1072,57 +1068,23 @@ export const classesApi = {
     studentId: string;
     oldClassId: string;
     newClassId: string;
-    changeoverDate: Date;
+    lastOldClassDate: string;
+    firstNewClassDate: string;
     staffId: string;
   }): Promise<void> => {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
-      // Get the enrollment record with enrolled_at
-      const { data: oldEnrollment, error: fetchError } = await supabase
-        .from('classes_students')
-        .select('id, enrolled_at')
-        .eq('class_id', params.oldClassId)
-        .eq('student_id', params.studentId)
-        .is('unenrolled_at', null)
-        .single();
-      
-      if (fetchError) throw fetchError;
-      if (!oldEnrollment) throw new Error('Old class enrollment not found');
-      
-      // Ensure unenrolled_at is strictly after enrolled_at to satisfy constraint
-      let unenrolledAt = new Date(params.changeoverDate);
-      const enrolledAt = new Date(oldEnrollment.enrolled_at);
-      if (unenrolledAt <= enrolledAt) {
-        // Add 1 second to ensure it's strictly after
-        unenrolledAt = new Date(enrolledAt.getTime() + 1000);
-      }
-      
-      // Unenroll from old class
-      const { error: unenrollError } = await supabase
-        .from('classes_students')
-        .update({ 
-          unenrolled_at: unenrolledAt.toISOString(),
-          unenrolled_by: params.staffId 
-        })
-        .eq('id', oldEnrollment.id);
-      
-      if (unenrollError) throw unenrollError;
-      
-      // Enroll in new class
-      const payload: TablesInsert<'classes_students'> = {
-        id: crypto.randomUUID(),
-        class_id: params.newClassId,
-        student_id: params.studentId,
-        enrolled_at: params.changeoverDate.toISOString(),
-        enrolled_by: params.staffId,
-      };
-      
-      const { error: enrollError } = await supabase
-        .from('classes_students')
-        .insert(payload);
-      
-      if (enrollError) throw enrollError;
+      const { data, error } = await supabase.rpc('change_student_class', {
+        p_student_id: params.studentId,
+        p_old_class_id: params.oldClassId,
+        p_new_class_id: params.newClassId,
+        p_last_old_date: params.lastOldClassDate,
+        p_first_new_date: params.firstNewClassDate,
+        p_staff_id: params.staffId,
+      });
+      if (error) throw error;
+      await processEnrolmentBilling(supabase, data ?? []);
     } catch (error) {
       console.error('Error changing class:', error);
       throw error;
@@ -1142,52 +1104,15 @@ export const classesApi = {
     try {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
       
-      // Get the enrollment record with enrolled_at
-      const { data: enrollment, error: fetchError } = await supabase
-        .from('classes_students')
-        .select('id, enrolled_at')
-        .eq('class_id', params.classId)
-        .eq('student_id', params.studentId)
-        .is('unenrolled_at', null)
-        .single();
-      
-      if (fetchError) throw fetchError;
-      if (!enrollment) throw new Error('Enrollment not found');
-      
-      // Ensure unenrolled_at is strictly after enrolled_at to satisfy constraint
-      let unenrolledAt = new Date(params.unenrolledAt);
-      const enrolledAt = new Date(enrollment.enrolled_at);
-      if (unenrolledAt <= enrolledAt) {
-        // Add 1 second to ensure it's strictly after
-        unenrolledAt = new Date(enrolledAt.getTime() + 1000);
-      }
-      
-      // Unenroll the student
-      const { error: unenrollError } = await supabase
-        .from('classes_students')
-        .update({ 
-          unenrolled_at: unenrolledAt.toISOString(),
-          unenrolled_by: params.staffId 
-        })
-        .eq('id', enrollment.id);
-      
-      if (unenrollError) throw unenrollError;
-      
-      // Create note with the reason (TipTap JSON)
-      if (!isTiptapContentEmpty(params.reason)) {
-        const notePayload = {
-          target_type: 'classes_students',
-          target_id: enrollment.id,
-          note: params.reason,
-          created_by: params.staffId,
-        };
-        
-        const { error: noteError } = await supabase
-          .from('notes')
-          .insert(notePayload);
-        
-        if (noteError) throw noteError;
-      }
+      const { data, error } = await supabase.rpc('end_student_class_enrolment', {
+        p_student_id: params.studentId,
+        p_class_id: params.classId,
+        p_unenrolled_at: params.unenrolledAt.toISOString(),
+        p_staff_id: params.staffId,
+        p_reason: isTiptapContentEmpty(params.reason) ? undefined : params.reason as Json,
+      });
+      if (error) throw error;
+      await processEnrolmentBilling(supabase, data ?? []);
     } catch (error) {
       console.error('Error unenrolling student with reason:', error);
       throw error;
@@ -1502,3 +1427,21 @@ export const classesApi = {
     })) as unknown as ClassWithExpandedSubject[];
   },
 }; 
+
+/** The enrolment is already committed; failed immediate credits remain in the durable queue. */
+async function processEnrolmentBilling(supabase: SupabaseClient<Database>, adjustmentIds: string[]): Promise<void> {
+  if (adjustmentIds.length === 0) return;
+  try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+    for (let offset = 0; offset < adjustmentIds.length; offset += 100) {
+      const { error } = await supabase.functions.invoke('billing-runner', {
+        headers: { 'x-admin-token': session.access_token },
+        body: { adjustmentsOnly: true, adjustmentIds: adjustmentIds.slice(offset, offset + 100) },
+      });
+      if (error) console.error('Enrolment saved; billing adjustment remains queued:', error);
+    }
+  } catch (error) {
+    console.error('Enrolment saved; billing adjustment remains queued:', error);
+  }
+}

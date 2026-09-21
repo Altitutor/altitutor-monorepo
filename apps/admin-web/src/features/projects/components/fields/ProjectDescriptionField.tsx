@@ -41,7 +41,7 @@ export function ProjectDescriptionField({
               ref={effectiveRef}
               content={field.value || ''}
               onChange={field.onChange}
-              onChangeDebounceMs={200}
+              onChangeDebounceMs={0}
               placeholder="Add project description..."
               className="min-h-0"
               context="projects"

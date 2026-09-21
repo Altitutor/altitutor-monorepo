@@ -7,8 +7,8 @@ import {
   getFirstSelectorForTour,
   UCAT_DASHBOARD_TOUR,
 } from "@/features/onboarding/config/tour-steps";
-import { useResetOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
 import { suppressNextOnboardingAutoStart } from "@/features/onboarding/lib/suppress-next-auto-tour";
+import { beginTutorialReplay } from "@/features/onboarding/lib/tutorial-replay";
 
 const REPLAY_START_MS = 520;
 
@@ -17,13 +17,12 @@ const REPLAY_START_MS = 520;
  *
  * - `startTour(tourId?)` immediately starts the given tour (defaults to the
  *   welcome tour) without touching persistence.
- * - `replayTour(tourId)` clears that tour's completion, navigates to the page
- *   where its anchors exist, then starts it (used from Settings).
+ * - `replayTour(tourId)` preserves completion, navigates to the page where its
+ *   anchors exist, then starts it (used from Settings).
  */
 export function useOnboardingTour() {
   const { startNextStep, closeNextStep } = useNextStep();
   const router = useRouter();
-  const resetTour = useResetOnboardingTour();
 
   const startTour = useCallback(
     (tourId: string = UCAT_DASHBOARD_TOUR) => {
@@ -33,12 +32,8 @@ export function useOnboardingTour() {
   );
 
   const replayTour = useCallback(
-    async (tourId: string, href: string) => {
-      try {
-        await resetTour.mutateAsync(tourId);
-      } catch {
-        // Best-effort: still navigate and play; persistence may catch up later.
-      }
+    (tourId: string, href: string, returnTo = "/settings/app") => {
+      beginTutorialReplay({ tourId, returnTo });
       suppressNextOnboardingAutoStart(tourId);
       router.push(href);
       const firstSelector = getFirstSelectorForTour(tourId);
@@ -53,13 +48,12 @@ export function useOnboardingTour() {
       };
       window.setTimeout(startWhenReady, REPLAY_START_MS);
     },
-    [resetTour, router, startNextStep],
+    [router, startNextStep],
   );
 
   return {
     startTour,
     replayTour,
     closeTour: closeNextStep,
-    isResetting: resetTour.isPending,
   };
 }

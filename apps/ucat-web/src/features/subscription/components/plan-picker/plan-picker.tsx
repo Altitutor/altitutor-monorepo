@@ -1,7 +1,9 @@
 "use client";
 
+import { FounderAccessStatus } from "@/features/founder-offers/components/founder-access-status";
+import { InvitationCodeEntry } from "@/features/founder-offers/components/invitation-code-entry";
 import type { ReactNode } from "react";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { Skeleton } from "@altitutor/ui";
@@ -26,6 +28,8 @@ const { typography: typo } = MARKETING_TOKENS;
 const ALL_PLAN_PICKER_TIERS: PlanPickerTier[] = ["free", "unlimited"];
 
 type PlanPickerProps = {
+  invitationCode?: string;
+  showInvitationEntry?: boolean;
   variant?: "page" | "dialog" | "onboarding";
   className?: string;
   onContinueFree?: () => void;
@@ -94,6 +98,8 @@ function PlanPickerCard({
 
 export function PlanPicker({
   variant = "page",
+  invitationCode,
+  showInvitationEntry = true,
   className,
   onContinueFree,
   onContinueCurrentPlan,
@@ -113,7 +119,9 @@ export function PlanPicker({
     selectorTheme ?? (surfaceTheme === "marketing" ? "light" : "app");
   const animateCards = variant === "dialog";
 
+  const [selectedCode, setSelectedCode] = useState(invitationCode);
   const picker = usePlanPicker({
+    invitationCode: selectedCode,
     onContinueFree,
     onContinueCurrentPlan,
     onCheckoutStart,
@@ -235,6 +243,15 @@ export function PlanPicker({
 
   return (
     <div className={className}>
+      {audience === "app" && !isOnPaid && showInvitationEntry ? (
+        <div className="mx-auto mb-6 max-w-xl">
+          <FounderAccessStatus />
+          <InvitationCodeEntry
+            initialCode={invitationCode}
+            onCodeApplied={setSelectedCode}
+          />
+        </div>
+      ) : null}
       {isDowngradeScheduled && scheduledDowngradeEndDate ? (
         <div className="mb-6">
           <ScheduledPlanDowngradeNotice endDate={scheduledDowngradeEndDate} />
@@ -509,9 +526,7 @@ export function PlanPicker({
             <PlanPickerCta
               variant="proAccent"
               surfaceTheme={surfaceTheme}
-              isCurrentPlan={
-                unlimitedIsCurrentPlan && !isDowngradeScheduled
-              }
+              isCurrentPlan={unlimitedIsCurrentPlan && !isDowngradeScheduled}
               currentPlanActionable={currentPaidPlanActionable}
               isDowngrade={unlimitedIsDowngrade}
               disabled={

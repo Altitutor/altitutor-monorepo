@@ -3,7 +3,7 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { BookOpen, Settings } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { buildQuestionEngineTutorialHref } from "@/features/onboarding/lib/question-engine-tutorial-gate";
+import { buildQuestionEngineTutorialHref } from "@/features/onboarding/lib/question-engine-tutorial";
 import { UCAT_SURFACE_CARD } from "@/lib/ucat-surface-motion";
 
 export function QuestionEngineTutorialChoicePage() {
@@ -15,7 +15,7 @@ export function QuestionEngineTutorialChoicePage() {
     <div className="mx-auto flex min-h-[calc(100dvh-8rem)] max-w-3xl items-center px-4 py-10">
       <section className={`${UCAT_SURFACE_CARD} w-full rounded-ucatShell p-6 sm:p-8`}>
         <p className="text-sm font-semibold text-primary">
-          Before your first attempt
+          Optional walkthrough
         </p>
         <h1 className="mt-2 text-2xl font-semibold tracking-tight">
           How much guidance would you like?

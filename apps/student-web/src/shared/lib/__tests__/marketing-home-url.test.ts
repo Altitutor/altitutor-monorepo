@@ -62,12 +62,34 @@ describe('resolveMarketingLandingUrl', () => {
     );
   });
 
-  it('prefers an explicit marketing origin over environment defaults', () => {
+  it('keeps local and hosted development on their marketing sites even when a production origin is configured', () => {
+    expect(
+      resolveMarketingLandingUrl({
+        configuredMarketingUrl: 'https://altitutor.com',
+        nodeEnv: 'development',
+      }),
+    ).toBe('http://localhost:3003/online-learning/');
+    expect(
+      resolveMarketingLandingUrl({
+        configuredMarketingUrl: 'https://altitutor.com',
+        nodeEnv: 'production',
+        requestHost: 'localhost:3001',
+      }),
+    ).toBe('http://localhost:3003/online-learning/');
+    expect(
+      resolveMarketingLandingUrl({
+        configuredMarketingUrl: 'https://altitutor.com',
+        nodeEnv: 'production',
+        requestHost: 'student.development.altitutor.com',
+      }),
+    ).toBe('https://development.altitutor.com/online-learning/');
+  });
+
+  it('uses an explicit marketing origin in production', () => {
     expect(
       resolveMarketingLandingUrl({
         configuredMarketingUrl: 'https://marketing.example.com/',
-        nodeEnv: 'development',
-        deploymentEnvironment: 'preview',
+        nodeEnv: 'production',
       }),
     ).toBe('https://marketing.example.com/online-learning/');
   });

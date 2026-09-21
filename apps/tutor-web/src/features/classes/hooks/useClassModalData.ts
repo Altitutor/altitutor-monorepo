@@ -56,6 +56,7 @@ function buildClassFromClassDetail(detail: VtutorClassDetailRow): Tables<'classe
     schedule_summary_long: detail.schedule_summary_long,
     schedule_summary_short: detail.schedule_summary_short,
     schedule_timezone: detail.schedule_timezone ?? 'Australia/Adelaide',
+    schedule_projected_on: null,
     schedule_weekdays: detail.schedule_weekdays ?? [],
     billing_type: 'CLASS',
     billing_type_effective_from: detail.session_start_date ?? '',

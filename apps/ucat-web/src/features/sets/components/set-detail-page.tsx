@@ -16,10 +16,6 @@ import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/e
 import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
 import { useBeginExamRoute } from "@/features/exam-attempts/hooks/use-begin-exam-route";
 import {
-  buildQuestionEngineTutorialHref,
-  useQuestionEngineTutorialGate,
-} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
-import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
@@ -84,11 +80,6 @@ export function SetDetailPage({
   const { openQuotaLimit } = useQuotaLimitDialog();
   const { data: quota } = useQuotaUsage();
   const { active: activeExamAttempt } = useActiveExamAttempt();
-  const {
-    isLoading: questionEngineTourLoading,
-    isBlocked: questionEngineTourBlocked,
-    tutorialKind: questionEngineTutorialKind,
-  } = useQuestionEngineTutorialGate();
   const { data: set, isLoading, error } = useSet(setId);
   const { data: attempts = [] } = useSetAttempts(setId);
   const { data: questionCount } = useSetQuestionCount(setId);
@@ -144,16 +135,6 @@ export function SetDetailPage({
     sessionEntryContext != null || sectionNumber != null ? 2 : 1;
 
   const handleLaunchSet = () => {
-    if (questionEngineTourLoading) return;
-    if (questionEngineTourBlocked) {
-      router.push(
-        buildQuestionEngineTutorialHref(
-          `${window.location.pathname}${window.location.search}`,
-          questionEngineTutorialKind,
-        ),
-      );
-      return;
-    }
     const canResumeCurrentAttempt =
       activeExamAttempt?.kind === "set" &&
       activeExamAttempt.resourceId === setId;

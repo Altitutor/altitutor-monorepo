@@ -1,3 +1,5 @@
+import { filterMobileAuthTelemetry } from "@/lib/privacy/mobile-auth-telemetry";
+
 type UcatWebSentryEvent = {
   message?: string;
   exception?: {
@@ -36,6 +38,7 @@ export function filterExpectedUcatWebError<TEvent extends UcatWebSentryEvent>(
   event: TEvent,
   hint?: UcatWebSentryHint,
 ): TEvent | null {
+  if (!filterMobileAuthTelemetry(event)) return null;
   const messages = [
     event.message,
     ...(event.exception?.values?.map((value) => value.value) ?? []),

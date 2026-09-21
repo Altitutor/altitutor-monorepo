@@ -4,7 +4,7 @@ import React from "react";
 import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { useUcatInterfacePreferences } from "@/features/interface-preferences/hooks/use-ucat-interface-preferences";
-import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial-gate";
+import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial";
 import type { ExamToolbarLayout } from "@/features/interface-preferences/model/types";
 import { useMediaQuery } from "@/shared/hooks/use-media-query";
 import { cn } from "@/lib/utils";

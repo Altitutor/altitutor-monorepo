@@ -43,6 +43,7 @@ export type FlattenedSessionDetail = {
   // Related data
   students?: SessionStudent[];
   staff?: SessionStaff[];
+  parents?: SessionParent[];
 };
 
 /**

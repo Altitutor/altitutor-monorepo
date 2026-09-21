@@ -86,7 +86,7 @@ export const sessionsApi = {
 
   /**
    * Get a single session with all details
-   * Uses vtutor_session_detail view which includes students and staff
+   * Uses vtutor_session_detail view which includes students, staff, and parents
    */
   getSessionWithDetails: async (sessionId: string) => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -157,11 +157,10 @@ export const sessionsApi = {
 
     (data || []).forEach((detail) => {
       if (!detail.session_id) return;
-      const extra = detail as typeof detail & { parents?: unknown };
       detailsMap[detail.session_id] = {
         staff: parseSessionStaffList(detail.staff),
         students: parseSessionStudentList(detail.students),
-        parents: parseSessionParentList(extra.parents),
+        parents: parseSessionParentList(detail.parents),
       };
     });
 

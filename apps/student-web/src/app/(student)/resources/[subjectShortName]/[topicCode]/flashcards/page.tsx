@@ -17,6 +17,8 @@ import {
   useFlashcardTopic,
 } from '@/features/flashcards';
 import { StudentPageContainer } from '@/shared/components/layouts';
+import { Button } from '@altitutor/ui';
+import Link from 'next/link';
 
 export default function FlashcardsPage() {
   const params = useParams<{ subjectShortName: string; topicCode: string }>();
@@ -67,7 +69,7 @@ export default function FlashcardsPage() {
         <div className="min-w-0 flex-1 space-y-6">
           <div>
             <div>
-              <h1 className="text-3xl font-bold tracking-tight">Flashcards</h1>
+              <div className="flex items-center justify-between"><h1 className="text-3xl font-bold tracking-tight">Flashcards</h1>{topic?.id?<Button asChild><Link href={`/resources/flashcards?topicIds=${encodeURIComponent(topic.id)}`}>Study due cards</Link></Button>:null}</div>
               <p className="mt-1 text-muted-foreground">
                 {flashcardTopic?.due_review_card_count ?? 0} due · {flashcardTopic?.review_card_count ?? 0} cards
               </p>
