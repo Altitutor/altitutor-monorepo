@@ -221,7 +221,7 @@ export function Action({
     </Pressable>
   );
 }
-function buttonText(accent: string) {
+export function buttonText(accent: string) {
   return accent === "#93B6C3" ? "#171717" : "#FFFFFF";
 }
 export function Row({

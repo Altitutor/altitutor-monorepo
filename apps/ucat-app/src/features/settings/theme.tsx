@@ -6,7 +6,7 @@ import {
   useState,
   type PropsWithChildren,
 } from "react";
-import { Appearance, useColorScheme } from "react-native";
+import { Appearance, Platform, useColorScheme } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type Preference = "system" | "light" | "dark";
@@ -24,6 +24,7 @@ export function AppThemeProvider({ children }: PropsWithChildren) {
     });
   }, []);
   useLayoutEffect(() => {
+    if (Platform.OS === "web") return;
     Appearance.setColorScheme(
       preference === "system" ? "unspecified" : preference,
     );
