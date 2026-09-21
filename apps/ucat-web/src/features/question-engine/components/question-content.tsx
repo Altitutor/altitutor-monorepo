@@ -171,6 +171,23 @@ function capturePlacementPointer(event: React.PointerEvent) {
   }
 }
 
+function applyPlacementDragImage(event: React.DragEvent, label: string) {
+  const transfer = event.dataTransfer;
+  if (!transfer?.setDragImage) return;
+  const image = document.createElement("div");
+  image.textContent = label;
+  image.setAttribute("aria-hidden", "true");
+  image.style.cssText =
+    "position:absolute;top:-9999px;left:0;display:flex;align-items:center;justify-content:center;min-height:36px;min-width:80px;padding:8px 16px;border:1px solid #000;border-radius:4px;background:#fff;color:#000;font-size:11pt;font-weight:500;pointer-events:none;";
+  document.body.append(image);
+  transfer.setDragImage(
+    image,
+    Math.max(image.offsetWidth / 2, 40),
+    Math.max(image.offsetHeight / 2, 18),
+  );
+  requestAnimationFrame(() => image.remove());
+}
+
 type QuestionContentProps = {
   question: QuestionItem;
   readOnly?: boolean;
@@ -303,7 +320,7 @@ function PlacementQuestionContent({
       if (!drag || drag.pointerId !== event.pointerId) return;
       touchDragRef.current = null;
       setPointerDragPreview(null);
-      if (readOnly || placementDragOnly) return;
+      if (readOnly) return;
 
       const target = document.elementFromPoint(event.clientX, event.clientY);
       if (drag.kind === "option") {
@@ -390,7 +407,6 @@ function PlacementQuestionContent({
     negativeToken.value,
     positiveToken.value,
     readOnly,
-    placementDragOnly,
   ]);
 
   const startTouchDrag = (
@@ -558,6 +574,7 @@ function PlacementQuestionContent({
                         placedOption.id,
                       );
                       event.dataTransfer.effectAllowed = "move";
+                      applyPlacementDragImage(event, placedOption.text);
                     }}
                   >
                     <OptionText option={placedOption} />
@@ -585,6 +602,7 @@ function PlacementQuestionContent({
               onDragStart={(event) => {
                 event.dataTransfer.setData("ucat-placement-option", option.id);
                 event.dataTransfer.effectAllowed = "move";
+                applyPlacementDragImage(event, option.text);
               }}
             >
               <OptionText option={option} />
@@ -672,7 +690,7 @@ function PlacementQuestionContent({
                           "flex h-9 w-20 touch-none items-center justify-center gap-1 rounded border bg-white text-[11pt] font-medium",
                           markedCorrect
                             ? "border-emerald-600 text-emerald-800"
-                            : "border-black",
+                            : "border-black text-black",
                         )}
                         draggable={!locked}
                         onPointerDown={(event) =>
@@ -688,6 +706,12 @@ function PlacementQuestionContent({
                             option.id,
                           );
                           event.dataTransfer.effectAllowed = "move";
+                          applyPlacementDragImage(
+                            event,
+                            choice === positiveToken.value
+                              ? positiveToken.label
+                              : negativeToken.label,
+                          );
                         }}
                       >
                         {choice === positiveToken.value
@@ -739,8 +763,9 @@ function PlacementQuestionContent({
                 );
                 event.dataTransfer.setData("ucat-placement-source", "");
                 event.dataTransfer.effectAllowed = "copy";
+                applyPlacementDragImage(event, positiveToken.label);
               }}
-              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
+              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium text-black"
             >
               {positiveToken.label}
             </button>
@@ -763,8 +788,9 @@ function PlacementQuestionContent({
                 );
                 event.dataTransfer.setData("ucat-placement-source", "");
                 event.dataTransfer.effectAllowed = "copy";
+                applyPlacementDragImage(event, negativeToken.label);
               }}
-              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium"
+              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium text-black"
             >
               {negativeToken.label}
             </button>
@@ -792,7 +818,7 @@ function PlacementQuestionContent({
           <div
             data-testid="placement-drag-preview"
             aria-hidden
-            className="pointer-events-none fixed z-[80] flex min-h-9 max-w-xs items-center justify-center rounded border border-black bg-white px-4 py-2 text-center text-[11pt] font-medium shadow-md"
+            className="pointer-events-none fixed z-[80] flex min-h-9 max-w-xs items-center justify-center rounded border border-black bg-white px-4 py-2 text-center text-[11pt] font-medium text-black shadow-md"
             style={{
               left: pointerDragPreview.x,
               top: pointerDragPreview.y,
