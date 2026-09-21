@@ -73,8 +73,7 @@ export function parseUcatCheckoutRequest(
     raw.founderCode === undefined
       ? undefined
       : normalizeUcatInvitationCode(raw.founderCode);
-  if (raw.founderCode !== undefined && !founderCode?.startsWith("F-"))
-    return null;
+  if (raw.founderCode !== undefined && !founderCode) return null;
   const ctx = raw.returnContext;
   if (
     ctx !== undefined &&

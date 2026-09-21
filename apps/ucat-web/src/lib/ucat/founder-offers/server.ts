@@ -10,7 +10,7 @@ export async function findFounderOffer(
   rawCode: unknown,
 ): Promise<FounderOffer | null> {
   const code = normalizeUcatInvitationCode(rawCode);
-  if (!code?.startsWith("F-") || !supabaseAdmin) return null;
+  if (!code || !supabaseAdmin) return null;
   const { data, error } = await supabaseAdmin
     .from("ucat_founder_offers")
     .select("*")

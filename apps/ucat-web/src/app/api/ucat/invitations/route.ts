@@ -61,11 +61,12 @@ export async function GET(request: NextRequest) {
       { status: 400 },
     );
   try {
-    if (!code.startsWith("F-")) {
+    const offer = await findFounderOffer(code);
+    if (!offer) {
       const referral = await resolveUcatReferralOfferPreview(code);
       if (!referral)
         return NextResponse.json(
-          { error: "This referral code is not available." },
+          { error: "This invitation or referral code is not available." },
           { status: 404 },
         );
       return NextResponse.json(
@@ -80,9 +81,7 @@ export async function GET(request: NextRequest) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    const offer = await findFounderOffer(code);
     if (
-      !offer ||
       !offer.active ||
       (offer.expires_at && Date.parse(offer.expires_at) <= Date.now())
     )
@@ -213,7 +212,8 @@ export async function POST(request: NextRequest) {
         { error: "Enter a valid code." },
         { status: 400 },
       );
-    if (!code.startsWith("F-")) {
+    const offer = await findFounderOffer(code);
+    if (!offer) {
       if (history.some((r) => r.kind === "access_pass"))
         throw new Error(
           "A referral gift cannot be combined with your founder access pass.",
@@ -240,8 +240,7 @@ export async function POST(request: NextRequest) {
         interval: referral.gift_duration_interval,
       });
     }
-    const offer = await findFounderOffer(code);
-    if (!offer || offer.kind !== "access_pass")
+    if (offer.kind !== "access_pass")
       throw new Error("Choose a paid plan to use a founder discount.");
     const claim = await claimFounderOffer(student.id, code);
     captureUcatOfferEventInBackground({

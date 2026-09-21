@@ -2,8 +2,9 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { Plus } from 'lucide-react';
 import { SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
-import { AdminLoadingSkeleton, SettingsPageHeader } from '@/shared/components';
+import { AdminLoadingSkeleton, AdminPageActionButton, SettingsPageHeader } from '@/shared/components';
 import {
   ucatSubscriptionConfigApi,
   type UcatSubscriptionConfigRow,
@@ -26,6 +27,7 @@ export default function UcatBillingSettingsPage() {
   const [config, setConfig] = useState<UcatSubscriptionConfigRow | null>(null);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [createOfferClick, setCreateOfferClick] = useState(0);
   const tabParam = searchParams.get('tab');
   const activeTab: BillingTab = VALID_TABS.includes(tabParam as BillingTab) ? (tabParam as BillingTab) : 'subscription';
 
@@ -52,6 +54,7 @@ export default function UcatBillingSettingsPage() {
 
   function handleTabChange(value: string) {
     const nextTab = VALID_TABS.includes(value as BillingTab) ? (value as BillingTab) : 'subscription';
+    if (nextTab !== 'offers') setCreateOfferClick(0);
     const params = new URLSearchParams(searchParams.toString());
     if (nextTab === 'subscription') params.delete('tab');
     else params.set('tab', nextTab);
@@ -65,7 +68,18 @@ export default function UcatBillingSettingsPage() {
 
   return (
     <div className="space-y-6 p-6">
-      <SettingsPageHeader title="UCAT billing" />
+      <SettingsPageHeader
+        title="UCAT billing"
+        actions={
+          activeTab === 'offers' ? (
+            <AdminPageActionButton
+              icon={<Plus className="h-4 w-4" />}
+              label="New Offer"
+              onClick={() => setCreateOfferClick((prev) => prev + 1)}
+            />
+          ) : undefined
+        }
+      />
 
       {loadError && !config ? (
         <p className="text-sm text-destructive">{loadError}</p>
@@ -103,7 +117,7 @@ export default function UcatBillingSettingsPage() {
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="offers" activeTab={activeTab}>
-        <FounderOffers />
+        <FounderOffers onCreateTrigger={createOfferClick} />
       </SegmentedTabPanelContent>
 
       <SegmentedTabPanelContent when="students" activeTab={activeTab}>

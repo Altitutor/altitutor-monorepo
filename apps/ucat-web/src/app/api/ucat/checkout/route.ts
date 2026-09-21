@@ -289,13 +289,16 @@ export async function POST(request: NextRequest) {
       );
     }
     if (requestedSelection.founderCode) {
-      if (requestedSelection.referralGiftId)
-        throw new Error("Choose one promotional offer.");
-      founderOffer = await findFounderOffer(requestedSelection.founderCode);
-      if (!founderOffer || founderOffer.kind !== "discount")
-        throw new Error(
-          "This code is not a founder discount. Redeem free-access invitations before checkout.",
-        );
+      const found = await findFounderOffer(requestedSelection.founderCode);
+      if (found) {
+        if (requestedSelection.referralGiftId)
+          throw new Error("Choose one promotional offer.");
+        if (found.kind !== "discount")
+          throw new Error(
+            "This code is not a founder discount. Redeem free-access invitations before checkout.",
+          );
+        founderOffer = found;
+      }
     }
     const pending = history.find((row) => row.status === "reserved");
     if (

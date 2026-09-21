@@ -290,7 +290,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       context: returnContext,
     });
     const invitation = pendingInvitation();
-    if (invitation?.startsWith("F-")) params.set("offer", invitation);
+    if (invitation) params.set("offer", invitation);
     if (options.postCheckoutReturnTo) {
       params.set("redirect", options.postCheckoutReturnTo);
     }

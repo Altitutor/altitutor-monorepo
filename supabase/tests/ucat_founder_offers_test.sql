@@ -74,6 +74,7 @@ RESET ROLE;
 SELECT set_config('request.jwt.claims', json_build_object('role','authenticated','sub',(SELECT user_id FROM public.staff WHERE role='ADMINSTAFF' AND status='ACTIVE' AND user_id IS NOT NULL ORDER BY id LIMIT 1))::text, true);
 SET LOCAL ROLE authenticated;
 SELECT lives_ok($$INSERT INTO public.ucat_founder_offers(code,name,campaign,kind,percent_off) VALUES ('F-ADMIN','Admin offer','admin','discount',20)$$, 'active admin can issue an offer');
+SELECT lives_ok($$INSERT INTO public.ucat_founder_offers(code,name,campaign,kind,percent_off) VALUES ('LAUNCH','Launch offer','launch','discount',15)$$, 'admin can issue a code that does not start with F-');
 SELECT lives_ok($$UPDATE public.ucat_founder_offers SET active=false WHERE code='F-ADMIN'$$, 'admin can disable future claims');
 SELECT throws_ok($$UPDATE public.ucat_founder_offers SET percent_off=90 WHERE code='F-ADMIN'$$,
  '42501', 'Offer terms are immutable; create a new code.', 'admin cannot rewrite commercial terms after creation');

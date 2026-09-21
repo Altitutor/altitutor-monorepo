@@ -23,7 +23,7 @@ export async function createFounderOffer(input: unknown): Promise<void> {
   const offer = parseUcatFounderOffer(input);
   if (!offer)
     throw new Error(
-      "Check the offer details. Use a code starting with F- and a future expiry date.",
+      "Check the offer details. Codes can use letters, numbers and hyphens, and any expiry must be in the future.",
     );
   const db = getSupabaseClient();
   const {

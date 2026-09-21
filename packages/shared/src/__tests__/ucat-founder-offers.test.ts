@@ -1,10 +1,17 @@
 import { normalizeUcatInvitationCode, parseUcatFounderOffer } from '../ucat-founder-offers';
 const valid = { code: ' f-friends ', name: 'Friends', campaign: 'founders', kind: 'access_pass', duration_unit: 'week', duration_count: 2, max_redemptions: 1 };
 describe('founder offer input boundary', () => {
-  it('normalizes codes and separates them from friend referral codes', () => {
+  it('normalizes invitation codes with or without an F- prefix', () => {
     expect(normalizeUcatInvitationCode(' f-friends ')).toBe('F-FRIENDS');
     expect(normalizeUcatInvitationCode('abcd1234')).toBe('ABCD1234');
-    expect(parseUcatFounderOffer({ ...valid, code: 'ABCD1234' })).toBeNull();
+    expect(normalizeUcatInvitationCode(' launch ')).toBe('LAUNCH');
+    expect(parseUcatFounderOffer({ ...valid, code: 'LAUNCH' })?.code).toBe('LAUNCH');
+    expect(parseUcatFounderOffer({ ...valid, code: 'ABCD1234' })?.code).toBe('ABCD1234');
+  });
+  it('rejects codes that are too short or start with a hyphen', () => {
+    expect(normalizeUcatInvitationCode('AB')).toBeNull();
+    expect(normalizeUcatInvitationCode('-LAUNCH')).toBeNull();
+    expect(parseUcatFounderOffer({ ...valid, code: 'AB' })).toBeNull();
   });
   it('represents unlimited redemptions explicitly, not as zero', () => {
     expect(parseUcatFounderOffer({ ...valid, max_redemptions: null })?.max_redemptions).toBeNull();

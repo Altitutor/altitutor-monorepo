@@ -1,8 +1,8 @@
-/** Founder and referral codes occupy separate namespaces. */
+/** Shared invitation entry accepts founder and referral codes; lookup distinguishes them. */
 export function normalizeUcatInvitationCode(value: unknown): string | null {
   if (typeof value !== 'string') return null;
   const code = value.trim().toUpperCase();
-  return /^(?:F-[A-Z0-9-]{3,40}|[A-Z0-9]{8,16})$/.test(code) ? code : null;
+  return /^[A-Z0-9][A-Z0-9-]{2,41}$/.test(code) ? code : null;
 }
 
 export type UcatFounderOfferInput = {
@@ -21,7 +21,7 @@ export function parseUcatFounderOffer(value: unknown): UcatFounderOfferInput | n
   if (!value || typeof value !== 'object') return null;
   const input = value as Record<string, unknown>;
   const code = normalizeUcatInvitationCode(input.code);
-  if (!code?.startsWith('F-')) return null;
+  if (!code) return null;
   if (typeof input.name !== 'string' || !input.name.trim() || input.name.trim().length > 100) return null;
   if (typeof input.campaign !== 'string' || !input.campaign.trim() || input.campaign.trim().length > 100) return null;
   const { kind, duration_unit, duration_count, percent_off, max_redemptions, expires_at } = input;
