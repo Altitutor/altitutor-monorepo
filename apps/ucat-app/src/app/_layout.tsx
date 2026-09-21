@@ -175,6 +175,7 @@ function Navigation() {
               presentation: "formSheet",
               sheetAllowedDetents: [0.5, 1],
               sheetGrabberVisible: true,
+              headerLargeTitleEnabled: false,
             }}
           />
 
