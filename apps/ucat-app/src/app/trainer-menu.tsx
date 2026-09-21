@@ -1,5 +1,5 @@
 import { useRouter } from "expo-router";
-import { Copy, Group, Row, Screen } from "@/components/ui";
+import { Group, Row, Screen } from "@/components/ui";
 import { useTrainerTools } from "@/features/skill-trainer/components/trainer-tools";
 export default function TrainerMenu() {
   const router = useRouter();
