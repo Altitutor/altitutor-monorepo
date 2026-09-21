@@ -1,6 +1,5 @@
 import { practiceSecondsPerQuestion } from "@/features/practice/pace";
 import { Choice, PaceSlider } from "@/components/practice-controls";
-import { HeaderActions } from "@/components/header-actions";
 import { useCurrentAttempt } from "@/features/practice/components/current-attempt";
 import { useState } from "react";
 import { Switch, View } from "react-native";
@@ -61,7 +60,7 @@ export default function Practice() {
         },
       });
       router.push({
-        pathname: "/exam",
+        pathname: "/exam-start",
         params: { kind: "practice", id: result.id },
       });
     } catch (e) {
@@ -72,8 +71,7 @@ export default function Practice() {
   }
   return (
     <Screen>
-      <HeaderActions />
-      <Group dividers>
+      <Group dividers compact>
         {sections.isPending ? (
           <Loading />
         ) : sections.error ? (
@@ -104,9 +102,6 @@ export default function Practice() {
           }))}
         />
       </Group>
-      <Copy muted>
-        Questions sharing a passage stay together, so the final count may vary.
-      </Copy>
       <Group title="Timing">
         <View
           style={{
@@ -132,10 +127,6 @@ export default function Practice() {
               <Copy muted>Slower</Copy>
               <Copy muted>Faster</Copy>
             </View>
-            <Copy muted>
-              The session timer uses the actual number of questions delivered
-              and continues while you leave the app.
-            </Copy>
           </>
         )}
       </Group>

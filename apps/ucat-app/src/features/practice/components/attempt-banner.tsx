@@ -108,7 +108,7 @@ export function AttemptBanner() {
         disabled={busy}
         onPress={() =>
           router.push({
-            pathname: "/exam",
+            pathname: "/exam-start",
             params: {
               kind: active.kind,
               id: active.resourceId,

@@ -1,7 +1,7 @@
 import { useLessonNavigation } from "@/features/learning/lesson-navigation";
 import { BottomToolbar } from "@/components/bottom-toolbar";
 import { useEffect, useRef, useState } from "react";
-import { useLocalSearchParams, useRouter } from "expo-router";
+import { Redirect, useLocalSearchParams, useRouter } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { openBrowserAsync } from "expo-web-browser";
@@ -43,14 +43,6 @@ export default function Lesson() {
     void client.invalidateQueries({ queryKey: ["modules"] });
     void client.invalidateQueries({ queryKey: ["plan"] });
   };
-  const start = useMutation({
-    mutationFn: () =>
-      api(`/learning-modules/${id}/start`, {
-        method: "POST",
-        body: { studyPlanTaskId: taskId ?? null },
-      }),
-    onSuccess: refresh,
-  });
   const complete = useMutation({
     mutationFn: async (blockId: string) => {
       const request = api(`/learning-modules/blocks/${blockId}/progress`, {
@@ -115,6 +107,7 @@ export default function Lesson() {
   }
   function reachedBottom() {
     if (
+      !started ||
       !block?.id ||
       block.block_completed_at ||
       requested.current.has(block.id)
@@ -177,17 +170,12 @@ export default function Lesson() {
         ) : q.error ? (
           <Failure error={q.error} retry={() => void q.refetch()} />
         ) : !started ? (
-          <Group>
-            <Copy large>{q.data?.module.title}</Copy>
-            <Copy>{q.data?.module.description}</Copy>
-            <Copy muted>{q.data?.module.estimated_minutes ?? 0} min</Copy>
-            <Action
-              title="Start lesson"
-              disabled={start.isPending}
-              onPress={() => start.mutate()}
-            />
-            {start.error && <Failure error={start.error} />}
-          </Group>
+          <Redirect
+            href={{
+              pathname: "/lesson-start",
+              params: { id, ...(taskId ? { taskId } : {}) },
+            }}
+          />
         ) : block ? (
           <>
             <Copy muted>
@@ -211,7 +199,7 @@ export default function Lesson() {
                   title="Open skill trainer"
                   onPress={() =>
                     router.push({
-                      pathname: "/trainers",
+                      pathname: "/trainer-start",
                       params: { blockId: block.id ?? "" },
                     })
                   }
@@ -233,7 +221,6 @@ export default function Lesson() {
                 {fileError ? <Failure error={fileError} /> : null}
               </Group>
             )}
-            {block.block_completed_at && <Copy muted>✓ Completed</Copy>}
             {Object.entries(failedBlocks).map(([blockId, error]) => (
               <Failure
                 key={blockId}
@@ -268,6 +255,7 @@ export default function Lesson() {
           next={() => move(index + 1)}
           previousDisabled={index === 0}
           nextDisabled={index + 1 >= (q.data?.blocks.length ?? 0)}
+          completed={Boolean(block.block_completed_at)}
           progress={((index + 1) / (q.data?.blocks.length ?? 1)) * 100}
           onProgress={() => router.push("/lesson-navigator")}
           previousLabel="Previous part"

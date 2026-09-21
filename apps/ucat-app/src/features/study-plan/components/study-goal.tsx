@@ -1,21 +1,11 @@
 import { useEffect, useState } from "react";
 import { Switch, View } from "react-native";
-import { useLaunchActivity } from "@/features/study-plan/use-launch-activity";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import {
-  Action,
-  Copy,
-  Failure,
-  Field,
-  Group,
-  Loading,
-  Screen,
-} from "@/components/ui";
+import { Action, Copy, Failure, Field, Group, Loading } from "@/components/ui";
 import { dataApi } from "@/features/dashboard/api";
 import type { StudyPlanWeekday } from "@/features/study-plan/model/types";
 import { api } from "@/lib/api";
-export default function StudyPlan() {
-  const { launch, busy, error } = useLaunchActivity();
+export function StudyGoal() {
   const client = useQueryClient();
   const q = useQuery({ queryKey: ["plan"], queryFn: dataApi.plan });
   const [target, setTarget] = useState("2700");
@@ -54,7 +44,7 @@ export default function StudyPlan() {
     },
   });
   return (
-    <Screen refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+    <>
       {q.isPending ? (
         <Loading />
       ) : q.error ? (
@@ -137,31 +127,8 @@ export default function StudyPlan() {
               />
             </Group>
           )}
-          {error ? <Failure error={error} /> : null}
-          {q.data?.tasks.map((task) => (
-            <Group key={task.id} title={task.scheduledDate}>
-              <Copy large>{task.title}</Copy>
-              <Copy>{task.description}</Copy>
-              <Copy muted>
-                {task.estimatedMinutes} min · {task.status.replaceAll("_", " ")}
-              </Copy>
-              <Copy muted>{task.rationale}</Copy>
-              {task.status !== "completed" && task.status !== "skipped" && (
-                <Action
-                  title="Start activity"
-                  disabled={busy}
-                  onPress={() => void launch(task)}
-                />
-              )}
-            </Group>
-          ))}
-          {!q.data?.tasks.length && q.data?.profile && (
-            <Group>
-              <Copy>Your activities will appear once your plan is ready.</Copy>
-            </Group>
-          )}
         </>
       )}
-    </Screen>
+    </>
   );
 }

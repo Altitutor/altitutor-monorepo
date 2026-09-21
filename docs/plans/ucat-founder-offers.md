@@ -1,6 +1,6 @@
 # UCAT founder offers
 
-Status: initial implementation deployed to development on 2026-09-20; sandbox E2E follow-up fixes await deployment. Production release pending.
+Status: development deployment and deployed sandbox smoke test passed on 2026-09-21 (Adelaide). Revision be962d4f9 is ready for production promotion; production has not been deployed by this task.
 
 ## Confirmed direction
 
@@ -80,3 +80,28 @@ Remaining release work: deploy the E2E fixes through the release gate, then smok
 
 
 Final local validation: all 21 lint, typecheck and unit-test tasks passed; UCAT's 236 test suites / 1,131 tests and coverage passed; all 74 Edge Function tests (267 steps) passed. The full script encountered a shared `.next` build-directory collision, then the isolated UCAT production build passed (the other 13 build tasks had passed). All 118 database files / 1,117 tests passed after removing the manual sandbox fixtures and correcting the class schedule test to use its Adelaide timezone. All six critical browser journeys passed, plus the separate three-test founder/subscription suite. The one-command gate was not rerun end-to-end; its remaining checks were completed separately without resetting the shared database.
+
+
+## Deployed development verification (2026-09-21 Adelaide)
+
+Verified revision `be962d4f906e02caed6d499f7ed2a5266d0402cd`, including founder fix `97f37c694`. [Development CI and Supabase deployment passed](https://github.com/Altitutor/altitutor-monorepo/actions/runs/35518846276). That run skipped the unchanged browser/database job; the preceding timezone-fix revision passed that CI job, and the founder revision also passed the local critical browser/database checks recorded above.
+
+The development web aliases were initially serving week-old builds. Built both apps from the exact pushed Git commit and updated only their development aliases:
+
+- UCAT deployment `dpl_2YjxMMzfGQM8Q44mJHGMQ9gt9aja` → `https://ucat.development.altitutor.com`.
+- Admin deployment `dpl_4Wza7hPYjUJdgiwYfDcGMUBGPbcm` → `https://admin.development.altitutor.com`.
+- Configured AdminWeb's previously missing `NEXT_PUBLIC_UCAT_WEB_URL=https://ucat.development.altitutor.com` for Preview / develop only, then rebuilt AdminWeb. Production retains the correct built-in production default.
+
+Chrome smoke test used an isolated development account classified `internal_test` and campaign `release-smoke-20260921`:
+
+- Admin created a two-week, single-use pass and an unlimited-use 20% subscription code.
+- Fresh student completed onboarding; the pass granted Unlimited until 5 October without a card or Stripe subscription.
+- Student purchased monthly Unlimited with the founder code using Stripe's 4242 test card. Subscription `sub_1UHmjKKMw7XacevsDQ2KVX22` was active, test-mode, had no additional trial, and its recurring discount had no end date.
+- Invoice `in_1UHmjJKMw7XacevsTupKaQuh` was paid for 3200 cents. Both invoice and next bill showed A$32 in the deployed app; the success transition reached the dashboard.
+- Admin showed 1/1 pass redemptions and 1/unlimited discount redemptions.
+- Development PostHog received one pass redemption, one discount redemption, one subscription start and one A$32 payment, with both founder cohort codes attached to the payment and the account marked internal_test.
+- Canceled the sandbox subscription. The deployed cancellation webhook updated the subscription and PostHog. Attempting to reuse the discount was rejected before a second payment could start.
+- All seven corresponding Stripe event types were processed successfully, including checkout completion, invoice payment and subscription deletion.
+- Both test codes were disabled and the sandbox subscription canceled. Test history remains in development for audit; the temporary credential file was removed. No production users, payments, offers or deployments were changed.
+
+Readiness: no remaining founder-feature blockers found. Promote the tested revision through the normal production CI/CD gate, then perform the usual post-deployment production smoke check. No manual Stripe coupon creation or new Stripe/PostHog credentials are required.

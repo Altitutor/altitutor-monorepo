@@ -310,6 +310,7 @@ function completeLocalItemWithItems(
       score: state.attempt.score + scoreDelta,
       streak_count: streakCount,
       current_item_index: nextIndex,
+      current_item_started_at: new Date().toISOString(),
       progress: isCompleted
         ? null
         : defaultProgress(state.attempt.config_snapshot.trainer_key),

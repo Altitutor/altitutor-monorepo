@@ -11,8 +11,8 @@ export default function Settings() {
           href="/settings/app-settings"
         />
         <Row title="My profile" icon="person" href="/settings/profile" />
-        <Row title="Study plan" icon="calendar" href="/study-plan" />
         <Row title="Plan" icon="plan" href="/settings/plan" />
+        <Row title="Refer friends" icon="people" href="/settings/referrals" />
       </Group>
       <Action
         title="Sign out"

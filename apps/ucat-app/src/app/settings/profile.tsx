@@ -1,79 +1,79 @@
-import { HeaderActions } from "@/components/header-actions";
-import { useEffect, useState } from "react";
-import { Alert } from "react-native";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Pressable, Text, View } from "react-native";
+import { Stack } from "expo-router/stack";
+import { useQuery } from "@tanstack/react-query";
 import {
-  Action,
   Copy,
   Failure,
-  Field,
   Group,
   Loading,
   Screen,
+  useColors,
 } from "@/components/ui";
 import { dataApi } from "@/features/dashboard/api";
-import { api } from "@/lib/api";
-export default function Account() {
+import { openWebSettings } from "@/features/settings/open-web-settings";
+
+export default function Profile() {
+  const c = useColors();
   const q = useQuery({ queryKey: ["profile"], queryFn: dataApi.profile });
-  const client = useQueryClient();
-  const [firstName, setFirst] = useState("");
-  const [lastName, setLast] = useState("");
-  const [timezone, setTimezone] = useState("");
-  useEffect(() => {
-    if (q.data) {
-      setFirst(q.data.firstName ?? "");
-      setLast(q.data.lastName ?? "");
-      setTimezone(q.data.timezone);
-    }
-  }, [q.data]);
-  const save = useMutation({
-    mutationFn: () =>
-      api("/profile", {
-        method: "PATCH",
-        body: { firstName, lastName, timezone },
-      }),
-    onSuccess: () => {
-      void client.invalidateQueries({ queryKey: ["profile"] });
-      Alert.alert("Profile saved");
-    },
-  });
+  const edit = () => {
+    void openWebSettings("/settings/profile").then(() => q.refetch());
+  };
   return (
     <Screen>
-      <HeaderActions />
+      {process.env.EXPO_OS === "ios" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button onPress={edit}>Edit</Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      ) : (
+        <Stack.Screen
+          options={{
+            headerRight: () => (
+              <Pressable
+                accessibilityRole="button"
+                onPress={edit}
+                style={{ padding: 12 }}
+              >
+                <Text style={{ color: c.accent }}>Edit</Text>
+              </Pressable>
+            ),
+          }}
+        />
+      )}
       {q.isPending ? (
         <Loading />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (
-        <Group title="Your profile">
-          <Copy muted>{q.data?.email}</Copy>
-          <Field
-            accessibilityLabel="First name"
-            placeholder="First name"
-            value={firstName}
-            onChangeText={setFirst}
-            autoComplete="given-name"
-          />
-          <Field
-            accessibilityLabel="Last name"
-            placeholder="Last name"
-            value={lastName}
-            onChangeText={setLast}
-            autoComplete="family-name"
-          />
-          <Field
-            accessibilityLabel="Timezone"
-            placeholder="Australia/Adelaide"
-            value={timezone}
-            onChangeText={setTimezone}
-            autoCapitalize="none"
-          />
-          <Action
-            title={save.isPending ? "Saving…" : "Save profile"}
-            disabled={save.isPending || !firstName.trim() || !lastName.trim()}
-            onPress={() => save.mutate()}
-          />
-          {save.error && <Failure error={save.error} />}
+        <Group dividers>
+          {[
+            ["First name", q.data.firstName],
+            ["Last name", q.data.lastName],
+            ["Email", q.data.email],
+            ["Timezone", q.data.timezone.replaceAll("_", " ")],
+          ].map(([label, value]) => (
+            <View
+              key={label}
+              style={{
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 16,
+                minHeight: 36,
+              }}
+            >
+              <Copy>{label}</Copy>
+              <Text
+                selectable
+                style={{
+                  flex: 1,
+                  textAlign: "right",
+                  color: c.secondary,
+                  fontSize: 16,
+                }}
+              >
+                {value || "—"}
+              </Text>
+            </View>
+          ))}
         </Group>
       )}
     </Screen>

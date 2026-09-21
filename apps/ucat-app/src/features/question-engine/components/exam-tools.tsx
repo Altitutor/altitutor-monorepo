@@ -11,6 +11,7 @@ type Tools = {
   canReview: boolean;
   questions?: {
     index: number;
+    stemId: string;
     label: string;
     answered: boolean;
     flagged: boolean;

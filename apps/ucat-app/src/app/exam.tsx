@@ -1,10 +1,17 @@
 import { BottomToolbar } from "@/components/bottom-toolbar";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useEffectEvent,
+  useRef,
+  useMemo,
+  useState,
+} from "react";
 import { Alert, AppState } from "react-native";
 import { Stack } from "expo-router/stack";
 import { useLocalSearchParams, useRouter, useNavigation } from "expo-router";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { openBrowserAsync } from "expo-web-browser";
+import { openWebSettings } from "@/features/settings/open-web-settings";
 import {
   usePreventRemove,
   type NavigationProp,
@@ -44,17 +51,19 @@ import type {
   ExamAttemptKind,
   ExamEngineSnapshot,
 } from "@/lib/ucat/exam-attempt/types";
-import { api, ApiError, webUrl } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import {
   restoreDraft,
   serializeDraft,
 } from "@/features/question-engine/model/pending-draft";
+import { createDraftWriter } from "@/features/question-engine/model/draft-writer";
 export default function Exam() {
   const params = useLocalSearchParams<{
     id: string;
     kind: ExamAttemptKind;
     resume?: string;
     taskId?: string;
+    autoStart?: string;
   }>();
   const router = useRouter();
   const rootNavigation =
@@ -69,11 +78,16 @@ export default function Exam() {
   const [attempt, setAttempt] = useState<ActiveExamAttempt | null>(null);
   const [state, setState] = useState<ExamEngineSnapshot | null>(null);
   const [error, setError] = useState<unknown>(null);
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
+  const busyRef = useRef(false);
+  function setBusy(value: boolean) {
+    busyRef.current = value;
+    setBusyState(value);
+  }
   const [now, setNow] = useState(() => Date.now());
   const [finished, setFinished] = useState(false);
   function confirmExit() {
-    if (busy) return;
+    if (busyRef.current) return;
     if (!state || finished) {
       setCanLeave(true);
       return;
@@ -108,6 +122,7 @@ export default function Exam() {
         return {
           index,
           label: `Question ${index + 1}`,
+          stemId: `${q.questionSetId}:${q.stemId}`,
           answered: Boolean(state?.responseSnapshots?.[q.id]),
           flagged: state?.flaggedIds.includes(q.id) ?? false,
           current: state?.currentIndex === index,
@@ -123,7 +138,8 @@ export default function Exam() {
         };
       }),
       jump: (index) => {
-        if (!state || !exam || busy) return;
+        const state = latest.current.state;
+        if (!state || !exam || busyRef.current) return;
         const segment =
           segmentsFor(exam)[segmentIndex(segmentsFor(exam), state)];
         if (
@@ -135,19 +151,26 @@ export default function Exam() {
           ) === 0
         )
           return;
-        void transition({ ...state, currentIndex: index, phase: "question" });
+        transition((current) => ({
+          ...current,
+          currentIndex: index,
+          phase: "question",
+        }));
       },
       exit: confirmExit,
       canReview: Boolean(state?.phase === "question" && !finished),
       review: () => {
-        if (state && !busy) void transition({ ...state, phase: "review" });
+        transition((current) => ({ ...current, phase: "review" }));
       },
     };
     return () => {
       tools.current = null;
     };
   });
-  usePreventRemove(Boolean(state && !finished && !canLeave), confirmExit);
+  usePreventRemove(
+    Boolean((state || busy) && !finished && !canLeave),
+    confirmExit,
+  );
   useEffect(() => {
     if (canLeave)
       rootNavigation.reset({
@@ -168,12 +191,26 @@ export default function Exam() {
         ],
       });
   }, [canLeave, rootNavigation]);
+  useEffect(() => {
+    if (finished && attempt)
+      router.replace({
+        pathname: "/review",
+        params: { kind: kindFromParams(params.kind), id: attempt.attemptId },
+      });
+  }, [finished, attempt, params.kind, router]);
   const latest = useRef({ attempt, state, exam });
   useEffect(() => {
-    latest.current = { attempt, state, exam };
-  }, [attempt, state, exam]);
+    latest.current.exam = exam;
+  }, [exam]);
   const saving = useRef<Promise<unknown>>(Promise.resolve());
-  const revision = useRef(0);
+  const drafts = useMemo(
+    () =>
+      createDraftWriter({
+        write: (value) => AsyncStorage.setItem(draftKey, value),
+        remove: () => AsyncStorage.removeItem(draftKey),
+      }),
+    [draftKey],
+  );
   const discarding = useRef(false);
   const kind =
     params.kind === "set" || params.kind === "mock" ? params.kind : "practice";
@@ -207,15 +244,14 @@ export default function Exam() {
     (next: ExamEngineSnapshot, seconds?: number | null, paused = false) => {
       const attemptId = latest.current.attempt?.attemptId;
       if (!attemptId) return Promise.resolve();
-      const currentRevision = ++revision.current;
-      const draft = AsyncStorage.setItem(
-        draftKey,
-        serializeDraft(attemptId, next),
-      );
+      const draft = drafts.write(serializeDraft(attemptId, next));
+      // Observe storage failures immediately even while an older network job
+      // is running; the queued save still reports the rejection to the UI.
+      void draft.saved.catch(() => undefined);
       const job = saving.current
         .catch(() => undefined)
         .then(async () => {
-          await draft;
+          await draft.saved;
           const current = latest.current;
           if (!current.attempt || !current.exam) return;
           const result = await syncNativeExam(
@@ -233,8 +269,7 @@ export default function Exam() {
                 result.setAttemptIdsBySetId ??
                 latest.current.attempt.setAttemptIdsBySetId,
             };
-          if (revision.current === currentRevision)
-            await AsyncStorage.removeItem(draftKey);
+          await drafts.acknowledge(draft.version);
           setAttempt((a) =>
             a
               ? {
@@ -249,13 +284,14 @@ export default function Exam() {
       saving.current = job;
       return job;
     },
-    [draftKey],
+    [drafts],
   );
   useEffect(() => {
     const listener = AppState.addEventListener("change", (status) => {
       const current = latest.current;
       if (
         !discarding.current &&
+        !busyRef.current &&
         current.state &&
         current.attempt &&
         current.exam
@@ -270,7 +306,7 @@ export default function Exam() {
     return () => listener.remove();
   }, [save]);
   async function start() {
-    if (!exam) return;
+    if (!exam || busyRef.current) return;
     setBusy(true);
     setError(null);
     try {
@@ -309,11 +345,59 @@ export default function Exam() {
       setBusy(false);
     }
   }
-  async function transition(next: ExamEngineSnapshot, seconds?: number | null) {
+  const autoStarted = useRef(false);
+  const startAutomatically = useEffectEvent(() => {
+    void start();
+  });
+  useEffect(() => {
+    if (params.autoStart === "true" && exam && !autoStarted.current) {
+      autoStarted.current = true;
+      startAutomatically();
+    }
+  }, [params.autoStart, exam]);
+  // A ref is updated before React renders, so a second tap builds on the first
+  // even while the previous full snapshot is still being persisted.
+  function transition(
+    update: (current: ExamEngineSnapshot) => ExamEngineSnapshot,
+    expectedQuestionId?: string,
+  ) {
+    const current = latest.current.state;
+    if (
+      !current ||
+      busyRef.current ||
+      discarding.current ||
+      current.showTimeExpiredDialog ||
+      remainingSeconds(
+        latest.current.attempt?.currentSegmentEndsAt ?? null,
+        Date.now(),
+      ) === 0
+    )
+      return;
+    if (
+      expectedQuestionId &&
+      latest.current.exam?.questions[current.currentIndex]?.id !==
+        expectedQuestionId
+    )
+      return;
+    const next = update(current);
+    if (next === current) return;
+    latest.current.state = next;
+    setState(next);
+    void save(next)
+      .then(() => setError(null))
+      .catch(setError);
+  }
+  // Starting another timed section must wait for the server-owned deadline.
+  async function transitionSegment(
+    next: ExamEngineSnapshot,
+    seconds?: number | null,
+  ) {
+    if (busyRef.current) return;
     setBusy(true);
     setError(null);
     try {
       await save(next, seconds);
+      latest.current.state = next;
       setState(next);
     } catch (e) {
       setError(e);
@@ -322,12 +406,13 @@ export default function Exam() {
     }
   }
   async function finish() {
-    if (!attempt || !exam || !state) return;
+    const { attempt, exam, state } = latest.current;
+    if (!attempt || !exam || !state || busyRef.current) return;
     setBusy(true);
     setError(null);
     try {
       await save(state);
-      await finishNativeExam(attempt, exam, state);
+      await finishNativeExam(latest.current.attempt ?? attempt, exam, state);
       await AsyncStorage.removeItem(draftKey);
       setFinished(true);
       await client.invalidateQueries();
@@ -338,7 +423,7 @@ export default function Exam() {
     }
   }
   async function discard() {
-    if (!attempt) return;
+    if (!attempt || busyRef.current) return;
     discarding.current = true;
     setBusy(true);
     try {
@@ -354,6 +439,8 @@ export default function Exam() {
     }
   }
   async function leave() {
+    if (busyRef.current) return;
+    const state = latest.current.state;
     if (!state || finished) {
       setCanLeave(true);
       return;
@@ -380,7 +467,7 @@ export default function Exam() {
           <Action
             title="Continue on UCAT web"
             onPress={() => {
-              void openBrowserAsync(webUrl("/exam"));
+              void openWebSettings("/exam");
             }}
           />
         )}
@@ -393,7 +480,8 @@ export default function Exam() {
   const expired = seconds === 0 || state?.showTimeExpiredDialog === true;
   const question = state ? exam.questions[state.currentIndex] : undefined;
   function nextSegment() {
-    if (!state) return;
+    const state = latest.current.state;
+    if (!state || busyRef.current) return;
     if (expired && kind !== "practice") {
       // Recovery advances expired mock sections from the original deadline,
       // including time spent away. Starting a fresh timer here would grant
@@ -412,6 +500,8 @@ export default function Exam() {
               result.active.engineSnapshot.phase,
             )
           ) {
+            latest.current.attempt = result.active;
+            latest.current.state = result.active.engineSnapshot;
             setAttempt(result.active);
             setState(result.active.engineSnapshot);
           } else {
@@ -424,7 +514,7 @@ export default function Exam() {
       return;
     }
     const next = segments[currentSegment + 1];
-    if (next) void transition(enterSegment(state, next), next.seconds);
+    if (next) void transitionSegment(enterSegment(state, next), next.seconds);
     else void finish();
   }
   const errorView = error ? (
@@ -433,7 +523,7 @@ export default function Exam() {
       retry={
         state
           ? () => {
-              void save(state)
+              void save(latest.current.state ?? state)
                 .then(() => setError(null))
                 .catch(setError);
             }
@@ -454,13 +544,18 @@ export default function Exam() {
             onFlag={
               state?.phase === "question" && question && !finished && !expired
                 ? () => {
-                    if (busy) return;
-                    void transition({
-                      ...state,
-                      flaggedIds: state.flaggedIds.includes(question.id)
-                        ? state.flaggedIds.filter((id) => id !== question.id)
-                        : [...state.flaggedIds, question.id],
-                    });
+                    if (busyRef.current) return;
+                    transition(
+                      (current) => ({
+                        ...current,
+                        flaggedIds: current.flaggedIds.includes(question.id)
+                          ? current.flaggedIds.filter(
+                              (id) => id !== question.id,
+                            )
+                          : [...current.flaggedIds, question.id],
+                      }),
+                      question.id,
+                    );
                   }
                 : undefined
             }
@@ -469,11 +564,13 @@ export default function Exam() {
         <Stack.Screen
           options={{
             title: exam.title,
-            headerBackVisible: !state || finished,
-            gestureEnabled: !state || finished,
+            headerBackVisible: (!state && !busy) || finished,
+            gestureEnabled: (!state && !busy) || finished,
           }}
         />
-        {!state ? (
+        {!state && params.autoStart === "true" && !error ? (
+          <Loading />
+        ) : !state ? (
           <>
             <Group>
               <Copy large>{exam.title}</Copy>
@@ -517,21 +614,7 @@ export default function Exam() {
             )}
           </>
         ) : finished ? (
-          <>
-            <Group>
-              <Copy large>Session complete</Copy>
-              <Copy>Your answers and results have been saved.</Copy>
-              <Action
-                title="View results"
-                onPress={() =>
-                  router.replace({
-                    pathname: "/review",
-                    params: { kind, id: attempt?.attemptId ?? params.id },
-                  })
-                }
-              />
-            </Group>
-          </>
+          <Copy>Opening attempt results…</Copy>
         ) : (
           <>
             {errorView}
@@ -591,11 +674,11 @@ export default function Exam() {
                             : "Unanswered"
                         }
                         onPress={() =>
-                          void transition({
-                            ...state,
+                          transition((current) => ({
+                            ...current,
                             phase: "question",
                             currentIndex: segment.start + i,
-                          })
+                          }))
                         }
                       />
                     ))}
@@ -628,19 +711,23 @@ export default function Exam() {
                   question={question}
                   answer={state.responseSnapshots?.[question.id]}
                   onAnswer={(answer) => {
-                    if (busy) return;
-                    const next = {
-                      ...state,
-                      responseSnapshots: {
-                        ...state.responseSnapshots,
-                        [question.id]: answer,
-                      },
-                      visitedQuestionIds: [
-                        ...new Set([...state.visitedQuestionIds, question.id]),
-                      ],
-                    };
-                    setState(next);
-                    void save(next).catch(setError);
+                    if (busyRef.current) return;
+                    transition(
+                      (current) => ({
+                        ...current,
+                        responseSnapshots: {
+                          ...current.responseSnapshots,
+                          [question.id]: answer,
+                        },
+                        visitedQuestionIds: [
+                          ...new Set([
+                            ...current.visitedQuestionIds,
+                            question.id,
+                          ]),
+                        ],
+                      }),
+                      question.id,
+                    );
                   }}
                 />
               </>
@@ -655,15 +742,20 @@ export default function Exam() {
       {state?.phase === "question" && !finished && !expired && (
         <BottomToolbar
           previous={() =>
-            void transition({ ...state, currentIndex: state.currentIndex - 1 })
+            transition((current) => ({
+              ...current,
+              currentIndex: Math.max(segment.start, current.currentIndex - 1),
+            }))
           }
           next={() =>
-            void transition(
-              state.currentIndex + 1 < segment.end
-                ? { ...state, currentIndex: state.currentIndex + 1 }
-                : { ...state, phase: "review" },
+            transition((current) =>
+              current.currentIndex + 1 < segment.end
+                ? { ...current, currentIndex: current.currentIndex + 1 }
+                : { ...current, phase: "review" },
             )
           }
+          hidePrevious={state.currentIndex <= segment.start}
+          reviewNext={state.currentIndex + 1 >= segment.end}
           previousDisabled={busy || state.currentIndex <= segment.start}
           nextDisabled={busy}
           onNavigator={() => router.push("/question-navigator")}

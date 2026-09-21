@@ -1,3 +1,4 @@
+import { useMockSeries, weightedMockScore } from "./mock-progress";
 import { Pressable, Text, View } from "react-native";
 import { useRouter } from "expo-router";
 import type { SectionProgress } from "@altitutor/shared";
@@ -13,6 +14,8 @@ export function ScoreBySection({
   targets?: Record<string, number>;
 }) {
   const c = useColors();
+  const mocks = useMockSeries();
+  const mockScore = weightedMockScore(mocks.data?.points ?? []);
   const router = useRouter();
   const position = (score: number) =>
     Math.max(0, Math.min(100, ((score - 300) / 600) * 100));
@@ -96,6 +99,34 @@ export function ScoreBySection({
           </Pressable>
         );
       })}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="View mock progress"
+        onPress={() => router.push("/mock-progress")}
+        style={{ gap: 8, paddingVertical: 8 }}
+      >
+        <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <Text style={{ color: c.text, fontSize: 16, fontWeight: "600" }}>
+            Mocks
+          </Text>
+          <Text style={{ color: c.secondary, fontSize: 20 }}>›</Text>
+        </View>
+        <View style={{ height: 8, borderRadius: 4, backgroundColor: c.border }}>
+          <View
+            style={{
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: c.accent,
+              width: `${mockScore == null ? 0 : Math.max(0, Math.min(100, ((mockScore - 900) / 1800) * 100))}%`,
+            }}
+          />
+        </View>
+        <Text style={{ color: c.secondary, fontSize: 13 }}>
+          {mockScore == null
+            ? "Weighted average pending"
+            : `Weighted average ${mockScore}`}
+        </Text>
+      </Pressable>
     </Group>
   );
 }

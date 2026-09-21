@@ -18,8 +18,7 @@ const APP_URL = (
 const MARKETING_URL = (
   Deno.env.get("MARKETING_WEB_URL") || "https://altitutor.com"
 ).replace(/\/$/, "");
-const SIGNATURE_URL =
-  Deno.env.get("UCAT_FOUNDER_SIGNATURE_URL") ||
+const SIGNATURE_URL = Deno.env.get("UCAT_FOUNDER_SIGNATURE_URL") ||
   MARKETING_URL + "/assets/ucat/email/matt-signature.png";
 const ADMIN_EMAIL = "admin@altitutor.com";
 
@@ -53,8 +52,9 @@ type LessonCopy = {
 };
 
 const REPLY_STUCK =
-  "If you get stuck, reply to this email — I read them.";
-const REPLY_HAND = "If you want a hand with this, just reply.";
+  "If you have a question or aren't sure where to start, reply to this email. I'd love to help.";
+const REPLY_HAND =
+  "If you'd like a hand with this, just reply and tell me what you're finding difficult.";
 
 function combineModules(...modules: EmailModule[]): EmailModule {
   return {
@@ -119,8 +119,7 @@ function productScreenshot(input: {
   href?: string;
 }): EmailModule {
   const url = MARKETING_URL + "/assets/ucat/email/" + input.file;
-  const image =
-    '<img src="' +
+  const image = '<img src="' +
     escapeEmailHtml(url) +
     '" alt="' +
     escapeEmailHtml(input.alt) +
@@ -144,7 +143,7 @@ function lessonModules(
   campaign: LifecycleCampaign,
 ): EmailModule {
   const numbered = numberedModule(
-    "Tutor note",
+    "Try this",
     lesson.moduleTitle,
     lesson.rows,
   );
@@ -157,10 +156,10 @@ function lessonModules(
       caption: lesson.screenshot.caption,
       href: lesson.screenshot.hrefPath
         ? buildUcatEmailActionUrl({
-            path: lesson.screenshot.hrefPath,
-            campaign: "ucat_" + campaign.key,
-            content: "screenshot",
-          })
+          path: lesson.screenshot.hrefPath,
+          campaign: "ucat_" + campaign.key,
+          content: "screenshot",
+        })
         : undefined,
     }),
   );
@@ -172,8 +171,8 @@ function statsModule(
 ): EmailModule {
   const questions = candidate.questions_last_7_days ?? 0;
   const activeDays = candidate.active_days_last_7_days ?? 0;
-  const setsAndMocks =
-    (candidate.sets_last_7_days ?? 0) + (candidate.mocks_last_7_days ?? 0);
+  const setsAndMocks = (candidate.sets_last_7_days ?? 0) +
+    (candidate.mocks_last_7_days ?? 0);
   const stat = (value: number, label: string, border: boolean) =>
     '<td width="33.33%" align="center" valign="top" style="padding:12px 6px;' +
     (border ? "border-right:1px solid #dce5e8;" : "") +
@@ -186,26 +185,24 @@ function statsModule(
   const previous = candidate.previous_week_estimate;
   const changed = current != null && previous != null && current !== previous;
   const delta = changed ? current - previous : null;
-  const observation =
-    activeDays >= 3
-      ? "You spread that work across the week. Keep that rhythm and do " +
-        nextTitle +
-        " next."
-      : activeDays === 1
-        ? "Most of that work happened on one day. A second shorter session this week will make it easier to keep going."
-        : "Your next session is " +
-          nextTitle +
-          ". Do that before adding extra volume.";
-  const estimateLine =
-    delta == null
-      ? ""
-      : '<p style="margin:14px 0 0;color:#52606a;font-size:13px;line-height:1.55">Estimated score change: <strong class="email-accent" style="color:#1a1a1a">' +
-        (delta > 0 ? "+" : "") +
-        delta +
-        "</strong></p>";
+  const observation = activeDays >= 3
+    ? "You've made time for practice on several days this week. For your next session, try " +
+      nextTitle +
+      " and leave a few minutes to review your answers."
+    : activeDays === 1
+    ? "You made time for a session this week. If your schedule allows, choose another day for a short session and some review."
+    : "For your next session, try " +
+      nextTitle +
+      ". Leave a few minutes afterwards to work through any answers you weren't sure about.";
+  const estimateLine = delta == null
+    ? ""
+    : '<p style="margin:14px 0 0;color:#52606a;font-size:13px;line-height:1.55">Estimated score change: <strong class="email-accent" style="color:#1a1a1a">' +
+      (delta > 0 ? "+" : "") +
+      delta +
+      "</strong></p>";
   return panel(
     "Your week",
-    "What you completed, and what to do next",
+    "Your practice over the last seven days",
     '<table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr>' +
       stat(questions, "Questions", true) +
       stat(activeDays, "Active days", true) +
@@ -265,22 +262,24 @@ function commercialModule(
     candidate.currency,
   );
   const maximum = candidate.monthly_max_discount_days ?? 0;
-  const title =
-    mode === "quota"
-      ? "Unlimited removes the wait"
-      : "Unlimited gets cheaper when you practice consistently";
-  const detail =
-    mode === "quota"
-      ? "Keep practising across questions, sets, mocks, learning and skill trainers without Free allowance resets."
-      : "Each qualifying practice day reduces your next monthly price. The app shows your live progress and the exact rules.";
+  const title = mode === "quota"
+    ? "More room for your UCAT preparation"
+    : "How monthly practice discounts work";
+  const detail = mode === "quota"
+    ? "Unlimited gives you access to questions, practice sets, mocks, learning modules and skill trainers without the Free plan's usage limits."
+    : "On monthly Unlimited, meeting the daily question target earns a discount towards your next bill. Your subscription page shows the target, discounts earned and upcoming bill.";
+  const discountRule = candidate.min_questions_per_day != null
+    ? "Complete at least " + candidate.min_questions_per_day +
+      " questions in a day on Unlimited to earn that day's practice discount."
+    : "Meet the daily question target shown in the app to earn a practice discount on Unlimited.";
   return panel(
     "Unlimited",
     title,
     '<p style="margin:0 0 12px;color:#52606a;font-size:13px;line-height:1.6">' +
-      escapeEmailHtml(detail) +
-      '</p><table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr><td style="padding:13px 15px;border-right:1px solid #dce5e8"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Monthly base</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:18px;font-weight:700">' +
+      escapeEmailHtml(detail + " " + discountRule) +
+      '</p><table class="email-module-surface" role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#fff;border:1px solid #dce5e8;border-radius:9px"><tr><td style="padding:13px 15px;border-right:1px solid #dce5e8"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Monthly price before discounts</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:18px;font-weight:700">' +
       escapeEmailHtml(base) +
-      '</p></td><td style="padding:13px 15px"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Per qualifying day</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:18px;font-weight:700">−' +
+      '</p></td><td style="padding:13px 15px"><p style="margin:0 0 3px;color:#73808a;font-size:11px">Discount per practice day</p><p class="email-accent" style="margin:0;color:#1a1a1a;font-size:18px;font-weight:700">−' +
       escapeEmailHtml(daily) +
       "</p></td></tr></table>" +
       (maximum > 0
@@ -291,7 +290,8 @@ function commercialModule(
     title +
       "\n" +
       detail +
-      "\nMonthly base: " +
+      "\n" + discountRule +
+      "\nMonthly price before discounts: " +
       base +
       "\nDiscount per qualifying day: " +
       daily +
@@ -302,7 +302,8 @@ function commercialModule(
 function signature(founderLed: boolean): { html: string; text: string } {
   if (!founderLed) {
     return {
-      html: '<p style="margin:22px 0 0;color:#394650;font-size:14px;line-height:1.6">Matt and the Altitutor UCAT team</p>',
+      html:
+        '<p style="margin:22px 0 0;color:#394650;font-size:14px;line-height:1.6">Matt and the Altitutor UCAT team</p>',
       text: "Matt and the Altitutor UCAT team",
     };
   }
@@ -315,15 +316,13 @@ function signature(founderLed: boolean): { html: string; text: string } {
   };
 }
 
-function hi(firstName: string, rest: string): string {
-  return "Hi " + firstName + " — " + rest;
-}
-
 function studyPlanScreenshot(campaign: LifecycleCampaign): EmailModule {
   return productScreenshot({
     file: "study-plan-tasks.jpg",
-    alt: "A day's study plan with a learning module, practice questions, and review",
-    caption: "A typical session: learn the method, practise it, then review.",
+    alt:
+      "A day's study plan with a learning module, practice questions, and review",
+    caption:
+      "Your study plan brings learning, practice and review together so you can see what to work on next.",
     href: buildUcatEmailActionUrl({
       path: "/study-plan",
       campaign: "ucat_" + campaign.key,
@@ -345,440 +344,447 @@ function onboardingLesson(
 ): LessonCopy {
   const lessons: Record<UcatFamiliarity, Record<typeof key, LessonCopy>> = {
     new: {
-      onboarding_starting_point: {
-        subject: "Welcome to Altitutor UCAT",
-        preview: "We're excited to have you practicing with us.",
-        heading: "Welcome to Altitutor UCAT",
+      "onboarding_starting_point": {
+        subject: "Welcome to Altitutor UCAT!",
+        preview:
+          "We're excited to have you here. Let's start with one short lesson.",
+        heading: "Welcome! Let's get you started",
         paragraphs: [
-          hi(
-            firstName,
-            "the fastest way to get oriented is one short session, not a full mock.",
-          ),
-          "Do a short Verbal Reasoning lesson, try the questions in it, then follow whatever Altitutor recommends next. That's enough for today.",
+          "Hi " + firstName + ",",
+          "I'm Matt, the founder of Altitutor and a doctor here in South Australia. We're excited to have you here! Our team wants to support you throughout your UCAT preparation, especially when you're not sure what to do next.",
+          "A good place to start is Learn. Our learning modules explain how to approach UCAT question types and include questions so you can try the methods yourself. You don't need to know the test inside out before you begin.",
+          "For your first session, try a Verbal Reasoning module. This section asks you to read a passage and answer questions using the information it gives you. Take your time with the explanations as you go.",
           REPLY_STUCK,
         ],
-        moduleTitle: "Your first session",
+        moduleTitle: "Try your first learning module",
         rows: [
           {
-            title: "Open a short lesson",
-            detail: "Verbal Reasoning is a good first section.",
+            title: "Open Learn",
+            detail:
+              "Choose Verbal Reasoning, then select an introductory module.",
           },
           {
-            title: "Try the questions",
-            detail: "Aim to understand the task, not beat the clock.",
+            title: "Work through the examples",
+            detail:
+              "Pause to try the questions yourself before reading the explanations.",
           },
           {
-            title: "Stop after that session",
-            detail: "Use the next recommended task next time you sit down.",
+            title: "Check what you understood",
+            detail:
+              "If an answer surprises you, return to the passage and find the words that support it.",
           },
         ],
-        cta: "Start my first session",
+        cta: "Explore learning modules",
         path: "/learn",
-        screenshot: {
-          file: "study-plan-tasks.jpg",
-          alt: "A day's study plan with a learning module, practice questions, and review",
-          caption:
-            "A typical session: learn the method, practise it, then review.",
-        },
       },
-      onboarding_technique: {
-        subject: "A QR shortcut: multiply instead of calculating the increase",
-        preview: "$80 up 12% is $80 × 1.12. That's the whole method.",
-        heading: "Use multipliers on percentage questions",
+      "onboarding_technique": {
+        subject: "A useful shortcut for percentage questions",
+        preview:
+          "Try this worked example before your next Quantitative Reasoning session.",
+        heading: "Make percentage changes easier",
         paragraphs: [
-          hi(
-            firstName,
-            "percentage questions get expensive when you calculate the increase first, then add it on.",
-          ),
-          "For a 12% rise, multiply by 1.12. For an 8% fall, multiply by 0.92. The screenshot is the whole cheat-sheet.",
+          "Hi " + firstName + ",",
+          "Percentage questions come up in Quantitative Reasoning, the part of the UCAT where you work with numbers, tables and charts. Here's a method you can practise even if maths feels a little rusty.",
+          "Suppose an $80 item goes up in price by 12%. The new price is 112% of the original, so you can calculate $80 × 1.12 = $89.60. For an 8% decrease, you keep 92% of the original price, so you'd multiply by 0.92.",
+          "Try the steps below slowly first. Once you understand why the multiplier works, try using it on a percentage question in Practice.",
           REPLY_HAND,
         ],
-        moduleTitle: "The multiplier method",
+        moduleTitle: "Work through the $80 example",
         rows: [
           {
-            title: "Turn the change into a multiplier",
-            detail: "Increase by 12% is × 1.12. Decrease by 8% is × 0.92.",
+            title: "Start with the original 100%",
+            detail:
+              "For a 12% increase, add 12 to get 112%. For an 8% decrease, subtract 8 to get 92%.",
           },
           {
-            title: "Multiply the original amount",
-            detail: "$80 × 1.12 = $89.60.",
+            title: "Divide the percentage by 100",
+            detail:
+              "112% becomes 1.12. Multiply $80 by 1.12 to find the new price: $89.60.",
           },
           {
-            title: "Subtract only if asked",
-            detail: "The increase itself is $89.60 − $80 = $9.60.",
+            title: "Check what the question asks for",
+            detail:
+              "If it asks for the increase itself, subtract the original price: $89.60 − $80 = $9.60.",
           },
         ],
-        cta: "Practise percentage questions",
+        cta: "Open Quantitative Reasoning practice",
         path: "/practice",
         screenshot: {
           file: "qr-multipliers.jpg",
-          alt: "Worked example converting percentage change into a multiplier",
+          alt: "Worked example turning a percentage change into a multiplier",
           caption:
-            "Keep this next to you for the next QR set: convert the change, then multiply.",
+            "A percentage multiplier gives you the new amount. Subtract the original amount if you need the change itself.",
+          hrefPath: "/practice",
         },
       },
-      onboarding_timing: {
-        subject: "If the method isn't landing, flag it and move",
+      "onboarding_timing": {
+        subject: "Getting used to the UCAT timer",
         preview:
-          "A correct answer that took two minutes still cost you the section.",
-        heading: "Moving on is part of the method",
+          "Start with a method you understand, then practise deciding when to move on.",
+        heading: "Build up to timed practice",
         paragraphs: [
-          hi(
-            firstName,
-            "timing is not reading faster. It's noticing when another 20 seconds will not improve the answer.",
-          ),
-          "On the graph, a tall green bar is a correct answer that still ate the clock. That's the question to flag sooner next time.",
+          "Hi " + firstName + ",",
+          "The UCAT timer can feel quite unforgiving at first. It's normal to need longer while you're learning how a question works. Start by getting comfortable with the method, then introduce timed practice a little at a time.",
+          "When you're ready, try a short timed session. If you're stuck without a clear next step, choose your best answer, flag the question and move on. You can return to it if you have time left.",
+          "Afterwards, open the attempt in Progress. The timing graph shows how long you spent on each question, which can help you choose what to work on next.",
           REPLY_HAND,
         ],
-        moduleTitle: "A simple timing rule",
+        moduleTitle: "Try this in your next timed session",
         rows: [
           {
-            title: "Give the method a fair start",
-            detail: "Understand the task before you watch the clock.",
+            title: "Pick a topic you have practised",
+            detail:
+              "If the method is still unfamiliar, spend a little more time on it without the timer first.",
           },
           {
-            title: "Flag around 45–60 seconds",
+            title: "Notice when you stop making progress",
             detail:
-              "If the working is still expanding, move on and come back if time remains.",
+              "Make your best choice and flag the question if you are rereading or repeating the same working.",
           },
           {
-            title: "Review the expensive corrects",
+            title: "Review one slow question",
             detail:
-              "Those are the questions to shorten next time, even when the answer was right.",
+              "Check its explanation. Was there a simpler approach, or a point where you could have moved on?",
           },
         ],
-        cta: "Open a timed set",
+        cta: "Try timed practice",
         path: "/practice",
         screenshot: {
           file: "timing-graph.jpg",
-          alt: "Timing graph showing one correct question that took much longer than the others",
+          alt: "An example timing graph showing time spent on each question",
           caption:
-            "A tall green bar is a correct answer that still cost a lot of time.",
+            "Taller bars show where you spent more time. Check those questions alongside their explanations.",
+          hrefPath: "/practice",
         },
       },
-      onboarding_plan: {
-        subject: "The score is not the session — review the miss",
+      "onboarding_plan": {
+        subject: "How to review a question you got wrong",
         preview:
-          "Open the explanation, find the first divergence, and redo from there.",
-        heading: "Review is where the gain is",
+          "Read the explanation, then try the question again in your own words.",
+        heading: "Get more out of your practice questions",
         paragraphs: [
-          hi(
-            firstName,
-            "after a set, don't just note the score and start another one.",
-          ),
-          "Open the explanation, find the first point your approach diverged, and redo from there. That one miss is more useful than ten extra questions.",
+          "Hi " + firstName + ",",
+          "Getting questions wrong is part of learning the UCAT. What helps is taking a little time afterwards to understand an answer that surprised you.",
+          "In Progress, open a completed attempt and select a question you got wrong or guessed. You can read the explanation alongside it. Try to work out why the correct option fits and why your original choice doesn't.",
+          "Once it makes sense, look away from the explanation and try the question again. Being able to explain the steps yourself is a useful check that you've understood them.",
           REPLY_HAND,
         ],
-        moduleTitle: "How to review one question",
+        moduleTitle: "Review one question today",
         rows: [
           {
-            title: "Open the explanation",
-            detail: "Sit it next to the question, not after you have moved on.",
+            title: "Open a completed attempt",
+            detail:
+              "Go to Progress and choose a recent session. If you haven't finished one yet, try a few questions in Practice first.",
           },
           {
-            title: "Find the first divergence",
-            detail: "Where did your approach leave the method in the explanation?",
+            title: "Read the explanation slowly",
+            detail:
+              "Find the information or step you missed. Go back to the question to check it for yourself.",
           },
           {
-            title: "Redo from that point",
-            detail: "Then go to the next miss. Don't start a new set first.",
+            title: "Try again without the explanation",
+            detail:
+              "Talk yourself through the answer. If you still get stuck, revisit the matching topic in Learn.",
           },
         ],
-        cta: "Review my last set",
+        cta: "Open my attempt history",
         path: "/progress",
         screenshot: {
           file: "attempt-review.jpg",
-          alt: "Attempt review with the question, insight, and step-by-step explanation",
+          alt: "An example question review with a worked explanation",
           caption:
-            "This screen is dense on purpose. Tap through to your last review and use the explanation panel.",
+            "In your attempt review, select a question to read its explanation alongside it.",
           hrefPath: "/progress",
         },
       },
     },
     familiar: {
-      onboarding_starting_point: {
-        subject: "Make your first Altitutor session a timed baseline",
-        preview:
-          "One mixed timed set beats a pile of favourite question types.",
-        heading: "Start with a set you didn't cherry-pick",
+      "onboarding_starting_point": {
+        subject: "Welcome to Altitutor UCAT!",
+        preview: "A warm welcome from Matt, and a simple way to try Learn.",
+        heading: "We're glad you're here",
         paragraphs: [
-          hi(
-            firstName,
-            "you already know the format, so skip browsing. Do one timed mixed set so you have a clean baseline.",
-          ),
-          "Then follow the next recommended task instead of adding more of what already feels comfortable.",
+          "Hi " + firstName + ",",
+          "I'm Matt, the founder of Altitutor and a doctor in South Australia. Thanks for joining us! We're excited to support you as you prepare for the UCAT.",
+          "You mentioned that you've done some preparation already. I'd suggest starting with a learning module on a question type you still find tricky. Learn takes you through an approach and gives you questions to try along the way, so it's a useful way to check the basics even if the format is familiar.",
+          "Choose one topic today. You don't need to work through a whole section to get something useful out of your first session.",
           REPLY_STUCK,
         ],
-        moduleTitle: "Create a baseline you can act on",
+        moduleTitle: "Find a lesson that helps you",
         rows: [
           {
-            title: "Choose a mixed timed set",
-            detail: "Avoid selecting only familiar question types.",
+            title: "Open Learn",
+            detail:
+              "Choose a section, then a module on a question type you sometimes get stuck on.",
           },
           {
-            title: "Keep exam timing",
-            detail: "Use the same decision pressure you expect on test day.",
+            title: "Try the questions yourself",
+            detail:
+              "Have a go before reading the explanation, even if you recognise the method.",
           },
           {
-            title: "Follow the next task",
-            detail: "Let that result choose what comes next.",
+            title: "Take away one useful idea",
+            detail:
+              "Notice a step you missed or a simpler way of working, then try it on the next question.",
           },
         ],
-        cta: "Start a timed set",
-        path: "/practice",
-        screenshot: {
-          file: "study-plan-tasks.jpg",
-          alt: "A day's study plan with a learning module, practice questions, and review",
-          caption:
-            "Learn, practise, review — in that order — beats extra untimed volume.",
-        },
+        cta: "Find a learning module",
+        path: "/learn",
       },
-      onboarding_technique: {
-        subject: "Name the mistake before you practise the same type again",
+      "onboarding_technique": {
+        subject: "Work out why a question went wrong",
         preview:
-          "Interpretation, method, and timing errors need different next sessions.",
-        heading: "Don't treat every miss the same",
+          "A missed detail and an unfamiliar method need different kinds of practice.",
+        heading: "Make your next practice session more useful",
         paragraphs: [
-          hi(
-            firstName,
-            "reading the correct option helps, but the gain is naming why your original decision failed.",
-          ),
-          "Was it the task, the method, or the clock? The next set should test that one thing.",
+          "Hi " + firstName + ",",
+          "When you get a question wrong, it's tempting to read the answer and move on. Before you do, try to explain to yourself what went wrong. That makes it much easier to choose something useful to practise next.",
+          "Open a recent attempt in Progress and choose one question you missed or guessed. Read its explanation, then use the checks below. For example, missing the word 'except' calls for a different fix from not knowing how to calculate a percentage.",
           REPLY_HAND,
         ],
-        moduleTitle: "A practical error check",
+        moduleTitle: "Three things to check",
         rows: [
           {
-            title: "Interpretation",
-            detail: "Did you misunderstand the task or miss a constraint?",
+            title: "Did I understand the question?",
+            detail:
+              "Look for a word, condition or piece of information you overlooked.",
           },
           {
-            title: "Method",
-            detail: "Was the approach unreliable or unnecessarily long?",
+            title: "Did I know how to solve it?",
+            detail:
+              "If the method was unfamiliar, work through the explanation slowly or revisit that topic in Learn.",
           },
           {
-            title: "Timing",
-            detail: "Did the clock change an otherwise sound decision?",
+            title: "Did I rush or get stuck?",
+            detail:
+              "Try it again without time pressure. If you can solve it now, think about where the time went.",
           },
         ],
-        cta: "Review a recent set",
+        cta: "Review a recent attempt",
         path: "/progress",
       },
-      onboarding_timing: {
-        subject: "Use the timing graph to decide what to shorten",
+      "onboarding_timing": {
+        subject: "Find where your practice time is going",
         preview:
-          "Correct and slow is a different problem from incorrect and rushed.",
-        heading: "Manage the expensive questions, not the average",
+          "Your timing graph can help you choose one question to work on.",
+        heading: "Take a closer look at your timing",
         paragraphs: [
-          hi(
-            firstName,
-            "a section can feel uniformly rushed even when most of the loss sits in a few questions.",
-          ),
-          "Look at the graph: which questions were clean, which became time sinks, and which should have been flagged earlier?",
+          "Hi " + firstName + ",",
+          "If a section feels rushed, the timing graph in Progress is a useful place to look. A few difficult questions can take more time than you realise, including questions you eventually answer correctly.",
+          "Open a recent timed attempt and look for the taller bars. Choose one and read the explanation alongside the question. Think about whether you needed a different method, missed some information, or kept going after you got stuck.",
+          "The aim is to make better decisions about your time. Different question types take different amounts of work, so you don't need every bar to be the same height.",
           REPLY_HAND,
         ],
-        moduleTitle: "Three timing decisions",
+        moduleTitle: "Review one question that took a while",
         rows: [
           {
-            title: "Continue",
-            detail: "The route is clear and you are making progress.",
+            title: "Open a timed attempt in Progress",
+            detail:
+              "Look at the timing graph and select a question you spent a lot of time on.",
           },
           {
-            title: "Simplify or flag",
+            title: "Find what slowed you down",
             detail:
-              "If the working is expanding at around 45–60 seconds, move on.",
+              "Compare your approach with the explanation. Practise an unfamiliar step without the timer.",
           },
           {
-            title: "Review the tall bars",
+            title: "Choose what to try next time",
             detail:
-              "Especially the green ones. Those corrects are where time is leaking.",
+              "Use the simpler method, or make your best choice and flag the question when you get stuck.",
           },
         ],
-        cta: "Check my timing graph",
+        cta: "Look at my timing",
         path: "/progress",
         screenshot: {
           file: "timing-graph.jpg",
-          alt: "Timing graph showing one correct question that took much longer than the others",
+          alt: "An example timing graph showing time spent on each question",
           caption:
-            "A tall green bar is a correct answer that still cost a lot of time.",
+            "Taller bars show where you spent more time. Check those questions alongside their explanations.",
+          hrefPath: "/progress",
         },
       },
-      onboarding_plan: {
-        subject: "Find the first point you left the method",
+      "onboarding_plan": {
+        subject: "Turn a worked explanation into something you can use",
         preview:
-          "Compare your approach with the explanation, then redo from there.",
-        heading: "Review one miss properly",
+          "Try solving a reviewed question again before your next session.",
+        heading: "Check that the explanation has sunk in",
         paragraphs: [
-          hi(
-            firstName,
-            "the useful part of a finished set is still sitting in the review screen.",
-          ),
-          "Open the explanation, find the first point your approach diverged, and redo from there before you start another set.",
+          "Hi " + firstName + ",",
+          "An explanation can seem obvious while you're reading it, then be hard to recall when a similar question comes up. A useful check is to try the question again without looking at the worked answer.",
+          "Open a recent attempt in Progress and choose a question you got wrong or guessed. Compare the explanation with your working and find the first point where you missed information or took an unhelpful step. A different method can still be valid, so focus on what caused the difficulty.",
+          "Then solve it again yourself. When you next practise that topic, see whether you can use what you've learnt on a new question too.",
           REPLY_HAND,
         ],
-        moduleTitle: "How to review one question",
+        moduleTitle: "Make review part of your session",
         rows: [
           {
-            title: "Compare approaches",
-            detail: "Yours versus the explanation, step by step.",
+            title: "Choose one question to revisit",
+            detail:
+              "Include answers you guessed correctly, as well as mistakes.",
           },
           {
-            title: "Mark the first divergence",
-            detail: "That's the method change to carry into the next set.",
+            title: "Explain the difficult step",
+            detail:
+              "Use your own words to describe what you missed and how you would approach it next time.",
           },
           {
-            title: "Redo from there",
-            detail: "Then stop. One cleaned-up miss beats another mixed pile.",
+            title: "Try it without help",
+            detail:
+              "Look away from the explanation and redo the question. Leave time for this at the end of your next session.",
           },
         ],
-        cta: "Review my last set",
+        cta: "Review a recent attempt",
         path: "/progress",
         screenshot: {
           file: "attempt-review.jpg",
-          alt: "Attempt review with the question, insight, and step-by-step explanation",
+          alt: "An example question review with a worked explanation",
           caption:
-            "This screen is dense on purpose. Tap through to your last review and use the explanation panel.",
+            "In your attempt review, select a question to read its explanation alongside it.",
           hrefPath: "/progress",
         },
       },
     },
     experienced: {
-      onboarding_starting_point: {
-        subject: "Audit your prep with one representative set",
+      "onboarding_starting_point": {
+        subject: "Welcome to Altitutor UCAT!",
         preview:
-          "Check the pattern of misses before you add more volume.",
-        heading: "Test one assumption about your prep",
+          "Meet Matt and try a practice session with worked explanations.",
+        heading: "Welcome to your next stage of UCAT prep",
         paragraphs: [
-          hi(
-            firstName,
-            "you already have methods. Use the first Altitutor session to see whether they hold up on representative timed work.",
-          ),
-          "Look at accuracy, pace, and the pattern of misses before you add another block of questions.",
+          "Hi " + firstName + ",",
+          "I'm Matt, the founder of Altitutor and a doctor in South Australia. We're excited to have you here! Whether you're refining your approach or revisiting a section you've struggled with, our team is here to help.",
+          "Since you've prepared for the UCAT before, try a short session in Practice to get to know the platform. Choose a section you'd like to improve, answer a few questions, then read the worked explanations. They can help you spot a missed detail or an approach you haven't tried.",
+          "If a method feels rusty, take your time and work through it without a timer first. Having experience doesn't mean you need to rush past the basics.",
           REPLY_STUCK,
         ],
-        moduleTitle: "Run a useful prep audit",
+        moduleTitle: "Try Practice and its explanations",
         rows: [
           {
-            title: "Sample broadly",
-            detail: "Use work that represents the section, not a comfortable niche.",
+            title: "Choose a section",
+            detail: "Open Practice and pick an area you want to work on.",
           },
           {
-            title: "Inspect the pattern",
+            title: "Answer a few questions",
             detail:
-              "Separate isolated misses from repeatable method or pacing problems.",
+              "Use your usual approach. Untimed practice is fine while you get familiar with the platform.",
           },
           {
-            title: "Test one gap",
-            detail: "Choose the next session to challenge the strongest diagnosis.",
+            title: "Read the explanations",
+            detail:
+              "Check questions you guessed as well as ones you got wrong. Learn is there if you need a refresher.",
           },
         ],
-        cta: "Start a representative set",
+        cta: "Try practice questions",
         path: "/practice",
       },
-      onboarding_technique: {
-        subject: "Make the next session test one change",
-        preview:
-          "More questions only help when you know what you are making more reliable.",
-        heading: "Practice the change, not just the question type",
+      "onboarding_technique": {
+        subject: "Try one small change in your next session",
+        preview: "Use a recent mistake to choose what to practise.",
+        heading: "Give your next session a clear purpose",
         paragraphs: [
-          hi(
-            firstName,
-            "volume only helps when the variable is clear.",
-          ),
-          "Choose one method or decision rule, keep the mix and timing stable, then compare. That's one change, not a new question-type binge.",
+          "Hi " + firstName + ",",
+          "If you've been doing plenty of questions but keep making similar mistakes, it can help to focus on one change for a session. Start with a question you recently got wrong or took a long time to solve.",
+          "For example, if you keep missing conditions in Decision Making, try writing down each condition before working through the options. Practise that slowly enough to see whether it helps, then bring the timer back in.",
+          "You don't need to replace your whole approach. Use the explanation in your attempt review to find one step worth trying differently.",
           REPLY_HAND,
         ],
-        moduleTitle: "A one-variable practice loop",
+        moduleTitle: "Try one change and check it",
         rows: [
           {
-            title: "Choose the change",
-            detail: "State the method or decision rule you are testing.",
-          },
-          {
-            title: "Keep conditions stable",
-            detail: "Use a comparable question mix and timing.",
-          },
-          {
-            title: "Compare",
+            title: "Choose a recurring difficulty",
             detail:
-              "Did accuracy or pace improve without creating a new cost?",
+              "Be specific: for example, overlooking a condition or doing more calculations than the question needs.",
+          },
+          {
+            title: "Practise a different approach",
+            detail:
+              "Try a few similar questions. Give yourself time to understand the new step before trying to speed it up.",
+          },
+          {
+            title: "Review the result",
+            detail:
+              "Did the change help you answer more reliably? Check the explanations as well as your score.",
           },
         ],
-        cta: "Start a focused set",
+        cta: "Try a focused practice session",
         path: "/practice",
       },
-      onboarding_timing: {
-        subject: "Once answers are mostly correct, practise at 1.25×",
+      "onboarding_timing": {
+        subject: "Ready to try a little more time pressure?",
         preview:
-          "Staying untimed or at exam pace forever does not build test-day speed.",
-        heading: "You're ready for a faster gear",
+          "Check your accuracy at exam pace before trying a faster setting.",
+        heading: "Build speed without losing your method",
         paragraphs: [
-          hi(
-            firstName,
-            "if most answers are already correct, the next skill is doing them at exam pace without the method falling apart.",
-          ),
-          "Try one short set at 1.25× exam speed, then check the timing graph for anything that still spiked.",
+          "Hi " + firstName + ",",
+          "Before turning up the pace, check a few recent timed attempts. Can you answer reliably at exam pace and explain how you got there? If you're still guessing often or running out of time, keep practising the method at a pace where you can use it properly.",
+          "If your accuracy is steady at exam pace, you could try one short session at 1.25× exam speed. This gives you less time per question, so use a topic you know well and check your answers carefully afterwards.",
+          "If you start skipping important steps or making more mistakes, ease the pace back. The faster setting is a practice option, and there's no need to use it before you're ready.",
           REPLY_HAND,
         ],
-        moduleTitle: "How to use faster-than-exam pace",
+        moduleTitle: "Use the pace setting thoughtfully",
         rows: [
           {
-            title: "Only after the method is reliable",
-            detail: "Don't speed up a method you still can't repeat.",
+            title: "Check a few recent attempts",
+            detail:
+              "Look for consistent accuracy at exam pace, including questions you answered correctly by guessing.",
           },
           {
-            title: "Set 1.25× for one short set",
-            detail: "That's 25% faster than exam pace — enough to feel the pressure.",
+            title: "Try 1.25× on a familiar topic",
+            detail:
+              "Keep the session short so you can review it properly afterwards.",
           },
           {
-            title: "Review the spikes",
-            detail: "Anything that ballooned is the next thing to flag sooner.",
+            title: "Compare accuracy and timing",
+            detail:
+              "Read the explanations for mistakes and slow answers. Return to exam pace if the faster setting makes your method unreliable.",
           },
         ],
-        cta: "Start a faster-paced set",
+        cta: "Explore practice pace settings",
         path: "/practice",
         screenshot: {
           file: "practice-pace.jpg",
-          alt: "Choose your pace screen with timed practice set to 1.25 times exam speed",
+          alt: "Practice pace settings showing 1.25 times exam speed",
           caption:
-            "Once answers are mostly correct, you can practise faster than exam pace.",
+            "Choose a pace that lets you use your method reliably. Faster practice can wait until you are comfortable at exam pace.",
+          hrefPath: "/practice",
         },
       },
-      onboarding_plan: {
-        subject: "Redo the miss before you start another set",
-        preview:
-          "Find the first divergence, fix that step, then stop.",
-        heading: "Make review a method change",
+      "onboarding_plan": {
+        subject: "Include uncertain answers in your review",
+        preview: "A correct guess can show you just as much as a wrong answer.",
+        heading: "Look beyond the questions you missed",
         paragraphs: [
-          hi(
-            firstName,
-            "another set will not fix a method you haven't isolated yet.",
-          ),
-          "Open the last review, find the first point you left the method, redo from there, and only then start the next task.",
+          "Hi " + firstName + ",",
+          "When you review an attempt, it's worth including questions you answered correctly but weren't sure about. A correct guess can hide a gap that will show up again on a different question.",
+          "Open a recent attempt in Progress and choose an uncertain or unusually slow answer. Compare your reasoning with the explanation. If your method was sound, keep it; if you relied on a guess or a long detour, work through the step that would have helped.",
+          "Try the question again without the explanation, then test the same approach on a fresh question in your next session. This gives you a better check than recognising an answer you've just read.",
           REPLY_HAND,
         ],
-        moduleTitle: "How to review one question",
+        moduleTitle: "Review for understanding",
         rows: [
           {
-            title: "Find the first divergence",
-            detail: "Compare your working with the explanation.",
+            title: "Pick an uncertain or slow answer",
+            detail:
+              "Use the timing graph and your memory of the attempt to choose one.",
           },
           {
-            title: "Redo from that step",
-            detail: "Don't restart the whole question if the error is local.",
+            title: "Check your reasoning",
+            detail:
+              "Find the evidence or calculation that supports the answer. Notice anything your original approach missed.",
           },
           {
-            title: "Carry one change forward",
-            detail: "The next set should test that change, nothing else.",
+            title: "Try it again independently",
+            detail:
+              "Explain each step to yourself, then practise applying it to a different question.",
           },
         ],
-        cta: "Review my last set",
+        cta: "Review my recent practice",
         path: "/progress",
         screenshot: {
           file: "attempt-review.jpg",
-          alt: "Attempt review with the question, insight, and step-by-step explanation",
+          alt: "An example question review with a worked explanation",
           caption:
-            "This screen is dense on purpose. Tap through to your last review and use the explanation panel.",
+            "In your attempt review, select a question to read its explanation alongside it.",
           hrefPath: "/progress",
         },
       },
@@ -792,8 +798,8 @@ function copy(
   campaign: LifecycleCampaign,
 ): LifecycleEmailContent {
   const firstName = candidate.first_name?.trim() || "there";
-  const nextTitle =
-    candidate.next_step_title?.trim() || "a short practice session";
+  const nextTitle = candidate.next_step_title?.trim() ||
+    "a short practice session";
   const nextPath = candidate.next_step_path?.startsWith("/")
     ? candidate.next_step_path
     : "/dashboard";
@@ -821,26 +827,24 @@ function copy(
   switch (campaign.key) {
     case "first_score_estimate":
       return {
-        subject: "Your total score isn't the useful part",
+        subject: "Use your results to choose what to practise next",
         preview:
-          "The category breakdown shows which question type to practise next.",
-        heading: "Look at the breakdown, not just the total",
+          "Progress can help you find a question type that needs a little more attention.",
+        heading: "Get to know your results in Progress",
         paragraphs: [
-          hi(
-            firstName,
-            "you now have enough practice for Progress to split your results by question type.",
-          ),
-          "A total like 40/63 doesn't tell you what to do tomorrow. In this example, syllogisms at 8/16 is the next session; probabilistic reasoning at 4/5 can wait.",
-          "Open Progress, find your weakest category, and do that — not another mixed pile.",
+          "Hi " + firstName + ",",
+          "You've now done enough practice for your first score estimate. This is a useful time to explore Progress, where you can look back at your attempts and see which question types you're finding easier or harder.",
+          "Open a recent attempt and look at its category breakdown. For example, if syllogisms are proving difficult, review a couple of those questions and their explanations before choosing your next session. Syllogisms ask you to work out what must follow from a set of statements.",
+          "Treat the breakdown as a starting point. A category with only a few answers can change a lot with your next session, so look for difficulties that show up more than once. If you're unsure of the method, a learning module on that topic can help.",
           REPLY_HAND,
         ],
-        cta: "Open my Progress",
+        cta: "Explore my results",
         path: "/progress",
         module: productScreenshot({
           file: "category-breakdown.jpg",
-          alt: "Category breakdown showing best and worst question types for a practice set",
+          alt: "An example attempt broken down by question type",
           caption:
-            "Example only — not your score. Use the Best and Worst tags to choose tomorrow's session.",
+            "These are example results. In your own breakdown, check how many questions you've answered as well as how many were correct.",
           href: buildUcatEmailActionUrl({
             path: "/progress",
             campaign: "ucat_" + campaign.key,
@@ -851,134 +855,133 @@ function copy(
       };
     case "weekly_review":
       return {
-        subject: "Your week, and one session to do next",
-        preview: "You completed work this week. Next: " + nextTitle + ".",
-        heading: "Here's what to do with this week",
+        subject: "Your weekly UCAT check-in",
+        preview:
+          "A look at your recent practice and a suggestion for your next session.",
+        heading: "Let's plan your next practice session",
         paragraphs: [
-          hi(
-            firstName,
-            "you completed " +
-              (candidate.questions_last_7_days ?? 0) +
-              " questions across " +
-              (candidate.active_days_last_7_days ?? 0) +
-              " days.",
-          ),
-          "Your next session is " +
-            nextTitle +
-            ". Do that before adding extra volume.",
+          "Hi " + firstName + ",",
+          "Well done for making time for your UCAT preparation this week. Your practice summary is below, along with a suggestion for what to work on next.",
+          "Before starting something new, take a few minutes to revisit one question you got wrong or guessed. Read the explanation, then see if you can work through it yourself. That gives you something specific to carry into your next session.",
+          "When you're ready, your next suggested activity is " + nextTitle +
+          ". Choose a time that fits around your other commitments and leave some room to review afterwards.",
           REPLY_HAND,
         ],
-        cta: "Continue: " + nextTitle,
+        cta: "Open my next activity",
         path: nextPath,
         module: candidate.has_study_plan
           ? combineModules(
-              statsModule(candidate, nextTitle),
-              studyPlanScreenshot(campaign),
-            )
+            statsModule(candidate, nextTitle),
+            studyPlanScreenshot(campaign),
+          )
           : statsModule(candidate, nextTitle),
         founderLed: true,
       };
     case "gentle_restart":
       return {
-        subject: "Pick up with one session — nothing to catch up",
-        preview: "Start with " + nextTitle + ". That's the whole restart.",
-        heading: "One session is enough",
+        subject: "Ready to pick up your UCAT prep again?",
+        preview:
+          "Start with a small session whenever you're ready. We're here to help.",
+        heading: "Let's ease back into practice",
         paragraphs: [
-          hi(
-            firstName,
-            "a few days away doesn't undo the work you've already done.",
-          ),
-          "When you're ready, do " +
-            nextTitle +
-            ". That's the whole restart — you don't need to clear a backlog.",
+          "Hi " + firstName + ",",
+          "It's been a little while since your last session. School, work and everything else can make it hard to find time for UCAT prep, so please don't feel you need to make up for the break all at once.",
+          "When you're ready, try " + nextTitle +
+          ". Give yourself time to remember the approach, and use the explanations if something feels rusty. Even a few carefully reviewed questions can be a useful first session back.",
+          "If finding time has been the difficult part, pick a small slot in your week that feels realistic. You can build from there.",
           REPLY_HAND,
         ],
-        cta: candidate.has_study_plan
-          ? "Continue my plan"
-          : "Start: " + nextTitle,
+        cta: "Open my next activity",
         path: nextPath,
         module: candidate.has_study_plan
           ? studyPlanScreenshot(campaign)
-          : numberedModule("A gentle restart", nextTitle, [
+          : numberedModule(
+            "Getting started again",
+            "Keep your first session manageable",
+            [
               {
-                title: "Open this one task",
-                detail: "Ignore everything else for now.",
+                title: "Choose a small amount of work",
+                detail:
+                  "Try a few questions or revisit a lesson. Start with an amount you can comfortably fit in today.",
               },
               {
-                title: "Finish that session",
-                detail: "Then stop. The next task can wait until next time.",
+                title: "Leave time to review",
+                detail:
+                  "Read the explanation for an answer you weren't sure about, then try working through it again.",
               },
-            ]),
+            ],
+          ),
         founderLed: true,
       };
     case "upgrade_quota":
       return {
-        subject: "Want to keep practising without waiting for the reset?",
+        subject: "Reached your Free practice limit? Here's what you can do",
         preview:
-          "Free still resets. Unlimited removes the wait if you want to continue now.",
-        heading: "You can wait for Free, or continue now",
+          "Check when your allowance resets, or explore Unlimited if you need more practice.",
+        heading: "Your options for continuing practice",
         paragraphs: [
-          hi(
-            firstName,
-            "you reached this period's Free limit on " +
-              quotaAreaLabel(candidate.last_quota_area) +
-              ". Free resets as shown in the app, and that path stays available.",
-          ),
-          "If you want to keep going now, Unlimited removes the wait. The monthly price can also fall as you complete qualifying practice days.",
+          "Hi " + firstName + ",",
+          "You recently reached your Free allowance for " +
+          quotaAreaLabel(candidate.last_quota_area) +
+          ". The app shows when that allowance resets. In the meantime, you can revisit completed attempts in Progress and work through their explanations.",
+          "If you'd like more practice before the reset, UCAT Unlimited removes the Free plan's usage limits. You can compare the plans and see the full price on your subscription page before deciding.",
+          "Monthly Unlimited also offers practice discounts towards your next bill. The details below explain how those work. You're welcome to keep preparing on Free if that suits you better.",
         ],
-        cta: "Compare Unlimited",
+        cta: "See plans and pricing",
         path: "/settings/plan/subscription",
         module: commercialModule(candidate, "quota"),
         founderLed: true,
       };
     case "upgrade_consistency":
       return {
-        subject: "Your Unlimited plan can get cheaper as you practice",
+        subject: "How regular practice can reduce an Unlimited bill",
         preview:
-          "Consistent practice reduces the next monthly Unlimited price.",
-        heading: "The price is built around a useful study habit",
+          "A guide to practice discounts if you're considering monthly Unlimited.",
+        heading: "A little about our practice discounts",
         paragraphs: [
-          hi(
-            firstName,
-            "you have been coming back to UCAT prep across the week.",
-          ),
-          "On Unlimited, qualifying practice days reduce your next monthly price. Free practice does not bank a discount, but your current rhythm is exactly how that model is meant to work.",
+          "Hi " + firstName + ",",
+          "It's lovely to see you making time for UCAT practice. If you're considering Unlimited, I wanted to explain a part of our pricing that might be useful to you.",
+          "On monthly Unlimited, each day you meet the question target earns a discount towards your next bill, up to the limit below. Simply logging in doesn't count; you need to complete the daily question target.",
+          "Practice on Free doesn't earn discounts towards a future subscription. Discounts start once you have Unlimited access, and your subscription page shows your progress and bill details. Have a look if more practice access would help with your preparation.",
         ],
-        cta: "See Unlimited pricing",
+        cta: "See Unlimited and practice discounts",
         path: "/settings/plan/subscription",
         module: commercialModule(candidate, "consistency"),
         founderLed: true,
       };
-    case "referral_invitation": {
-      const reward =
-        candidate.billing_interval === "year" ? "a free month" : "a free week";
+    case "referral_invitation":
       return {
-        subject: "Give a friend " + reward + " of Unlimited",
+        subject: "Help a friend get started with UCAT prep",
         preview:
-          "They get " + reward + " of Unlimited. You get the same when they join.",
-        heading: "Give a friend " + reward + " of Unlimited",
+          "Your referral page has a personal link to share an Unlimited gift.",
+        heading: "Share Altitutor with a friend",
         paragraphs: [
-          hi(
-            firstName,
-            "if someone you know is preparing for the UCAT, you can give them " +
-              reward +
-              " of Unlimited from your referral page.",
-          ),
-          "When they join Unlimited through your link, you get " +
-            reward +
-            " as well. The page shows the reward status before anything is applied.",
+          "Hi " + firstName + ",",
+          "If a friend is also preparing for the UCAT, you can share a gift of Unlimited access through your referral page. It gives them a chance to try the learning modules, practice questions and other tools for themselves.",
+          "Open Referrals in your plan settings to find your personal link. The page explains the gift available to your friend and the reward you can receive when they accept it. Check those details, then copy the link and send it to someone you think would find it useful.",
+          "Thank you for helping more students find Altitutor. Making preparation accessible is why we built it, and your support means a lot to us.",
         ],
-        cta: "Invite a friend",
+        cta: "Open my referral page",
         path: "/settings/plan/referrals",
-        module: panel(
-          "Your referral reward",
-          "They get " + reward + " — and so do you",
-          '<p style="margin:0;color:#52606a;font-size:13px;line-height:1.6">Share your personal link. Your friend can explore Altitutor first. The reward is applied when they start Unlimited.</p>',
-          "Share your personal link. Your friend can explore Altitutor first. The reward is applied when they start Unlimited.",
-        ),
+        module: numberedModule("Sharing your gift", "How to invite a friend", [
+          {
+            title: "Check your gift and reward",
+            detail:
+              "Your referral page shows what's available with your plan and how your friend can accept.",
+          },
+          {
+            title: "Copy your personal link",
+            detail:
+              "Send it to your friend so they can read the offer and decide whether to use it.",
+          },
+          {
+            title: "Follow their invitation",
+            detail:
+              "Return to your referral page to see referral activity and any rewards you've earned.",
+          },
+        ]),
         founderLed: true,
       };
-    }
   }
   throw new Error("Unsupported lifecycle campaign: " + campaign.key);
 }
@@ -997,8 +1000,7 @@ export function buildLifecycleEmail(
 ) {
   const content = copy(candidate, campaign);
   const actionUrl = trackedActionUrl(content.path, campaign);
-  const unsubscribeUrl =
-    APP_URL +
+  const unsubscribeUrl = APP_URL +
     "/api/newsletter/unsubscribe?token=" +
     encodeURIComponent(candidate.unsubscribe_token);
   const preferencesUrl = APP_URL + "/settings/communications";
@@ -1014,8 +1016,7 @@ export function buildLifecycleEmail(
   const html = renderUcatEmail({
     previewText: content.preview,
     heading: content.heading,
-    bodyHtml:
-      paragraphs +
+    bodyHtml: paragraphs +
       content.module.html +
       renderUcatEmailButton(actionUrl, content.cta) +
       signoff.html,
@@ -1026,8 +1027,7 @@ export function buildLifecycleEmail(
       escapeEmailHtml(unsubscribeUrl) +
       '" style="color:#52606a">Unsubscribe</a></p>',
   });
-  const text =
-    content.heading +
+  const text = content.heading +
     "\n\n" +
     content.paragraphs.join("\n\n") +
     "\n\n" +
@@ -1096,8 +1096,9 @@ export function buildLifecyclePreview(
     consent_verified_at: "2026-07-01T00:00:00Z",
     unsubscribed_at: null,
     online_tier: key === "referral_invitation" ? "unlimited" : "free",
-    unlimited_started_at:
-      key === "referral_invitation" ? "2026-07-01T00:00:00Z" : null,
+    unlimited_started_at: key === "referral_invitation"
+      ? "2026-07-01T00:00:00Z"
+      : null,
     billing_interval: "month",
     last_activity_at: "2026-07-27T00:00:00Z",
     questions_last_7_days: 86,
@@ -1135,8 +1136,8 @@ export function buildLifecyclePreview(
     : key === "upgrade_quota" ||
         key === "upgrade_consistency" ||
         key === "referral_invitation"
-      ? "offers_and_referrals"
-      : "weekly_progress_and_guidance";
+    ? "offers_and_referrals"
+    : "weekly_progress_and_guidance";
   return buildLifecycleEmail(candidate, {
     key,
     topic,

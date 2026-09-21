@@ -1,3 +1,4 @@
+import { useOpenScreen } from "@/features/navigation/use-open-screen";
 import { useCurrentAttempt } from "@/features/practice/components/current-attempt";
 import { useState } from "react";
 import { useRouter } from "expo-router";
@@ -14,6 +15,7 @@ export type LaunchableActivity = {
 export function useLaunchActivity() {
   const { beforeStart } = useCurrentAttempt();
   const router = useRouter();
+  const openScreen = useOpenScreen();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<unknown>(null);
   async function performLaunch(task: LaunchableActivity) {
@@ -26,7 +28,7 @@ export function useLaunchActivity() {
           /(set-attempts|mock-attempts|practice-sessions)\/([^/?]+)/,
         );
         if (!match) throw new Error("This review is not ready yet.");
-        router.push({
+        openScreen({
           pathname: "/review",
           params: {
             id: match[2],
@@ -39,13 +41,13 @@ export function useLaunchActivity() {
           },
         });
       } else if (task.learningModuleId)
-        router.push({
-          pathname: "/lesson/[id]",
+        openScreen({
+          pathname: "/lesson-start",
           params: { id: task.learningModuleId, taskId: task.id },
         });
       else if (task.questionSetId || task.mockId)
-        router.push({
-          pathname: "/exam",
+        openScreen({
+          pathname: "/exam-start",
           params: {
             id: task.mockId ?? task.questionSetId ?? "",
             kind: task.mockId ? "mock" : "set",
@@ -72,13 +74,13 @@ export function useLaunchActivity() {
             },
           },
         });
-        router.push({
-          pathname: "/exam",
+        openScreen({
+          pathname: "/exam-start",
           params: { id: result.id, kind: "practice", taskId: task.id },
         });
       } else if (task.taskType === "skill_trainer")
-        router.push({
-          pathname: "/trainers",
+        openScreen({
+          pathname: "/trainer-start",
           params: {
             trainerKey: String(task.launchConfig.skillTrainerKey ?? ""),
             taskId: task.id,

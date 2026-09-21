@@ -7,6 +7,10 @@ export type Activity = {
   days: { dateKey: string; questionAttempts: number; setAttempts: number }[];
 };
 export const progressApi = {
+  timing: (number: string) =>
+    api<{ points: { examSpeedPercentSum: number; examSpeedCount: number }[] }>(
+      `/progress/series?source=set&sectionNumber=${encodeURIComponent(number)}`,
+    ),
   projection: () => api<ScoreProjectionResponse>("/score-projection"),
   activity: () => api<Activity>("/activity"),
   section: (number: string) =>

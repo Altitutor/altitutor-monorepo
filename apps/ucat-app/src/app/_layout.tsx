@@ -1,4 +1,9 @@
+import {
+  SheetNavigationProvider,
+  useSheetTransition,
+} from "@/features/navigation/use-open-screen";
 import { LessonNavigationProvider } from "@/features/learning/lesson-navigation";
+import { ReviewNavigationProvider } from "@/features/attempts/review-navigation";
 import { TrainerToolsProvider } from "@/features/skill-trainer/components/trainer-tools";
 import { Platform, View } from "react-native";
 import { AttemptBanner } from "@/features/practice/components/attempt-banner";
@@ -53,7 +58,11 @@ function ThemedRoot() {
           <ExamToolsProvider>
             <TrainerToolsProvider>
               <LessonNavigationProvider>
-                <Navigation />
+                <SheetNavigationProvider>
+                  <ReviewNavigationProvider>
+                    <Navigation />
+                  </ReviewNavigationProvider>
+                </SheetNavigationProvider>
               </LessonNavigationProvider>
             </TrainerToolsProvider>
           </ExamToolsProvider>
@@ -64,6 +73,7 @@ function ThemedRoot() {
   );
 }
 function Navigation() {
+  const finishSheetTransition = useSheetTransition();
   const { session, loading } = useAuth();
   const c = useColors();
   if (loading)
@@ -76,6 +86,7 @@ function Navigation() {
     <View style={{ flex: 1, backgroundColor: c.background }}>
       {session && <AttemptBanner />}
       <Stack
+        unstable_nativeProps={{ onFinishTransitioning: finishSheetTransition }}
         screenOptions={{
           headerTransparent: Platform.OS === "ios",
           headerShadowVisible: false,
@@ -120,6 +131,24 @@ function Navigation() {
             name="exam"
             options={{ title: "Practice", gestureEnabled: false }}
           />
+          <Stack.Screen
+            name="exam-start"
+            options={{
+              title: "Your attempt",
+              presentation: "formSheet",
+              sheetAllowedDetents: [0.5, 1],
+              sheetGrabberVisible: true,
+            }}
+          />
+          <Stack.Screen
+            name="lesson-start"
+            options={{
+              title: "Lesson",
+              presentation: "formSheet",
+              sheetAllowedDetents: [0.5, 1],
+              sheetGrabberVisible: true,
+            }}
+          />
           <Stack.Screen name="lesson/[id]" options={{ title: "Lesson" }} />
           <Stack.Screen
             name="notifications"
@@ -130,8 +159,12 @@ function Navigation() {
               sheetGrabberVisible: true,
             }}
           />
-          <Stack.Screen name="study-plan" options={{ title: "Study plan" }} />
+
           <Stack.Screen name="catalogue" options={{ title: "Exam library" }} />
+          <Stack.Screen
+            name="set-section"
+            options={{ title: "Question sets" }}
+          />
           <Stack.Screen
             name="calculator"
             options={{
@@ -156,6 +189,19 @@ function Navigation() {
           />
           <Stack.Screen name="trainers" options={{ title: "Skill trainers" }} />
           <Stack.Screen
+            name="trainer-play"
+            options={{ title: "Skill trainer", gestureEnabled: false }}
+          />
+          <Stack.Screen
+            name="trainer-start"
+            options={{
+              title: "Skill trainer",
+              presentation: "formSheet",
+              sheetAllowedDetents: [0.5, 1],
+              sheetGrabberVisible: true,
+            }}
+          />
+          <Stack.Screen
             name="question-navigator"
             options={{
               title: "Questions",
@@ -173,8 +219,22 @@ function Navigation() {
               sheetGrabberVisible: true,
             }}
           />
-          <Stack.Screen name="review" options={{ title: "Review" }} />
+          <Stack.Screen name="review" options={{ title: "Attempt results" }} />
+          <Stack.Screen
+            name="mock-progress"
+            options={{ title: "Mock progress" }}
+          />
+          <Stack.Screen
+            name="attempt-question"
+            options={{
+              title: "Question",
+            }}
+          />
         </Stack.Protected>
+        <Stack.Screen
+          name="auth-return"
+          options={{ title: "Signing in", headerShown: false }}
+        />
       </Stack>
     </View>
   );

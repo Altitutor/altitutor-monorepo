@@ -17,6 +17,7 @@ export default function Layout() {
         contentStyle: { backgroundColor: c.background },
       }}
     >
+      <Stack.Screen name="referrals" options={{ title: "Refer friends" }} />
       <Stack.Screen name="index" options={{ title: "Menu" }} />
       <Stack.Screen
         name="app-settings"

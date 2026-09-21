@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Text, View } from "react-native";
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { useQuery } from "@tanstack/react-query";
@@ -11,10 +12,12 @@ import {
   Loading,
   Row,
   Screen,
+  useColors,
 } from "@/components/ui";
 import { learningSections, moduleIcon } from "@/features/learning/library";
 import { dataApi } from "@/features/dashboard/api";
 export default function LearningSection() {
+  const c = useColors();
   const { number } = useLocalSearchParams<{ number: string }>();
   const section =
     learningSections.find((s) => s.number === Number(number)) ??
@@ -71,20 +74,36 @@ export default function LearningSection() {
       ) : (
         <>
           {groups.map((g) => (
-            <Group key={g.id ?? "root"} title={g.title}>
+            <View key={g.id ?? "root"} style={{ gap: 10 }}>
+              <Text
+                accessibilityRole="header"
+                style={{
+                  color: c.secondary,
+                  fontSize: 13,
+                  fontWeight: "600",
+                  textTransform: "uppercase",
+                  paddingHorizontal: 4,
+                }}
+              >
+                {g.title}
+              </Text>
               {g.lessons.map(
                 (m) =>
                   m.id && (
-                    <Row
-                      key={m.id}
-                      title={m.title ?? "Lesson"}
-                      icon={moduleIcon(m.icon_key)}
-                      detail={`${m.estimated_minutes ?? 0} min · ${Math.round(m.completion_percent ?? 0)}% complete`}
-                      href={{ pathname: "/lesson/[id]", params: { id: m.id } }}
-                    />
+                    <Group key={m.id}>
+                      <Row
+                        title={m.title ?? "Lesson"}
+                        icon={moduleIcon(m.icon_key)}
+                        detail={`${m.estimated_minutes ?? 0} min · ${Math.round(m.completion_percent ?? 0)}% complete`}
+                        href={{
+                          pathname: "/lesson-start",
+                          params: { id: m.id },
+                        }}
+                      />
+                    </Group>
                   ),
               )}
-            </Group>
+            </View>
           ))}
           {!lessons.length && <Copy muted>No lessons match your search.</Copy>}
         </>

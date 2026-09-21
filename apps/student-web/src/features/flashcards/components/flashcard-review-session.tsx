@@ -76,6 +76,7 @@ export function FlashcardReviewSession({
   const card = mode === 'all' ? studyQueue[0] ?? null : dueQueue[0] ?? null;
   const [displayCard, setDisplayCard] = useState<FlashcardReviewCard | null>(card);
   const [feedback, setFeedback] = useState<FeedbackState | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [imageStatus, setImageStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>('idle');
   const [imageAttempt, setImageAttempt] = useState(0);
   const freeStudyComplete = mode === 'all' && cards.length > 0 && studyQueue.length === 0;
@@ -150,6 +151,7 @@ export function FlashcardReviewSession({
       dueTimersRef.current.clear();
       setReviewedDueCount(0);
       setShowAnswer(false);
+      setSaveError(null);
     }
     if (mode === 'all') {
       setStudyQueue(cards);
@@ -194,6 +196,7 @@ export function FlashcardReviewSession({
 
   const rateDueCard = useCallback((rating: FlashcardRating) => {
     if (!card || mode !== 'due' || answerInFlightRef.current) return;
+    setSaveError(null);
     const feedbackClassName =
       rating === 'again'
         ? 'bg-red-600 text-white'
@@ -231,6 +234,7 @@ export function FlashcardReviewSession({
       setDueQueue(previousQueue);
       setReviewedDueCount(previousReviewedCount);
       setShowAnswer(true);
+      setSaveError('Your answer was not saved. Please try again. Your card and progress have been restored.');
     }).finally(() => {
       answerInFlightRef.current = false;
     });
@@ -378,6 +382,12 @@ export function FlashcardReviewSession({
           </TooltipProvider>
         )}
       </div>
+
+      {saveError ? (
+        <div role="alert" className="rounded-lg border border-destructive/40 bg-destructive/5 px-4 py-3 text-sm text-destructive">
+          {saveError}
+        </div>
+      ) : null}
 
       <div className={studentCardCn('space-y-6 p-6')}>
         {isImageCard && imageUrl && displayCard.occlusion_data ? (

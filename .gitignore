@@ -41,10 +41,8 @@ apps/student-app/credentials/*
 tasks.json
 /tasks/ 
 *storybook.log
-.next
-.next-e2e
-.next-ucat-native
-.next-onboarding-prototype
+# Next.js output (default .next and custom NEXT_DIST_DIR, e.g. .next-e2e)
+.next*
 test-results/
 
 # TypeScript build artifacts
@@ -84,5 +82,3 @@ ref/
 # Copied at Next start from pdfjs-dist (webpack cannot bundle its ESM)
 apps/tutor-web/public/pdfjs/
 apps/student-web/public/pdfjs/
-
-.next-onboarding-local

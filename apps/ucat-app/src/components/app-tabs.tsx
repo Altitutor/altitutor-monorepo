@@ -8,7 +8,7 @@ export default function AppTabs() {
     <View style={{ flex: 1 }}>
       <NativeTabs tintColor={c.accent} backgroundColor={c.card}>
         <NativeTabs.Trigger name="(home)">
-          <NativeTabs.Trigger.Icon sf="sun.max" md="today" />
+          <NativeTabs.Trigger.Icon sf="house" md="home" />
           <NativeTabs.Trigger.Label>Home</NativeTabs.Trigger.Label>
         </NativeTabs.Trigger>
         <NativeTabs.Trigger name="learn">

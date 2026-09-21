@@ -1,111 +1,82 @@
-import { useState } from "react";
-import { useLocalSearchParams } from "expo-router";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import type { ResponseSnapshotV1 } from "@altitutor/ucat-response-contract";
-import { Action, Copy, Failure, Group, Loading, Screen } from "@/components/ui";
-import { Question } from "@/features/question-engine/components/question";
-import {
-  mapQuestionStemsToItems,
-  type QuestionEngineExam,
-  type QuestionStemWithQuestions,
-} from "@/features/question-engine/model/types";
-import { api } from "@/lib/api";
-type Detail = {
-  scorePoints?: number;
-  totalPoints?: number;
-  scaledScore?: number;
-  exam?: QuestionEngineExam;
-  stemsSnapshot?: QuestionStemWithQuestions[];
-  questionAttempts: {
-    questionId: string;
-    answerSnapshot: ResponseSnapshotV1 | null;
-  }[];
-};
-export default function Review() {
-  const { id, kind } = useLocalSearchParams<{ id: string; kind: string }>();
-  const [index, setIndex] = useState(0);
-  const q = useQuery({
-    queryKey: ["review", kind, id],
-    queryFn: () =>
-      api<Detail>(
-        `/progress/${kind === "practice" ? "practice-sessions" : kind === "mock" ? "mock-attempts" : "set-attempts"}/${id}`,
-      ),
-  });
-  const complete = useMutation({
-    mutationFn: async () => {
-      const path = `/attempt-reviews/${kind === "practice" ? "practice_session" : kind === "mock" ? "mock_attempt" : "set_attempt"}/${id}`;
-      const ids = q.data?.questionAttempts.map((a) => a.questionId) ?? [];
-      await api(path, { method: "PUT", body: { requiredQuestionIds: ids } });
-      for (const questionId of ids)
-        await api(path, {
-          method: "PATCH",
-          body: { action: "view", questionId },
-        });
-      return api(path, { method: "PATCH", body: { action: "complete" } });
-    },
-  });
-  const questions =
-    q.data?.exam?.questions ??
-    mapQuestionStemsToItems(q.data?.stemsSnapshot ?? []);
-  const question = questions[index];
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { Stack } from "expo-router/stack";
+import { Copy, Failure, Group, Loading, Screen } from "@/components/ui";
+import { attemptKind, useAttempt } from "@/features/attempts/api";
+import { attemptMetrics } from "@/features/attempts/metrics";
+import { TimingCard } from "@/features/attempts/timing-card";
+import { AttemptQuestions } from "@/features/attempts/question-list";
+import { InsightCard } from "@/features/progress/insight-card";
+import { buildAttemptOverallInsight } from "@/features/progress/attempt-insights";
+export default function AttemptPage() {
+  const params = useLocalSearchParams<{ id: string; kind: string }>();
+  const kind = attemptKind(params.kind);
+  const router = useRouter();
+  const q = useAttempt(kind, params.id);
+  const data = q.data;
+  const metrics = data ? attemptMetrics(data) : null;
   return (
-    <Screen>
+    <Screen refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
+      <Stack.Screen
+        options={{
+          title:
+            data?.mockName ??
+            data?.questionSetName ??
+            (data?.sectionName
+              ? `${data.sectionName} practice`
+              : "Attempt results"),
+        }}
+      />
       {q.isPending ? (
         <Loading />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
-      ) : (
+      ) : data && metrics ? (
         <>
-          <Group title="Your result">
+          <InsightCard
+            label="Overall insight"
+            insight={buildAttemptOverallInsight({
+              accuracyPercent: metrics.accuracy,
+              examPacePercent:
+                data.studentExamSpeed == null
+                  ? null
+                  : data.studentExamSpeed * 100,
+              averageTimePerQuestionSeconds: metrics.average,
+              recentPerformance: data.recentPerformance,
+            })}
+          />
+          <Group title="Score">
             <Copy large>
-              {q.data?.scorePoints != null
-                ? `${q.data.scorePoints} / ${q.data.totalPoints ?? "—"} points`
-                : q.data?.scaledScore != null
-                  ? `Score ${q.data.scaledScore}`
-                  : "Attempt complete"}
+              {data.scaledScore != null
+                ? `${data.scaledScore}${data.scaledScoreMax ? ` / ${data.scaledScoreMax}` : ""}`
+                : metrics.score != null
+                  ? `${metrics.score} / ${metrics.maximum ?? "—"}`
+                  : "Score pending"}
             </Copy>
             <Copy muted>
-              Review each response to understand where you can improve.
+              {data.scaledScore != null ? "Scaled score · " : ""}
+              {metrics.accuracy != null
+                ? `${Math.round(metrics.accuracy)}% correct · ${metrics.score} / ${metrics.maximum} points`
+                : ""}
             </Copy>
-          </Group>
-          {question && (
-            <>
-              <Copy>
-                Question {index + 1} of {questions.length}
+            {data.sets?.map((set, index) => (
+              <Copy key={index}>
+                {set.questionSetName ?? `Section ${index + 1}`}:{" "}
+                {set.scorePoints ?? "—"} / {set.totalPoints ?? "—"}
               </Copy>
-              <Question
-                question={question}
-                answer={
-                  q.data?.questionAttempts.find(
-                    (a) => a.questionId === question.id,
-                  )?.answerSnapshot ?? undefined
-                }
-                onAnswer={() => {}}
-                review
-              />
-              {index > 0 && (
-                <Action
-                  title="Previous"
-                  secondary
-                  onPress={() => setIndex(index - 1)}
-                />
-              )}
-              {index + 1 < questions.length ? (
-                <Action title="Next" onPress={() => setIndex(index + 1)} />
-              ) : (
-                <Action
-                  title={
-                    complete.isSuccess ? "Review completed" : "Complete review"
-                  }
-                  disabled={complete.isPending || complete.isSuccess}
-                  onPress={() => complete.mutate()}
-                />
-              )}
-              {complete.error && <Failure error={complete.error} />}
-            </>
-          )}
+            ))}
+          </Group>
+          <TimingCard data={data} />
+          <AttemptQuestions
+            questions={data.questionAttempts}
+            onSelect={(index) =>
+              router.push({
+                pathname: "/attempt-question",
+                params: { kind, id: params.id, index },
+              })
+            }
+          />
         </>
-      )}
+      ) : null}
     </Screen>
   );
 }

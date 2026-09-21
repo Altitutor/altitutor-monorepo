@@ -1,4 +1,5 @@
 import { Pressable, Text, View } from "react-native";
+import { Image } from "expo-image";
 import { Stack } from "expo-router/stack";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Meter, useColors } from "./ui";
@@ -6,8 +7,12 @@ type Props = {
   previous: () => void;
   next: () => void;
   previousDisabled?: boolean;
+  hidePrevious?: boolean;
+  hideNext?: boolean;
+  reviewNext?: boolean;
   nextDisabled?: boolean;
   progress?: number;
+  completed?: boolean;
   onNavigator?: () => void;
   onProgress?: () => void;
   previousLabel?: string;
@@ -17,8 +22,12 @@ export function BottomToolbar({
   previous,
   next,
   previousDisabled,
+  hidePrevious,
+  hideNext,
+  reviewNext,
   nextDisabled,
   progress,
+  completed,
   onNavigator,
   onProgress,
   previousLabel = "Previous question",
@@ -29,14 +38,16 @@ export function BottomToolbar({
   if (process.env.EXPO_OS === "ios")
     return (
       <Stack.Toolbar placement="bottom">
-        <Stack.Toolbar.Button
-          icon="chevron.left"
-          accessibilityLabel={previousLabel}
-          disabled={previousDisabled}
-          onPress={previous}
-        >
-          {previousLabel}
-        </Stack.Toolbar.Button>
+        {!hidePrevious && (
+          <Stack.Toolbar.Button
+            icon="chevron.left"
+            accessibilityLabel={previousLabel}
+            disabled={previousDisabled || hidePrevious}
+            onPress={previous}
+          >
+            {previousLabel}
+          </Stack.Toolbar.Button>
+        )}
         <Stack.Toolbar.Spacer />
         {onNavigator ? (
           <Stack.Toolbar.Button
@@ -50,23 +61,38 @@ export function BottomToolbar({
           <Stack.Toolbar.View>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Lesson navigator"
+              accessibilityLabel={
+                completed
+                  ? "Lesson navigator, current part completed"
+                  : "Lesson navigator"
+              }
               onPress={onProgress}
-              style={{ width: 160, padding: 12 }}
+              style={{
+                width: 184,
+                padding: 12,
+                flexDirection: "row",
+                alignItems: "center",
+                gap: 8,
+              }}
             >
-              <Meter value={progress ?? 0} />
+              <View style={{ flex: 1 }}>
+                <Meter value={progress ?? 0} />
+              </View>
+              {completed && <CompletionIcon color={c.good} />}
             </Pressable>
           </Stack.Toolbar.View>
         )}
         <Stack.Toolbar.Spacer />
-        <Stack.Toolbar.Button
-          icon="chevron.right"
-          accessibilityLabel={nextLabel}
-          disabled={nextDisabled}
-          onPress={next}
-        >
-          {nextLabel}
-        </Stack.Toolbar.Button>
+        {!hideNext && (
+          <Stack.Toolbar.Button
+            icon={reviewNext ? "checklist" : "chevron.right"}
+            accessibilityLabel={nextLabel}
+            disabled={nextDisabled || hideNext}
+            onPress={next}
+          >
+            {nextLabel}
+          </Stack.Toolbar.Button>
+        )}
       </Stack.Toolbar>
     );
   return (
@@ -90,9 +116,12 @@ export function BottomToolbar({
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={previousLabel}
-        disabled={previousDisabled}
+        disabled={previousDisabled || hidePrevious}
         onPress={previous}
-        style={{ padding: 12, opacity: previousDisabled ? 0.3 : 1 }}
+        style={{
+          padding: 12,
+          opacity: hidePrevious ? 0 : previousDisabled ? 0.3 : 1,
+        }}
       >
         <Text style={{ color: c.accent, fontSize: 26 }}>←</Text>
       </Pressable>
@@ -108,22 +137,53 @@ export function BottomToolbar({
       ) : (
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Lesson navigator"
+          accessibilityLabel={
+            completed
+              ? "Lesson navigator, current part completed"
+              : "Lesson navigator"
+          }
           onPress={onProgress}
-          style={{ width: 160, paddingVertical: 16 }}
+          style={{
+            width: 184,
+            paddingVertical: 16,
+            flexDirection: "row",
+            alignItems: "center",
+            gap: 8,
+          }}
         >
-          <Meter value={progress ?? 0} />
+          <View style={{ flex: 1 }}>
+            <Meter value={progress ?? 0} />
+          </View>
+          {completed && <CompletionIcon color={c.good} />}
         </Pressable>
       )}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={nextLabel}
-        disabled={nextDisabled}
+        disabled={nextDisabled || hideNext}
         onPress={next}
-        style={{ padding: 12, opacity: nextDisabled ? 0.3 : 1 }}
+        style={{ padding: 12, opacity: hideNext ? 0 : nextDisabled ? 0.3 : 1 }}
       >
-        <Text style={{ color: c.accent, fontSize: 26 }}>→</Text>
+        <Text style={{ color: c.accent, fontSize: 26 }}>
+          {reviewNext ? "☷" : "→"}
+        </Text>
       </Pressable>
     </View>
+  );
+}
+
+function CompletionIcon({ color }: { color: string }) {
+  return (
+    <Image
+      source={
+        process.env.EXPO_OS === "ios"
+          ? "sf:checkmark.circle.fill"
+          : {
+              uri: `data:image/svg+xml;utf8,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="${color}"/><path d="m6 12 4 4 8-8" fill="none" stroke="#171717" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`)}`,
+            }
+      }
+      tintColor={process.env.EXPO_OS === "ios" ? color : undefined}
+      style={{ width: 20, height: 20 }}
+    />
   );
 }

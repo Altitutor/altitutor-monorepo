@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(14);
+SELECT plan(15);
 
 INSERT INTO public.flashcards(id, topic_id, card_type, cloze_text, index)
 VALUES ('fa000000-0000-4000-8000-000000000001','30000000-0000-0000-0000-000000000001','text_cloze','{{c1::One}} {{c2::Two}}',990);
@@ -49,6 +49,22 @@ UPDATE public.student_flashcard_review_states SET state='Review',stability=10,di
 SELECT public.manage_flashcard_review_card('10000000-0000-0000-0000-000000000001',(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1),'fa100000-0000-4000-8000-000000000006','forget','forget','2026-09-19T01:02:00Z');
 SELECT is((SELECT state FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=1 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),'New','forget resets the card to New');
 SELECT ok((SELECT count(*) FROM public.student_flashcard_review_logs WHERE student_id='10000000-0000-0000-0000-000000000001' AND review_card_id=(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1) AND action='answer')=1,'forget retains immutable answer history');
+
+INSERT INTO public.flashcards(id, topic_id, card_type, cloze_text, index)
+VALUES ('fa000000-0000-4000-8000-000000000002','30000000-0000-0000-0000-000000000001','text_cloze','{{c1::Service role}}',991);
+
+SET LOCAL ROLE service_role;
+SELECT lives_ok($service_role$
+  SELECT public.commit_flashcard_review_answer(
+    '10000000-0000-0000-0000-000000000001',
+    (SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000002' AND cloze_index=1),
+    'fa100000-0000-4000-8000-000000000007','service-role',0,'2026-09-19T02:00:00Z',1000,'good',
+    'f5000000-0000-4000-8000-000000000001',1,'test',
+    '{"due_at":"2026-09-19T02:10:00Z","stability":1,"difficulty":5,"scheduled_days":0,"learning_steps":1,"reps":1,"lapses":0,"state":"Learning"}',
+    '{"studyDayEndsAt":"2026-09-19T18:30:00Z"}'
+  )
+$service_role$, 'service role can commit an answer through the state serializer');
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;

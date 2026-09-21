@@ -1,3 +1,5 @@
+import { InsightCard } from "@/features/progress/insight-card";
+import { buildTotalScoreInsight } from "@/features/progress/score-insights";
 import { ScoreBySection } from "@/features/progress/score-by-section";
 import { HeaderActions } from "@/components/header-actions";
 import { progressApi } from "@/features/progress/api";
@@ -19,6 +21,23 @@ export default function Progress() {
   const plan = useQuery({ queryKey: ["plan"], queryFn: dataApi.plan });
   const total = deriveTotalScoreProjection(projections.data?.sections ?? []);
   const q = useQuery({ queryKey: ["progress"], queryFn: dataApi.progress });
+  const baseline =
+    projections.data?.snapshots.length && projections.data.snapshots.length > 1
+      ? projections.data.snapshots[0]
+      : null;
+  const future = total.projection.find((point) => point.day === 90);
+  const insight = buildTotalScoreInsight({
+    currentEstimate: total.currentEstimate,
+    improvement:
+      total.currentEstimate != null && baseline
+        ? Math.round(total.currentEstimate - baseline.currentEstimate)
+        : null,
+    projectedGain:
+      total.currentEstimate != null && future
+        ? Math.round(future.realistic - total.currentEstimate)
+        : null,
+    benchmarkPercentileLabel: null,
+  });
   return (
     <Screen
       refreshing={q.isRefetching}
@@ -54,6 +73,9 @@ export default function Progress() {
               })),
           ]}
         />
+      )}
+      {!projections.isPending && !projections.error && (
+        <InsightCard insight={insight} />
       )}
       {activity.isPending ? (
         <Loading />

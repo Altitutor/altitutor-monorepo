@@ -22,7 +22,7 @@ export function useCurrentAttempt() {
   );
   const resume = (active: ActiveExamAttempt) =>
     router.push({
-      pathname: "/exam",
+      pathname: "/exam-start",
       params: { kind: active.kind, id: active.resourceId, resume: "true" },
     });
   async function beforeStart(start: () => Promise<void>) {

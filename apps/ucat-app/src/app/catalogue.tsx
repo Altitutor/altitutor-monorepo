@@ -12,15 +12,29 @@ import {
   Screen,
 } from "@/components/ui";
 import { dataApi } from "@/features/dashboard/api";
-import {
-  extractTextFromRichJson,
-  type JsonLike,
-} from "@/features/question-engine/model/rich-text";
+import { learningSections } from "@/features/learning/library";
+import { loadAttemptedIds } from "@/features/catalogue/attempted";
+import { ExamCard } from "@/features/catalogue/exam-card";
+
 export default function Catalogue() {
   const { kind } = useLocalSearchParams<{ kind?: string }>();
   const [search, setSearch] = useState("");
-  const sets = useQuery({ queryKey: ["sets"], queryFn: dataApi.sets });
-  const mocks = useQuery({ queryKey: ["mocks"], queryFn: dataApi.mocks });
+  const mocks = useQuery({
+    queryKey: ["mocks"],
+    queryFn: dataApi.mocks,
+    enabled: kind !== "set",
+  });
+  const attempted = useQuery({
+    queryKey: ["attempted", "mock"],
+    queryFn: () => loadAttemptedIds("mock"),
+    enabled: kind !== "set",
+  });
+  const mockRows =
+    mocks.data?.filter((m) =>
+      (m.display_name ?? m.name ?? "")
+        .toLowerCase()
+        .includes(search.toLowerCase()),
+    ) ?? [];
   return (
     <Screen>
       <Stack.Screen
@@ -33,91 +47,62 @@ export default function Catalogue() {
                 : "Exam library",
         }}
       />
-      <Field
-        accessibilityLabel="Search exams"
-        placeholder={
-          kind === "set"
-            ? "Search sets"
-            : kind === "mock"
-              ? "Search mocks"
-              : "Search sets and mocks"
-        }
-        value={search}
-        onChangeText={setSearch}
-      />
+      {kind !== "mock" &&
+        learningSections
+          .filter((s) => s.number > 0)
+          .map((section) => (
+            <Group key={section.number}>
+              <Row
+                title={section.title}
+                icon={section.icon}
+                href={{
+                  pathname: "/set-section",
+                  params: { number: section.number },
+                }}
+              />
+            </Group>
+          ))}
       {kind !== "set" && (
-        <Group title="Mock exams">
-          {mocks.isPending ? (
+        <>
+          <Field
+            accessibilityLabel="Search mocks"
+            placeholder="Search mocks"
+            value={search}
+            onChangeText={setSearch}
+          />
+          {mocks.isPending || attempted.isPending ? (
             <Loading />
           ) : mocks.error ? (
             <Failure error={mocks.error} retry={() => void mocks.refetch()} />
+          ) : attempted.error ? (
+            <Failure
+              error={attempted.error}
+              retry={() => void attempted.refetch()}
+            />
           ) : (
-            mocks.data
-              ?.filter((m) =>
-                (m.display_name ?? m.name ?? "")
-                  .toLowerCase()
-                  .includes(search.toLowerCase()),
-              )
-              .map(
+            <>
+              {mockRows.map(
                 (m) =>
                   m.id && (
-                    <Row
+                    <ExamCard
                       key={m.id}
+                      id={m.id}
+                      kind="mock"
                       title={m.display_name ?? m.name ?? "Mock exam"}
-                      detail={`${m.set_count ?? 0} sections`}
-                      href={{
-                        pathname: "/exam",
-                        params: { kind: "mock", id: m.id },
-                      }}
+                      attempted={attempted.data?.includes(m.id) ?? false}
                     />
                   ),
-              )
+              )}
+              {!mockRows.length && (
+                <Copy muted>
+                  {search
+                    ? "No mock exams match your search."
+                    : "No mock exams are available yet."}
+                </Copy>
+              )}
+            </>
           )}
-          {mocks.data?.length === 0 && (
-            <Copy muted>No mock exams are available yet.</Copy>
-          )}
-        </Group>
-      )}
-      {kind !== "mock" && (
-        <Group title="Question sets">
-          {sets.isPending ? (
-            <Loading />
-          ) : sets.error ? (
-            <Failure error={sets.error} retry={() => void sets.refetch()} />
-          ) : (
-            sets.data
-              ?.filter((s) =>
-                (s.display_name ?? extractTextFromRichJson(s.name as JsonLike))
-                  .toLowerCase()
-                  .includes(search.toLowerCase()),
-              )
-              .map(
-                (s) =>
-                  s.id && (
-                    <Row
-                      key={s.id}
-                      title={
-                        s.display_name ??
-                        (extractTextFromRichJson(s.name as JsonLike) ||
-                          "Question set")
-                      }
-                      detail={
-                        s.time_limit_seconds
-                          ? `${Math.ceil(s.time_limit_seconds / 60)} min`
-                          : "Untimed"
-                      }
-                      href={{
-                        pathname: "/exam",
-                        params: { kind: "set", id: s.id },
-                      }}
-                    />
-                  ),
-              )
-          )}
-          {sets.data?.length === 0 && (
-            <Copy muted>No question sets are available yet.</Copy>
-          )}
-        </Group>
+        </>
       )}
     </Screen>
   );

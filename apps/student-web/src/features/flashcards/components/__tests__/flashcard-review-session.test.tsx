@@ -112,7 +112,9 @@ describe('FlashcardReviewSession image transitions', () => {
     const card=imageReviewCard('review-1',1);mockRateReviewCard.mockRejectedValueOnce(new Error('network')).mockResolvedValueOnce(card);
     render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[card]}/>);fireEvent.load(screen.getByRole('img',{name:'Labelled diagram'}));
     fireEvent.click(screen.getByRole('button',{name:/Show answer/}));fireEvent.click(screen.getByRole('button',{name:/Good/}));
-    await waitFor(()=>expect(screen.getByRole('button',{name:/Good/})).toBeVisible());fireEvent.click(screen.getByRole('button',{name:/Good/}));
+    await waitFor(()=>expect(screen.getByRole('alert')).toHaveTextContent('Your answer was not saved. Please try again.'));
+    expect(screen.getByRole('button',{name:/Good/})).toBeVisible();fireEvent.click(screen.getByRole('button',{name:/Good/}));
     await waitFor(()=>expect(mockRateReviewCard).toHaveBeenCalledTimes(2));expect(mockRateReviewCard.mock.calls[1][0].requestId).toBe(mockRateReviewCard.mock.calls[0][0].requestId);
+    await waitFor(()=>expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
 });

@@ -1,7 +1,11 @@
+import { AttemptList } from "@/features/attempts/attempt-list";
+import { InsightCard } from "@/features/progress/insight-card";
+import { SectionStats } from "@/features/progress/section-stats";
+import { buildSectionScoreInsight } from "@/features/progress/score-insights";
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { useQuery } from "@tanstack/react-query";
-import { Copy, Failure, Group, Loading, Meter, Screen } from "@/components/ui";
+import { Failure, Loading, Screen } from "@/components/ui";
 import { progressApi } from "@/features/progress/api";
 import { ScoreChart } from "@/features/progress/score-chart";
 export default function SectionProgress() {
@@ -17,12 +21,39 @@ export default function SectionProgress() {
   const projection = projections.data?.sections.find(
     (section) => section.sectionNumber === Number(number),
   );
+  const timing = useQuery({
+    queryKey: ["section-timing", number],
+    queryFn: () => progressApi.timing(number),
+  });
+  const speed = timing.data?.points.reduce(
+    (sum, point) => ({
+      total: sum.total + point.examSpeedPercentSum,
+      count: sum.count + point.examSpeedCount,
+    }),
+    { total: 0, count: 0 },
+  );
+  const weakest = q.data?.categoryProgress
+    .filter((c) => c.maxScore > 0)
+    .sort((a, b) => a.percentage - b.percentage)[0];
+  const score = projection?.currentEstimate;
+  const future = projection?.projection.at(-1);
+  const insight = buildSectionScoreInsight({
+    sectionName: q.data?.section.sectionName ?? "this section",
+    score: score ?? null,
+    projectedGain:
+      score != null && future ? Math.round(future.realistic - score) : null,
+    weakestCategory: weakest
+      ? { name: weakest.categoryName, accuracy: weakest.percentage }
+      : null,
+    averageExamSpeed: speed?.count ? speed.total / speed.count : null,
+  });
   return (
     <Screen
       refreshing={q.isRefetching}
       onRefresh={() => {
         void q.refetch();
         void projections.refetch();
+        void timing.refetch();
       }}
     >
       <Stack.Screen
@@ -57,40 +88,12 @@ export default function SectionProgress() {
               ]}
             />
           )}
-          <Group title="Your questions">
-            <Copy large>{q.data.section.maxScore} completed</Copy>
-            <Copy muted>
-              {Math.round(q.data.section.percentage)}% accuracy ·{" "}
-              {q.data.section.correctScore} / {q.data.section.maxScore} points
-            </Copy>
-          </Group>
-          <Group title="Question sets">
-            <Copy>
-              {q.data.setsCompleted} / {q.data.totalPublicSets} completed
-            </Copy>
-            <Copy muted>
-              {q.data.timedSetsCompleted} timed · {q.data.untimedSetsCompleted}{" "}
-              untimed
-            </Copy>
-          </Group>
-          <Group title="By category">
-            {q.data.categoryProgress.length ? (
-              q.data.categoryProgress.map((category) => (
-                <Group key={category.categoryId}>
-                  <Copy>{category.categoryName}</Copy>
-                  <Copy muted>
-                    {Math.round(category.percentage)}% accuracy ·{" "}
-                    {category.maxScore} completed
-                  </Copy>
-                  <Meter value={category.percentage} />
-                </Group>
-              ))
-            ) : (
-              <Copy muted>
-                Complete some questions to see a category breakdown.
-              </Copy>
-            )}
-          </Group>
+          {!projections.isPending && !projections.error && (
+            <InsightCard insight={insight} />
+          )}
+          <SectionStats data={q.data} />
+          <AttemptList source="practice" sectionNumber={number} />
+          <AttemptList source="set" sectionNumber={number} />
         </>
       )}
     </Screen>

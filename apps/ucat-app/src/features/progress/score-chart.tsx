@@ -188,7 +188,6 @@ export function ScoreChart({
           Complete timed practice in each section to see your score history.
         </Copy>
       )}
-      <Copy muted>Recent estimates · grey line shows projection</Copy>
     </Group>
   );
 }
