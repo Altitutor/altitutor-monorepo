@@ -41,7 +41,7 @@ export function AttemptList({
       dividers
     >
       {q.isPending ? (
-        <Loading />
+        <Loading variant="rows" count={4} />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

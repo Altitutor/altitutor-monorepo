@@ -3,23 +3,32 @@ import {
   Children,
   isValidElement,
   Fragment,
+  useEffect,
   type PropsWithChildren,
   type Ref,
 } from "react";
 import { AppIcon, type IconName } from "./app-icon";
+import Animated, {
+  cancelAnimation,
+  Easing,
+  useAnimatedStyle,
+  useReducedMotion,
+  useSharedValue,
+  withRepeat,
+  withTiming,
+} from "react-native-reanimated";
 import {
-  ActivityIndicator,
   Pressable,
   RefreshControl,
   ScrollView,
   Text,
   View,
+  type DimensionValue,
   type ScrollViewProps,
   type TextInputProps,
   TextInput,
   Platform,
 } from "react-native";
-import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter, type Href } from "expo-router";
 
 export function useColors() {
@@ -63,7 +72,6 @@ export function Screen({
   }
 >) {
   const c = useColors();
-  const insets = useSafeAreaInsets();
   return (
     <ScrollView
       ref={scrollRef}
@@ -74,9 +82,7 @@ export function Screen({
       contentContainerStyle={{
         padding: 20,
         paddingBottom:
-          Math.max(insets.bottom, 24) +
-          24 +
-          (Platform.OS !== "ios" ? (bottomToolbar ? 72 : 80) : 0),
+          20 + (Platform.OS !== "ios" ? (bottomToolbar ? 72 : 80) : 0),
         gap: 20,
         width: "100%",
         maxWidth: 850,
@@ -277,10 +283,201 @@ export function Field(props: TextInputProps) {
     />
   );
 }
-export function Loading() {
+export function Skeleton({
+  height,
+  width = "100%",
+  radius = 8,
+}: {
+  height: number;
+  width?: DimensionValue;
+  radius?: number;
+}) {
+  const c = useColors();
+  const reducedMotion = useReducedMotion();
+  const opacity = useSharedValue(reducedMotion ? 0.7 : 0.45);
+  useEffect(() => {
+    if (reducedMotion) {
+      opacity.value = 0.7;
+      return;
+    }
+    opacity.value = 0.45;
+    opacity.value = withRepeat(
+      withTiming(1, { duration: 900, easing: Easing.inOut(Easing.quad) }),
+      -1,
+      true,
+    );
+    return () => {
+      cancelAnimation(opacity);
+    };
+  }, [opacity, reducedMotion]);
+  const style = useAnimatedStyle(() => ({ opacity: opacity.value }));
   return (
-    <View style={{ padding: 32 }}>
-      <ActivityIndicator accessibilityLabel="Loading" />
+    <Animated.View
+      accessible={false}
+      style={[
+        {
+          height,
+          width,
+          borderRadius: radius,
+          borderCurve: "continuous",
+          backgroundColor: c.border,
+        },
+        style,
+      ]}
+    />
+  );
+}
+function RowCardSkeleton() {
+  return (
+    <Group compact>
+      <View
+        style={{
+          minHeight: 48,
+          flexDirection: "row",
+          gap: 12,
+          alignItems: "center",
+        }}
+      >
+        <Skeleton height={22} width={22} radius={6} />
+        <View style={{ flex: 1 }}>
+          <Skeleton height={17} width="72%" radius={6} />
+        </View>
+      </View>
+    </Group>
+  );
+}
+function ListSkeleton({ count }: { count: number }) {
+  const leading = Math.max(1, Math.ceil(count / 2));
+  const trailing = Math.max(0, count - leading);
+  const groups = trailing > 0 ? [leading, trailing] : [leading];
+  return (
+    <View style={{ gap: 20 }}>
+      {groups.map((rows, index) => (
+        <View key={index} style={{ gap: 10 }}>
+          <Skeleton height={13} width={index ? "34%" : "42%"} radius={4} />
+          {Array.from({ length: rows }, (_, row) => (
+            <RowCardSkeleton key={row} />
+          ))}
+        </View>
+      ))}
+    </View>
+  );
+}
+function CardSkeleton() {
+  return (
+    <Group>
+      <Skeleton height={12} width="36%" radius={4} />
+      <Skeleton height={28} width="58%" radius={8} />
+      <Skeleton height={16} width="92%" radius={6} />
+      <Skeleton height={16} width="74%" radius={6} />
+      <Skeleton height={48} radius={14} />
+    </Group>
+  );
+}
+function CardsSkeleton({ count }: { count: number }) {
+  if (count <= 1) return <CardSkeleton />;
+  return (
+    <View style={{ gap: 20 }}>
+      {Array.from({ length: count }, (_, index) => (
+        <CardSkeleton key={index} />
+      ))}
+    </View>
+  );
+}
+function RowsSkeleton({ count }: { count: number }) {
+  const widths = ["80%", "64%", "72%", "54%"] as const;
+  return (
+    <View style={{ gap: 14, paddingVertical: 8 }}>
+      {Array.from({ length: count }, (_, index) => (
+        <Skeleton
+          key={index}
+          height={16}
+          width={widths[index % widths.length]}
+          radius={6}
+        />
+      ))}
+    </View>
+  );
+}
+function DetailSkeleton() {
+  return (
+    <View style={{ gap: 20 }}>
+      <Group>
+        <Skeleton height={25} width="68%" radius={8} />
+        <Skeleton height={16} width="100%" radius={6} />
+        <Skeleton height={16} width="88%" radius={6} />
+        <Skeleton height={16} width="40%" radius={6} />
+      </Group>
+      <Group>
+        <Skeleton height={13} width="32%" radius={4} />
+        <Skeleton height={16} width="94%" radius={6} />
+        <Skeleton height={16} width="86%" radius={6} />
+        <Skeleton height={16} width="70%" radius={6} />
+      </Group>
+      <Skeleton height={48} radius={14} />
+    </View>
+  );
+}
+function QuestionSkeleton() {
+  return (
+    <View style={{ gap: 20 }}>
+      <Group>
+        <Skeleton height={17} width="38%" radius={6} />
+        <Skeleton height={16} width="100%" radius={6} />
+        <Skeleton height={16} width="96%" radius={6} />
+        <Skeleton height={16} width="78%" radius={6} />
+        <Skeleton height={72} radius={10} />
+      </Group>
+      <Group>
+        <Skeleton height={13} width="28%" radius={4} />
+        <Skeleton height={16} width="100%" radius={6} />
+        <Skeleton height={16} width="62%" radius={6} />
+      </Group>
+      <Group>
+        <Skeleton height={13} width="30%" radius={4} />
+        {Array.from({ length: 4 }, (_, index) => (
+          <Skeleton key={index} height={48} radius={12} />
+        ))}
+      </Group>
+    </View>
+  );
+}
+function ChartSkeleton() {
+  return (
+    <Group>
+      <Skeleton height={13} width="40%" radius={4} />
+      <Skeleton height={32} width="30%" radius={8} />
+      <Skeleton height={16} width="62%" radius={6} />
+      <Skeleton height={180} radius={12} />
+    </Group>
+  );
+}
+export function Loading({
+  variant = "list",
+  count,
+}: {
+  variant?: "list" | "card" | "rows" | "detail" | "question" | "chart";
+  count?: number;
+}) {
+  return (
+    <View
+      accessible
+      accessibilityRole="progressbar"
+      accessibilityLabel="Loading"
+    >
+      {variant === "card" ? (
+        <CardsSkeleton count={count ?? 1} />
+      ) : variant === "rows" ? (
+        <RowsSkeleton count={count ?? 3} />
+      ) : variant === "detail" ? (
+        <DetailSkeleton />
+      ) : variant === "question" ? (
+        <QuestionSkeleton />
+      ) : variant === "chart" ? (
+        <ChartSkeleton />
+      ) : (
+        <ListSkeleton count={count ?? 5} />
+      )}
     </View>
   );
 }

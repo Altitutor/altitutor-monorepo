@@ -28,7 +28,7 @@ export default function Trainers() {
     <Screen>
       <Stack.Screen options={{ title: "Skill trainers" }} />
       {query.isPending ? (
-        <Loading />
+        <Loading variant="list" />
       ) : query.error ? (
         <Failure error={query.error} retry={() => void query.refetch()} />
       ) : (

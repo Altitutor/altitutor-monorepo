@@ -35,7 +35,7 @@ export default function AppSettings() {
           ]}
         />
         {q.isPending ? (
-          <Loading />
+          <Loading variant="rows" />
         ) : q.error ? (
           <Failure error={q.error} retry={() => void q.refetch()} />
         ) : (

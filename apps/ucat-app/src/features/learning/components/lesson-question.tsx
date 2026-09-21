@@ -63,7 +63,7 @@ export function LessonQuestion({
   });
   const question = q.data?.[index];
   return q.isPending ? (
-    <Loading />
+    <Loading variant="question" />
   ) : q.error ? (
     <Failure error={q.error} retry={() => void q.refetch()} />
   ) : question ? (

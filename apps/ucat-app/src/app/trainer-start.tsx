@@ -1,8 +1,11 @@
+import { useState } from "react";
 import { useLocalSearchParams } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { useQuery } from "@tanstack/react-query";
+import { isUcatSkillTrainerKey } from "@altitutor/shared";
 import { Action, Copy, Failure, Group, Loading, Screen } from "@/components/ui";
-import { useTrainers, instructions } from "@/features/skill-trainer/catalogue";
+import { useTrainers } from "@/features/skill-trainer/catalogue";
+import { TrainerDemo } from "@/features/skill-trainer/components/trainer-demo";
 import { useOpenScreen } from "@/features/navigation/use-open-screen";
 import { api } from "@/lib/api";
 import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
@@ -14,6 +17,7 @@ export default function TrainerStart() {
   }>();
   const query = useTrainers();
   const open = useOpenScreen();
+  const [howToPlay, setHowToPlay] = useState(false);
   const block = useQuery({
     queryKey: ["trainer-preview", params.blockId],
     enabled: !!params.blockId,
@@ -28,15 +32,19 @@ export default function TrainerStart() {
   const trainer = query.data?.trainers.find((t) => t.key === key);
   const loading = query.isPending || (!!params.blockId && block.isPending);
   const error = query.error ?? block.error;
+  const playable = typeof key === "string" && isUcatSkillTrainerKey(key);
   return (
     <Screen>
       <Stack.Screen
         options={{
-          title: trainer?.name ?? block.data?.trainerName ?? "Skill trainer",
+          headerShown: false,
+          title: "",
+          sheetAllowedDetents: howToPlay ? [1] : [0.5, 1],
+          sheetInitialDetentIndex: 0,
         }}
       />
       {loading ? (
-        <Loading />
+        <Loading variant="detail" />
       ) : error ? (
         <Failure
           error={error}
@@ -61,13 +69,15 @@ export default function TrainerStart() {
               seconds
             </Copy>
           </Group>
-          <Group title="How to play">
-            {(instructions[key] ?? []).map((text, i) => (
-              <Copy key={text}>
-                {i + 1}. {text}
-              </Copy>
-            ))}
-          </Group>
+          {howToPlay && playable ? (
+            <TrainerDemo trainerKey={key} />
+          ) : playable ? (
+            <Action
+              secondary
+              title="How to play"
+              onPress={() => setHowToPlay(true)}
+            />
+          ) : null}
           <Action
             title="Start trainer"
             onPress={() =>

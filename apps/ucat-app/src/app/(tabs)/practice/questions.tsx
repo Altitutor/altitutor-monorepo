@@ -73,7 +73,7 @@ export default function Practice() {
     <Screen>
       <Group dividers compact>
         {sections.isPending ? (
-          <Loading />
+          <Loading variant="rows" />
         ) : sections.error ? (
           <Failure
             error={sections.error}

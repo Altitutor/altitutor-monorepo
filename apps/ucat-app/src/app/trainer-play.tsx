@@ -152,7 +152,7 @@ export default function TrainerPlay() {
             retry={() => void session.start(params.trainerKey)}
           />
         ) : (
-          <Loading />
+          <Loading variant="question" />
         )}
         <Action
           secondary
@@ -189,7 +189,7 @@ export default function TrainerPlay() {
         {session.prepared ? (
           <TrainerReview items={session.localReview} trainerKey={key} />
         ) : review.isPending ? (
-          <Loading />
+          <Loading variant="card" count={2} />
         ) : review.error ? (
           <Failure error={review.error} retry={() => void review.refetch()} />
         ) : (

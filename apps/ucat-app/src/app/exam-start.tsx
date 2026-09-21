@@ -23,7 +23,7 @@ export default function ExamStart() {
     <Screen>
       <Stack.Screen options={{ title: query.data?.title ?? "Your attempt" }} />
       {query.isPending ? (
-        <Loading />
+        <Loading variant="detail" />
       ) : query.error ? (
         <Failure error={query.error} retry={() => void query.refetch()} />
       ) : query.data ? (

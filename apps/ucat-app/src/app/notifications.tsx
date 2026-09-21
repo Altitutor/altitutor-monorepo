@@ -16,7 +16,7 @@ export default function Notifications() {
   return (
     <Screen refreshing={q.isRefetching} onRefresh={() => void q.refetch()}>
       {q.isPending ? (
-        <Loading />
+        <Loading variant="list" />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

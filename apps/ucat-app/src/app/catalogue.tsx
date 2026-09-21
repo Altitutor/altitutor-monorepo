@@ -71,7 +71,7 @@ export default function Catalogue() {
             onChangeText={setSearch}
           />
           {mocks.isPending || attempted.isPending ? (
-            <Loading />
+            <Loading variant="list" />
           ) : mocks.error ? (
             <Failure error={mocks.error} retry={() => void mocks.refetch()} />
           ) : attempted.error ? (

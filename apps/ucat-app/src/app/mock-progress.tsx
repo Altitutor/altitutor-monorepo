@@ -17,7 +17,7 @@ export default function MockProgress() {
     <Screen>
       <Stack.Screen options={{ title: "Mock progress" }} />
       {q.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

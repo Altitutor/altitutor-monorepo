@@ -1,5 +1,4 @@
-import { useCallback } from "react";
-import { useFocusEffect, useRouter } from "expo-router";
+import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { HeaderActions } from "@/components/header-actions";
 import { Failure, Loading, Screen } from "@/components/ui";
@@ -20,29 +19,25 @@ export default function Home() {
     queryFn: progressApi.activity,
   });
   const { launch, busy, error } = useLaunchActivity();
-  const { refetch: refetchPlan } = plan;
-  const { refetch: refetchActivity } = activity;
-  const refresh = useCallback(() => {
-    void refetchPlan();
-    void refetchActivity();
-  }, [refetchPlan, refetchActivity]);
-  useFocusEffect(refresh);
   const openPlan = () => router.push("/study-orb");
   return (
     <Screen
       refreshing={plan.isRefetching || activity.isRefetching}
-      onRefresh={refresh}
+      onRefresh={() => {
+        void plan.refetch();
+        void activity.refetch();
+      }}
     >
       <HeaderActions />
       {plan.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : plan.error ? (
         <Failure error={plan.error} retry={() => void plan.refetch()} />
       ) : (
         <TestCountdownCard plan={plan.data} onOpenPlan={openPlan} />
       )}
       {activity.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : activity.error ? (
         <Failure error={activity.error} retry={() => void activity.refetch()} />
       ) : (

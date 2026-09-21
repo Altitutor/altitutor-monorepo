@@ -3,18 +3,21 @@ import * as Linking from "expo-linking";
 import { useRouter } from "expo-router";
 import { Stack } from "expo-router/stack";
 import { Action, Failure, Loading, Screen } from "@/components/ui";
+import { useAuth } from "@/features/auth/auth-provider";
 import { completeBrowserAuth } from "@/features/auth/browser-auth";
 
 export default function AuthReturn() {
   const url = Linking.useLinkingURL();
   const router = useRouter();
+  const { session, loading } = useAuth();
+  const [completed, setCompleted] = useState(false);
   const [error, setError] = useState<unknown>(null);
   useEffect(() => {
     if (!url) return;
     let mounted = true;
     void completeBrowserAuth(url)
       .then(() => {
-        if (mounted) router.replace("/");
+        if (mounted) setCompleted(true);
       })
       .catch((cause: unknown) => {
         if (mounted) setError(cause);
@@ -22,7 +25,10 @@ export default function AuthReturn() {
     return () => {
       mounted = false;
     };
-  }, [url, router]);
+  }, [url]);
+  useEffect(() => {
+    if (completed && !loading && session) router.replace("/");
+  }, [completed, loading, session, router]);
   const failure =
     error ??
     (!url
@@ -42,7 +48,7 @@ export default function AuthReturn() {
           />
         </>
       ) : (
-        <Loading />
+        <Loading variant="card" />
       )}
     </Screen>
   );

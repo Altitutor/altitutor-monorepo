@@ -40,7 +40,7 @@ export default function Profile() {
         />
       )}
       {q.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

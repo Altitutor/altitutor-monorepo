@@ -60,7 +60,10 @@ export default function SectionProgress() {
         options={{ title: q.data?.section.sectionName ?? "Section progress" }}
       />
       {q.isPending ? (
-        <Loading />
+        <>
+          <Loading variant="chart" />
+          <Loading variant="card" />
+        </>
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

@@ -61,7 +61,7 @@ export default function SetSection() {
         onChangeText={setSearch}
       />
       {sets.isPending || attempted.isPending ? (
-        <Loading />
+        <Loading variant="list" />
       ) : sets.error ? (
         <Failure error={sets.error} retry={() => void sets.refetch()} />
       ) : attempted.error ? (

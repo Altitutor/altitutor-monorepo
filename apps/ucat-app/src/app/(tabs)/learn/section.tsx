@@ -68,7 +68,7 @@ export default function LearningSection() {
         clearButtonMode="while-editing"
       />
       {q.isPending ? (
-        <Loading />
+        <Loading variant="list" />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

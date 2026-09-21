@@ -28,7 +28,7 @@ export default function Plan() {
   return (
     <Screen>
       {q.isPending ? (
-        <Loading />
+        <Loading variant="card" count={2} />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

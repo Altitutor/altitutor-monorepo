@@ -27,7 +27,7 @@ export default function AttemptPage() {
         }}
       />
       {q.isPending ? (
-        <Loading />
+        <Loading variant="card" count={3} />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : data && metrics ? (

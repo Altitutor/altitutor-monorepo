@@ -88,7 +88,7 @@ export default function AttemptQuestion() {
           }}
         />
         {q.isPending ? (
-          <Loading />
+          <Loading variant="question" />
         ) : q.error ? (
           <Failure error={q.error} retry={() => void q.refetch()} />
         ) : item && question ? (

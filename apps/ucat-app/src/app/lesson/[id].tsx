@@ -166,7 +166,7 @@ export default function Lesson() {
       >
         <Stack.Screen options={{ title: q.data?.module.title ?? "Lesson" }} />
         {q.isPending ? (
-          <Loading />
+          <Loading variant="card" />
         ) : q.error ? (
           <Failure error={q.error} retry={() => void q.refetch()} />
         ) : !started ? (

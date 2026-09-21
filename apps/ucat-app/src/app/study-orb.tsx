@@ -32,7 +32,7 @@ export default function StudyCompanion() {
         }}
       />
       {query.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : query.error ? (
         <Failure error={query.error} retry={() => void query.refetch()} />
       ) : (

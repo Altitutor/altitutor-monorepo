@@ -35,7 +35,7 @@ export default function Referrals() {
   if (q.isPending)
     return (
       <Screen>
-        <Loading />
+        <Loading variant="card" count={2} />
       </Screen>
     );
   if (q.error)

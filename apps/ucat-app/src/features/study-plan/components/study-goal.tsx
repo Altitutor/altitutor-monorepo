@@ -46,7 +46,7 @@ export function StudyGoal() {
   return (
     <>
       {q.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

@@ -35,7 +35,7 @@ export default function LessonStart() {
     <Screen>
       <Stack.Screen options={{ title: "Lesson" }} />
       {lesson.isPending ? (
-        <Loading />
+        <Loading variant="detail" />
       ) : lesson.error ? (
         <Failure error={lesson.error} retry={() => void lesson.refetch()} />
       ) : (

@@ -49,7 +49,7 @@ export default function Progress() {
     >
       <HeaderActions />
       {projections.isPending ? (
-        <Loading />
+        <Loading variant="chart" />
       ) : projections.error ? (
         <Failure
           error={projections.error}
@@ -78,14 +78,14 @@ export default function Progress() {
         <InsightCard insight={insight} />
       )}
       {activity.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : activity.error ? (
         <Failure error={activity.error} retry={() => void activity.refetch()} />
       ) : (
         <ActivityCards activity={activity.data} />
       )}
       {q.isPending ? (
-        <Loading />
+        <Loading variant="card" />
       ) : q.error ? (
         <Failure error={q.error} retry={() => void q.refetch()} />
       ) : (

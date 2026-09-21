@@ -461,7 +461,9 @@ export default function Exam() {
         {error ? (
           <Failure error={error} retry={() => void load()} />
         ) : (
-          <Loading />
+          <Loading
+            variant={params.autoStart === "true" ? "question" : "detail"}
+          />
         )}
         {error instanceof WebPracticeRequiredError && (
           <Action
@@ -569,7 +571,7 @@ export default function Exam() {
           }}
         />
         {!state && params.autoStart === "true" && !error ? (
-          <Loading />
+          <Loading variant="question" />
         ) : !state ? (
           <>
             <Group>
