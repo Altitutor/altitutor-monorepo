@@ -5,6 +5,10 @@ import { motion, useReducedMotion } from "motion/react";
 import { gsap } from "gsap";
 import { Check, Flag, Sparkles, X } from "lucide-react";
 import { DemoCursor, DemoStage, demoItemVariants } from "./demo-stage";
+import {
+  getScaledElementCenter,
+  useDemoScale,
+} from "./scale-to-fit-frame";
 
 type QuestionResult = "correct" | "incorrect";
 
@@ -159,12 +163,12 @@ function moveCursorTo(
   stage: HTMLElement,
   cursor: HTMLElement,
   target: HTMLElement,
+  coordinateScale: number,
 ) {
-  const stageRect = stage.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
+  const point = getScaledElementCenter(stage, target, coordinateScale);
   timeline.to(cursor, {
-    left: targetRect.left - stageRect.left + targetRect.width / 2 - 4,
-    top: targetRect.top - stageRect.top + targetRect.height / 2 - 2,
+    left: point.left,
+    top: point.top,
     opacity: 1,
     duration: 0.5,
     ease: "power2.inOut",
@@ -173,6 +177,9 @@ function moveCursorTo(
 
 export function UcatAttemptReviewPreview() {
   const reduceMotion = useReducedMotion();
+  const coordinateScale = useDemoScale();
+  const scaleRef = useRef(coordinateScale);
+  scaleRef.current = coordinateScale;
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const [activeIndex, setActiveIndex] = useState(0);
@@ -194,7 +201,7 @@ export function UcatAttemptReviewPreview() {
           `[data-demo-review-bar="${index}"]`,
         );
         if (!bar) continue;
-        moveCursorTo(timeline, stage, cursor, bar);
+        moveCursorTo(timeline, stage, cursor, bar, scaleRef.current);
         const ripple = cursor.querySelector<HTMLElement>(
           "[data-demo-cursor-ripple]",
         );
@@ -276,7 +283,7 @@ export function UcatAttemptReviewPreview() {
 
         <motion.div
           key={activeIndex}
-          className="grid gap-5 lg:grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)]"
+          className="grid grid-cols-[minmax(0,2fr)_minmax(16rem,1fr)] gap-5"
           variants={demoItemVariants}
           initial={reduceMotion ? false : "hidden"}
           animate="show"

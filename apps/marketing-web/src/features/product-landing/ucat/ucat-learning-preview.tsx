@@ -19,6 +19,10 @@ import {
   Navigation,
 } from "lucide-react";
 import { DemoCursor, DemoStage } from "./demo-stage";
+import {
+  getScaledElementCenter,
+  useDemoScale,
+} from "./scale-to-fit-frame";
 
 const REMOTE_WORK_PASSAGE =
   "A software company allowed one customer-support team to work from home for three months. The team answered roughly the same number of enquiries as before, while recorded sick days fell. However, several new employees said they found it harder to ask quick questions, and managers spent more time arranging formal check-ins. The company extended the trial rather than adopting the policy permanently. A second team working in a different office will take part next, using a shared online help channel.";
@@ -49,6 +53,9 @@ const BLOCK_PROGRESS = [18, 36, 52] as const;
 
 export function UcatLearningPreview() {
   const reduceMotion = useReducedMotion();
+  const coordinateScale = useDemoScale();
+  const scaleRef = useRef(coordinateScale);
+  scaleRef.current = coordinateScale;
   const stageRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
@@ -138,11 +145,10 @@ export function UcatLearningPreview() {
           `[data-demo-learn-option="${CORRECT_OPTION_INDEX}"]`,
         );
         if (!option) return;
-        const stageRect = stage.getBoundingClientRect();
-        const optionRect = option.getBoundingClientRect();
+        const point = getScaledElementCenter(stage, option, scaleRef.current);
         gsap.set(cursor, {
-          left: optionRect.left - stageRect.left + optionRect.width / 2 - 4,
-          top: optionRect.top - stageRect.top + optionRect.height / 2 - 2,
+          left: point.left,
+          top: point.top,
           opacity: 1,
         });
       });
@@ -351,7 +357,7 @@ export function UcatLearningPreview() {
             </div>
           </div>
 
-          <aside className="hidden w-60 shrink-0 flex-col gap-3 lg:flex xl:w-72">
+          <aside className="flex w-60 shrink-0 flex-col gap-3">
             <div className="rounded-[1.1rem] bg-white p-5 shadow-sm ring-1 ring-black/[0.055]">
               <p className="text-xs font-semibold uppercase tracking-wider text-black/45">
                 Progress

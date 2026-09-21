@@ -303,8 +303,8 @@ export function UcatProgressPlanPreview() {
           className="relative isolate overflow-hidden border-b border-black/10 bg-gradient-to-b from-[#f6f7f9] via-[#eef0f3] to-[#f6f7f9]"
         >
           {/* Tall enough that the floating insight stays inside this section */}
-          <div className="relative pb-8 lg:min-h-[34rem]">
-            <div className="flex flex-col items-start justify-between gap-4 px-5 py-6 sm:flex-row sm:px-8 lg:px-10">
+          <div className="relative min-h-[34rem] pb-8">
+            <div className="flex flex-row items-start justify-between gap-4 px-10 py-6">
               <div>
                 <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
                   Score progress
@@ -407,19 +407,14 @@ export function UcatProgressPlanPreview() {
 
             <ScoreInsightCard
               animate={animate}
-              className="absolute right-6 top-24 z-20 hidden w-[min(390px,calc(100%-3rem))] lg:block"
+              className="absolute right-6 top-24 z-20 w-[min(390px,calc(100%-3rem))]"
             />
           </div>
-
-          <ScoreInsightCard
-            animate={animate}
-            className="relative z-20 mx-4 -mt-8 mb-5 lg:hidden"
-          />
         </motion.section>
 
         <motion.div
           variants={demoItemVariants}
-          className="mx-auto mt-6 grid w-full max-w-[1400px] grid-cols-1 gap-5 px-5 sm:px-6 lg:grid-cols-3"
+          className="mx-auto mt-6 grid w-full max-w-[1400px] grid-cols-3 gap-5 px-6"
         >
           <motion.section
             className={`${CARD_CHROME} flex flex-col p-4 sm:p-5`}
