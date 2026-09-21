@@ -7,14 +7,12 @@ import {
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { captureApiError } from "@/lib/sentry/capture-api-error";
-import { captureUcatOfferEventInBackground } from "@/lib/analytics/posthog-server";
 import {
   captureUcatReferral,
   resolveUcatReferralOfferPreview,
 } from "@/lib/ucat/referrals/capture-referral";
 import {
   findFounderOffer,
-  claimFounderOffer,
   founderHistory,
   cancelFounderCheckout,
 } from "@/lib/ucat/founder-offers/server";
@@ -38,6 +36,7 @@ export async function GET(request: NextRequest) {
       const pass = history.find(
         (row) =>
           row.kind === "access_pass" &&
+          !row.stripe_subscription_id &&
           row.access_ends_at &&
           Date.parse(row.access_ends_at) > Date.now(),
       );
@@ -81,21 +80,51 @@ export async function GET(request: NextRequest) {
         { headers: { "Cache-Control": "no-store" } },
       );
     }
-    if (
-      !offer.active ||
-      (offer.expires_at && Date.parse(offer.expires_at) <= Date.now())
-    )
-      return NextResponse.json(
-        { error: "This invitation has expired or been disabled." },
-        { status: 404 },
-      );
     const { count, error } = await supabaseAdmin
       .from("ucat_founder_redemptions")
       .select("id", { count: "exact", head: true })
       .eq("offer_id", offer.id)
       .in("status", ["reserved", "redeemed"]);
     if (error) throw error;
-    if (offer.max_redemptions !== null && (count ?? 0) >= offer.max_redemptions)
+    const unavailable =
+      !offer.active ||
+      (offer.expires_at && Date.parse(offer.expires_at) <= Date.now());
+    const full =
+      offer.max_redemptions !== null && (count ?? 0) >= offer.max_redemptions;
+    // The owner may still preview/retry a reserved checkout, even after the
+    // remaining places are taken or the administrator disables new claims.
+    let ownsReservation = false;
+    if (unavailable || full) {
+      const db = await getSupabaseServerClient();
+      const {
+        data: { user },
+      } = await db.auth.getUser();
+      if (user) {
+        const { data: student } = await supabaseAdmin
+          .from("students")
+          .select("id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+        if (student) {
+          const { data: reservation, error: reservationError } =
+            await supabaseAdmin
+              .from("ucat_founder_redemptions")
+              .select("id")
+              .eq("offer_id", offer.id)
+              .eq("student_id", student.id)
+              .eq("status", "reserved")
+              .maybeSingle();
+          if (reservationError) throw reservationError;
+          ownsReservation = Boolean(reservation);
+        }
+      }
+    }
+    if (unavailable && !ownsReservation)
+      return NextResponse.json(
+        { error: "This invitation has expired or been disabled." },
+        { status: 404 },
+      );
+    if (full && !ownsReservation)
       return NextResponse.json(
         { error: "All places for this invitation are currently claimed." },
         { status: 409 },
@@ -111,7 +140,7 @@ export async function GET(request: NextRequest) {
         description: ucatFounderOfferDescription(offer),
         terms:
           offer.kind === "access_pass"
-            ? "No card required. Starts when you accept. No automatic renewal; choose a paid subscription afterwards. One access pass per student; cannot be combined with a previous trial or referral gift."
+            ? "Payment card required. Your selected plan renews automatically after the free period unless cancelled. One free-time founder offer per student; cannot be combined with a previous trial or referral gift."
             : "For a new weekly, monthly or yearly Unlimited subscription. Applies to the current plan price and ends when your subscription ends. No other promotional offers; earned practice and referral rewards remain available.",
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -183,6 +212,34 @@ export async function POST(request: NextRequest) {
           throw new Error("Your purchase is being confirmed.");
         if (session.status === "open")
           await stripe.checkout.sessions.expire(session.id);
+        // A replacement checkout must be able to reselect or replace a referral gift.
+        const giftId = session.metadata?.ucat_referral_gift_id;
+        if (giftId) {
+          const giftKind = session.metadata?.ucat_referral_gift_kind;
+          const result =
+            giftKind === "earned_referrer"
+              ? await supabaseAdmin
+                  .from("ucat_referral_access_gifts")
+                  .update({
+                    status: "available",
+                    stripe_checkout_session_id: null,
+                  })
+                  .eq("id", giftId)
+                  .eq("student_id", student.id)
+                  .eq("stripe_checkout_session_id", session.id)
+                  .eq("status", "checkout_pending")
+              : await supabaseAdmin
+                  .from("ucat_referrals")
+                  .update({
+                    gift_status: "pending",
+                    referred_checkout_session_id: null,
+                  })
+                  .eq("id", giftId)
+                  .eq("referred_student_id", student.id)
+                  .eq("referred_checkout_session_id", session.id)
+                  .eq("gift_status", "checkout_pending");
+          if (result.error) throw result.error;
+        }
         let release = supabaseAdmin
           .from("ucat_checkout_holds")
           .delete()
@@ -240,28 +297,13 @@ export async function POST(request: NextRequest) {
         interval: referral.gift_duration_interval,
       });
     }
-    if (offer.kind !== "access_pass")
-      throw new Error("Choose a paid plan to use a founder discount.");
-    const claim = await claimFounderOffer(student.id, code);
-    captureUcatOfferEventInBackground({
-      authUserId: user.id,
-      event: "founder_offer_redeemed",
-      dedupeKey: `founder-offer:${claim.id}`,
-      properties: {
-        student_id: student.id,
-        account_class: student.account_class,
-        offer_id: offer.id,
-        offer_code: offer.code,
-        offer_campaign: offer.campaign,
-        offer_kind: offer.kind,
-        redemption_id: claim.id,
-        access_ends_at: claim.access_ends_at,
+    return NextResponse.json(
+      {
+        error:
+          "Choose a plan and apply this code at checkout. A payment card is required.",
       },
-    });
-    return NextResponse.json({
-      kind: "access_pass",
-      accessEndsAt: claim.access_ends_at,
-    });
+      { status: 409 },
+    );
   } catch (error) {
     return NextResponse.json(
       {

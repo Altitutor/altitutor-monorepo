@@ -1,3 +1,5 @@
+import { addMonths, addWeeks, differenceInCalendarDays } from "date-fns";
+import { captureUcatReferral } from "@/lib/ucat/referrals/capture-referral";
 import {
   findFounderOffer,
   founderHistory,
@@ -24,9 +26,6 @@ import {
 } from "@/lib/ucat/subscription-plan";
 import { isStandardUcatTrialEligible } from "@/lib/ucat/subscription-trial";
 import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
-
-const REFERRAL_GIFT_COUPON_ID = "ucat-referral-unlimited-gift";
-const REFERRAL_GIFT_COUPON_NAME = "UCAT gift — first period free";
 
 type ReferralGiftCheckout = {
   id: string;
@@ -85,37 +84,6 @@ async function loadReferralTrialContext(
     hasAcceptedRecipientGift: Boolean(acceptedResult.data),
     hasReferralAccessGift: Boolean(accessGiftResult.data),
   };
-}
-
-async function getOrCreateReferralGiftCoupon(
-  stripe: Stripe,
-): Promise<Stripe.Coupon> {
-  try {
-    return await stripe.coupons.retrieve(REFERRAL_GIFT_COUPON_ID);
-  } catch (error: unknown) {
-    const stripeError = error as { code?: string; statusCode?: number };
-    if (
-      stripeError.code !== "resource_missing" &&
-      stripeError.statusCode !== 404
-    ) {
-      throw error;
-    }
-  }
-
-  try {
-    return await stripe.coupons.create({
-      id: REFERRAL_GIFT_COUPON_ID,
-      name: REFERRAL_GIFT_COUPON_NAME,
-      percent_off: 100,
-      duration: "once",
-      metadata: { source: "ucat_referral_gift", tier: "unlimited" },
-    });
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === "resource_already_exists") {
-      return stripe.coupons.retrieve(REFERRAL_GIFT_COUPON_ID);
-    }
-    throw error;
-  }
 }
 
 async function resolveReferralGift(
@@ -276,6 +244,7 @@ export async function POST(request: NextRequest) {
 
   let founderOffer: FounderOffer | null = null;
   let hasFounderPass = false;
+  let requestedGiftId = requestedSelection.referralGiftId;
   try {
     const history = await founderHistory(student.id);
     hasFounderPass = history.some((row) => row.kind === "access_pass");
@@ -293,11 +262,28 @@ export async function POST(request: NextRequest) {
       if (found) {
         if (requestedSelection.referralGiftId)
           throw new Error("Choose one promotional offer.");
-        if (found.kind !== "discount")
-          throw new Error(
-            "This code is not a founder discount. Redeem free-access invitations before checkout.",
-          );
         founderOffer = found;
+      } else {
+        if (requestedGiftId) throw new Error("Choose one promotional offer.");
+        if (hasFounderPass)
+          throw new Error(
+            "Referral gifts cannot be combined with a founder free period.",
+          );
+        await captureUcatReferral(student.id, requestedSelection.founderCode);
+        const { data: referral, error } = await supabaseAdmin
+          .from("ucat_referrals")
+          .select("id, ucat_referral_codes(code)")
+          .eq("referred_student_id", student.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (
+          !referral ||
+          referral.ucat_referral_codes?.code !== requestedSelection.founderCode
+        )
+          throw new Error(
+            "This referral code is not available to your account.",
+          );
+        requestedGiftId = referral.id;
       }
     }
     const pending = history.find((row) => row.status === "reserved");
@@ -323,10 +309,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const referralGift = requestedSelection.referralGiftId
-    ? await resolveReferralGift(student.id, requestedSelection.referralGiftId)
+  const referralGift = requestedGiftId
+    ? await resolveReferralGift(student.id, requestedGiftId)
     : null;
-  if (requestedSelection.referralGiftId && !referralGift) {
+  if (requestedGiftId && !referralGift) {
     return NextResponse.json(
       { error: "This referral gift is no longer available." },
       { status: 409 },
@@ -364,14 +350,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const selection: UcatCheckoutRequest = referralGift
-    ? {
-        tier: "unlimited",
-        interval: referralGift.interval,
-        returnContext,
-        referralGiftId: referralGift.id,
-      }
-    : requestedSelection;
+  // A gift changes the introductory period, never the selected renewal interval.
+  const selection: UcatCheckoutRequest = {
+    ...requestedSelection,
+    referralGiftId: referralGift?.id,
+  };
 
   const planPrice = await getUcatPlanPrice(
     supabaseAdmin,
@@ -433,6 +416,7 @@ export async function POST(request: NextRequest) {
           trialEligible: Boolean(previous.metadata?.ucat_standard_trial_days),
           trialDays: Number(previous.metadata?.ucat_standard_trial_days ?? 0),
           founderPercentOff: founderOffer?.percent_off ?? null,
+          offerTrialDays: Number(previous.metadata?.ucat_offer_trial_days ?? 0),
         });
       }
       if (previous.status === "expired") {
@@ -473,6 +457,7 @@ export async function POST(request: NextRequest) {
   );
   const trialEligible =
     !referralGift &&
+    !founderOffer &&
     !hasFounderPass &&
     !checkoutHold.suppress_trial &&
     trialDays > 0 &&
@@ -482,6 +467,37 @@ export async function POST(request: NextRequest) {
       hasAcceptedRecipientGift: referralTrialContext.hasAcceptedRecipientGift,
       hasReferralAccessGift: referralTrialContext.hasReferralAccessGift,
     });
+
+  const giftStart = new Date(checkoutHold.created_at);
+  const freePeriodEnd =
+    founderOffer?.kind === "access_pass"
+      ? (founderOffer.duration_unit === "month" ? addMonths : addWeeks)(
+          giftStart,
+          founderOffer.duration_count ?? 1,
+        )
+      : referralGift
+        ? (referralGift.interval === "month" ? addMonths : addWeeks)(
+            giftStart,
+            1,
+          )
+        : null;
+  const offerTrialDays = freePeriodEnd
+    ? differenceInCalendarDays(freePeriodEnd, giftStart)
+    : 0;
+  if (offerTrialDays > 730) {
+    await supabaseAdmin
+      .from("ucat_checkout_holds")
+      .delete()
+      .eq("id", checkoutHold.id)
+      .is("checkout_session_id", null);
+    return NextResponse.json(
+      {
+        error:
+          "This offer exceeds the maximum free period of 730 days. Please request a shorter invitation.",
+      },
+      { status: 409 },
+    );
+  }
 
   const origin = request.headers.get("origin") ?? request.nextUrl.origin;
   const metadata: Stripe.MetadataParam = {
@@ -493,7 +509,9 @@ export async function POST(request: NextRequest) {
     ucat_acquisition_benefit: referralGift
       ? "referral_gift"
       : founderOffer
-        ? "founder_discount"
+        ? founderOffer.kind === "access_pass"
+          ? "founder_access"
+          : "founder_discount"
         : trialEligible
           ? "standard_trial"
           : "none",
@@ -511,6 +529,10 @@ export async function POST(request: NextRequest) {
 
   const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
     { metadata };
+  if (offerTrialDays) {
+    subscriptionData.trial_period_days = offerTrialDays;
+    metadata.ucat_offer_trial_days = String(offerTrialDays);
+  }
   if (trialEligible) {
     subscriptionData.trial_period_days = trialDays;
     metadata.ucat_standard_trial_days = String(trialDays);
@@ -530,11 +552,6 @@ export async function POST(request: NextRequest) {
     return_url: new URL(checkoutReturnPath, origin).toString(),
   };
 
-  if (referralGift) {
-    const coupon = await getOrCreateReferralGiftCoupon(stripe);
-    sessionParams.discounts = [{ coupon: coupon.id }];
-  }
-
   const billing = student.students_billing;
   if (billing?.stripe_customer_id) {
     sessionParams.customer = billing.stripe_customer_id;
@@ -544,7 +561,10 @@ export async function POST(request: NextRequest) {
   let founderClaim: FounderRedemption | null = null;
   if (founderOffer) {
     try {
-      const coupon = await founderCoupon(stripe, founderOffer);
+      const coupon =
+        founderOffer.kind === "discount"
+          ? await founderCoupon(stripe, founderOffer)
+          : null;
       founderClaim = await claimFounderOffer(
         student.id,
         founderOffer.code,
@@ -575,13 +595,15 @@ export async function POST(request: NextRequest) {
           trialEligible: prior.metadata?.ucat_standard_trial_days !== undefined,
           trialDays: Number(prior.metadata?.ucat_standard_trial_days ?? 0),
           founderPercentOff: founderOffer.percent_off,
+          offerTrialDays: Number(prior.metadata?.ucat_offer_trial_days ?? 0),
         });
       }
       metadata.ucat_founder_redemption_id = founderClaim.id;
       metadata.ucat_founder_offer_id = founderOffer.id;
       metadata.ucat_founder_code = founderOffer.code;
       metadata.ucat_founder_campaign = founderOffer.campaign;
-      sessionParams.discounts = [{ coupon: coupon.id }];
+      metadata.ucat_founder_kind = founderOffer.kind;
+      if (coupon) sessionParams.discounts = [{ coupon: coupon.id }];
       // Stable across retries. Expiry releases the reserved place through Stripe's webhook.
       sessionParams.expires_at =
         Math.floor(Date.parse(checkoutHold.created_at) / 1000) + 60 * 60;
@@ -663,7 +685,7 @@ export async function POST(request: NextRequest) {
       stripe_checkout_session_id: session.id,
       metadata: {
         acquisition_benefit: metadata.ucat_acquisition_benefit,
-        trial_days: trialEligible ? trialDays : 0,
+        trial_days: offerTrialDays || (trialEligible ? trialDays : 0),
       },
     });
 
@@ -672,6 +694,7 @@ export async function POST(request: NextRequest) {
       checkoutSessionId: session.id,
       referralGiftApplied: Boolean(referralGift),
       founderPercentOff: founderOffer?.percent_off ?? null,
+      offerTrialDays,
       trialEligible,
       trialDays: trialEligible ? trialDays : 0,
     });

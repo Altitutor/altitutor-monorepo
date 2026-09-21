@@ -13,6 +13,7 @@ export async function createUcatCheckoutSession(
   trialEligible: boolean;
   trialDays: number;
   founderPercentOff: number | null;
+  offerTrialDays: number;
 }> {
   const res = await fetch("/api/ucat/checkout", {
     method: "POST",
@@ -33,6 +34,7 @@ export async function createUcatCheckoutSession(
     trialEligible?: boolean;
     trialDays?: number;
     founderPercentOff?: number;
+    offerTrialDays?: number;
   };
   if (!data.clientSecret || !data.checkoutSessionId) {
     throw new Error("Checkout could not be initialized");
@@ -42,6 +44,8 @@ export async function createUcatCheckoutSession(
     clientSecret: data.clientSecret,
     checkoutSessionId: data.checkoutSessionId,
     referralGiftApplied: data.referralGiftApplied === true,
+    offerTrialDays:
+      typeof data.offerTrialDays === "number" ? data.offerTrialDays : 0,
     founderPercentOff:
       typeof data.founderPercentOff === "number"
         ? data.founderPercentOff

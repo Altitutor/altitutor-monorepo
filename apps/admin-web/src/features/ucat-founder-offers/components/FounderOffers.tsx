@@ -78,7 +78,7 @@ function availabilityLabel(offer: FounderOffer): Availability {
 
 function invitationUrl(offer: FounderOffer) {
   const url = new URL(
-    `/invite/${offer.code}`,
+    `/signup?offer=${encodeURIComponent(offer.code)}`,
     process.env.NEXT_PUBLIC_UCAT_WEB_URL || 'https://ucat.altitutor.com',
   );
   url.searchParams.set('utm_source', 'founder');
@@ -395,7 +395,7 @@ export function FounderOffers({ onCreateTrigger = 0 }: { onCreateTrigger?: numbe
                   id="offer-duration"
                   type="number"
                   min={1}
-                  max={24}
+                  max={form.durationUnit === 'month' ? 23 : 24}
                   value={form.durationCount}
                   onChange={(event) =>
                     setForm((current) => ({ ...current, durationCount: event.target.value }))

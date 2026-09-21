@@ -1352,12 +1352,14 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
             ucat_checkout_context?: string;
             ucat_acquisition_benefit?: string;
             ucat_standard_trial_days?: string;
+            ucat_offer_trial_days?: string;
             ucat_referral_gift_id?: string;
             ucat_referral_gift_kind?: string;
             ucat_founder_redemption_id?: string;
             ucat_founder_offer_id?: string;
             ucat_founder_code?: string;
             ucat_founder_campaign?: string;
+            ucat_founder_kind?: string;
           };
         };
 
@@ -1468,6 +1470,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               await settleFounderCheckout(supabase, {
                 redemptionId: session.metadata.ucat_founder_redemption_id, studentId,
                 sessionId: session.id, subscriptionId: subscription.id,
+                trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : undefined,
                 occurredAt: new Date(event.created * 1000).toISOString(),
               });
               await captureUcatSubscriptionPosthogEvent(supabase, {
@@ -1476,7 +1479,8 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 properties: { offer_id: session.metadata.ucat_founder_offer_id ?? null,
                   offer_code: session.metadata.ucat_founder_code ?? null,
                   offer_campaign: session.metadata.ucat_founder_campaign ?? null,
-                  offer_kind: "discount", redemption_id: session.metadata.ucat_founder_redemption_id },
+                  offer_kind: session.metadata.ucat_founder_kind ?? "discount", redemption_id: session.metadata.ucat_founder_redemption_id,
+                  access_ends_at: session.metadata.ucat_founder_kind === "access_pass" && subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null },
               });
             }
 
@@ -1616,6 +1620,8 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                     ? "standard_trial"
                     : "none"),
                 trial_days:
+                  session.metadata?.ucat_offer_trial_days ??
+                  subscription.metadata?.ucat_offer_trial_days ??
                   session.metadata?.ucat_standard_trial_days ??
                   subscription.metadata?.ucat_standard_trial_days ??
                   null,

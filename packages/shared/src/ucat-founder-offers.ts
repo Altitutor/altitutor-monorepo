@@ -28,7 +28,7 @@ export function parseUcatFounderOffer(value: unknown): UcatFounderOfferInput | n
   if (kind !== 'access_pass' && kind !== 'discount') return null;
   if (kind === 'access_pass' && (
     (duration_unit !== 'week' && duration_unit !== 'month') ||
-    typeof duration_count !== 'number' || !Number.isInteger(duration_count) || duration_count < 1 || duration_count > 24
+    typeof duration_count !== 'number' || !Number.isInteger(duration_count) || duration_count < 1 || duration_count > (duration_unit === 'month' ? 23 : 24)
   )) return null;
   if (kind === 'discount' && (typeof percent_off !== 'number' || !Number.isInteger(percent_off) || percent_off < 1 || percent_off > 100)) return null;
   if (max_redemptions != null && (typeof max_redemptions !== 'number' || !Number.isSafeInteger(max_redemptions) || max_redemptions < 1)) return null;

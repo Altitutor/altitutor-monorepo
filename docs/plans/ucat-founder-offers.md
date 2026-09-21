@@ -1,17 +1,17 @@
 # UCAT founder offers
 
-Status: development deployment and deployed sandbox smoke test passed on 2026-09-21 (Adelaide). Revision be962d4f9 is ready for production promotion; production has not been deployed by this task.
+Status: the card-backed free-period follow-up is being validated locally. It supersedes the no-card policy in the previously deployed revision; its migration, web app and webhook must ship together through CI/CD. This follow-up has not been deployed.
 
 ## Confirmed direction
 
 - AdminWeb manages founder access passes and founder percentage discounts, with shareable links and manually entered codes.
 - Access-pass duration and discount percentage are configured per offer; 14 days and 20% were illustrative starting points, not fixed commercial terms.
 - Codes support unlimited or capped redemptions, expiry, and disabling future redemptions. Personal codes can be single-use. Redemption limits count successful benefit grants, not link visits or validation attempts.
-- Founder access passes require no payment card, do not renew automatically, and require an explicit purchase for subsequent paid access.
+- New founder free-time redemptions require a payment card and automatically charge the selected subscription plan after the free period unless cancelled. Already-redeemed no-card passes retain their original terms.
 - Founder discounts apply to the current eligible plan price, not a frozen price. They end when the subscription actually ends, not merely when cancellation is scheduled, and do not return on resubscription.
 - Founder discounts support weekly, monthly and yearly subscriptions and cannot stack with another promotional discount. The existing billing-interval lock remains in place for this release.
 - Stripe remains responsible for subscription billing and recurring percentage discounts. The application owns offer eligibility, invitation redemption and attribution.
-- One student-facing invitation/referral code entry flow explains the actual benefit before acceptance. Links carry the offer through signup; access passes do not require a payment checkout.
+- One checkout code field accepts founder free-time codes, founder percentages and friend-referral codes. “Check code” applies the offer; no separate Start free access action remains. Links carry offers through signup, onboarding and the sampler before plan selection and checkout.
 - Referral attribution remains independent from the benefit selected. Marketing reporting distinguishes benefit redemption, meaningful practice and positive-value payment.
 - PostHog reporting should connect offer/campaign/code identity to signup, redemption, activation, first positive-value payment, retention and net revenue. Preserve existing first-touch acquisition evidence.
 
@@ -19,8 +19,8 @@ Status: development deployment and deployed sandbox smoke test passed on 2026-09
 
 - Billing intervals remain locked for this release. Discounts work on weekly, monthly and yearly subscriptions selected at purchase.
 - Practice-day discounts and earned referrer rewards remain available. The founder percentage reduces the plan price before earned reductions; invoices cannot result in a cash payout. Referral rewards do not remove the ongoing founder discount.
-- Existing friend referral mechanics remain unchanged. The shared code entry explains the card requirement and renewal terms separately from no-card administrator passes.
-- A student currently on Free may claim one administrator access pass, including a former subscriber who has not consumed another acquisition benefit. Passes cannot chain with a standard trial or referral gift. A subsequent purchase can use a founder percentage discount, with no additional trial after the pass.
+- Founder and friend free-time offers use the same card-backed checkout semantics. Applying a free-time code preserves the currently selected renewal interval; its duration determines the introductory period independently of that interval.
+- A student currently on Free may claim one administrator access pass, including a former subscriber who has not consumed another acquisition benefit. Passes cannot chain with a standard trial or referral gift. A later new subscription may use a founder percentage discount, but existing subscriptions cannot acquire a second promotion. No extra standard trial stacks with a code.
 - Founder discounts apply only when starting a subscription. Existing subscribers cannot apply them; prior founder discount recipients cannot reclaim the benefit after cancellation.
 - Current tiers are Free and Unlimited; historical Pro references are stale.
 
@@ -32,15 +32,15 @@ Status: development deployment and deployed sandbox smoke test passed on 2026-09
 
 ## Operating the feature
 
-In AdminWeb, open **Settings → UCAT billing → Founder offers**. Choose access weeks/calendar months or an ongoing percentage, a campaign label, a code beginning `F-`, an optional use cap and an optional redemption deadline. Copy the invitation link for personal distribution. Disabling a code prevents new claims; existing benefits and already reserved checkouts remain valid. Offer terms cannot be edited after creation. Use separate codes within a shared campaign to compare distribution sources.
+In AdminWeb, open **Settings → UCAT billing → Founder offers**. Choose access weeks/calendar months (up to 24 weeks or 23 months, within Stripe’s 730-day trial limit) or an ongoing percentage, a campaign label, a code, an optional use cap and an optional redemption deadline. Copy the invitation link for personal distribution. Disabling a code prevents new claims; existing benefits and already reserved checkouts remain valid. Offer terms cannot be edited after creation. Use separate codes within a shared campaign to compare distribution sources.
 
-Existing subscribers are ineligible. Founder passes start on explicit acceptance and end automatically at their recorded timestamp, falling back to UCAT Free. They generate no Stripe subscription or payment. A later subscription starts paid billing immediately; a founder percentage discount may be selected for that purchase. A former subscriber may claim a pass only if they have not already consumed a standard trial or referral acquisition gift.
+Existing subscribers are ineligible. New founder free periods begin on successful Stripe checkout, require a saved payment card and renew into the selected paid plan automatically unless cancelled. Stripe owns the exact trial end and subscription access. An abandoned checkout grants no access and releases its capped reservation on confirmed expiry. A former subscriber may claim a free period only if they have not already consumed a standard trial or referral acquisition gift. Historical no-card grants remain independent until their original expiry.
 
 ## Analytics contract
 
 - `invitation_previewed`: browser observation, with `offer_id`, `offer_code`, `offer_kind`, `offer_campaign` for founder offers. It does not count as a redemption.
 - `founder_discount_selected`: browser selection before checkout; does not count as a redemption or payment.
-- `founder_offer_redeemed`: server-confirmed access grant or Stripe-confirmed discounted subscription, with stable deduplication, `redemption_id`, offer identity/campaign and benefit kind. Access grants also carry `access_ends_at`.
+- `founder_offer_redeemed`: Stripe-confirmed free-period or discounted subscription, with stable deduplication, `redemption_id`, offer identity/campaign and benefit kind. Access grants also carry `access_ends_at`.
 - Existing `signup_completed`, `activation_completed`, and `learning_activity_completed` events acquire durable `founder_access_*` / `founder_discount_*` properties for confirmed benefits. Signup before redemption can be linked through the same identified person; its original event is not rewritten.
 - Stripe payment, renewal and cancellation events include offer cohort properties. Discount payment attribution comes from subscription metadata so invoice-before-checkout webhook ordering cannot lose it. Access-pass attribution remains available when the student later pays.
 - Existing paid acquisition logic counts only the first positive-value subscription payment. Free access, trial activation, code selection and zero-value invoices do not qualify.
@@ -105,3 +105,25 @@ Chrome smoke test used an isolated development account classified `internal_test
 - Both test codes were disabled and the sandbox subscription canceled. Test history remains in development for audit; the temporary credential file was removed. No production users, payments, offers or deployments were changed.
 
 Readiness: no remaining founder-feature blockers found. Promote the tested revision through the normal production CI/CD gate, then perform the usual post-deployment production smoke check. No manual Stripe coupon creation or new Stripe/PostHog credentials are required.
+
+## Signup-aligned invitation links (2026-09-21)
+
+New admin links use `/signup?offer=F-CODE` with the existing campaign parameters. The offer travels in the signup return intent through email verification, profile onboarding and the sampler. At the final step, “Your gift is ready” offers explicit acceptance or “Continue with Free”. Free-access gifts still require no payment card; discount gifts continue to plan selection and checkout. Declining does not consume a redemption and clears the pending checkout code.
+
+Previously distributed `/invite/CODE` links redirect to signup, preserving campaign parameters; there is no separate invitation screen. Existing onboarded Free users go to the subscription page with their invitation, and existing subscriber eligibility rules remain unchanged.
+
+This follow-up changes the previously tested revision and needs deployment through the normal gate before it is available on development or production.
+
+Local validation for this follow-up: UCAT production build passed; UCAT lint and UCAT/admin typechecks passed; 239 UCAT unit suites / 1,146 tests passed, plus two return-intent tests added afterwards. Three browser journeys passed against local Supabase: existing Free-user pass claim, onboarding → sampler → accept gift, and onboarding → sampler → Continue with Free (zero redemptions). OTP return metadata is covered by a component test; the browser journeys use a seeded authenticated account rather than delivering a new email. No remote deployment was made for this follow-up.
+
+## Unified card-backed code redemption (2026-09-21)
+
+The code field sits immediately below payment details without its own background card. The right column identifies the applied offer and shows the original price struck through beside the adjusted due-today amount, with the free-period end and subsequent billing amount. Free periods use Stripe subscription trials with mandatory card collection; percentages use recurring Stripe coupons. Applying another code safely expires the old checkout before preparing its replacement. A referral code is resolved and attributed server-side, using the existing referral gift record.
+
+The new migration permits reserved/expired free-time redemptions and removes their independent entitlement fallback once tied to Stripe. Webhook completion stores Stripe’s trial end and consumes the one-time trial; PostHog uses founder-access attribution for free-time offers and founder-discount attribution for percentage offers. No remote database changes are made manually.
+
+Validation for the unified-code follow-up: 240 UCAT unit suites / 1,157 tests passed; shared offer validation passed (10 tests); all Edge Function contracts passed (76 tests, 267 steps); founder database contracts passed (39 tests). Three browser journeys passed for checkout code application and zero-due summary, post-sampler acceptance continuing to checkout without premature redemption, and declining without redemption. Browser tests stub Stripe session creation; route contracts verify Stripe parameters, and webhook/database tests verify completion and expiry. A new end-to-end sandbox payment for this changed billing policy remains a development smoke check after coordinated deployment. Local schema reset, UCAT fixture seeding and type generation completed; no remote schema or billing changes were made.
+
+Final review also covered repeat checking of a capped code: its authenticated reservation owner can preview it again, including after new claims are disabled. Four additional API tests passed. UCAT production build, lint, UCAT/admin typechecks and shared offer build passed. This validation does not replace the pending deployed Stripe sandbox smoke test for the new card-backed free-period policy.
+
+Commit gate (2026-09-21): `pnpm checkall` passed release-gate/email checks and UCAT web lint, then stopped on unrelated unused-import warnings in the concurrently edited mobile `exam-start.tsx` and `trainer-menu.tsx`. Admin web lint passed separately. The affected-feature validation above remains green; the whole-repository gate is not green for this checkout.

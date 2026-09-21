@@ -86,6 +86,7 @@ function formatFreeQuotaLine(
 type LoadingKey = UcatPaidPlanTier | "free";
 
 type UsePlanPickerOptions = {
+  invitationCode?: string;
   onContinueFree?: () => void;
   onContinueCurrentPlan?: () => void;
   onCheckoutStart?: () => void;
@@ -289,7 +290,7 @@ export function usePlanPicker(options: UsePlanPickerOptions = {}) {
       interval: billingInterval,
       context: returnContext,
     });
-    const invitation = pendingInvitation();
+    const invitation = options.invitationCode ?? pendingInvitation();
     if (invitation) params.set("offer", invitation);
     if (options.postCheckoutReturnTo) {
       params.set("redirect", options.postCheckoutReturnTo);

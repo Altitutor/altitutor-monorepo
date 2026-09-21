@@ -29,12 +29,13 @@ export async function settleFounderCheckout(
     studentId: string;
     sessionId: string;
     subscriptionId?: string;
+    trialEndsAt?: string;
     expired?: boolean;
     occurredAt: string;
   },
 ): Promise<void> {
   const { data: claim, error } = await supabase.from("ucat_founder_redemptions")
-    .select("id, student_id, checkout_session_id, status").eq(
+    .select("id, student_id, checkout_session_id, status, kind").eq(
       "id",
       input.redemptionId,
     ).single();
@@ -46,6 +47,9 @@ export async function settleFounderCheckout(
     throw new Error("Founder checkout does not match its reservation.");
   }
   if (input.expired && claim.status !== "reserved") return;
+  if (!input.expired && claim.kind === "access_pass" && (!input.subscriptionId || !input.trialEndsAt || Date.parse(input.trialEndsAt) <= Date.parse(input.occurredAt))) {
+    throw new Error("Founder free period is missing its confirmed Stripe trial end.");
+  }
   let update = supabase.from("ucat_founder_redemptions").update(
     input.expired
       ? {
@@ -57,11 +61,18 @@ export async function settleFounderCheckout(
         checkout_session_id: input.sessionId,
         stripe_subscription_id: input.subscriptionId,
         redeemed_at: input.occurredAt,
+        ...(claim.kind === "access_pass" ? { access_ends_at: input.trialEndsAt } : {}),
       },
   ).eq("id", claim.id);
   if (input.expired) update = update.eq("status", "reserved");
   const { error: updateError } = await update;
   if (updateError) throw updateError;
+  if (!input.expired && claim.kind === "access_pass") {
+    const { error: consumedError } = await supabase.from("students")
+      .update({ ucat_unlimited_trial_consumed_at: input.occurredAt })
+      .eq("id", input.studentId).is("ucat_unlimited_trial_consumed_at", null);
+    if (consumedError) throw consumedError;
+  }
 }
 
 /** Invoice events may precede checkout completion; attach attribution from Stripe. */
@@ -71,11 +82,12 @@ export async function founderSubscriptionProperties(
 ): Promise<Record<string, string | null>> {
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
   const metadata = subscription.metadata;
+  const prefix = metadata.ucat_founder_kind === "access_pass" ? "founder_access" : "founder_discount";
   return metadata.ucat_founder_offer_id
     ? {
-      founder_discount_offer_id: metadata.ucat_founder_offer_id,
-      founder_discount_code: metadata.ucat_founder_code ?? null,
-      founder_discount_campaign: metadata.ucat_founder_campaign ?? null,
+      [`${prefix}_offer_id`]: metadata.ucat_founder_offer_id,
+      [`${prefix}_code`]: metadata.ucat_founder_code ?? null,
+      [`${prefix}_campaign`]: metadata.ucat_founder_campaign ?? null,
     }
     : {};
 }

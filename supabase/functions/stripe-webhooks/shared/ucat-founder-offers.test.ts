@@ -58,6 +58,7 @@ function database(claim: Record<string, unknown>) {
     eq() {
       return this;
     },
+    is() { return this; },
     single: () => Promise.resolve({ data: claim, error: null }),
     update(value: Record<string, unknown>) {
       updates.push(value);
@@ -129,4 +130,16 @@ Deno.test("expiry releases a reserved place without marking it redeemed", async 
     status: "expired",
     checkout_session_id: "session",
   }]);
+});
+
+Deno.test("free-period checkout records Stripe trial end and consumes the one-time trial", async () => {
+  const db = database({ id: "redemption", student_id: "student", checkout_session_id: null, status: "reserved", kind: "access_pass" });
+  const trialEndsAt = "2026-10-04T00:00:00Z";
+  await settleFounderCheckout(db.client, { ...input, trialEndsAt });
+  assertEquals(db.updates, [{ status: "redeemed", checkout_session_id: "session", stripe_subscription_id: "subscription", redeemed_at: input.occurredAt, access_ends_at: trialEndsAt }, { ucat_unlimited_trial_consumed_at: input.occurredAt }]);
+});
+Deno.test("free-period completion without a Stripe trial end cannot grant access", async () => {
+  const db = database({ id: "redemption", student_id: "student", checkout_session_id: null, status: "reserved", kind: "access_pass" });
+  await assertRejects(() => settleFounderCheckout(db.client, input), Error, "trial end");
+  assertEquals(db.updates, []);
 });

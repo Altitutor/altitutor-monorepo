@@ -1,5 +1,8 @@
 "use client";
 
+import { useSearchParams } from "next/navigation";
+import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
+
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
@@ -24,6 +27,9 @@ const ONLINE_FEATURES = [
 ];
 
 export function SubscribePage() {
+  const searchParams = useSearchParams();
+  const invitationCode =
+    founderInvitationCode(`/subscribe?${searchParams.toString()}`) ?? undefined;
   const access = useUcatAccess();
   const { data: cfg = defaultPublicSubscriptionConfig } =
     usePublicSubscriptionConfig();
@@ -73,8 +79,8 @@ export function SubscribePage() {
           <p
             className={`mx-auto mt-6 max-w-2xl text-lg text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
-            Start with UCAT Free, or unlock unrestricted online access with
-            UCAT Unlimited.
+            Start with UCAT Free, or unlock unrestricted online access with UCAT
+            Unlimited.
           </p>
 
           <div
@@ -186,12 +192,16 @@ export function SubscribePage() {
             <p
               className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}
             >
-              UCAT Free includes ongoing access with resetting allowances.
-              UCAT Unlimited removes the limits with accountability pricing.
+              UCAT Free includes ongoing access with resetting allowances. UCAT
+              Unlimited removes the limits with accountability pricing.
             </p>
           </div>
 
-          <PlanPicker variant="page" selectorTheme="light" />
+          <PlanPicker
+            invitationCode={invitationCode}
+            variant="page"
+            selectorTheme="light"
+          />
 
           <p
             className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}

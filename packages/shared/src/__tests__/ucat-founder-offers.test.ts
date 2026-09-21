@@ -24,6 +24,8 @@ describe('founder offer input boundary', () => {
     expect(parseUcatFounderOffer({ ...valid, kind: 'discount', percent_off: 20 })).toMatchObject({ percent_off: 20, duration_unit: null, duration_count: null });
     expect(parseUcatFounderOffer({ ...valid, duration_unit: 'month' })).toMatchObject({ duration_unit: 'month', duration_count: 2 });
     expect(parseUcatFounderOffer({ ...valid, duration_count: 0 })).toBeNull();
+    expect(parseUcatFounderOffer({ ...valid, duration_unit: 'month', duration_count: 23 })).not.toBeNull();
+    expect(parseUcatFounderOffer({ ...valid, duration_unit: 'month', duration_count: 24 })).toBeNull();
   });
   it('rejects expired offers and invalid dates', () => {
     expect(parseUcatFounderOffer({ ...valid, expires_at: 'yesterday' })).toBeNull();

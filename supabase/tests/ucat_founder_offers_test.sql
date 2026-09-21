@@ -10,50 +10,57 @@ INSERT INTO public.ucat_founder_offers(id, code, name, campaign, kind, percent_o
 SELECT lives_ok($$INSERT INTO public.ucat_founder_offers(code,name,campaign,kind,percent_off) VALUES ('F-FULL','Full founder discount','founders','discount',100)$$, 'administrator can explicitly offer a full percentage discount');
 SELECT set_config('request.jwt.claims', '{"role":"service_role"}', true);
 SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000001'), 'free', 'student starts on Free');
-SELECT is((public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001',' f-one ')).status, 'redeemed', 'claim normalizes code and grants no-card access');
-SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000001'), 'unlimited', 'pass grants Unlimited without a subscription');
-SELECT is((SELECT count(*)::integer FROM public.student_subscriptions WHERE student_id='fd900000-0000-4000-8000-000000000001'), 0, 'pass never creates a billing subscription');
-SELECT is((SELECT access_ends_at - redeemed_at FROM public.ucat_founder_redemptions WHERE student_id='fd900000-0000-4000-8000-000000000001'), interval '14 days', 'two weeks means fourteen days');
-SELECT is((public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001','F-ONE')).id,
- (SELECT id FROM public.ucat_founder_redemptions WHERE student_id='fd900000-0000-4000-8000-000000000001'), 'retry returns the original redemption');
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-ONE')$$,
- 'P0001','All places for this invitation have been claimed. Please try again later.', 'cap rejects a second student');
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001','F-MONTH')$$,
- 'P0001','You have already claimed this type of founder offer. Complete or cancel any open offer checkout first.', 'different code cannot grant another pass');
-UPDATE public.ucat_founder_redemptions SET redeemed_at=now()-interval '15 days', access_ends_at=now()-interval '1 day' WHERE student_id='fd900000-0000-4000-8000-000000000001';
-SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000001'), 'free', 'expired pass falls back to Free without a background job');
-SELECT ok((SELECT ucat_unlimited_trial_consumed_at IS NOT NULL FROM public.students WHERE id='fd900000-0000-4000-8000-000000000001'), 'pass suppresses subsequent standard trial');
-SELECT is((public.reserve_ucat_checkout('fd900000-0000-4000-8000-000000000001','paid')).suppress_trial, true, 'paid checkout after pass cannot chain a trial');
-SELECT throws_ok($$SELECT public.reserve_ucat_checkout('fd900000-0000-4000-8000-000000000001','referral',true)$$,
- 'P0001','Referral gifts cannot be combined with your access pass.', 'pass cannot chain a referral checkout');
-SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001','F-TWENTY','year')$$, 'pass recipient may subsequently use a founder discount');
+SELECT is((public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001',' f-one ','month')).status, 'reserved', 'free-time claim reserves checkout');
+SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000001'), 'free', 'reservation does not grant access');
+SELECT ok((SELECT access_ends_at IS NULL AND redeemed_at IS NULL FROM public.ucat_founder_redemptions WHERE student_id='fd900000-0000-4000-8000-000000000001'), 'reservation has no redemption dates');
+SELECT ok((SELECT ucat_unlimited_trial_consumed_at IS NULL FROM public.students WHERE id='fd900000-0000-4000-8000-000000000001'), 'reservation does not consume trial eligibility');
+SELECT is((public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001','F-ONE','month')).id,
+ (SELECT id FROM public.ucat_founder_redemptions WHERE student_id='fd900000-0000-4000-8000-000000000001'), 'same interval retry returns reservation');
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001','F-ONE','year')$$,
+ 'P0001','You have already claimed this type of founder offer. Complete or cancel any open offer checkout first.', 'different interval requires replacing checkout');
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-ONE','month')$$,
+ 'P0001','All places for this invitation have been claimed. Please try again later.', 'reservation holds capped place');
+UPDATE public.ucat_founder_redemptions SET status='expired' WHERE student_id='fd900000-0000-4000-8000-000000000001';
+SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-ONE','year')$$, 'expired free-time checkout releases capped place');
+UPDATE public.ucat_founder_redemptions SET status='redeemed', redeemed_at=now(), access_ends_at=now()+interval '14 days', stripe_subscription_id='sub_founder_test' WHERE student_id='fd900000-0000-4000-8000-000000000002';
+SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000002'), 'free', 'Stripe-backed redemption cannot grant independent access without an active subscription');
+INSERT INTO public.student_subscriptions(student_id,subject_id,stripe_subscription_id,status,plan_tier,billing_interval)
+ VALUES ('fd900000-0000-4000-8000-000000000002',public.get_ucat_subject_id(),'sub_founder_test','trialing','unlimited','year');
+SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000002'), 'unlimited', 'confirmed trial grants subscription access');
+UPDATE public.student_subscriptions SET status='canceled' WHERE stripe_subscription_id='sub_founder_test';
+SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000002'), 'free', 'canceled trial cannot fall back to an independent pass');
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-ONE','year')$$,
+ 'P0001','You have already claimed this type of founder offer. Complete or cancel any open offer checkout first.', 'completed free period cannot be reclaimed');
+SELECT lives_ok($$SELECT public.reserve_ucat_checkout('fd900000-0000-4000-8000-000000000003','gift')$$, 'checkout locks student before claiming offer');
+SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000003','F-MONTH','week')$$, 'free period reserves within checkout hold');
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000007','F-MONTH')$$,
+ 'P0001','Choose a billing interval.', 'direct no-card redemption is disabled');
+-- A previously redeemed no-card pass retains the exact promise made at redemption.
+INSERT INTO public.ucat_founder_redemptions(offer_id,student_id,kind,status,redeemed_at,access_ends_at)
+ VALUES ('fd910000-0000-4000-8000-000000000002','fd900000-0000-4000-8000-000000000008','access_pass','redeemed',now(),now()+interval '1 month');
+SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000008'), 'unlimited', 'historical no-card pass keeps original entitlement');
+SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000001','F-TWENTY','year')$$, 'discount reserves a checkout');
 SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-TWENTY','week')$$,
- 'P0001','All places for this invitation have been claimed. Please try again later.', 'checkout reservation holds last discount place');
+ 'P0001','All places for this invitation have been claimed. Please try again later.', 'discount reservation holds capped place');
 UPDATE public.ucat_founder_redemptions SET status='expired' WHERE kind='discount' AND student_id='fd900000-0000-4000-8000-000000000001';
-SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-TWENTY','week')$$, 'Stripe-confirmed expiry releases the place');
+SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-TWENTY','week')$$, 'expired discount releases place');
 UPDATE public.ucat_founder_redemptions SET status='redeemed', redeemed_at=now() WHERE kind='discount' AND student_id='fd900000-0000-4000-8000-000000000002';
 SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000002','F-TWENTY','month')$$,
- 'P0001','You have already claimed this type of founder offer. Complete or cancel any open offer checkout first.', 'ended founder subscription cannot regain founder discount');
-SELECT lives_ok($$SELECT public.reserve_ucat_checkout('fd900000-0000-4000-8000-000000000003','trial')$$, 'ordinary checkout reserves student before contacting Stripe');
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000003','F-MONTH')$$,
- 'P0001','Cancel your open checkout before starting a free access pass.', 'open checkout excludes a concurrent pass');
-DELETE FROM public.ucat_checkout_holds WHERE student_id='fd900000-0000-4000-8000-000000000003';
-SELECT lives_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000003','F-MONTH')$$, 'cancelling open checkout permits pass redemption');
-SELECT is((SELECT access_ends_at FROM public.ucat_founder_redemptions WHERE student_id='fd900000-0000-4000-8000-000000000003'), now()+interval '1 month', 'month offers use calendar months');
+ 'P0001','You have already claimed this type of founder offer. Complete or cancel any open offer checkout first.', 'ended discount cannot be reclaimed');
 UPDATE public.ucat_founder_offers SET active=false WHERE code='F-MONTH';
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000004','F-MONTH')$$,
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000004','F-MONTH','month')$$,
  'P0001','This invitation code has expired or been disabled.', 'disabled code rejects future claims');
-SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000003'), 'unlimited', 'disabling code preserves already granted access');
+SELECT is(public.get_student_ucat_online_tier('fd900000-0000-4000-8000-000000000008'), 'unlimited', 'disabling code preserves historical access');
 UPDATE public.ucat_founder_offers SET active=true, expires_at=now()-interval '1 second' WHERE code='F-MONTH';
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000004','F-MONTH')$$,
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000004','F-MONTH','month')$$,
  'P0001','This invitation code has expired or been disabled.', 'expired code rejects claims');
 UPDATE public.ucat_founder_offers SET expires_at=NULL WHERE code='F-MONTH';
 UPDATE public.students SET ucat_unlimited_trial_consumed_at=now() WHERE id='fd900000-0000-4000-8000-000000000004';
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000004','F-MONTH')$$,
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000004','F-MONTH','month')$$,
  'P0001','Free access offers cannot be combined with a previous trial or referral gift.', 'prior standard trial blocks another acquisition gift');
 INSERT INTO public.student_subscriptions(student_id,subject_id,stripe_subscription_id,status,plan_tier,billing_interval)
  VALUES ('fd900000-0000-4000-8000-000000000005',public.get_ucat_subject_id(),'sub_founder_contract','active','unlimited','month');
-SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000005','F-MONTH')$$,
+SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000005','F-MONTH','month')$$,
  'P0001','Founder offers cannot be applied to an existing subscription.', 'paid student cannot claim pass');
 UPDATE public.ucat_founder_offers SET max_redemptions=NULL WHERE code='F-TWENTY';
 SELECT throws_ok($$SELECT public.claim_ucat_founder_offer('fd900000-0000-4000-8000-000000000005','F-TWENTY','month')$$,

@@ -115,8 +115,8 @@
 
 ## UCAT acquisition and conversion
 
-- **Founder access pass** — An administrator-issued, time-limited grant of UCAT access that requires no payment card and does not automatically become a paid subscription. Continuing with paid access requires an explicit purchase.
-  _Avoid_: Auto-renewing trial, referral gift
+- **Founder access pass** — An administrator-issued free introductory period on a new UCAT subscription. Redemption requires a payment card; the selected plan charges automatically after the free period unless cancelled. Previously redeemed no-card passes retain their original expiry terms.
+  _Avoid_: No-card gift, referral gift
 
 - **Founder offer redemption** — The confirmed grant of one administrator-issued access pass or application of one founder discount to a newly started subscription. Previewing a code or reserving a checkout place is not a redemption, and a redemption alone is not a Paid acquisition conversion.
 
@@ -1323,7 +1323,7 @@
 - **Pending referral gift** — A referral gift that has not been accepted, rejected, or expired. It remains as a persistent actionable notification for seven days and cannot be dismissed; reading the notification does not resolve it.
   _Avoid_: Leaving gift pending, unread gift, dismissible offer
 
-- **Referral gift acceptance** — The recipient explicitly accepts a pending referral gift and starts a UCAT Unlimited subscription through checkout, with the gifted first week or month free. Acceptance requires a distinct Stripe customer and payment method from the referrer; the gift replaces the former trial offer.
+- **Referral gift acceptance** — The recipient applies a pending referral gift and confirms checkout to start a UCAT Unlimited subscription, with the gifted first week or month free. The gift duration is independent of the selected renewal interval, and the saved payment method is charged after that period unless cancelled. Acceptance requires a distinct Stripe customer and payment method from the referrer; the gift replaces the standard trial offer.
   _Avoid_: Start trial, redeem Pro gift, automatic acceptance
 
 - **Referral gift rejection** — The recipient explicitly declines a pending referral gift. Rejection is final and resolves its notification; the recipient receives one UCAT Free quota reset, and a Free referrer also receives one quota reset.

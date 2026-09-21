@@ -3,6 +3,7 @@ import type { NextRequest } from "next/server";
 import { POST } from "../route";
 
 const mockCreate = jest.fn();
+const mockCaptureReferral = jest.fn();
 const mockRetrieve = jest.fn();
 const mockRpc = jest.fn();
 const mockClaim = jest.fn();
@@ -27,6 +28,9 @@ let hold = {
   checkout_session_id: null as string | null,
 };
 
+jest.mock("@/lib/ucat/referrals/capture-referral", () => ({
+  captureUcatReferral: (...args: unknown[]) => mockCaptureReferral(...args),
+}));
 jest.mock("server-only", () => ({}));
 jest.mock("@/lib/supabase/server", () => ({
   getSupabaseServerClient: async () => ({
@@ -149,6 +153,7 @@ describe("founder discount checkout", () => {
       error: null,
     }));
     mockHistory.mockResolvedValue([]);
+    mockCaptureReferral.mockResolvedValue(undefined);
     mockOffer.mockResolvedValue({
       id: "offer-1",
       code: "F-FOUNDERS",
@@ -184,12 +189,102 @@ describe("founder discount checkout", () => {
           metadata: expect.objectContaining({
             ucat_founder_campaign: "founders",
           }),
-          trial_period_days: 5,
         }),
       }),
       { idempotencyKey: "ucat-checkout:hold-1" },
     );
     expect(await response.json()).toMatchObject({ founderPercentOff: 20 });
+  });
+  it.each(["week", "month", "year"])(
+    "reserves a two-week free period on the selected %s plan with card collection",
+    async (interval) => {
+      mockOffer.mockResolvedValue({
+        id: "offer-pass",
+        code: "F-GIFT",
+        kind: "access_pass",
+        duration_unit: "week",
+        duration_count: 2,
+        campaign: "friends",
+        percent_off: null,
+      });
+      const response = await POST(request({ founderCode: "F-GIFT", interval }));
+      expect(response.status).toBe(200);
+      expect(mockClaim).toHaveBeenCalledWith("student-1", "F-GIFT", interval);
+      const params = mockCreate.mock.calls[0][0];
+      expect(params.payment_method_collection).toBe("always");
+      expect(params.subscription_data.trial_period_days).toBe(14);
+      expect(params.metadata.ucat_founder_kind).toBe("access_pass");
+      expect(params.metadata.ucat_billing_interval).toBe(interval);
+      expect(params.discounts).toBeUndefined();
+      expect(await response.json()).toMatchObject({
+        offerTrialDays: 14,
+        trialEligible: false,
+        founderPercentOff: null,
+      });
+    },
+  );
+  it("uses calendar-month length for a one-month founder free period", async () => {
+    mockOffer.mockResolvedValue({
+      id: "offer-month",
+      code: "F-MONTH",
+      kind: "access_pass",
+      duration_unit: "month",
+      duration_count: 1,
+      campaign: "friends",
+      percent_off: null,
+    });
+    hold.created_at = "2028-01-31T12:00:00Z";
+    expect((await POST(request())).status).toBe(200);
+    expect(
+      mockCreate.mock.calls[0][0].subscription_data.trial_period_days,
+    ).toBe(29);
+  });
+  it("applies a friend referral code on the currently selected weekly plan", async () => {
+    mockOffer.mockResolvedValue(null);
+    mockFrom.mockImplementation((table: string) =>
+      result(
+        table === "students"
+          ? student
+          : table === "ucat_referrals"
+            ? {
+                id: "gift-1",
+                gift_duration_interval: "month",
+                gift_status: "pending",
+                gift_expires_at: "2099-01-01T00:00:00Z",
+                ucat_referral_codes: { code: "FRIEND" },
+              }
+            : table === "ucat_subscription_config"
+              ? { trial_days: 5 }
+              : null,
+      ),
+    );
+    const response = await POST(
+      request({
+        founderCode: "FRIEND",
+        interval: "week",
+        returnContext: "signup_onboarding",
+        returnTo: "/sessions",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(mockCaptureReferral).toHaveBeenCalledWith("student-1", "FRIEND");
+    const params = mockCreate.mock.calls[0][0];
+    expect(params.payment_method_collection).toBe("always");
+    expect(params.subscription_data.trial_period_days).toBe(30);
+    expect(params.metadata.ucat_billing_interval).toBe("week");
+    expect(params.metadata.ucat_referral_gift_id).toBe("gift-1");
+    expect(params.return_url).toContain("redirect=%2Fsessions");
+    expect(params.discounts).toBeUndefined();
+    expect(await response.json()).toMatchObject({
+      referralGiftApplied: true,
+      offerTrialDays: 30,
+      trialEligible: false,
+    });
+  });
+  it("does not silently start a full-price checkout for an unknown code", async () => {
+    mockOffer.mockResolvedValue(null);
+    expect((await POST(request({ founderCode: "UNKNOWN" }))).status).toBe(409);
+    expect(mockCreate).not.toHaveBeenCalled();
   });
   it("starts paid billing immediately after a no-card access pass", async () => {
     mockHistory.mockResolvedValue([
