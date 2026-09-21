@@ -36,14 +36,14 @@ export function useRateFlashcardReviewCard(topicId: string, mode: 'due' | 'all')
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (command: RateFlashcardCommand) => flashcardsApi.rateReviewCard(command),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'topic', topicId] });
+    onSuccess: () => {
+      void queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
+      void queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
+      void queryClient.invalidateQueries({ queryKey: ['flashcards', 'topic', topicId] });
     },
-    onError: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
+    onError: () => {
+      void queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
+      void queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
     },
   });
 }

@@ -42177,6 +42177,15 @@ export type Database = {
         Args: { p_stem_id: string }
         Returns: Json
       }
+      undo_flashcard_answer: {
+        Args: {
+          p_answer_log_id: string
+          p_request_fingerprint: string
+          p_request_id: string
+          p_student_id: string
+        }
+        Returns: Json
+      }
       undo_latest_flashcard_answer: {
         Args: {
           p_request_fingerprint: string
@@ -42585,4 +42594,3 @@ export const Constants = {
     },
   },
 } as const
-

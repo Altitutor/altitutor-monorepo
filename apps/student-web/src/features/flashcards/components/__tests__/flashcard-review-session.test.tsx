@@ -3,13 +3,20 @@ import { act, fireEvent, render, screen, waitFor } from '@testing-library/react'
 import type { FlashcardReviewCard, ImageOcclusionData } from '@altitutor/shared';
 import { FlashcardReviewSession } from '../flashcard-review-session';
 
+type MockButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
+  asChild?: boolean;
+  variant?: string;
+  size?: string;
+};
+
 jest.mock('@altitutor/ui', () => ({
   createStoredImageHtmlRenderer: () => ({
     refresh: async (html: string | null | undefined) => html ?? '',
     preload: async () => undefined,
     clearCache: () => undefined,
   }),
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => <button {...props}>{children}</button>,
+  Button: ({ children, asChild, variant: _variant, size: _size, ...props }: MockButtonProps) =>
+    asChild ? <>{children}</> : <button {...props}>{children}</button>,
   ImageOcclusionViewer: ({ imageUrl, alt, onLoad, onError }: {
     imageUrl: string;
     alt: string;
@@ -75,7 +82,22 @@ function imageReviewCard(id: string, clozeIndex: number): FlashcardReviewCard {
   };
 }
 
-describe('FlashcardReviewSession image transitions', () => {
+function textReviewCard(id: string, label: string): FlashcardReviewCard {
+  return {
+    ...imageReviewCard(id, 1),
+    flashcard_id: `flashcard-${id}`,
+    card_type: 'text_cloze',
+    cloze_text: `${label}: {{c1::answer}}`,
+    image_file_id: null,
+    image_alt_text: null,
+    image_storage_path: null,
+    image_mimetype: null,
+    image_url: null,
+    occlusion_data: null,
+  };
+}
+
+describe('FlashcardReviewSession', () => {
   beforeAll(() => {
     Object.defineProperty(global.crypto, 'randomUUID', {
       configurable: true,
@@ -116,5 +138,99 @@ describe('FlashcardReviewSession image transitions', () => {
     expect(screen.getByRole('button',{name:/Good/})).toBeVisible();fireEvent.click(screen.getByRole('button',{name:/Good/}));
     await waitFor(()=>expect(mockRateReviewCard).toHaveBeenCalledTimes(2));expect(mockRateReviewCard.mock.calls[1][0].requestId).toBe(mockRateReviewCard.mock.calls[0][0].requestId);
     await waitFor(()=>expect(screen.queryByRole('alert')).not.toBeInTheDocument());
+  });
+
+  it('keeps answer controls sticky and shows note and solution links after revealing the answer', async () => {
+    const card = imageReviewCard('review-1', 1);
+    card.note_links = [
+      { id: 'notes-1', label: '1.1N · Cell notes', href: '/resources/12biol/1.1/1.1n', is_solution: false },
+      { id: 'notes-2', label: '1.1N.S · Cell notes solutions', href: '/resources/12biol/1.1/1.1n.s', is_solution: true },
+    ];
+
+    render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[card]} />);
+    fireEvent.load(screen.getByRole('img', { name: 'Labelled diagram' }));
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByTestId('flashcard-answer-controls')).toHaveClass('sticky');
+    fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+
+    expect(screen.getByRole('heading', { name: 'Notes and solutions' })).toBeVisible();
+    expect(screen.getByRole('link', { name: /1.1N · Cell notes/ })).toHaveAttribute('href', '/resources/12biol/1.1/1.1n');
+    expect(screen.getByRole('link', { name: /Solution: 1.1N.S/ })).toHaveAttribute('href', '/resources/12biol/1.1/1.1n.s');
+  });
+
+  it('keeps the answered card on screen until its rating has been saved', async () => {
+    const first = textReviewCard('review-1', 'First');
+    const second = textReviewCard('review-2', 'Second');
+    mockRateReviewCard.mockImplementation(() => new Promise(() => undefined));
+
+    render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[first, second]} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Good/ }));
+
+    expect(screen.getByText(/First/)).toBeVisible();
+    expect(screen.getByRole('button', { name: /Good/ })).toBeDisabled();
+  });
+
+  it('restores an undone card from the authoritative due snapshot', async () => {
+    const first = textReviewCard('review-1', 'First');
+    const second = textReviewCard('review-2', 'Second');
+    mockRateReviewCard.mockResolvedValue({
+      ...first,
+      due_at: '2100-01-01T00:00:00.000Z',
+      state: 'Review',
+      revision: 1,
+    });
+    const { rerender } = render(
+      <FlashcardReviewSession topicId="topic-1" mode="due" cards={[first, second]} queueRevision={0} />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Good/ }));
+    await waitFor(() => expect(screen.getByText(/Second/)).toBeVisible());
+
+    rerender(
+      <FlashcardReviewSession topicId="topic-1" mode="due" cards={[first, second]} queueRevision={1} />,
+    );
+
+    await waitFor(() => expect(screen.getByText(/First/)).toBeVisible());
+  });
+
+  it('returns the committed answer receipt needed for a bounded undo', async () => {
+    const card = textReviewCard('review-1', 'First');
+    const onAnswerCommitted = jest.fn();
+    mockRateReviewCard.mockResolvedValue({
+      ...card,
+      due_at: '2100-01-01T00:00:00.000Z',
+      state: 'Review',
+      revision: 1,
+      answer_log_id: 'fa100000-0000-4000-8000-000000000008',
+    });
+
+    render(
+      <FlashcardReviewSession
+        topicId="topic-1"
+        mode="due"
+        cards={[card]}
+        onAnswerCommitted={onAnswerCommitted}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Good/ }));
+
+    await waitFor(() => {
+      expect(onAnswerCommitted).toHaveBeenCalledWith('fa100000-0000-4000-8000-000000000008');
+    });
   });
 });

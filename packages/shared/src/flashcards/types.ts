@@ -60,8 +60,20 @@ export type FlashcardReviewCard = {
   retrievability?: number;
   rating_previews?: Record<FlashcardRating, FlashcardRatingPreview>;
   rating_preview_seed?: string;
+  answer_log_id?: string;
   leech_suggested?: boolean;
   learn_ahead_minutes?: number;
+  topic_code?: string | null;
+  topic_name?: string | null;
+  subject_short_name?: string | null;
+  note_links?: FlashcardNoteLink[];
+};
+
+export type FlashcardNoteLink = {
+  id: string;
+  label: string;
+  href: string;
+  is_solution: boolean;
 };
 
 export type FlashcardType = 'text_cloze' | 'image_occlusion';

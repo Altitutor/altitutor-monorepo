@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(15);
+SELECT plan(18);
 
 INSERT INTO public.flashcards(id, topic_id, card_type, cloze_text, index)
 VALUES ('fa000000-0000-4000-8000-000000000001','30000000-0000-0000-0000-000000000001','text_cloze','{{c1::One}} {{c2::Two}}',990);
@@ -41,6 +41,27 @@ SELECT is((SELECT state FROM public.student_flashcard_review_states s JOIN publi
 SELECT is((SELECT buried_reason FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=2 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),NULL,'undo restores sibling burial');
 SELECT is((SELECT leech_lapses_notified FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=1 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),4,'undo restores the prior leech notification threshold');
 
+SELECT public.commit_flashcard_review_answer(
+  '10000000-0000-0000-0000-000000000001',
+  (SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1),
+  'fa100000-0000-4000-8000-000000000008','bounded-undo-answer',2,'2026-09-19T00:20:00Z',1000,'good',
+  'f5000000-0000-4000-8000-000000000001',1,'test',
+  '{"due_at":"2026-09-19T00:30:00Z","stability":1,"difficulty":5,"scheduled_days":0,"learning_steps":1,"reps":1,"lapses":0,"state":"Learning"}',
+  '{"studyDayEndsAt":"2026-09-19T18:30:00Z"}'
+);
+SELECT public.undo_flashcard_answer(
+  '10000000-0000-0000-0000-000000000001',
+  (SELECT id FROM public.student_flashcard_review_logs WHERE student_id='10000000-0000-0000-0000-000000000001' AND request_id='fa100000-0000-4000-8000-000000000008'),
+  'fa100000-0000-4000-8000-000000000009','undo:bounded'
+);
+SELECT is((SELECT state FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=1 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),'New','bounded undo restores the exact answer state');
+SELECT throws_ok($$SELECT public.undo_flashcard_answer(
+  '10000000-0000-0000-0000-000000000001',
+  (SELECT id FROM public.student_flashcard_review_logs WHERE student_id='10000000-0000-0000-0000-000000000001' AND request_id='fa100000-0000-4000-8000-000000000008'),
+  'fa100000-0000-4000-8000-000000000010','undo:bounded-again')$$,
+  '22023','flashcard_answer_not_undoable','the same answer cannot be undone twice');
+SELECT is((SELECT count(*)::integer FROM public.student_flashcard_review_logs WHERE undoes_log_id=(SELECT id FROM public.student_flashcard_review_logs WHERE student_id='10000000-0000-0000-0000-000000000001' AND request_id='fa100000-0000-4000-8000-000000000008')),1,'bounded undo writes one immutable undo receipt');
+
 SELECT public.manage_flashcard_review_card('10000000-0000-0000-0000-000000000001',(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1),'fa100000-0000-4000-8000-000000000004','suspend','suspend','2026-09-19T01:00:00Z');
 SELECT isnt((SELECT suspended_at FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=1 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),NULL,'student can suspend a card');
 SELECT public.manage_flashcard_review_card('10000000-0000-0000-0000-000000000001',(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1),'fa100000-0000-4000-8000-000000000005','resume','resume','2026-09-19T01:01:00Z');
@@ -48,7 +69,7 @@ SELECT is((SELECT suspended_at FROM public.student_flashcard_review_states s JOI
 UPDATE public.student_flashcard_review_states SET state='Review',stability=10,difficulty=5,reps=5 WHERE student_id='10000000-0000-0000-0000-000000000001' AND review_card_id=(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1);
 SELECT public.manage_flashcard_review_card('10000000-0000-0000-0000-000000000001',(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1),'fa100000-0000-4000-8000-000000000006','forget','forget','2026-09-19T01:02:00Z');
 SELECT is((SELECT state FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=1 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),'New','forget resets the card to New');
-SELECT ok((SELECT count(*) FROM public.student_flashcard_review_logs WHERE student_id='10000000-0000-0000-0000-000000000001' AND review_card_id=(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1) AND action='answer')=1,'forget retains immutable answer history');
+SELECT ok((SELECT count(*) FROM public.student_flashcard_review_logs WHERE student_id='10000000-0000-0000-0000-000000000001' AND review_card_id=(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1) AND action='answer')=2,'forget retains immutable answer history');
 
 INSERT INTO public.flashcards(id, topic_id, card_type, cloze_text, index)
 VALUES ('fa000000-0000-4000-8000-000000000002','30000000-0000-0000-0000-000000000001','text_cloze','{{c1::Service role}}',991);

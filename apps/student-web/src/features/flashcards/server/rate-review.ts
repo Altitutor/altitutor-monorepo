@@ -61,7 +61,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   };
   const { data: receipt, error: receiptError } = await adminClient
     .from('student_flashcard_review_logs')
-    .select('review_card_id, action, rating, answered_at, duration_ms, pre_revision, pre_state, result')
+    .select('id, review_card_id, action, rating, answered_at, duration_ms, pre_revision, pre_state, result')
     .eq('student_id', studentId)
     .eq('request_id', body.requestId)
     .maybeSingle();
@@ -77,6 +77,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     const row = replayedCard as FlashcardReviewCard;
     const replayPreviewSeed = createHash('sha256').update(`${row.id}:${row.revision}:${row.due_at}`).digest('hex');
     return NextResponse.json({ data: { ...row, rating_preview_seed: replayPreviewSeed,
+      answer_log_id: receipt.id,
       leech_suggested: Boolean(receiptResult.leechSuggested),
       rating_previews: buildRatingPreviews(
         row as ReviewStateRow,
@@ -139,12 +140,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (cardError) return captureApiErrorResponse(cardError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: cardError.message }, { status: 500 }));
 
   const row = updatedCard as FlashcardReviewCard;
+  const answerReceipt = commitResult as { leechSuggested?: boolean; reviewLogId?: string } | null;
   const nextPreviewSeed = createHash('sha256').update(`${row.id}:${row.revision}:${row.due_at}`).digest('hex');
   return NextResponse.json({
     data: {
       ...row,
       rating_preview_seed: nextPreviewSeed,
-      leech_suggested: Boolean((commitResult as { leechSuggested?: boolean } | null)?.leechSuggested),
+      answer_log_id: answerReceipt?.reviewLogId,
+      leech_suggested: Boolean(answerReceipt?.leechSuggested),
       rating_previews: buildRatingPreviews(
         row as ReviewStateRow,
         now,

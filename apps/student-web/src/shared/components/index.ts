@@ -14,4 +14,5 @@ export { ToastProviderWrapper } from './toast-provider-wrapper';
 export { LogoutConfirmationModal } from './logout-confirmation-modal';
 
 // Session display (used by sessions + bookings features)
-export { StudentSessionsCard } from './StudentSessionsCard'; 
+export { StudentSessionsCard } from './StudentSessionsCard';
+export { StudentDialogShell } from './student-dialog-shell';
