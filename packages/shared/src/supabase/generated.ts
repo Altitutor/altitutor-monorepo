@@ -40531,7 +40531,7 @@ export type Database = {
       }
       is_office_print_window_open: { Args: never; Returns: boolean }
       is_print_connector_online: {
-        Args: { p_stale_after?: unknown }
+        Args: { p_stale_after?: string }
         Returns: boolean
       }
       is_pristine_generated_class_session: {
@@ -42594,3 +42594,4 @@ export const Constants = {
     },
   },
 } as const
+
