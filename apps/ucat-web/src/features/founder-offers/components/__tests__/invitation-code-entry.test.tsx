@@ -59,11 +59,9 @@ it("keeps gift acceptance explicit after the sampler without granting access", a
       onCodeApplied={apply}
     />,
   );
-  await screen.findByRole("button", { name: "Accept gift and choose a plan" });
+  await screen.findByRole("button", { name: "Accept gift" });
   expect(apply).not.toHaveBeenCalled();
-  fireEvent.click(
-    screen.getByRole("button", { name: "Accept gift and choose a plan" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Accept gift" }));
   await waitFor(() => expect(apply).toHaveBeenCalledWith(offer.code));
   expect(fetch).toHaveBeenCalledTimes(1);
 });
@@ -78,7 +76,7 @@ it("Continue with Free does not apply or redeem the invitation", async () => {
       onCodeApplied={apply}
     />,
   );
-  await screen.findByRole("button", { name: "Accept gift and choose a plan" });
+  await screen.findByRole("button", { name: "Accept gift" });
   fireEvent.click(screen.getByRole("button", { name: "Continue with Free" }));
   expect(declined).toHaveBeenCalledTimes(1);
   expect(apply).not.toHaveBeenCalled();

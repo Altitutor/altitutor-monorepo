@@ -1,5 +1,5 @@
 "use client";
-import { useRef, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 export function NativeAuthReturn({
   callback,
@@ -12,11 +12,11 @@ export function NativeAuthReturn({
   challenge: string;
   email: string;
 }) {
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusy] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const lock = useRef(false);
   const [returnUrl, setReturnUrl] = useState<string | null>(null);
-  async function finish() {
+  const finish = useCallback(async () => {
     if (lock.current) return;
     lock.current = true;
     setBusy(true);
@@ -42,12 +42,15 @@ export function NativeAuthReturn({
       setReturnUrl(destination.toString());
       window.location.assign(destination.toString());
     } catch (e) {
+      lock.current = false;
       setError(e instanceof Error ? e.message : "Unable to sign in.");
     } finally {
-      lock.current = false;
       setBusy(false);
     }
-  }
+  }, [callback, challenge, state]);
+  useEffect(() => {
+    void finish();
+  }, [finish]);
   return (
     <main className="flex min-h-dvh items-center justify-center bg-background px-6 py-12">
       <section className="w-full max-w-md space-y-6 rounded-3xl border bg-card p-8 text-card-foreground shadow-sm">
@@ -55,10 +58,10 @@ export function NativeAuthReturn({
           ALTITUTOR UCAT
         </p>
         <h1 className="text-3xl font-semibold tracking-tight">
-          Ready to continue
+          Opening the UCAT app
         </h1>
         <p className="text-muted-foreground">
-          Continue to the UCAT app as{" "}
+          Signing you in as{" "}
           <span className="font-medium text-foreground">{email}</span>.
         </p>
         {error && (
@@ -66,13 +69,16 @@ export function NativeAuthReturn({
             {error}
           </p>
         )}
-        <Button
-          className="w-full"
-          disabled={busy}
-          onClick={() => void finish()}
-        >
-          {busy ? "Opening the app…" : "Continue to app"}
-        </Button>
+        {busy && <p role="status">Returning to the app…</p>}
+        {error && (
+          <Button
+            className="w-full"
+            disabled={busy}
+            onClick={() => void finish()}
+          >
+            Try again
+          </Button>
+        )}
         {returnUrl && (
           <a className="block text-center text-sm underline" href={returnUrl}>
             Open the app again

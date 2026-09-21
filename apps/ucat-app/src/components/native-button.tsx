@@ -1,7 +1,6 @@
-import { Image } from "expo-image";
 import { Pressable, Text } from "react-native";
 import { withHaptic } from "@/lib/haptics";
-import { useColors } from "./ui";
+import { buttonText, useColors } from "./ui";
 import type { NativeButtonProps } from "./native-button.types";
 
 export function NativeButton({
@@ -12,7 +11,6 @@ export function NativeButton({
   secondary,
   block,
   compact,
-  systemImage,
   tint: tintColor,
   accessibilityLabel: announced,
 }: NativeButtonProps) {
@@ -32,26 +30,17 @@ export function NativeButton({
         backgroundColor: secondary ? c.tint : color,
         alignItems: "center",
         justifyContent: "center",
-        flexDirection: "row",
-        gap: 4,
       }}
     >
       <Text
         style={{
-          color: secondary ? color : "#FFFFFF",
+          color: secondary ? color : buttonText(color),
           fontWeight: "600",
           fontSize: block ? 16 : compact ? 13 : 14,
         }}
       >
         {close ? "×" : title}
       </Text>
-      {systemImage && !close ? (
-        <Image
-          source={`sf:${systemImage}`}
-          style={{ width: 12, height: 12 }}
-          tintColor={secondary ? color : "#FFFFFF"}
-        />
-      ) : null}
     </Pressable>
   );
 }

@@ -460,7 +460,6 @@ function ScoreRow({
           title="View"
           secondary
           compact
-          systemImage="chevron.right"
           accessibilityLabel={viewLabel}
           onPress={onView}
         />

@@ -116,3 +116,41 @@ export function createAuthReturnHandler(dependencies: Dependencies) {
     return promise;
   };
 }
+
+type BrowserResult =
+  | { type: "success"; url: string }
+  | { type: "cancel" | "dismiss" | "locked" };
+
+/** Coordinates the browser result and the independently delivered native link. */
+export function createBrowserAuthFlow(dependencies: {
+  complete: (url: string) => Promise<void>;
+}) {
+  let launching = false;
+  let returning: Promise<void> | undefined;
+  function complete(url: string) {
+    const promise = dependencies.complete(url);
+    returning = promise;
+    void promise
+      .finally(() => {
+        if (returning === promise) returning = undefined;
+      })
+      .catch(() => undefined);
+    return promise;
+  }
+  async function launch(open: () => Promise<BrowserResult>) {
+    if (launching) return;
+    launching = true;
+    try {
+      await returning?.catch(() => undefined);
+      const result = await open();
+      if (result.type === "success") await complete(result.url);
+    } finally {
+      // Dismiss/cancel can precede the independently delivered deep link.
+      // Only the return handler consumes its verifier; another launch replaces it
+      // and the existing age check expires abandoned requests.
+      await returning?.catch(() => undefined);
+      launching = false;
+    }
+  }
+  return { complete, launch };
+}

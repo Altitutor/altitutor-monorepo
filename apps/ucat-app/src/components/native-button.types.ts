@@ -6,7 +6,6 @@ export type NativeButtonProps = {
   secondary?: boolean;
   block?: boolean;
   compact?: boolean;
-  systemImage?: "chevron.right";
   tint?: string;
   accessibilityLabel?: string;
 };

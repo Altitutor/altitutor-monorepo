@@ -2,6 +2,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
   createAuthReturnHandler,
+  createBrowserAuthFlow,
   parseAuthReturn,
   readPendingAuth,
   type PendingAuth,
@@ -105,4 +106,96 @@ test("Expo Go callback retains its /--/ route separator", () => {
     ticket: "a+b",
     state: "s",
   });
+});
+
+test("a browser dismissal before the native link still completes sign-in first time", async () => {
+  let saved: PendingAuth | null = pending;
+  let sessions = 0;
+  const clear = async () => {
+    saved = null;
+  };
+  const read = async () => saved;
+  const flow = createBrowserAuthFlow({
+    complete: createAuthReturnHandler({
+      read,
+      clear,
+      now: () => 2000,
+      exchange: async () => ({
+        access_token: "access",
+        refresh_token: "refresh",
+      }),
+      setSession: async () => {
+        sessions++;
+      },
+    }),
+  });
+  await flow.launch(async () => ({ type: "dismiss" }));
+  await flow.complete(returnUrl);
+  assert.equal(sessions, 1);
+  assert.equal(saved, null);
+});
+
+test("cancel leaves the verifier available for a cold native return", async () => {
+  let saved: PendingAuth | null = pending;
+  let signedIn = false;
+  const deps = {
+    read: async () => saved,
+    clear: async () => {
+      saved = null;
+    },
+    now: () => 2000,
+    exchange: async () => ({
+      access_token: "access",
+      refresh_token: "refresh",
+    }),
+    setSession: async () => {
+      signedIn = true;
+    },
+  };
+  const beforeRestart = createBrowserAuthFlow({
+    complete: createAuthReturnHandler(deps),
+  });
+  await beforeRestart.launch(async () => ({ type: "cancel" }));
+  const afterRestart = createBrowserAuthFlow({
+    complete: createAuthReturnHandler(deps),
+  });
+  await afterRestart.complete(returnUrl);
+  assert.equal(signedIn, true);
+});
+
+test("browser success and native link finish together without duplicate exchange", async () => {
+  const handler = setup();
+  const flow = createBrowserAuthFlow({ complete: handler.complete });
+  await Promise.all([
+    flow.launch(async () => ({ type: "success", url: returnUrl })),
+    flow.complete(returnUrl),
+  ]);
+  assert.equal(handler.counters().sessions, 1);
+  assert.equal(handler.counters().exchanges, 1);
+});
+
+test("launch excludes double taps, and cancellation permits a fresh launch", async () => {
+  let release: (() => void) | undefined;
+  const blocked = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let opened = 0;
+  const flow = createBrowserAuthFlow({ complete: async () => undefined });
+  const first = flow.launch(async () => {
+    opened++;
+    await blocked;
+    return { type: "cancel" };
+  });
+  await flow.launch(async () => {
+    opened++;
+    return { type: "cancel" };
+  });
+  assert.equal(opened, 1);
+  release?.();
+  await first;
+  await flow.launch(async () => {
+    opened++;
+    return { type: "cancel" };
+  });
+  assert.equal(opened, 2);
 });

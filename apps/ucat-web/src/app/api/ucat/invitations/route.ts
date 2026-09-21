@@ -140,7 +140,7 @@ export async function GET(request: NextRequest) {
         description: ucatFounderOfferDescription(offer),
         terms:
           offer.kind === "access_pass"
-            ? "Payment card required. Your selected plan renews automatically after the free period unless cancelled. One free-time founder offer per student; cannot be combined with a previous trial or referral gift."
+            ? "Your selected plan renews automatically after the free period unless cancelled. One free-time founder offer per student; cannot be combined with a previous trial or referral gift."
             : "For a new weekly, monthly or yearly Unlimited subscription. Applies to the current plan price and ends when your subscription ends. No other promotional offers; earned practice and referral rewards remain available.",
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
         .eq("student_id", student.id)
         .maybeSingle();
       if (holdError) throw holdError;
-      const sessionId =
+      let sessionId =
         typeof input.checkoutSessionId === "string"
           ? input.checkoutSessionId
           : hold?.checkout_session_id;
@@ -199,6 +199,29 @@ export async function POST(request: NextRequest) {
         throw new Error(
           "Checkout is still being prepared. Retry your original selection shortly.",
         );
+      // Expiry may have released the hold before older webhook code restored
+      // the referral. Recover its session from the gift itself in that case.
+      if (!sessionId) {
+        const { data: referral, error } = await supabaseAdmin
+          .from("ucat_referrals")
+          .select("referred_checkout_session_id")
+          .eq("referred_student_id", student.id)
+          .eq("gift_status", "checkout_pending")
+          .maybeSingle();
+        if (error) throw error;
+        sessionId = referral?.referred_checkout_session_id;
+      }
+      if (!sessionId) {
+        const { data: gift, error } = await supabaseAdmin
+          .from("ucat_referral_access_gifts")
+          .select("stripe_checkout_session_id")
+          .eq("student_id", student.id)
+          .eq("status", "checkout_pending")
+          .limit(1)
+          .maybeSingle();
+        if (error) throw error;
+        sessionId = gift?.stripe_checkout_session_id;
+      }
       if (sessionId) {
         if (!process.env.STRIPE_SECRET_KEY)
           throw new Error("Billing is temporarily unavailable.");

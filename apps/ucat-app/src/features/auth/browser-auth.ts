@@ -6,6 +6,7 @@ import { webUrl } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
 import {
   createAuthReturnHandler,
+  createBrowserAuthFlow,
   readPendingAuth,
   type AuthTokens,
   type PendingAuth,
@@ -66,29 +67,15 @@ const handleReturn = createAuthReturnHandler({
     if (error) throw error;
   },
 });
-let pendingReturn: Promise<void> | undefined;
-export function completeBrowserAuth(url: string) {
-  const promise = handleReturn(url);
-  pendingReturn = promise;
-  void promise
-    .finally(() => {
-      if (pendingReturn === promise) pendingReturn = undefined;
-    })
-    .catch(() => undefined);
-  return promise;
-}
-let launching = false;
+const browserAuth = createBrowserAuthFlow({ complete: handleReturn });
+export const completeBrowserAuth = browserAuth.complete;
 export async function signInWithBrowser(mode: "login" | "signup") {
-  if (launching) return;
-  launching = true;
-  await pendingReturn?.catch(() => undefined);
-  let state: string | undefined;
-  try {
+  return browserAuth.launch(async () => {
     const [verifier, nextState] = await Promise.all([
       randomSecret(),
       randomSecret(),
     ]);
-    state = nextState;
+    const state = nextState;
     const challenge = base64url(
       await Crypto.digestStringAsync(
         Crypto.CryptoDigestAlgorithm.SHA256,
@@ -106,14 +93,8 @@ export async function signInWithBrowser(mode: "login" | "signup") {
     if (mode === "signup")
       url.searchParams.set("redirect", handoff.pathname + handoff.search);
     const result = await openAuthSessionAsync(url.toString(), callback);
-    if (result.type === "success") await completeBrowserAuth(result.url);
-  } finally {
-    await pendingReturn?.catch(() => undefined);
-    try {
-      const pending = await store.read();
-      if (pending?.state === state) await store.clear();
-    } finally {
-      launching = false;
-    }
-  }
+    return result.type === "success"
+      ? { type: "success", url: result.url }
+      : { type: "dismiss" };
+  });
 }

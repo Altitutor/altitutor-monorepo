@@ -577,11 +577,6 @@ export default function Exam() {
             <Group>
               <Copy large>{exam.title}</Copy>
               <Copy>{exam.questions.length} questions</Copy>
-              <Copy muted>
-                {segments.some((s) => s.seconds)
-                  ? "The timer continues if you leave the app. Your answers are saved as you progress."
-                  : "Take your time. You can save and return to your attempt."}
-              </Copy>
             </Group>
             {errorView}
             {error instanceof ApiError &&

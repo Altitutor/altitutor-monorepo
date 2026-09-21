@@ -605,7 +605,7 @@ export function CheckoutPage() {
               </div>
             ) : null}
 
-            {pricing ? (
+            {pricing && standardTrialDays !== null && !checkoutError ? (
               <div className="mt-6">
                 <p className="text-lg font-semibold">
                   {offerTrialDays > 0

@@ -165,25 +165,22 @@ for (const acceptGift of [false, true]) {
       ).toBeVisible();
       await expect(
         page.getByRole("button", {
-          name: "Accept gift and choose a plan",
+          name: "Accept gift",
           exact: true,
         }),
       ).toBeVisible();
       await page
         .getByRole("button", {
-          name: acceptGift
-            ? "Accept gift and choose a plan"
-            : "Continue with Free",
+          name: acceptGift ? "Accept gift" : "Continue with Free",
           exact: true,
         })
         .click();
       if (acceptGift) {
-        await page
-          .getByRole("button", { name: /Subscribe|Start free trial/u })
-          .click();
         await expect(page).toHaveURL(
           (url) =>
             url.pathname === "/checkout" &&
+            url.searchParams.get("tier") === "unlimited" &&
+            url.searchParams.get("interval") === "month" &&
             url.searchParams.get("offer") === code,
         );
         await expect(

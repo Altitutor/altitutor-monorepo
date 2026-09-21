@@ -22,7 +22,6 @@ export function NativeButton({
   secondary = false,
   block = false,
   compact = false,
-  systemImage,
   tint: tintColor,
   accessibilityLabel: label,
 }: NativeButtonProps) {
@@ -45,7 +44,7 @@ export function NativeButton({
     >
       <Button
         label={title}
-        systemImage={close ? "xmark" : systemImage}
+        systemImage={close ? "xmark" : undefined}
         onPress={withHaptic(onPress)}
         modifiers={[
           buttonStyle(style),

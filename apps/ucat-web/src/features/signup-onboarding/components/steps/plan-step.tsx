@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
 import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
 import { InvitationCodeEntry } from "@/features/founder-offers/components/invitation-code-entry";
@@ -26,7 +26,7 @@ export function SignupCompletePlanStep({
 }: SignupCompletePlanStepProps) {
   const queryClient = useQueryClient();
   const code = founderInvitationCode(returnTo);
-  const [choosingPlan, setChoosingPlan] = useState(false);
+  const router = useRouter();
   const continueFree = () => {
     rememberInvitation(null);
     onComplete();
@@ -36,23 +36,32 @@ export function SignupCompletePlanStep({
     queryFn: fetchReferralGifts,
   });
 
-  if (code && !choosingPlan) {
+  if (code) {
     return (
       <InvitationCodeEntry
         initialCode={code}
         presentation="gift"
         onOfferLoaded={onGiftReady}
         onDeclined={continueFree}
-        onCodeApplied={() => setChoosingPlan(true)}
+        onCodeApplied={(offerCode) => {
+          const params = new URLSearchParams({
+            tier: "unlimited",
+            interval: "month",
+            context: "signup_onboarding",
+            offer: offerCode,
+            redirect: returnTo,
+          });
+          router.push(`/checkout?${params.toString()}`);
+        }}
       />
     );
   }
 
-  if (!code && giftQuery.isLoading) {
+  if (giftQuery.isLoading) {
     return <Skeleton className="h-72 w-full rounded-3xl" />;
   }
 
-  if (!code && giftQuery.data?.pendingGift) {
+  if (giftQuery.data?.pendingGift) {
     return (
       <ReferralGiftCard
         gift={giftQuery.data.pendingGift}
@@ -71,8 +80,6 @@ export function SignupCompletePlanStep({
   return (
     <PlanPicker
       variant="onboarding"
-      invitationCode={code ?? undefined}
-      showInvitationEntry={!code}
       surfaceTheme="app"
       selectorTheme="app"
       checkoutReturnContext="signup_onboarding"

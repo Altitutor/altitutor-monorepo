@@ -1,4 +1,5 @@
 import { settleFounderCheckout, founderSubscriptionProperties, releaseUcatCheckoutHold } from "./shared/ucat-founder-offers.ts";
+import { releaseExpiredReferralCheckout } from "./shared/ucat-referral-checkout-expiry.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { retrievePaidInvoiceWithLines } from "./shared/invoice-retrieval.ts";
 import { serveWithSentry } from "../_shared/sentry.ts";
@@ -1321,6 +1322,7 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
 
       case "checkout.session.expired": {
         const session = event.data.object as { id: string; metadata?: Record<string, string> };
+        await releaseExpiredReferralCheckout(supabase, session);
         await releaseUcatCheckoutHold(supabase, session);
         if (session.metadata?.ucat_founder_redemption_id && session.metadata?.student_id) {
           await settleFounderCheckout(supabase, {

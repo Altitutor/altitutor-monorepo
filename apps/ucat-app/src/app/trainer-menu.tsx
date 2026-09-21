@@ -21,7 +21,6 @@ export default function TrainerMenu() {
           }}
         />
       </Group>
-      <Copy muted>The timer continues while this menu is open.</Copy>
     </Screen>
   );
 }
