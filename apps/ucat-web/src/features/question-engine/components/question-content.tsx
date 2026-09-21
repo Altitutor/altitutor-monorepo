@@ -202,6 +202,7 @@ type QuestionContentProps = {
   /** When true (e.g. in-exam review), show explanations when the question/options include them. */
   showAnswerExplanations?: boolean;
   highlightText?: string;
+  /** Require drag-and-drop; click-to-toggle is off unless explicitly disabled. */
   placementDragOnly?: boolean;
   placementLockedOptionIds?: readonly string[];
   placementCorrectOptionIds?: readonly string[];
@@ -216,7 +217,7 @@ function PlacementQuestionContent({
   preloadedContent,
   showAnswerExplanations,
   highlightText,
-  placementDragOnly = false,
+  placementDragOnly = true,
   placementLockedOptionIds = [],
   placementCorrectOptionIds = [],
   onPlacementClickAttempt,

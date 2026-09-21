@@ -408,7 +408,6 @@ export function QuestionEnginePage({
   tutorialLockedPlacementOptionIds = {},
   tutorialCorrectPlacementOptionIds = {},
   tutorialHighlightText,
-  tutorialPlacementDragOnly = false,
   tutorialHidePrevious = false,
   tutorialHidePrimaryAction = false,
   tutorialPrimaryActionLabel,
@@ -480,8 +479,6 @@ export function QuestionEnginePage({
   tutorialCorrectPlacementOptionIds?: Record<string, readonly string[]>;
   /** Emphasise exact plain text referenced by sampler coaching. */
   tutorialHighlightText?: string;
-  /** Require drag-and-drop for tutorial placement tokens. */
-  tutorialPlacementDragOnly?: boolean;
   /** Hide Previous while preserving the normal engine default. */
   tutorialHidePrevious?: boolean;
   /** Let an external feedback card own progression after a correct answer. */
@@ -3268,7 +3265,7 @@ export function QuestionEnginePage({
               question={currentQuestion}
               readOnly={tutorialQuestionLocked}
               highlightText={tutorialHighlightText}
-              placementDragOnly={tutorialMode && tutorialPlacementDragOnly}
+              placementDragOnly
               placementLockedOptionIds={
                 currentQuestion
                   ? tutorialLockedPlacementOptionIds[currentQuestion.id]

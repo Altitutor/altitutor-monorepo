@@ -111,6 +111,24 @@ describe("QuestionContent placement restoration", () => {
     });
   });
 
+  it("does not assign a token by clicking the drop box", () => {
+    const onChangePlacementSnapshot = jest.fn();
+    render(
+      <QuestionContent
+        question={question}
+        onSelectOption={() => undefined}
+        onChangePlacementSnapshot={onChangePlacementSnapshot}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByLabelText("Drop Yes or No here")[0]!);
+
+    expect(onChangePlacementSnapshot).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByLabelText("Drop Yes or No here")[0],
+    ).not.toHaveTextContent("Yes");
+  });
+
   it("assigns a Yes token with mouse dragging when placement is drag-only", () => {
     const onChangePlacementSnapshot = jest.fn();
     const onPlacementClickAttempt = jest.fn();

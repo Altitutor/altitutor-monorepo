@@ -197,10 +197,6 @@ function PlacementPreviewBody({
     }
   }
 
-  const handleAssign = (optionId: string, choice: PlacementValue) => {
-    setAnswers((prev) => assignChoice(prev, optionId, choice, null))
-  }
-
   useEffect(() => {
     const finishTouchDrag = (event: PointerEvent) => {
       const drag = touchDragRef.current
@@ -482,17 +478,6 @@ function PlacementPreviewBody({
                     aria-label={
                       interactive
                         ? `Drop ${positiveToken.label} or ${negativeToken.label} here`
-                        : undefined
-                    }
-                    onClick={
-                      interactive && presentation.reuse !== 'once_each'
-                        ? () =>
-                            handleAssign(
-                              option.id,
-                              choice === positiveToken.value
-                                ? negativeToken.value
-                                : positiveToken.value,
-                            )
                         : undefined
                     }
                   >
