@@ -4,5 +4,5 @@ module.exports = {
   rules: {
     "react-hooks/set-state-in-effect": "off",
   },
-  ignorePatterns: ["dist/", "android/", "ios/", ".expo/"],
+  ignorePatterns: ["dist/", "android/", "ios/", ".expo/", "metro.config.js"],
 };

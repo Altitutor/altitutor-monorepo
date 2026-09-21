@@ -10,6 +10,7 @@ import { AppState } from "react-native";
 import type { Session } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/lib/supabase";
+import { bindSentryUser } from "@/lib/sentry-client";
 
 const AuthContext = createContext<{
   session: Session | null;
@@ -26,6 +27,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     } = supabase.auth.onAuthStateChange((_event, next) => {
       if (userId.current !== next?.user.id) queries.clear();
       userId.current = next?.user.id;
+      bindSentryUser(next?.user.id);
       setSession(next);
       setLoading(false);
     });

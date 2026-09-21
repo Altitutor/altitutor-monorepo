@@ -22,11 +22,26 @@
     "plugins": [
       "expo-router",
       "expo-secure-store",
-      "expo-web-browser"
+      "expo-web-browser",
+      [
+        "@sentry/react-native",
+        {
+          "url": "https://sentry.io/",
+          "organization": "altitutor",
+          "project": "ucat-app"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
       "autolinkingModuleResolution": true
+    },
+    "owner": "altitutor",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "26e94f76-85ab-428f-8ad3-978fac62380b"
+      }
     }
   }
 }

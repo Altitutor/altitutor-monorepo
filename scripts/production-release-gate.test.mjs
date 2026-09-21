@@ -564,3 +564,27 @@ test("the native student app has an executable unit-test baseline", async () => 
   assert.equal(packageJson.scripts.test, "tsx --test src/**/*.test.ts");
   assert.equal(packageJson.devDependencies.tsx, "^4.20.6");
 });
+
+test("the UCAT native app instruments Sentry and keeps store submit manual", async () => {
+  const [packageJson, appConfig, workflow] = await Promise.all([
+    readFile(new URL("../apps/ucat-app/package.json", import.meta.url), "utf8"),
+    readFile(new URL("../apps/ucat-app/app.json", import.meta.url), "utf8"),
+    readFile(
+      new URL("../.github/workflows/eas-ucat-app.yml", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  const parsedPackage = JSON.parse(packageJson);
+  const parsedApp = JSON.parse(appConfig);
+
+  assert.equal(parsedPackage.dependencies["@sentry/react-native"], "~7.11.0");
+  assert.match(JSON.stringify(parsedApp.expo.plugins), /@sentry\/react-native/u);
+  assert.match(workflow, /^on:\n  workflow_dispatch:/mu);
+  assert.doesNotMatch(workflow, /^  push:/mu);
+  assert.match(workflow, /default: false/u);
+  assert.match(workflow, /--auto-submit/u);
+  assert.match(
+    workflow,
+    /Store submit is only allowed for the production profile/u,
+  );
+});

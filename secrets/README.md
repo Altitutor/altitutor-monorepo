@@ -123,7 +123,8 @@ Environment-specific values such as:
 - `OPENROUTER_API_KEY` (tutor-web UCAT AI generation)
 - `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` (shared Sentry build credentials)
 - `{APP}_SENTRY_DSN` and `{APP}_SENTRY_PROJECT` for each independently
-  deployed web app, such as `UCAT_WEB_SENTRY_DSN`
+  deployed web app, such as `UCAT_WEB_SENTRY_DSN`, plus `UCAT_APP_SENTRY_DSN`
+  / `UCAT_APP_SENTRY_PROJECT` for the UCAT native app
 - `SUPABASE_SENTRY_DSN` for the dedicated Deno project used by Supabase Edge
   Functions (the same project DSN can be used in both environment files)
 - UCAT social provider credentials (`SUPABASE_AUTH_EXTERNAL_GOOGLE_*` and
@@ -171,16 +172,23 @@ Projects currently deployed by the script:
 - `altitutor-tutor-web` (`apps/tutor-web`)
 - `altitutor-ucat-web` (`apps/ucat-web`)
 
-### EAS (`apps/student-app`)
+### EAS (`apps/student-app`, `apps/ucat-app`)
 
 - Development + preview: `EXPO_PUBLIC_*` derived from `.env.development`
 - Production: `EXPO_PUBLIC_*` derived from `.env.production`
+
+`ucat-app` is skipped until `app.json` contains `expo.extra.eas.projectId`
+(`cd apps/ucat-app && eas init`).
 
 Variables:
 
 - `EXPO_PUBLIC_SUPABASE_URL` (from `SUPABASE_PROJECT_REF`)
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY` (from `SUPABASE_PUBLISHABLE_KEY`)
 - `EXPO_PUBLIC_STUDENT_WEB_URL` (from `NEXT_PUBLIC_STUDENT_URL` / `EXPO_PUBLIC_STUDENT_WEB_URL`, or defaults)
+- `EXPO_PUBLIC_UCAT_WEB_URL` (from `NEXT_PUBLIC_UCAT_URL` / `EXPO_PUBLIC_UCAT_WEB_URL`, or defaults)
+- `EXPO_PUBLIC_SENTRY_DSN` (from `UCAT_APP_SENTRY_DSN`, ucat-app only)
+- `EXPO_PUBLIC_SENTRY_ENVIRONMENT` (`development`, `preview`, or `production`)
+- `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` for native source-map upload (ucat-app only)
 
 Mapping:
 
@@ -303,6 +311,10 @@ vercel env ls --project altitutor-ucat-web
 
 ```bash
 cd apps/student-app
+eas env:list --environment development
+eas env:list --environment preview
+eas env:list --environment production
+cd ../ucat-app
 eas env:list --environment development
 eas env:list --environment preview
 eas env:list --environment production

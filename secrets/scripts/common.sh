@@ -176,6 +176,92 @@ derive_expo_env_vars() {
     fi
 }
 
+# Function to derive Expo client environment variables for ucat-app EAS builds
+derive_ucat_expo_env_vars() {
+    local env_file=$1
+    local eas_environment=$2
+    local project_ref=""
+    local publishable_key=""
+    local ucat_url=""
+    local sentry_dsn=""
+    local sentry_org=""
+    local sentry_project=""
+    local sentry_auth_token=""
+
+    while IFS='=' read -r key value; do
+        case "$key" in
+            SUPABASE_PROJECT_REF|SUPABASE_PROJECT_ID)
+                project_ref="$value"
+                ;;
+            SUPABASE_PUBLISHABLE_KEY)
+                publishable_key="$value"
+                ;;
+            NEXT_PUBLIC_UCAT_URL|EXPO_PUBLIC_UCAT_WEB_URL)
+                ucat_url="$value"
+                ;;
+            UCAT_APP_SENTRY_DSN)
+                sentry_dsn="$value"
+                ;;
+            UCAT_APP_SENTRY_PROJECT)
+                sentry_project="$value"
+                ;;
+            SENTRY_ORG)
+                sentry_org="$value"
+                ;;
+            SENTRY_AUTH_TOKEN)
+                sentry_auth_token="$value"
+                ;;
+        esac
+    done < <({
+        parse_env_file "$SECRETS_DIR/.env.shared"
+        parse_env_file "$env_file"
+    })
+
+    if [ -n "$project_ref" ]; then
+        echo "EXPO_PUBLIC_SUPABASE_URL=https://${project_ref}.supabase.co"
+    fi
+
+    if [ -n "$publishable_key" ]; then
+        echo "EXPO_PUBLIC_SUPABASE_ANON_KEY=${publishable_key}"
+    fi
+
+    if [ -n "$ucat_url" ]; then
+        echo "EXPO_PUBLIC_UCAT_WEB_URL=${ucat_url}"
+    elif [[ "$env_file" == *production* ]]; then
+        echo "EXPO_PUBLIC_UCAT_WEB_URL=https://ucat.altitutor.com"
+    else
+        echo "EXPO_PUBLIC_UCAT_WEB_URL=https://ucat.development.altitutor.com"
+    fi
+
+    if [ -n "$sentry_dsn" ]; then
+        echo "EXPO_PUBLIC_SENTRY_DSN=${sentry_dsn}"
+    fi
+    echo "EXPO_PUBLIC_SENTRY_ENVIRONMENT=${eas_environment}"
+
+    if [ -n "$sentry_org" ]; then
+        echo "SENTRY_ORG=${sentry_org}"
+    fi
+    if [ -n "$sentry_project" ]; then
+        echo "SENTRY_PROJECT=${sentry_project}"
+    else
+        echo "SENTRY_PROJECT=ucat-app"
+    fi
+    if [ -n "$sentry_auth_token" ]; then
+        echo "SENTRY_AUTH_TOKEN=${sentry_auth_token}"
+    fi
+}
+
+eas_project_id() {
+    local app_dir=$1
+    python3 - "$app_dir" <<'PY'
+import json
+import sys
+
+config = json.load(open(f"{sys.argv[1]}/app.json"))
+print(config.get("expo", {}).get("extra", {}).get("eas", {}).get("projectId", ""))
+PY
+}
+
 # Function to get a specific env var value from a file
 get_env_value() {
     local env_file=$1

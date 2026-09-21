@@ -14,8 +14,9 @@ pnpm --filter @altitutor/ucat-app start
 ```
 
 Copy `.env.example` to `.env.local` in this directory and configure the public
-Supabase URL/key and the UCAT web origin. The app and API must use the **same
-Supabase project**. Never put a service-role key into Expo public variables.
+Supabase URL/key, the UCAT web origin, and `EXPO_PUBLIC_SENTRY_DSN`. The app
+and API must use the **same Supabase project**. Never put a service-role key
+into Expo public variables.
 
 For seeded local development, start the repository's Supabase stack and UCAT
 fixtures using its normal setup, then run these in separate terminals:
@@ -101,7 +102,12 @@ builds refresh injected copies through `syncInjectedDepsAfterScripts`.
 
 The accompanying `ucat-web` bearer-auth and signed-file response changes must be
 deployed before pointing the app at that environment. No database migration is
-required. `eas.json` provides development, preview, and production profiles;
-register the new EAS project and app-store signing identities before distribution.
-Existing `student-app` development clients need rebuilding for SDK 57. Store
-submission and hosted deployment are separate from local development.
+required. `eas.json` provides development, preview, and production profiles.
+Register the EAS project (`cd apps/ucat-app && eas init`), add the resulting
+`projectId` to `app.json`, and store App Store / Play signing identities in EAS
+before the first store build. Source maps upload during native EAS builds when
+`SENTRY_AUTH_TOKEN` is present. Trigger builds from GitHub Actions workflow
+`UCAT app EAS` (`workflow_dispatch` only; store submit is production-profile
+and opt-in). Existing `student-app` development clients need rebuilding for
+SDK 57. Store submission and hosted deployment are separate from local
+development.

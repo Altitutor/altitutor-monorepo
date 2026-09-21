@@ -1,4 +1,4 @@
-# Monorepo CI for all workspace apps (admin-web, tutor-web, student-web, marketing-web, ucat-web, student-app, packages).
+# Monorepo CI for all workspace apps (admin-web, tutor-web, student-web, marketing-web, ucat-web, student-app, ucat-app, packages).
 # PRs and development run affected packages. Production releases run the full monorepo.
 name: CI
 

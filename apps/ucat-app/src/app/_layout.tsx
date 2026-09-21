@@ -1,8 +1,10 @@
+import { Sentry } from "@/lib/sentry-client";
 import {
   SheetNavigationProvider,
   useSheetTransition,
 } from "@/features/navigation/use-open-screen";
 import { LessonNavigationProvider } from "@/features/learning/lesson-navigation";
+import { useOnboardingAccess } from "@/features/auth/onboarding-access";
 import { ReviewNavigationProvider } from "@/features/attempts/review-navigation";
 import { TrainerToolsProvider } from "@/features/skill-trainer/components/trainer-tools";
 import { Platform, View } from "react-native";
@@ -17,13 +19,14 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/features/auth/auth-provider";
 import { Loading, Screen, useColors } from "@/components/ui";
-export default function Root() {
+function Root() {
   return (
     <AppThemeProvider>
       <ThemedRoot />
     </AppThemeProvider>
   );
 }
+export default Sentry.wrap(Root);
 function ThemedRoot() {
   const { scheme: colorScheme } = useAppTheme();
   const c = useColors();
@@ -75,16 +78,18 @@ function ThemedRoot() {
 function Navigation() {
   const finishSheetTransition = useSheetTransition();
   const { session, loading } = useAuth();
+  const access = useOnboardingAccess();
+  const ready = Boolean(session && access.data?.completed && !access.error);
   const c = useColors();
   if (loading)
     return (
       <Screen>
-        <Loading />
+        <Loading variant="card" count={3} />
       </Screen>
     );
   return (
     <View style={{ flex: 1, backgroundColor: c.background }}>
-      {session && <AttemptBanner />}
+      {ready && <AttemptBanner />}
       <Stack
         unstable_nativeProps={{ onFinishTransitioning: finishSheetTransition }}
         screenOptions={{
@@ -98,7 +103,17 @@ function Navigation() {
         <Stack.Protected guard={!session}>
           <Stack.Screen name="login" options={{ title: "Welcome to UCAT" }} />
         </Stack.Protected>
-        <Stack.Protected guard={Boolean(session)}>
+        <Stack.Protected guard={Boolean(session) && !ready}>
+          <Stack.Screen
+            name="onboarding-required"
+            options={{
+              title: "Finish setting up",
+              headerBackVisible: false,
+              gestureEnabled: false,
+            }}
+          />
+        </Stack.Protected>
+        <Stack.Protected guard={ready}>
           <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
           <Stack.Screen
             name="settings"
