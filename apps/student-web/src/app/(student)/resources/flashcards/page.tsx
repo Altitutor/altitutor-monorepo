@@ -14,6 +14,28 @@ import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { useRef, useState } from 'react';
 
+type UndoCommandError = Error & {
+  code?: string;
+  status?: number;
+};
+
+const undoConflictRetryDelayMs = 100;
+
+async function submitUndoCommand(command: { requestId: string; answerLogId: string }): Promise<void> {
+  const response = await fetch('/api/flashcards/review-cards/undo', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(command),
+  });
+  if (response.ok) return;
+
+  const body = await response.json().catch(() => null) as { error?: string; code?: string } | null;
+  const error = new Error(body?.error ?? 'Undo failed') as UndoCommandError;
+  error.code = body?.code;
+  error.status = response.status;
+  throw error;
+}
+
 export default function DueFlashcardsPage() {
   const searchParams = useSearchParams();
   const [manageOpen, setManageOpen] = useState(false);
@@ -36,15 +58,15 @@ export default function DueFlashcardsPage() {
     undoPendingRef.current = true;
     setUndoPending(true);
     setUndoMessage(null);
+    const command = { requestId: crypto.randomUUID(), answerLogId: undoAnswerLogId };
     try {
-      const response = await fetch('/api/flashcards/review-cards/undo', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ requestId: crypto.randomUUID(), answerLogId: undoAnswerLogId }),
-      });
-      if (!response.ok) {
-        const body = await response.json().catch(() => null) as { error?: string } | null;
-        throw new Error(body?.error ?? 'Undo failed');
+      try {
+        await submitUndoCommand(command);
+      } catch (error) {
+        const commandError = error as UndoCommandError;
+        if (commandError.status !== 409 || commandError.code !== 'flashcard_command_in_progress') throw error;
+        await new Promise((resolve) => window.setTimeout(resolve, undoConflictRetryDelayMs));
+        await submitUndoCommand(command);
       }
       const refreshed = await refetch();
       if (refreshed.error) throw refreshed.error;
@@ -52,10 +74,17 @@ export default function DueFlashcardsPage() {
       setUndoAnswerLogId(null);
       setUndoMessage({ kind: 'success', text: 'Your last answer was undone.' });
     } catch (error) {
+      const commandError = error as UndoCommandError;
       const noAnswer = error instanceof Error && error.message.includes('no_flashcard_answer_to_undo');
+      const staleAnswer = commandError.code === 'flashcard_undo_conflict';
+      if (staleAnswer) setUndoAnswerLogId(null);
       setUndoMessage({
         kind: 'error',
-        text: noAnswer ? 'There is no answer to undo.' : 'Your last answer could not be undone. Please try again.',
+        text: noAnswer
+          ? 'There is no answer to undo.'
+          : staleAnswer
+            ? 'That answer can no longer be undone because the card has changed.'
+            : 'Your last answer could not be undone. Please try again.',
       });
     } finally {
       undoPendingRef.current = false;

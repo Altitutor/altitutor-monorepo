@@ -234,13 +234,13 @@ export function FlashcardReviewSession({
     answerInFlightRef.current = true;
     setIsAnswerPending(true);
     onAnswerPendingChange?.(true);
+    reviewedDueIdsRef.current.add(reviewCardId);
+    setReviewedDueCount((current) => current + 1);
+    setShowAnswer(false);
+    setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
+    showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
     void rateReviewCard(command).then((nextCard) => {
       failedCommandRef.current = null;
-      reviewedDueIdsRef.current.add(reviewCardId);
-      setReviewedDueCount((current) => current + 1);
-      setShowAnswer(false);
-      setDueQueue((current) => current.filter((item) => item.id !== reviewCardId));
-      showFeedback(rating === 'again' ? 'incorrect' : 'correct', feedbackClassName);
       if (nextCard.answer_log_id) onAnswerCommitted?.(nextCard.answer_log_id);
       scheduleDueCard(nextCard);
       if (nextCard.leech_suggested && window.confirm('This card has been repeatedly difficult. Suspend it for now?')) {
@@ -251,6 +251,12 @@ export function FlashcardReviewSession({
       }
     }).catch((error: unknown) => {
       failedCommandRef.current = (error as { status?: number }).status === 409 ? null : command;
+      reviewedDueIdsRef.current.delete(reviewCardId);
+      setReviewedDueCount((current) => Math.max(0, current - 1));
+      setDueQueue((current) => current.some((item) => item.id === reviewCardId) ? current : [card, ...current]);
+      if (feedbackTimerRef.current) window.clearTimeout(feedbackTimerRef.current);
+      feedbackTimerRef.current = null;
+      setFeedback(null);
       setShowAnswer(true);
       setSaveError('Your answer was not saved. Please try again. Your card and progress have been restored.');
     }).finally(() => {
@@ -344,6 +350,14 @@ export function FlashcardReviewSession({
   }
 
   if (!card || !displayCard) {
+    if (mode === 'due' && isAnswerPending) {
+      return (
+        <div className={studentCardCn('p-6 text-center')} role="status">
+          <h2 className="text-xl font-semibold">Saving answer…</h2>
+          <p className="mt-2 text-sm text-muted-foreground">Your review will finish as soon as it is safely saved.</p>
+        </div>
+      );
+    }
     return (
       <div className={studentCardCn('p-6 text-center')}>
         <h2 className="text-xl font-semibold">No cards to review</h2>

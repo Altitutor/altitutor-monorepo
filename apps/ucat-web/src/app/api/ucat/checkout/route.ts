@@ -613,6 +613,20 @@ export async function POST(request: NextRequest) {
         .delete()
         .eq("id", checkoutHold.id)
         .is("checkout_session_id", null);
+      if (
+        error instanceof Error &&
+        error.message ===
+          "Cancel your open checkout before starting a free access pass."
+      ) {
+        return NextResponse.json(
+          {
+            code: "CHECKOUT_SETUP_REQUIRED",
+            error:
+              "Invitation checkout is temporarily unavailable. Please try again later.",
+          },
+          { status: 503 },
+        );
+      }
       return NextResponse.json(
         {
           error:

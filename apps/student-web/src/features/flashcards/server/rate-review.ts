@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (!accessibleCard) return NextResponse.json({ error: 'flashcard_review_card_not_accessible' }, { status: 404 });
 
   if (!accessibleCard.topic_id) return NextResponse.json({ error: 'flashcard_topic_not_found' }, { status: 404 });
-  const adminClient = getServerSupabaseAdmin();
+  const adminClient = getServerSupabaseAdmin({ retry: false });
   const { data: topic, error: topicError } = await adminClient.from('topics').select('subject_id').eq('id', accessibleCard.topic_id).single();
   if (topicError || !topic?.subject_id) return captureApiErrorResponse(topicError ?? new Error('flashcard_subject_not_found'), '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: 'Unable to resolve flashcard subject' }, { status: 500 }));
   const { data: assignment, error: assignmentError } = await adminClient.from('subject_flashcard_study_presets').select('preset_id').eq('subject_id', topic.subject_id).maybeSingle();
@@ -128,7 +128,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     p_next_state: nextState, p_result: { due_at: nextCard.due.toISOString(), previewSeed: body.previewSeed, studyDayEndsAt: studyDayBounds[0].ends_at, learnAheadMinutes: presetVersion.learn_ahead_minutes, leechThreshold: presetVersion.leech_threshold, leechReminderInterval: presetVersion.leech_reminder_interval },
   });
   if (error) {
-    const status = error.code === '40001' ? 409 : 500;
+    const status = error.code === 'PT409' || error.code === '40001' ? 409 : 500;
     return captureApiErrorResponse(error, '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: error.message }, { status }));
   }
 

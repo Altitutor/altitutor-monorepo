@@ -1,5 +1,7 @@
 import type { UcatCheckoutRequest } from "@/lib/ucat/subscription-plan";
 
+export class CheckoutSetupRequiredError extends Error {}
+
 /**
  * Creates a Stripe Checkout Session for UCAT subscription.
  * Returns the client secret for Stripe's custom Checkout UI.
@@ -24,6 +26,9 @@ export async function createUcatCheckoutSession(
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
     const message = (body as { error?: string })?.error ?? res.statusText;
+    if (body.code === "CHECKOUT_SETUP_REQUIRED") {
+      throw new CheckoutSetupRequiredError(message);
+    }
     throw new Error(message);
   }
 

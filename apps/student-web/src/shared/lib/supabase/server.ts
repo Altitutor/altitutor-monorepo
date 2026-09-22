@@ -47,7 +47,7 @@ export function getServerSupabaseClient() {
  * Note: SUPABASE_SERVICE_ROLE_KEY is automatically derived from SUPABASE_SECRET_KEY
  * by the deployment scripts for backward compatibility.
  */
-export function getServerSupabaseAdmin() {
+export function getServerSupabaseAdmin(options: { retry?: boolean } = {}) {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
@@ -55,6 +55,7 @@ export function getServerSupabaseAdmin() {
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
       process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder-key',
       {
+        db: { retry: options.retry ?? true },
         auth: {
           autoRefreshToken: false,
           persistSession: false,
@@ -73,6 +74,7 @@ export function getServerSupabaseAdmin() {
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY,
     {
+      db: { retry: options.retry ?? true },
       auth: {
         autoRefreshToken: false,
         persistSession: false,

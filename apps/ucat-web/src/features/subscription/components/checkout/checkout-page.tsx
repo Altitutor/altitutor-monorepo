@@ -25,7 +25,10 @@ import {
   TooltipTrigger,
 } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
-import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
+import {
+  createUcatCheckoutSession,
+  CheckoutSetupRequiredError,
+} from "@/features/subscription/api/create-checkout";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
@@ -147,7 +150,7 @@ export function CheckoutPage() {
   const searchParams = useSearchParams();
   const { resolvedTheme } = useTheme();
   const tierParam = searchParams.get("tier");
-  const intervalParam = searchParams.get("interval");
+  const intervalParam = searchParams.get("interval") ?? "month";
   const contextParam = searchParams.get("context");
   const founderCode = searchParams.get("offer") ?? undefined;
   const [founderPercentOff, setFounderPercentOff] = useState<number | null>(
@@ -170,6 +173,8 @@ export function CheckoutPage() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+  const [changingInterval, setChangingInterval] = useState(false);
+  const [checkoutSetupRequired, setCheckoutSetupRequired] = useState(false);
   const [referralGiftApplied, setReferralGiftApplied] = useState(false);
   const [offerTrialDays, setOfferTrialDays] = useState(0);
   const [standardTrialDays, setStandardTrialDays] = useState<number | null>(
@@ -219,6 +224,7 @@ export function CheckoutPage() {
         setStandardTrialDays(session.trialEligible ? session.trialDays : 0);
       })
       .catch((error: unknown) => {
+        setCheckoutSetupRequired(error instanceof CheckoutSetupRequiredError);
         setCheckoutError(
           error instanceof Error
             ? error.message
@@ -295,6 +301,25 @@ export function CheckoutPage() {
     params.delete("gift");
     window.location.assign(`/checkout?${params.toString()}`);
   };
+  const changeInterval = async (nextInterval: "week" | "month") => {
+    if (nextInterval === interval || changingInterval || checkoutSubmitting)
+      return;
+    setChangingInterval(true);
+    setClientSecret(null);
+    try {
+      await cancelCurrentCheckout();
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("interval", nextInterval);
+      window.location.assign(`/checkout?${params.toString()}`);
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : "Could not change billing interval.",
+      );
+      setChangingInterval(false);
+    }
+  };
 
   return (
     <div className="relative min-h-dvh bg-background text-foreground">
@@ -367,22 +392,24 @@ export function CheckoutPage() {
                   >
                     Retry checkout
                   </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      void cancelCurrentCheckout()
-                        .then(() => window.location.reload())
-                        .catch((error: unknown) =>
-                          setCheckoutError(
-                            error instanceof Error
-                              ? error.message
-                              : "Could not close checkout.",
-                          ),
-                        );
-                    }}
-                  >
-                    Cancel open checkout and restart
-                  </Button>
+                  {!checkoutSetupRequired && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        void cancelCurrentCheckout()
+                          .then(() => window.location.reload())
+                          .catch((error: unknown) =>
+                            setCheckoutError(
+                              error instanceof Error
+                                ? error.message
+                                : "Could not close checkout.",
+                            ),
+                          );
+                      }}
+                    >
+                      Cancel open checkout and restart
+                    </Button>
+                  )}
                 </div>
               ) : clientSecret ? (
                 <CheckoutProvider
@@ -446,7 +473,9 @@ export function CheckoutPage() {
               <InvitationCodeEntry
                 appearance="plain"
                 initialCode={founderCode}
-                disabled={checkoutSubmitting || !checkoutSessionId}
+                disabled={
+                  checkoutSubmitting || changingInterval || !checkoutSessionId
+                }
                 onCodeApplied={async (code) => {
                   await cancelCurrentCheckout();
                   replaceOffer(code);
@@ -456,14 +485,43 @@ export function CheckoutPage() {
           </section>
 
           <aside className="rounded-3xl border border-border bg-card p-6 text-card-foreground shadow-2xl sm:p-8 lg:sticky lg:top-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Selected plan
-                </p>
-                <h2 className="mt-1 text-2xl font-bold">UCAT Unlimited</h2>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Selected plan
+              </p>
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold">UCAT Unlimited</h2>
+                <div
+                  role="group"
+                  aria-label="Billing interval"
+                  aria-busy={changingInterval}
+                  className="inline-flex shrink-0 rounded-full border border-border bg-muted/50 p-1"
+                >
+                  {(["week", "month"] as const).map((option) => (
+                    <button
+                      key={option}
+                      type="button"
+                      aria-pressed={interval === option}
+                      disabled={
+                        checkoutSubmitting ||
+                        changingInterval ||
+                        checkoutSetupRequired ||
+                        !checkoutSessionId ||
+                        !isPlanCheckoutAvailable(config, tier, option)
+                      }
+                      onClick={() => void changeInterval(option)}
+                      className={`rounded-full px-2.5 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 ${interval === option ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
+                    >
+                      {option === "week" ? "Weekly" : "Monthly"}
+                    </button>
+                  ))}
+                </div>
               </div>
-              <Sparkles className="h-7 w-7 text-primary" />
+              {changingInterval && (
+                <p role="status" className="mt-2 text-xs text-muted-foreground">
+                  Updating billing interval…
+                </p>
+              )}
             </div>
             <ul className="mt-6 space-y-3 text-sm">
               {features.map((feature) => (
@@ -717,6 +775,7 @@ export function CheckoutPage() {
                 configLoading ||
                 !clientSecret ||
                 Boolean(checkoutError) ||
+                changingInterval ||
                 checkoutSubmitting
               }
               className="mt-6 h-14 w-full rounded-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"

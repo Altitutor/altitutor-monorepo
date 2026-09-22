@@ -161,7 +161,7 @@ describe('FlashcardReviewSession', () => {
     expect(screen.getByRole('link', { name: /Solution: 1.1N.S/ })).toHaveAttribute('href', '/resources/12biol/1.1/1.1n.s');
   });
 
-  it('keeps the answered card on screen until its rating has been saved', async () => {
+  it('advances to the next card immediately while its rating is being saved', async () => {
     const first = textReviewCard('review-1', 'First');
     const second = textReviewCard('review-2', 'Second');
     mockRateReviewCard.mockImplementation(() => new Promise(() => undefined));
@@ -173,8 +173,8 @@ describe('FlashcardReviewSession', () => {
     fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
     fireEvent.click(screen.getByRole('button', { name: /Good/ }));
 
-    expect(screen.getByText(/First/)).toBeVisible();
-    expect(screen.getByRole('button', { name: /Good/ })).toBeDisabled();
+    await waitFor(() => expect(screen.getByText(/Second/)).toBeVisible());
+    expect(screen.queryByText(/First/)).not.toBeInTheDocument();
   });
 
   it('restores an undone card from the authoritative due snapshot', async () => {

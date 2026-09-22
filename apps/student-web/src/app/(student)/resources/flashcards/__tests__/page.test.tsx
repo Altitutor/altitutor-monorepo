@@ -123,4 +123,44 @@ describe('DueFlashcardsPage undo flow', () => {
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
+
+  it('retries one transient command conflict without showing an undo failure', async () => {
+    global.fetch = jest.fn()
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 409,
+        json: async () => ({
+          error: 'flashcard_command_in_progress',
+          code: 'flashcard_command_in_progress',
+        }),
+      })
+      .mockResolvedValueOnce({ ok: true });
+    render(<DueFlashcardsPage />);
+    act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo last answer' }));
+
+    await screen.findByText('Your last answer was undone.');
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText('Your last answer could not be undone. Please try again.')).not.toBeInTheDocument();
+  });
+
+  it('does not retry a true undo revision conflict', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: false,
+      status: 409,
+      json: async () => ({
+        error: 'flashcard_undo_conflict',
+        code: 'flashcard_undo_conflict',
+      }),
+    });
+    render(<DueFlashcardsPage />);
+    act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo last answer' }));
+
+    await screen.findByText('That answer can no longer be undone because the card has changed.');
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Undo last answer' })).toBeDisabled();
+  });
 });

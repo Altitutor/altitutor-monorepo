@@ -38,8 +38,8 @@ export function ActiveExamAttemptProvider({ children }: { children: ReactNode })
   const query = useQuery({
     queryKey: ["ucat", "active-exam-attempt"],
     queryFn: fetchActiveExamAttempt,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
   });
 
   useEffect(() => {

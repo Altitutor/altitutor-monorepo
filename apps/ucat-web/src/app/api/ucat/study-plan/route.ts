@@ -1,4 +1,5 @@
 import { captureApiError } from "@/lib/sentry/capture-api-error";
+import { isUnauthenticatedSessionError } from "@altitutor/shared";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import {
@@ -24,7 +25,9 @@ async function authenticatedClient() {
     data: { user },
     error,
   } = await supabase.auth.getUser();
-  if (error) throw new Error("Failed to get user.");
+  if (error && !isUnauthenticatedSessionError(error)) {
+    throw new Error("Failed to get user.", { cause: error });
+  }
   return { supabase, user };
 }
 

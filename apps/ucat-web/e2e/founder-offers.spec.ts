@@ -89,6 +89,72 @@ test("checkout applies a free-time code with Check code and updates due today @c
   await expect(page.getByText("First bill", { exact: true })).toBeVisible();
 });
 
+test("billing interval switches preserve the founder gift and default to monthly", async ({
+  page,
+}) => {
+  await prepareCheckout(page);
+  let cancellations = 0;
+  await page.route("**/api/ucat/invitations", (route) => {
+    cancellations++;
+    return route.fulfill({ json: { cancelled: true } });
+  });
+  await signInSeededStudent(page);
+  await page.goto(
+    "/checkout?tier=unlimited&context=signup_onboarding&offer=WELCOME&redirect=%2Fsubscribe",
+  );
+  const weekly = page.getByRole("button", { name: "Weekly", exact: true });
+  const monthly = page.getByRole("button", { name: "Monthly", exact: true });
+  await expect(monthly).toHaveAttribute("aria-pressed", "true");
+  await expect(weekly).toBeEnabled();
+  await weekly.click();
+  await expect(page).toHaveURL(
+    (url) =>
+      url.searchParams.get("interval") === "week" &&
+      url.searchParams.get("offer") === "WELCOME" &&
+      url.searchParams.get("context") === "signup_onboarding" &&
+      url.searchParams.get("redirect") === "/subscribe",
+  );
+  await expect(weekly).toHaveAttribute("aria-pressed", "true");
+  await expect(
+    page.getByText("14 free days applied", { exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByText("Due today", { exact: true }).locator(".."),
+  ).toContainText("$0");
+  await monthly.click();
+  await expect(page).toHaveURL(
+    (url) => url.searchParams.get("interval") === "month",
+  );
+  await expect(monthly).toHaveAttribute("aria-pressed", "true");
+  expect(cancellations).toBe(2);
+});
+
+test("outdated checkout setup does not offer a misleading cancellation loop", async ({
+  page,
+}) => {
+  await prepareCheckout(page);
+  await page.route("**/api/ucat/checkout", (route) =>
+    route.fulfill({
+      status: 503,
+      json: {
+        code: "CHECKOUT_SETUP_REQUIRED",
+        error:
+          "Invitation checkout is temporarily unavailable. Please try again later.",
+      },
+    }),
+  );
+  await signInSeededStudent(page);
+  await page.goto("/checkout?tier=unlimited&interval=month&offer=WELCOME");
+  await expect(
+    page
+      .getByRole("alert")
+      .filter({ hasText: "Invitation checkout is temporarily unavailable" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Cancel open checkout and restart" }),
+  ).toHaveCount(0);
+});
+
 for (const acceptGift of [false, true]) {
   test(`onboarding and sampler precede ${acceptGift ? "accepting" : "declining"} a founder gift`, async ({
     page,
