@@ -1,5 +1,9 @@
 import { assertEquals, assertThrows } from "jsr:@std/assert";
-import { parseTrackedResendEvent, posthogEventName } from "./logic.ts";
+import {
+  parseTrackedResendEvent,
+  posthogEventName,
+  shouldTrackResendEvent,
+} from "./logic.ts";
 
 const delivered = {
   type: "email.delivered",
@@ -11,6 +15,7 @@ const delivered = {
     from: "Altitutor <hello@altitutor.com>",
     tags: {
       product: "ucat",
+      environment: "production",
       template: "trial_ending",
       unsafe_extra: "not retained",
     },
@@ -25,6 +30,7 @@ Deno.test("parses a tracked event without copying email content metadata", () =>
     recipientEmail: "student@example.com",
     metadata: {
       tag_product: "ucat",
+      tag_environment: "production",
       tag_template: "trial_ending",
     },
   });
@@ -44,10 +50,26 @@ Deno.test("stores only the click hostname, not the complete tracked URL", () => 
 
   assertEquals(event?.metadata, {
     tag_product: "ucat",
+    tag_environment: "production",
     tag_template: "trial_ending",
     click_host: "ucat.altitutor.com",
   });
   assertEquals(posthogEventName("email.clicked"), "email clicked");
+});
+
+Deno.test("tracks only UCAT events from the configured environment", () => {
+  const event = parseTrackedResendEvent(delivered);
+  if (!event) throw new Error("Expected a tracked event");
+
+  assertEquals(shouldTrackResendEvent(event, "production"), true);
+  assertEquals(shouldTrackResendEvent(event, "development"), false);
+  assertEquals(
+    shouldTrackResendEvent(
+      { ...event, metadata: { tag_environment: "production" } },
+      "production",
+    ),
+    false,
+  );
 });
 
 Deno.test("ignores signed event types that are outside the email event stream", () => {

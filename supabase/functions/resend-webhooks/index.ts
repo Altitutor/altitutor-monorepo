@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { serveWithSentry } from "../_shared/sentry.ts";
 import { createClient } from "jsr:@supabase/supabase-js@2";
-import { parseTrackedResendEvent } from "./logic.ts";
+import { parseTrackedResendEvent, shouldTrackResendEvent } from "./logic.ts";
 import { capturePosthogEmailEvent } from "./posthog.ts";
 import { verifyResendWebhook } from "./security.ts";
 
@@ -63,6 +63,18 @@ serveWithSentry("resend-webhooks", async (request, sentry) => {
   }
 
   if (!event) {
+    return json({ received: true, tracked: false }, 202);
+  }
+
+  const configuredEnvironment = Deno.env.get("UCAT_EMAIL_ENVIRONMENT")?.trim();
+  if (
+    configuredEnvironment !== "development" &&
+    configuredEnvironment !== "production"
+  ) {
+    console.error("[resend-webhooks] UCAT_EMAIL_ENVIRONMENT is not configured");
+    return json({ error: "Webhook environment is not configured" }, 500);
+  }
+  if (!shouldTrackResendEvent(event, configuredEnvironment)) {
     return json({ received: true, tracked: false }, 202);
   }
 

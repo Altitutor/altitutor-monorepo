@@ -84,6 +84,7 @@ derive_env_vars() {
     local publishable_key=""
     local secret_key=""
     local stripe_publishable=""
+    local ucat_url=""
     
     # Read base values from env file
     while IFS='=' read -r key value; do
@@ -99,6 +100,9 @@ derive_env_vars() {
                 ;;
             STRIPE_PUBLISHABLE_KEY)
                 stripe_publishable="$value"
+                ;;
+            UCAT_WEB_URL|NEXT_PUBLIC_UCAT_URL|NEXT_PUBLIC_UCAT_WEB_URL|NEXT_PUBLIC_UCAT_APP_ORIGIN)
+                ucat_url="$value"
                 ;;
         esac
     done < <(parse_env_file "$env_file")
@@ -129,6 +133,21 @@ derive_env_vars() {
     if [ -n "$stripe_publishable" ]; then
         echo "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=${stripe_publishable}"
     fi
+
+    # Keep every web app and the email Edge Functions on the same environment-
+    # specific UCAT origin. Vercel preview builds run with NODE_ENV=production,
+    # so application fallbacks alone would otherwise point previews at prod.
+    if [ -z "$ucat_url" ]; then
+        if [[ "$env_file" == *production* ]]; then
+            ucat_url="https://ucat.altitutor.com"
+        else
+            ucat_url="https://ucat.development.altitutor.com"
+        fi
+    fi
+    echo "UCAT_WEB_URL=${ucat_url}"
+    echo "NEXT_PUBLIC_UCAT_URL=${ucat_url}"
+    echo "NEXT_PUBLIC_UCAT_WEB_URL=${ucat_url}"
+    echo "NEXT_PUBLIC_UCAT_APP_ORIGIN=${ucat_url}"
     
     # Derive TWILIO_PUBLIC_URL_* from NEXT_PUBLIC_SUPABASE_URL
     if [ -n "$project_ref" ]; then
@@ -275,6 +294,32 @@ get_env_value() {
     return 1
 }
 
+# Set an environment-file entry without printing its value. Existing entries
+# are replaced in place; missing entries are appended.
+set_env_value() {
+    local env_file=$1
+    local key=$2
+    local value=$3
+    local temp_file
+
+    temp_file=$(mktemp) || return 1
+    chmod 600 "$temp_file"
+    awk -v target_key="$key" -v target_value="$value" '
+        BEGIN { replaced = 0 }
+        index($0, target_key "=") == 1 {
+            print target_key "=" target_value
+            replaced = 1
+            next
+        }
+        { print }
+        END {
+            if (!replaced) print target_key "=" target_value
+        }
+    ' "$env_file" > "$temp_file"
+    mv "$temp_file" "$env_file"
+    chmod 600 "$env_file"
+}
+
 # Ensure an environment file has a high-entropy secret without ever printing
 # the value. Existing non-empty values are preserved so rerunning deployment
 # cannot rotate a live integration accidentally.
@@ -312,6 +357,5 @@ ensure_env_secret() {
     chmod 600 "$env_file"
     echo -e "${GREEN}✓ Generated missing $key in $(basename "$env_file")${NC}"
 }
-
 
 
