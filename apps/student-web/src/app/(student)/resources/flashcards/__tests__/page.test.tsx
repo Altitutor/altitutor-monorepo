@@ -1,5 +1,5 @@
 import React from 'react';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, render, screen, waitFor } from '@testing-library/react';
 import DueFlashcardsPage from '../page';
 
 (global as typeof globalThis & { React: typeof React }).React = React;
@@ -12,15 +12,18 @@ type MockButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 const mockRefetch = jest.fn();
 let mockSessionProps: {
   queueRevision?: number;
+  pinnedLayout?: boolean;
+  undoDisabled?: boolean;
+  queueHold?: {
+    newLimit: number;
+    reviewLimit: number;
+    newBlockedByReviews: number;
+    futureLearning: number;
+    nextDueAt: string | null;
+  };
   onAnswerPendingChange?: (pending: boolean) => void;
   onAnswerCommitted?: (answerLogId: string) => void;
-  onDueQueueChange?: (counts: {
-    new: number;
-    learning: number;
-    relearning: number;
-    review: number;
-    total: number;
-  }) => void;
+  onUndo?: () => void | Promise<void>;
 } = {};
 
 jest.mock('next/navigation', () => ({
@@ -88,32 +91,41 @@ describe('DueFlashcardsPage undo flow', () => {
     render(<DueFlashcardsPage />);
     act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo last answer' }));
+    await act(async () => {
+      await mockSessionProps.onUndo?.();
+    });
 
     await waitFor(() => expect(mockRefetch).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mockSessionProps.queueRevision).toBe(1));
     expect(screen.getByRole('status')).toHaveTextContent('Your last answer was undone.');
   });
 
-  it('prevents undo while an answer is being saved', () => {
+  it('prevents undo while an answer is being saved', async () => {
     render(<DueFlashcardsPage />);
 
     act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
     act(() => mockSessionProps.onAnswerPendingChange?.(true));
 
-    expect(screen.getByRole('button', { name: 'Undo last answer' })).toBeDisabled();
+    expect(mockSessionProps.undoDisabled).toBe(true);
+    await act(async () => {
+      await mockSessionProps.onUndo?.();
+    });
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 
   it('allows only one undo until another answer is saved', async () => {
     render(<DueFlashcardsPage />);
     act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo last answer' }));
+    await act(async () => {
+      await mockSessionProps.onUndo?.();
+    });
     await screen.findByText('Your last answer was undone.');
-    const undoButton = screen.getByRole('button', { name: 'Undo last answer' });
-    expect(undoButton).toBeDisabled();
-    fireEvent.click(undoButton);
-    fireEvent.click(undoButton);
+    expect(mockSessionProps.undoDisabled).toBe(true);
+    await act(async () => {
+      await mockSessionProps.onUndo?.();
+      await mockSessionProps.onUndo?.();
+    });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -123,10 +135,11 @@ describe('DueFlashcardsPage undo flow', () => {
     render(<DueFlashcardsPage />);
     act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
 
-    const undoButton = screen.getByRole('button', { name: 'Undo last answer' });
-    fireEvent.click(undoButton);
-    fireEvent.click(undoButton);
-    fireEvent.click(undoButton);
+    act(() => {
+      void mockSessionProps.onUndo?.();
+      void mockSessionProps.onUndo?.();
+      void mockSessionProps.onUndo?.();
+    });
 
     expect(global.fetch).toHaveBeenCalledTimes(1);
   });
@@ -145,7 +158,9 @@ describe('DueFlashcardsPage undo flow', () => {
     render(<DueFlashcardsPage />);
     act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo last answer' }));
+    await act(async () => {
+      await mockSessionProps.onUndo?.();
+    });
 
     await screen.findByText('Your last answer was undone.');
     expect(global.fetch).toHaveBeenCalledTimes(2);
@@ -164,27 +179,28 @@ describe('DueFlashcardsPage undo flow', () => {
     render(<DueFlashcardsPage />);
     act(() => mockSessionProps.onAnswerCommitted?.('fa100000-0000-4000-8000-000000000001'));
 
-    fireEvent.click(screen.getByRole('button', { name: 'Undo last answer' }));
+    await act(async () => {
+      await mockSessionProps.onUndo?.();
+    });
 
     await screen.findByText('That answer can no longer be undone because the card has changed.');
     expect(global.fetch).toHaveBeenCalledTimes(1);
-    expect(screen.getByRole('button', { name: 'Undo last answer' })).toBeDisabled();
+    expect(mockSessionProps.undoDisabled).toBe(true);
   });
 
-  it('updates the due counts from the session queue', () => {
+  it('keeps manage and settings in the header and passes held cards into the session', () => {
     render(<DueFlashcardsPage />);
 
-    expect(screen.getByText('Due now').previousElementSibling).toHaveTextContent('0');
-    act(() => mockSessionProps.onDueQueueChange?.({
-      new: 1,
-      learning: 2,
-      relearning: 0,
-      review: 3,
-      total: 6,
-    }));
-
-    expect(screen.getByText('Due now').previousElementSibling).toHaveTextContent('6');
-    expect(screen.getByRole('button', { name: /Learning/ })).toHaveTextContent('2');
-    expect(screen.getByRole('button', { name: /Review/ })).toHaveTextContent('3');
+    expect(screen.getByRole('button', { name: 'Manage' })).toBeVisible();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeVisible();
+    expect(mockSessionProps.pinnedLayout).toBe(true);
+    expect(mockSessionProps.undoDisabled).toBe(true);
+    expect(mockSessionProps.queueHold).toEqual({
+      newLimit: 0,
+      reviewLimit: 0,
+      newBlockedByReviews: 0,
+      futureLearning: 0,
+      nextDueAt: null,
+    });
   });
 });

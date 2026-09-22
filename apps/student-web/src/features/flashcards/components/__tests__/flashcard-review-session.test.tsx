@@ -140,7 +140,7 @@ describe('FlashcardReviewSession', () => {
     await waitFor(()=>expect(screen.queryByRole('alert')).not.toBeInTheDocument());
   });
 
-  it('keeps answer controls sticky and shows note and solution links after revealing the answer', async () => {
+  it('pins answer controls with undo and bury and shows note and solution links after revealing the answer', async () => {
     const card = imageReviewCard('review-1', 1);
     card.note_links = [
       { id: 'notes-1', label: '1.1N · Cell notes', href: '/resources/12biol/1.1/1.1n', is_solution: false },
@@ -153,7 +153,15 @@ describe('FlashcardReviewSession', () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByTestId('flashcard-answer-controls')).toHaveClass('sticky');
+    const controls = screen.getByTestId('flashcard-answer-controls');
+    expect(controls.tagName).toBe('FOOTER');
+    expect(controls).not.toHaveClass('sticky');
+    expect(screen.getByRole('button', { name: /Show answer/ })).not.toHaveClass('w-full');
+    expect(screen.getByRole('button', { name: /Undo/ })).toBeVisible();
+    expect(screen.getByRole('button', { name: /Bury/ })).toBeVisible();
+    expect(screen.getByText('1 new')).toBeVisible();
+    expect(screen.getByText('0 learning')).toBeVisible();
+    expect(screen.getByText('0 review')).toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
 
     expect(screen.getByRole('heading', { name: 'Notes and solutions' })).toBeVisible();
@@ -311,5 +319,83 @@ describe('FlashcardReviewSession', () => {
     } finally {
       jest.useRealTimers();
     }
+  });
+
+  it('counts relearning cards as learning and explains each status on hover', async () => {
+    const fresh = textReviewCard('review-1', 'Fresh');
+    const learning = { ...textReviewCard('review-2', 'Learning'), state: 'Learning' as const };
+    const relearning = { ...textReviewCard('review-3', 'Relearning'), state: 'Relearning' as const };
+    const review = { ...textReviewCard('review-4', 'Review'), state: 'Review' as const };
+
+    render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[fresh, learning, relearning, review]} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText('1 new')).toBeVisible();
+    expect(screen.getByText('2 learning')).toBeVisible();
+    expect(screen.getByText('1 review')).toBeVisible();
+    expect(screen.queryByText('1 relearning')).not.toBeInTheDocument();
+    expect(screen.getByTestId('flashcard-answer-controls')).toHaveTextContent('Cards you have not studied before.');
+    expect(screen.getByTestId('flashcard-answer-controls')).toHaveTextContent('Cards in learning or relearning');
+    expect(screen.getByTestId('flashcard-answer-controls')).toHaveTextContent('Cards you have learned that are due for review.');
+  });
+
+  it('shows cards held by today when the due queue is empty', () => {
+    render(
+      <FlashcardReviewSession
+        topicId="due-all"
+        mode="due"
+        cards={[]}
+        queueHold={{
+          newLimit: 4,
+          reviewLimit: 2,
+          newBlockedByReviews: 1,
+          futureLearning: 3,
+          nextDueAt: new Date(Date.now() + 5 * 60_000).toISOString(),
+        }}
+      />,
+    );
+
+    expect(screen.getByRole('heading', { name: 'No cards due' })).toBeVisible();
+    expect(screen.getByText("4 new cards are held by today's limit.")).toBeVisible();
+    expect(screen.getByText("2 review cards are held by today's limit.")).toBeVisible();
+    expect(screen.getByText('1 new card waits until overdue reviews are cleared.')).toBeVisible();
+    expect(screen.getByText(/3 learning cards are not due yet/)).toBeVisible();
+    expect(screen.getByText('0 new')).toBeVisible();
+  });
+
+  it('undoes with Z and buries the current card with minus', async () => {
+    const first = textReviewCard('review-1', 'First');
+    const second = textReviewCard('review-2', 'Second');
+    const onUndo = jest.fn();
+    global.fetch = jest.fn().mockResolvedValue({ ok: true });
+
+    render(
+      <FlashcardReviewSession
+        topicId="topic-1"
+        mode="due"
+        cards={[first, second]}
+        onUndo={onUndo}
+      />,
+    );
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    fireEvent.keyDown(document.body, { key: 'z', metaKey: true });
+    expect(onUndo).not.toHaveBeenCalled();
+    fireEvent.keyDown(document.body, { key: 'z' });
+    expect(onUndo).toHaveBeenCalledTimes(1);
+
+    fireEvent.keyDown(document.body, { key: '-' });
+    await waitFor(() => expect(screen.getByText(/Second/)).toBeVisible());
+    expect(screen.queryByText(/First/)).not.toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      '/api/flashcards/review-cards/review-1/manage',
+      expect.objectContaining({ method: 'POST' }),
+    );
+    const request = (global.fetch as jest.Mock).mock.calls[0][1] as { body: string };
+    expect(JSON.parse(request.body)).toEqual(expect.objectContaining({ action: 'bury' }));
   });
 });
