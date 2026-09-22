@@ -14,6 +14,13 @@ let mockSessionProps: {
   queueRevision?: number;
   onAnswerPendingChange?: (pending: boolean) => void;
   onAnswerCommitted?: (answerLogId: string) => void;
+  onDueQueueChange?: (counts: {
+    new: number;
+    learning: number;
+    relearning: number;
+    review: number;
+    total: number;
+  }) => void;
 } = {};
 
 jest.mock('next/navigation', () => ({
@@ -162,5 +169,22 @@ describe('DueFlashcardsPage undo flow', () => {
     await screen.findByText('That answer can no longer be undone because the card has changed.');
     expect(global.fetch).toHaveBeenCalledTimes(1);
     expect(screen.getByRole('button', { name: 'Undo last answer' })).toBeDisabled();
+  });
+
+  it('updates the due counts from the session queue', () => {
+    render(<DueFlashcardsPage />);
+
+    expect(screen.getByText('Due now').previousElementSibling).toHaveTextContent('0');
+    act(() => mockSessionProps.onDueQueueChange?.({
+      new: 1,
+      learning: 2,
+      relearning: 0,
+      review: 3,
+      total: 6,
+    }));
+
+    expect(screen.getByText('Due now').previousElementSibling).toHaveTextContent('6');
+    expect(screen.getByRole('button', { name: /Learning/ })).toHaveTextContent('2');
+    expect(screen.getByRole('button', { name: /Review/ })).toHaveTextContent('3');
   });
 });

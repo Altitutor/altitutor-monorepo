@@ -233,4 +233,83 @@ describe('FlashcardReviewSession', () => {
       expect(onAnswerCommitted).toHaveBeenCalledWith('fa100000-0000-4000-8000-000000000008');
     });
   });
+
+  it('removes buried siblings from the remaining queue', async () => {
+    const first = textReviewCard('review-1', 'First');
+    const sibling = { ...textReviewCard('review-2', 'Sibling'), flashcard_id: first.flashcard_id };
+    const other = textReviewCard('review-3', 'Other');
+    mockRateReviewCard.mockResolvedValue({
+      ...first,
+      due_at: '2100-01-01T00:00:00.000Z',
+      state: 'Review',
+      revision: 1,
+      buried_sibling_ids: [sibling.id],
+    });
+
+    render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[first, sibling, other]} />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+    fireEvent.click(screen.getByRole('button', { name: /Good/ }));
+
+    await waitFor(() => expect(screen.getByText(/Other/)).toBeVisible());
+    expect(screen.queryByText(/Sibling/)).not.toBeInTheDocument();
+  });
+
+  it('shows a learning card next, behind the card already on screen, even when the step is longer than an hour', async () => {
+    jest.useFakeTimers();
+    jest.setSystemTime(new Date('2026-09-22T01:00:00.000Z'));
+    const first = textReviewCard('review-1', 'First');
+    const second = textReviewCard('review-2', 'Second');
+    const third = textReviewCard('review-3', 'Third');
+    const studyDayEndsAt = '2026-09-22T08:00:00.000Z';
+    mockRateReviewCard
+      .mockResolvedValueOnce({
+        ...first,
+        state: 'Learning',
+        due_at: '2026-09-22T03:00:00.000Z',
+        study_day_ends_at: studyDayEndsAt,
+        revision: 1,
+      })
+      .mockResolvedValueOnce({
+        ...second,
+        state: 'Review',
+        due_at: '2026-09-23T01:00:00.000Z',
+        study_day_ends_at: studyDayEndsAt,
+        revision: 1,
+      });
+
+    try {
+      render(<FlashcardReviewSession topicId="topic-1" mode="due" cards={[first, second, third]} />);
+      await act(async () => {
+        await Promise.resolve();
+      });
+      fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Good/ }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText(/Second/)).toBeVisible();
+
+      await act(async () => {
+        jest.advanceTimersByTime(2 * 60 * 60 * 1000);
+      });
+
+      expect(screen.getByText(/Second/)).toBeVisible();
+      expect(screen.queryByText(/First/)).not.toBeInTheDocument();
+
+      fireEvent.click(screen.getByRole('button', { name: /Show answer/ }));
+      fireEvent.click(screen.getByRole('button', { name: /Good/ }));
+      await act(async () => {
+        await Promise.resolve();
+      });
+
+      expect(screen.getByText(/First/)).toBeVisible();
+      expect(screen.queryByText(/Third/)).not.toBeInTheDocument();
+    } finally {
+      jest.useRealTimers();
+    }
+  });
 });

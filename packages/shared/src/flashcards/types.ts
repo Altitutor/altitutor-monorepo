@@ -61,6 +61,8 @@ export type FlashcardReviewCard = {
   rating_previews?: Record<FlashcardRating, FlashcardRatingPreview>;
   rating_preview_seed?: string;
   answer_log_id?: string;
+  buried_sibling_ids?: string[];
+  study_day_ends_at?: string;
   leech_suggested?: boolean;
   learn_ahead_minutes?: number;
   topic_code?: string | null;

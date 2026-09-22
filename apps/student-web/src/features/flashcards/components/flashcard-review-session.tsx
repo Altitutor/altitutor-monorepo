@@ -21,6 +21,39 @@ const ratings: Array<{ value: FlashcardRating; label: string; key: string; class
 const maxSessionRequeueDelayMs = 60 * 60 * 1000;
 const preloadCardCount = 4;
 
+export type DueFlashcardQueueCounts = {
+  new: number;
+  learning: number;
+  relearning: number;
+  review: number;
+  total: number;
+};
+
+function countDueQueue(cards: FlashcardReviewCard[]): DueFlashcardQueueCounts {
+  return {
+    new: cards.filter((card) => card.state === 'New').length,
+    learning: cards.filter((card) => card.state === 'Learning').length,
+    relearning: cards.filter((card) => card.state === 'Relearning').length,
+    review: cards.filter((card) => card.state === 'Review').length,
+    total: cards.length,
+  };
+}
+
+function insertLearningCardBehindCurrent(queue: FlashcardReviewCard[], card: FlashcardReviewCard): FlashcardReviewCard[] {
+  if (queue.length === 0) return [card];
+  const [current, ...upcoming] = queue;
+  const dueAt = new Date(card.due_at).getTime();
+  let insertAt = 0;
+  while (
+    insertAt < upcoming.length
+    && (upcoming[insertAt].state === 'Learning' || upcoming[insertAt].state === 'Relearning')
+    && new Date(upcoming[insertAt].due_at).getTime() <= dueAt
+  ) {
+    insertAt += 1;
+  }
+  return [current, ...upcoming.slice(0, insertAt), card, ...upcoming.slice(insertAt)];
+}
+
 type FeedbackState = {
   id: number;
   kind: 'correct' | 'incorrect';
@@ -56,6 +89,7 @@ export function FlashcardReviewSession({
   queueRevision,
   onAnswerPendingChange,
   onAnswerCommitted,
+  onDueQueueChange,
 }: {
   topicId: string;
   mode: 'due' | 'all';
@@ -64,10 +98,13 @@ export function FlashcardReviewSession({
   queueRevision?: number;
   onAnswerPendingChange?: (pending: boolean) => void;
   onAnswerCommitted?: (answerLogId: string) => void;
+  onDueQueueChange?: (counts: DueFlashcardQueueCounts) => void;
 }) {
   const [showAnswer, setShowAnswer] = useState(false);
   const [studyQueue, setStudyQueue] = useState<FlashcardReviewCard[]>(cards);
   const [dueQueue, setDueQueue] = useState<FlashcardReviewCard[]>(cards);
+  const dueQueueRef = useRef(dueQueue);
+  dueQueueRef.current = dueQueue;
   const [dueSessionTotal, setDueSessionTotal] = useState(cards.length);
   const [reviewedDueCount, setReviewedDueCount] = useState(0);
   const reviewedDueIdsRef = useRef<Set<string>>(new Set());
@@ -154,28 +191,33 @@ export function FlashcardReviewSession({
   useEffect(() => {
     const sessionChanged = sessionKeyRef.current !== sessionKey;
     const authoritativeQueueChanged = queueRevisionRef.current !== queueRevision;
-    if (sessionChanged || authoritativeQueueChanged) {
-      sessionKeyRef.current = sessionKey;
-      queueRevisionRef.current = queueRevision;
-      reviewedDueIdsRef.current = new Set();
-      dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
-      dueTimersRef.current.clear();
-      failedCommandRef.current = null;
-      setReviewedDueCount((current) => (sessionChanged ? 0 : Math.max(0, current - 1)));
-      setShowAnswer(false);
-      setSaveError(null);
-    }
     if (mode === 'all') {
+      if (sessionChanged) {
+        sessionKeyRef.current = sessionKey;
+        setShowAnswer(false);
+        setSaveError(null);
+      }
       setStudyQueue(cards);
       return;
     }
-    setDueQueue(
-      sessionChanged || authoritativeQueueChanged
-        ? cards
-        : cards.filter((item) => !reviewedDueIdsRef.current.has(item.id)),
-    );
+    if (!sessionChanged && !authoritativeQueueChanged) return;
+    sessionKeyRef.current = sessionKey;
+    queueRevisionRef.current = queueRevision;
+    reviewedDueIdsRef.current = new Set();
+    dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
+    dueTimersRef.current.clear();
+    failedCommandRef.current = null;
+    setReviewedDueCount((current) => (sessionChanged ? 0 : Math.max(0, current - 1)));
+    setShowAnswer(false);
+    setSaveError(null);
+    setDueQueue(cards);
     setDueSessionTotal((current) => (sessionChanged ? cards.length : Math.max(current, cards.length)));
   }, [cards, mode, queueRevision, sessionKey]);
+
+  useEffect(() => {
+    if (mode !== 'due') return;
+    onDueQueueChange?.(countDueQueue(dueQueue));
+  }, [dueQueue, mode, onDueQueueChange]);
 
   useEffect(() => () => {
     dueTimersRef.current.forEach((timer) => window.clearTimeout(timer));
@@ -189,23 +231,28 @@ export function FlashcardReviewSession({
 
   const enqueueDueCard = useCallback((nextCard: FlashcardReviewCard) => {
     reviewedDueIdsRef.current.delete(nextCard.id);
-    setDueQueue((current) => {
-      if (current.some((item) => item.id === nextCard.id)) return current;
-      return [...current, nextCard];
-    });
+    if (dueQueueRef.current.some((item) => item.id === nextCard.id)) return;
     setDueSessionTotal((current) => current + 1);
+    setDueQueue((current) => (
+      current.some((item) => item.id === nextCard.id) ? current : insertLearningCardBehindCurrent(current, nextCard)
+    ));
   }, []);
 
   const scheduleDueCard = useCallback((nextCard: FlashcardReviewCard) => {
     const existingTimer = dueTimersRef.current.get(nextCard.id);
     if (existingTimer) window.clearTimeout(existingTimer);
 
-    const delayMs = new Date(nextCard.due_at).getTime() - Date.now();
+    const dueAt = new Date(nextCard.due_at).getTime();
+    const delayMs = dueAt - Date.now();
     if (delayMs <= 0) {
       enqueueDueCard(nextCard);
       return;
     }
-    if (delayMs > maxSessionRequeueDelayMs) return;
+    const studyDayEndsAt = nextCard.study_day_ends_at ? new Date(nextCard.study_day_ends_at).getTime() : null;
+    const waitsUntilNextStudyDay = studyDayEndsAt == null
+      ? delayMs > maxSessionRequeueDelayMs
+      : dueAt >= studyDayEndsAt;
+    if (waitsUntilNextStudyDay) return;
 
     const timer = window.setTimeout(() => {
       dueTimersRef.current.delete(nextCard.id);
@@ -242,6 +289,20 @@ export function FlashcardReviewSession({
     void rateReviewCard(command).then((nextCard) => {
       failedCommandRef.current = null;
       if (nextCard.answer_log_id) onAnswerCommitted?.(nextCard.answer_log_id);
+      const buriedSiblingIds = new Set(nextCard.buried_sibling_ids ?? []);
+      if (buriedSiblingIds.size > 0) {
+        for (const siblingId of buriedSiblingIds) {
+          const timer = dueTimersRef.current.get(siblingId);
+          if (timer) {
+            window.clearTimeout(timer);
+            dueTimersRef.current.delete(siblingId);
+          }
+          reviewedDueIdsRef.current.add(siblingId);
+        }
+        const removed = dueQueueRef.current.filter((item) => buriedSiblingIds.has(item.id)).length;
+        if (removed > 0) setDueSessionTotal((current) => Math.max(0, current - removed));
+        setDueQueue((current) => current.filter((item) => !buriedSiblingIds.has(item.id)));
+      }
       scheduleDueCard(nextCard);
       if (nextCard.leech_suggested && window.confirm('This card has been repeatedly difficult. Suspend it for now?')) {
         void fetch(`/api/flashcards/review-cards/${encodeURIComponent(nextCard.id)}/manage`, {

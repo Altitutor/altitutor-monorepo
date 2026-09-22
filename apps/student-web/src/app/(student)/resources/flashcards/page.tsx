@@ -1,7 +1,7 @@
 'use client';
 
 import { ResourcesBreadcrumb } from '@/features/resources';
-import { FlashcardReviewSession, useDueFlashcardReviewCards } from '@/features/flashcards';
+import { FlashcardReviewSession, useDueFlashcardReviewCards, type DueFlashcardQueueCounts } from '@/features/flashcards';
 import {
   ManageFlashcardsDialog,
   type FlashcardManageFilter,
@@ -12,7 +12,7 @@ import { Alert, AlertDescription, AlertTitle, Button } from '@altitutor/ui';
 import { Settings, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useCallback, useRef, useState } from 'react';
 
 type UndoCommandError = Error & {
   code?: string;
@@ -46,6 +46,10 @@ export default function DueFlashcardsPage() {
   const [undoPending, setUndoPending] = useState(false);
   const undoPendingRef = useRef(false);
   const [undoMessage, setUndoMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
+  const [liveCounts, setLiveCounts] = useState<DueFlashcardQueueCounts | null>(null);
+  const handleDueQueueChange = useCallback((counts: DueFlashcardQueueCounts) => {
+    setLiveCounts(counts);
+  }, []);
   const scopedTopicIds = searchParams.get('topicIds')?.split(',').filter(Boolean);
   const {
     data: snapshot,
@@ -53,6 +57,7 @@ export default function DueFlashcardsPage() {
     isLoading: cardsLoading,
     refetch,
   } = useDueFlashcardReviewCards(scopedTopicIds);
+  const counts = liveCounts ?? snapshot?.counts;
   const undoLatest = async () => {
     if (answerPending || undoPendingRef.current || !undoAnswerLogId) return;
     undoPendingRef.current = true;
@@ -145,14 +150,14 @@ export default function DueFlashcardsPage() {
 
           <div className={studentCardCn('grid overflow-hidden sm:grid-cols-3 xl:grid-cols-6')} aria-label="Flashcard study status">
             <div className="p-4 sm:col-span-3 xl:col-span-1">
-              <p className="text-2xl font-bold tabular-nums">{cardsError ? '—' : snapshot?.counts.total ?? 0}</p>
+              <p className="text-2xl font-bold tabular-nums">{cardsError ? '—' : counts?.total ?? 0}</p>
               <p className="text-sm text-muted-foreground">Due now</p>
             </div>
-            {snapshot ? ([
-              ['New', snapshot.counts.new],
-              ['Learning', snapshot.counts.learning],
-              ['Relearning', snapshot.counts.relearning],
-              ['Review', snapshot.counts.review],
+            {snapshot && counts ? ([
+              ['New', counts.new],
+              ['Learning', counts.learning],
+              ['Relearning', counts.relearning],
+              ['Review', counts.review],
             ] as const).map(([state, count]) => (
               <button
                 key={state}
@@ -199,6 +204,7 @@ export default function DueFlashcardsPage() {
               setUndoAnswerLogId(answerLogId);
               setUndoMessage(null);
             }}
+            onDueQueueChange={handleDueQueueChange}
           />
         )}
         {snapshot && snapshot.nextDueAt ? (
