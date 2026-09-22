@@ -17,6 +17,11 @@ import { UcatLearningPreview } from "./ucat-learning-preview";
 import { UcatProgressPlanPreview } from "./ucat-progress-plan-preview";
 import { UcatSimulatorPreview } from "./ucat-simulator-preview";
 import { UcatStudyPlanPreview } from "./ucat-study-plan-preview";
+import {
+  PRODUCT_DEMO_DESIGN_HEIGHT,
+  PRODUCT_DEMO_DESIGN_WIDTH,
+  ScaleToFitFrame,
+} from "./scale-to-fit-frame";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -322,14 +327,19 @@ export function UcatProductStage() {
           aria-label={
             galleryItems.find((item) => item.id === activeItem)?.label
           }
-          className="h-[28rem] overflow-hidden rounded-[1.25rem] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15 sm:h-[34rem] lg:aspect-[16/10] lg:h-auto"
+          className="overflow-hidden rounded-[1.25rem] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15"
         >
-          <div
-            key={activeItem}
-            className="h-full min-h-0 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
+          <ScaleToFitFrame
+            designWidth={PRODUCT_DEMO_DESIGN_WIDTH}
+            designHeight={PRODUCT_DEMO_DESIGN_HEIGHT}
           >
-            <GalleryPreview activeItem={activeItem} />
-          </div>
+            <div
+              key={activeItem}
+              className="h-full min-h-0 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
+            >
+              <GalleryPreview activeItem={activeItem} />
+            </div>
+          </ScaleToFitFrame>
         </div>
       </div>
     </section>

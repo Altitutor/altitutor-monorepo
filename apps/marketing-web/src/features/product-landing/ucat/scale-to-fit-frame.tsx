@@ -15,6 +15,26 @@ export function useDemoScale(): number {
   return useContext(DemoScaleContext);
 }
 
+/** Convert a target's visual box into unscaled left/top inside a scaled demo stage. */
+export function getScaledElementCenter(
+  stage: HTMLElement,
+  target: HTMLElement,
+  coordinateScale: number,
+): { left: number; top: number } {
+  const stageRect = stage.getBoundingClientRect();
+  const targetRect = target.getBoundingClientRect();
+  const scale = coordinateScale > 0 ? coordinateScale : 1;
+  return {
+    left:
+      (targetRect.left - stageRect.left + targetRect.width / 2 - 4) / scale,
+    top: (targetRect.top - stageRect.top + targetRect.height / 2 - 2) / scale,
+  };
+}
+
+/** 16:10 design canvas for the landing product demo. Matches max-w-6xl. */
+export const PRODUCT_DEMO_DESIGN_WIDTH = 1152;
+export const PRODUCT_DEMO_DESIGN_HEIGHT = 720;
+
 /** 16:9 design canvas for the practice-card simulator preview. */
 export const SIMULATOR_CARD_DESIGN_WIDTH = 960;
 export const SIMULATOR_CARD_DESIGN_HEIGHT = 540;

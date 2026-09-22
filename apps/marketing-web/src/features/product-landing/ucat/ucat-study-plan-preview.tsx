@@ -20,6 +20,10 @@ import {
   demoContainerVariants,
   demoItemVariants,
 } from "./demo-stage";
+import {
+  getScaledElementCenter,
+  useDemoScale,
+} from "./scale-to-fit-frame";
 
 const TODAY = "2026-07-16";
 const TEST_DATE = "2026-07-27";
@@ -180,12 +184,12 @@ function moveCursorTo(
   stage: HTMLElement,
   cursor: HTMLElement,
   target: HTMLElement,
+  coordinateScale: number,
 ) {
-  const stageRect = stage.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
+  const point = getScaledElementCenter(stage, target, coordinateScale);
   timeline.to(cursor, {
-    left: targetRect.left - stageRect.left + targetRect.width / 2 - 4,
-    top: targetRect.top - stageRect.top + targetRect.height / 2 - 2,
+    left: point.left,
+    top: point.top,
     opacity: 1,
     duration: 0.55,
     ease: "power2.inOut",
@@ -194,6 +198,9 @@ function moveCursorTo(
 
 export function UcatStudyPlanPreview() {
   const reduceMotion = useReducedMotion();
+  const coordinateScale = useDemoScale();
+  const scaleRef = useRef(coordinateScale);
+  scaleRef.current = coordinateScale;
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const [selectedDate, setSelectedDate] = useState<string>(TODAY);
@@ -223,7 +230,7 @@ export function UcatStudyPlanPreview() {
           `[data-demo-day="${dateKey}"]`,
         );
         if (!target) continue;
-        moveCursorTo(timeline, stage, cursor, target);
+        moveCursorTo(timeline, stage, cursor, target, scaleRef.current);
         const ripple = cursor.querySelector<HTMLElement>(
           "[data-demo-cursor-ripple]",
         );
@@ -252,7 +259,7 @@ export function UcatStudyPlanPreview() {
       <div ref={stageRef} className="relative space-y-5 p-4 sm:p-5">
         <DemoCursor cursorRef={cursorRef} />
 
-        <div className="grid gap-5 lg:grid-cols-[1.15fr_0.85fr]">
+        <div className="grid grid-cols-[1.15fr_0.85fr] gap-5">
           <section className="rounded-2xl bg-white p-4 shadow-sm ring-1 ring-black/[0.055] sm:p-5">
             <div className="mb-4">
               <h2 className="text-base font-semibold">Study plan</h2>
@@ -310,7 +317,7 @@ export function UcatStudyPlanPreview() {
             </div>
           </section>
 
-          <div className="grid gap-3 sm:grid-cols-3 lg:grid-cols-1">
+          <div className="grid grid-cols-1 gap-3">
             {[
               { icon: Target, label: "Target score", value: "2,350" },
               {
