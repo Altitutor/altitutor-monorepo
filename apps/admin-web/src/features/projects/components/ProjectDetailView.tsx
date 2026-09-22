@@ -2,8 +2,12 @@
 
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
+  EditorCloseConfirmDialog,
   EditorControls,
+  EditorFooterActions,
   EditorNotices,
+  EditorViewSwitchConfirmDialog,
+  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -34,7 +38,6 @@ import {
   type RichTextEditorRef,
 } from "@altitutor/ui";
 import { X, ArrowLeft, Loader2, FileText, Plus } from "lucide-react";
-import { ExpandButton } from "@/shared/components/expandable-dialog";
 import { useProject } from "../api/queries";
 import type { ProjectFormData } from "../types";
 import { ProjectTitleField } from "./fields/ProjectTitleField";
@@ -76,8 +79,6 @@ export interface ProjectDetailViewProps {
   enabled?: boolean;
   onClose: () => void;
   variant: "dialog" | "page";
-  expanded?: boolean;
-  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function ProjectDetailView({
@@ -85,8 +86,6 @@ export function ProjectDetailView({
   enabled = true,
   onClose,
   variant,
-  expanded = false,
-  onExpandedChange,
 }: ProjectDetailViewProps) {
   const router = useRouter();
   const { data: project, isLoading } = useProject(projectId, enabled);
@@ -287,27 +286,32 @@ export function ProjectDetailView({
             </div>
 
             <div className="flex items-center gap-2">
-              <EditorControls editor={editor} />
-              {variant === "dialog" && onExpandedChange && (
-                <ExpandButton
-                  expanded={expanded}
-                  onToggle={() => onExpandedChange(!expanded)}
+              {variant === "dialog" ? (
+                <WorkItemDialogHeaderActions
+                  editor={editor}
+                  actions={
+                    <ActionsMenu
+                      type="project"
+                      entityId={projectId}
+                      onOpenInPage={projectActions.onOpenInPage}
+                      onDelete={() => {
+                        if (editor.editable) setIsDeleteDialogOpen(true);
+                      }}
+                      richTextTemplateConfig={{
+                        getEditor: () =>
+                          editor.editable
+                            ? descriptionFieldRef.current?.getEditor() ?? null
+                            : null,
+                        getCurrentContent: () =>
+                          form.getValues("description") ?? null,
+                        onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                      }}
+                    />
+                  }
                 />
+              ) : (
+                <EditorControls editor={editor} />
               )}
-              <ActionsMenu
-                type="project"
-                entityId={projectId}
-                onOpenInPage={projectActions.onOpenInPage}
-                onDelete={() => {
-                  if (editor.editable) setIsDeleteDialogOpen(true);
-                }}
-                richTextTemplateConfig={{
-                  getEditor: () => editor.editable ? descriptionFieldRef.current?.getEditor() ?? null : null,
-                  getCurrentContent: () =>
-                    form.getValues("description") ?? null,
-                  onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
-                }}
-              />
             </div>
           </div>
         </div>
@@ -412,7 +416,19 @@ export function ProjectDetailView({
             </WorkItemEditableContext.Provider>
           )}
         </div>
+        {variant === "dialog" ? (
+          <div className="shrink-0 border-t bg-card px-6 py-4">
+            <EditorFooterActions editor={editor} />
+          </div>
+        ) : null}
       </div>
+
+      {variant === "dialog" ? (
+        <>
+          <EditorCloseConfirmDialog editor={editor} />
+          <EditorViewSwitchConfirmDialog editor={editor} />
+        </>
+      ) : null}
 
       <AlertDialog
         open={isDeleteDialogOpen}

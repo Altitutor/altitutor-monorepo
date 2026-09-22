@@ -2,8 +2,12 @@
 
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
+  EditorCloseConfirmDialog,
   EditorControls,
+  EditorFooterActions,
   EditorNotices,
+  EditorViewSwitchConfirmDialog,
+  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -32,7 +36,6 @@ import {
   Form,
 } from "@altitutor/ui";
 import { X, ArrowLeft, Loader2 } from "lucide-react";
-import { ExpandButton } from "@/shared/components/expandable-dialog";
 import { useTask } from "../api/queries";
 import type { Tables } from "@altitutor/shared";
 import type { TaskFormData, TaskStatus } from "../types";
@@ -94,8 +97,6 @@ export interface TaskDetailViewProps {
   issue?: { id: string; name: string | null } | null;
   project?: { id: string; name: string | null } | null;
   variant: "dialog" | "page";
-  expanded?: boolean;
-  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function TaskDetailView({
@@ -106,8 +107,6 @@ export function TaskDetailView({
   issue,
   project,
   variant,
-  expanded = false,
-  onExpandedChange,
 }: TaskDetailViewProps) {
   const router = useRouter();
   const { data: task, isLoading } = useTask(taskId, enabled);
@@ -266,27 +265,32 @@ export function TaskDetailView({
             </div>
 
             <div className="flex items-center gap-2">
-              <EditorControls editor={editor} />
-              {variant === "dialog" && onExpandedChange && (
-                <ExpandButton
-                  expanded={expanded}
-                  onToggle={() => onExpandedChange(!expanded)}
+              {variant === "dialog" ? (
+                <WorkItemDialogHeaderActions
+                  editor={editor}
+                  actions={
+                    <ActionsMenu
+                      type="task"
+                      entityId={taskId}
+                      onOpenInPage={taskActions.onOpenInPage}
+                      onDelete={() => {
+                        if (editor.editable) setIsDeleteDialogOpen(true);
+                      }}
+                      richTextTemplateConfig={{
+                        getEditor: () =>
+                          editor.editable
+                            ? descriptionRef.current?.getEditor() ?? null
+                            : null,
+                        getCurrentContent: () =>
+                          form.getValues("description") ?? null,
+                        onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                      }}
+                    />
+                  }
                 />
+              ) : (
+                <EditorControls editor={editor} />
               )}
-              <ActionsMenu
-                type="task"
-                entityId={taskId}
-                onOpenInPage={taskActions.onOpenInPage}
-                onDelete={() => {
-                  if (editor.editable) setIsDeleteDialogOpen(true);
-                }}
-                richTextTemplateConfig={{
-                  getEditor: () => editor.editable ? descriptionRef.current?.getEditor() ?? null : null,
-                  getCurrentContent: () =>
-                    form.getValues("description") ?? null,
-                  onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
-                }}
-              />
             </div>
           </div>
         </div>
@@ -381,7 +385,19 @@ export function TaskDetailView({
             </div>
           )}
         </div>
+        {variant === "dialog" ? (
+          <div className="shrink-0 border-t bg-card px-6 py-4">
+            <EditorFooterActions editor={editor} />
+          </div>
+        ) : null}
       </div>
+
+      {variant === "dialog" ? (
+        <>
+          <EditorCloseConfirmDialog editor={editor} />
+          <EditorViewSwitchConfirmDialog editor={editor} />
+        </>
+      ) : null}
 
       <AlertDialog
         open={isDeleteDialogOpen}
