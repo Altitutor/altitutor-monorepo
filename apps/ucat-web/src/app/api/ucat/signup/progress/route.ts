@@ -297,20 +297,39 @@ export async function PATCH(request: NextRequest) {
   }
 
   if (hasComplete) {
-    const { error: relationshipError } = await supabaseAdmin
-      .from("student_online_product_relationships")
-      .upsert(
-        {
-          student_id: student.id,
-          product: "UCAT_WEB",
-          started_at: updates.ucat_signup_completed_at as string,
-          closed_at: null,
-        },
-        {
-          onConflict: "student_id,product",
-          ignoreDuplicates: true,
-        },
+    const { data: existingRelationship, error: relationshipReadError } =
+      await supabaseAdmin
+        .from("student_online_product_relationships")
+        .select("id, closed_at")
+        .eq("student_id", student.id)
+        .eq("product", "UCAT_WEB")
+        .maybeSingle();
+
+    if (relationshipReadError) {
+      captureApiError(relationshipReadError, "/api/ucat/signup/progress");
+      return NextResponse.json(
+        { error: "Failed to establish Altitutor UCAT access" },
+        { status: 500 },
       );
+    }
+
+    const relationshipResult = !existingRelationship
+      ? await supabaseAdmin
+          .from("student_online_product_relationships")
+          .insert({
+            student_id: student.id,
+            product: "UCAT_WEB",
+            started_at: updates.ucat_signup_completed_at as string,
+            closed_at: null,
+          })
+      : existingRelationship.closed_at
+        ? await supabaseAdmin
+            .from("student_online_product_relationships")
+            .update({ closed_at: null })
+            .eq("id", existingRelationship.id)
+        : { error: null };
+
+    const relationshipError = relationshipResult.error;
 
     if (relationshipError) {
       captureApiError(relationshipError, "/api/ucat/signup/progress");

@@ -39849,6 +39849,10 @@ export type Database = {
       current_tutor_id: { Args: never; Returns: string }
       current_ucat_portal_access: { Args: never; Returns: Json }
       current_ucat_signup_staff_role: { Args: never; Returns: string }
+      delete_ucat_product_learning_data: {
+        Args: { p_student_id: string }
+        Returns: undefined
+      }
       derive_session_absence_billing_treatment: {
         Args: {
           p_is_credited: boolean
