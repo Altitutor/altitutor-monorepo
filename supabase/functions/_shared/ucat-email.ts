@@ -10,6 +10,11 @@ export const UCAT_APP_URL = (
   Deno.env.get("UCAT_WEB_URL") || "https://ucat.altitutor.com"
 ).replace(/\/$/, "");
 
+export const UCAT_EMAIL_ENVIRONMENT =
+  Deno.env.get("UCAT_EMAIL_ENVIRONMENT")?.trim() === "production"
+    ? "production"
+    : "development";
+
 export const UCAT_EMAIL_SENDERS = {
   founder: EMAIL_SENDERS.founder,
   product: EMAIL_SENDERS["ucat-product"],

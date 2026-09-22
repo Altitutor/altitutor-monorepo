@@ -61,11 +61,28 @@ function safeClickHost(data: UnknownRecord): string | null {
 function safeTags(data: UnknownRecord): Record<string, string> {
   if (!isRecord(data.tags)) return {};
   const metadata: Record<string, string> = {};
-  for (const key of ["product", "category", "template", "campaign", "topic"]) {
+  for (
+    const key of [
+      "product",
+      "environment",
+      "category",
+      "template",
+      "campaign",
+      "topic",
+    ]
+  ) {
     const tag = optionalString(data.tags[key]);
     if (tag) metadata[`tag_${key}`] = tag.slice(0, 256);
   }
   return metadata;
+}
+
+export function shouldTrackResendEvent(
+  event: TrackedResendEvent,
+  environment: "development" | "production",
+): boolean {
+  return event.metadata.tag_product === "ucat" &&
+    event.metadata.tag_environment === environment;
 }
 
 /**

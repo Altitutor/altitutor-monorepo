@@ -49,5 +49,12 @@ Deno.test("renders every UCAT transactional email", () => {
     if (!email.tags.some((tag) => tag.name === "template")) {
       throw new Error(`${templateKey} is missing its Resend template tag`);
     }
+    if (
+      !email.tags.some((tag) =>
+        tag.name === "environment" && tag.value === "development"
+      )
+    ) {
+      throw new Error(`${templateKey} is missing its Resend environment tag`);
+    }
   }
 });
