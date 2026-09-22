@@ -16,8 +16,8 @@ async function signIn(page:Page){await page.goto('/login?next=/resources/flashca
 test.beforeAll(async()=>{await deleteFixture();const {error}=await admin().from('flashcards').insert({id:flashcardId,topic_id:'30000000-0000-0000-0000-000000000001',card_type:'text_cloze',cloze_text:'The scheduling journey answer is {{c1::FSRS}}.',index:9990});if(error)throw error;});
 test.afterAll(deleteFixture);
 
-test('student answers a scheduled card and can inspect its history',async({page})=>{await signIn(page);await expect(page.getByText(/due now/)).toBeVisible();
+test('student answers a scheduled card and can inspect its history',async({page})=>{await signIn(page);await expect(page.getByText(/due now/i)).toBeVisible();
   const journey=page.getByText(/scheduling journey answer/i);await expect(journey).toBeVisible();await page.getByRole('button',{name:/Show answer/}).click();await page.getByRole('button',{name:/Good/}).click();await expect(journey).toBeHidden();
   await page.evaluate(async(id)=>{const cards=await fetch('/api/flashcards/review-cards?mode=all').then(r=>r.json());const card=cards.data.find((item:{flashcard_id:string})=>item.flashcard_id===id);await fetch(`/api/flashcards/review-cards/${card.id}/manage`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'suspend',requestId:crypto.randomUUID()})});},flashcardId);
-  await page.getByRole('link',{name:'Manage'}).click();await expect(page.getByRole('heading',{name:'Manage flashcards'})).toBeVisible();await page.getByText('History',{exact:true}).click();await expect(page.getByText(/good/i)).toBeVisible();
+  await page.getByRole('button',{name:'Manage'}).click();const manager=page.getByRole('dialog',{name:'Manage flashcards'});await expect(manager).toBeVisible();await expect(manager.getByRole('heading',{name:'Review history'})).toBeVisible();await expect(manager.getByText(/· good$/i)).toBeVisible();
 });
