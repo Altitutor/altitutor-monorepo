@@ -1,5 +1,6 @@
 "use client";
 
+import { usePendingInvitation } from "@/features/founder-offers/lib/use-pending-invitation";
 import { useRouter } from "next/navigation";
 import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
 import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
@@ -25,7 +26,7 @@ export function SignupCompletePlanStep({
   onGiftReady,
 }: SignupCompletePlanStepProps) {
   const queryClient = useQueryClient();
-  const code = founderInvitationCode(returnTo);
+  const [code, setCode] = usePendingInvitation(founderInvitationCode(returnTo));
   const router = useRouter();
   const continueFree = () => {
     rememberInvitation(null);
@@ -79,6 +80,7 @@ export function SignupCompletePlanStep({
 
   return (
     <PlanPicker
+      onInvitationSelected={setCode}
       variant="onboarding"
       surfaceTheme="app"
       selectorTheme="app"

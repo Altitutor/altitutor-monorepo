@@ -19,6 +19,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
 import {
+  SegmentedControl,
   Tooltip,
   TooltipContent,
   TooltipProvider,
@@ -172,6 +173,7 @@ export function CheckoutPage() {
   );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [paymentReady, setPaymentReady] = useState(false);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
   const [changingInterval, setChangingInterval] = useState(false);
   const [checkoutSetupRequired, setCheckoutSetupRequired] = useState(false);
@@ -463,6 +465,7 @@ export function CheckoutPage() {
                     context={context}
                     checkoutSessionId={checkoutSessionId}
                     onSubmittingChange={setCheckoutSubmitting}
+                    onReadyChange={setPaymentReady}
                   />
                 </CheckoutProvider>
               ) : (
@@ -491,31 +494,31 @@ export function CheckoutPage() {
               </p>
               <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
                 <h2 className="text-xl font-bold">UCAT Unlimited</h2>
-                <div
-                  role="group"
-                  aria-label="Billing interval"
-                  aria-busy={changingInterval}
-                  className="inline-flex shrink-0 rounded-full border border-border bg-muted/50 p-1"
+                <fieldset
+                  className="min-w-0 disabled:opacity-50"
+                  disabled={
+                    checkoutSubmitting ||
+                    changingInterval ||
+                    checkoutSetupRequired ||
+                    !checkoutSessionId
+                  }
                 >
-                  {(["week", "month"] as const).map((option) => (
-                    <button
-                      key={option}
-                      type="button"
-                      aria-pressed={interval === option}
-                      disabled={
-                        checkoutSubmitting ||
-                        changingInterval ||
-                        checkoutSetupRequired ||
-                        !checkoutSessionId ||
-                        !isPlanCheckoutAvailable(config, tier, option)
-                      }
-                      onClick={() => void changeInterval(option)}
-                      className={`rounded-full px-2.5 py-1.5 text-xs font-semibold transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:cursor-not-allowed disabled:opacity-50 ${interval === option ? "bg-primary text-primary-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"}`}
-                    >
-                      {option === "week" ? "Weekly" : "Monthly"}
-                    </button>
-                  ))}
-                </div>
+                  <SegmentedControl<UcatBillingInterval>
+                    aria-label="Billing interval"
+                    size="sm"
+                    value={interval}
+                    onValueChange={(value) => {
+                      if (value === "week" || value === "month")
+                        void changeInterval(value);
+                    }}
+                    options={[
+                      { value: "week" as const, label: "Weekly" },
+                      { value: "month" as const, label: "Monthly" },
+                    ].filter((option) =>
+                      isPlanCheckoutAvailable(config, tier, option.value),
+                    )}
+                  />
+                </fieldset>
               </div>
               {changingInterval && (
                 <p role="status" className="mt-2 text-xs text-muted-foreground">
@@ -774,6 +777,7 @@ export function CheckoutPage() {
               disabled={
                 configLoading ||
                 !clientSecret ||
+                !paymentReady ||
                 Boolean(checkoutError) ||
                 changingInterval ||
                 checkoutSubmitting

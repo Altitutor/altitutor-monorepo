@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban } from 'lucide-react';
+import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
@@ -37,7 +37,13 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
 }
 
 type NavItem = 
-  | { type?: 'link'; title: string; href: string; icon: LucideIcon }
+  | {
+      type?: 'link';
+      title: string;
+      href: string;
+      icon: LucideIcon;
+      children?: { title: string; href: string }[];
+    }
   | { type: 'heading'; title: string };
 
 const navItems: NavItem[] = [
@@ -93,6 +99,10 @@ const navItems: NavItem[] = [
     title: 'Trial students',
     href: '/trial-students',
     icon: Users,
+    children: [
+      { title: 'Work queue', href: '/trial-students' },
+      { title: 'Conversion insights', href: '/trial-students/insights' },
+    ],
   },
   {
     type: 'heading',
@@ -191,6 +201,115 @@ const isNavItemActive = (pathname: string, item: Extract<NavItem, { type?: 'link
   }
   return pathname === item.href;
 };
+
+function useSectionExpanded(pathname: string, href: string) {
+  const [expanded, setExpanded] = useState(() => pathname.startsWith(href));
+  useEffect(() => {
+    if (pathname === href || pathname.startsWith(`${href}/`)) {
+      setExpanded(true);
+    }
+  }, [href, pathname]);
+  return [expanded, () => setExpanded((current) => !current)] as const;
+}
+
+function childNavActive(pathname: string, parentHref: string, childHref: string) {
+  if (childHref === parentHref) return pathname === parentHref;
+  return pathname === childHref || pathname.startsWith(`${childHref}/`);
+}
+
+function ExpandableNavGroup({
+  item,
+  pathname,
+  collapsed = false,
+}: {
+  item: Extract<NavItem, { type?: 'link' }> & {
+    children: { title: string; href: string }[];
+  };
+  pathname: string;
+  collapsed?: boolean;
+}) {
+  const [expanded, toggleExpanded] = useSectionExpanded(pathname, item.href);
+  const active = pathname === item.href || pathname.startsWith(`${item.href}/`);
+  const Icon = item.icon;
+
+  if (collapsed) {
+    return (
+      <TooltipProvider delayDuration={150}>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Link
+              href={item.href}
+              prefetch={false}
+              className={cn(
+                'flex items-center justify-center rounded-md px-0 py-2 text-sm',
+                active ? navLinkActiveStyles : navLinkInactiveStyles,
+              )}
+            >
+              <Icon className="h-6 w-6" />
+              <span className="sr-only">{item.title}</span>
+            </Link>
+          </TooltipTrigger>
+          <TooltipContent side="right" sideOffset={10}>
+            {item.title}
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
+    );
+  }
+
+  return (
+    <div className="space-y-0.5">
+      <div
+        className={cn(
+          'flex items-center rounded-md text-sm',
+          active ? navLinkActiveStyles : navLinkInactiveStyles,
+        )}
+      >
+        <Link
+          href={item.href}
+          prefetch={false}
+          className="flex min-w-0 flex-1 items-center gap-3 px-3 py-2"
+        >
+          <Icon className="h-5 w-5 shrink-0" />
+          <span className="truncate">{item.title}</span>
+        </Link>
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-label={expanded ? `Collapse ${item.title}` : `Expand ${item.title}`}
+          className="mr-1 rounded p-1 text-muted-foreground hover:text-foreground"
+          onClick={toggleExpanded}
+        >
+          <ChevronDown
+            className={cn(
+              'h-4 w-4 transition-transform duration-200',
+              expanded ? 'rotate-0' : '-rotate-90',
+            )}
+          />
+        </button>
+      </div>
+      {expanded && (
+        <div className="ml-4 space-y-0.5 border-l border-border pl-2">
+          {item.children.map((child) => (
+            <Link
+              key={child.href}
+              href={child.href}
+              prefetch={false}
+              className={cn(
+                'flex items-center rounded-md px-2 py-1.5 text-sm',
+                childNavActive(pathname, item.href, child.href)
+                  ? navLinkActiveStyles
+                  : navLinkInactiveStyles,
+              )}
+            >
+              {child.title}
+            </Link>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
@@ -304,6 +423,15 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
                 
                 const Icon = item.icon;
                 const itemHref = getNavItemHref(item);
+                if (item.children?.length) {
+                  return (
+                    <ExpandableNavGroup
+                      key={item.href}
+                      item={{ ...item, children: item.children }}
+                      pathname={pathname}
+                    />
+                  );
+                }
                 return (
                   <Link 
                     key={item.href} 
@@ -379,6 +507,16 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
             
             const Icon = item.icon;
             const itemHref = getNavItemHref(item);
+            if (item.children?.length) {
+              return (
+                <ExpandableNavGroup
+                  key={item.href}
+                  item={{ ...item, children: item.children }}
+                  pathname={pathname}
+                  collapsed={collapsed}
+                />
+              );
+            }
             const link = (
               <Link
                 key={item.href} 

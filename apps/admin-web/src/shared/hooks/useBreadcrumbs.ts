@@ -32,6 +32,7 @@ const pathLabelMap: Record<string, string> = {
   reports: 'Reports',
   subjects: 'Subjects',
   topics: 'Topics',
+  'trial-students': 'Trial students',
   ucat: 'UCAT',
   notes: 'Notes',
   documents: 'Documents',
@@ -429,6 +430,8 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
           // Invoice or other - keep ID truncated
           label = segment.substring(0, 8) + '...';
         }
+      } else if (currentPath === '/trial-students/insights') {
+        label = 'Conversion insights';
       } else {
         label = getLabelForSegment(segment);
       }

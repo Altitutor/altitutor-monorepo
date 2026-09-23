@@ -40652,6 +40652,7 @@ export type Database = {
         }
       }
       onboarding_evidence: { Args: { p_journey_id: string }; Returns: Json }
+      onboarding_journeys_board: { Args: never; Returns: Json }
       precreate_admin_shift_sessions: {
         Args: {
           end_date: string
