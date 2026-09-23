@@ -309,6 +309,34 @@ describe('formatContactName', () => {
 
       expect(formatContactName(conversation)).toBe('Unknown');
     });
+
+    it('should show the Apple ID email when a lead has no phone', () => {
+      const conversation: ConversationWithRelations = {
+        id: 'conv-1',
+        status: 'ACTIVE',
+        contact_id: 'contact-1',
+        last_message_at: null,
+        last_message_id: null,
+        assigned_staff_id: null,
+        owned_number_id: 'owned-1',
+        is_group_chat: false,
+        group_chat_id: null,
+        group_chat_name: null,
+        owned_numbers: null,
+        conversation_reads: [],
+        contacts: {
+          id: 'contact-1',
+          contact_type: 'LEAD',
+          phone_e164: null,
+          email: 'phoebetkd01@gmail.com',
+          students: null,
+          parents: null,
+          staff: null,
+        },
+      };
+
+      expect(formatContactName(conversation)).toBe('phoebetkd01@gmail.com');
+    });
   });
 
   describe('edge cases', () => {

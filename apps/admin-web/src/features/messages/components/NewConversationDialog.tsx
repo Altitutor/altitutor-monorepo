@@ -12,8 +12,9 @@ import { Loader2, AlertCircle, Search, Phone } from 'lucide-react';
 import { PhoneInput, standardizeAUPhone, validateAUPhone } from '@/shared/components/PhoneInput';
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { getExistingConversationForRelated, ensureConversationForContact } from '../api/queries';
-import { ensureContactForStudent, ensureContactForParent, ensureContactForStaff, ensureContactForPhoneNumber } from '../utils/contactHelpers';
+import { getExistingConversationForRelated, ensureConversationForContact, findImessageOwnedNumberId } from '../api/queries';
+import { ensureContactForStudent, ensureContactForParent, ensureContactForStaff, ensureContactForPhoneNumber, ensureContactForEmail } from '../utils/contactHelpers';
+import { isAppleIdEmail } from '../utils/messagingHandle';
 import { staffApi, type StaffListItem } from '@/features/staff/api/staff';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -47,6 +48,8 @@ export function NewConversationDialog({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showNoPhoneWarning, setShowNoPhoneWarning] = useState(false);
+  const [noHandleMessage, setNoHandleMessage] = useState<string | null>(null);
+  const [appleIdEmail, setAppleIdEmail] = useState('');
   const [studentModalOpen, setStudentModalOpen] = useState(false);
 
   const trimmed = searchQuery.trim();
@@ -167,6 +170,12 @@ export function NewConversationDialog({
   }, [studentsData, staffData, parentsData]);
 
   const isSearching = isLoadingStudents || isLoadingStaff || isLoadingParents;
+  const { data: imessageOwnedNumberId = null } = useQuery({
+    queryKey: ['imessage-owned-number', ownedNumberId ?? 'default'],
+    queryFn: () => findImessageOwnedNumberId(ownedNumberId),
+    enabled: isOpen,
+    staleTime: 1000 * 60,
+  });
 
   // Reset state when dialog closes
   useEffect(() => {
@@ -176,6 +185,8 @@ export function NewConversationDialog({
       setSelectedItem(null);
       setError(null);
       setShowNoPhoneWarning(false);
+      setNoHandleMessage(null);
+      setAppleIdEmail('');
       setIsProcessing(false);
       setMode('search');
     }
@@ -289,11 +300,24 @@ export function NewConversationDialog({
 
       // Step 2: Check if contact exists and sync phone if needed
       const field = relatedType === 'student' ? 'student_id' : relatedType === 'staff' ? 'staff_id' : 'parent_id';
+      const email = getItemContactInfo(item).email?.trim() || null;
+      const imessageNumberId = await findImessageOwnedNumberId(ownedNumberId);
+      const canUseEmail = Boolean(imessageNumberId && email);
       const { data: existingContact } = await supabase
         .from('contacts')
-        .select('id, phone_e164')
+        .select('id, phone_e164, email')
         .eq(field, relatedId)
         .maybeSingle();
+
+      const blockForMissingHandle = () => {
+        setNoHandleMessage(
+          email
+            ? 'This person has no phone number. Select the iMessage number to message their Apple ID email.'
+            : null,
+        );
+        setShowNoPhoneWarning(true);
+        setIsProcessing(false);
+      };
 
       if (existingContact) {
         // Sync phone if it's different
@@ -308,49 +332,85 @@ export function NewConversationDialog({
           }
         }
 
-        // If contact exists but no phone, we can't create a conversation
-        if (!phone && !existingContact.phone_e164) {
-          setShowNoPhoneWarning(true);
-          setIsProcessing(false);
+        if (canUseEmail && email && !existingContact.email) {
+          const { error: emailError } = await supabase
+            .from('contacts')
+            .update({ email })
+            .eq('id', existingContact.id);
+          if (emailError) throw new Error('Failed to save the Apple ID email');
+        }
+
+        const hasPhone = Boolean(phone || existingContact.phone_e164);
+        if (!hasPhone && !canUseEmail) {
+          blockForMissingHandle();
           return;
         }
 
         // Create conversation for existing contact
         const conversationId = await ensureConversationForContact(
           existingContact.id,
-          ownedNumberId ?? undefined
+          hasPhone ? ownedNumberId ?? undefined : imessageNumberId ?? undefined,
         );
         onConversationSelected(conversationId);
         onClose();
         return;
       }
 
-      // Step 3: No contact exists - check if has phone number
-      if (!phone) {
-        setShowNoPhoneWarning(true);
-        setIsProcessing(false);
+      // Step 3: No contact exists - phone, or an Apple ID when sending from iMessage
+      if (!phone && !canUseEmail) {
+        blockForMissingHandle();
         return;
       }
 
       // Step 4: Create contact and conversation
       let contactId: string | null;
+      const contactOptions = canUseEmail ? { allowEmail: true } : undefined;
       if (item.type === 'student') {
-        contactId = await ensureContactForStudent(relatedId);
+        contactId = await ensureContactForStudent(relatedId, contactOptions);
       } else if (item.type === 'staff') {
-        contactId = await ensureContactForStaff(relatedId);
+        contactId = await ensureContactForStaff(relatedId, contactOptions);
       } else {
-        contactId = await ensureContactForParent(relatedId);
+        contactId = await ensureContactForParent(relatedId, contactOptions);
       }
 
       if (!contactId) {
         throw new Error('Failed to create contact');
       }
 
-      const conversationId = await ensureConversationForContact(contactId, ownedNumberId ?? undefined);
+      const conversationId = await ensureConversationForContact(
+        contactId,
+        phone ? ownedNumberId ?? undefined : imessageNumberId ?? undefined,
+      );
       onConversationSelected(conversationId);
       onClose();
     } catch (err) {
       console.error('Error creating conversation:', err);
+      setError(err instanceof Error ? err.message : 'Failed to create conversation');
+      setIsProcessing(false);
+    }
+  };
+
+  const handleAppleIdSubmit = async () => {
+    const email = appleIdEmail.trim();
+    if (!isAppleIdEmail(email)) {
+      setError('Enter a valid Apple ID email');
+      return;
+    }
+    if (!imessageOwnedNumberId) {
+      setError('Select the iMessage number to message an Apple ID email');
+      return;
+    }
+
+    setIsProcessing(true);
+    setError(null);
+    try {
+      const contactId = await ensureContactForEmail(email);
+      if (!contactId) throw new Error('Failed to create contact');
+      const conversationId = await ensureConversationForContact(contactId, imessageOwnedNumberId);
+      onConversationSelected(conversationId);
+      onClose();
+    } catch (err) {
+      console.error('Error creating email conversation:', err);
       setError(err instanceof Error ? err.message : 'Failed to create conversation');
       setIsProcessing(false);
     }
@@ -435,6 +495,27 @@ export function NewConversationDialog({
               placeholder="0478 778 288"
             />
 
+            {imessageOwnedNumberId && (
+              <div className="space-y-2">
+                <Input
+                  type="email"
+                  value={appleIdEmail}
+                  onChange={(e) => setAppleIdEmail(e.target.value)}
+                  placeholder="Apple ID email"
+                  autoComplete="off"
+                />
+                <div className="flex justify-end">
+                  <Button
+                    variant="outline"
+                    onClick={() => void handleAppleIdSubmit()}
+                    disabled={isProcessing || !appleIdEmail.trim()}
+                  >
+                    Message Apple ID
+                  </Button>
+                </div>
+              </div>
+            )}
+
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
@@ -468,8 +549,8 @@ export function NewConversationDialog({
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>No Phone Number</AlertTitle>
               <AlertDescription>
-                This {selectedItem.type} doesn't have a phone number. Please add one to start a conversation.
-                {selectedItem.type === 'student' && ' You can update it in the student details.'}
+                {noHandleMessage ?? `This ${selectedItem.type} doesn't have a phone number. Please add one to start a conversation.`}
+                {!noHandleMessage && selectedItem.type === 'student' && ' You can update it in the student details.'}
               </AlertDescription>
             </Alert>
             <div className="flex justify-end gap-2">
@@ -543,7 +624,7 @@ export function NewConversationDialog({
                           {hasPhone && hasEmail && <span> • </span>}
                           {hasEmail && <span>Email: {contactInfo.email}</span>}
                           {!hasPhone && !hasEmail && (
-                            <span className="text-destructive">No phone number</span>
+                            <span className="text-destructive">No phone or email</span>
                           )}
                         </div>
                       </button>

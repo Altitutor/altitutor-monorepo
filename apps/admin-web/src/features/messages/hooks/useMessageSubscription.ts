@@ -60,7 +60,7 @@ export function useMessageSubscription() {
               is_group_chat,
               group_chat_name,
               contacts (
-                id, phone_e164, contact_type,
+                id, phone_e164, email, contact_type,
                 students (id, first_name, last_name),
                 parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
                 staff (id, first_name, last_name, role)

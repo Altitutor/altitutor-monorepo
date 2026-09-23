@@ -18,6 +18,7 @@ export type ConversationWithRelations = {
   contacts: {
     id: string;
     phone_e164: string | null;
+    email?: string | null;
     contact_type: string;
     student_id?: string | null;
     parent_id?: string | null;
