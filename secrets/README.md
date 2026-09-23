@@ -130,6 +130,10 @@ Environment-specific values such as:
 - UCAT social provider credentials (`SUPABASE_AUTH_EXTERNAL_GOOGLE_*` and
   `SUPABASE_AUTH_EXTERNAL_APPLE_*`) plus `AUTH_GOOGLE_ENABLED` and
   `AUTH_APPLE_ENABLED`
+- UCAT email configuration: `UCAT_EMAIL_DISPATCH_SECRET_KEY`,
+  `UCAT_LIFECYCLE_CRON_SECRET_KEY`, `UCAT_LIFECYCLE_EMAILS_ENABLED`,
+  `UCAT_RESEND_CONTACT_SYNC_ENABLED`, `RESEND_WEBHOOK_SECRET`,
+  `RESEND_TOPIC_*`, and `UCAT_WEB_URL`
 
 ## Where Secrets Go
 
@@ -163,6 +167,12 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
   applied to hosted Supabase Auth by CI
 - `CRON_SECRET` is generated once when missing and sent only to
   `altitutor-ucat-web` for authenticated Preview and Production cron routes
+- `UCAT_LIFECYCLE_CRON_SECRET_KEY` is sent only to `altitutor-admin-web`,
+  whose authenticated server routes proxy lifecycle previews and dry runs
+- `UCAT_WEB_URL` is expanded into the public aliases consumed by admin,
+  marketing, student, tutor, and UCAT web links. Development defaults to
+  `https://ucat.development.altitutor.com`; production defaults to
+  `https://ucat.altitutor.com`
 
 Projects currently deployed by the script:
 
@@ -208,6 +218,14 @@ From `.env.shared` plus the matching environment file. Deployed keys include:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
+- `RESEND_TOPIC_*`
+- `UCAT_EMAIL_DISPATCH_SECRET_KEY`
+- `UCAT_LIFECYCLE_CRON_SECRET_KEY`
+- `UCAT_LIFECYCLE_EMAILS_ENABLED`
+- `UCAT_RESEND_CONTACT_SYNC_ENABLED`
+- `UCAT_WEB_URL`
+- `UCAT_FOUNDER_SIGNATURE_URL` when configured
 - `SUPABASE_SENTRY_DSN` → `SENTRY_DSN`
 - `SENTRY_ENVIRONMENT`, derived automatically as `development` or `production`
 
@@ -275,7 +293,7 @@ Excludes `NEXT_PUBLIC_*` (those go to Vercel).
 
 ### Vercel (`deploy-vercel.sh`)
 
-Deploys `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT projects. Other `NEXT_PUBLIC_*` variables go to the existing application projects. `OPENROUTER_API_KEY` goes to tutor-web, and `RESEND_API_KEY` goes to all application web projects.
+Deploys `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT projects. UCAT URL aliases go to every web project; other `NEXT_PUBLIC_*` variables go to the existing application projects. `OPENROUTER_API_KEY` goes to tutor-web, `RESEND_API_KEY` goes to all application web projects, and `UCAT_LIFECYCLE_CRON_SECRET_KEY` goes only to admin-web.
 
 ### EAS (`deploy-eas.sh`)
 
@@ -283,7 +301,7 @@ Deploys derived `EXPO_PUBLIC_*` values only.
 
 ### Supabase (`deploy-supabase.sh`)
 
-Deploys `TWILIO_*`, `IMESSAGE_*`, `CONNECTOR_SECRET`, `PRINT_CONNECTOR_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `RESEND_API_KEY`.
+Deploys `TWILIO_*`, `IMESSAGE_*`, `CONNECTOR_SECRET`, `PRINT_CONNECTOR_SECRET`, Stripe secrets, Resend secrets/topic IDs, and UCAT email runtime configuration.
 
 Edit the patterns in each script if naming conventions change.
 

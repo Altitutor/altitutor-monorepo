@@ -9,6 +9,7 @@ import {
   escapeEmailHtml,
   renderUcatEmail,
   renderUcatEmailButton,
+  UCAT_EMAIL_ENVIRONMENT,
   UCAT_EMAIL_SENDERS,
 } from "../_shared/ucat-email.ts";
 
@@ -1064,6 +1065,7 @@ export function buildLifecycleEmail(
     },
     tags: [
       { name: "product", value: "ucat" },
+      { name: "environment", value: UCAT_EMAIL_ENVIRONMENT },
       { name: "message_type", value: "lifecycle" },
       { name: "campaign", value: campaign.key },
       { name: "topic", value: campaign.topic },
