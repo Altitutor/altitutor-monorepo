@@ -564,7 +564,7 @@ function PlacementQuestionContent({
               >
                 {placedOption ? (
                   <div
-                    className="flex min-h-[50px] w-full touch-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
+                    className="flex min-h-[50px] w-full touch-none select-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
                     draggable={!readOnly}
                     onPointerDown={(event) =>
                       startOptionTouchDrag(event, placedOption.id)
@@ -597,7 +597,7 @@ function PlacementQuestionContent({
           .map((option) => (
             <div
               key={option.id}
-              className="flex min-h-[58px] touch-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
+              className="flex min-h-[58px] touch-none select-none items-center justify-center rounded border border-black bg-white px-4 py-2 text-center"
               draggable={!readOnly}
               onPointerDown={(event) => startOptionTouchDrag(event, option.id)}
               onDragStart={(event) => {
@@ -688,7 +688,7 @@ function PlacementQuestionContent({
                     {choice ? (
                       <div
                         className={cn(
-                          "flex h-9 w-20 touch-none items-center justify-center gap-1 rounded border bg-white text-[11pt] font-medium",
+                          "flex h-9 w-20 touch-none select-none items-center justify-center gap-1 rounded border bg-white text-[11pt] font-medium",
                           markedCorrect
                             ? "border-emerald-600 text-emerald-800"
                             : "border-black text-black",
@@ -766,7 +766,7 @@ function PlacementQuestionContent({
                 event.dataTransfer.effectAllowed = "copy";
                 applyPlacementDragImage(event, positiveToken.label);
               }}
-              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium text-black"
+              className="flex h-9 w-20 touch-none select-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium text-black"
             >
               {positiveToken.label}
             </button>
@@ -791,7 +791,7 @@ function PlacementQuestionContent({
                 event.dataTransfer.effectAllowed = "copy";
                 applyPlacementDragImage(event, negativeToken.label);
               }}
-              className="flex h-9 w-20 touch-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium text-black"
+              className="flex h-9 w-20 touch-none select-none items-center justify-center rounded border border-black bg-white text-[11pt] font-medium text-black"
             >
               {negativeToken.label}
             </button>
