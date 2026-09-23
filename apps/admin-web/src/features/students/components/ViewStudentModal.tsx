@@ -37,12 +37,12 @@ import { StudentSessionsTab } from './StudentSessionsTab';
 import { StudentBillingTab } from './StudentBillingTab';
 import { StudentOnlineTab } from './StudentOnlineTab';
 import { ViewSubjectModal } from '@/features/subjects/components';
-import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
+import { resolveCombinedActivityTab } from '@/features/activity/lib/entityCommunication';
 import { ViewParentModal } from './ViewParentModal';
 import { ParentSearchPopover } from './ParentSearchPopover';
 import { Badge, useToast } from '@altitutor/ui';
 import { AddParentModal } from '@/features/parents/components/AddParentModal';
-import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
 import { IssuePill } from '@/features/issues';
 import { classesApi } from '@/shared/api';
@@ -54,7 +54,6 @@ import {
   useStudentPasswordReset,
   useStudentMutations,
   useStudentModals,
-  useStudentConversation,
   useAllParents,
   useStudentActions,
 } from '../hooks';
@@ -123,18 +122,13 @@ export function ViewStudentModal({
 
   const modals = useStudentModals();
 
-  const conversationId = useStudentConversation({
-    studentId,
-    enabled: isOpen && !!studentId,
-  });
-
   const { data: allParentsData } = useAllParents({
     enabled: isOpen && editFlow.isEditing,
   });
   const allParents = allParentsData || [];
 
   // UI state
-  const [activeTab, setActiveTab] = useState<string>(defaultTab);
+  const [activeTab, setActiveTab] = useState<string>(resolveCombinedActivityTab(defaultTab));
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   
   // Modal states for new actions
@@ -152,7 +146,7 @@ export function ViewStudentModal({
   // Reset edit states when modal closes
   useEffect(() => {
     if (isOpen) {
-      setActiveTab(defaultTab);
+      setActiveTab(resolveCombinedActivityTab(defaultTab));
     } else {
       editFlow.cancelEdit();
       modals.reset();
@@ -348,10 +342,9 @@ export function ViewStudentModal({
                       { value: 'details', label: 'Details' },
                       ...(isInPerson ? [{ value: 'classes', label: 'Classes' }] : []),
                       { value: 'sessions', label: 'Sessions' },
-                      { value: 'messages', label: 'Messages' },
+                      { value: 'activity', label: 'Activity' },
                       ...(isOnline ? [{ value: 'online', label: 'Online' }] : []),
                       ...(isInPerson ? [{ value: 'billing', label: 'Billing' }] : []),
-                      { value: 'activity', label: 'Activity' },
                     ]}
                   />
                 </div>
@@ -411,18 +404,6 @@ export function ViewStudentModal({
                 </SegmentedTabPanelContent>
                 ) : null}
 
-                <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
-                  <div className="h-full p-6">
-                    <MessagesTabContent 
-                      conversationId={conversationId}
-                      title={`${student.first_name} ${student.last_name}`}
-                      onClose={onClose}
-                      relatedId={studentId || undefined}
-                      relatedType="student"
-                    />
-                  </div>
-                </SegmentedTabPanelContent>
-
                 <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">
                     <StudentSessionsTab 
@@ -440,12 +421,14 @@ export function ViewStudentModal({
                 </SegmentedTabPanelContent>
                 ) : null}
 
-                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-                  <div className="p-6">
-                    {studentId && (
-                      <StudentActivityTab studentId={studentId} isOpen={isOpen} />
-                    )}
-                  </div>
+                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  {studentId && (
+                    <EntityCommunicationPanel
+                      entityType="student"
+                      entityId={studentId}
+                      enabled={isOpen}
+                    />
+                  )}
                 </SegmentedTabPanelContent>
               </div>
             </div>

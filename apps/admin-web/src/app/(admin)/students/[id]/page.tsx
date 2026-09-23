@@ -31,15 +31,13 @@ import {
 } from '@/features/students/components/tabs';
 import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
-import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
-import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
   useStudentMutations,
   useStudentModals,
-  useStudentConversation,
   useAllParents,
   useStudentActions,
 } from '@/features/students/hooks';
@@ -92,11 +90,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   });
 
   const modals = useStudentModals();
-
-  const conversationId = useStudentConversation({
-    studentId: id,
-    enabled: !!id,
-  });
 
   const { data: allParentsData } = useAllParents({
     enabled: editFlow.isEditing,
@@ -281,10 +274,9 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         options={[
           { value: 'details', label: 'Details' },
           { value: 'classes', label: 'Classes' },
-          { value: 'messages', label: 'Messages' },
+          { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'billing', label: 'Billing' },
-          { value: 'activity', label: 'Activity' },
         ]}
       >
         <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
@@ -345,18 +337,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="space-y-6">
-          <div className="h-[calc(100dvh-400px)]">
-            <MessagesTabContent 
-              conversationId={conversationId}
-              title={`${student.first_name} ${student.last_name}`}
-              onClose={() => router.push('/students')}
-              relatedId={id}
-              relatedType="student"
-            />
-          </div>
-        </SegmentedTabPanelContent>
-
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           <StudentSessionsTab student={student} />
         </SegmentedTabPanelContent>
@@ -366,7 +346,12 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
-          <StudentActivityTab studentId={id} isOpen={true} />
+          <div className="h-[calc(100dvh-280px)] min-h-[420px]">
+            <EntityCommunicationPanel
+              entityType="student"
+              entityId={id}
+            />
+          </div>
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 

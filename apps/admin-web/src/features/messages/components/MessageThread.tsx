@@ -409,6 +409,13 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   );
 }
 
+function partyNameParts(name: string): { firstName: string; lastName: string } {
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  const firstName = parts[0] ?? '';
+  const lastName = parts.length > 1 ? parts[parts.length - 1] : '';
+  return { firstName, lastName };
+}
+
 export function MessageThread({
   feed,
   contactId,
@@ -862,16 +869,17 @@ export function MessageThread({
                 (m.status === 'FAILED' || m.status === 'AMBIGUOUS') &&
                 Boolean(m.error_message);
               
+              const partyLabel = feed?.labelForConversation?.(m.conversation_id);
+              const partyName = partyLabel ? partyNameParts(partyLabel) : null;
+
               return (
                 <div key={m.id}>
-                  {feed?.labelForConversation && <div className="text-xs text-muted-foreground mb-1">{feed.labelForConversation(m.conversation_id)}</div>}
                   {showDateSeparator && (
                     <div className="text-center text-xs text-muted-foreground my-3">
                       {formatDaySeparator(m.created_at)}
                     </div>
                   )}
                   <div className={`flex gap-2 items-end ${direction === 'OUTBOUND' ? 'flex-row-reverse' : 'flex-row'}`}>
-                    {/* Staff avatar for outbound messages */}
                     {direction === 'OUTBOUND' && m.staff && (
                       <StaffAvatar
                         staffId={m.staff.id}
@@ -879,9 +887,22 @@ export function MessageThread({
                         lastName={m.staff.last_name}
                       />
                     )}
+                    {direction === 'INBOUND' && partyName && (
+                      <StaffAvatar
+                        staffId={m.conversation_id}
+                        firstName={partyName.firstName}
+                        lastName={partyName.lastName}
+                      />
+                    )}
                     
                     <div className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
-                      {/* Sender badge for outbound messages */}
+                      {partyLabel && (
+                        <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 max-w-full break-all">
+                            {direction === 'OUTBOUND' ? 'To' : 'From'}: {partyLabel}
+                          </Badge>
+                        </div>
+                      )}
                       {direction === 'OUTBOUND' && m.sender && (
                         <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
                           <Badge variant="outline" className="text-[9px] px-1.5 py-0 max-w-full break-all">

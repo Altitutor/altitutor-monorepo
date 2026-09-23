@@ -25,15 +25,13 @@ import { ParentDetailsTab, ParentDetailsFormData } from '@/features/students/com
 import { ParentSessionsTab } from '@/features/students/components/ParentSessionsTab';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
-import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
-import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import { useParentDetails, parentsKeys, useDeleteParent } from '@/features/parents/hooks/useParentsQuery';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import {
   useParentEditFlow,
   useParentMutations,
   useParentModals,
-  useParentConversation,
 } from '@/features/parents/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
 
@@ -64,11 +62,6 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
   });
 
   const modals = useParentModals();
-
-  const conversationId = useParentConversation({
-    parentId: id,
-    enabled: !!id,
-  });
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
@@ -185,7 +178,6 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         options={[
           { value: 'details', label: 'Details' },
           { value: 'sessions', label: 'Sessions' },
-          { value: 'messages', label: 'Messages' },
           { value: 'activity', label: 'Activity' },
         ]}
       >
@@ -237,20 +229,13 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           <ParentSessionsTab parent={parent} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="space-y-6">
-          <div className="h-[600px]">
-            <MessagesTabContent 
-              conversationId={conversationId}
-              title={`${parent.first_name} ${parent.last_name}`}
-              onClose={() => router.push('/parents')}
-              relatedId={id}
-              relatedType="parent"
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
+          <div className="h-[calc(100dvh-280px)] min-h-[420px]">
+            <EntityCommunicationPanel
+              entityType="parent"
+              entityId={id}
             />
           </div>
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
-          <ParentActivityTab parentId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 

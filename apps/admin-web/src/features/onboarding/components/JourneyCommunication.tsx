@@ -15,7 +15,20 @@ import {
   type ThreadFeedEntry,
 } from "@/features/messages/components/MessageThread";
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
+import { ComposeModeControl, type ComposeMode } from "@/features/activity/components/ComposeModeControl";
 import { useStudentActivity } from "@/features/activity/hooks/useActivityEvents";
+import { useEntityActivityNoteComposer, activityKeys } from "@/features/activity/hooks";
+import {
+  communicationFilterOptions,
+  contactSourceId,
+  groupConversationSourceId,
+  sourcesAfterRecipientChange,
+  EMAIL_SOURCE_ID,
+  ACTIVITY_SOURCE_ID,
+} from "@/features/activity/lib/entityCommunication";
+import { NoteComposerWithTemplate } from "@/shared/components/NoteComposerWithTemplate";
+import { isTiptapContentEmpty } from "@/shared/utils/plainTextToTiptapJson";
+import { isMessageComposerSendShortcut } from "@/features/messages/utils/composerShortcut";
 import { useStudentInviteData } from "@/features/students/hooks/useStudentInviteData";
 import {
   getStudentRegistrationInviteMessageForClient,
@@ -32,20 +45,12 @@ import type { Journey } from "../lib/model";
 
 type Purpose = "registration_link" | "ucat_link" | "followup";
 
-const FEED_SOURCES = [
-  ["events", "Activity / events"],
-  ["student", "Student texts"],
-  ["parent", "Parent texts"],
-  ["group", "Group texts"],
-  ["email", "Emails"],
-] as const;
 export const JourneyCommunication = forwardRef<
   { prepare: (purpose: Purpose) => void },
   { journey: Journey; onRefresh: () => void }
 >(function JourneyCommunication({ journey, onRefresh }, ref) {
-  const [sources, setSources] = useState<string[]>(
-    FEED_SOURCES.map(([value]) => value),
-  );
+  const [mode, setMode] = useState<ComposeMode>("message");
+  const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
   const emails = useJourneyEmails(journey.id);
   const mailbox = useMailboxStatus();
   const [destination, setDestination] = useState("");
@@ -57,6 +62,11 @@ export const JourneyCommunication = forwardRef<
   const conversations = useMemo(() => context?.conversations ?? [], [context]);
   const messages = useJourneyMessages(conversations);
   const activity = useStudentActivity(journey.student_id);
+  const noteComposer = useEntityActivityNoteComposer({
+    targetType: "student",
+    targetId: journey.student_id ?? "",
+    activityQueryKey: activityKeys.student(journey.student_id ?? ""),
+  });
   const inviteQuery = useStudentInviteData(
     journey.student_id ?? "",
     "registration",
@@ -64,7 +74,7 @@ export const JourneyCommunication = forwardRef<
   );
   const invite = inviteQuery.data;
   const { data: staff } = useCurrentStaff();
-  const contacts = context?.contacts ?? [];
+  const contacts = useMemo(() => context?.contacts ?? [], [context?.contacts]);
   const selected =
     destination ||
     contacts.find((c) => c.kind === "parent")?.id ||
@@ -90,16 +100,38 @@ export const JourneyCommunication = forwardRef<
   );
   const selectedRecipient = recipients.find((recipient) => recipient.id === selected);
   const group = conversations.find((c) => c.id === selected && c.is_group_chat);
+  const filterOptions = communicationFilterOptions({
+    contacts: contacts.map((person) => ({
+      id: person.id,
+      kind: person.kind === "parent" ? "parent" as const : "student" as const,
+      label: person.label,
+      isCurrent: true,
+      detail: person.phone_e164 || person.kind,
+    })),
+    groups: conversations
+      .filter((conversation) => conversation.is_group_chat)
+      .map((conversation) => ({
+        id: conversation.id,
+        label: conversation.group_chat_name || "Group texts",
+      })),
+    includeEmail: true,
+  });
+  const sources = sourceOverride ?? filterOptions.map((option) => option.id);
   function sourceFor(id: string) {
-    const c = conversations.find((c) => c.id === id);
-    return c?.is_group_chat
-      ? "group"
-      : (contacts.find((p) => p.id === c?.contact_id)?.kind ?? "student");
+    const conversation = conversations.find((item) => item.id === id);
+    if (!conversation) return "unknown";
+    if (conversation.is_group_chat) return groupConversationSourceId(conversation.id);
+    return conversation.contact_id ? contactSourceId(conversation.contact_id) : "unknown";
+  }
+  function recipientSource(id: string) {
+    return conversations.some((conversation) => conversation.id === id && conversation.is_group_chat)
+      ? groupConversationSourceId(id)
+      : contactSourceId(id);
   }
   const visible = (messages.data?.pages.flatMap((p) => p.items) ?? []).filter(
     (m) => sources.includes(sourceFor(m.conversation_id)),
   );
-  const entries: ThreadFeedEntry[] = sources.includes("events")
+  const entries: ThreadFeedEntry[] = sources.includes(ACTIVITY_SOURCE_ID)
     ? (activity.data?.events ?? []).map((event) => ({
         id: `event:${event.id}`,
         at: event.effective_at,
@@ -111,7 +143,7 @@ export const JourneyCommunication = forwardRef<
         ),
       }))
     : [];
-  if (sources.includes("email"))
+  if (sources.includes(EMAIL_SOURCE_ID))
     for (const email of emails.data?.pages.flatMap((p) => p.items) ?? [])
       entries.push({
         id: `email:${email.id}`,
@@ -128,6 +160,7 @@ export const JourneyCommunication = forwardRef<
         ),
       });
   async function prepare(kind: Purpose) {
+    setMode("message");
     setError("");
     try {
       if (kind === "registration_link") {
@@ -179,7 +212,6 @@ export const JourneyCommunication = forwardRef<
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b bg-background px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
-          <span className="shrink-0 text-sm font-medium">Message</span>
           {recipients.length > 0 ? (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -204,6 +236,12 @@ export const JourneyCommunication = forwardRef<
                       setDestination(recipient.id);
                       setDraft("");
                       setPurpose(undefined);
+                      setSourceOverride((current) =>
+                        sourcesAfterRecipientChange(
+                          current ?? sources,
+                          recipientSource(recipient.id),
+                        ),
+                      );
                     }}
                     className="flex items-center justify-between"
                   >
@@ -240,28 +278,29 @@ export const JourneyCommunication = forwardRef<
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
-            {FEED_SOURCES.map(([value, label]) => (
+            {filterOptions.map((option) => (
               <DropdownMenuCheckboxItem
-                key={value}
-                checked={sources.includes(value)}
+                key={option.id}
+                checked={sources.includes(option.id)}
                 onCheckedChange={(checked) =>
-                  setSources((current) =>
-                    checked
-                      ? current.includes(value)
-                        ? current
-                        : [...current, value]
-                      : current.filter((item) => item !== value),
-                  )
+                  setSourceOverride((current) => {
+                    const base = current ?? sources;
+                    return checked
+                      ? base.includes(option.id)
+                        ? base
+                        : [...base, option.id]
+                      : base.filter((item) => item !== option.id);
+                  })
                 }
                 onSelect={(event) => event.preventDefault()}
               >
-                {label}
+                {option.label}
               </DropdownMenuCheckboxItem>
             ))}
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
-      {sources.includes("email") && !mailbox.data?.length && (
+      {sources.includes(EMAIL_SOURCE_ID) && !mailbox.data?.length && (
         <p className="flex-shrink-0 px-3 py-2 text-xs text-muted-foreground">
           Microsoft 365 sync is awaiting configuration. Emails will appear here
           after connection.
@@ -290,14 +329,41 @@ export const JourneyCommunication = forwardRef<
             if (emails.hasNextPage) void emails.fetchNextPage();
           },
           labelForConversation: (id) => {
-            const c = conversations.find((c) => c.id === id);
-            return c?.is_group_chat
-              ? (c.group_chat_name ?? "Existing group")
-              : `${contacts.find((p) => p.id === c?.contact_id)?.label ?? "Contact"} · ${sourceFor(id)} text`;
+            const conversation = conversations.find((item) => item.id === id);
+            if (!conversation) return undefined;
+            if (conversation.is_group_chat) return conversation.group_chat_name ?? "Group";
+            const person = contacts.find((item) => item.id === conversation.contact_id);
+            if (!person) return undefined;
+            return person.label;
           },
         }}
       />
-      {selected ? (
+      {mode === "note" ? (
+        <div
+          className="flex-shrink-0 border-t bg-background p-2"
+          onKeyDownCapture={(event) => {
+            if (!journey.student_id || !isMessageComposerSendShortcut(event) || isTiptapContentEmpty(noteComposer.content)) return;
+            event.preventDefault();
+            void noteComposer.onSubmit();
+          }}
+        >
+          {journey.student_id ? (
+            <NoteComposerWithTemplate
+              content={noteComposer.content}
+              onChange={noteComposer.onChange}
+              onSubmit={noteComposer.onSubmit}
+              isSubmitting={noteComposer.isSubmitting}
+              canPost={noteComposer.canPost}
+              modeControl={<ComposeModeControl value={mode} onValueChange={setMode} />}
+            />
+          ) : (
+            <div className="flex items-center justify-between gap-2 p-2">
+              <p className="text-sm text-muted-foreground">Link a student before adding a note.</p>
+              <ComposeModeControl value={mode} onValueChange={setMode} />
+            </div>
+          )}
+        </div>
+      ) : selected ? (
         <Composer
           key={selected}
           contactId={contact?.id ?? null}
@@ -306,6 +372,7 @@ export const JourneyCommunication = forwardRef<
           draft={draft}
           onDraftChange={setDraft}
           onDraftClear={() => setDraft("")}
+          toolbarBeforeTemplate={<ComposeModeControl value={mode} onValueChange={setMode} />}
           onboarding={purpose ? { journeyId: journey.id, purpose } : undefined}
           onQueued={() => {
             setPurpose(undefined);
@@ -314,9 +381,12 @@ export const JourneyCommunication = forwardRef<
           }}
         />
       ) : (
-        <p className="flex-shrink-0 border-t p-4 text-sm text-muted-foreground">
-          Link a student or enquiry contact with a phone number to send a text.
-        </p>
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-t p-4">
+          <p className="text-sm text-muted-foreground">
+            Link a student or enquiry contact with a phone number to send a text.
+          </p>
+          <ComposeModeControl value={mode} onValueChange={setMode} />
+        </div>
       )}
     </div>
   );
