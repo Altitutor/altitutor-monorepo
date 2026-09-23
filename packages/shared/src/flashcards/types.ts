@@ -139,6 +139,17 @@ export type RateFlashcardCommand = {
   answeredAt: string;
 };
 
+export type FlashcardSubjectStudySummary = {
+  id: string;
+  name: string;
+  shortName: string | null;
+  topicIds: string[];
+  total: number;
+  new: number;
+  learning: number;
+  review: number;
+};
+
 export type FlashcardStudySnapshot = {
   cards: FlashcardReviewCard[];
   counts: { new: number; learning: number; relearning: number; review: number; total: number };
@@ -146,6 +157,8 @@ export type FlashcardStudySnapshot = {
   nextDueAt: string | null;
   timezone: string;
   timezoneConfirmationRequired: boolean;
+  catalogTotal: number;
+  subjects: FlashcardSubjectStudySummary[];
 };
 
 export type FlashcardImportRow = {

@@ -10,6 +10,33 @@ type MockButtonProps = React.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const mockRefetch = jest.fn();
+let mockSearchParams = 'study=all';
+let mockDueSnapshot: {
+  cards: never[];
+  counts: { total: number; new: number; learning: number; relearning: number; review: number };
+  held: { newLimit: number; reviewLimit: number; newBlockedByReviews: number; futureLearning: number };
+  nextDueAt: null;
+  timezoneConfirmationRequired: boolean;
+  catalogTotal: number;
+  subjects: Array<{
+    id: string;
+    name: string;
+    shortName: string | null;
+    topicIds: string[];
+    total: number;
+    new: number;
+    learning: number;
+    review: number;
+  }>;
+} = {
+  cards: [],
+  counts: { total: 0, new: 0, learning: 0, relearning: 0, review: 0 },
+  held: { newLimit: 0, reviewLimit: 0, newBlockedByReviews: 0, futureLearning: 0 },
+  nextDueAt: null,
+  timezoneConfirmationRequired: false,
+  catalogTotal: 0,
+  subjects: [],
+};
 let mockSessionProps: {
   queueRevision?: number;
   pinnedLayout?: boolean;
@@ -27,7 +54,7 @@ let mockSessionProps: {
 } = {};
 
 jest.mock('next/navigation', () => ({
-  useSearchParams: () => new URLSearchParams(),
+  useSearchParams: () => new URLSearchParams(mockSearchParams),
 }));
 
 jest.mock('@altitutor/ui', () => ({
@@ -60,13 +87,7 @@ jest.mock('@/features/flashcards', () => ({
     return <div data-testid="review-session" />;
   },
   useDueFlashcardReviewCards: () => ({
-    data: {
-      cards: [],
-      counts: { total: 0, new: 0, learning: 0, relearning: 0, review: 0 },
-      held: { newLimit: 0, reviewLimit: 0, newBlockedByReviews: 0, futureLearning: 0 },
-      nextDueAt: null,
-      timezoneConfirmationRequired: false,
-    },
+    data: mockDueSnapshot,
     error: null,
     isLoading: false,
     refetch: mockRefetch,
@@ -82,6 +103,16 @@ describe('DueFlashcardsPage undo flow', () => {
   });
 
   beforeEach(() => {
+    mockSearchParams = 'study=all';
+    mockDueSnapshot = {
+      cards: [],
+      counts: { total: 0, new: 0, learning: 0, relearning: 0, review: 0 },
+      held: { newLimit: 0, reviewLimit: 0, newBlockedByReviews: 0, futureLearning: 0 },
+      nextDueAt: null,
+      timezoneConfirmationRequired: false,
+      catalogTotal: 0,
+      subjects: [],
+    };
     mockRefetch.mockReset().mockResolvedValue({ error: null });
     mockSessionProps = {};
     global.fetch = jest.fn().mockResolvedValue({ ok: true });
@@ -202,5 +233,29 @@ describe('DueFlashcardsPage undo flow', () => {
       futureLearning: 0,
       nextDueAt: null,
     });
+  });
+
+  it('lists study all and subjects with cards, and does not open a study session', () => {
+    mockSearchParams = '';
+    mockDueSnapshot = {
+      ...mockDueSnapshot,
+      catalogTotal: 5,
+      counts: { total: 4, new: 2, learning: 1, relearning: 1, review: 1 },
+      subjects: [
+        { id: 'bio', name: 'Biology', shortName: 'bio', topicIds: ['topic-bio'], total: 3, new: 1, learning: 1, review: 1 },
+        { id: 'empty', name: 'Physics', shortName: 'phys', topicIds: [], total: 0, new: 0, learning: 0, review: 0 },
+      ],
+    };
+
+    render(<DueFlashcardsPage />);
+
+    expect(screen.queryByTestId('review-session')).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /Study all/ })).toHaveAttribute('href', '/resources/flashcards?study=all');
+    expect(screen.getByRole('link', { name: /Study all/ })).toHaveTextContent('5 cards');
+    expect(screen.getByRole('link', { name: /Study all/ })).toHaveTextContent('2 new + 2 learning + 1 review');
+    expect(screen.getByRole('link', { name: /Biology/ })).toHaveAttribute('href', '/resources/flashcards?subject=bio');
+    expect(screen.getByRole('link', { name: /Biology/ })).toHaveTextContent('3 cards');
+    expect(screen.getByRole('link', { name: /Biology/ })).toHaveTextContent('1 new + 1 learning + 1 review');
+    expect(screen.queryByRole('link', { name: /Physics/ })).not.toBeInTheDocument();
   });
 });

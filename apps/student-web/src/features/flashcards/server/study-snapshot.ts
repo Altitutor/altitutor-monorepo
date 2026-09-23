@@ -1,4 +1,4 @@
-import type { FlashcardReviewCard } from '@altitutor/shared';
+import type { FlashcardReviewCard, FlashcardSubjectStudySummary } from '@altitutor/shared';
 import { getRetrievability } from './fsrs';
 
 type DailyUsage = { newStudied: number; reviewsStudied: number };
@@ -10,6 +10,38 @@ export type StudySnapshot = {
   held: { buried: number; suspended: number; newLimit: number; reviewLimit: number; newBlockedByReviews: number; futureLearning: number };
   nextDueAt: string | null;
 };
+
+export type FlashcardSubjectGroup = {
+  id: string;
+  name: string;
+  shortName: string | null;
+  topicIds: string[];
+  cards: FlashcardReviewCard[];
+};
+
+export function summarizeFlashcardSubjects(
+  groups: FlashcardSubjectGroup[],
+  usage: DailyUsage,
+  policy: StudyPolicy,
+  now: Date,
+): FlashcardSubjectStudySummary[] {
+  return groups
+    .filter((group) => group.cards.length > 0)
+    .map((group) => {
+      const snapshot = buildStudySnapshot(group.cards, usage, policy, now);
+      return {
+        id: group.id,
+        name: group.name,
+        shortName: group.shortName,
+        topicIds: group.topicIds,
+        total: group.cards.length,
+        new: snapshot.counts.new,
+        learning: snapshot.counts.learning + snapshot.counts.relearning,
+        review: snapshot.counts.review,
+      };
+    })
+    .sort((left, right) => left.name.localeCompare(right.name));
+}
 
 function deterministicNewOrder(card: FlashcardReviewCard, day: string) {
   let hash = 2166136261;

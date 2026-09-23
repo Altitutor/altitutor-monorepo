@@ -4,7 +4,7 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { buildRatingPreviews, getRetrievability, type FlashcardStudyPresetConfig, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
 import { DEFAULT_FLASHCARD_STUDY_PRESET_ID, type FlashcardReviewCard } from '@altitutor/shared';
-import { buildStudySnapshot } from '@/features/flashcards/server/study-snapshot';
+import { buildStudySnapshot, summarizeFlashcardSubjects } from '@/features/flashcards/server/study-snapshot';
 import { createHash } from 'node:crypto';
 
 type TopicMetadata = {
@@ -82,7 +82,7 @@ export async function GET(request: NextRequest) {
   const subjectIds=[...new Set((topicRows??[]).map(topic=>topic.subject_id).filter((id):id is string=>Boolean(id)))];
   const [assignmentResult, subjectResult, noteFilesResult] = await Promise.all([
     subjectIds.length?adminClient.from('subject_flashcard_study_presets').select('subject_id,preset_id').in('subject_id',subjectIds):Promise.resolve({data:[],error:null}),
-    subjectIds.length?adminClient.from('subjects').select('id,short_name,name').in('id',subjectIds):Promise.resolve({data:[],error:null}),
+    subjectIds.length?adminClient.from('subjects').select('id,short_name,name,long_name').in('id',subjectIds):Promise.resolve({data:[],error:null}),
     topicIdsForPresets.length?userClient.from('vstudent_topics_files').select('id,topic_id,code,filename,index,is_solutions').in('topic_id',topicIdsForPresets).eq('type','NOTES').order('index',{ascending:true}):Promise.resolve({data:[],error:null}),
   ]);
   const metadataError=assignmentResult.error??subjectResult.error??noteFilesResult.error;
@@ -166,14 +166,38 @@ export async function GET(request: NextRequest) {
     if (state === 'Review') result.reviewsStudied += 1;
     return result;
   }, { newStudied: 0, reviewsStudied: 0 });
-  const snapshot = buildStudySnapshot(rows, usage, {
+  const studyPolicy = {
     newLimit: preferences?.new_cards_per_study_day ?? 20,
     reviewLimit: preferences?.review_cards_per_study_day ?? 200,
     learnAheadMinutes: 20,
     studyDaySeed: bounds[0].study_day ?? undefined,
-  }, now);
+  };
+  const snapshot = buildStudySnapshot(rows, usage, studyPolicy, now);
+  const subjectGroups = new Map<string, { id: string; name: string; shortName: string | null; topicIds: Set<string>; cards: typeof rows }>();
+  for (const row of rows) {
+    const topic = topicById.get(row.topic_id);
+    const subjectId = topic?.subject_id;
+    if (!subjectId) continue;
+    const subject = subjectById.get(subjectId);
+    const group = subjectGroups.get(subjectId) ?? {
+      id: subjectId,
+      name: subject?.long_name || subject?.name || subject?.short_name || 'Subject',
+      shortName: subject?.short_name ?? null,
+      topicIds: new Set<string>(),
+      cards: [],
+    };
+    group.topicIds.add(row.topic_id);
+    group.cards.push(row);
+    subjectGroups.set(subjectId, group);
+  }
+  const subjects = summarizeFlashcardSubjects(
+    [...subjectGroups.values()].map((group) => ({ ...group, topicIds: [...group.topicIds] })),
+    usage,
+    studyPolicy,
+    now,
+  );
   return NextResponse.json(
-    { data: { ...snapshot, timezone, timezoneConfirmationRequired: !preferences?.timezone_confirmed_at } },
+    { data: { ...snapshot, timezone, timezoneConfirmationRequired: !preferences?.timezone_confirmed_at, catalogTotal: rows.length, subjects } },
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }

@@ -7,11 +7,14 @@ import {
   type FlashcardManageFilter,
 } from '@/features/flashcards/components/manage-flashcards-dialog';
 import { StudentPageContainer } from '@/shared/components/layouts';
-import { Alert, AlertDescription, AlertTitle, Button } from '@altitutor/ui';
+import { studentCardCn } from '@/shared/lib/student-visual';
+import { cn } from '@/shared/utils';
+import type { FlashcardSubjectStudySummary } from '@altitutor/shared';
+import { Alert, AlertDescription, AlertTitle, Button, clickableCardInteractiveCn } from '@altitutor/ui';
 import { Settings, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 type UndoCommandError = Error & {
   code?: string;
@@ -19,6 +22,36 @@ type UndoCommandError = Error & {
 };
 
 const undoConflictRetryDelayMs = 100;
+
+function formatStudyCounts(counts: { new: number; learning: number; review: number }) {
+  return `${counts.new} new + ${counts.learning} learning + ${counts.review} review`;
+}
+
+function formatCardTotal(total: number) {
+  return `${total} ${total === 1 ? 'card' : 'cards'}`;
+}
+
+function StudyChoice({
+  href,
+  title,
+  total,
+  counts,
+}: {
+  href: string;
+  title: string;
+  total: number;
+  counts: { new: number; learning: number; review: number };
+}) {
+  return (
+    <Link href={href} className={cn(studentCardCn('block p-4'), clickableCardInteractiveCn)}>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-lg font-semibold">{title}</h2>
+        <p className="shrink-0 text-sm text-muted-foreground">{formatCardTotal(total)}</p>
+      </div>
+      <p className="mt-2 text-sm tabular-nums text-muted-foreground">{formatStudyCounts(counts)}</p>
+    </Link>
+  );
+}
 
 async function submitUndoCommand(command: { requestId: string; answerLogId: string }): Promise<void> {
   const response = await fetch('/api/flashcards/review-cards/undo', {
@@ -45,13 +78,26 @@ export default function DueFlashcardsPage() {
   const [undoPending, setUndoPending] = useState(false);
   const undoPendingRef = useRef(false);
   const [undoMessage, setUndoMessage] = useState<{ kind: 'success' | 'error'; text: string } | null>(null);
-  const scopedTopicIds = searchParams.get('topicIds')?.split(',').filter(Boolean);
-  const {
-    data: snapshot,
-    error: cardsError,
-    isLoading: cardsLoading,
-    refetch,
-  } = useDueFlashcardReviewCards(scopedTopicIds);
+  const studyAll = searchParams.get('study') === 'all';
+  const subjectId = searchParams.get('subject');
+  const studying = studyAll || Boolean(subjectId);
+  const menu = useDueFlashcardReviewCards();
+  const selectedSubject = subjectId
+    ? menu.data?.subjects.find((subject) => subject.id === subjectId) ?? null
+    : null;
+  const subjectStudy = useDueFlashcardReviewCards(subjectId ? selectedSubject?.topicIds ?? null : null);
+  const snapshot = studyAll ? menu.data : subjectStudy.data;
+  const cardsError = studyAll ? menu.error : subjectStudy.error;
+  const cardsLoading = studyAll
+    ? menu.isLoading
+    : Boolean(subjectId) && (menu.isLoading || !menu.data || subjectStudy.isLoading);
+  const refetch = studyAll ? menu.refetch : subjectStudy.refetch;
+  const wasStudyingRef = useRef(false);
+  useEffect(() => {
+    if (wasStudyingRef.current && !studying) void menu.refetch();
+    wasStudyingRef.current = studying;
+  }, [menu.refetch, studying]);
+  const subjectChoices = (menu.data?.subjects ?? []).filter((subject) => subject.total > 0);
   const undoLatest = async () => {
     if (answerPending || undoPendingRef.current || !undoAnswerLogId) return;
     undoPendingRef.current = true;
@@ -101,12 +147,15 @@ export default function DueFlashcardsPage() {
         <ResourcesBreadcrumb
           items={[
             { label: 'Resources', href: '/resources' },
-            { label: 'Flashcards' },
+            { label: 'Flashcards', href: studying ? '/resources/flashcards' : undefined },
+            ...(studying ? [{ label: studyAll ? 'Study all' : selectedSubject?.name ?? 'Subject' }] : []),
           ]}
         />
         {snapshot?.timezoneConfirmationRequired ? <Alert><AlertTitle>Confirm your study-day timezone</AlertTitle><AlertDescription>We’re using Australia/Adelaide for now. <Link className="underline" href="/settings/flashcards">Confirm or change it</Link>; studying is not blocked.</AlertDescription></Alert> : null}
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <h1 className="text-3xl font-bold tracking-tight">Flashcards</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            {studyAll ? 'Study all' : selectedSubject?.name ?? 'Flashcards'}
+          </h1>
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={() => openManager('all')}>
               <SlidersHorizontal className="mr-2 h-4 w-4" />
@@ -131,7 +180,54 @@ export default function DueFlashcardsPage() {
       </header>
 
       <div className="flex min-h-0 flex-1 flex-col">
-        {cardsLoading ? (
+        {!studying ? (
+          menu.isLoading ? (
+            <div className="min-h-0 flex-1" />
+          ) : menu.error ? (
+            <Alert variant="destructive">
+              <AlertTitle>Could not load flashcards</AlertTitle>
+              <AlertDescription className="space-y-3">
+                <p>Your cards may still be due. Please try loading them again.</p>
+                <Button variant="outline" size="sm" onClick={() => void menu.refetch()}>
+                  Try again
+                </Button>
+              </AlertDescription>
+            </Alert>
+          ) : (
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
+              {(menu.data?.catalogTotal ?? 0) > 0 ? (
+                <StudyChoice
+                  href="/resources/flashcards?study=all"
+                  title="Study all"
+                  total={menu.data?.catalogTotal ?? 0}
+                  counts={{
+                    new: menu.data?.counts.new ?? 0,
+                    learning: (menu.data?.counts.learning ?? 0) + (menu.data?.counts.relearning ?? 0),
+                    review: menu.data?.counts.review ?? 0,
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-muted-foreground">No flashcards yet.</p>
+              )}
+              {subjectChoices.map((subject: FlashcardSubjectStudySummary) => (
+                <StudyChoice
+                  key={subject.id}
+                  href={`/resources/flashcards?subject=${encodeURIComponent(subject.id)}`}
+                  title={subject.name}
+                  total={subject.total}
+                  counts={subject}
+                />
+              ))}
+            </div>
+          )
+        ) : subjectId && menu.data && !selectedSubject ? (
+          <div className="space-y-3">
+            <h2 className="text-xl font-semibold">This subject has no flashcards</h2>
+            <Button variant="outline" asChild>
+              <Link href="/resources/flashcards">Back to subjects</Link>
+            </Button>
+          </div>
+        ) : cardsLoading ? (
           <div className="min-h-0 flex-1" />
         ) : cardsError ? (
           <Alert variant="destructive">
@@ -145,7 +241,7 @@ export default function DueFlashcardsPage() {
           </Alert>
         ) : (
           <FlashcardReviewSession
-            topicId="due-all"
+            topicId={studyAll ? 'due-all' : `due-${subjectId ?? 'subject'}`}
             mode="due"
             cards={snapshot?.cards ?? []}
             queueRevision={queueRevision}

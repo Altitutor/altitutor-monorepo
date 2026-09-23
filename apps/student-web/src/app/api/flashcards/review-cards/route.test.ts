@@ -104,7 +104,7 @@ describe('GET /api/flashcards/review-cards', () => {
     const response = await GET(request());
 
     expect(response.status).toBe(200);
-    await expect(response.json()).resolves.toEqual({ data: { cards: [], counts: { new: 0, learning: 0, relearning: 0, review: 0, total: 0 }, held: { buried: 0, suspended: 0, newLimit: 0, reviewLimit: 0, newBlockedByReviews: 0, futureLearning: 0 }, nextDueAt: null, timezone: 'Australia/Adelaide', timezoneConfirmationRequired: true } });
+    await expect(response.json()).resolves.toEqual({ data: { cards: [], counts: { new: 0, learning: 0, relearning: 0, review: 0, total: 0 }, held: { buried: 0, suspended: 0, newLimit: 0, reviewLimit: 0, newBlockedByReviews: 0, futureLearning: 0 }, nextDueAt: null, timezone: 'Australia/Adelaide', timezoneConfirmationRequired: true, catalogTotal: 0, subjects: [] } });
     expect(getClaims).toHaveBeenCalledTimes(1);
     expect(from).toHaveBeenCalledWith('vstudent_flashcard_review_cards');
     expect(getClaims.mock.invocationCallOrder[0]).toBeLessThan(from.mock.invocationCallOrder[0]);
