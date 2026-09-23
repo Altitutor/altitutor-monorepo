@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     .map((id) => id.trim())
     .filter(Boolean);
   const mode = request.nextUrl.searchParams.get('mode') === 'all' ? 'all' : 'due';
+  const countsOnly = request.nextUrl.searchParams.get('countsOnly') === '1';
 
   const userClient = createClient();
   const { data: authData, error: authError } = await userClient.auth.getClaims();
@@ -74,6 +75,54 @@ export async function GET(request: NextRequest) {
   }
   const { data: bounds, error: boundsError } = await adminClient.rpc('flashcard_study_day_bounds', { p_now: now.toISOString(), p_timezone: timezone });
   if (boundsError || !bounds?.[0]) return captureApiErrorResponse(boundsError ?? new Error('study_day_bounds_missing'), '/api/flashcards/review-cards', NextResponse.json({ error: 'Unable to resolve study day' }, { status: 500 }));
+
+  if (countsOnly) {
+    if (rawRows.length === 0) {
+      return NextResponse.json({ data: { total: 0 } }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
+    const countTopicIds = [...new Set(rawRows.map((row) => row.topic_id))];
+    const countTopicResult = await adminClient.from('topics').select('id,subject_id').in('id', countTopicIds);
+    if (countTopicResult.error) return captureApiErrorResponse(countTopicResult.error, '/api/flashcards/review-cards', NextResponse.json({ error: countTopicResult.error.message }, { status: 500 }));
+    const countSubjectIds = [...new Set((countTopicResult.data ?? []).map((topic) => topic.subject_id).filter((id): id is string => Boolean(id)))];
+    const countAssignmentResult = countSubjectIds.length
+      ? await adminClient.from('subject_flashcard_study_presets').select('subject_id,preset_id').in('subject_id', countSubjectIds)
+      : { data: [], error: null };
+    if (countAssignmentResult.error) return captureApiErrorResponse(countAssignmentResult.error, '/api/flashcards/review-cards', NextResponse.json({ error: countAssignmentResult.error.message }, { status: 500 }));
+    const countPresetIds = [...new Set([DEFAULT_FLASHCARD_STUDY_PRESET_ID, ...(countAssignmentResult.data ?? []).map((item) => item.preset_id)])];
+    const countVersionResult = await adminClient.from('flashcard_study_preset_versions').select('preset_id,version,learn_ahead_minutes').in('preset_id', countPresetIds).order('version', { ascending: false });
+    if (countVersionResult.error) return captureApiErrorResponse(countVersionResult.error, '/api/flashcards/review-cards', NextResponse.json({ error: countVersionResult.error.message }, { status: 500 }));
+    const latestLearnAhead = new Map<string, number>();
+    for (const version of countVersionResult.data ?? []) {
+      if (!latestLearnAhead.has(version.preset_id)) latestLearnAhead.set(version.preset_id, version.learn_ahead_minutes);
+    }
+    const countSubjectPreset = new Map((countAssignmentResult.data ?? []).map((item) => [item.subject_id, item.preset_id]));
+    const learnAheadByTopic = new Map((countTopicResult.data ?? []).map((topic) => {
+      const presetId = countSubjectPreset.get(topic.subject_id ?? '') ?? DEFAULT_FLASHCARD_STUDY_PRESET_ID;
+      return [topic.id, latestLearnAhead.get(presetId) ?? 20] as const;
+    }));
+    const { data: countLogs, error: countLogsError } = await adminClient.from('student_flashcard_review_logs').select('pre_state')
+      .eq('student_id', studentId).eq('action', 'answer').is('undone_at', null)
+      .gte('answered_at', bounds[0].starts_at).lt('answered_at', bounds[0].ends_at);
+    if (countLogsError) return captureApiErrorResponse(countLogsError, '/api/flashcards/review-cards', NextResponse.json({ error: countLogsError.message }, { status: 500 }));
+    const countUsage = (countLogs ?? []).reduce((result, log) => {
+      const state = (log.pre_state as { state?: string }).state;
+      if (state === 'New') result.newStudied += 1;
+      if (state === 'Review') result.reviewsStudied += 1;
+      return result;
+    }, { newStudied: 0, reviewsStudied: 0 });
+    const countSnapshot = buildStudySnapshot(
+      rawRows.map((row) => ({ ...row, learn_ahead_minutes: learnAheadByTopic.get(row.topic_id) ?? 20 })),
+      countUsage,
+      {
+        newLimit: preferences?.new_cards_per_study_day ?? 20,
+        reviewLimit: preferences?.review_cards_per_study_day ?? 200,
+        learnAheadMinutes: 20,
+        studyDaySeed: bounds[0].study_day ?? undefined,
+      },
+      now,
+    );
+    return NextResponse.json({ data: { total: countSnapshot.counts.total } }, { headers: { 'Cache-Control': 'private, no-store' } });
+  }
 
   const topicIdsForPresets=[...new Set(rawRows.map(row=>row.topic_id))];
   const topicResult=topicIdsForPresets.length?await adminClient.from('topics').select('id,subject_id,code,name').in('id',topicIdsForPresets):{data:[],error:null};

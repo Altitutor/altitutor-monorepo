@@ -1,6 +1,6 @@
 'use client';
 
-import { ResourcesBreadcrumb } from '@/features/resources';
+import { ResourcesBreadcrumb, useResourceSubjects } from '@/features/resources';
 import { FlashcardReviewSession, useDueFlashcardReviewCards } from '@/features/flashcards';
 import {
   ManageFlashcardsDialog,
@@ -9,8 +9,9 @@ import {
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { studentCardCn } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
-import type { FlashcardSubjectStudySummary } from '@altitutor/shared';
-import { Alert, AlertDescription, AlertTitle, Button, clickableCardInteractiveCn } from '@altitutor/ui';
+import type { FlashcardSubjectStudySummary, ResourceSubjectImage } from '@altitutor/shared';
+import { Alert, AlertDescription, AlertTitle, Button, Card, CardContent, ClickableCardRevealChevron, Skeleton, clickableCardHoverCn } from '@altitutor/ui';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { Settings, SlidersHorizontal } from 'lucide-react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
@@ -31,24 +32,101 @@ function formatCardTotal(total: number) {
   return `${total} ${total === 1 ? 'card' : 'cards'}`;
 }
 
+function StudyChoiceCover({ image, title }: { image?: ResourceSubjectImage | null; title: string }) {
+  const [signedImageUrl, setSignedImageUrl] = useState<string | null>(null);
+  const [isSigningUrl, setIsSigningUrl] = useState(false);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setImageLoaded(false);
+    setSignedImageUrl(null);
+
+    if (!image?.bucket || !image.storage_path) {
+      setIsSigningUrl(false);
+      return;
+    }
+
+    const bucket = image.bucket;
+    const storagePath = image.storage_path;
+    setIsSigningUrl(true);
+
+    async function loadImage() {
+      try {
+        const supabase = getSupabaseClient();
+        const { data, error } = await supabase.storage.from(bucket).createSignedUrl(storagePath, 3600);
+        if (cancelled) return;
+        if (!error && data?.signedUrl) setSignedImageUrl(data.signedUrl);
+      } catch {
+        if (!cancelled) setSignedImageUrl(null);
+      } finally {
+        if (!cancelled) setIsSigningUrl(false);
+      }
+    }
+
+    void loadImage();
+    return () => {
+      cancelled = true;
+    };
+  }, [image]);
+
+  const showSkeleton = isSigningUrl || Boolean(signedImageUrl && !imageLoaded);
+  const showPlaceholder = !signedImageUrl && !isSigningUrl;
+
+  return (
+    <div className="relative h-36 w-full overflow-hidden bg-muted">
+      {showSkeleton ? <Skeleton className="absolute inset-0 z-10 h-full w-full rounded-none" /> : null}
+      {signedImageUrl ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={signedImageUrl}
+          alt={title}
+          className="h-full w-full object-cover"
+          onLoad={() => setImageLoaded(true)}
+          onError={() => {
+            setSignedImageUrl(null);
+            setImageLoaded(false);
+          }}
+        />
+      ) : null}
+      {showPlaceholder ? (
+        <div className="flex h-full w-full items-center justify-center bg-muted ring-1 ring-inset ring-border/50">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/logo-icon-light.svg" alt="" className="h-14 w-14 opacity-90 dark:hidden" />
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/images/logo-icon-dark.svg" alt="" className="hidden h-14 w-14 opacity-90 dark:block" />
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
 function StudyChoice({
   href,
   title,
   total,
   counts,
+  image,
 }: {
   href: string;
   title: string;
   total: number;
   counts: { new: number; learning: number; review: number };
+  image?: ResourceSubjectImage | null;
 }) {
   return (
-    <Link href={href} className={cn(studentCardCn('block p-4'), clickableCardInteractiveCn)}>
-      <div className="flex items-baseline justify-between gap-3">
-        <h2 className="text-lg font-semibold">{title}</h2>
-        <p className="shrink-0 text-sm text-muted-foreground">{formatCardTotal(total)}</p>
-      </div>
-      <p className="mt-2 text-sm tabular-nums text-muted-foreground">{formatStudyCounts(counts)}</p>
+    <Link href={href} className="group block">
+      <Card className={cn(studentCardCn('group overflow-hidden p-0'), clickableCardHoverCn)}>
+        <StudyChoiceCover image={image} title={title} />
+        <CardContent className="space-y-1 p-4">
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-lg font-semibold">{title}</h2>
+            <ClickableCardRevealChevron size="sm" className="mt-0.5" />
+          </div>
+          <p className="text-sm text-muted-foreground">{formatCardTotal(total)}</p>
+          <p className="text-sm tabular-nums text-muted-foreground">{formatStudyCounts(counts)}</p>
+        </CardContent>
+      </Card>
     </Link>
   );
 }
@@ -98,6 +176,8 @@ export default function DueFlashcardsPage() {
     wasStudyingRef.current = studying;
   }, [menu.refetch, studying]);
   const subjectChoices = (menu.data?.subjects ?? []).filter((subject) => subject.total > 0);
+  const { data: resourceSubjects } = useResourceSubjects();
+  const subjectImages = new Map((resourceSubjects ?? []).map((subject) => [subject.id, subject.image ?? null]));
   const undoLatest = async () => {
     if (answerPending || undoPendingRef.current || !undoAnswerLogId) return;
     undoPendingRef.current = true;
@@ -194,30 +274,35 @@ export default function DueFlashcardsPage() {
               </AlertDescription>
             </Alert>
           ) : (
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto">
-              {(menu.data?.catalogTotal ?? 0) > 0 ? (
-                <StudyChoice
-                  href="/resources/flashcards?study=all"
-                  title="Study all"
-                  total={menu.data?.catalogTotal ?? 0}
-                  counts={{
-                    new: menu.data?.counts.new ?? 0,
-                    learning: (menu.data?.counts.learning ?? 0) + (menu.data?.counts.relearning ?? 0),
-                    review: menu.data?.counts.review ?? 0,
-                  }}
-                />
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {(menu.data?.catalogTotal ?? 0) > 0 || subjectChoices.length > 0 ? (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {(menu.data?.catalogTotal ?? 0) > 0 ? (
+                    <StudyChoice
+                      href="/resources/flashcards?study=all"
+                      title="Study all"
+                      total={menu.data?.catalogTotal ?? 0}
+                      counts={{
+                        new: menu.data?.counts.new ?? 0,
+                        learning: (menu.data?.counts.learning ?? 0) + (menu.data?.counts.relearning ?? 0),
+                        review: menu.data?.counts.review ?? 0,
+                      }}
+                    />
+                  ) : null}
+                  {subjectChoices.map((subject: FlashcardSubjectStudySummary) => (
+                    <StudyChoice
+                      key={subject.id}
+                      href={`/resources/flashcards?subject=${encodeURIComponent(subject.id)}`}
+                      title={subject.name}
+                      total={subject.total}
+                      counts={subject}
+                      image={subjectImages.get(subject.id)}
+                    />
+                  ))}
+                </div>
               ) : (
                 <p className="text-sm text-muted-foreground">No flashcards yet.</p>
               )}
-              {subjectChoices.map((subject: FlashcardSubjectStudySummary) => (
-                <StudyChoice
-                  key={subject.id}
-                  href={`/resources/flashcards?subject=${encodeURIComponent(subject.id)}`}
-                  title={subject.name}
-                  total={subject.total}
-                  counts={subject}
-                />
-              ))}
             </div>
           )
         ) : subjectId && menu.data && !selectedSubject ? (

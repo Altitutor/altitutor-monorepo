@@ -63,6 +63,11 @@ jest.mock('@altitutor/ui', () => ({
   AlertTitle: ({ children }: React.PropsWithChildren) => <h2>{children}</h2>,
   Button: ({ children, asChild, variant: _variant, ...props }: MockButtonProps) =>
     asChild ? <>{children}</> : <button {...props}>{children}</button>,
+  Card: ({ children, className }: React.PropsWithChildren<{ className?: string }>) => <div className={className}>{children}</div>,
+  CardContent: ({ children, className }: React.PropsWithChildren<{ className?: string }>) => <div className={className}>{children}</div>,
+  ClickableCardRevealChevron: () => null,
+  Skeleton: () => null,
+  clickableCardHoverCn: '',
 }));
 
 jest.mock('@/shared/lib/student-visual', () => ({
@@ -71,6 +76,7 @@ jest.mock('@/shared/lib/student-visual', () => ({
 
 jest.mock('@/features/resources', () => ({
   ResourcesBreadcrumb: () => null,
+  useResourceSubjects: () => ({ data: [] }),
 }));
 
 jest.mock('@/shared/components/layouts', () => ({

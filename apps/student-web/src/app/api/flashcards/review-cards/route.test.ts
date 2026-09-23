@@ -30,8 +30,8 @@ jest.mock('@/lib/sentry/capture-api-error', () => ({
 const mockedCreateClient = jest.mocked(createClient);
 const mockedGetServerSupabaseAdmin = jest.mocked(getServerSupabaseAdmin);
 
-function request(): NextRequest {
-  return { nextUrl: new URL('https://student.altitutor.com/api/flashcards/review-cards?mode=due') } as NextRequest;
+function request(search = 'mode=due'): NextRequest {
+  return { nextUrl: new URL(`https://student.altitutor.com/api/flashcards/review-cards?${search}`) } as NextRequest;
 }
 
 describe('GET /api/flashcards/review-cards', () => {
@@ -109,6 +109,36 @@ describe('GET /api/flashcards/review-cards', () => {
     expect(from).toHaveBeenCalledWith('vstudent_flashcard_review_cards');
     expect(getClaims.mock.invocationCallOrder[0]).toBeLessThan(from.mock.invocationCallOrder[0]);
     expect(response.headers).toEqual({ 'Cache-Control': 'private, no-store' });
+  });
+
+  it('returns only the due total when countsOnly is set and there are no cards', async () => {
+    mockedCreateClient.mockReturnValue({
+      auth: { getClaims: jest.fn().mockResolvedValue({ data: { claims: { sub: 'student-user-id' } }, error: null }) },
+      from: jest.fn(() => ({
+        select: jest.fn(() => ({
+          order: jest.fn(() => ({
+            order: jest.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+      })),
+      rpc: jest.fn().mockResolvedValue({ data: 'student-id', error: null }),
+    } as unknown as ReturnType<typeof createClient>);
+    const adminFrom = jest.fn((table: string) => {
+      if (table === 'student_flashcard_preferences') {
+        return { select: jest.fn(() => ({ eq: jest.fn(() => ({ maybeSingle: jest.fn().mockResolvedValue({ data: null, error: null }) })) })) };
+      }
+      throw new Error(`unexpected table ${table}`);
+    });
+    mockedGetServerSupabaseAdmin.mockReturnValue({
+      from: adminFrom,
+      rpc: jest.fn().mockResolvedValue({ data: [{ starts_at: '2026-09-18T18:30:00Z', ends_at: '2026-09-19T18:30:00Z' }], error: null }),
+    } as unknown as ReturnType<typeof getServerSupabaseAdmin>);
+
+    const response = await GET(request('mode=due&countsOnly=1'));
+
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toEqual({ data: { total: 0 } });
+    expect(adminFrom).not.toHaveBeenCalledWith('flashcard_study_preset_versions');
   });
 
   it('rejects a missing session instead of silently returning zero cards', async () => {
