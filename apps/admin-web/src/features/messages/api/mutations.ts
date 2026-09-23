@@ -12,6 +12,7 @@ import {
 } from '../utils/unreadQueryCache';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { outboundMessageDestination } from '../utils/messagingHandle';
 
 export function useSendMessage() {
   const qc = useQueryClient();
@@ -41,19 +42,13 @@ export function useSendMessage() {
         .eq('user_id', user?.id || '')
         .maybeSingle();
 
-      // Get contact phone number
       const { data: contact } = args.contactId
         ? await supabase
             .from('contacts')
-            .select('phone_e164')
+            .select('phone_e164, email')
             .eq('id', args.contactId)
             .maybeSingle()
         : { data: null };
-
-      const toNumber = args.groupChatId ?? contact?.phone_e164;
-      if (!toNumber) {
-        throw new Error('Message destination not found');
-      }
 
       // Get selected sender details
       const { data: sender } = await supabase
@@ -64,6 +59,19 @@ export function useSendMessage() {
 
       if (!sender) {
         throw new Error('Selected sender not found');
+      }
+
+      const toNumber = outboundMessageDestination({
+        groupChatId: args.groupChatId,
+        phone: contact?.phone_e164,
+        email: contact?.email,
+        provider: sender.provider,
+      });
+      if (!toNumber) {
+        if (contact?.email && !contact.phone_e164 && !args.groupChatId && sender.provider !== 'IMESSAGE') {
+          throw new Error('This contact can only be reached by iMessage email. Select the iMessage number.');
+        }
+        throw new Error('Message destination not found');
       }
 
       if (args.groupChatId && sender.provider !== 'IMESSAGE') {

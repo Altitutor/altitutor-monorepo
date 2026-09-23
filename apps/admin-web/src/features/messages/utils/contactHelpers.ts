@@ -3,11 +3,19 @@ import type { Database, TablesInsert } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { ensureConversationForRelated } from '../api/queries';
 
+type EnsureContactOptions = {
+  /** Create an email-only contact when the person has an Apple ID and no phone. */
+  allowEmail?: boolean;
+};
+
 /**
  * Ensure contact exists for a student (create if missing)
  * Returns contact ID or null if student has no phone
  */
-export async function ensureContactForStudent(studentId: string): Promise<string | null> {
+export async function ensureContactForStudent(
+  studentId: string,
+  options?: EnsureContactOptions,
+): Promise<string | null> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   
   // Check if contact already exists
@@ -21,22 +29,24 @@ export async function ensureContactForStudent(studentId: string): Promise<string
     return existingContact.id;
   }
   
-  // Get student phone
   const { data: student, error: studentError } = await supabase
     .from('students')
-    .select('phone')
+    .select('phone, email')
     .eq('id', studentId)
     .single();
-  
-  if (studentError || !student?.phone) {
-    return null; // No phone number available
+
+  const phone = student?.phone?.trim() || null;
+  const email = student?.email?.trim() || null;
+  if (studentError || (!phone && !(options?.allowEmail && email))) {
+    return null;
   }
   
   // Create contact
   const contactData: TablesInsert<'contacts'> = {
     contact_type: 'STUDENT',
     student_id: studentId,
-    phone_e164: student.phone,
+    phone_e164: phone,
+    email: options?.allowEmail ? email : null,
     is_opted_out: false,
   };
   
@@ -67,7 +77,10 @@ export async function ensureContactForStudent(studentId: string): Promise<string
  * Ensure contact exists for a parent (create if missing)
  * Returns contact ID or null if parent has no phone
  */
-export async function ensureContactForParent(parentId: string): Promise<string | null> {
+export async function ensureContactForParent(
+  parentId: string,
+  options?: EnsureContactOptions,
+): Promise<string | null> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   
   // Check if contact already exists
@@ -81,22 +94,24 @@ export async function ensureContactForParent(parentId: string): Promise<string |
     return existingContact.id;
   }
   
-  // Get parent phone
   const { data: parent, error: parentError } = await supabase
     .from('parents')
-    .select('phone')
+    .select('phone, email')
     .eq('id', parentId)
     .single();
-  
-  if (parentError || !parent?.phone) {
-    return null; // No phone number available
+
+  const phone = parent?.phone?.trim() || null;
+  const email = parent?.email?.trim() || null;
+  if (parentError || (!phone && !(options?.allowEmail && email))) {
+    return null;
   }
   
   // Create contact
   const contactData: TablesInsert<'contacts'> = {
     contact_type: 'PARENT',
     parent_id: parentId,
-    phone_e164: parent.phone,
+    phone_e164: phone,
+    email: options?.allowEmail ? email : null,
     is_opted_out: false,
   };
   
@@ -127,7 +142,10 @@ export async function ensureContactForParent(parentId: string): Promise<string |
  * Ensure contact exists for a staff member (create if missing)
  * Returns contact ID or null if staff has no phone
  */
-export async function ensureContactForStaff(staffId: string): Promise<string | null> {
+export async function ensureContactForStaff(
+  staffId: string,
+  options?: EnsureContactOptions,
+): Promise<string | null> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>;
   
   // Check if contact already exists
@@ -141,22 +159,24 @@ export async function ensureContactForStaff(staffId: string): Promise<string | n
     return existingContact.id;
   }
   
-  // Get staff phone
   const { data: staff, error: staffError } = await supabase
     .from('staff')
-    .select('phone_number')
+    .select('phone_number, email')
     .eq('id', staffId)
     .single();
-  
-  if (staffError || !staff?.phone_number) {
-    return null; // No phone number available
+
+  const phone = staff?.phone_number?.trim() || null;
+  const email = staff?.email?.trim() || null;
+  if (staffError || (!phone && !(options?.allowEmail && email))) {
+    return null;
   }
   
   // Create contact
   const contactData: TablesInsert<'contacts'> = {
     contact_type: 'STAFF',
     staff_id: staffId,
-    phone_e164: staff.phone_number,
+    phone_e164: phone,
+    email: options?.allowEmail ? email : null,
     is_opted_out: false,
   };
   
@@ -326,6 +346,50 @@ export async function ensureContactForPhoneNumber(phoneE164: string): Promise<st
     return null;
   }
   
+  return newContact.id;
+}
+
+export async function ensureContactForEmail(email: string): Promise<string | null> {
+  const handle = email.trim();
+  if (!handle) return null;
+  const supabase = getSupabaseClient() as SupabaseClient<Database>;
+
+  const { data: existingContact } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('email', handle)
+    .maybeSingle();
+  if (existingContact?.id) return existingContact.id;
+
+  const contactData: TablesInsert<'contacts'> = {
+    contact_type: 'LEAD',
+    phone_e164: null,
+    email: handle,
+    student_id: null,
+    parent_id: null,
+    staff_id: null,
+    is_opted_out: false,
+  };
+
+  const { data: newContact, error: createError } = await supabase
+    .from('contacts')
+    .insert(contactData)
+    .select('id')
+    .single();
+
+  if (createError) {
+    if (createError.code === '23505') {
+      const { data: retryContact } = await supabase
+        .from('contacts')
+        .select('id')
+        .eq('email', handle)
+        .maybeSingle();
+      return retryContact?.id || null;
+    }
+    console.error('Error creating contact for email:', createError);
+    return null;
+  }
+
   return newContact.id;
 }
 

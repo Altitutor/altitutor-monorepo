@@ -277,7 +277,7 @@ test.describe("personalised Study plan", () => {
       page.getByRole("heading", { name: "Good to see you, Alice" }),
     ).toBeVisible();
     await expect(
-      page.getByRole("link", { name: /(?:Open|View) Study plan/ }).first(),
+      page.getByRole("button", { name: "View Study plan" }).first(),
     ).toBeVisible();
   });
 

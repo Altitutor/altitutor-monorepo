@@ -11,6 +11,7 @@ import {
   type GroupConversation,
 } from '../types';
 import type { Tables } from '@altitutor/shared';
+import { messagingHandle } from '../utils/messagingHandle';
 
 // Re-export types for backward compatibility
 export type { Sender, AggregatedConversation } from '../types';
@@ -35,6 +36,7 @@ type ConversationRow = {
   contacts: {
     id: string;
     phone_e164: string | null;
+    email?: string | null;
     contact_type: string;
     student_id: string | null;
     parent_id: string | null;
@@ -49,6 +51,7 @@ type ConversationRow = {
     contact_id: string;
     contacts: {
       phone_e164: string | null;
+      email?: string | null;
       students: Pick<Tables<'students'>, 'first_name' | 'last_name'> | null;
       parents: Pick<Tables<'parents'>, 'first_name' | 'last_name'> | null;
       staff: Pick<Tables<'staff'>, 'first_name' | 'last_name'> | null;
@@ -101,7 +104,7 @@ export function useConversations() {
           assigned_staff_id, contact_id, owned_number_id,
           is_group_chat, group_chat_id, group_chat_name,
           contacts!inner(
-            id, phone_e164, contact_type, student_id, parent_id, staff_id,
+            id, phone_e164, email, contact_type, student_id, parent_id, staff_id,
             students(id, first_name, last_name),
             parents(id, first_name, last_name),
             staff(id, first_name, last_name)
@@ -186,7 +189,7 @@ export function useConversationDetails(conversationId: string | null) {
         .select(`
           id,
           contacts (
-            id, phone_e164, contact_type,
+            id, phone_e164, email, contact_type,
             students (id, first_name, last_name),
             parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
             staff (id, first_name, last_name, role)
@@ -229,6 +232,30 @@ export async function ensureConversationForContact(contactId: string, ownedNumbe
     return ensureConversation(contactId, id);
   }
   return ensureConversation(contactId, defaultOwnedNumberId);
+}
+
+/** The iMessage number a new Apple ID conversation must use. A Twilio filter cannot send email. */
+export async function findImessageOwnedNumberId(preferredId?: string | null): Promise<string | null> {
+  const supabase = getSupabaseClient();
+  if (preferredId) {
+    const { data, error } = await supabase
+      .from('owned_numbers')
+      .select('id, provider')
+      .eq('id', preferredId)
+      .maybeSingle();
+    if (error) throw error;
+    return data?.provider === 'IMESSAGE' ? data.id : null;
+  }
+
+  const { data, error } = await supabase
+    .from('owned_numbers')
+    .select('id')
+    .eq('provider', 'IMESSAGE')
+    .order('created_at', { ascending: true })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.id ?? null;
 }
 
 export interface RelatedMessageContact {
@@ -449,7 +476,7 @@ export async function fetchConversationList(
       is_group_chat, group_chat_id, group_chat_name,
       needs_follow_up,
       contacts(
-        id, phone_e164, contact_type, student_id, parent_id, staff_id,
+        id, phone_e164, email, contact_type, student_id, parent_id, staff_id,
         students(id, first_name, last_name),
         parents(id, first_name, last_name),
         staff(id, first_name, last_name)
@@ -457,7 +484,7 @@ export async function fetchConversationList(
       group_chat_participants(
         contact_id,
         contacts(
-          phone_e164,
+          phone_e164, email,
           students(first_name, last_name),
           parents(first_name, last_name),
           staff(first_name, last_name)
@@ -498,7 +525,7 @@ export async function fetchConversationList(
         const name = person
           ? `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim()
           : '';
-        return name || contact?.phone_e164 || 'Unknown participant';
+        return name || messagingHandle(contact) || 'Unknown participant';
       });
       groups.push({
         kind: 'group',
