@@ -82,7 +82,7 @@ deploy_edge_function_env_entry() {
         SUPABASE_SENTRY_DSN)
             deploy_supabase_secret "SENTRY_DSN" "$value" "$project_ref" "$environment"
             ;;
-        TWILIO_*|IMESSAGE_*|CONNECTOR_SECRET|PRINT_CONNECTOR_SECRET|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|RESEND_API_KEY)
+        TWILIO_*|IMESSAGE_*|CONNECTOR_SECRET|PRINT_CONNECTOR_SECRET|STRIPE_SECRET_KEY|STRIPE_WEBHOOK_SECRET|RESEND_API_KEY|RESEND_WEBHOOK_SECRET|RESEND_TOPIC_*|UCAT_EMAIL_DISPATCH_SECRET_KEY|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_LIFECYCLE_EMAILS_ENABLED|UCAT_RESEND_CONTACT_SYNC_ENABLED|UCAT_WEB_URL|UCAT_FOUNDER_SIGNATURE_URL)
             deploy_supabase_secret "$key" "$value" "$project_ref" "$environment"
             ;;
     esac
@@ -127,6 +127,7 @@ else
 
     # Environment is configuration derived from the target, not a stored secret.
     deploy_supabase_secret "SENTRY_ENVIRONMENT" "development" "$DEV_PROJECT_REF" "development"
+    deploy_supabase_secret "UCAT_EMAIL_ENVIRONMENT" "development" "$DEV_PROJECT_REF" "development"
     
     rm -f "$temp_input"
     # Debug: show how many secrets were processed
@@ -171,6 +172,7 @@ else
 
     # Environment is configuration derived from the target, not a stored secret.
     deploy_supabase_secret "SENTRY_ENVIRONMENT" "production" "$PROD_PROJECT_REF" "production"
+    deploy_supabase_secret "UCAT_EMAIL_ENVIRONMENT" "production" "$PROD_PROJECT_REF" "production"
     
     rm -f "$temp_input"
 fi
@@ -181,7 +183,6 @@ echo ""
 print_summary
 
 exit $?
-
 
 
 

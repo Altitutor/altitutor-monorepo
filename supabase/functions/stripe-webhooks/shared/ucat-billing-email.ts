@@ -6,6 +6,7 @@ import {
   renderUcatEmailButton,
   renderUcatEmailPanel,
   renderUcatTransactionalEmail,
+  UCAT_EMAIL_ENVIRONMENT,
   UCAT_TRANSACTIONAL_FROM,
   UCAT_TRANSACTIONAL_REPLY_TO,
 } from "./ucat-transactional-email.ts";
@@ -83,6 +84,7 @@ export async function sendUcatBillingAccessEndedEmail(
     },
     tags: [
       { name: "product", value: "ucat" },
+      { name: "environment", value: UCAT_EMAIL_ENVIRONMENT },
       { name: "category", value: "transactional" },
       { name: "template", value: "billing_access_ended" },
     ],

@@ -47,6 +47,18 @@ const emailDispatchSecretSyncPath = new URL(
   "../supabase/scripts/sync-ucat-email-dispatch-secret.sql",
   import.meta.url,
 );
+const lifecycleEmailConfigSyncPath = new URL(
+  "../supabase/scripts/sync-ucat-lifecycle-email-config.sql",
+  import.meta.url,
+);
+const deploySupabaseSecretsPath = new URL(
+  "../secrets/scripts/deploy-supabase.sh",
+  import.meta.url,
+);
+const deployVercelSecretsPath = new URL(
+  "../secrets/scripts/deploy-vercel.sh",
+  import.meta.url,
+);
 
 test("new Supabase API objects declare explicit privilege contracts", async () => {
   const violations = await auditMigrationDirectory(
@@ -130,6 +142,57 @@ test("production deploys synchronize transactional email authentication", async 
   assert.match(workflow, /sync-ucat-email-dispatch-secret\.sql/u);
   assert.match(secretSync, /vault\.update_secret/u);
   assert.match(secretSync, /vault\.create_secret/u);
+});
+
+test("production deploys synchronize and schedule UCAT lifecycle email configuration", async () => {
+  const [workflow, configSync, deploySupabase, deployVercel] =
+    await Promise.all([
+      readFile(workflowPath, "utf8"),
+      readFile(lifecycleEmailConfigSyncPath, "utf8"),
+      readFile(deploySupabaseSecretsPath, "utf8"),
+      readFile(deployVercelSecretsPath, "utf8"),
+    ]);
+
+  for (const name of [
+    "UCAT_LIFECYCLE_CRON_SECRET_KEY",
+    "UCAT_LIFECYCLE_EMAILS_ENABLED",
+    "UCAT_RESEND_CONTACT_SYNC_ENABLED",
+    "RESEND_WEBHOOK_SECRET",
+    "RESEND_TOPIC_WEEKLY_PROGRESS_ID",
+    "RESEND_TOPIC_LESSONS_ID",
+    "RESEND_TOPIC_PRODUCT_NEWS_ID",
+    "RESEND_TOPIC_OFFERS_ID",
+    "UCAT_WEB_URL",
+  ]) {
+    assert.match(
+      workflow,
+      new RegExp(`${name}: \\$\\{\\{ secrets\\.${name} \\}\\}`, "u"),
+    );
+  }
+  assert.match(
+    workflow,
+    /Require production UCAT lifecycle email configuration/u,
+  );
+  assert.match(workflow, /sync-ucat-lifecycle-email-config\.sql/u);
+  assert.match(configSync, /vault\.update_secret/u);
+  assert.match(configSync, /vault\.create_secret/u);
+  assert.match(configSync, /'ucat-lifecycle-emails',\s*'17 \* \* \* \*'/u);
+  assert.match(configSync, /'ucat-resend-contact-sync',\s*'37 \* \* \* \*'/u);
+  assert.match(
+    configSync,
+    /current_setting\('app\.ucat_contact_sync_enabled'\)::BOOLEAN/u,
+  );
+  for (const name of [
+    "UCAT_LIFECYCLE_CRON_SECRET_KEY",
+    "UCAT_LIFECYCLE_EMAILS_ENABLED",
+    "UCAT_RESEND_CONTACT_SYNC_ENABLED",
+    "RESEND_WEBHOOK_SECRET",
+    "RESEND_TOPIC_\*",
+    "UCAT_WEB_URL",
+  ]) {
+    assert.match(deploySupabase, new RegExp(name, "u"));
+  }
+  assert.match(deployVercel, /UCAT_LIFECYCLE_CRON_SECRET_KEY/u);
 });
 
 test("release verification is parallel, branch-scoped, and independently cached", async () => {
