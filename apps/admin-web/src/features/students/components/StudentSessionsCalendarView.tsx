@@ -12,12 +12,14 @@ import { Button } from "@altitutor/ui";
 
 interface StudentSessionsCalendarViewProps {
   studentId?: string;
+  parentId?: string;
   onOpenSession?: (id: string) => void;
   classId?: string;
 }
 
 export function StudentSessionsCalendarView({ 
-  studentId, 
+  studentId,
+  parentId,
   onOpenSession,
   classId 
 }: StudentSessionsCalendarViewProps) {
@@ -32,6 +34,7 @@ export function StudentSessionsCalendarView({
     rangeStart: rangeStartStr, 
     rangeEnd: rangeEndStr,
     studentId: studentId || undefined,
+    parentId: parentId || undefined,
     classId,
     includeInactive: false // Only show active sessions in calendar view
   });

@@ -171,7 +171,7 @@ export const sessionsApi = {
    * Get all sessions with their attendees and staff using optimized RPC function
    * This replaces the previous multi-query approach with a single RPC call
    */
-  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; classId?: string; adminShiftId?: string; types?: string[]; orderBy?: string; ascending?: boolean }): Promise<{ 
+  getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; parentId?: string; classId?: string; adminShiftId?: string; types?: string[]; orderBy?: string; ascending?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
     sessionStudents: Record<string, Array<Tables<'students'> & {
       planned_absence?: boolean;
@@ -234,6 +234,7 @@ export const sessionsApi = {
         p_staff_id: args?.staffId || undefined,
         p_class_id: args?.classId || undefined,
         p_student_id: args?.studentId || undefined,
+        p_parent_id: args?.parentId || undefined,
         p_admin_shift_id: args?.adminShiftId || undefined,
         p_statuses: statuses,
         p_types: args?.types || undefined,

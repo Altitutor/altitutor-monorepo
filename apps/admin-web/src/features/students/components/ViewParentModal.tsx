@@ -20,6 +20,7 @@ import { Loader2, X } from "lucide-react";
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ViewStudentModal } from './ViewStudentModal';
 import { ParentDetailsTab, ParentDetailsFormData } from './tabs/ParentDetailsTab';
+import { ParentSessionsTab } from './ParentSessionsTab';
 import { useStudents } from '../hooks/useStudentsQuery';
 import { StudentSearchPopover } from './StudentSearchPopover';
 import { useQueryClient } from '@tanstack/react-query';
@@ -36,6 +37,7 @@ import {
 } from '@/features/parents/hooks';
 import { IssuePill } from '@/features/issues';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface ViewParentModalProps {
   isOpen: boolean;
@@ -93,6 +95,7 @@ export function ViewParentModal({
   const deleteParentMutation = useDeleteParent();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
 
   // Reset modals when modal closes
   useEffect(() => {
@@ -229,6 +232,7 @@ export function ViewParentModal({
                     onValueChange={setActiveTab}
                     options={[
                       { value: 'details', label: 'Details' },
+                      { value: 'sessions', label: 'Sessions' },
                       { value: 'messages', label: 'Messages' },
                       { value: 'activity', label: 'Activity' },
                     ]}
@@ -261,6 +265,15 @@ export function ViewParentModal({
                           />
                         ) : undefined
                       }
+                    />
+                  </div>
+                </SegmentedTabPanelContent>
+
+                <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  <div className="h-full p-6">
+                    <ParentSessionsTab
+                      parent={parent}
+                      onOpenSession={entityModals.openSession}
                     />
                   </div>
                 </SegmentedTabPanelContent>

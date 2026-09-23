@@ -22,6 +22,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
 import { ParentDetailsTab, ParentDetailsFormData } from '@/features/students/components/tabs/ParentDetailsTab';
+import { ParentSessionsTab } from '@/features/students/components/ParentSessionsTab';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { StudentSearchPopover } from '@/features/students/components/StudentSearchPopover';
 import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
@@ -183,6 +184,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
         className="space-y-6"
         options={[
           { value: 'details', label: 'Details' },
+          { value: 'sessions', label: 'Sessions' },
           { value: 'messages', label: 'Messages' },
           { value: 'activity', label: 'Activity' },
         ]}
@@ -229,6 +231,10 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
               </Button>
             </div>
           )}
+        </SegmentedTabPanelContent>
+
+        <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
+          <ParentSessionsTab parent={parent} />
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="space-y-6">

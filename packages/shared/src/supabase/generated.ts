@@ -41017,6 +41017,7 @@ export type Database = {
           p_limit?: number
           p_offset?: number
           p_order_by?: string
+          p_parent_id?: string
           p_range_end?: string
           p_range_start?: string
           p_search?: string
