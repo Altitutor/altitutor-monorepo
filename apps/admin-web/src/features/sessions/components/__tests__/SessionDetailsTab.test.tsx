@@ -1,5 +1,5 @@
 import React from 'react';
-import { screen, within } from '@testing-library/react';
+import { fireEvent, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { SessionDetailsTab } from '../SessionDetailsTab';
 import { renderWithProviders } from '@/shared/test-utils';
@@ -108,6 +108,59 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
 }
 
 describe('SessionDetailsTab', () => {
+  it('keeps the Subject available when editing a Drafting session', async () => {
+    const onSubmit = jest.fn().mockResolvedValue(undefined);
+    const { container } = renderComponent({
+      isEditing: true,
+      onSubmit,
+      studentsData: [],
+      staffData: [],
+      session: {
+        id: 'drafting-session-1',
+        type: 'DRAFTING',
+        start_at: '2026-01-01T00:00:00.000Z',
+        end_at: '2026-01-01T01:00:00.000Z',
+        class_id: null,
+        subject_id: 'subject-1',
+        subject: { id: 'subject-1', name: 'Math', long_name: 'Mathematics', short_name: 'MATH' },
+      } as SessionDetailsSession,
+    });
+
+    expect(screen.getByText('Subject')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mathematics' })).toBeInTheDocument();
+    expect(screen.queryByText('Class')).not.toBeInTheDocument();
+
+    const form = container.querySelector('#session-edit-form');
+    expect(form).not.toBeNull();
+    fireEvent.submit(form!);
+
+    await waitFor(() => {
+      expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+        type: 'DRAFTING',
+        subjectId: 'subject-1',
+        classId: null,
+      }));
+    });
+  });
+
+  it('shows the Subject when viewing a Drafting session', () => {
+    renderComponent({
+      studentsData: [],
+      staffData: [],
+      session: {
+        id: 'drafting-session-1',
+        type: 'DRAFTING',
+        start_at: '2026-01-01T00:00:00.000Z',
+        end_at: '2026-01-01T01:00:00.000Z',
+        class_id: null,
+        subject_id: 'subject-1',
+        subject: { id: 'subject-1', name: 'Math', long_name: 'Mathematics', short_name: 'MATH' },
+      } as SessionDetailsSession,
+    });
+
+    expect(screen.getByText('Mathematics')).toBeInTheDocument();
+  });
+
   it('renders add buttons and fires callbacks', async () => {
     const user = userEvent.setup();
     const { onAddStudentToSession, onAddStaffToSession } = renderComponent();

@@ -330,6 +330,9 @@
 
 ## Core tutoring sessions and billing
 
+- **Drafting session** — A subject-specific, one-to-one tutoring Session booked independently of a Class. Its Subject is selected at booking and stored directly on the Session.
+  _Avoid_: Drafting Class, subject-independent Drafting session
+
 - **Tutor log** — The single record of attendance, learning activity, and notes captured for one completed Session. It distinguishes the staff member who submitted it from the staff member on whose behalf it was recorded.
   _Avoid_: Attendance record, Session completion flag
 
