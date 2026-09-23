@@ -171,7 +171,7 @@ export function InvoicesTable() {
                     )}
                   >
                     <TableCell>
-                      <div>{invoice.subject_name}</div>
+                      <div>{invoice.session_name}</div>
                       <div className="text-xs">
                         Expected{' '}
                         {new Date(invoice.session_start_at).toLocaleDateString(
@@ -186,7 +186,7 @@ export function InvoicesTable() {
                           <span className="text-xs line-through">
                             {formatAmount(invoice.full_amount_cents)}
                           </span>
-                          <span className="text-foreground">
+                          <span className="text-muted-foreground">
                             {formatAmount(payment.payableCents)}
                           </span>
                           <span className="text-xs font-normal">

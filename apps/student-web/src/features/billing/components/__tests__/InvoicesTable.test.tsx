@@ -59,7 +59,7 @@ describe("InvoicesTable future invoices", () => {
         {
           sessions_students_id: "assignment-1",
           subject_id: "subject-1",
-          subject_name: "Mathematics",
+          session_name: "Mathematics A - Thursday, 1 October 2026, 10:30 am",
           session_start_at: "2026-10-01T00:00:00.000Z",
           full_amount_cents: 10_000,
           prior_charge_cents: 2_000,
@@ -80,11 +80,15 @@ describe("InvoicesTable future invoices", () => {
 
     render(<InvoicesTable />);
 
-    const futureRow = screen.getByText("Mathematics").closest("tr");
+    const futureRow = screen
+      .getByText("Mathematics A - Thursday, 1 October 2026, 10:30 am")
+      .closest("tr");
     expect(futureRow).not.toBeNull();
     expect(futureRow).toHaveClass("bg-muted/35");
     expect(within(futureRow!).getByText("$100.00")).toHaveClass("line-through");
-    expect(within(futureRow!).getByText("$60.00")).toBeInTheDocument();
+    expect(within(futureRow!).getByText("$60.00")).toHaveClass(
+      "text-muted-foreground",
+    );
     expect(within(futureRow!).getByText("Credit applied")).toBeInTheDocument();
     expect(within(futureRow!).getByText("Future")).toBeInTheDocument();
     expect(within(futureRow!).queryByRole("button")).not.toBeInTheDocument();

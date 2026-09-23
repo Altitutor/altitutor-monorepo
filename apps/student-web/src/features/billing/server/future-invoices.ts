@@ -158,11 +158,11 @@ export function buildFutureInvoicePreviews({
       firstInvoiceBySubject.set(session.subject_id, {
         sessions_students_id: assignment.id,
         subject_id: session.subject_id,
-        subject_name:
+        session_name:
+          session.long_name ||
           session.subject?.long_name ||
           session.subject?.short_name ||
           session.subject?.name ||
-          session.long_name ||
           "Session",
         session_start_at: session.start_at,
         full_amount_cents: amountCents,
@@ -174,7 +174,15 @@ export function buildFutureInvoicePreviews({
     cumulativeChargesByCurrency.set(currency, priorChargeCents + amountCents);
   }
 
-  return Array.from(firstInvoiceBySubject.values());
+  return Array.from(firstInvoiceBySubject.values()).sort((left, right) => {
+    const timeDifference =
+      new Date(right.session_start_at).getTime() -
+      new Date(left.session_start_at).getTime();
+    return (
+      timeDifference ||
+      right.sessions_students_id.localeCompare(left.sessions_students_id)
+    );
+  });
 }
 
 function isFutureSessionAssignment(

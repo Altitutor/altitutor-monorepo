@@ -7,11 +7,13 @@ function assignment({
   id,
   subjectId,
   subjectName,
+  sessionName,
   startAt,
 }: {
   id: string;
   subjectId: string;
   subjectName: string;
+  sessionName?: string;
   startAt: string;
 }): FutureSessionAssignment {
   const endAt = new Date(new Date(startAt).getTime() + 60 * 60 * 1000);
@@ -23,7 +25,7 @@ function assignment({
       end_at: endAt.toISOString(),
       subject_id: subjectId,
       billing_type: "CLASS",
-      long_name: null,
+      long_name: sessionName ?? null,
       subject: {
         id: subjectId,
         name: subjectName,
@@ -35,7 +37,7 @@ function assignment({
 }
 
 describe("buildFutureInvoicePreviews", () => {
-  it("returns only the next invoice per subject while earlier hidden sessions consume credit first", () => {
+  it("returns the next invoice per subject newest first while allocating credit chronologically", () => {
     const assignments = [
       assignment({
         id: "math-1",
@@ -53,6 +55,7 @@ describe("buildFutureInvoicePreviews", () => {
         id: "english-1",
         subjectId: "english",
         subjectName: "English",
+        sessionName: "English A - Saturday, 3 October 2026, 10:30 am",
         startAt: "2026-10-03T00:00:00.000Z",
       }),
     ];
@@ -82,14 +85,15 @@ describe("buildFutureInvoicePreviews", () => {
 
     expect(previews).toHaveLength(2);
     expect(previews[0]).toMatchObject({
+      sessions_students_id: "english-1",
+      session_name: "English A - Saturday, 3 October 2026, 10:30 am",
+      full_amount_cents: 10_000,
+      prior_charge_cents: 16_000,
+    });
+    expect(previews[1]).toMatchObject({
       sessions_students_id: "math-1",
       full_amount_cents: 8_000,
       prior_charge_cents: 0,
-    });
-    expect(previews[1]).toMatchObject({
-      sessions_students_id: "english-1",
-      full_amount_cents: 10_000,
-      prior_charge_cents: 16_000,
     });
   });
 

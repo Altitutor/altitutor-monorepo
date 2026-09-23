@@ -79,7 +79,7 @@ describe("GET /api/billing/future-invoices", () => {
       {
         sessions_students_id: "assignment-1",
         subject_id: "subject-1",
-        subject_name: "Mathematics",
+        session_name: "Mathematics A - Thursday, 1 October 2026, 10:30 am",
         session_start_at: "2026-10-01T00:00:00.000Z",
         full_amount_cents: 8_000,
         prior_charge_cents: 0,
@@ -91,7 +91,11 @@ describe("GET /api/billing/future-invoices", () => {
 
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
-      future_invoices: [{ subject_name: "Mathematics" }],
+      future_invoices: [
+        {
+          session_name: "Mathematics A - Thursday, 1 October 2026, 10:30 am",
+        },
+      ],
     });
     expect(mockedLoadFutureInvoicePreviews).toHaveBeenCalledWith(
       admin,
