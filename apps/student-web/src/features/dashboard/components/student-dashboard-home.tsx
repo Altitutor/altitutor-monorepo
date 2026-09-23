@@ -48,7 +48,7 @@ const quickLinks: QuickLinkItem[] = [
   {
     title: 'Billing',
     description: 'Subscriptions, invoices, and payment methods',
-    href: '/billing',
+    href: '/billing/invoices',
     icon: CreditCard,
   },
   {

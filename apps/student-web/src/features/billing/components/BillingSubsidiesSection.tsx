@@ -1,6 +1,7 @@
 'use client';
 
 import { useMyBillingSubsidies } from '../hooks/useMyBillingSubsidies';
+import { Skeleton } from '@altitutor/ui';
 import { studentCardCn } from '@/shared/lib/student-visual';
 
 function formatHourlyPrice(cents: number, currency: string): string {
@@ -16,10 +17,40 @@ function formatHourlyPrice(cents: number, currency: string): string {
 }
 
 export function BillingSubsidiesSection() {
-  const { data: rows, isFetched } = useMyBillingSubsidies();
+  const { data: rows, isFetched, isError } = useMyBillingSubsidies();
 
-  if (!isFetched || !rows?.length) {
-    return null;
+  if (!isFetched) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">My subsidies</h2>
+        <div className={studentCardCn('space-y-3 p-4')} aria-label="Loading subsidies">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-5 w-32" />
+        </div>
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">My subsidies</h2>
+        <div className={studentCardCn('p-5 text-sm text-destructive')}>
+          Failed to load subsidy information.
+        </div>
+      </div>
+    );
+  }
+
+  if (!rows?.length) {
+    return (
+      <div className="space-y-4">
+        <h2 className="text-2xl font-semibold">My subsidies</h2>
+        <div className={studentCardCn('p-5 text-sm text-muted-foreground')}>
+          No billing subsidies are currently applied to your account.
+        </div>
+      </div>
+    );
   }
 
   return (

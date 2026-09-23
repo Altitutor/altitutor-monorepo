@@ -16,6 +16,8 @@ import {
 } from '@altitutor/ui';
 import { ExternalLink } from 'lucide-react';
 import { useInvoicesWithItems } from '../hooks';
+import { useCreditBalance } from '../hooks/useCreditBalance';
+import { useFutureInvoices } from '../hooks/useFutureInvoices';
 import {
   studentBtnOutline,
   studentBtnPrimary,
@@ -23,7 +25,13 @@ import {
   studentTableHeaderRow,
   studentTableShell,
 } from '@/shared/lib/student-visual';
-import { formatAmount, getInvoiceTotalAmount, isInvoiceOverdue } from '../utils/invoiceDisplay';
+import {
+  formatAmount,
+  getFutureInvoicePayment,
+  getInvoiceTotalAmount,
+  isInvoiceOverdue,
+} from '../utils/invoiceDisplay';
+import { cn } from '@/shared/utils';
 
 function getSessionDisplayName(
   items: Array<{
@@ -77,6 +85,10 @@ export function InvoicesTable() {
   const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
 
   const { data: invoices, isLoading, error } = useInvoicesWithItems();
+  const { data: futureInvoices, isLoading: futureInvoicesLoading } =
+    useFutureInvoices();
+  const { data: creditBalance, isLoading: creditBalanceLoading } =
+    useCreditBalance();
 
   const sortedInvoices = useMemo(() => {
     const list = [...(invoices || [])].filter((invoice) => invoice.billing_source !== 'subscription');
@@ -100,7 +112,7 @@ export function InvoicesTable() {
     return sortedInvoices.slice(start, start + pageSize);
   }, [sortedInvoices, currentPage, pageSize]);
 
-  if (isLoading) {
+  if (isLoading || futureInvoicesLoading || creditBalanceLoading) {
     return (
       <div className={studentTableShell}>
         <SkeletonTable rows={6} columns={5} />
@@ -134,7 +146,66 @@ export function InvoicesTable() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedInvoices.length === 0 ? (
+            {currentPage === 1 &&
+              (futureInvoices ?? []).map((invoice) => {
+                const payment = creditBalance
+                  ? getFutureInvoicePayment({
+                      fullAmountCents: invoice.full_amount_cents,
+                      priorChargeCents: invoice.prior_charge_cents,
+                      invoiceCurrency: invoice.currency,
+                      creditBalanceCents: creditBalance.balance_cents,
+                      creditCurrency: creditBalance.currency,
+                    })
+                  : {
+                      creditAppliedCents: 0,
+                      payableCents: invoice.full_amount_cents,
+                    };
+                const hasCreditApplied = payment.creditAppliedCents > 0;
+
+                return (
+                  <TableRow
+                    key={`future-${invoice.sessions_students_id}`}
+                    className={cn(
+                      studentTableBodyRow,
+                      'bg-muted/35 text-muted-foreground hover:bg-muted/45',
+                    )}
+                  >
+                    <TableCell>
+                      <div>{invoice.subject_name}</div>
+                      <div className="text-xs">
+                        Expected{' '}
+                        {new Date(invoice.session_start_at).toLocaleDateString(
+                          'en-AU',
+                          { timeZone: 'Australia/Adelaide' },
+                        )}
+                      </div>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {hasCreditApplied ? (
+                        <div className="flex flex-col items-start gap-0.5">
+                          <span className="text-xs line-through">
+                            {formatAmount(invoice.full_amount_cents)}
+                          </span>
+                          <span className="text-foreground">
+                            {formatAmount(payment.payableCents)}
+                          </span>
+                          <span className="text-xs font-normal">
+                            Credit applied
+                          </span>
+                        </div>
+                      ) : (
+                        formatAmount(invoice.full_amount_cents)
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="secondary">Future</Badge>
+                    </TableCell>
+                    <TableCell />
+                  </TableRow>
+                );
+              })}
+            {paginatedInvoices.length === 0 &&
+            (currentPage !== 1 || (futureInvoices ?? []).length === 0) ? (
               <TableRow className={studentTableBodyRow}>
                 <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                   No session invoices found

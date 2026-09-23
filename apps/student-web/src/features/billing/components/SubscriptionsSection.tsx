@@ -147,10 +147,6 @@ export function SubscriptionsSection() {
     );
   }
 
-  if (!subscriptions?.length && !subscriptionInvoices.length) {
-    return null;
-  }
-
   return (
     <div className="space-y-8">
       <div>

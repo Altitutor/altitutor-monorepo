@@ -3,6 +3,36 @@ export function formatAmount(cents: number | null): string {
   return `$${(cents / 100).toFixed(2)}`;
 }
 
+export function getFutureInvoicePayment({
+  fullAmountCents,
+  priorChargeCents,
+  invoiceCurrency,
+  creditBalanceCents,
+  creditCurrency,
+}: {
+  fullAmountCents: number;
+  priorChargeCents: number;
+  invoiceCurrency: string;
+  creditBalanceCents: number;
+  creditCurrency: string;
+}): { creditAppliedCents: number; payableCents: number } {
+  if (invoiceCurrency.toLowerCase() !== creditCurrency.toLowerCase()) {
+    return { creditAppliedCents: 0, payableCents: fullAmountCents };
+  }
+
+  const availableCreditCents = Math.max(0, -creditBalanceCents);
+  const remainingCreditCents = Math.max(
+    0,
+    availableCreditCents - priorChargeCents,
+  );
+  const creditAppliedCents = Math.min(fullAmountCents, remainingCreditCents);
+
+  return {
+    creditAppliedCents,
+    payableCents: fullAmountCents - creditAppliedCents,
+  };
+}
+
 export function getAdelaideTodayIsoDate(): string {
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Australia/Adelaide',

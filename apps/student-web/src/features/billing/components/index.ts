@@ -5,4 +5,4 @@ export * from './AddPaymentMethodModal';
 export * from './PaymentMethodsList';
 export * from './BillingSubsidiesSection';
 export * from './SubscriptionsSection';
-
+export * from './CreditBalanceCard';
