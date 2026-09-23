@@ -1,5 +1,8 @@
 "use client";
 
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
+import { usePendingInvitation } from "@/features/founder-offers/lib/use-pending-invitation";
+import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -150,6 +153,7 @@ export function SignupOnboardingWizard({
     useState(false);
 
   const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
+  usePendingInvitation(founderInvitationCode(returnTo));
   const planIntent = useMemo(() => parseSignupPlanIntent(returnTo), [returnTo]);
   const checkoutStatus = searchParams.get("checkout");
   const checkoutReturnedSuccessfully = checkoutStatus === "success";
@@ -261,6 +265,7 @@ export function SignupOnboardingWizard({
       try {
         await patchSignupProgress({ planComplete: true });
         await patchSignupProgress({ complete: true });
+        rememberInvitation(null);
 
         setSignupSuccessError(null);
         postCompleteNavigationStarted.current = false;

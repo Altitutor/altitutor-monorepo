@@ -1,7 +1,19 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { isPhoneCountryCodeOnly } from '@altitutor/ui';
 import { linkStudentParents } from '@/features/students/api/linkStudentParents';
+
+/**
+ * A blank phone, or a country calling code with no number, is stored as null.
+ * A real number is left unchanged so the database can standardize it.
+ */
+export function blankPhoneToNull(value: string | null | undefined): string | null {
+  const trimmed = value?.trim() ?? '';
+  if (!trimmed) return null;
+  if (trimmed.startsWith('+') && isPhoneCountryCodeOnly(trimmed)) return null;
+  return trimmed;
+}
 
 export interface CreateBookingInput {
   session_type: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
@@ -40,6 +52,10 @@ export interface CreateBookingInput {
 
 export const bookingsApi = {
   async createBooking(input: CreateBookingInput): Promise<string> {
+    if (input.session_type === 'DRAFTING' && !input.subject_id) {
+      throw new Error('A subject is required for drafting sessions');
+    }
+
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     // Get current user
@@ -79,7 +95,8 @@ export const bookingsApi = {
       const { data, error } = await supabase.rpc('create_admin_trial_booking', {
         p_student_first_name: input.trial_student_data.student_first_name,
         p_student_last_name: input.trial_student_data.student_last_name || '',
-        p_student_phone: input.trial_student_data.student_phone || '',
+        // The generated argument type is string. NULL is a missing phone, which SQL accepts.
+        p_student_phone: blankPhoneToNull(input.trial_student_data.student_phone) as string,
         p_start_at: input.start_at,
         p_end_at: input.end_at,
         p_created_by: user.id,
@@ -91,7 +108,7 @@ export const bookingsApi = {
         p_parent_first_name: input.trial_parent_data?.parent_first_name ?? undefined,
         p_parent_last_name: input.trial_parent_data?.parent_last_name ?? undefined,
         p_parent_email: input.trial_parent_data?.parent_email ?? undefined,
-        p_parent_phone: input.trial_parent_data?.parent_phone ?? undefined,
+        p_parent_phone: blankPhoneToNull(input.trial_parent_data?.parent_phone) ?? undefined,
         p_staff_id: input.staff_id ?? undefined,
       });
       
@@ -108,7 +125,10 @@ export const bookingsApi = {
         await linkStudentParents({
           studentId: result.student_id,
           existingParentIds: remainingExistingIds,
-          newParents: additionalNewParents,
+          newParents: additionalNewParents.map((parent) => ({
+            ...parent,
+            phone: blankPhoneToNull(parent.phone),
+          })),
           sessionId: result.session_id,
         });
       }
@@ -137,4 +157,3 @@ export const bookingsApi = {
     return data as string; // Returns session_id
   },
 };
-

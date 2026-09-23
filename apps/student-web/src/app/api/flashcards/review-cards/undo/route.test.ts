@@ -50,6 +50,7 @@ describe('POST /api/flashcards/review-cards/undo', () => {
     const response = await POST(request({ requestId, answerLogId }));
 
     expect(response.status).toBe(200);
+    expect(mockedGetServerSupabaseAdmin).toHaveBeenCalledWith({ retry: false });
     expect(rpc).toHaveBeenCalledWith('undo_flashcard_answer', {
       p_student_id: 'student-id',
       p_answer_log_id: answerLogId,
@@ -74,6 +75,24 @@ describe('POST /api/flashcards/review-cards/undo', () => {
     const response = await POST(request({ requestId, answerLogId }));
 
     expect(response.status).toBe(409);
-    await expect(response.json()).resolves.toEqual({ error: 'flashcard_command_in_progress' });
+    await expect(response.json()).resolves.toEqual({
+      error: 'flashcard_command_in_progress',
+      code: 'flashcard_command_in_progress',
+    });
+  });
+
+  it('distinguishes a stale card revision from transient lock contention', async () => {
+    rpc.mockResolvedValue({
+      data: null,
+      error: { code: 'PT409', message: 'flashcard_undo_conflict' },
+    });
+
+    const response = await POST(request({ requestId, answerLogId }));
+
+    expect(response.status).toBe(409);
+    await expect(response.json()).resolves.toEqual({
+      error: 'flashcard_undo_conflict',
+      code: 'flashcard_undo_conflict',
+    });
   });
 });

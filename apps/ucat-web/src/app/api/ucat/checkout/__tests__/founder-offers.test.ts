@@ -350,4 +350,17 @@ describe("founder discount checkout", () => {
     expect((await POST(request())).status).toBe(409);
     expect(mockCreate).not.toHaveBeenCalled();
   });
+  it("reports an outdated founder schema as unavailable, not a cancellable checkout", async () => {
+    mockClaim.mockRejectedValueOnce(
+      new Error(
+        "Cancel your open checkout before starting a free access pass.",
+      ),
+    );
+    const response = await POST(request());
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({
+      code: "CHECKOUT_SETUP_REQUIRED",
+    });
+    expect(mockCreate).not.toHaveBeenCalled();
+  });
 });

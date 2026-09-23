@@ -1,4 +1,4 @@
-import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   if (!accessibleCard) return NextResponse.json({ error: 'flashcard_review_card_not_accessible' }, { status: 404 });
 
   if (!accessibleCard.topic_id) return NextResponse.json({ error: 'flashcard_topic_not_found' }, { status: 404 });
-  const adminClient = getServerSupabaseAdmin();
+  const adminClient = getServerSupabaseAdmin({ retry: false });
   const { data: topic, error: topicError } = await adminClient.from('topics').select('subject_id').eq('id', accessibleCard.topic_id).single();
   if (topicError || !topic?.subject_id) return captureApiErrorResponse(topicError ?? new Error('flashcard_subject_not_found'), '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: 'Unable to resolve flashcard subject' }, { status: 500 }));
   const { data: assignment, error: assignmentError } = await adminClient.from('subject_flashcard_study_presets').select('preset_id').eq('subject_id', topic.subject_id).maybeSingle();
@@ -76,8 +76,11 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     if (replayError) return captureApiErrorResponse(replayError, '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: replayError.message }, { status: 500 }));
     const row = replayedCard as FlashcardReviewCard;
     const replayPreviewSeed = createHash('sha256').update(`${row.id}:${row.revision}:${row.due_at}`).digest('hex');
+    const buriedSiblingIds = await loadBuriedSiblingIds(adminClient, row.flashcard_id, row.id);
     return NextResponse.json({ data: { ...row, rating_preview_seed: replayPreviewSeed,
       answer_log_id: receipt.id,
+      buried_sibling_ids: buriedSiblingIds,
+      study_day_ends_at: receiptResult.studyDayEndsAt,
       leech_suggested: Boolean(receiptResult.leechSuggested),
       rating_previews: buildRatingPreviews(
         row as ReviewStateRow,
@@ -128,7 +131,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     p_next_state: nextState, p_result: { due_at: nextCard.due.toISOString(), previewSeed: body.previewSeed, studyDayEndsAt: studyDayBounds[0].ends_at, learnAheadMinutes: presetVersion.learn_ahead_minutes, leechThreshold: presetVersion.leech_threshold, leechReminderInterval: presetVersion.leech_reminder_interval },
   });
   if (error) {
-    const status = error.code === '40001' ? 409 : 500;
+    const status = error.code === 'PT409' || error.code === '40001' ? 409 : 500;
     return captureApiErrorResponse(error, '/api/flashcards/review-cards/[id]/rate', NextResponse.json({ error: error.message }, { status }));
   }
 
@@ -142,11 +145,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
   const row = updatedCard as FlashcardReviewCard;
   const answerReceipt = commitResult as { leechSuggested?: boolean; reviewLogId?: string } | null;
   const nextPreviewSeed = createHash('sha256').update(`${row.id}:${row.revision}:${row.due_at}`).digest('hex');
+  const buriedSiblingIds = await loadBuriedSiblingIds(adminClient, row.flashcard_id, row.id);
   return NextResponse.json({
     data: {
       ...row,
       rating_preview_seed: nextPreviewSeed,
       answer_log_id: answerReceipt?.reviewLogId,
+      buried_sibling_ids: buriedSiblingIds,
+      study_day_ends_at: studyDayBounds[0].ends_at,
       leech_suggested: Boolean(answerReceipt?.leechSuggested),
       rating_previews: buildRatingPreviews(
         row as ReviewStateRow,
@@ -157,4 +163,22 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
       ),
     },
   });
+}
+
+async function loadBuriedSiblingIds(
+  adminClient: ReturnType<typeof getServerSupabaseAdmin>,
+  flashcardId: string,
+  reviewCardId: string,
+): Promise<string[]> {
+  const { data, error } = await adminClient
+    .from('flashcard_review_cards')
+    .select('id')
+    .eq('flashcard_id', flashcardId)
+    .neq('id', reviewCardId)
+    .is('deleted_at', null);
+  if (error) {
+    captureApiError(error, '/api/flashcards/review-cards/[id]/rate');
+    return [];
+  }
+  return (data ?? []).map((sibling) => sibling.id);
 }

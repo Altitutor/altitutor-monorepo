@@ -433,7 +433,7 @@ export function useBookSessionFlow({
             trial_student_data: {
               student_first_name: trialContactData.student_first_name,
               student_last_name: trialContactData.student_last_name?.trim() || '',
-              student_phone: trialContactData.student_phone?.trim() || '',
+              student_phone: trialContactData.student_phone?.trim() || undefined,
               student_email: trialContactData.student_email || undefined,
               curriculum: trialContactData.curriculum || undefined,
               year_level: yearLevel || undefined,
@@ -457,7 +457,7 @@ export function useBookSessionFlow({
           first_name: trialContactData.student_first_name,
           last_name: trialContactData.student_last_name?.trim() || '',
           email: trialContactData.student_email || null,
-          phone: trialContactData.student_phone || null,
+          phone: trialContactData.student_phone?.trim() || null,
           status: 'TRIAL',
           curriculum: trialContactData.curriculum ?? null,
           year_level: yearLevel,

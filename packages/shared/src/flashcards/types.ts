@@ -61,6 +61,8 @@ export type FlashcardReviewCard = {
   rating_previews?: Record<FlashcardRating, FlashcardRatingPreview>;
   rating_preview_seed?: string;
   answer_log_id?: string;
+  buried_sibling_ids?: string[];
+  study_day_ends_at?: string;
   leech_suggested?: boolean;
   learn_ahead_minutes?: number;
   topic_code?: string | null;
@@ -137,6 +139,17 @@ export type RateFlashcardCommand = {
   answeredAt: string;
 };
 
+export type FlashcardSubjectStudySummary = {
+  id: string;
+  name: string;
+  shortName: string | null;
+  topicIds: string[];
+  total: number;
+  new: number;
+  learning: number;
+  review: number;
+};
+
 export type FlashcardStudySnapshot = {
   cards: FlashcardReviewCard[];
   counts: { new: number; learning: number; relearning: number; review: number; total: number };
@@ -144,6 +157,8 @@ export type FlashcardStudySnapshot = {
   nextDueAt: string | null;
   timezone: string;
   timezoneConfirmationRequired: boolean;
+  catalogTotal: number;
+  subjects: FlashcardSubjectStudySummary[];
 };
 
 export type FlashcardImportRow = {

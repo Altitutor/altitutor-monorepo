@@ -14,6 +14,10 @@ export interface CreateBookingInput {
 
 export const bookingsApi = {
   async createBooking(input: CreateBookingInput): Promise<string> {
+    if (input.session_type === 'DRAFTING' && !input.subject_id) {
+      throw new Error('A subject is required for drafting sessions');
+    }
+
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     
     // Get current user
@@ -64,4 +68,3 @@ export const bookingsApi = {
     return data as string; // Returns session_id
   },
 };
-

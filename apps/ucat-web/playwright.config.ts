@@ -126,6 +126,7 @@ export default defineConfig({
       ...localSupabase,
       CRON_SECRET: "local-playwright-cron-secret",
       NEXT_DIST_DIR: ".next-e2e",
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_fake",
     },
   },
 });

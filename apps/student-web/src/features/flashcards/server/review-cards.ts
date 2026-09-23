@@ -4,7 +4,7 @@ import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { buildRatingPreviews, getRetrievability, type FlashcardStudyPresetConfig, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
 import { DEFAULT_FLASHCARD_STUDY_PRESET_ID, type FlashcardReviewCard } from '@altitutor/shared';
-import { buildStudySnapshot } from '@/features/flashcards/server/study-snapshot';
+import { buildStudySnapshot, summarizeFlashcardSubjects } from '@/features/flashcards/server/study-snapshot';
 import { createHash } from 'node:crypto';
 
 type TopicMetadata = {
@@ -36,6 +36,7 @@ export async function GET(request: NextRequest) {
     .map((id) => id.trim())
     .filter(Boolean);
   const mode = request.nextUrl.searchParams.get('mode') === 'all' ? 'all' : 'due';
+  const countsOnly = request.nextUrl.searchParams.get('countsOnly') === '1';
 
   const userClient = createClient();
   const { data: authData, error: authError } = await userClient.auth.getClaims();
@@ -75,6 +76,54 @@ export async function GET(request: NextRequest) {
   const { data: bounds, error: boundsError } = await adminClient.rpc('flashcard_study_day_bounds', { p_now: now.toISOString(), p_timezone: timezone });
   if (boundsError || !bounds?.[0]) return captureApiErrorResponse(boundsError ?? new Error('study_day_bounds_missing'), '/api/flashcards/review-cards', NextResponse.json({ error: 'Unable to resolve study day' }, { status: 500 }));
 
+  if (countsOnly) {
+    if (rawRows.length === 0) {
+      return NextResponse.json({ data: { total: 0 } }, { headers: { 'Cache-Control': 'private, no-store' } });
+    }
+    const countTopicIds = [...new Set(rawRows.map((row) => row.topic_id))];
+    const countTopicResult = await adminClient.from('topics').select('id,subject_id').in('id', countTopicIds);
+    if (countTopicResult.error) return captureApiErrorResponse(countTopicResult.error, '/api/flashcards/review-cards', NextResponse.json({ error: countTopicResult.error.message }, { status: 500 }));
+    const countSubjectIds = [...new Set((countTopicResult.data ?? []).map((topic) => topic.subject_id).filter((id): id is string => Boolean(id)))];
+    const countAssignmentResult = countSubjectIds.length
+      ? await adminClient.from('subject_flashcard_study_presets').select('subject_id,preset_id').in('subject_id', countSubjectIds)
+      : { data: [], error: null };
+    if (countAssignmentResult.error) return captureApiErrorResponse(countAssignmentResult.error, '/api/flashcards/review-cards', NextResponse.json({ error: countAssignmentResult.error.message }, { status: 500 }));
+    const countPresetIds = [...new Set([DEFAULT_FLASHCARD_STUDY_PRESET_ID, ...(countAssignmentResult.data ?? []).map((item) => item.preset_id)])];
+    const countVersionResult = await adminClient.from('flashcard_study_preset_versions').select('preset_id,version,learn_ahead_minutes').in('preset_id', countPresetIds).order('version', { ascending: false });
+    if (countVersionResult.error) return captureApiErrorResponse(countVersionResult.error, '/api/flashcards/review-cards', NextResponse.json({ error: countVersionResult.error.message }, { status: 500 }));
+    const latestLearnAhead = new Map<string, number>();
+    for (const version of countVersionResult.data ?? []) {
+      if (!latestLearnAhead.has(version.preset_id)) latestLearnAhead.set(version.preset_id, version.learn_ahead_minutes);
+    }
+    const countSubjectPreset = new Map((countAssignmentResult.data ?? []).map((item) => [item.subject_id, item.preset_id]));
+    const learnAheadByTopic = new Map((countTopicResult.data ?? []).map((topic) => {
+      const presetId = countSubjectPreset.get(topic.subject_id ?? '') ?? DEFAULT_FLASHCARD_STUDY_PRESET_ID;
+      return [topic.id, latestLearnAhead.get(presetId) ?? 20] as const;
+    }));
+    const { data: countLogs, error: countLogsError } = await adminClient.from('student_flashcard_review_logs').select('pre_state')
+      .eq('student_id', studentId).eq('action', 'answer').is('undone_at', null)
+      .gte('answered_at', bounds[0].starts_at).lt('answered_at', bounds[0].ends_at);
+    if (countLogsError) return captureApiErrorResponse(countLogsError, '/api/flashcards/review-cards', NextResponse.json({ error: countLogsError.message }, { status: 500 }));
+    const countUsage = (countLogs ?? []).reduce((result, log) => {
+      const state = (log.pre_state as { state?: string }).state;
+      if (state === 'New') result.newStudied += 1;
+      if (state === 'Review') result.reviewsStudied += 1;
+      return result;
+    }, { newStudied: 0, reviewsStudied: 0 });
+    const countSnapshot = buildStudySnapshot(
+      rawRows.map((row) => ({ ...row, learn_ahead_minutes: learnAheadByTopic.get(row.topic_id) ?? 20 })),
+      countUsage,
+      {
+        newLimit: preferences?.new_cards_per_study_day ?? 20,
+        reviewLimit: preferences?.review_cards_per_study_day ?? 200,
+        learnAheadMinutes: 20,
+        studyDaySeed: bounds[0].study_day ?? undefined,
+      },
+      now,
+    );
+    return NextResponse.json({ data: { total: countSnapshot.counts.total } }, { headers: { 'Cache-Control': 'private, no-store' } });
+  }
+
   const topicIdsForPresets=[...new Set(rawRows.map(row=>row.topic_id))];
   const topicResult=topicIdsForPresets.length?await adminClient.from('topics').select('id,subject_id,code,name').in('id',topicIdsForPresets):{data:[],error:null};
   if(topicResult.error)return captureApiErrorResponse(topicResult.error,'/api/flashcards/review-cards',NextResponse.json({error:topicResult.error.message},{status:500}));
@@ -82,7 +131,7 @@ export async function GET(request: NextRequest) {
   const subjectIds=[...new Set((topicRows??[]).map(topic=>topic.subject_id).filter((id):id is string=>Boolean(id)))];
   const [assignmentResult, subjectResult, noteFilesResult] = await Promise.all([
     subjectIds.length?adminClient.from('subject_flashcard_study_presets').select('subject_id,preset_id').in('subject_id',subjectIds):Promise.resolve({data:[],error:null}),
-    subjectIds.length?adminClient.from('subjects').select('id,short_name,name').in('id',subjectIds):Promise.resolve({data:[],error:null}),
+    subjectIds.length?adminClient.from('subjects').select('id,short_name,name,long_name').in('id',subjectIds):Promise.resolve({data:[],error:null}),
     topicIdsForPresets.length?userClient.from('vstudent_topics_files').select('id,topic_id,code,filename,index,is_solutions').in('topic_id',topicIdsForPresets).eq('type','NOTES').order('index',{ascending:true}):Promise.resolve({data:[],error:null}),
   ]);
   const metadataError=assignmentResult.error??subjectResult.error??noteFilesResult.error;
@@ -166,14 +215,38 @@ export async function GET(request: NextRequest) {
     if (state === 'Review') result.reviewsStudied += 1;
     return result;
   }, { newStudied: 0, reviewsStudied: 0 });
-  const snapshot = buildStudySnapshot(rows, usage, {
+  const studyPolicy = {
     newLimit: preferences?.new_cards_per_study_day ?? 20,
     reviewLimit: preferences?.review_cards_per_study_day ?? 200,
     learnAheadMinutes: 20,
     studyDaySeed: bounds[0].study_day ?? undefined,
-  }, now);
+  };
+  const snapshot = buildStudySnapshot(rows, usage, studyPolicy, now);
+  const subjectGroups = new Map<string, { id: string; name: string; shortName: string | null; topicIds: Set<string>; cards: typeof rows }>();
+  for (const row of rows) {
+    const topic = topicById.get(row.topic_id);
+    const subjectId = topic?.subject_id;
+    if (!subjectId) continue;
+    const subject = subjectById.get(subjectId);
+    const group = subjectGroups.get(subjectId) ?? {
+      id: subjectId,
+      name: subject?.long_name || subject?.name || subject?.short_name || 'Subject',
+      shortName: subject?.short_name ?? null,
+      topicIds: new Set<string>(),
+      cards: [],
+    };
+    group.topicIds.add(row.topic_id);
+    group.cards.push(row);
+    subjectGroups.set(subjectId, group);
+  }
+  const subjects = summarizeFlashcardSubjects(
+    [...subjectGroups.values()].map((group) => ({ ...group, topicIds: [...group.topicIds] })),
+    usage,
+    studyPolicy,
+    now,
+  );
   return NextResponse.json(
-    { data: { ...snapshot, timezone, timezoneConfirmationRequired: !preferences?.timezone_confirmed_at } },
+    { data: { ...snapshot, timezone, timezoneConfirmationRequired: !preferences?.timezone_confirmed_at, catalogTotal: rows.length, subjects } },
     { headers: { 'Cache-Control': 'private, no-store' } },
   );
 }

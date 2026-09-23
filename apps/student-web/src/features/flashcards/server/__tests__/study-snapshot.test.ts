@@ -1,5 +1,5 @@
 import type { FlashcardReviewCard } from '@altitutor/shared';
-import { buildStudySnapshot } from '../study-snapshot';
+import { buildStudySnapshot, summarizeFlashcardSubjects } from '../study-snapshot';
 
 const now = new Date('2026-09-19T00:00:00Z');
 function card(id: string, state: FlashcardReviewCard['state'], dueAt = now.toISOString()): FlashcardReviewCard {
@@ -57,5 +57,23 @@ describe('buildStudySnapshot', () => {
     const snapshot = buildStudySnapshot([interday, intraday], { newStudied: 0, reviewsStudied: 0 },
       { newLimit: 20, reviewLimit: 200, learnAheadMinutes: 20 }, now);
     expect(snapshot.cards.map((item) => item.id)).toEqual(['intraday', 'interday']);
+  });
+
+  it('summarises each subject with relearning counted as learning and omits empty subjects', () => {
+    const biologyNew = { ...card('bio-new', 'New'), topic_id: 'bio-topic' };
+    const biologyLearning = { ...card('bio-learning', 'Learning'), topic_id: 'bio-topic' };
+    const biologyRelearning = { ...card('bio-relearning', 'Relearning'), topic_id: 'bio-topic' };
+    const chemistryReview = { ...card('chem-review', 'Review'), topic_id: 'chem-topic' };
+    const policy = { newLimit: 20, reviewLimit: 200, learnAheadMinutes: 20 };
+
+    const subjects = summarizeFlashcardSubjects([
+      { id: 'chem', name: 'Chemistry', shortName: 'chem', topicIds: ['chem-topic'], cards: [chemistryReview] },
+      { id: 'bio', name: 'Biology', shortName: 'bio', topicIds: ['bio-topic'], cards: [biologyNew, biologyLearning, biologyRelearning] },
+      { id: 'empty', name: 'Physics', shortName: 'phys', topicIds: [], cards: [] },
+    ], { newStudied: 0, reviewsStudied: 0 }, policy, now);
+
+    expect(subjects.map((subject) => subject.name)).toEqual(['Biology', 'Chemistry']);
+    expect(subjects[0]).toMatchObject({ total: 3, new: 1, learning: 2, review: 0, topicIds: ['bio-topic'] });
+    expect(subjects[1]).toMatchObject({ total: 1, new: 0, learning: 0, review: 1 });
   });
 });

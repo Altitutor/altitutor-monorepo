@@ -2,8 +2,12 @@
 
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
+  EditorCloseConfirmDialog,
   EditorControls,
+  EditorFooterActions,
   EditorNotices,
+  EditorViewSwitchConfirmDialog,
+  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -32,7 +36,6 @@ import {
   Form,
 } from "@altitutor/ui";
 import { X, ArrowLeft, Loader2 } from "lucide-react";
-import { ExpandButton } from "@/shared/components/expandable-dialog";
 import { useIssue } from "../api/queries";
 import { useNotes } from "@/shared/hooks/useNotes";
 import type { Tables } from "@altitutor/shared";
@@ -106,8 +109,6 @@ export interface IssueDetailViewProps {
   onClose: () => void;
   onIssueUpdated?: () => void;
   variant: "dialog" | "page";
-  expanded?: boolean;
-  onExpandedChange?: (expanded: boolean) => void;
 }
 
 export function IssueDetailView({
@@ -116,8 +117,6 @@ export function IssueDetailView({
   onClose,
   onIssueUpdated: _onIssueUpdated,
   variant,
-  expanded = false,
-  onExpandedChange,
 }: IssueDetailViewProps) {
   const router = useRouter();
   const { data: issue, isLoading } = useIssue(issueId, enabled);
@@ -217,27 +216,33 @@ export function IssueDetailView({
                 </div>
 
                 <div className="flex items-center gap-2">
-                  <EditorControls editor={editor} />
-                  {variant === "dialog" && onExpandedChange && (
-                    <ExpandButton
-                      expanded={expanded}
-                      onToggle={() => onExpandedChange(!expanded)}
+                  {variant === "dialog" ? (
+                    <WorkItemDialogHeaderActions
+                      editor={editor}
+                      actions={
+                        <ActionsMenu
+                          type="issue"
+                          entityId={issueId}
+                          onOpenInPage={issueActions.onOpenInPage}
+                          onDelete={() => {
+                            if (editor.editable) setIsDeleteDialogOpen(true);
+                          }}
+                          richTextTemplateConfig={{
+                            getEditor: () =>
+                              editor.editable
+                                ? descriptionRef.current?.getEditor() ?? null
+                                : null,
+                            getCurrentContent: () =>
+                              form.getValues("description") ?? null,
+                            onSaveAsTemplateClick: () =>
+                              setIsSaveDialogOpen(true),
+                          }}
+                        />
+                      }
                     />
+                  ) : (
+                    <EditorControls editor={editor} />
                   )}
-                  <ActionsMenu
-                    type="issue"
-                    entityId={issueId}
-                    onOpenInPage={issueActions.onOpenInPage}
-                    onDelete={() => {
-                      if (editor.editable) setIsDeleteDialogOpen(true);
-                    }}
-                    richTextTemplateConfig={{
-                      getEditor: () => editor.editable ? descriptionRef.current?.getEditor() ?? null : null,
-                      getCurrentContent: () =>
-                        form.getValues("description") ?? null,
-                      onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
-                    }}
-                  />
                 </div>
               </div>
             </div>
@@ -268,9 +273,21 @@ export function IssueDetailView({
                 </div>
               )}
             </div>
+            {variant === "dialog" ? (
+              <div className="shrink-0 border-t bg-card px-6 py-4">
+                <EditorFooterActions editor={editor} />
+              </div>
+            ) : null}
           </div>
         </Form>
       </WorkItemEditableContext.Provider>
+
+      {variant === "dialog" ? (
+        <>
+          <EditorCloseConfirmDialog editor={editor} />
+          <EditorViewSwitchConfirmDialog editor={editor} />
+        </>
+      ) : null}
 
       <AlertDialog
         open={isDeleteDialogOpen}

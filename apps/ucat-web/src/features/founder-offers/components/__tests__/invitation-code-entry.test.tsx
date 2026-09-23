@@ -21,6 +21,7 @@ const offer = {
 };
 beforeEach(() => {
   sessionStorage.clear();
+  localStorage.clear();
   global.fetch = jest
     .fn()
     .mockResolvedValue({ ok: true, json: async () => offer });

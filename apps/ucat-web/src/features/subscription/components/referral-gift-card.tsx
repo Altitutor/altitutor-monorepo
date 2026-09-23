@@ -70,13 +70,7 @@ export function ReferralGiftCard({
       <GiftOfferCard
         eyebrow={`A gift from ${gift.referrerName}`}
         title={`${gift.referrerName} has gifted you one free ${duration} of UCAT Unlimited`}
-        description={
-          <>
-            Accept to start an Unlimited subscription with your first {duration}{" "}
-            free. You’ll add a payment method securely in Stripe and can cancel
-            before normal {duration}ly billing begins.
-          </>
-        }
+        description="Unlock unlimited practice across every UCAT section, full-length mock exams, percentile tracking, and adaptive skill training with progress analytics."
         note={
           <>
             Offer expires{" "}

@@ -15,11 +15,15 @@ import {
   DialogTitle,
   type RichTextEditorRef,
 } from "@altitutor/ui";
-import { X, ArrowLeft, ExternalLink, Trash2 } from "lucide-react";
+import { X, ArrowLeft } from "lucide-react";
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
+  EditorCloseConfirmDialog,
   EditorControls,
+  EditorFooterActions,
   EditorNotices,
+  EditorViewSwitchConfirmDialog,
+  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -34,15 +38,9 @@ import { DOCUMENT_TITLE_FIELD_CLASS } from "../constants/documentTitle";
 import { useFitDocumentTitle } from "../hooks/useFitDocumentTitle";
 import { useFolders } from "../api/queries";
 import { NoteDocumentSidebarPanel } from "./NoteDocumentSidebarPanel";
-import { NoteEditorBottomToolbar } from "./NoteEditorBottomToolbar";
 import type { NoteFormData } from "../types";
 import { EditDocumentDialog } from "./EditDocumentDialog";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuTrigger,
-} from "@altitutor/ui";
-import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
 
 const schema = z.object({
@@ -116,48 +114,38 @@ export function DocumentDetailView({
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <EditorControls editor={editor} />
-            {variant === "dialog" && (
-              <Button
-                variant="outline"
-                size="icon"
-                aria-label="Open in page"
-                onClick={() =>
-                  editor.requestClose(() => {
-                    router.push(`/documents/${noteId}`);
-                    onClose();
-                  })
+            {variant === "dialog" ? (
+              <WorkItemDialogHeaderActions
+                editor={editor}
+                actions={
+                  <ActionsMenu
+                    type="document"
+                    entityId={noteId}
+                    onOpenInPage={() =>
+                      editor.requestClose(() => {
+                        router.push(`/documents/${noteId}`);
+                        onClose();
+                      })
+                    }
+                    onDelete={() => {
+                      if (!editor.editable) return;
+                      if (window.confirm("Permanently delete this document?"))
+                        void editor.remove();
+                    }}
+                    richTextTemplateConfig={{
+                      getEditor: () =>
+                        editor.editable
+                          ? richTextRef.current?.getEditor() ?? null
+                          : null,
+                      getCurrentContent: () => form.getValues("content") ?? null,
+                      onSaveAsTemplateClick: () => setSaveTemplate(true),
+                    }}
+                  />
                 }
-              >
-                <ExternalLink className="h-4 w-4" />
-              </Button>
+              />
+            ) : (
+              <EditorControls editor={editor} />
             )}
-            <Button
-              variant="outline"
-              size="icon"
-              aria-label="Delete document"
-              disabled={!editor.editable}
-              onClick={() => {
-                if (window.confirm("Permanently delete this document?"))
-                  void editor.remove();
-              }}
-            >
-              <Trash2 className="h-4 w-4" />
-            </Button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" disabled={!editor.editable}>
-                  Templates
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <RichTextTemplateMenuItems
-                  getEditor={() => richTextRef.current?.getEditor() ?? null}
-                  getCurrentContent={() => form.getValues("content") ?? null}
-                  onSaveAsTemplateClick={() => setSaveTemplate(true)}
-                />
-              </DropdownMenuContent>
-            </DropdownMenu>
           </div>
         </div>
         <EditorNotices editor={editor} />
@@ -231,9 +219,6 @@ export function DocumentDetailView({
                         />
                       </div>
                     </div>
-                    {editor.editable && (
-                      <NoteEditorBottomToolbar editor={instance} />
-                    )}
                   </div>
                 }
                 sidebar={
@@ -248,7 +233,18 @@ export function DocumentDetailView({
             </form>
           </Form>
         )}
+        {variant === "dialog" ? (
+          <div className="shrink-0 border-t bg-card px-6 py-4">
+            <EditorFooterActions editor={editor} />
+          </div>
+        ) : null}
       </div>
+      {variant === "dialog" ? (
+        <>
+          <EditorCloseConfirmDialog editor={editor} />
+          <EditorViewSwitchConfirmDialog editor={editor} />
+        </>
+      ) : null}
       <SaveAsTemplateDialog
         isOpen={saveTemplate}
         onClose={() => setSaveTemplate(false)}

@@ -24,6 +24,7 @@ import {
   type ParsedIMessageEvent,
   parseIMessageEvent,
 } from "../_shared/imessage.ts";
+import { getErrorMessage } from "../_shared/types.ts";
 import { updateMessageFromDeliveryEvent } from "./delivery.ts";
 import {
   normalizeInboundReactionType,
@@ -633,7 +634,7 @@ serveWithSentry("imessage-inbound", async (request: Request, sentry) => {
     return json({ ok: true, eventId: inbox.id });
   } catch (error: unknown) {
     sentry.captureException(error);
-    const message = error instanceof Error ? error.message : "unknown error";
+    const message = getErrorMessage(error);
     console.error("[imessage-inbound] processing failed", { inboxId, message });
     if (inboxId) {
       const supabase = createSupabaseClient();

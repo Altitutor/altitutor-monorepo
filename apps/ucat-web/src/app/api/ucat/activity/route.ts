@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isUnauthenticatedSessionError } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { ServerTiming } from "@/lib/performance/server-timing";
@@ -56,6 +57,9 @@ export async function GET() {
   timing.mark("auth");
 
   if (authError) {
+    if (isUnauthenticatedSessionError(authError)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
     return failure(authError, "auth_error");
   }
   if (!user) {

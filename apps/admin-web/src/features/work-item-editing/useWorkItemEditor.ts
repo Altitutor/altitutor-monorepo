@@ -50,6 +50,7 @@ export function useWorkItemEditor<T extends FieldValues>({
   const [error, setError] = useState<string | null>(null);
   const [recovery, setRecovery] = useState<RecoveryDraft[]>([]);
   const [closeRequested, setCloseRequested] = useState(false);
+  const [viewSwitchRequested, setViewSwitchRequested] = useState(false);
   const [storageError, setStorageError] = useState(false);
   const sessionRef = useRef<EditSession | null>(null);
   const baseline = useRef<T | null>(null);
@@ -442,6 +443,41 @@ export function useWorkItemEditor<T extends FieldValues>({
       savingRef.current = false;
     }
   };
+  const releaseToView = async () => {
+    if (savingRef.current) return;
+    const current = sessionRef.current;
+    if (!current?.can_edit) return;
+    savingRef.current = true;
+    setError(null);
+    try {
+      await pendingPreview.current;
+      if (current.token)
+        await editOperation(kind, id, "release", current.token);
+      const next = await editOperation(kind, id, "read");
+      lostRef.current = false;
+      setLost(false);
+      apply(next, true);
+      setViewSwitchRequested(false);
+    } catch (failure) {
+      setError(
+        failure instanceof Error
+          ? failure.message
+          : "Could not switch to view mode.",
+      );
+    } finally {
+      savingRef.current = false;
+    }
+  };
+  const requestViewMode = () => {
+    if (savingRef.current) return;
+    if (!sessionRef.current?.can_edit) return;
+    if (dirtyRef.current) setViewSwitchRequested(true);
+    else void releaseToView();
+  };
+  const finishViewSwitch = async () => {
+    setViewSwitchRequested(false);
+    await releaseToView();
+  };
   const restart = async () => {
     if (savingRef.current) return;
     preserve();
@@ -475,10 +511,14 @@ export function useWorkItemEditor<T extends FieldValues>({
     recovery,
     closeRequested,
     setCloseRequested,
+    viewSwitchRequested,
+    setViewSwitchRequested,
     save,
     discard,
     remove,
     acquire,
+    requestViewMode,
+    finishViewSwitch,
     restart,
     requestClose,
     finishClose,

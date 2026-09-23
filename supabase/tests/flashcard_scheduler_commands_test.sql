@@ -1,5 +1,33 @@
 BEGIN;
-SELECT plan(18);
+SELECT plan(24);
+
+SELECT is(
+  position('''40001''' IN pg_get_functiondef('public.commit_flashcard_review_answer(uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,text,uuid,integer,text,jsonb,jsonb)'::regprocedure)),
+  0,
+  'answer conflicts do not use the retryable serialization failure code'
+);
+SELECT ok(
+  position('''PT409''' IN pg_get_functiondef('public.commit_flashcard_review_answer(uuid,uuid,uuid,text,bigint,timestamp with time zone,integer,text,uuid,integer,text,jsonb,jsonb)'::regprocedure)) > 0,
+  'answer conflicts use an explicit application HTTP conflict code'
+);
+SELECT is(
+  position('''40001''' IN pg_get_functiondef('public.undo_latest_flashcard_answer(uuid,uuid,text)'::regprocedure)),
+  0,
+  'legacy undo conflicts do not use the retryable serialization failure code'
+);
+SELECT ok(
+  position('''PT409''' IN pg_get_functiondef('public.undo_latest_flashcard_answer(uuid,uuid,text)'::regprocedure)) > 0,
+  'legacy undo conflicts use an explicit application HTTP conflict code'
+);
+SELECT is(
+  position('''40001''' IN pg_get_functiondef('public.undo_flashcard_answer(uuid,uuid,uuid,text)'::regprocedure)),
+  0,
+  'bounded undo conflicts do not use the retryable serialization failure code'
+);
+SELECT ok(
+  position('''PT409''' IN pg_get_functiondef('public.undo_flashcard_answer(uuid,uuid,uuid,text)'::regprocedure)) > 0,
+  'bounded undo conflicts use an explicit application HTTP conflict code'
+);
 
 INSERT INTO public.flashcards(id, topic_id, card_type, cloze_text, index)
 VALUES ('fa000000-0000-4000-8000-000000000001','30000000-0000-0000-0000-000000000001','text_cloze','{{c1::One}} {{c2::Two}}',990);
@@ -34,7 +62,7 @@ SELECT is((SELECT count(*)::integer FROM public.student_flashcard_review_logs WH
 
 SELECT throws_ok($$SELECT public.commit_flashcard_review_answer(
   '10000000-0000-0000-0000-000000000001',(SELECT id FROM public.flashcard_review_cards WHERE flashcard_id='fa000000-0000-4000-8000-000000000001' AND cloze_index=1),
-  'fa100000-0000-4000-8000-000000000002','stale',0,NOW(),1,'good','f5000000-0000-4000-8000-000000000001',1,'test','{}','{}')$$,'40001','flashcard_stale_revision','stale answer is rejected');
+  'fa100000-0000-4000-8000-000000000002','stale',0,NOW(),1,'good','f5000000-0000-4000-8000-000000000001',1,'test','{}','{}')$$,'PT409','flashcard_stale_revision','stale answer is rejected');
 
 SELECT public.undo_latest_flashcard_answer('10000000-0000-0000-0000-000000000001','fa100000-0000-4000-8000-000000000003','undo');
 SELECT is((SELECT state FROM public.student_flashcard_review_states s JOIN public.flashcard_review_cards rc ON rc.id=s.review_card_id WHERE rc.cloze_index=1 AND rc.flashcard_id='fa000000-0000-4000-8000-000000000001'),'New','undo restores prior state');

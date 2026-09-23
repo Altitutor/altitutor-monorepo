@@ -9,9 +9,13 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
+  SegmentedControl,
 } from "@altitutor/ui";
 import type { useWorkItemEditor } from "./useWorkItemEditor";
 import type { EditRecord } from "./api";
+import { ExpandButton } from "@/shared/components/expandable-dialog";
+import { useAdminDialogExpand } from "@/shared/components/dialog-shell";
+import type { ReactNode } from "react";
 
 export { WorkItemEditableContext } from "./context";
 type Controller = ReturnType<typeof useWorkItemEditor>;
@@ -96,107 +100,237 @@ function Recovery({
     </details>
   );
 }
+function editorStatusLabel(editor: Controller): string {
+  if (editor.saving) return "Saving…";
+  if (editor.lost) return "Editing session ended";
+  if (editor.dirty) return "Unsaved changes";
+  if (editor.session?.can_edit) return "Saved";
+  if (editor.session?.owner) return `${editor.session.owner} is editing`;
+  if (editor.session) return "Read only";
+  return "Opening…";
+}
+
+export function EditorStatus({
+  editor,
+  className,
+}: {
+  editor: Controller;
+  className?: string;
+}) {
+  return (
+    <span className={className ?? "text-sm text-muted-foreground"} role="status">
+      {editorStatusLabel(editor)}
+    </span>
+  );
+}
+
+export function EditorHeaderActions({ editor }: { editor: Controller }) {
+  if (!(editor.session?.can_edit && !editor.lost)) return null;
+
+  return (
+    <>
+      <Button
+        type="button"
+        disabled={editor.saving || !editor.dirty}
+        onClick={() => {
+          void editor.save();
+        }}
+      >
+        Save
+      </Button>
+      <Button
+        type="button"
+        variant="outline"
+        disabled={editor.saving || !editor.dirty}
+        onClick={() => {
+          if (window.confirm("Discard your unsaved changes?"))
+            void editor.discard();
+        }}
+      >
+        Cancel changes
+      </Button>
+    </>
+  );
+}
+
+export function EditorViewEditToggle({ editor }: { editor: Controller }) {
+  const mode =
+    editor.session?.can_edit && !editor.lost ? ("edit" as const) : ("view" as const);
+
+  return (
+    <SegmentedControl
+      value={mode}
+      onValueChange={(value) => {
+        if (value === "edit") void editor.acquire();
+        else editor.requestViewMode();
+      }}
+      options={[
+        { value: "view", label: "View" },
+        { value: "edit", label: "Edit" },
+      ]}
+      size="sm"
+      aria-label="View or edit"
+    />
+  );
+}
+
+export function WorkItemDialogHeaderActions({
+  editor,
+  actions,
+}: {
+  editor: Controller;
+  actions: ReactNode;
+}) {
+  const expand = useAdminDialogExpand();
+
+  return (
+    <div className="flex items-center gap-2">
+      <EditorViewEditToggle editor={editor} />
+      {expand ? (
+        <ExpandButton
+          expanded={expand.expanded}
+          onToggle={() => expand.setExpanded(!expand.expanded)}
+        />
+      ) : null}
+      {actions}
+    </div>
+  );
+}
+
+export function EditorFooterActions({ editor }: { editor: Controller }) {
+  const isEditing = editor.session?.can_edit && !editor.lost;
+
+  return (
+    <div className="flex w-full items-center gap-2">
+      <EditorStatus editor={editor} className="mr-auto text-sm text-muted-foreground" />
+      <Button type="button" variant="outline" onClick={() => editor.requestClose()}>
+        Cancel
+      </Button>
+      {isEditing ? (
+        <Button
+          type="button"
+          disabled={editor.saving || !editor.dirty}
+          onClick={() => {
+            void editor.save().then((saved) => {
+              if (saved) void editor.finishClose();
+            });
+          }}
+        >
+          {editor.saving ? "Saving..." : "Save"}
+        </Button>
+      ) : null}
+    </div>
+  );
+}
+
+export function EditorViewSwitchConfirmDialog({
+  editor,
+}: {
+  editor: Controller;
+}) {
+  return (
+    <AlertDialog
+      open={editor.viewSwitchRequested}
+      onOpenChange={editor.setViewSwitchRequested}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Save your changes before viewing?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your changes have not been saved to this record.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => editor.setViewSwitchRequested(false)}
+          >
+            Keep editing
+          </Button>
+          <Button
+            variant="outline"
+            disabled={editor.saving}
+            onClick={() => {
+              void editor.discard().then(editor.finishViewSwitch);
+            }}
+          >
+            Discard and view
+          </Button>
+          <Button
+            disabled={
+              !editor.session?.can_edit || editor.lost || editor.saving
+            }
+            onClick={() => {
+              void editor.save().then((saved) => {
+                if (saved) void editor.finishViewSwitch();
+              });
+            }}
+          >
+            Save and view
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
+export function EditorCloseConfirmDialog({ editor }: { editor: Controller }) {
+  return (
+    <AlertDialog
+      open={editor.closeRequested}
+      onOpenChange={editor.setCloseRequested}
+    >
+      <AlertDialogContent>
+        <AlertDialogHeader>
+          <AlertDialogTitle>Save your changes before closing?</AlertDialogTitle>
+          <AlertDialogDescription>
+            Your changes have not been saved to this record.
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => editor.setCloseRequested(false)}
+          >
+            Keep editing
+          </Button>
+          <Button
+            variant="outline"
+            disabled={editor.saving}
+            onClick={() => {
+              void editor.discard().then(editor.finishClose);
+            }}
+          >
+            Discard and close
+          </Button>
+          <Button
+            disabled={
+              !editor.session?.can_edit || editor.lost || editor.saving
+            }
+            onClick={() => {
+              void editor.save().then((saved) => {
+                if (saved) void editor.finishClose();
+              });
+            }}
+          >
+            Save and close
+          </Button>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  );
+}
+
 export function EditorControls({ editor }: { editor: Controller }) {
   return (
     <>
       <div className="flex items-center gap-2 text-sm" role="status">
-        <span>
-          {editor.saving
-            ? "Saving…"
-            : editor.lost
-              ? "Editing session ended"
-              : editor.dirty
-                ? "Unsaved changes"
-                : editor.session?.can_edit
-                  ? "Saved"
-                  : editor.session?.owner
-                    ? `${editor.session.owner} is editing`
-                    : editor.session
-                      ? "Read only"
-                      : "Opening…"}
-        </span>
-        {editor.session?.can_edit && !editor.lost ? (
-          <>
-            <Button
-              type="button"
-              disabled={editor.saving || !editor.dirty}
-              onClick={() => {
-                void editor.save();
-              }}
-            >
-              Save
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              disabled={editor.saving || !editor.dirty}
-              onClick={() => {
-                if (window.confirm("Discard your unsaved changes?"))
-                  void editor.discard();
-              }}
-            >
-              Cancel changes
-            </Button>
-          </>
-        ) : (
-          editor.session &&
-          !editor.dirty && (
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                void editor.acquire();
-              }}
-            >
-              Edit
-            </Button>
-          )
-        )}
+        <EditorViewEditToggle editor={editor} />
+        <EditorStatus editor={editor} />
+        <EditorHeaderActions editor={editor} />
       </div>
-      <AlertDialog
-        open={editor.closeRequested}
-        onOpenChange={editor.setCloseRequested}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>
-              Save your changes before closing?
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Your changes have not been saved to this record.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <Button
-              variant="outline"
-              onClick={() => editor.setCloseRequested(false)}
-            >
-              Keep editing
-            </Button>
-            <Button
-              variant="outline"
-              disabled={editor.saving}
-              onClick={() => {
-                void editor.discard().then(editor.finishClose);
-              }}
-            >
-              Discard and close
-            </Button>
-            <Button
-              disabled={
-                !editor.session?.can_edit || editor.lost || editor.saving
-              }
-              onClick={() => {
-                void editor.save().then((saved) => {
-                  if (saved) void editor.finishClose();
-                });
-              }}
-            >
-              Save and close
-            </Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <EditorCloseConfirmDialog editor={editor} />
+      <EditorViewSwitchConfirmDialog editor={editor} />
     </>
   );
 }

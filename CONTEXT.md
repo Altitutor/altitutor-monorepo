@@ -37,6 +37,8 @@
   _Avoid_: Account creation, In-person registration, first login
 
 - **Online product relationship** — A Student's relationship with one online SaaS product, such as Altitutor UCAT or the future Altitutor Student Online SaaS offering. Each product relationship has an independent lifecycle; using Altitutor Student Online as the portal included with in-person tutoring does not create an online SaaS relationship.
+- **Product account deletion** — A Student's request to end their account in one Product app. It closes that Online product relationship, removes that product's learning data, and removes their login only when no other relationship needs it, while the Student and their invoicing and attendance records remain. A later signup with the same email reopens that product on the same Student without restoring the deleted learning data.
+  _Avoid_: Deleting the Student, account deactivation
 - **StudentWeb portal access** — Permission for an authenticated identity linked to a Student identity to enter StudentWeb. It is intentionally broader than any one in-person relationship, Online product relationship, subscription, or entitlement. Which onboarding or landing experience StudentWeb presents may later depend on those relationships, but that classification is not part of the portal-access decision.
 - **Portal onboarding classification** — A future StudentWeb presentation decision that may distinguish in-person, online, UCAT-origin, or combined relationships after portal access is established. It must not be inferred in the session request boundary or used as an authorization substitute.
 - **Session request boundary** — The Next.js middleware/proxy responsibility that refreshes and verifies the Supabase session, propagates every auth cookie and required no-cache header, and performs only cookie-evidenced redirects. It does not query Postgres for portal roles, relationships, signup progress, or entitlements.
@@ -327,6 +329,9 @@
   _Avoid_: Calendar export, calendar sync, shared calendar
 
 ## Core tutoring sessions and billing
+
+- **Drafting session** — A subject-specific, one-to-one tutoring Session booked independently of a Class. Its Subject is selected at booking and stored directly on the Session.
+  _Avoid_: Drafting Class, subject-independent Drafting session
 
 - **Tutor log** — The single record of attendance, learning activity, and notes captured for one completed Session. It distinguishes the staff member who submitted it from the staff member on whose behalf it was recorded.
   _Avoid_: Attendance record, Session completion flag

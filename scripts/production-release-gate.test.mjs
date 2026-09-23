@@ -557,17 +557,19 @@ test("admin E2E keeps role redirects inside the local test boundary", async () =
   );
 });
 
-test("student E2E provides a test Stripe publishable key", async () => {
-  const config = await readFile(
-    new URL("../apps/student-web/playwright.config.ts", import.meta.url),
-    "utf8",
-  );
+test("Stripe checkout E2E provides a test publishable key", async () => {
+  for (const app of ["student-web", "ucat-web"]) {
+    const config = await readFile(
+      new URL(`../apps/${app}/playwright.config.ts`, import.meta.url),
+      "utf8",
+    );
 
-  assert.match(
-    config,
-    /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*["']pk_test_[^"']+["']/u,
-    "the production-mode student build must initialize Stripe with a test key",
-  );
+    assert.match(
+      config,
+      /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*["']pk_test_[^"']+["']/u,
+      `the production-mode ${app} build must initialize Stripe with a test key`,
+    );
+  }
 });
 
 test("the main release gate runs every web app browser suite", async () => {

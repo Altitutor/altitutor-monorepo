@@ -3,6 +3,7 @@
 import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
 
 import type { AuthError } from "@supabase/supabase-js";
+import { usePendingInvitation } from "@/features/founder-offers/lib/use-pending-invitation";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -94,6 +95,7 @@ export function SignupForm({
   );
   const pendingSignupContext = `${redirectTo}\n${referralCode ?? ""}`;
   const founderCode = founderInvitationCode(redirectTo);
+  usePendingInvitation(founderCode ?? referralCode);
   const planName = "UCAT Unlimited";
   const planFeatures = [
     "Unlimited practice across every UCAT section",

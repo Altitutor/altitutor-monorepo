@@ -128,8 +128,7 @@ export function InvitationCodeEntry({
           (busy ? "Getting your gift ready…" : "Your invitation")
         }
         description={
-          offer?.terms ??
-          "Your offer will be confirmed before you start a subscription."
+          "Unlock unlimited practice across every UCAT section, full-length mock exams, percentile tracking, and adaptive skill training with progress analytics."
         }
         note="UCAT Unlimited · Monthly billing · Secure checkout."
         error={error}

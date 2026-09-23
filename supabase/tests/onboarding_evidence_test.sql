@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(14);
+SELECT plan(17);
 INSERT INTO public.students(id,first_name,last_name,status) VALUES ('af010000-0000-4000-8000-000000000001','Onboarding','Contract','ACTIVE');
 INSERT INTO public.onboarding_journeys(id,student_id,label,enquiry_at) VALUES ('af010000-0000-4000-8000-000000000002','af010000-0000-4000-8000-000000000001','Contract',now()-interval '30 days');
 SELECT is(public.onboarding_evidence('af010000-0000-4000-8000-000000000002')->>'converted_at',null,'No attendance/invoice means no conversion');
@@ -22,16 +22,30 @@ UPDATE public.tutor_logs_student_attendance SET attended=true,was_trial=true WHE
 SELECT is(public.onboarding_evidence('af010000-0000-4000-8000-000000000002')->>'converted_at',null,'Trial attendance is excluded from paid conversion');
 SELECT ok(public.onboarding_evidence('af010000-0000-4000-8000-000000000002')->>'trial_attended_at' IS NOT NULL,'Trial attendance remains independent evidence');
 SELECT is(public.onboarding_evidence('af010000-0000-4000-8000-000000000002')->>'trial_form_at',null,'Attendance does not imply a submitted trial form');
+SELECT ok(
+  EXISTS (
+    SELECT 1 FROM jsonb_array_elements(public.onboarding_journeys_board()) row
+    WHERE row->>'id'='af010000-0000-4000-8000-000000000002'
+      AND row->'evidence'=public.onboarding_evidence('af010000-0000-4000-8000-000000000002')
+  ),
+  'Board evidence matches the per-journey projection'
+);
 UPDATE public.onboarding_journeys SET closed_at=now(),closure_reason='withdrawn' WHERE id='af010000-0000-4000-8000-000000000002';
 SELECT ok((SELECT closed_evidence IS NOT NULL FROM public.onboarding_journeys WHERE id='af010000-0000-4000-8000-000000000002'),'Closure snapshots the source evidence');
 UPDATE public.tutor_logs_student_attendance SET attended=false WHERE tutor_log_id='af010000-0000-4000-8000-000000000005';
 SELECT ok(public.onboarding_evidence('af010000-0000-4000-8000-000000000002')->>'trial_attended_at' IS NOT NULL,'Later source changes do not rewrite a closed journey');
+SELECT is(
+  (SELECT row->'evidence' FROM jsonb_array_elements(public.onboarding_journeys_board()) row WHERE row->>'id'='af010000-0000-4000-8000-000000000002'),
+  (SELECT closed_evidence FROM public.onboarding_journeys WHERE id='af010000-0000-4000-8000-000000000002'),
+  'Board uses the closure snapshot instead of recomputing evidence'
+);
 SET LOCAL ROLE anon;
 SELECT throws_ok($$SELECT * FROM public.onboarding_journeys$$,'42501',null,'Anonymous users cannot read journeys');
 RESET ROLE;
 SET LOCAL ROLE authenticated;
 SELECT is((SELECT count(*) FROM public.onboarding_journeys),0::bigint,'Unprivileged authenticated users cannot read journeys');
 SELECT is(public.onboarding_evidence('af010000-0000-4000-8000-000000000002'),null,'Evidence RPC does not bypass RLS');
+SELECT is(public.onboarding_journeys_board(),'[]'::jsonb,'Board RPC does not bypass RLS');
 SELECT throws_ok($$INSERT INTO public.onboarding_journeys(student_id,label,enquiry_at) VALUES ('af010000-0000-4000-8000-000000000001','Forbidden',now())$$,'42501',null,'Unprivileged users cannot insert journeys');
 RESET ROLE;
 SELECT * FROM finish();

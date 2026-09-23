@@ -63,6 +63,10 @@ const sessionEditSchema = z
   .refine((data) => data.endTime > data.startTime, {
     message: 'End time must be after start time',
     path: ['endTime'],
+  })
+  .refine((data) => data.type !== 'DRAFTING' || Boolean(data.subjectId), {
+    message: 'Subject is required for drafting sessions',
+    path: ['subjectId'],
   });
 
 export type SessionEditFormData = z.infer<typeof sessionEditSchema>;
@@ -269,9 +273,13 @@ export function SessionDetailsTab({
     selectedClass ?? (formClassId && session?.class?.id === formClassId ? (session?.class as MinimalClass) : null);
 
   useEffect(() => {
-    if (formType !== 'CLASS') {
+    if (formType !== 'CLASS' && formType !== 'DRAFTING') {
       form.setValue('subjectId', null, { shouldValidate: false });
+      setSelectedSubject(null);
+    }
+    if (formType !== 'CLASS') {
       form.setValue('classId', null, { shouldValidate: false });
+      setSelectedClass(null);
     }
   }, [formType, form]);
 
@@ -402,7 +410,7 @@ export function SessionDetailsTab({
                   <p className="text-sm text-destructive mt-0.5">{form.formState.errors.endTime.message}</p>
                 )}
               </div>
-              {formType === 'CLASS' && (
+              {(formType === 'CLASS' || formType === 'DRAFTING') && (
                 <>
                   <Label htmlFor="session-subject">Subject</Label>
                   <div>
@@ -429,26 +437,33 @@ export function SessionDetailsTab({
                         />
                       )}
                     />
+                    {form.formState.errors.subjectId && (
+                      <p className="text-sm text-destructive mt-0.5">{form.formState.errors.subjectId.message}</p>
+                    )}
                   </div>
-                  <Label htmlFor="session-class">Class</Label>
-                  <div>
-                    <Controller
-                      control={form.control}
-                      name="classId"
-                      render={({ field }) => (
-                        <ClassSelectPopover
-                          selectedClass={displayClass}
-                          onSelectClass={(c) => {
-                            setSelectedClass(c);
-                            field.onChange(c?.id ?? null);
-                          }}
-                          subjectId={formSubjectId ?? null}
-                          placeholder="Select class"
-                          disabled={isUpdating}
+                  {formType === 'CLASS' && (
+                    <>
+                      <Label htmlFor="session-class">Class</Label>
+                      <div>
+                        <Controller
+                          control={form.control}
+                          name="classId"
+                          render={({ field }) => (
+                            <ClassSelectPopover
+                              selectedClass={displayClass}
+                              onSelectClass={(c) => {
+                                setSelectedClass(c);
+                                field.onChange(c?.id ?? null);
+                              }}
+                              subjectId={formSubjectId ?? null}
+                              placeholder="Select class"
+                              disabled={isUpdating}
+                            />
+                          )}
                         />
-                      )}
-                    />
-                  </div>
+                      </div>
+                    </>
+                  )}
                 </>
               )}
             </PropertyForm>
@@ -465,7 +480,7 @@ export function SessionDetailsTab({
               ) : undefined
             }
             subjectNode={
-              session.type === 'CLASS'
+              session.type === 'CLASS' || session.type === 'DRAFTING'
                 ? subject
                   ? (() => {
                       const { style, textColorClass } = getSubjectColorStyle(subject as unknown as Tables<'subjects'>);

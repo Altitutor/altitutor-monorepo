@@ -144,7 +144,13 @@ interface ProjectActionsMenuProps extends BaseActionsMenuProps {
   richTextTemplateConfig?: RichTextTemplateConfig;
 }
 
-type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps | ProjectActionsMenuProps;
+interface DocumentActionsMenuProps extends BaseActionsMenuProps {
+  type: 'document';
+  onDelete: () => void;
+  richTextTemplateConfig?: RichTextTemplateConfig;
+}
+
+type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps | ProjectActionsMenuProps | DocumentActionsMenuProps;
 
 const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], string>> = {
   student: 'student',
@@ -160,6 +166,7 @@ const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], st
   issue: 'issue',
   task: 'task',
   project: 'project',
+  document: 'note',
 };
 
 export function ActionsMenu(props: ActionsMenuProps) {
@@ -860,6 +867,40 @@ export function ActionsMenu(props: ActionsMenuProps) {
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Delete project
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+
+  if (props.type === 'document') {
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" className="shrink-0">
+            <MoreVertical className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={props.onOpenInPage}>
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open in page
+          </DropdownMenuItem>
+          {copyMenuItem}
+          {props.richTextTemplateConfig && (
+            <RichTextTemplateMenuItems
+              getEditor={props.richTextTemplateConfig.getEditor}
+              getCurrentContent={props.richTextTemplateConfig.getCurrentContent}
+              onSaveAsTemplateClick={props.richTextTemplateConfig.onSaveAsTemplateClick}
+            />
+          )}
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={props.onDelete}
+            className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+          >
+            <Trash2 className="h-4 w-4 mr-2" />
+            Delete document
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

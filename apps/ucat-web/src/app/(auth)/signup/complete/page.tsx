@@ -4,8 +4,7 @@ import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { SignupOnboardingWizard } from "@/features/signup-onboarding/components/signup-onboarding-wizard";
 import { SignupCompleteHardRedirect } from "@/features/signup-onboarding/components/signup-complete-hard-redirect";
 import { SignupCompleteSessionFallback } from "@/features/signup-onboarding/components/signup-complete-session-fallback";
-import { loadSignupOnboardingInitial } from "@/features/signup-onboarding/lib/load-signup-onboarding-initial";
-import { resolveSignupStateForUser } from "@/features/signup-onboarding/lib/resolve-signup-state";
+import { loadSignupOnboardingPageData } from "@/features/signup-onboarding/lib/load-signup-onboarding-initial";
 import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 
 // getSupabaseServerClient intentionally uses an empty-cookie placeholder during
@@ -43,14 +42,12 @@ export default async function SignupCompletePage({
     return <SignupCompleteSessionFallback />;
   }
 
-  const state = await resolveSignupStateForUser(user);
+  const { initial, state } = await loadSignupOnboardingPageData(user);
   if (state.signupCompleted) {
     // Soft redirect("/dashboard") races middleware when the access view
     // briefly reports incomplete → soft-nav storm / blank screen.
     return <SignupCompleteHardRedirect to={returnTo} />;
   }
-
-  const initial = await loadSignupOnboardingInitial(user);
 
   return (
     <Suspense fallback={null}>

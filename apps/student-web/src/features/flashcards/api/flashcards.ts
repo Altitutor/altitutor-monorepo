@@ -21,6 +21,12 @@ export const flashcardsApi = {
     return readJson<FlashcardReviewCard[]>(res);
   },
 
+  async getDueReviewCount(): Promise<number> {
+    const res = await fetch('/api/flashcards/review-cards?mode=due&countsOnly=1');
+    const data = await readJson<{ total: number }>(res);
+    return data.total;
+  },
+
   async listDueReviewCards(topicIds?: string[]): Promise<FlashcardStudySnapshot> {
     const params = new URLSearchParams({ mode: 'due' });
     if (topicIds?.length) {

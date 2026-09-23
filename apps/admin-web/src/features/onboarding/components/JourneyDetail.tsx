@@ -256,7 +256,7 @@ export function JourneyDetail({
         bodyClassName="!p-0 !overflow-hidden"
       >
         <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_350px] overflow-y-auto md:overflow-hidden">
-          <main className="min-h-[500px] md:min-h-0 md:h-full overflow-y-auto p-5">
+            <main className="flex min-h-[500px] min-w-0 flex-col overflow-hidden md:h-full md:min-h-0">
             <JourneyCommunication
               ref={commRef}
               journey={journey}

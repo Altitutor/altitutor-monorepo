@@ -21,10 +21,12 @@ jest.mock("@/lib/sentry/capture-api-error", () => ({
 
 const mockedServerClient = jest.mocked(getSupabaseServerClient);
 const mockedAdminFrom = jest.mocked(supabaseAdmin!.from);
-const mockedCaptureSignup = jest.mocked(
-  captureUcatSignupCompletedInBackground,
-);
-const relationshipUpsert = jest.fn();
+const mockedCaptureSignup = jest.mocked(captureUcatSignupCompletedInBackground);
+const relationshipInsert = jest.fn();
+const relationshipUpdateEq = jest.fn();
+const relationshipUpdate = jest.fn(() => ({ eq: relationshipUpdateEq }));
+let existingRelationship: { id: string; closed_at: string | null } | null =
+  null;
 const attributionInsert = jest.fn();
 const attributionUpdateEq = jest.fn();
 const attributionUpdate = jest.fn(() => ({ eq: attributionUpdateEq }));
@@ -49,7 +51,9 @@ describe("PATCH /api/ucat/signup/progress", () => {
   beforeEach(() => {
     jest.clearAllMocks();
     attributionRow = existingAttribution;
-    relationshipUpsert.mockResolvedValue({ error: null });
+    existingRelationship = null;
+    relationshipInsert.mockResolvedValue({ error: null });
+    relationshipUpdateEq.mockResolvedValue({ error: null });
     attributionInsert.mockResolvedValue({ error: null });
     attributionUpdateEq.mockResolvedValue({ error: null });
     mockedServerClient.mockResolvedValue({
@@ -92,7 +96,20 @@ describe("PATCH /api/ucat/signup/progress", () => {
       }
 
       if (relation === "student_online_product_relationships") {
-        return { upsert: relationshipUpsert } as never;
+        return {
+          select: jest.fn(() => ({
+            eq: jest.fn(() => ({
+              eq: jest.fn(() => ({
+                maybeSingle: jest.fn(async () => ({
+                  data: existingRelationship,
+                  error: null,
+                })),
+              })),
+            })),
+          })),
+          insert: relationshipInsert,
+          update: relationshipUpdate,
+        } as never;
       }
 
       if (relation === "student_product_acquisition_attributions") {
@@ -122,15 +139,15 @@ describe("PATCH /api/ucat/signup/progress", () => {
     } as unknown as NextRequest);
 
     expect(response.status).toBe(200);
-    expect(relationshipUpsert).toHaveBeenCalledWith(
+    expect(relationshipInsert).toHaveBeenCalledWith(
       expect.objectContaining({
         student_id: "student-1",
         product: "UCAT_WEB",
         closed_at: null,
         started_at: expect.any(String),
       }),
-      { onConflict: "student_id,product", ignoreDuplicates: true },
     );
+    expect(relationshipUpdate).not.toHaveBeenCalled();
     expect(mockedCaptureSignup).toHaveBeenCalledWith(
       expect.objectContaining({
         userId: "student-user-1",
@@ -152,7 +169,36 @@ describe("PATCH /api/ucat/signup/progress", () => {
     } as unknown as NextRequest);
 
     expect(response.status).toBe(400);
-    expect(relationshipUpsert).not.toHaveBeenCalled();
+    expect(relationshipInsert).not.toHaveBeenCalled();
+    expect(relationshipUpdate).not.toHaveBeenCalled();
+  });
+
+  it("reopens a closed UCAT relationship without rewriting its start", async () => {
+    existingRelationship = {
+      id: "relationship-1",
+      closed_at: "2026-09-01T00:00:00.000Z",
+    };
+
+    const response = await PATCH({
+      json: async () => ({ complete: true }),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(200);
+    expect(relationshipInsert).not.toHaveBeenCalled();
+    expect(relationshipUpdate).toHaveBeenCalledWith({ closed_at: null });
+    expect(relationshipUpdateEq).toHaveBeenCalledWith("id", "relationship-1");
+  });
+
+  it("leaves an open UCAT relationship unchanged when signup completes again", async () => {
+    existingRelationship = { id: "relationship-1", closed_at: null };
+
+    const response = await PATCH({
+      json: async () => ({ complete: true }),
+    } as unknown as NextRequest);
+
+    expect(response.status).toBe(200);
+    expect(relationshipInsert).not.toHaveBeenCalled();
+    expect(relationshipUpdate).not.toHaveBeenCalled();
   });
 
   it("stores multiple self-reported sources and observed first touch", async () => {

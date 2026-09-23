@@ -9,12 +9,16 @@ import {
 } from "@/features/signup-onboarding/lib/steps";
 import type { SignupOnboardingStep } from "@/features/signup-onboarding/types";
 
-type StudentSignupRow = {
+export type StudentSignupRow = {
   ucat_signup_step: number | null;
   ucat_signup_completed_at: string | null;
   ucat_onboarding_completed_at: string | null;
   first_name: string | null;
   last_name: string | null;
+};
+
+export type StudentSignupPageRow = StudentSignupRow & {
+  phone: string | null;
 };
 
 export type ResolvedSignupState = {
@@ -71,13 +75,13 @@ export function resolveSignupState(
 
 export async function loadStudentSignupRow(
   userId: string,
-): Promise<StudentSignupRow | null> {
+): Promise<StudentSignupPageRow | null> {
   if (!supabaseAdmin) return null;
 
   const { data, error } = await supabaseAdmin
     .from("students")
     .select(
-      "ucat_signup_step, ucat_signup_completed_at, ucat_onboarding_completed_at, first_name, last_name",
+      "ucat_signup_step, ucat_signup_completed_at, ucat_onboarding_completed_at, first_name, last_name, phone",
     )
     .eq("user_id", userId)
     .maybeSingle();

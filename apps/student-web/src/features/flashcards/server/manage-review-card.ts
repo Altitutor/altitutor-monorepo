@@ -17,7 +17,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     userClient.from('vstudent_flashcard_review_cards').select('id').eq('id',params.id).maybeSingle(),
   ]);
   if (!studentId || !card) return NextResponse.json({ error: 'flashcard_review_card_not_accessible' }, { status: 404 });
-  const admin = getServerSupabaseAdmin();
+  const admin = getServerSupabaseAdmin({ retry: false });
   const now = new Date();
   const { data: preferences } = await admin.from('student_flashcard_preferences').select('timezone').eq('student_id',studentId).maybeSingle();
   const { data: bounds } = await admin.rpc('flashcard_study_day_bounds',{p_now:now.toISOString(),p_timezone:preferences?.timezone ?? 'Australia/Adelaide'});
@@ -26,6 +26,6 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     p_student_id:studentId,p_review_card_id:params.id,p_request_id:body.requestId,p_request_fingerprint:fingerprint,
     p_action:body.action as Action,p_now:now.toISOString(),p_buried_until:body.action==='bury' ? bounds?.[0]?.ends_at ?? undefined : undefined,
   });
-  if(error) return NextResponse.json({error:error.message},{status:error.code==='40001'?409:500});
+  if(error) return NextResponse.json({error:error.message},{status:error.code==='PT409'||error.code==='40001'?409:500});
   return NextResponse.json({data});
 }

@@ -2,6 +2,7 @@ import { Pressable, Text, View } from "react-native";
 import { Stack } from "expo-router/stack";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Action,
   Copy,
   Failure,
   Group,
@@ -79,6 +80,13 @@ export default function Profile() {
           ))}
         </Group>
       )}
+      <Action
+        title="Delete account"
+        tone="danger"
+        onPress={() => {
+          void openWebSettings("/settings/profile");
+        }}
+      />
     </Screen>
   );
 }

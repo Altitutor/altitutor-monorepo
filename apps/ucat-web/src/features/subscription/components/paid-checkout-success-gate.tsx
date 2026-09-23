@@ -1,5 +1,6 @@
 "use client";
 
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
 import React, {
   useCallback,
   useEffect,
@@ -91,6 +92,7 @@ export function PaidCheckoutSuccessGate({
       return;
     }
 
+    rememberInvitation(null);
     const minimumAnimationMs = reduceMotion ? 350 : 2_800;
     const elapsed = Date.now() - transitionStartedAt.current;
     const timer = window.setTimeout(

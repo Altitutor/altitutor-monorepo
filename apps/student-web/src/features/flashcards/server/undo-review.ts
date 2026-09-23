@@ -22,15 +22,24 @@ export async function POST(request: NextRequest) {
   const { data: studentId } = await user.rpc('current_student_id');
   if (!studentId) return NextResponse.json({ error: 'student_not_found' }, { status: 403 });
 
-  const { data, error } = await getServerSupabaseAdmin().rpc('undo_flashcard_answer', {
+  const { data, error } = await getServerSupabaseAdmin({ retry: false }).rpc('undo_flashcard_answer', {
     p_student_id: studentId,
     p_answer_log_id: body.answerLogId,
     p_request_id: body.requestId,
     p_request_fingerprint: `undo:${body.answerLogId}`,
   });
   if (error) {
-    const status = error.code === '40001' || error.code === '55P03' ? 409 : error.code === '22023' ? 400 : 500;
-    const response = NextResponse.json({ error: error.message }, { status });
+    const status = error.code === 'PT409' || error.code === '40001' || error.code === '55P03'
+      ? 409
+      : error.code === '22023'
+        ? 400
+        : 500;
+    const code = error.code === '55P03'
+      ? 'flashcard_command_in_progress'
+      : error.code === 'PT409' || error.code === '40001'
+        ? 'flashcard_undo_conflict'
+        : error.message;
+    const response = NextResponse.json({ error: error.message, code }, { status });
     return status === 500
       ? captureApiErrorResponse(error, '/api/flashcards/review-cards/undo', response)
       : response;

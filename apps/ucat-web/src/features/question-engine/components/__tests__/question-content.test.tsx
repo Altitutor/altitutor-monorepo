@@ -196,6 +196,18 @@ describe("QuestionContent placement restoration", () => {
     expect(preview).toHaveStyle({ left: "180px", top: "90px" });
   });
 
+  it("prevents text selection on draggable placement controls", () => {
+    const { container } = render(
+      <QuestionContent question={question} onSelectOption={() => undefined} />,
+    );
+
+    const dragSources = container.querySelectorAll('[draggable="true"]');
+    expect(dragSources).not.toHaveLength(0);
+    dragSources.forEach((source) => {
+      expect(source).toHaveClass("select-none");
+    });
+  });
+
   it("renders Most/Least as physical once-only placement for a canonical drag question", () => {
     const mostLeastQuestion: QuestionItem = {
       ...question,
@@ -250,6 +262,31 @@ describe("QuestionContent placement restoration", () => {
 
     expect(onChange).toHaveBeenLastCalledWith({ "action-a": "least" });
     expect(leastTarget).toHaveTextContent("Action A");
+  });
+
+  it("prevents text selection while dragging options into token boxes", () => {
+    const mostLeastQuestion: QuestionItem = {
+      ...question,
+      id: "most-least-no-selection",
+      answerScheme: "situational_judgement_most_least",
+      sectionDisplayColumns: 2,
+      options: [
+        { id: "action-a", index: 0, text: "Action A", answerKeyValue: "most" },
+        { id: "action-b", index: 1, text: "Action B", answerKeyValue: null },
+      ],
+    };
+    const { container } = render(
+      <QuestionContent
+        question={mostLeastQuestion}
+        onSelectOption={() => undefined}
+      />,
+    );
+
+    const dragSources = container.querySelectorAll('[draggable="true"]');
+    expect(dragSources).not.toHaveLength(0);
+    dragSources.forEach((source) => {
+      expect(source).toHaveClass("select-none");
+    });
   });
 
   it("does not update its parent from inside the placement state updater", () => {
