@@ -198,7 +198,7 @@ export function BookSessionModal({
             <p className="text-sm text-muted-foreground">
               Select a staff member for this session
             </p>
-            {selectedSlot && selectedSlot.availableStaffIds.length > 0 ? (
+            {selectedSlot ? (
               <StaffSelector
                 availableStaffIds={selectedSlot.availableStaffIds}
                 selectedStaffId={selectedStaffId}
