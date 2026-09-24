@@ -5,7 +5,7 @@ import {
   UCAT_FONTS,
 } from "@altitutor/ui/components/ucat/ucat-theme";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { QuestionItem } from "@/features/question-engine/model/types";
+import type { PlacementSnapshot, QuestionItem } from "@/features/question-engine/model/types";
 import { getReviewQuestionStatus } from "@/features/question-engine/lib/review";
 import { useDraggablePanel } from "@/features/question-engine/hooks/use-draggable-panel";
 
@@ -27,7 +27,7 @@ export function NavigatorPanel({
   flaggedIds,
   selectedAnswers,
   visitedQuestionIds,
-  syllogismSnapshots,
+  placementSnapshots,
   onSelect,
   onClose,
 }: {
@@ -36,11 +36,11 @@ export function NavigatorPanel({
   flaggedIds: string[];
   selectedAnswers: Record<string, string>;
   visitedQuestionIds: string[];
-  syllogismSnapshots?: Record<string, Record<string, boolean>>;
+  placementSnapshots?: Record<string, PlacementSnapshot>;
   onSelect: (index: number) => void;
   onClose: () => void;
 }) {
-  const { position, handleMouseDown, setPosition } = useDraggablePanel();
+  const { position, handlePointerDown, setPosition } = useDraggablePanel();
   const panelRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({
     width: DEFAULT_WIDTH,
@@ -69,7 +69,7 @@ export function NavigatorPanel({
       question,
       visitedQuestionIds,
       selectedAnswers,
-      syllogismSnapshots,
+      placementSnapshots,
     );
     return status === "complete" ? count : count + 1;
   }, 0);
@@ -166,7 +166,7 @@ export function NavigatorPanel({
         question,
         visitedQuestionIds,
         selectedAnswers,
-        syllogismSnapshots,
+        placementSnapshots,
       );
       const statusLabel =
         status === "complete"
@@ -215,7 +215,7 @@ export function NavigatorPanel({
     flaggedIds,
     selectedAnswers,
     visitedQuestionIds,
-    syllogismSnapshots,
+    placementSnapshots,
     sortField,
     sortDirection,
   ]);
@@ -241,7 +241,8 @@ export function NavigatorPanel({
   return (
     <div
       ref={panelRef}
-      className="pointer-events-auto relative"
+      data-tour="question-engine-navigator-panel"
+      className="pointer-events-auto relative max-h-[calc(100dvh-7rem)] max-w-[calc(100vw-1rem)]"
       style={{
         transform: `translate3d(${position.x}px, ${position.y}px, 0)`,
         width: size.width,
@@ -251,8 +252,8 @@ export function NavigatorPanel({
       <UcatFloatingPanel
         title="Navigator - select a question to go to it"
         titleIcon={<Navigation className="h-5 w-5" />}
-        onDragMouseDown={handleMouseDown}
-        className="h-full w-full min-w-0 min-h-0 max-h-[85vh] flex flex-col overflow-hidden"
+        onDragPointerDown={handlePointerDown}
+        className="flex h-full min-h-0 w-full min-w-0 flex-col overflow-hidden"
         contentClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
       >
         <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -298,6 +299,7 @@ export function NavigatorPanel({
                   return (
                     <tr
                       key={row.question.id}
+                      data-tour="question-engine-navigator-question"
                       className={`group border-b ${
                         isRowHovered ? "border-[#1b4c7d]" : "border-transparent"
                       }`}
@@ -340,12 +342,16 @@ export function NavigatorPanel({
               </tbody>
             </table>
           </div>
-          <div className="mt-3 flex shrink-0 flex-col gap-15">
+          <div className="mt-3 flex shrink-0 flex-col gap-4 sm:gap-15">
             <div className="text-left text-[11pt]">
               {unseenOrIncompleteCount} Unseen/Incomplete
             </div>
             <div className="flex justify-end">
-              <UcatExamActionButton borders="all" onClick={onClose}>
+              <UcatExamActionButton
+                data-tour="question-engine-navigator-close"
+                borders="all"
+                onClick={onClose}
+              >
                 <span>
                   <span className="underline">C</span>lose
                 </span>

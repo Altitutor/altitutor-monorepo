@@ -39,7 +39,7 @@ export default function StudentsPage() {
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-3xl font-bold tracking-tight">Students</h1>
+        <h1 className="text-3xl font-bold tracking-tight">In-person Students</h1>
         <AdminPageActionButton
           icon={<Plus className="h-4 w-4" />}
           label="Add Student"
@@ -66,4 +66,3 @@ export default function StudentsPage() {
     </div>
   );
 }
-

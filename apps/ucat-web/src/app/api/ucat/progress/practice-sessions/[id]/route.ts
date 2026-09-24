@@ -1,7 +1,27 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
+import type { AnswerScheme } from "@altitutor/ucat-response-contract";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
-import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
+import {
+  fetchAttemptReviewCategoryDescriptions,
+  fetchAttemptReviewQuestionMetadata,
+  type AttemptReviewQuestionTag,
+} from "@/features/progress/lib/attempt-review-question-metadata";
+import {
+  matchRemediationLearningModules,
+  questionTagIdsFromMetadata,
+  type RemediationLessonLink,
+} from "@/features/progress/lib/remediation-learning-modules";
+import { fetchRemediationCatalog } from "@/features/progress/server/remediation-learning-modules";
+import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
+import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
+import { selectedOptionIdFromSnapshot } from "@/features/progress/lib/attempt-response-review";
+import {
+  mapQuestionStemsToItems,
+  type QuestionStemWithQuestions,
+} from "@/features/question-engine/model/types";
 
 export type PracticeAttemptDetailResponse = {
   id: string;
@@ -13,45 +33,32 @@ export type PracticeAttemptDetailResponse = {
   attemptedAt: string;
   completedAt: string | null;
   stemsSnapshot: unknown;
+  recentPerformance: AttemptRecentPerformance;
   questionAttempts: {
     questionNumber: number;
     questionId: string;
     stemIndex: number;
     score: number | null;
     timeSpentSeconds: number | null;
-    questionType: "multiple_choice" | "syllogism" | null;
+    averageTimeSeconds: number | null;
+    averageTimeSampleSize: number;
+    timeBurdenSeconds: number | null;
+    difficulty: number | null;
+    questionTags: AttemptReviewQuestionTag[];
+    isFlagged: boolean;
+    answerScheme: AnswerScheme["kind"] | null;
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     categoryName: string | null;
+    categoryDescription: string | null;
     questionStemCategoryId: string | null;
-    questionAnswerOptionId: string | null;
-    answerSnapshot: Record<string, boolean> | null;
+    selectedOptionId: string | null;
+    answerSnapshot: unknown;
+    remediationLessons: RemediationLessonLink[];
   }[];
 };
 
-function parseAnswerSnapshot(
-  snapshot: unknown,
-): Record<string, boolean> | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const obj = snapshot as Record<string, unknown>;
-  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
-  const answers = obj.answers as Array<{
-    question_answer_option_id: string;
-    answer: boolean;
-  }>;
-  const result: Record<string, boolean> = {};
-  for (const a of answers) {
-    result[a.question_answer_option_id] = a.answer;
-  }
-  return result;
-}
-
-type StemWithQuestions = {
-  id: string;
-  questions?: Array<{ id: string; index: number }>;
-};
-
 function getOrderedQuestionIds(
-  stems: StemWithQuestions[],
+  stems: QuestionStemWithQuestions[],
 ): { questionId: string; stemId: string }[] {
   const result: { questionId: string; stemId: string }[] = [];
   for (const stem of stems) {
@@ -76,6 +83,7 @@ export async function GET(
   } = await supabase.auth.getUser();
 
   if (authError) {
+    captureApiError(authError, "/api/ucat/progress/practice-sessions/[id]");
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
@@ -83,17 +91,16 @@ export async function GET(
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const { data: session, error: sessionError } = await (
-    supabase as { from: (t: string) => ReturnType<typeof supabase.from> }
-  )
+  const { data: session, error: sessionError } = await supabase
     .from("vstudent_ucat_my_practice_sessions")
     .select(
-      "id, section_name, section_key, score_points, total_points, question_count, started_at, completed_at, stems_snapshot",
+      "id, ucat_section_id, section_name, section_key, score_points, total_points, question_count, started_at, completed_at, stems_snapshot",
     )
     .eq("id", sessionId)
     .maybeSingle();
 
   if (sessionError) {
+    captureApiError(sessionError, "/api/ucat/progress/practice-sessions/[id]");
     return NextResponse.json({ error: sessionError.message }, { status: 500 });
   }
 
@@ -114,21 +121,38 @@ export async function GET(
     started_at?: string | null;
     completed_at?: string | null;
     stems_snapshot?: unknown;
+    ucat_section_id?: string | null;
   };
   const s = session as SessionRaw;
   const stemsSnapshot = s.stems_snapshot ?? [];
   const stems = Array.isArray(stemsSnapshot) ? stemsSnapshot : [];
-  const orderedQuestions = getOrderedQuestionIds(stems as StemWithQuestions[]);
+  const orderedQuestions = getOrderedQuestionIds(
+    stems as unknown as QuestionStemWithQuestions[],
+  );
+  const practiceQuestionById = new Map(
+    mapQuestionStemsToItems(
+      stems as unknown as QuestionStemWithQuestions[],
+    ).map((question) => [question.id, question]),
+  );
 
-  const { data: questionAttemptsRaw, error: qaError } = await supabase
-    .from("vstudent_ucat_my_question_attempts")
-    .select(
-      "question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot",
-    )
-    .eq("student_practice_session_id", sessionId)
-    .eq("is_submitted", true);
+  const questionIds = orderedQuestions.map((q) => q.questionId);
+  const [questionAttemptsResult, questionMetadata, remediationCatalog] =
+    await Promise.all([
+      supabase
+        .from("vstudent_ucat_my_question_attempts")
+        .select(
+          "question_id, score, time_spent_seconds, time_burden_seconds, response_type, answer_scheme, category_name, question_stem_category_id, answer_snapshot, is_flagged",
+        )
+        .eq("student_practice_session_id", sessionId)
+        .eq("is_submitted", true),
+      fetchAttemptReviewQuestionMetadata(supabase, questionIds),
+      fetchRemediationCatalog(supabase),
+    ]);
+
+  const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
 
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/progress/practice-sessions/[id]");
     return NextResponse.json({ error: qaError.message }, { status: 500 });
   }
 
@@ -138,22 +162,22 @@ export async function GET(
       {
         score: qa.score,
         timeSpentSeconds: qa.time_spent_seconds,
-        questionType: qa.question_type as
-          | "multiple_choice"
-          | "syllogism"
-          | null,
+        timeBurdenSeconds: qa.time_burden_seconds,
+        answerScheme: qa.answer_scheme,
         categoryName: qa.category_name,
         questionStemCategoryId: qa.question_stem_category_id,
-        questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
+        selectedOptionId: selectedOptionIdFromSnapshot(qa.answer_snapshot),
+        answerSnapshot: qa.answer_snapshot,
+        isFlagged: qa.is_flagged ?? false,
       },
     ]),
   );
 
-  const stemIds = orderedQuestions.map((q) => q.stemId);
-  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
+  const categoryDescriptions = await fetchAttemptReviewCategoryDescriptions(
     supabase,
-    stemIds,
+    (questionAttemptsRaw ?? [])
+      .map((qa) => qa.question_stem_category_id)
+      .filter((id): id is string => !!id),
   );
 
   let currentStemId: string | null = null;
@@ -166,13 +190,19 @@ export async function GET(
       }
       const attemptData = attemptsByQuestionId.get(questionId);
       const questionNumber = index + 1;
+      const question = practiceQuestionById.get(questionId);
+      if (!question) {
+        throw new Error("Practice review question snapshot is incomplete");
+      }
       const { score, result } = resolveQuestionAttemptScoreAndResult({
-        questionId,
         attemptData,
-        syllogismOptionsByQuestionId,
+        maximumPoints: getQuestionMaximumMarks(question),
       });
       const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
-      const questionType = attemptData?.questionType ?? null;
+      const metadata = questionMetadata.get(questionId);
+      const timeBurdenSeconds =
+        attemptData?.timeBurdenSeconds ?? metadata?.timeBurdenSeconds ?? null;
+      const answerScheme = attemptData?.answerScheme ?? question.answerScheme;
 
       return {
         questionNumber,
@@ -180,15 +210,43 @@ export async function GET(
         stemIndex,
         score,
         timeSpentSeconds,
-        questionType,
+        averageTimeSeconds: metadata?.averageTimeSeconds ?? null,
+        averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
+        timeBurdenSeconds,
+        difficulty: metadata?.difficulty ?? null,
+        questionTags: metadata?.questionTags ?? [],
+        isFlagged: attemptData?.isFlagged ?? false,
+        answerScheme,
         result,
         categoryName: attemptData?.categoryName ?? null,
+        categoryDescription: attemptData?.questionStemCategoryId
+          ? (categoryDescriptions.get(attemptData.questionStemCategoryId) ??
+            null)
+          : null,
         questionStemCategoryId: attemptData?.questionStemCategoryId ?? null,
-        questionAnswerOptionId: attemptData?.questionAnswerOptionId ?? null,
+        selectedOptionId: attemptData?.selectedOptionId ?? null,
         answerSnapshot: attemptData?.answerSnapshot ?? null,
+        remediationLessons: matchRemediationLearningModules(
+          {
+            result,
+            questionTagIds: questionTagIdsFromMetadata(
+              metadata?.questionTags ?? [],
+            ),
+            stemCategoryId: attemptData?.questionStemCategoryId ?? null,
+            sectionId: s.ucat_section_id ?? null,
+          },
+          remediationCatalog,
+        ),
       };
     },
   );
+
+  const recentPerformance = await fetchRecentAttemptPerformance(supabase, {
+    source: "practice",
+    attemptId: sessionId,
+    attemptedAt: s.started_at ?? "",
+    sectionId: s.ucat_section_id ?? null,
+  });
 
   const response: PracticeAttemptDetailResponse = {
     id: s.id ?? "",
@@ -200,6 +258,7 @@ export async function GET(
     attemptedAt: s.started_at ?? "",
     completedAt: s.completed_at ?? null,
     stemsSnapshot,
+    recentPerformance,
     questionAttempts,
   };
 

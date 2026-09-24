@@ -5,7 +5,7 @@ import { Users, MapPin } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
-import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { clickableCardInteractiveCn, getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
 import { getSessionTitle, type SessionWithDetails } from '@/features/sessions/utils/session-helpers';
 
 function getInitials(firstName: string | null | undefined, lastName: string | null | undefined): string {
@@ -77,8 +77,9 @@ export function SessionCard({
   return (
     <div
       className={cn(
-        'relative border rounded-lg transition-colors p-3 bg-card overflow-hidden',
-        onClick ? 'hover:bg-muted/50 cursor-pointer' : '',
+        'group relative overflow-hidden rounded-lg border bg-card p-3 transition-all',
+        onClick && 'cursor-pointer',
+        onClick && clickableCardInteractiveCn,
         className
       )}
       style={{

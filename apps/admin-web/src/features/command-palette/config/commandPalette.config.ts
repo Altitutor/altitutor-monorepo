@@ -38,7 +38,7 @@ import {
   Zap,
   File,
   FolderKanban,
-  Layers,
+  Printer,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import { QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -158,25 +158,18 @@ export const additionalPages: CommandPalettePage[] = [
     keywords: ['stripe', 'sync', 'payment'],
   },
   {
-    id: 'settings-ucat-subscription',
-    title: 'UCAT subscription',
-    href: '/settings/ucat-subscription',
-    icon: GraduationCap,
-    keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount'],
+    id: 'settings-office-print',
+    title: 'Office print',
+    href: '/settings/office-print',
+    icon: Printer,
+    keywords: ['print', 'printer', 'office', 'tutor', 'shift', 'fuj'],
   },
   {
-    id: 'settings-ucat-free-tier',
-    title: 'UCAT Free tier',
-    href: '/settings/ucat-free-tier',
+    id: 'settings-ucat-billing',
+    title: 'UCAT billing',
+    href: '/settings/ucat-billing',
     icon: GraduationCap,
-    keywords: ['ucat', 'free', 'tier', 'quota', 'limit', 'practice', 'sets', 'mocks'],
-  },
-  {
-    id: 'settings-manual-online-access',
-    title: 'Manual online access',
-    href: '/settings/manual-online-access',
-    icon: Layers,
-    keywords: ['online', 'access', 'manual', 'student', 'subject', 'grant'],
+    keywords: ['ucat', 'subscription', 'trial', 'stripe', 'practice', 'discount', 'free', 'tier', 'quota', 'limit', 'sets', 'mocks', 'reset', 'student'],
   },
   // Main settings page
   {

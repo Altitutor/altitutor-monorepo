@@ -1,0 +1,20 @@
+{
+  "trialBookingUrl": "https://student.altitutor.com/booking/trial-session",
+  "pageRedirects": {
+    "/weekly-classes/": "/classes/weekly-classes/",
+    "/english-assignment-drafting/": "/classes/english-assignment-drafting/",
+    "/medical-interview-preparation/": "/classes/medical-interview-preparation/",
+    "/examprep/": "/classes/examprep/",
+    "/courses/examprep/": "/classes/examprep/",
+    "/apply/": "/about/apply/",
+    "/contact/": "/about/contact/",
+    "/subsidy/": "/about/subsidy/",
+    "/contact-us/": "/about/contact/",
+    "/testimonials/": "/about/testimonials/"
+  },
+  "trialBookingPaths": [
+    "/shop/",
+    "/new-student-registration/",
+    "/product/new-student-trial-session/"
+  ]
+}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatDeleteErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
 
 export async function POST(request: NextRequest) {
   const access = await requireUcatTutor()
@@ -18,7 +19,13 @@ export async function POST(request: NextRequest) {
       p_stem_ids: stemIds,
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      return jsonUcatDeleteErrorResponse(client, {
+        contentType: 'stem',
+        contentId: stemIds[0],
+        errorMessage: error.message,
+      })
+    }
     return NextResponse.json({ ok: true })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })

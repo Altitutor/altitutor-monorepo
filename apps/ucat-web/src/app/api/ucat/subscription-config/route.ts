@@ -5,10 +5,7 @@ import type {
   PublicUcatSubscriptionConfig,
 } from "@/features/subscription/types/public-subscription-config";
 import { mapQuotaConfigRow } from "@/lib/ucat/quota/config";
-import {
-  isUcatBillingInterval,
-  isUcatPaidPlanTier,
-} from "@altitutor/shared";
+import { isUcatBillingInterval, isUcatPaidPlanTier } from "@altitutor/shared";
 
 /**
  * GET /api/ucat/subscription-config
@@ -26,14 +23,16 @@ export async function GET() {
     supabaseAdmin
       .from("ucat_subscription_config")
       .select(
-        "trial_days, min_questions_per_day, currency, unlimited_stripe_product_id, pro_stripe_product_id, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
+        "trial_days, min_questions_per_day, currency, unlimited_stripe_product_id, free_practice_limit, free_practice_period, free_sets_limit, free_sets_period, free_mocks_limit, free_mocks_period, free_learn_limit, free_learn_period, free_skill_trainer_limit, free_skill_trainer_period",
       )
       .order("created_at", { ascending: true })
       .limit(1)
       .maybeSingle(),
     supabaseAdmin
       .from("ucat_plan_prices")
-      .select("plan_tier, billing_interval, base_price_cents, stripe_price_id")
+      .select(
+        "plan_tier, billing_interval, base_price_cents, stripe_price_id, checkout_enabled",
+      )
       .order("plan_tier")
       .order("billing_interval"),
     supabaseAdmin
@@ -89,7 +88,8 @@ export async function GET() {
           tier: row.plan_tier,
           interval: row.billing_interval,
           basePriceCents: row.base_price_cents ?? 0,
-          available: Boolean(row.stripe_price_id?.trim()),
+          checkoutEnabled: row.checkout_enabled ?? true,
+          configured: Boolean(row.stripe_price_id?.trim()),
         },
       ];
     },
@@ -107,7 +107,7 @@ export async function GET() {
   });
 
   const body: PublicUcatSubscriptionConfig = {
-    trialDays: data.trial_days ?? 7,
+    trialDays: data.trial_days ?? 5,
     minQuestionsPerDay: data.min_questions_per_day ?? 20,
     currency: (data.currency ?? "aud").toLowerCase(),
     freeQuotas: mapQuotaConfigRow(data),
@@ -116,7 +116,6 @@ export async function GET() {
     unlimitedProductConfigured: Boolean(
       data.unlimited_stripe_product_id?.trim(),
     ),
-    proProductConfigured: Boolean(data.pro_stripe_product_id?.trim()),
   };
 
   return NextResponse.json(body, {

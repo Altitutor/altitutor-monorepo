@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { addDays, format, isValid, parse, startOfWeek } from 'date-fns';
-import { Button, Popover, PopoverContent, PopoverTrigger } from '@altitutor/ui';
+import { Button, Popover, PopoverContent, PopoverTrigger, navActiveStyles, navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
 import { cn } from '@/shared/utils';
 
@@ -81,9 +81,11 @@ export function DashboardDatePicker() {
                   setIsOpen(false);
                 }}
                 className={cn(
-                  'rounded-md border px-1 py-2 text-center transition-colors hover:bg-accent/20 min-w-0 h-[68px] flex flex-col items-center justify-center',
-                  isToday && 'border-brand-lightBlue bg-brand-lightBlue/10',
-                  isActive && 'bg-accent/30 border-accent'
+                  'rounded-md border px-1 py-2 text-center min-w-0 h-[68px] flex flex-col items-center justify-center',
+                  navItemTransitionStyles,
+                  isActive ? navActiveStyles : navHoverStyles,
+                  isToday && !isActive && 'border-brand-lightBlue bg-brand-lightBlue/10',
+                  isActive && 'border-border'
                 )}
               >
                 <div className="text-[11px] leading-tight text-muted-foreground whitespace-nowrap">{format(day, 'EEE')}</div>

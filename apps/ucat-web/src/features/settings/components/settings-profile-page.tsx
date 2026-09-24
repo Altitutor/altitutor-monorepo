@@ -4,18 +4,36 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import { Input, Label } from "@altitutor/ui";
+import { Input, Label, useToast } from "@altitutor/ui";
 import { AppShellBottomFloatingDock, UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { useAuth } from "@/features/auth";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
-import { UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_SURFACE_CARD,
+  UCAT_SURFACE_MOTION,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 import { SettingsRow } from "@/features/settings/components/settings-row";
 import { UCAT_PROFILE_QUERY_KEY } from "@/features/layout/hooks/use-ucat-profile";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { useLeaveGuard } from "@/shared/hooks/use-leave-guard";
+import { motion } from "motion/react";
+import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
+import { ConnectedSignInMethods } from "@/features/settings/components/connected-sign-in-methods";
 
-export function SettingsProfilePage() {
+const SETTINGS_LEAVE_MESSAGE =
+  "You have unsaved settings. Leave this page without saving?";
+
+export function SettingsProfilePage({
+  enabledSocialProviders = [],
+}: {
+  enabledSocialProviders?: SocialAuthProvider[];
+}) {
   const router = useRouter();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { user } = useAuth();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
 
@@ -27,8 +45,6 @@ export function SettingsProfilePage() {
 
   const [newEmail, setNewEmail] = useState("");
   const [emailBusy, setEmailBusy] = useState(false);
-  const [emailMessage, setEmailMessage] = useState<string | null>(null);
-  const [emailError, setEmailError] = useState<string | null>(null);
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -78,16 +94,25 @@ export function SettingsProfilePage() {
     savedLastName !== null &&
     (firstName.trim() !== savedFirstName || lastName.trim() !== savedLastName);
 
-  const handleSaveNames = async () => {
+  const emailDirty = newEmail.trim().length > 0;
+  const isDirty = namesDirty || emailDirty;
+  const dockBusy = nameBusy || emailBusy;
+  useLeaveGuard(isDirty, SETTINGS_LEAVE_MESSAGE);
+
+  const handleSaveNames = async (): Promise<boolean> => {
     setNameBusy(true);
     setNameError(null);
     setNameMessage(null);
     const fn = firstName.trim();
     const ln = lastName.trim();
     if (!fn || !ln) {
-      setNameError("First and last name are required.");
+      toast({
+        title: "Name required",
+        description: "First and last name are required.",
+        variant: "destructive",
+      });
       setNameBusy(false);
-      return;
+      return false;
     }
     try {
       const res = await fetch("/api/ucat/profile", {
@@ -104,41 +129,82 @@ export function SettingsProfilePage() {
       setNameMessage("Saved.");
       await queryClient.invalidateQueries({ queryKey: UCAT_PROFILE_QUERY_KEY });
       router.refresh();
+      return true;
     } catch (e) {
-      setNameError(e instanceof Error ? e.message : "Failed to save");
+      toast({
+        title: "Could not save name",
+        description: e instanceof Error ? e.message : "Failed to save",
+        variant: "destructive",
+      });
+      return false;
     } finally {
       setNameBusy(false);
     }
   };
 
-  const handleEmailChange = async () => {
+  const handleEmailChange = async (): Promise<boolean> => {
     setEmailBusy(true);
-    setEmailError(null);
-    setEmailMessage(null);
     const next = newEmail.trim().toLowerCase();
     if (!next) {
-      setEmailError("Enter a new email address.");
+      toast({
+        title: "Email required",
+        description: "Enter a new email address.",
+        variant: "destructive",
+      });
       setEmailBusy(false);
-      return;
+      return false;
     }
     if (user?.email && next === user.email.toLowerCase()) {
-      setEmailError("That is already your sign-in email.");
+      toast({
+        title: "Same email",
+        description: "That is already your sign-in email.",
+        variant: "destructive",
+      });
       setEmailBusy(false);
-      return;
+      return false;
     }
     const origin = window.location.origin;
     const emailRedirectTo = `${origin}/auth/callback?next=${encodeURIComponent("/settings/profile")}`;
-    const { error } = await supabase.auth.updateUser({ email: next }, { emailRedirectTo });
+    const { error } = await supabase.auth.updateUser(
+      { email: next },
+      { emailRedirectTo },
+    );
     if (error) {
-      setEmailError(error.message ?? "Could not start email change.");
-    } else {
-      setEmailMessage(
-        "Confirmation sent. Open the link in the email to finish updating your address.",
-      );
-      setNewEmail("");
-      router.refresh();
+      toast({
+        title: "Could not update email",
+        description: error.message ?? "Could not start email change.",
+        variant: "destructive",
+      });
+      setEmailBusy(false);
+      return false;
     }
+    toast({
+      title: "Confirmation sent",
+      description:
+        "Open the link in the email to finish updating your address.",
+    });
+    setNewEmail("");
+    router.refresh();
     setEmailBusy(false);
+    return true;
+  };
+
+  const handleSaveDirty = async () => {
+    if (namesDirty) {
+      const ok = await handleSaveNames();
+      if (!ok) return;
+    }
+    if (emailDirty) {
+      await handleEmailChange();
+    }
+  };
+
+  const handleCancelDirty = () => {
+    if (savedFirstName !== null) setFirstName(savedFirstName);
+    if (savedLastName !== null) setLastName(savedLastName);
+    setNewEmail("");
+    setNameError(null);
+    setNameMessage(null);
   };
 
   const handlePasswordChange = async () => {
@@ -168,44 +234,70 @@ export function SettingsProfilePage() {
   };
 
   if (loading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="My profile"
-          description="Email, name, and password"
-          backHref="/settings"
-          backLabel="All settings"
-        />
-        <p className="text-sm text-muted-foreground">Loading...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   const pendingEmail = user?.new_email?.trim();
 
+  const saveLabel = (() => {
+    if (dockBusy) {
+      if (emailBusy && !nameBusy) return "Sending…";
+      return "Saving…";
+    }
+    if (namesDirty && emailDirty) return "Save changes";
+    if (emailDirty) return "Update email";
+    return "Save name";
+  })();
+
   return (
-    <div
+    <motion.div
       className={cn(
         "space-y-6",
-        namesDirty &&
+        isDirty &&
           "pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]",
       )}
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
     >
-      <UcatPageHeader
-        title="My profile"
-        description="Email, name, and password"
-        backHref="/settings"
-        backLabel="All settings"
-      />
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title="My profile"
+          description="Email, name, password, and sign-in methods"
+          backHref="/settings"
+          backLabel="All settings"
+        />
+      </motion.div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <motion.div
+        variants={itemVariants}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
+        <ConnectedSignInMethods enabledProviders={enabledSocialProviders} />
+      </motion.div>
+
+      <motion.div
+        variants={itemVariants}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <SettingsRow
           title="Email"
           description="Sign-in address. Changing it sends a confirmation link to the new inbox; your current email stays active until you confirm."
           control={
             <div className="w-full space-y-3 sm:max-w-md">
               <div className="space-y-1.5">
-                <Label htmlFor="current-email" className="text-muted-foreground">
+                <Label
+                  htmlFor="current-email"
+                  className="text-muted-foreground"
+                >
                   Current
                 </Label>
                 <Input
@@ -218,7 +310,8 @@ export function SettingsProfilePage() {
               </div>
               {pendingEmail ? (
                 <p className="text-sm text-amber-700 dark:text-amber-400">
-                  Pending change to <span className="font-medium">{pendingEmail}</span>. Confirm
+                  Pending change to{" "}
+                  <span className="font-medium">{pendingEmail}</span>. Confirm
                   via the message sent to that address.
                 </p>
               ) : null}
@@ -233,22 +326,19 @@ export function SettingsProfilePage() {
                   placeholder="you@example.com"
                 />
               </div>
-              {emailError ? <p className="text-sm text-destructive">{emailError}</p> : null}
-              {emailMessage ? <p className="text-sm text-muted-foreground">{emailMessage}</p> : null}
-              <Button
-                type="button"
-                className="w-full sm:w-auto"
-                onClick={() => void handleEmailChange()}
-                disabled={emailBusy}
-              >
-                {emailBusy ? "Sending…" : "Update email"}
-              </Button>
             </div>
           }
         />
-      </div>
+      </motion.div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <motion.div
+        variants={itemVariants}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <SettingsRow
           title="Name"
           description="Shown on receipts and inside the app where we greet you."
@@ -274,14 +364,25 @@ export function SettingsProfilePage() {
                   />
                 </div>
               </div>
-              {nameError ? <p className="text-sm text-destructive">{nameError}</p> : null}
-              {nameMessage ? <p className="text-sm text-muted-foreground">{nameMessage}</p> : null}
+              {nameError ? (
+                <p className="text-sm text-destructive">{nameError}</p>
+              ) : null}
+              {nameMessage ? (
+                <p className="text-sm text-muted-foreground">{nameMessage}</p>
+              ) : null}
             </div>
           }
         />
-      </div>
+      </motion.div>
 
-      <div className={cn("rounded-ucatShell p-6 sm:p-8", UCAT_SURFACE_CARD, UCAT_SURFACE_MOTION)}>
+      <motion.div
+        variants={itemVariants}
+        className={cn(
+          "rounded-ucatShell p-6 sm:p-8",
+          UCAT_SURFACE_CARD,
+          UCAT_SURFACE_MOTION,
+        )}
+      >
         <SettingsRow
           title="Password"
           description="Pick a strong password you have not used elsewhere."
@@ -307,9 +408,13 @@ export function SettingsProfilePage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                 />
               </div>
-              {passwordError ? <p className="text-sm text-destructive">{passwordError}</p> : null}
+              {passwordError ? (
+                <p className="text-sm text-destructive">{passwordError}</p>
+              ) : null}
               {passwordMessage ? (
-                <p className="text-sm text-muted-foreground">{passwordMessage}</p>
+                <p className="text-sm text-muted-foreground">
+                  {passwordMessage}
+                </p>
               ) : null}
               <Button
                 type="button"
@@ -322,30 +427,27 @@ export function SettingsProfilePage() {
             </div>
           }
         />
-      </div>
+      </motion.div>
 
-      {namesDirty ? (
-        <AppShellBottomFloatingDock visible>
-          <div className="flex flex-wrap items-center justify-end gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => {
-                if (savedFirstName !== null) setFirstName(savedFirstName);
-                if (savedLastName !== null) setLastName(savedLastName);
-                setNameError(null);
-                setNameMessage(null);
-              }}
-              disabled={nameBusy}
-            >
-              Cancel
-            </Button>
-            <Button type="button" onClick={() => void handleSaveNames()} disabled={nameBusy}>
-              {nameBusy ? "Saving…" : "Save name"}
-            </Button>
-          </div>
-        </AppShellBottomFloatingDock>
-      ) : null}
-    </div>
+      <AppShellBottomFloatingDock visible={isDirty}>
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleCancelDirty}
+            disabled={dockBusy}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={() => void handleSaveDirty()}
+            disabled={dockBusy}
+          >
+            {saveLabel}
+          </Button>
+        </div>
+      </AppShellBottomFloatingDock>
+    </motion.div>
   );
 }

@@ -59,9 +59,9 @@ function SetCatalogMetadata({
       {setShowsColumn(visibleColumns, 'visibility') ? (
         <Badge
           variant="outline"
-          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(!!set.is_private))}
+          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(set.access_scope === 'private'))}
         >
-          {set.is_private ? 'Private' : 'Public'}
+          {set.access_scope === 'private' ? 'Private' : 'Public'}
         </Badge>
       ) : null}
       {setShowsColumn(visibleColumns, 'question_count') ? (
@@ -378,6 +378,7 @@ export function UcatSetMembershipListPanel({
       <UcatSortableList
         ids={displayIds}
         disableReorder={reorderDisabled}
+        flatCard
         onChange={(reorderedVisibleIds) => {
           onSetIdsChange(mergeVisibleOrderIntoFull(setIds, displayIds, reorderedVisibleIds))
         }}

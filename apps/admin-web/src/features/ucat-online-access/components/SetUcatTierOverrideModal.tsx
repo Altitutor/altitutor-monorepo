@@ -1,13 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   Button,
   Input,
   Label,
@@ -20,6 +14,7 @@ import {
 } from '@altitutor/ui';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Loader2 } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { studentsApi } from '@/features/students/api/students';
 import {
@@ -34,13 +29,13 @@ type SetUcatTierOverrideModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onSaved: () => void;
+  initialStudent?: Tables<'students'> | null;
 };
 
 const TIER_OPTIONS: UcatOnlineTierOverride[] = [
   'default',
   'force_free',
   'force_unlimited',
-  'force_pro',
 ];
 
 function isTierOverride(value: string): value is UcatOnlineTierOverride {
@@ -51,18 +46,28 @@ export function SetUcatTierOverrideModal({
   isOpen,
   onClose,
   onSaved,
+  initialStudent = null,
 }: SetUcatTierOverrideModalProps) {
   const { toast } = useToast();
   const [search, setSearch] = useState('');
   const debounced = useDebounce(search, 300);
-  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
+  const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(initialStudent);
   const [tierOverride, setTierOverride] = useState<UcatOnlineTierOverride>('default');
+
+  useEffect(() => {
+    if (isOpen && initialStudent) {
+      setSelectedStudent(initialStudent);
+      setSearch(`${initialStudent.first_name ?? ''} ${initialStudent.last_name ?? ''}`.trim());
+      const current = initialStudent.ucat_online_tier_override;
+      if (isTierOverride(current)) setTierOverride(current);
+    }
+  }, [initialStudent, isOpen]);
 
   const { data: searchResults = [], isFetching } = useQuery({
     queryKey: ['manual-online-access', 'tier-override-student-search', debounced],
     queryFn: () =>
       studentsApi.searchStudents(debounced.trim(), ['ACTIVE', 'TRIAL', 'DISCONTINUED'], true),
-    enabled: isOpen && debounced.trim().length >= 2,
+    enabled: isOpen && !initialStudent && debounced.trim().length >= 2,
     staleTime: 30_000,
   });
 
@@ -78,8 +83,8 @@ export function SetUcatTierOverrideModal({
       });
       onSaved();
       onClose();
-      setSelectedStudent(null);
-      setSearch('');
+      setSelectedStudent(initialStudent);
+      setSearch(initialStudent ? `${initialStudent.first_name ?? ''} ${initialStudent.last_name ?? ''}`.trim() : '');
       setTierOverride('default');
     },
     onError: (e: Error) => {
@@ -92,17 +97,43 @@ export function SetUcatTierOverrideModal({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Set UCAT tier override</DialogTitle>
-          <DialogDescription>
-            Override a student&apos;s UCAT online tier independently of Stripe subscriptions. Manual UCAT
-            grants automatically set Force UCAT Pro; revoking the last UCAT grant resets to Default.
-          </DialogDescription>
-        </DialogHeader>
-
-        <div className="space-y-4 py-2">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title="Set UCAT tier override"
+      subtitle="Override a student's UCAT online tier independently of Stripe subscriptions. Manual UCAT grants automatically set Force UCAT Unlimited; revoking the last UCAT grant resets to Default."
+      contentClassName="md:max-w-lg"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            disabled={!selectedStudent || saveMutation.isPending}
+            onClick={() => saveMutation.mutate()}
+          >
+            {saveMutation.isPending ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving…
+              </>
+            ) : (
+              'Save override'
+            )}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-4">
+        {initialStudent ? (
+          <div className="space-y-2">
+            <Label>Student</Label>
+            <div className="rounded-md border bg-muted/40 px-3 py-2 text-sm font-medium">
+              {initialStudent.first_name} {initialStudent.last_name}
+            </div>
+          </div>
+        ) : (
           <div className="space-y-2">
             <Label htmlFor="tier-override-student-search">Student</Label>
             <Input
@@ -155,49 +186,29 @@ export function SetUcatTierOverrideModal({
               <p className="text-xs text-muted-foreground">Enter a name to search.</p>
             )}
           </div>
+        )}
 
-          <div className="space-y-2">
-            <Label htmlFor="tier-override-value">Tier override</Label>
-            <Select
-              value={tierOverride}
-              onValueChange={(v) => {
-                if (isTierOverride(v)) setTierOverride(v);
-              }}
-            >
-              <SelectTrigger id="tier-override-value">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {TIER_OPTIONS.map((option) => (
-                  <SelectItem key={option} value={option}>
-                    {UCAT_TIER_OVERRIDE_LABELS[option]}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <DialogFooter>
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            disabled={!selectedStudent || saveMutation.isPending}
-            onClick={() => saveMutation.mutate()}
+        <div className="space-y-2">
+          <Label htmlFor="tier-override-value">Tier override</Label>
+          <Select
+            value={tierOverride}
+            onValueChange={(v) => {
+              if (isTierOverride(v)) setTierOverride(v);
+            }}
           >
-            {saveMutation.isPending ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Saving…
-              </>
-            ) : (
-              'Save override'
-            )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+            <SelectTrigger id="tier-override-value">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {TIER_OPTIONS.map((option) => (
+                <SelectItem key={option} value={option}>
+                  {UCAT_TIER_OVERRIDE_LABELS[option]}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+    </AdminDialogShell>
   );
 }

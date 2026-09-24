@@ -72,7 +72,7 @@ export function createCalculatorEngine(): {
       return snapshot();
     }
 
-    if (label === "ON/C") {
+    if (label === "Backspace" || label === "ON/C") {
       state = { display: "0", memory: state.memory, accumulator: null, pendingOp: null, fresh: true };
       return snapshot();
     }

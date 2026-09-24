@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import { SetAttemptDetailPage } from "@/features/progress";
+import { SetAttemptDetailPage } from "@/features/progress/components/set-attempt-detail-page";
 import { AttemptReviewPageFallback } from "@/features/progress/components/attempt-review-page-fallback";
 
 type PageProps = {

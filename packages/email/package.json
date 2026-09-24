@@ -1,0 +1,39 @@
+{
+  "name": "@altitutor/email",
+  "version": "0.0.0",
+  "private": true,
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./node": {
+      "types": "./dist/node.d.ts",
+      "default": "./dist/node.js"
+    }
+  },
+  "sideEffects": false,
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "generate:auth": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/generate-auth-templates.js",
+    "check:auth": "tsc -p tsconfig.scripts.json && node .scripts-dist/scripts/generate-auth-templates.js --check",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "jest --passWithNoTests"
+  },
+  "devDependencies": {
+    "@swc/jest": "^0.2.37",
+    "@types/jest": "^29.5.14",
+    "@types/node": "^24.10.0",
+    "@typescript-eslint/eslint-plugin": "^6.21.0",
+    "@typescript-eslint/parser": "^6.21.0",
+    "esbuild": "^0.25.12",
+    "eslint": "^8.57.1",
+    "eslint-config-next": "14.1.0",
+    "jest": "^29.7.0",
+    "typescript": "^5.9.3"
+  }
+}

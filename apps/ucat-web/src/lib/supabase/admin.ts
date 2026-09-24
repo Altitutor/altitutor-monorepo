@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 /**
  * Server-only Supabase client using the service role key.
@@ -16,10 +17,10 @@ export const supabaseAdmin = (() => {
 
   if (!supabaseUrl || !serviceRoleKey) return null;
 
-  return createClient<Database>(supabaseUrl, serviceRoleKey, {
+  return instrumentSupabaseClient(createClient<Database>(supabaseUrl, serviceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  });
+  }));
 })();

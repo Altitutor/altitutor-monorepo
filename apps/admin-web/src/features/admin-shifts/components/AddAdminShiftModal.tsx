@@ -1,19 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@altitutor/ui';
+import { useId, useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
+import { SmartDatePickerField } from '@altitutor/ui';
 import { useCreateAdminShift } from '../hooks/useAdminShiftsQuery';
 import { useCurrentStaff } from '@/shared/hooks';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import type { TablesInsert } from '@altitutor/shared';
 
 const DAY_OPTIONS = [
@@ -33,15 +28,13 @@ interface AddAdminShiftModalProps {
 }
 
 export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAdminShiftModalProps) {
+  const formId = useId();
+  const startTimeId = useId();
+  const endTimeId = useId();
   const createMutation = useCreateAdminShift();
   const { data: currentStaff } = useCurrentStaff();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Form state
   const [dayOfWeek, setDayOfWeek] = useState<string>('');
@@ -141,36 +134,32 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
   };
   
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'sm:max-w-[550px]',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Add New Admin Shift</DialogTitle>
-              <DialogDescription>
-                Create a new recurring admin staff shift. Sessions will be automatically created for this shift.
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-        
-        <form onSubmit={handleSubmit} className="space-y-4 mt-4">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title="Add New Admin Shift"
+      subtitle="Create a new recurring admin staff shift. Sessions will be automatically created for this shift."
+      contentClassName="sm:max-w-[550px]"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
+            Cancel
+          </Button>
+          <Button type="submit" form={formId} disabled={loading}>
+            {loading ? 'Creating...' : 'Create Admin Shift'}
+          </Button>
+        </>
+      }
+    >
+        <form id={formId} onSubmit={handleSubmit} className="space-y-4">
           {error && (
             <div className="p-3 rounded-md bg-red-50 text-red-800 text-sm">
               {error}
             </div>
           )}
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="day">Day of Week *</Label>
+
+          <PropertyForm>
+            <PropertyFormRow label="Day of week *">
               <SearchableSelect<(typeof DAY_OPTIONS)[number]>
                 items={[...DAY_OPTIONS]}
                 value={DAY_OPTIONS.find((d) => d.value === dayOfWeek) ?? null}
@@ -178,26 +167,21 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
                 getItemLabel={(o) => o.label}
                 getItemId={(o) => o.value}
                 placeholder="Select day"
+                ariaLabel="Day of week"
               />
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="start-time">Start Time *</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Start time *" htmlFor={startTimeId}>
               <Input
-                id="start-time"
+                id={startTimeId}
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
                 required
               />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="end-time">End Time *</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="End time *" htmlFor={endTimeId} valueClassName="space-y-1">
               <Input
-                id="end-time"
+                id={endTimeId}
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
@@ -206,48 +190,28 @@ export function AddAdminShiftModal({ isOpen, onClose, onAdminShiftAdded }: AddAd
               <p className="text-xs text-muted-foreground">
                 Admin staff work 3.5 hours (15 min early, 15 min late)
               </p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="session-start-date">Session Start Date (Optional)</Label>
-              <Input
-                id="session-start-date"
-                type="date"
+            </PropertyFormRow>
+            <PropertyFormRow label="Session start date" valueClassName="space-y-1">
+              <SmartDatePickerField
                 value={sessionStartDate}
-                onChange={(e) => setSessionStartDate(e.target.value)}
+                onChange={(value) => setSessionStartDate(value ?? '')}
               />
               <p className="text-xs text-muted-foreground">
                 Leave empty to create sessions from today. Set a future date to delay session creation.
               </p>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="session-end-date">Session End Date (Optional)</Label>
-              <Input
-                id="session-end-date"
-                type="date"
+            </PropertyFormRow>
+            <PropertyFormRow label="Session end date" valueClassName="space-y-1">
+              <SmartDatePickerField
                 value={sessionEndDate}
-                onChange={(e) => setSessionEndDate(e.target.value)}
-                min={sessionStartDate || undefined}
+                onChange={(value) => setSessionEndDate(value ?? '')}
+                minDate={sessionStartDate || undefined}
               />
               <p className="text-xs text-muted-foreground">
                 Leave empty to create sessions until end of year. Set an end date to limit session creation.
               </p>
-            </div>
-          </div>
-          
-          <div className="flex justify-end space-x-2 pt-4">
-            <Button type="button" variant="outline" onClick={onClose} disabled={loading}>
-              Cancel
-            </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Admin Shift'}
-            </Button>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
         </form>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

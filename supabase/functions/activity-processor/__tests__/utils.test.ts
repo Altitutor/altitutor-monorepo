@@ -13,7 +13,24 @@ import {
   formatDate,
   formatDateTime,
   formatClassName,
+  getActivityEventVariables,
+  buildStudentInviteUrl,
+  buildBookingManagementUrl,
 } from '../utils.ts';
+
+describe('public journey URLs', () => {
+  it('uses the short registration route', () => {
+    expect(buildStudentInviteUrl('registration-token', 'register')).toBe(
+      'https://student.altitutor.com/r/registration-token'
+    );
+  });
+
+  it('uses the short booking-management route', () => {
+    expect(buildBookingManagementUrl('booking-token')).toBe(
+      'https://student.altitutor.com/b/booking-token'
+    );
+  });
+});
 
 describe('evaluateConditions', () => {
   describe('empty or invalid conditions', () => {
@@ -367,6 +384,170 @@ describe('evaluateConditions', () => {
       expect(result).toBe(false);
     });
   });
+
+  describe('activity metadata conditions', () => {
+    const condition = {
+      field: 'activity.metadata.assignment_source',
+      operator: 'not_equals',
+      value: 'class_staff_sync',
+    };
+
+    it('matches a direct session assignment with no cascade marker', () => {
+      expect(evaluateConditions(condition, {
+        event_type: 'CREATED',
+        metadata: { operation: 'INSERT', table: 'sessions_staff' },
+      }, {})).toBe(true);
+    });
+
+    it('suppresses a session assignment produced by class synchronisation', () => {
+      expect(evaluateConditions(condition, {
+        event_type: 'CREATED',
+        metadata: {
+          operation: 'INSERT',
+          table: 'sessions_staff',
+          assignment_source: 'class_staff_sync',
+        },
+      }, {})).toBe(false);
+    });
+  });
+
+  describe('compound contextual conditions', () => {
+    const updateEvent = {
+      event_type: 'UPDATED',
+      changed_fields: {
+        start_at: { old: '2026-08-03T01:00:00Z', new: '2026-08-03T02:00:00Z' },
+      },
+    };
+    const context = {
+      session: { type: 'TRIAL_SESSION', status: 'ACTIVE' },
+    };
+
+    it('matches nested fields and array membership', () => {
+      expect(evaluateConditions({
+        all: [
+          { field: 'session.type', operator: 'in', value: ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'] },
+          { field: 'session.status', operator: 'equals', value: 'ACTIVE' },
+        ],
+      }, updateEvent, context)).toBe(true);
+    });
+
+    it('matches any changed field without sending twice', () => {
+      expect(evaluateConditions({
+        all: [
+          { field: 'session.type', operator: 'equals', value: 'TRIAL_SESSION' },
+          {
+            any: [
+              { field: 'start_at', operator: 'field_changed' },
+              { field: 'end_at', operator: 'field_changed' },
+            ],
+          },
+        ],
+      }, updateEvent, context)).toBe(true);
+    });
+
+    it('fails an all group when one contextual condition fails', () => {
+      expect(evaluateConditions({
+        all: [
+          { field: 'session.type', operator: 'equals', value: 'TRIAL_SESSION' },
+          { field: 'session.status', operator: 'equals', value: 'INACTIVE' },
+        ],
+      }, updateEvent, context)).toBe(false);
+    });
+
+    it('matches a cancelled trial or subsidy booking on current session state', () => {
+      const cancellationCondition = {
+        all: [
+          { field: 'type', operator: 'in', value: ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'] },
+          { field: 'status', operator: 'equals', value: 'INACTIVE' },
+        ],
+      };
+      const cancelledEvent = {
+        event_type: 'session.status_changed',
+        changed_fields: {},
+      };
+
+      expect(evaluateConditions(cancellationCondition, cancelledEvent, {
+        type: 'SUBSIDY_INTERVIEW',
+        status: 'INACTIVE',
+      })).toBe(true);
+
+      expect(evaluateConditions(cancellationCondition, cancelledEvent, {
+        type: 'TRIAL_SESSION',
+        status: 'ACTIVE',
+      })).toBe(false);
+
+      expect(evaluateConditions(cancellationCondition, cancelledEvent, {
+        type: 'CLASS',
+        status: 'INACTIVE',
+      })).toBe(false);
+    });
+
+    it('matches only the first completed in-person registration', () => {
+      const registrationCondition = {
+        all: [
+          { field: 'registered_at', operator: 'field_changed' },
+          { field: 'entity.status', operator: 'equals', value: 'ACTIVE' },
+        ],
+      };
+
+      expect(evaluateConditions(registrationCondition, {
+        event_type: 'UPDATED',
+        changed_fields: {
+          registered_at: { old: null, new: '2026-08-02T13:45:00Z' },
+          status: { old: 'TRIAL', new: 'ACTIVE' },
+        },
+      }, {
+        entity: { status: 'ACTIVE' },
+      })).toBe(true);
+
+      expect(evaluateConditions(registrationCondition, {
+        event_type: 'UPDATED',
+        changed_fields: {
+          status: { old: 'DISCONTINUED', new: 'ACTIVE' },
+        },
+      }, {
+        entity: { status: 'ACTIVE' },
+      })).toBe(false);
+    });
+  });
+});
+
+describe('getActivityEventVariables', () => {
+  it('exposes entity IDs and display-name snapshots to notification templates', () => {
+    expect(getActivityEventVariables({
+      event_type: 'UPDATED',
+      entity_type: 'sessions_students',
+      entity_id: 'assignment-id',
+      student_id: 'student-id',
+      staff_id: 'staff-id',
+      class_id: 'class-id',
+      session_id: 'session-id',
+      metadata: {
+        display: {
+          student_name: 'Alex Student',
+          session_name: 'Maths Tue 4:00 PM',
+        },
+      },
+    })).toEqual({
+      event_type: 'UPDATED',
+      entity_type: 'sessions_students',
+      entity_id: 'assignment-id',
+      student_id: 'student-id',
+      staff_id: 'staff-id',
+      class_id: 'class-id',
+      session_id: 'session-id',
+      student_name: 'Alex Student',
+      session_name: 'Maths Tue 4:00 PM',
+    });
+  });
+
+  it('uses a delete-safe label stored directly in activity metadata', () => {
+    expect(getActivityEventVariables({
+      event_type: 'DELETED',
+      entity_type: 'sessions_staff',
+      metadata: { session_name: 'Maths Tue 4:00 PM' },
+    }).session_name).toBe('Maths Tue 4:00 PM');
+  });
 });
 
 describe('replaceTemplateVariables', () => {
@@ -498,10 +679,8 @@ describe('formatDate', () => {
 });
 
 describe('formatDateTime', () => {
-  it('should format valid timestamp to time', () => {
-    const result = formatDateTime('2024-01-15T14:30:00Z');
-    // Should contain time components
-    expect(result).toMatch(/\d{1,2}:\d{2}\s?(AM|PM)/);
+  it('formats the session date and time in Adelaide', () => {
+    expect(formatDateTime('2026-08-06T00:15:00Z')).toBe('Thu 6 Aug 9:45am');
   });
 
   it('should return empty string for invalid timestamp', () => {

@@ -15,7 +15,12 @@ import { formatSubjectDisplay, getSubjectColorStyle } from '@/shared/utils';
 import { Badge } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { VENUE_ADDRESS } from '@/shared/constants';
-import { useSessionDurationMinutes } from '@/features/bookings/hooks/useBookingSettings';
+import { useSessionDurationMinutes, useMinAdvanceBookingDays } from '@/features/bookings/hooks/useBookingSettings';
+import { captureStudentEvent, captureStudentEventWhenReady, posthogIdentityHeaders } from '@/shared/lib/analytics/posthog';
+import {
+  IN_PERSON_ANALYTICS_CONTEXT,
+  IN_PERSON_BOOKING_EVENTS,
+} from '@/shared/lib/analytics/in-person-booking-event';
 
 export default function BookTrialPage() {
   const router = useRouter();
@@ -24,6 +29,7 @@ export default function BookTrialPage() {
   
   // Get default trial session duration from booking settings
   const { data: defaultDurationMinutes = 45 } = useSessionDurationMinutes('TRIAL_SESSION');
+  const { data: minAdvanceDays = 1 } = useMinAdvanceBookingDays();
   
   // Initialize state from query params
   const [contactData, setContactData] = useState<TrialContactFormValues | null>(null);
@@ -44,6 +50,15 @@ export default function BookTrialPage() {
   const [selectedSubjects, setSelectedSubjects] = useState<Tables<'subjects'>[]>([]);
   const [isLoadingSubjects, setIsLoadingSubjects] = useState(false);
   const [subsidyPreference, setSubsidyPreference] = useState<SubsidyPreference>('NO');
+  const bookingStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (bookingStartedRef.current) return;
+    bookingStartedRef.current = true;
+    captureStudentEventWhenReady(IN_PERSON_BOOKING_EVENTS.started, {
+      ...IN_PERSON_ANALYTICS_CONTEXT,
+    });
+  }, []);
 
   // Fetch subjects for confirmation step if they're missing
   useEffect(() => {
@@ -130,7 +145,7 @@ export default function BookTrialPage() {
       const selectedSessionType = subsidyPreference === 'YES' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION';
       const response = await fetch('/api/bookings/trial/public', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...posthogIdentityHeaders() },
         body: JSON.stringify({
           ...contactData,
           start_at: selectedSlot.startAt,
@@ -144,12 +159,22 @@ export default function BookTrialPage() {
         
         // Handle student exists error (email conflict)
         if (error.error === 'STUDENT_EXISTS') {
+          captureStudentEvent(IN_PERSON_BOOKING_EVENTS.failed, {
+            ...IN_PERSON_ANALYTICS_CONTEXT,
+            result_code: 'STUDENT_EXISTS',
+            session_type: selectedSessionType,
+          });
           setShowStudentExistsError(true);
           return;
         }
         
         // Handle phone conflict error
         if (error.error === 'PHONE_CONFLICT') {
+          captureStudentEvent(IN_PERSON_BOOKING_EVENTS.failed, {
+            ...IN_PERSON_ANALYTICS_CONTEXT,
+            result_code: 'PHONE_CONFLICT',
+            session_type: selectedSessionType,
+          });
           toast({
             title: 'Phone Number Already in Use',
             description: error.message || 'This phone number is already associated with another account. Please use a different phone number.',
@@ -160,6 +185,11 @@ export default function BookTrialPage() {
         
         // Handle other 409 conflicts
         if (response.status === 409) {
+          captureStudentEvent(IN_PERSON_BOOKING_EVENTS.failed, {
+            ...IN_PERSON_ANALYTICS_CONTEXT,
+            result_code: 'CONFLICT',
+            session_type: selectedSessionType,
+          });
           toast({
             title: 'Conflict',
             description: error.message || 'This information is already associated with another account.',
@@ -171,7 +201,10 @@ export default function BookTrialPage() {
         throw new Error(error.error || error.message || 'Failed to create booking');
       }
 
-      const { session_id } = await response.json();
+      const { session_id, booking_token } = await response.json() as {
+        session_id: string;
+        booking_token: string | null;
+      };
 
       toast({
         title: 'Booking Confirmed',
@@ -181,6 +214,7 @@ export default function BookTrialPage() {
       // Store booking data in sessionStorage for the success page
       const bookingData = {
         session_id,
+        booking_token,
         session_type: selectedSessionType,
         start_at: selectedSlot.startAt,
         end_at: selectedSlot.endAt,
@@ -197,8 +231,12 @@ export default function BookTrialPage() {
       sessionStorage.setItem('trial_booking_data', JSON.stringify(bookingData));
 
       // Redirect to success page
-      router.push(`/booking-success?sessionId=${session_id}`);
+      router.push(booking_token ? `/b/${booking_token}` : `/booking-success?sessionId=${session_id}`);
     } catch (error: unknown) {
+      captureStudentEvent(IN_PERSON_BOOKING_EVENTS.failed, {
+        ...IN_PERSON_ANALYTICS_CONTEXT,
+        result_code: 'BOOKING_FAILED',
+      });
       const errorMessage = error instanceof Error ? error.message : 'Failed to create booking. Please try again.';
       toast({
         title: 'Booking Failed',
@@ -251,6 +289,7 @@ export default function BookTrialPage() {
           <TimeSlotPicker
             sessionType="TRIAL_SESSION"
             durationMinutes={defaultDurationMinutes}
+            minAdvanceDays={minAdvanceDays}
             onSlotSelect={handleSlotSelect}
             selectedSlot={selectedSlot}
             allowAnonymous={true}
@@ -298,8 +337,12 @@ export default function BookTrialPage() {
                   <div className="text-sm font-medium text-muted-foreground">Email:</div>
                   <div className="text-sm">{contactData.student_email}</div>
                   
-                  <div className="text-sm font-medium text-muted-foreground">Phone:</div>
-                  <div className="text-sm">{contactData.student_phone}</div>
+                  {contactData.student_phone && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Phone:</div>
+                      <div className="text-sm">{contactData.student_phone}</div>
+                    </>
+                  )}
                   
                   <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
                   <div className="text-sm">
@@ -387,10 +430,13 @@ export default function BookTrialPage() {
 
   const handleNext = () => {
     if (currentStep === 0) {
-      // From instructions to time selection
+      captureStudentEvent(IN_PERSON_BOOKING_EVENTS.stepCompleted, {
+        ...IN_PERSON_ANALYTICS_CONTEXT,
+        step: 'instructions',
+        step_number: 0,
+      });
       setCurrentStep(1);
     } else if (currentStep === 1) {
-      // From time selection to contact form
       if (!selectedSlot) {
         toast({
           title: 'Please select a time',
@@ -399,6 +445,11 @@ export default function BookTrialPage() {
         });
         return;
       }
+      captureStudentEvent(IN_PERSON_BOOKING_EVENTS.stepCompleted, {
+        ...IN_PERSON_ANALYTICS_CONTEXT,
+        step: 'time',
+        step_number: 1,
+      });
       setCurrentStep(2);
     } else if (currentStep === 2) {
       // From contact form to subsidy preference
@@ -407,7 +458,11 @@ export default function BookTrialPage() {
         // Trigger validation on all fields to show errors
         contactFormRef.trigger().then((isValid) => {
           if (isValid) {
-            // Form is valid, proceed with submission
+            captureStudentEvent(IN_PERSON_BOOKING_EVENTS.stepCompleted, {
+              ...IN_PERSON_ANALYTICS_CONTEXT,
+              step: 'contact',
+              step_number: 2,
+            });
             contactFormRef.handleSubmit(handleContactSubmit)();
           } else {
             // Form is invalid - errors will be shown on individual fields via FormMessage
@@ -418,14 +473,8 @@ export default function BookTrialPage() {
             if (errors.student_first_name) {
               errorMessages.push('Student first name is required');
             }
-            if (errors.student_last_name) {
-              errorMessages.push('Student last name is required');
-            }
             if (errors.student_email) {
               errorMessages.push(`Student email: ${errors.student_email.message || 'is invalid'}`);
-            }
-            if (errors.student_phone) {
-              errorMessages.push('Student phone number is required');
             }
             if (errors.curriculum) {
               errorMessages.push('Please select a curriculum');
@@ -470,7 +519,12 @@ export default function BookTrialPage() {
         });
       }
     } else if (currentStep === 3) {
-      // From subsidy preference to confirmation
+      captureStudentEvent(IN_PERSON_BOOKING_EVENTS.stepCompleted, {
+        ...IN_PERSON_ANALYTICS_CONTEXT,
+        step: 'subsidy',
+        step_number: 3,
+        session_type: subsidyPreference === 'YES' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION',
+      });
       setCurrentStep(4);
     }
   };

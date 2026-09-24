@@ -5,6 +5,9 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Database } from "@altitutor/shared";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { useAuth } from "@/features/auth";
+import {
+  UCAT_TOUR_VERSIONS,
+} from "@/features/onboarding/config/tour-catalog";
 
 /**
  * Per-tour completion state stored in `students.onboarding_progress` JSONB.
@@ -24,12 +27,8 @@ export type OnboardingProgress = Record<string, OnboardingTourState>;
  * as "not completed" so a content refresh can re-introduce a tour without a
  * destructive reset.
  */
-const TOUR_VERSIONS: Record<string, number> = {
-  // "ucat-welcome": 2, // bump to re-show welcome to existing users
-};
-
 function currentVersion(tourId: string): number {
-  return TOUR_VERSIONS[tourId] ?? 1;
+  return UCAT_TOUR_VERSIONS[tourId] ?? 1;
 }
 
 type StudentProfileView =
@@ -37,7 +36,9 @@ type StudentProfileView =
 
 const ONBOARDING_QUERY_KEY = ["ucat", "onboarding-progress"] as const;
 
-function toProgress(value: StudentProfileView["onboarding_progress"]): OnboardingProgress {
+function toProgress(
+  value: StudentProfileView["onboarding_progress"],
+): OnboardingProgress {
   if (!value || typeof value !== "object" || Array.isArray(value)) {
     return {};
   }
@@ -88,7 +89,9 @@ export function useOnboardingProgress() {
     progress: query.data ?? {},
     isLoading: !enabled || query.isLoading,
     isFetching: query.isFetching,
+    isError: query.isError,
     isCompleted,
+    refetch: query.refetch,
   };
 }
 
@@ -135,9 +138,7 @@ export function useResetAllOnboardingTours() {
   return useMutation({
     mutationFn: async () => {
       const supabase = getSupabaseBrowserClient();
-      const { error } = await supabase.rpc(
-        "student_reset_onboarding_progress",
-      );
+      const { error } = await supabase.rpc("student_reset_onboarding_progress");
       if (error) throw new Error(error.message);
     },
     onSuccess: () => {

@@ -27,9 +27,7 @@ export default function ClassDetailScreen() {
       {details.data ? (
         <Card>
           <Label>Weekly schedule</Label>
-          <Value>{details.data.start_time ?? '--:--'} - {details.data.end_time ?? '--:--'}</Value>
-          <Label>Room</Label>
-          <Value>{details.data.room ?? 'To be confirmed'}</Value>
+          <Value>{details.data.schedule_summary_long ?? `${details.data.start_time ?? '--:--'} - ${details.data.end_time ?? '--:--'}`}</Value>
         </Card>
       ) : null}
       <SectionTitle>Sessions</SectionTitle>

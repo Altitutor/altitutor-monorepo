@@ -14,10 +14,21 @@ import {
   CommandList,
 } from "./command";
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { isInsideModal } from "../lib/modal-interact-outside";
 
 export interface SearchableSelectGroup<T> {
   label: string;
   items: T[];
+}
+
+/** Stable cmdk value for the clear/"None" option. */
+export const SEARCHABLE_SELECT_CLEAR_VALUE = "__clear__";
+
+/** Whether the clear option should appear for the current search query. */
+export function clearOptionMatchesSearch(clearLabel: string, search: string): boolean {
+  const query = search.trim().toLowerCase();
+  if (!query) return true;
+  return clearLabel.toLowerCase().includes(query);
 }
 
 export interface SearchableSelectProps<T> {
@@ -68,13 +79,19 @@ export interface SearchableSelectProps<T> {
   /** Additional class names */
   className?: string;
   triggerClassName?: string;
+  /** Make the trigger wrapper fill its parent container. Form fields should pass true. Compact toolbar/button triggers can omit it. */
+  fullWidth?: boolean;
+  /** Accessible name for the default combobox trigger. */
+  ariaLabel?: string;
   /** Controlled open state - when provided, parent controls when popover is open */
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
-  /** Portal container - when inside Dialog, pass the dialog content element to fix scroll */
-  popoverContainer?: HTMLElement | null;
   /** Show chevron on the right side of the trigger button (default: true) */
   showChevron?: boolean;
+  /** Button variant for the default trigger (default: field) */
+  triggerVariant?: 'outline' | 'field';
+  /** Render the portaled menu with the light UCAT editor palette. */
+  forceLight?: boolean;
 }
 
 /**
@@ -110,16 +127,19 @@ export function SearchableSelect<T>({
   getItemDisabled,
   className,
   triggerClassName,
+  fullWidth = false,
+  ariaLabel,
   open: controlledOpen,
   onOpenChange,
-  popoverContainer,
   showChevron = true,
+  triggerVariant = 'field',
+  forceLight = false,
 }: SearchableSelectProps<T>) {
   const [internalOpen, setInternalOpen] = React.useState(false);
   const [search, setSearch] = React.useState("");
   const [highlightedValue, setHighlightedValue] = React.useState<string | undefined>(undefined);
-  const triggerRef = React.useRef<HTMLElement | null>(null);
-  const [portalContainer, setPortalContainer] = React.useState<HTMLElement | null>(null);
+  const triggerRef = React.useRef<HTMLSpanElement>(null);
+  const [enableModalScroll, setEnableModalScroll] = React.useState(false);
 
   const open = controlledOpen ?? internalOpen;
 
@@ -129,37 +149,36 @@ export function SearchableSelect<T>({
     onSearchChangeRef.current = onSearchChange;
   });
 
-  // When inside a Dialog, portal into the dialog to fix scroll (Radix RemoveScroll issue)
-  React.useEffect(() => {
-    if (popoverContainer) {
-      setPortalContainer((prev) => (prev === popoverContainer ? prev : popoverContainer));
+  React.useLayoutEffect(() => {
+    if (!open) {
+      setEnableModalScroll(false);
       return;
     }
-    if (!open || !triggerRef.current) {
-      setPortalContainer((prev) => (prev === null ? prev : null));
-      return;
-    }
-    const dialog = triggerRef.current.closest('[role="dialog"]');
-    const next = dialog instanceof HTMLElement ? dialog : null;
-    setPortalContainer((prev) => (prev === next ? prev : next));
-  }, [open, popoverContainer]);
+    setEnableModalScroll(isInsideModal(triggerRef.current));
+  }, [open]);
+
   const setOpen = React.useCallback(
     (next: boolean) => {
+      if (disabled && next) return;
       if (controlledOpen === undefined) {
         setInternalOpen(next);
       }
       onOpenChange?.(next);
     },
-    [onOpenChange, controlledOpen]
+    [disabled, onOpenChange, controlledOpen]
   );
 
   const isServerSideSearch = Boolean(onSearchChange);
   const getValue = getItemValue ?? getItemLabel;
+  // Server-side search disables cmdk filtering, so gate "None" ourselves.
+  // Client-side relies on keywords={[clearLabel]} for the same behavior.
+  const showClearOption =
+    allowClear && (!isServerSideSearch || clearOptionMatchesSearch(clearLabel, search));
 
   // When using server-side search, auto-highlight first item when results change
   const firstSelectableValue = React.useMemo(() => {
     if (!isServerSideSearch || loading) return undefined;
-    if (allowClear) return "__clear__";
+    if (showClearOption) return SEARCHABLE_SELECT_CLEAR_VALUE;
     if (groups && groups.length > 0) {
       const firstGroup = groups.find((g) => g.items.length > 0);
       const firstItem = firstGroup?.items[0];
@@ -180,7 +199,7 @@ export function SearchableSelect<T>({
   }, [
     isServerSideSearch,
     loading,
-    allowClear,
+    showClearOption,
     groups,
     items,
     getItemId,
@@ -224,8 +243,9 @@ export function SearchableSelect<T>({
 
   const defaultTrigger = (
     <Button
-      variant="outline"
+      variant={triggerVariant}
       role="combobox"
+      aria-label={ariaLabel}
       aria-expanded={open}
       aria-haspopup="listbox"
       disabled={disabled}
@@ -240,20 +260,24 @@ export function SearchableSelect<T>({
         {displayValue}
       </span>
       {showChevron && (
-        <ChevronDown className="ml-2 h-4 w-4 shrink-0 opacity-50" aria-hidden />
+        <ChevronDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground opacity-50" aria-hidden />
       )}
     </Button>
   );
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <span ref={triggerRef} className="contents">
+    <Popover open={open} onOpenChange={setOpen} modal={false}>
+      <span
+        ref={triggerRef}
+        data-searchable-select-trigger=""
+        className={cn("flex max-w-full", fullWidth ? "w-full min-w-0" : "w-fit")}
+      >
         <PopoverTrigger asChild>
           {trigger ?? defaultTrigger}
         </PopoverTrigger>
       </span>
       <PopoverContent
-        container={portalContainer ?? undefined}
+        enableModalScroll={enableModalScroll}
         className={cn(
           !contentWidth && "w-[280px]",
           "p-0 z-[100] overflow-hidden max-h-[min(400px,80vh)] flex flex-col",
@@ -261,13 +285,17 @@ export function SearchableSelect<T>({
         )}
         align={align}
         side={side}
-        style={contentWidth ? { width: contentWidth } : undefined}
+        style={{
+          ...(contentWidth ? { width: contentWidth } : {}),
+          ...(forceLight ? { backgroundColor: '#ffffff', color: '#000000' } : {}),
+        }}
       >
         <Command
           shouldFilter={!isServerSideSearch}
           disablePointerSelection={false}
           value={isServerSideSearch ? highlightedValue ?? "" : undefined}
           onValueChange={isServerSideSearch ? setHighlightedValue : undefined}
+          style={forceLight ? { backgroundColor: '#ffffff', color: '#000000' } : undefined}
           className="rounded-lg border-0 flex flex-col min-h-0 flex-1 overflow-hidden"
         >
           <CommandInput
@@ -275,7 +303,7 @@ export function SearchableSelect<T>({
             value={isServerSideSearch ? search : undefined}
             onValueChange={isServerSideSearch ? handleSearchChange : undefined}
           />
-          <CommandList className="flex-1 min-h-0">
+          <CommandList className="max-h-[min(300px,50vh)] overflow-y-auto overscroll-contain">
             {loading ? (
               <div className="flex items-center justify-center gap-2 py-6 text-sm text-muted-foreground">
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -286,10 +314,11 @@ export function SearchableSelect<T>({
                 <CommandEmpty>{emptyMessage}</CommandEmpty>
                 {groups ? (
                   <>
-                    {allowClear && (
+                    {showClearOption && (
                       <CommandGroup>
                         <CommandItem
-                          value="__clear__"
+                          value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                          keywords={[clearLabel]}
                           onSelect={() => handleSelect(null)}
                           className="flex items-center gap-2"
                         >
@@ -337,9 +366,10 @@ export function SearchableSelect<T>({
                   </>
                 ) : (
                   <CommandGroup>
-                    {allowClear && (
+                    {showClearOption && (
                       <CommandItem
-                        value="__clear__"
+                        value={SEARCHABLE_SELECT_CLEAR_VALUE}
+                        keywords={[clearLabel]}
                         onSelect={() => handleSelect(null)}
                         className="flex items-center gap-2"
                       >

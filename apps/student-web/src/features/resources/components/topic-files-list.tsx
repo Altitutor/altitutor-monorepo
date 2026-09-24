@@ -1,13 +1,19 @@
 'use client';
 
 import Link from 'next/link';
-import { formatResourceTypeLabel, groupFilesByType, pairFilesWithSolutions } from '../lib/helpers';
+import {
+  formatResourceFileLabel,
+  formatResourceTypeLabel,
+  groupFilesByType,
+  pairFilesWithSolutions,
+} from '../lib/helpers';
 import { getResourceTypeIcon } from '../lib/resource-type-icons';
 import type { ResourceFile } from '../lib/types';
 import {
   ClickableCardIcon,
   ClickableCardRevealChevron,
-  clickableCardInteractiveCn,
+  clickableCardFocusWithinCn,
+  clickableCardHoverCn,
 } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { studentCardCn } from '@/shared/lib/student-visual';
@@ -26,7 +32,11 @@ export function TopicFilesList({
   staticDisplay?: boolean;
 }) {
   if (!files.length) {
-    return <p className="text-sm text-muted-foreground">No files available for this topic.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">
+        No files available for this topic.
+      </p>
+    );
   }
 
   const grouped = groupFilesByType(files);
@@ -38,61 +48,93 @@ export function TopicFilesList({
         const Icon = getResourceTypeIcon(type);
         return (
           <section key={type}>
-            <h3 className={cn(fileTypeHeadingClassName)}>{formatResourceTypeLabel(type)}</h3>
+            <h3 className={cn(fileTypeHeadingClassName)}>
+              {formatResourceTypeLabel(type)}
+            </h3>
             <div className="space-y-3">
               {pairs.map(({ primary, solution }) => (
                 <div
                   key={primary.id}
                   className={cn(
-                    studentCardCn('group relative overflow-hidden p-4'),
-                    !staticDisplay && clickableCardInteractiveCn,
+                    'grid gap-3',
+                    solution ? 'md:grid-cols-2' : undefined,
                   )}
                 >
-                  {!staticDisplay && getFileHref ? (
-                    <Link
-                      href={getFileHref(primary.code)}
-                      className="absolute inset-0 z-0 rounded-2xl"
-                      aria-label={`Open ${primary.filename}`}
+                  <TopicFileCard
+                    file={primary}
+                    icon={Icon}
+                    getFileHref={getFileHref}
+                    staticDisplay={staticDisplay}
+                  />
+                  {solution ? (
+                    <TopicFileCard
+                      file={solution}
+                      icon={Icon}
+                      eyebrow="Solution"
+                      getFileHref={getFileHref}
+                      staticDisplay={staticDisplay}
                     />
                   ) : null}
-                  <div
-                    className={cn(
-                      'relative z-[1] flex items-center gap-3',
-                      staticDisplay ? '' : 'pointer-events-none',
-                    )}
-                  >
-                    <ClickableCardIcon icon={Icon} size="sm" />
-                    <span
-                      className="min-w-0 flex-1 truncate text-sm font-medium leading-snug tracking-tight text-card-foreground"
-                    >
-                      {primary.code} · {primary.filename}
-                    </span>
-                    <div className="flex shrink-0 items-center gap-3">
-                      {solution ? (
-                        staticDisplay ? (
-                          <span className="text-xs text-muted-foreground">
-                            Solution: {solution.filename}
-                          </span>
-                        ) : (
-                          getFileHref && (
-                            <Link
-                              href={getFileHref(solution.code)}
-                              className="pointer-events-auto text-xs text-muted-foreground transition-colors duration-300 hover:text-foreground"
-                            >
-                              Solution: {solution.filename}
-                            </Link>
-                          )
-                        )
-                      ) : null}
-                      {!staticDisplay ? <ClickableCardRevealChevron size="sm" /> : null}
-                    </div>
-                  </div>
                 </div>
               ))}
             </div>
           </section>
         );
       })}
+    </div>
+  );
+}
+
+function TopicFileCard({
+  file,
+  icon: Icon,
+  eyebrow,
+  getFileHref,
+  staticDisplay,
+}: {
+  file: ResourceFile;
+  icon: ReturnType<typeof getResourceTypeIcon>;
+  eyebrow?: string;
+  getFileHref?: (fileCode: string) => string;
+  staticDisplay: boolean;
+}) {
+  const label = formatResourceFileLabel(file);
+  const href = !staticDisplay && getFileHref ? getFileHref(file.code) : null;
+
+  return (
+    <div
+      className={cn(
+        studentCardCn('group relative overflow-hidden p-4'),
+        href ? clickableCardHoverCn : undefined,
+        href ? clickableCardFocusWithinCn : undefined,
+      )}
+    >
+      {href ? (
+        <Link
+          href={href}
+          className="absolute inset-0 z-0 rounded-2xl"
+          aria-label={`Open ${label}`}
+        />
+      ) : null}
+      <div
+        className={cn(
+          'relative z-[1] flex items-center gap-3',
+          href ? 'pointer-events-none' : undefined,
+        )}
+      >
+        <ClickableCardIcon icon={Icon} size="sm" />
+        <div className="min-w-0 flex-1">
+          {eyebrow ? (
+            <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {eyebrow}
+            </p>
+          ) : null}
+          <span className="block truncate text-sm font-medium leading-snug tracking-tight text-card-foreground">
+            {label}
+          </span>
+        </div>
+        {href ? <ClickableCardRevealChevron size="sm" /> : null}
+      </div>
     </div>
   );
 }

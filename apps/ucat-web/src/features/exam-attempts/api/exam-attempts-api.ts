@@ -4,15 +4,44 @@ import type {
   ExamAttemptKind,
   SyncExamAttemptInput,
 } from "@/lib/ucat/exam-attempt/types";
+import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { StoredExamSnapshot } from "@/lib/ucat/exam-attempt/service";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
+import {
+  PRACTICE_SESSION_ENDED_CODE,
+  PracticeSessionEndedError,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
+
+async function assertPracticeSessionActive(response: Response): Promise<void> {
+  if (response.status !== 410) return;
+  const body = (await response.json().catch(() => null)) as {
+    code?: string;
+  } | null;
+  if (body?.code === PRACTICE_SESSION_ENDED_CODE) {
+    throw new PracticeSessionEndedError();
+  }
+}
+
+async function responseError(
+  response: Response,
+  fallback: string,
+): Promise<Error> {
+  const body = (await response.json().catch(() => null)) as {
+    error?: unknown;
+  } | null;
+  return new Error(
+    typeof body?.error === "string" && body.error.trim()
+      ? body.error
+      : fallback,
+  );
+}
 
 export async function fetchActiveExamAttempt(): Promise<ActiveExamAttempt | null> {
   const response = await fetch("/api/ucat/exam-attempts/active", {
     cache: "no-store",
   });
   if (!response.ok) {
-    throw new Error("Failed to load active exam attempt");
+    throw await responseError(response, "Failed to load active exam attempt");
   }
   const data = (await response.json()) as { active: ActiveExamAttempt | null };
   return data.active;
@@ -39,9 +68,10 @@ export async function beginExamAttempt(
     err.active = data.active;
     throw err;
   }
+  await assertPracticeSessionActive(response);
   if (!response.ok) {
     await assertOkOrQuotaExceeded(response);
-    throw new Error("Failed to begin exam attempt");
+    throw await responseError(response, "Failed to begin exam attempt");
   }
   return response.json();
 }
@@ -52,14 +82,19 @@ export async function syncExamAttempt(
     examTiming?: StoredExamSnapshot["examTiming"];
     mockAttemptId?: string | null;
   },
-): Promise<{ currentSegmentEndsAt: string | null }> {
+): Promise<{
+  currentSegmentEndsAt: string | null;
+  setAttemptIdsBySetId?: Record<string, string>;
+}> {
   const response = await fetch("/api/ucat/exam-attempts/sync", {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(input),
   });
+  await assertPracticeSessionActive(response);
   if (!response.ok) {
-    throw new Error("Failed to sync exam attempt");
+    await assertOkOrQuotaExceeded(response);
+    throw await responseError(response, "Failed to sync exam attempt");
   }
   return response.json();
 }
@@ -84,6 +119,7 @@ export function syncExamAttemptKeepalive(
 export async function finalizeExamAttempt(input: {
   kind: ExamAttemptKind;
   attemptId: string;
+  answers?: FinalExamQuestionAttemptInput[];
 }): Promise<unknown> {
   const response = await fetch("/api/ucat/exam-attempts/finalize", {
     method: "POST",
@@ -97,4 +133,20 @@ export async function finalizeExamAttempt(input: {
     throw new Error(data.error ?? "Failed to finalize exam attempt");
   }
   return response.json();
+}
+
+export async function discardExamAttempt(input: {
+  kind: ExamAttemptKind;
+  attemptId: string;
+}): Promise<void> {
+  const response = await fetch("/api/ucat/exam-attempts/discard", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+  if (!response.ok) throw new Error("Failed to discard exam attempt");
+  const result = (await response.json()) as { discarded?: boolean };
+  if (result.discarded !== true) {
+    throw new Error("Exam attempt was not discarded");
+  }
 }

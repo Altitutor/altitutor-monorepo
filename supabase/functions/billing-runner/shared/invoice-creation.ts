@@ -1,10 +1,8 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
-import {
-  generateInvoiceIdempotencyKey,
-  generateInvoiceItemIdempotencyKey,
-} from './utils.ts';
+import { generateInvoiceIdempotencyKey, generateInvoiceItemIdempotencyKey } from './utils.ts';
 import { formatStripeErrorMessage, getStripeErrorDetails } from './stripe-errors.ts';
+import { createSendInvoiceWithEmailRecovery } from './customer-email.ts';
 
 const LOG_PREFIX = '[billing-runner]';
 
@@ -19,6 +17,9 @@ interface InvoiceItemInput {
   description: string;
   is_subsidy?: boolean;
   is_fee?: boolean;
+  line_kind?: 'session_charge' | 'restoration_charge';
+  restores_credit_note_id?: string;
+  billing_adjustment_id?: string;
 }
 
 interface StripeInvoiceItemWithId extends InvoiceItemInput {
@@ -27,7 +28,7 @@ interface StripeInvoiceItemWithId extends InvoiceItemInput {
 
 export async function hasAnyInvoiceItemForSessions(
   supabase: SupabaseClient,
-  sessionsStudentsIds: string[]
+  sessionsStudentsIds: string[],
 ): Promise<boolean> {
   if (sessionsStudentsIds.length === 0) return false;
   const { data, error } = await supabase
@@ -49,7 +50,7 @@ export async function createStripeInvoiceItems(
   timestamp: number,
   invoiceId: string,
   /** Match invoice draft nonce when rebilling after void/archive. */
-  lineItemIdempotencyNonce?: string
+  lineItemIdempotencyNonce?: string,
 ): Promise<{
   stripeInvoiceItems: StripeInvoiceItemWithId[];
   createdStripeItemIds: string[];
@@ -63,7 +64,7 @@ export async function createStripeInvoiceItems(
       studentId,
       invoiceDate,
       timestamp,
-      lineItemIdempotencyNonce
+      lineItemIdempotencyNonce,
     );
 
     const stripeItem = await stripe.invoiceItems.create(
@@ -75,6 +76,9 @@ export async function createStripeInvoiceItems(
         description: item.description,
         metadata: {
           type: 'session_charge',
+          line_kind: item.line_kind ?? 'session_charge',
+          billing_adjustment_id: item.billing_adjustment_id ?? '',
+          restores_credit_note_id: item.restores_credit_note_id ?? '',
           student_id: studentId,
           session_id: item.session_id || '',
           sessions_students_id: item.sessions_students_id || '',
@@ -82,7 +86,7 @@ export async function createStripeInvoiceItems(
           is_fee: item.is_fee ? 'true' : 'false',
         },
       },
-      { idempotencyKey: itemIdempotencyKey }
+      { idempotencyKey: itemIdempotencyKey },
     );
 
     stripeInvoiceItems.push({
@@ -100,7 +104,7 @@ export async function createStripeInvoiceItems(
  */
 export async function rollbackStripeInvoiceItems(
   stripe: Stripe,
-  createdStripeItemIds: string[]
+  createdStripeItemIds: string[],
 ): Promise<void> {
   for (const itemId of createdStripeItemIds) {
     try {
@@ -108,7 +112,9 @@ export async function rollbackStripeInvoiceItems(
     } catch (delErr) {
       console.error(
         `${LOG_PREFIX} Failed to delete invoice item ${itemId} during rollback:`,
-        formatStripeErrorMessage(delErr, 'delete invoice item', { invoiceItemId: itemId })
+        formatStripeErrorMessage(delErr, 'delete invoice item', {
+          invoiceItemId: itemId,
+        }),
       );
     }
   }
@@ -127,7 +133,8 @@ export async function createDraftSendInvoiceInvoice(
   isStripeLiveKey: boolean,
   timestamp: number,
   sessionsStudentsIds?: string[],
-  stripeInvoiceCreateNonce?: string
+  stripeInvoiceCreateNonce?: string,
+  fallbackEmail?: string,
 ): Promise<Stripe.Invoice> {
   const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
     sessionsStudentsIds,
@@ -135,23 +142,30 @@ export async function createDraftSendInvoiceInvoice(
     stripeInvoiceCreateNonce,
   });
 
-  return await stripe.invoices.create(
-    {
-      customer: customerId,
-      collection_method: 'send_invoice',
-      days_until_due: 30, // Set 30 days payment window for manual invoices
-      auto_advance: false,
-      pending_invoice_items_behavior: 'exclude',
-      description: `Invoice for sessions on ${invoiceDate}`,
-      metadata: {
-        type: 'session_invoice',
-        student_id: studentId,
-        invoice_date: invoiceDate,
-        stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
-      },
-    },
-    { idempotencyKey }
-  );
+  return await createSendInvoiceWithEmailRecovery({
+    stripe,
+    customerId,
+    fallbackEmail,
+    idempotencyKey,
+    createInvoice: async (key) =>
+      await stripe.invoices.create(
+        {
+          customer: customerId,
+          collection_method: 'send_invoice',
+          days_until_due: 30, // Set 30 days payment window for manual invoices
+          auto_advance: false,
+          pending_invoice_items_behavior: 'exclude',
+          description: `Invoice for sessions on ${invoiceDate}`,
+          metadata: {
+            type: 'session_invoice',
+            student_id: studentId,
+            invoice_date: invoiceDate,
+            stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
+          },
+        },
+        { idempotencyKey: key },
+      ),
+  });
 }
 
 /**
@@ -169,7 +183,7 @@ export async function createDraftChargeAutomaticallyInvoice(
   isStripeLiveKey: boolean,
   timestamp: number,
   sessionsStudentsIds?: string[],
-  stripeInvoiceCreateNonce?: string
+  stripeInvoiceCreateNonce?: string,
 ): Promise<Stripe.Invoice> {
   const idempotencyKey = generateInvoiceIdempotencyKey(studentId, invoiceDate, {
     sessionsStudentsIds,
@@ -194,7 +208,7 @@ export async function createDraftChargeAutomaticallyInvoice(
         stripe_key_type: isStripeTestKey ? 'test' : isStripeLiveKey ? 'live' : 'unknown',
       },
     },
-    { idempotencyKey }
+    { idempotencyKey },
   );
 }
 
@@ -207,13 +221,10 @@ export async function createDraftChargeAutomaticallyInvoice(
 export async function finalizeInvoice(
   stripe: Stripe,
   invoiceId: string,
-  options: { autoAdvance?: boolean } = {}
+  options: { autoAdvance?: boolean } = {},
 ): Promise<Stripe.Invoice> {
   try {
-    const finalizeParams =
-      options.autoAdvance === undefined
-        ? undefined
-        : { auto_advance: options.autoAdvance };
+    const finalizeParams = options.autoAdvance === undefined ? undefined : { auto_advance: options.autoAdvance };
 
     return await stripe.invoices.finalizeInvoice(invoiceId, finalizeParams);
   } catch (err: unknown) {
@@ -222,7 +233,8 @@ export async function finalizeInvoice(
     if (
       details.isStripeError &&
       details.statusCode === 400 &&
-      (msg.includes('already finalized') || msg.includes('re-finalize') || msg.includes('non-draft'))
+      (msg.includes('already finalized') || msg.includes('re-finalize') ||
+        msg.includes('non-draft'))
     ) {
       return await stripe.invoices.retrieve(invoiceId);
     }
@@ -234,14 +246,20 @@ export async function finalizeInvoice(
  * Delete a draft invoice (and its line items). Only draft invoices can be deleted.
  * Use for rollback when item creation or finalize fails.
  */
-export async function deleteDraftInvoice(stripe: Stripe, invoiceId: string): Promise<void> {
+export async function deleteDraftInvoice(
+  stripe: Stripe,
+  invoiceId: string,
+): Promise<void> {
   await stripe.invoices.del(invoiceId);
 }
 
 /**
  * Void an invoice
  */
-export async function voidInvoice(stripe: Stripe, invoiceId: string): Promise<Stripe.Invoice> {
+export async function voidInvoice(
+  stripe: Stripe,
+  invoiceId: string,
+): Promise<Stripe.Invoice> {
   return await stripe.invoices.voidInvoice(invoiceId);
 }
 
@@ -252,7 +270,7 @@ export async function createStripeCustomer(
   stripe: Stripe,
   studentId: string,
   email: string | undefined,
-  name: string | undefined
+  name: string | undefined,
 ): Promise<Stripe.Customer> {
   return await stripe.customers.create({
     email: email || undefined,
@@ -271,7 +289,7 @@ export async function saveInvoiceToDatabase(
   supabase: SupabaseClient,
   studentId: string,
   finalizedInvoice: Stripe.Invoice,
-  invoiceDate: string
+  invoiceDate: string,
 ): Promise<{ id: string; status: string }> {
   // Check if DB record already exists (idempotency/race condition protection)
   const { data: existingInvoice } = await supabase
@@ -315,7 +333,12 @@ export async function saveInvoiceToDatabase(
       hosted_invoice_url: finalizedInvoice.hosted_invoice_url,
       invoice_pdf: finalizedInvoice.invoice_pdf,
       finalized_at: finalizedInvoice.status_transitions?.finalized_at
-        ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000).toISOString()
+        ? new Date(finalizedInvoice.status_transitions.finalized_at * 1000)
+          .toISOString()
+        : null,
+      paid_at: finalizedInvoice.status_transitions?.paid_at
+        ? new Date(finalizedInvoice.status_transitions.paid_at * 1000)
+          .toISOString()
         : null,
     })
     .select('id, status')
@@ -338,7 +361,7 @@ export async function saveInvoiceToDatabase(
 
       throw new Error(
         `Invoice insert duplicate key but no row found for stripe_invoice_id=${finalizedInvoice.id} ` +
-          `(student_id=${studentId}, invoice_date=${invoiceDate}). Postgres: ${dbErr.message}`
+          `(student_id=${studentId}, invoice_date=${invoiceDate}). Postgres: ${dbErr.message}`,
       );
     }
     throw dbErr;
@@ -346,7 +369,7 @@ export async function saveInvoiceToDatabase(
 
   if (!insertedInvoice) {
     throw new Error(
-      `Invoice insert returned no row for stripe_invoice_id=${finalizedInvoice.id} (student_id=${studentId})`
+      `Invoice insert returned no row for stripe_invoice_id=${finalizedInvoice.id} (student_id=${studentId})`,
     );
   }
 
@@ -360,7 +383,7 @@ export async function saveInvoiceToDatabase(
 export async function saveInvoiceItemsToDatabase(
   supabase: SupabaseClient,
   invoiceId: string,
-  stripeInvoiceItems: StripeInvoiceItemWithId[]
+  stripeInvoiceItems: StripeInvoiceItemWithId[],
 ): Promise<void> {
   if (!stripeInvoiceItems || stripeInvoiceItems.length === 0) {
     return; // Nothing to save
@@ -374,6 +397,9 @@ export async function saveInvoiceItemsToDatabase(
     description: item.description,
     is_subsidy: item.is_subsidy || false,
     is_fee: item.is_fee || false,
+    line_kind: item.is_fee || item.is_subsidy ? null : item.line_kind ?? 'session_charge',
+    restores_credit_note_id: item.restores_credit_note_id ?? null,
+    billing_adjustment_id: item.billing_adjustment_id ?? null,
     session_id: item.session_id,
     student_id: item.student_id,
   }));
@@ -391,7 +417,9 @@ export async function saveInvoiceItemsToDatabase(
   if (itemsErr) {
     console.error(
       `${LOG_PREFIX} Failed to save invoice items:`,
-      formatStripeErrorMessage(itemsErr, 'save invoice items to database', { invoiceId })
+      formatStripeErrorMessage(itemsErr, 'save invoice items to database', {
+        invoiceId,
+      }),
     );
     throw itemsErr;
   }
@@ -402,7 +430,7 @@ export async function saveInvoiceItemsToDatabase(
  */
 export async function softDeleteInvoiceAndItems(
   supabase: SupabaseClient,
-  invoiceDbId: string
+  invoiceDbId: string,
 ): Promise<void> {
   const now = new Date().toISOString();
   const { error: itemsErr } = await supabase
@@ -429,7 +457,7 @@ export async function rollbackFailedSessionInvoicePersist(
   supabase: SupabaseClient,
   stripeInvoiceId: string,
   dbInvoiceId: string,
-  context: { studentId: string }
+  context: { studentId: string },
 ): Promise<void> {
   try {
     const inv = await stripe.invoices.retrieve(stripeInvoiceId);
@@ -444,13 +472,13 @@ export async function rollbackFailedSessionInvoicePersist(
           formatStripeErrorMessage(voidErr, 'void invoice rollback', {
             studentId: context.studentId,
             invoiceId: stripeInvoiceId,
-          })
+          }),
         );
       }
     } else if (inv.status === 'paid') {
       console.error(
         `${LOG_PREFIX} CRITICAL: Invoice ${stripeInvoiceId} is paid; cannot void after failed item persist. ` +
-          `Manual reconciliation required. student=${context.studentId} dbInvoice=${dbInvoiceId}`
+          `Manual reconciliation required. student=${context.studentId} dbInvoice=${dbInvoiceId}`,
       );
     }
   } catch (retrieveErr: unknown) {
@@ -459,7 +487,7 @@ export async function rollbackFailedSessionInvoicePersist(
       formatStripeErrorMessage(retrieveErr, 'retrieve invoice for rollback', {
         studentId: context.studentId,
         invoiceId: stripeInvoiceId,
-      })
+      }),
     );
   }
 
@@ -474,23 +502,32 @@ export async function rollbackFailedSessionInvoicePersist(
 export async function updateInvoicePaymentStatus(
   supabase: SupabaseClient,
   invoiceId: string,
-  paidInvoice: Stripe.Invoice
+  paidInvoice: Stripe.Invoice,
 ): Promise<void> {
   // Extract charge ID from latest_charge (can be string ID or expanded object)
   // This is critical for refund tracking - charge.refunded webhooks need this to find invoices
   let chargeId: string | null = null;
-  if (paidInvoice.latest_charge) {
-    const lc = paidInvoice.latest_charge;
-    chargeId = typeof lc === 'string' ? lc : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
+  const latestCharge = (
+    paidInvoice as Stripe.Invoice & {
+      latest_charge?: string | Stripe.Charge | null;
+    }
+  ).latest_charge;
+  if (latestCharge) {
+    const lc = latestCharge;
+    chargeId = typeof lc === 'string'
+      ? lc
+      : (lc && typeof lc === 'object' && 'id' in lc ? (lc as { id: string }).id : null);
   }
-  
+
   // Extract payment intent ID from payment_intent (can be string ID or expanded object)
   let payment_intent_id: string | null = null;
   if (paidInvoice.payment_intent) {
     const pi = paidInvoice.payment_intent;
-    payment_intent_id = typeof pi === 'string' ? pi : (pi && typeof pi === 'object' && 'id' in pi ? (pi as { id: string }).id : null);
+    payment_intent_id = typeof pi === 'string'
+      ? pi
+      : (pi && typeof pi === 'object' && 'id' in pi ? (pi as { id: string }).id : null);
   }
-  
+
   // Use null coalescing to properly handle null values (important for customer balance payments)
   const subtotalCents = paidInvoice.subtotal ?? null;
   const totalCents = paidInvoice.total ?? null;
@@ -508,10 +545,9 @@ export async function updateInvoicePaymentStatus(
       amount_paid_cents: paidInvoice.amount_paid ?? 0,
       amount_due_cents: amountDueCents,
       amount_paid_from_balance_cents: amountPaidFromBalanceCents,
-      paid_at:
-        paidInvoice.status === 'paid'
-          ? new Date(paidInvoice.status_transitions?.paid_at * 1000).toISOString()
-          : null,
+      paid_at: paidInvoice.status === 'paid' && paidInvoice.status_transitions.paid_at
+        ? new Date(paidInvoice.status_transitions.paid_at * 1000).toISOString()
+        : null,
     })
     .eq('id', invoiceId);
 }
@@ -522,7 +558,7 @@ export async function updateInvoicePaymentStatus(
 export async function updateInvoicePaymentError(
   supabase: SupabaseClient,
   invoiceId: string,
-  errorMessage: string
+  errorMessage: string,
 ): Promise<void> {
   await supabase
     .from('invoices')

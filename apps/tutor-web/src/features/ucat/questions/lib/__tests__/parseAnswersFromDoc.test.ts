@@ -3,6 +3,32 @@ import { parseAnswersTableFromDoc } from '@/features/ucat/questions/lib/parseAns
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
 describe('parseAnswersTableFromDoc', () => {
+  it('parses answers copied into an ordered list without explanations', () => {
+    const doc = {
+      type: 'doc',
+      content: [
+        {
+          type: 'orderedList',
+          content: [
+            {
+              type: 'listItem',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'C' }] }],
+            },
+            {
+              type: 'listItem',
+              content: [{ type: 'paragraph', content: [{ type: 'text', text: 'A' }] }],
+            },
+          ],
+        },
+      ],
+    }
+
+    expect(parseAnswersTableFromDoc(doc, { inputFormat: 'numbered_list' })).toEqual([
+      { letter: 'C', explanation: '', explanationDoc: null },
+      { letter: 'A', explanation: '', explanationDoc: null },
+    ])
+  })
+
   it('preserves bold formatting in table explanation cells', () => {
     const doc = {
       type: 'doc',

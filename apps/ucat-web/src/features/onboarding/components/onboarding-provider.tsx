@@ -5,13 +5,14 @@ import { NextStep, NextStepProvider } from "nextstepjs";
 import { useTheme } from "next-themes";
 import { OnboardingCard } from "@/features/onboarding/components/onboarding-card";
 import { OnboardingScrollRepaint } from "@/features/onboarding/components/onboarding-scroll-repaint";
+import { TutorialInteractionController } from "@/features/onboarding/components/tutorial-interaction-controller";
+import { TutorialLifecycleController } from "@/features/onboarding/components/tutorial-lifecycle-controller";
 import { ucatOnboardingTours } from "@/features/onboarding/config/tour-steps";
 import { useCompleteOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { clearTutorialResume } from "@/features/onboarding/lib/tutorial-resume";
 
-// Light: marketing primary #0a2941 (navy) at moderate opacity reads like a
-// soft brand wash. Dark: pure black at higher opacity for a neutral dim that
-// doesn't tint the page blue.
-const LIGHT_SHADOW = { rgb: "10,41,65", opacity: "0.55" } as const;
+// Keep both themes neutral: the overlay should dim the page, not tint it.
+const LIGHT_SHADOW = { rgb: "0,0,0", opacity: "0.58" } as const;
 const DARK_SHADOW = { rgb: "0,0,0", opacity: "0.7" } as const;
 
 export function OnboardingProvider({ children }: { children: ReactNode }) {
@@ -21,6 +22,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
 
   const handleFinish = (tour: string | null) => {
     if (!tour) return;
+    clearTutorialResume(tour);
     // Fire-and-forget; the mutation invalidates the progress query on success
     // so the auto-start hook won't re-trigger this tour on the next mount.
     completeTour.mutate(tour);
@@ -29,6 +31,8 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
   return (
     <NextStepProvider>
       <OnboardingScrollRepaint />
+      <TutorialInteractionController />
+      <TutorialLifecycleController />
       <NextStep
         steps={ucatOnboardingTours}
         cardComponent={OnboardingCard}
@@ -38,6 +42,7 @@ export function OnboardingProvider({ children }: { children: ReactNode }) {
         onComplete={handleFinish}
         onSkip={(_step, tour) => handleFinish(tour)}
         scrollToTop={false}
+        displayArrow={false}
         disableConsoleLogs
       >
         {children}

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
-import { SectionProgressPage } from "@/features/progress";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { SectionProgressPage } from "@/features/progress/components/section-progress-page";
 
 type PageProps = {
   params: Promise<{ sectionNumber: string }>;
@@ -13,23 +14,8 @@ export default async function Page({ params }: PageProps) {
     notFound();
   }
   return (
-    <Suspense fallback={<SectionProgressSkeleton />}>
+    <Suspense fallback={<AppPageSkeleton />}>
       <SectionProgressPage sectionNumber={num} />
     </Suspense>
-  );
-}
-
-function SectionProgressSkeleton() {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="h-10 w-48 rounded bg-muted" />
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-32 rounded-xl bg-muted" />
-        ))}
-      </div>
-      <div className="h-64 rounded-lg bg-muted" />
-      <div className="h-64 rounded-lg bg-muted" />
-    </div>
   );
 }

@@ -1,8 +1,13 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 import { hasSessionStarted, type Database } from '@altitutor/shared';
+import {
+  CHECK_IN_LOG_FORBIDDEN_MESSAGE,
+  staffMaySubmitTutorLog,
+} from '@altitutor/shared/pay-tiers';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { fetchPayTierProgressForStaff } from '@/features/pay-tier/server/fetchPayTierProgress';
@@ -36,6 +41,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -54,6 +60,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -63,12 +70,13 @@ export async function POST(request: NextRequest) {
     // Verify the session is accessible by this tutor (check vtutor_sessions view)
     const { data: sessionAccess, error: sessionError } = await userClient
       .from('vtutor_sessions')
-      .select('session_id, start_at')
+      .select('session_id, start_at, session_type')
       .eq('session_id', body.sessionId)
       .maybeSingle();
     
     if (sessionError) {
       console.error('Error checking session access:', sessionError);
+      captureApiError(sessionError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to verify session access' },
         { status: 500 }
@@ -82,8 +90,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Type assertion: sessionAccess has session_id and start_at from vtutor_sessions view
-    type SessionAccess = Pick<Database['public']['Views']['vtutor_sessions']['Row'], 'session_id' | 'start_at'>;
+    type SessionAccess = Pick<
+      Database['public']['Views']['vtutor_sessions']['Row'],
+      'session_id' | 'start_at' | 'session_type'
+    >;
     const typedSessionAccess = sessionAccess as SessionAccess;
 
     // Block logging until the session has started (start_at is a UTC instant in DB)
@@ -103,6 +113,7 @@ export async function POST(request: NextRequest) {
     
     if (existingLogError) {
       console.error('Error checking existing log:', existingLogError);
+      captureApiError(existingLogError, "/api/tutor-logs");
       return NextResponse.json(
         { error: 'Failed to check for existing log' },
         { status: 500 }
@@ -134,6 +145,31 @@ export async function POST(request: NextRequest) {
         persistSession: false,
       },
     });
+
+    if (typedSessionAccess.session_type === 'CHECK_IN') {
+      const { data: assignment, error: assignmentError } = await supabase
+        .from('sessions_staff')
+        .select('type')
+        .eq('session_id', body.sessionId)
+        .eq('staff_id', tutorId)
+        .maybeSingle();
+
+      if (assignmentError) {
+        console.error('Error checking check-in role:', assignmentError);
+        captureApiError(assignmentError, "/api/tutor-logs");
+        return NextResponse.json(
+          { error: 'Failed to verify check-in role' },
+          { status: 500 }
+        );
+      }
+
+      if (!staffMaySubmitTutorLog('CHECK_IN', assignment?.type)) {
+        return NextResponse.json(
+          { error: CHECK_IN_LOG_FORBIDDEN_MESSAGE },
+          { status: 403 }
+        );
+      }
+    }
 
     // Prepare data for RPC call
     const staffAttendance = (body.staffAttendance || []).map((sa) => ({
@@ -172,6 +208,7 @@ export async function POST(request: NextRequest) {
     const rpcParams = {
       p_session_id: body.sessionId,
       p_created_by: tutorId,
+      p_logged_for_staff_id: tutorId,
       p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
       p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
       p_topics: topics.length > 0 ? topics : [],
@@ -184,6 +221,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Error calling create_tutor_log RPC:', error);
+      captureApiError(error, "/api/tutor-logs");
       return NextResponse.json(
         { error: error.message || 'Failed to create tutor log' },
         { status: 500 }
@@ -211,6 +249,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    captureApiError(error, "/api/tutor-logs");
     console.error('Unexpected error in POST /api/tutor-logs:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
@@ -218,4 +257,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

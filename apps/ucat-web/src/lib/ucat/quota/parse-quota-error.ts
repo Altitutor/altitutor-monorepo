@@ -1,6 +1,8 @@
 import type { QuotaExceededPayload } from "@/features/ucat-access/types/quota";
 
-function isQuotaExceededPayload(value: unknown): value is QuotaExceededPayload {
+export function isQuotaExceededPayload(
+  value: unknown,
+): value is QuotaExceededPayload {
   if (!value || typeof value !== "object") return false;
   const record = value as Record<string, unknown>;
   return (
@@ -10,6 +12,22 @@ function isQuotaExceededPayload(value: unknown): value is QuotaExceededPayload {
     typeof record.limit === "number" &&
     typeof record.period === "string"
   );
+}
+
+export function parseQuotaExceededMessage(
+  message: string,
+): QuotaExceededPayload | null {
+  const marker = "QUOTA_EXCEEDED:";
+  const markerIndex = message.indexOf(marker);
+  if (markerIndex < 0) return null;
+  try {
+    const value: unknown = JSON.parse(
+      message.slice(markerIndex + marker.length),
+    );
+    return isQuotaExceededPayload(value) ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Parses a failed fetch response for quota-exceeded payloads. */
@@ -36,7 +54,9 @@ export class QuotaExceededError extends Error {
 }
 
 /** Throws QuotaExceededError when the response is a quota 403. */
-export async function assertOkOrQuotaExceeded(response: Response): Promise<void> {
+export async function assertOkOrQuotaExceeded(
+  response: Response,
+): Promise<void> {
   if (response.ok) return;
   const payload = await parseQuotaExceededResponse(response);
   if (payload) throw new QuotaExceededError(payload);

@@ -8,3 +8,4 @@ export * from './AbsenceSessionSelector';
 export * from './AbsenceActionSelector';
 export * from './AbsenceSummary';
 export * from './LogAbsenceDialog';
+export * from './PastSessionsTable';

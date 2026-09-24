@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useState } from "react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   PhoneInput,
@@ -8,30 +8,38 @@ import {
   validateOptionalPhoneE164,
 } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
+import { UCAT_SIGNUP_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
+import { subscribeToUcatNewsletter } from "@/features/auth/api/newsletter";
 
 const { typography: typo } = MARKETING_TOKENS;
 
 const signupPhoneInputClassName = cn(
-  "[&_.PhoneInputInput]:h-12 [&_.PhoneInputInput]:rounded-xl [&_.PhoneInputInput]:border-white/10 [&_.PhoneInputInput]:bg-white/5 [&_.PhoneInputInput]:px-4 [&_.PhoneInputInput]:text-marketing-cream [&_.PhoneInputInput]:placeholder:text-marketing-cream/30 [&_.PhoneInputInput]:focus-visible:border-marketing-accent/50 [&_.PhoneInputInput]:focus-visible:ring-marketing-accent/20",
-  "[&>p:last-child]:text-marketing-cream/30",
+  "[&_.PhoneInputInput]:h-12 [&_.PhoneInputInput]:rounded-xl [&_.PhoneInputInput]:border-border [&_.PhoneInputInput]:bg-background/70 [&_.PhoneInputInput]:px-4 [&_.PhoneInputInput]:text-foreground [&_.PhoneInputInput]:placeholder:text-muted-foreground/60 [&_.PhoneInputInput]:focus-visible:border-primary/50 [&_.PhoneInputInput]:focus-visible:ring-primary/20",
+  "[&>p:last-child]:text-muted-foreground",
 );
 
 const signupPhoneCountryClassName = cn(
-  "[&_button]:h-12 [&_button]:rounded-xl [&_button]:border-white/10 [&_button]:bg-white/5 [&_button]:text-marketing-cream [&_button]:focus-visible:ring-marketing-accent/20",
+  "[&_button]:h-12 [&_button]:rounded-xl [&_button]:border-border [&_button]:bg-background/70 [&_button]:text-foreground [&_button]:focus-visible:ring-primary/20",
 );
 
 type SignupCompleteDetailsStepProps = {
-  email: string;
+  confirmedEmail: string;
   initialFirstName: string;
   initialLastName: string;
   initialPhone: string;
-  onComplete: () => void;
+  onComplete: (details: {
+    email: string;
+    pendingEmail: string;
+    firstName: string;
+    lastName: string;
+    phone: string;
+  }) => void;
   error: string | null;
   setError: (value: string | null) => void;
 };
 
 export function SignupCompleteDetailsStep({
-  email,
+  confirmedEmail,
   initialFirstName,
   initialLastName,
   initialPhone,
@@ -97,7 +105,15 @@ export function SignupCompleteDetailsStep({
         return;
       }
 
-      onComplete();
+      await subscribeToUcatNewsletter("ucat_social_signup");
+
+      onComplete({
+        email: confirmedEmail.trim().toLowerCase(),
+        pendingEmail: "",
+        firstName: payload.firstName,
+        lastName: payload.lastName,
+        phone: phoneResult.phone ?? "",
+      });
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -108,13 +124,13 @@ export function SignupCompleteDetailsStep({
   return (
     <form
       onSubmit={handleSubmit}
-      className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm"
+      className="space-y-4 rounded-3xl bg-card/80 p-8 shadow-sm ring-1 ring-border backdrop-blur-sm"
     >
       <div className="grid grid-cols-2 gap-4">
         <div className="space-y-1.5">
           <label
             htmlFor="complete-first-name"
-            className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+            className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
           >
             First name
           </label>
@@ -127,13 +143,13 @@ export function SignupCompleteDetailsStep({
             onChange={(e) => setFirstName(e.target.value)}
             placeholder="Jane"
             disabled={isSubmitting}
-            className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+            className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
           />
         </div>
         <div className="space-y-1.5">
           <label
             htmlFor="complete-last-name"
-            className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+            className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
           >
             Last name
           </label>
@@ -146,33 +162,40 @@ export function SignupCompleteDetailsStep({
             onChange={(e) => setLastName(e.target.value)}
             placeholder="Smith"
             disabled={isSubmitting}
-            className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+            className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
           />
         </div>
       </div>
 
       <div className="space-y-1.5">
         <label
-          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+          htmlFor="complete-email"
+          className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
         >
           Email address
         </label>
-        <div
-          className={`w-full rounded-xl border border-white/5 bg-white/3 px-4 py-3 text-marketing-cream/40 ${typo.secondarySans}`}
-        >
-          {email}
-        </div>
-        <p className={`text-xs text-marketing-cream/30 ${typo.secondarySans}`}>
-          Confirmed via email link
+        <input
+          id="complete-email"
+          type="email"
+          required
+          autoComplete="email"
+          value={confirmedEmail}
+          readOnly
+          disabled={isSubmitting}
+          className={`w-full cursor-not-allowed rounded-xl border border-border bg-muted/60 px-4 py-3 text-muted-foreground outline-none disabled:opacity-50 ${typo.secondarySans}`}
+        />
+        <p className={`text-xs text-muted-foreground ${typo.secondarySans}`}>
+          This is the authenticated email for your account. You can change it
+          later in Settings.
         </p>
       </div>
 
       <div className="space-y-1.5">
         <label
           htmlFor="complete-phone"
-          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+          className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
         >
-          Phone <span className="text-marketing-cream/40">(optional)</span>
+          Phone <span className="text-muted-foreground">(optional)</span>
         </label>
         <PhoneInput
           value={phone}
@@ -199,7 +222,7 @@ export function SignupCompleteDetailsStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors duration-200 hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+        className={cn(UCAT_SIGNUP_PRIMARY_ACTION, typo.headingSans)}
       >
         {isSubmitting ? "Saving…" : "Next"}
       </button>

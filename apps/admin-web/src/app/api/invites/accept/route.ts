@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -36,6 +37,7 @@ export async function POST(request: NextRequest) {
 
     if (fetchError) {
       console.error('Error fetching staff with invite token:', fetchError);
+      captureApiError(fetchError, "/api/invites/accept");
       return NextResponse.json(
         { error: 'Failed to validate token' },
         { status: 500 }
@@ -71,6 +73,7 @@ export async function POST(request: NextRequest) {
 
     if (createAuthError) {
       console.error('Failed to create auth user:', createAuthError);
+      captureApiError(createAuthError, "/api/invites/accept");
       return NextResponse.json(
         { error: `Failed to create account: ${createAuthError.message}` },
         { status: 500 }
@@ -110,6 +113,7 @@ export async function POST(request: NextRequest) {
       console.error('Failed to update staff record:', updateError);
       // Clean up the auth user if staff update fails
       await supabaseAdmin.auth.admin.deleteUser(authData.user.id);
+      captureApiError(updateError, "/api/invites/accept");
       return NextResponse.json(
         { error: `Failed to link account: ${updateError.message}` },
         { status: 500 }
@@ -139,6 +143,7 @@ export async function POST(request: NextRequest) {
       session: sessionData,
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/invites/accept");
     console.error('Unexpected error accepting invite:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

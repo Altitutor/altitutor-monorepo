@@ -1,3 +1,5 @@
+"use client";
+
 import { createContext, useContext } from "react";
 
 import { useLagMode } from "@/features/question-engine/hooks/use-lag-mode";
@@ -8,8 +10,16 @@ const UcatLagContext = createContext<UcatLagContextValue | undefined>(
   undefined,
 );
 
-export function UcatLagProvider({ children }: { children: React.ReactNode }) {
-  const value = useLagMode();
+export function UcatLagProvider({
+  children,
+  enabled,
+  onEnabledChange,
+}: {
+  children: React.ReactNode;
+  enabled?: boolean;
+  onEnabledChange?: (enabled: boolean) => void;
+}) {
+  const value = useLagMode({ enabled, onEnabledChange });
 
   return (
     <UcatLagContext.Provider value={value}>{children}</UcatLagContext.Provider>

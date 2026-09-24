@@ -1,8 +1,10 @@
 import {
   splitStemDocumentFromDoc,
   splitStemDocumentLines,
+  splitQuestionDocumentFromDoc,
   detectStemLikeContentInQuestionPaste,
 } from '../splitStemDocument'
+import { collectLogicalLinesFromDoc } from '../core'
 
 describe('splitStemDocumentLines', () => {
   it('splits on keyword prefix and strips marker lines', () => {
@@ -109,10 +111,47 @@ describe('splitStemDocumentLines', () => {
     })
     expect(result.stems).toHaveLength(2)
     expect(result.discardedLineIndices).toEqual([])
-    expect(result.discardedLineSpans.map((s) => ({ ...s, line: lines[s.lineIndex] }))).toEqual([
+    expect(
+      result.discardedLineSpans.map((s) => ({
+        ...s,
+        line: lines[s.lineIndex],
+      }))
+    ).toEqual([
       { lineIndex: 0, start: 0, end: 9, line: 'Prompt 1 First passage.' },
       { lineIndex: 1, start: 0, end: 9, line: 'Prompt 2 Second passage.' },
     ])
+  })
+
+  it('splits on a compound keyword sequence and strips the following label', () => {
+    const lines = [
+      'Passage 1',
+      'Questions 1 - 4',
+      'First passage.',
+      'Passage 2',
+      'Questions 5 to 8',
+      'Second passage.',
+    ]
+    const result = splitStemDocumentLines(lines, {
+      mode: 'keyword',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Passage\nQuestions',
+      stemNumberIndicator: 'dot',
+    })
+
+    expect(result.stems).toEqual(['First passage.', 'Second passage.'])
+    expect(result.discardedLineIndices).toEqual([0, 1, 3, 4])
+    expect(result.splitLineIndices).toEqual([0, 3])
+  })
+
+  it('does not require optional following labels to be present in every block', () => {
+    const result = splitStemDocumentLines(['Passage 1', 'First.', 'Passage 2', 'Second.'], {
+      mode: 'keyword',
+      lineBreakThreshold: 2,
+      keywordPrefix: 'Passage\nQuestions',
+      stemNumberIndicator: 'dot',
+    })
+
+    expect(result.stems).toEqual(['First.', 'Second.'])
   })
 
   it('only splits on the configured stem number marker style', () => {
@@ -156,6 +195,109 @@ describe('splitStemDocumentFromDoc', () => {
     expect(result.stems).toHaveLength(2)
     expect(result.stems[0]).toBe('Stem one.')
     expect(result.stems[1]).toBe('Stem two.')
+  })
+})
+
+describe('splitQuestionDocumentFromDoc', () => {
+  it('splits one questions document into parser-friendly documents', () => {
+    const result = splitQuestionDocumentFromDoc(
+      {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Passage 1' }] },
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Questions 1 - 2' }],
+          },
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: '1. First question?' }],
+          },
+          { type: 'paragraph', content: [{ type: 'text', text: 'a. Yes' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'b. No' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'Passage 2' }] },
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: 'Questions 3 - 4' }],
+          },
+          {
+            type: 'paragraph',
+            content: [{ type: 'text', text: '3. Second question?' }],
+          },
+          { type: 'paragraph', content: [{ type: 'text', text: 'a. Yes' }] },
+          { type: 'paragraph', content: [{ type: 'text', text: 'b. No' }] },
+        ],
+      },
+      {
+        mode: 'keyword',
+        lineBreakThreshold: 2,
+        keywordPrefix: 'Passage\nQuestions',
+        stemNumberIndicator: 'dot',
+      }
+    )
+
+    expect(result.documents).toHaveLength(2)
+    expect(result.stems[0]).toContain('1. First question?')
+    expect(result.stems[0]).not.toContain('Questions 1 - 2')
+    expect(result.stems[1]).toContain('3. Second question?')
+    expect(collectLogicalLinesFromDoc(result.documents[0])).toEqual([
+      '1. First question?',
+      'a. Yes',
+      'b. No',
+    ])
+  })
+
+  it('preserves ordered-list question numbers nested inside pasted tables', () => {
+    const result = splitQuestionDocumentFromDoc(
+      {
+        type: 'doc',
+        content: [
+          { type: 'paragraph', content: [{ type: 'text', text: 'Passage 3' }] },
+          {
+            type: 'table',
+            content: [
+              {
+                type: 'tableRow',
+                content: [
+                  {
+                    type: 'tableCell',
+                    content: [
+                      {
+                        type: 'orderedList',
+                        attrs: { start: 9 },
+                        content: [
+                          {
+                            type: 'listItem',
+                            content: [{ type: 'paragraph' }],
+                          },
+                        ],
+                      },
+                    ],
+                  },
+                  {
+                    type: 'tableCell',
+                    content: [
+                      {
+                        type: 'paragraph',
+                        content: [{ type: 'text', text: 'Listed question?' }],
+                      },
+                    ],
+                  },
+                ],
+              },
+            ],
+          },
+        ],
+      },
+      {
+        mode: 'keyword',
+        lineBreakThreshold: 2,
+        keywordPrefix: 'Passage',
+        stemNumberIndicator: 'dot',
+      }
+    )
+
+    expect(collectLogicalLinesFromDoc(result.documents[0])).toEqual(['9. Listed question?'])
   })
 })
 

@@ -42,3 +42,91 @@ export function formatCheckInStaffRole(type: string | null | undefined): string 
   if (isCheckInReceiverRole(type)) return formatCheckInReceiverLabel();
   return null;
 }
+
+/** Map a sessions_staff / attendance type onto the CHECK_IN role enum (incl. legacy rows). */
+export function toCheckInStaffRole(type: string | null | undefined): CheckInStaffRole {
+  if (isCheckInReceiverRole(type)) return CHECK_IN_RECEIVER;
+  return CHECK_IN_HOST;
+}
+
+const CLASS_STAFF_ATTENDANCE_LABELS: Record<string, string> = {
+  MAIN_TUTOR: 'Main Tutor',
+  SECONDARY_TUTOR: 'Secondary Tutor',
+  TRIAL_TUTOR: 'Trial Tutor',
+};
+
+/**
+ * Label for tutor-log staff attendance type.
+ * Check-in sessions use Conducting/Receiving; other sessions use Main/Secondary/Trial.
+ */
+export function formatTutorLogStaffAttendanceLabel(
+  type: string | null | undefined,
+  sessionType?: string | null
+): string {
+  if (sessionType === 'CHECK_IN') {
+    return formatCheckInStaffRole(type) ?? formatCheckInHostLabel();
+  }
+  if (type === CHECK_IN_HOST) return formatCheckInHostLabel();
+  if (type === CHECK_IN_RECEIVER) return formatCheckInReceiverLabel();
+  if (type && type in CLASS_STAFF_ATTENDANCE_LABELS) {
+    return CLASS_STAFF_ATTENDANCE_LABELS[type]!;
+  }
+  return type ?? '';
+}
+
+export const CHECK_IN_STAFF_TYPE_OPTIONS = [
+  { value: CHECK_IN_HOST, label: formatCheckInHostLabel() },
+  { value: CHECK_IN_RECEIVER, label: formatCheckInReceiverLabel() },
+] as const;
+
+export const CLASS_STAFF_TYPE_OPTIONS = [
+  { value: 'MAIN_TUTOR' as const, label: 'Main Tutor' },
+  { value: 'SECONDARY_TUTOR' as const, label: 'Secondary Tutor' },
+  { value: 'TRIAL_TUTOR' as const, label: 'Trial Tutor' },
+] as const;
+
+export type CheckInUiStaffRole = 'host' | 'receiver';
+
+/** Default booking UI role: conducting when students/parents are present, otherwise receiving. */
+export function defaultCheckInStaffUiRole(hasStudentsOrParents: boolean): CheckInUiStaffRole {
+  return hasStudentsOrParents ? 'host' : 'receiver';
+}
+
+export function defaultCheckInSessionsStaffType(hasStudentsOrParents: boolean): CheckInStaffRole {
+  return hasStudentsOrParents ? CHECK_IN_HOST : CHECK_IN_RECEIVER;
+}
+
+export function checkInStaffingError(input: {
+  hostCount: number;
+  receiverCount: number;
+  hasStudentsOrParents: boolean;
+}): string | null {
+  if (input.hostCount + input.receiverCount === 0 || input.hostCount === 0) {
+    return 'At least one conducting staff member is required for a check-in';
+  }
+  if (!input.hasStudentsOrParents && input.receiverCount === 0) {
+    return 'At least one receiving staff member is required for a staff check-in';
+  }
+  return null;
+}
+
+export const CHECK_IN_LOG_FORBIDDEN_MESSAGE =
+  'Only a conducting staff member can log a check-in';
+
+/** Tutor-portal eligibility: receiving tutors do not see or submit Check-in logs. */
+export function staffMaySubmitTutorLog(
+  sessionType: string | null | undefined,
+  assignmentType: string | null | undefined
+): boolean {
+  if (sessionType !== 'CHECK_IN') return true;
+  return isCheckInHostRole(assignmentType);
+}
+
+export function filterSessionsStaffMayLog<T extends { id: string; type?: string | null }>(
+  sessions: T[],
+  assignmentTypeBySessionId: Readonly<Record<string, string | null | undefined>>
+): T[] {
+  return sessions.filter((session) =>
+    staffMaySubmitTutorLog(session.type, assignmentTypeBySessionId[session.id])
+  );
+}

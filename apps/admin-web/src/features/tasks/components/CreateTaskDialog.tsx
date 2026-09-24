@@ -5,11 +5,6 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -18,7 +13,7 @@ import {
   type RichTextEditorRef,
 } from '@altitutor/ui';
 import { Form } from '@altitutor/ui';
-import { X, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useCreateTask } from '../api/mutations';
@@ -26,14 +21,10 @@ import type { Tables } from '@altitutor/shared';
 import type { TaskFormData, TaskStatus } from '../types';
 import type { SubmitHandler } from 'react-hook-form';
 import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useNotes } from '@/shared/hooks/useNotes';
 import { TaskPropertiesPanel, TaskContentPanel } from './panels';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 import type { Resolver } from 'react-hook-form';
 
 const formSchema = z.object({
@@ -85,13 +76,8 @@ export function CreateTaskDialog({
   const [selectedIssue, setSelectedIssue] = useState<{ id: string; name: string | null } | null>(issue ?? null);
   const [selectedProject, setSelectedProject] = useState<{ id: string; name: string | null } | null>(project ?? null);
   const [createdTaskId, setCreatedTaskId] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const descriptionRef = useRef<RichTextEditorRef>(null);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Fetch notes for created task
   const { data: notesData } = useNotes('tasks', createdTaskId || '', !!createdTaskId);
@@ -183,51 +169,57 @@ export function CreateTaskDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
+    <>
+      <AdminDialogShell
+        fillHeight
+        defaultExpanded
+        open={isOpen}
+        onClose={handleClose}
+        title="Create Task"
+        contentClassName="md:max-w-4xl"
+        bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
+        headerActions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="h-4 w-4" />
               </Button>
-              <div className="flex-1">
-                <DialogTitle>Create Task</DialogTitle>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <RichTextTemplateMenuItems
-                    getEditor={() => descriptionRef.current?.getEditor() ?? null}
-                    getCurrentContent={() => form.getValues('description') ?? null}
-                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full flex">
-            <Form {...form}>
-              <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)} className="flex-1 flex min-h-0">
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <RichTextTemplateMenuItems
+                getEditor={() => descriptionRef.current?.getEditor() ?? null}
+                getCurrentContent={() => form.getValues('description') ?? null}
+                onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={handleClose}>
+              {createdTaskId ? 'Close' : 'Cancel'}
+            </Button>
+            {!createdTaskId && (
+              <Button
+                type="submit"
+                form="create-task-form"
+                disabled={createTask.isPending}
+              >
+                {createTask.isPending ? 'Creating...' : 'Create Task'}
+              </Button>
+            )}
+          </>
+        }
+      >
+        <Form {...form}>
+          <form
+            id="create-task-form"
+            onSubmit={form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)}
+            className="flex h-full min-h-0 flex-1"
+          >
+            <EntityResizablePanels
+              id="create-task-panels"
+              main={(
                 <TaskContentPanel
                   form={form}
                   taskId={createdTaskId}
@@ -241,6 +233,8 @@ export function CreateTaskDialog({
                   autoFocusTitle={true}
                   descriptionRef={descriptionRef}
                 />
+              )}
+              sidebar={(
                 <TaskPropertiesPanel
                   form={form}
                   selectedAssignee={selectedAssignee}
@@ -271,34 +265,17 @@ export function CreateTaskDialog({
                   taskStatus={defaultStatus}
                   enabled={isOpen}
                 />
-              </form>
-            </Form>
-          </div>
-        </div>
-
-        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-          <div className="flex items-center gap-2 w-full justify-end">
-            <Button type="button" variant="outline" onClick={handleClose}>
-              {createdTaskId ? 'Close' : 'Cancel'}
-            </Button>
-            {!createdTaskId && (
-              <Button
-                type="submit"
-                onClick={form.handleSubmit(onSubmit as SubmitHandler<TaskFormData>)}
-                disabled={createTask.isPending}
-              >
-                {createTask.isPending ? 'Creating...' : 'Create Task'}
-              </Button>
-            )}
-          </div>
-        </DialogFooter>
-      </DialogContent>
+              )}
+            />
+          </form>
+        </Form>
+      </AdminDialogShell>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}
         onClose={() => setIsSaveDialogOpen(false)}
         initialContent={form.getValues('description') ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
-    </Dialog>
+    </>
   );
 }

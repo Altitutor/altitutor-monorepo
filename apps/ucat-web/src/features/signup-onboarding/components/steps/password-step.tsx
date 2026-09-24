@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import type { Database } from "@altitutor/shared";
+import { ChevronLeft } from "lucide-react";
 import { PROFILE_SETUP_COMPLETE_KEY } from "@/features/auth/lib/signup-profile";
+import { UCAT_SIGNUP_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -26,9 +29,12 @@ export function SignupCompletePasswordStep({
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submitInFlightRef = useRef(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (submitInFlightRef.current) return;
+
     setError(null);
 
     if (password.length < 8) {
@@ -40,6 +46,7 @@ export function SignupCompletePasswordStep({
       return;
     }
 
+    submitInFlightRef.current = true;
     setIsSubmitting(true);
     try {
       const { error: updateError } = await supabase.auth.updateUser({
@@ -48,23 +55,29 @@ export function SignupCompletePasswordStep({
       });
       if (updateError) {
         setError(updateError.message ?? "Failed to set password.");
+        submitInFlightRef.current = false;
+        setIsSubmitting(false);
         return;
       }
 
       onComplete();
+      // Leave isSubmitting true so Next stays locked during the step transition.
     } catch {
       setError("Something went wrong. Please try again.");
-    } finally {
+      submitInFlightRef.current = false;
       setIsSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
+    <form
+      onSubmit={handleSubmit}
+      className="space-y-4 rounded-3xl bg-card/80 p-8 shadow-sm ring-1 ring-border backdrop-blur-sm"
+    >
       <div className="space-y-1.5">
         <label
           htmlFor="complete-password"
-          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+          className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
         >
           Password
         </label>
@@ -78,14 +91,14 @@ export function SignupCompletePasswordStep({
           onChange={(e) => setPassword(e.target.value)}
           placeholder="At least 8 characters"
           disabled={isSubmitting}
-          className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+          className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
         />
       </div>
 
       <div className="space-y-1.5">
         <label
           htmlFor="complete-confirm-password"
-          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
+          className={`block text-sm font-medium text-foreground ${typo.secondarySans}`}
         >
           Confirm password
         </label>
@@ -99,12 +112,14 @@ export function SignupCompletePasswordStep({
           onChange={(e) => setConfirmPassword(e.target.value)}
           placeholder="Repeat your password"
           disabled={isSubmitting}
-          className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream placeholder-marketing-cream/30 outline-none transition-[border-color,box-shadow] duration-200 focus:border-marketing-accent/50 focus:ring-2 focus:ring-marketing-accent/20 disabled:opacity-50 ${typo.secondarySans}`}
+          className={`w-full rounded-xl border border-border bg-background/70 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 outline-none transition-[border-color,box-shadow] duration-200 focus:border-primary/50 focus:ring-2 focus:ring-primary/20 disabled:opacity-50 dark:focus:border-accent/50 dark:focus:ring-accent/20 ${typo.secondarySans}`}
         />
       </div>
 
       {error ? (
-        <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
+        <p
+          className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}
+        >
           {error}
         </p>
       ) : null}
@@ -112,7 +127,7 @@ export function SignupCompletePasswordStep({
       <button
         type="submit"
         disabled={isSubmitting}
-        className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors duration-200 hover:bg-marketing-accent/90 disabled:cursor-not-allowed disabled:opacity-50 ${typo.headingSans}`}
+        className={cn(UCAT_SIGNUP_PRIMARY_ACTION, typo.headingSans)}
       >
         {isSubmitting ? "Setting up…" : "Next"}
       </button>
@@ -120,9 +135,11 @@ export function SignupCompletePasswordStep({
       <button
         type="button"
         onClick={onBack}
-        className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
+        disabled={isSubmitting}
+        className={`inline-flex w-full items-center justify-center gap-1 text-sm text-muted-foreground transition-colors hover:text-foreground disabled:cursor-not-allowed disabled:opacity-50 ${typo.secondarySans}`}
       >
-        ← Back
+        <ChevronLeft className="h-4 w-4" aria-hidden />
+        Back
       </button>
     </form>
   );

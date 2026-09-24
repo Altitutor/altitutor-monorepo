@@ -317,3 +317,16 @@ export function buildStaffAttendanceMap(
   
   return attendance;
 }
+
+export function isPlannedSessionStudent(input: StudentAttendanceInput): boolean {
+  const isUnplanned =
+    (input.sessions_students_id === null || input.sessions_students_id === undefined) &&
+    Boolean(input.is_extra);
+  return !isUnplanned;
+}
+
+/** Dim calendar sessions only when every planned student has a planned absence. */
+export function shouldDimSessionInCalendar(students: StudentAttendanceInput[]): boolean {
+  const plannedStudents = students.filter(isPlannedSessionStudent);
+  return plannedStudents.length > 0 && plannedStudents.every((student) => student.planned_absence);
+}

@@ -104,7 +104,7 @@ export function Step4MessageScreen({
     const firstSessionDate =
       selectedClass.day_of_week !== undefined && selectedClass.start_time
         ? calculateFirstSessionDate(
-            { day_of_week: selectedClass.day_of_week, start_time: selectedClass.start_time },
+            selectedClass,
             getMidnightAdelaide(new Date(enrollmentDate))
           )
         : null;

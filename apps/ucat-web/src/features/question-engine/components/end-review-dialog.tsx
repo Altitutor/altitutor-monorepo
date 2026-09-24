@@ -7,10 +7,12 @@ export function EndReviewDialog({
   incompleteCount,
   onConfirm,
   onCancel,
+  isSubmitting = false,
 }: {
   incompleteCount: number;
   onConfirm: () => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 }) {
   return (
     <QuestionEngineDialog
@@ -28,12 +30,26 @@ export function EndReviewDialog({
       }
       actions={
         <>
-          <UcatExamActionButton borders="all" onClick={onConfirm}>
+          <UcatExamActionButton
+            borders="all"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
             <span>
-              <span className="underline">Y</span>es
+              {isSubmitting ? (
+                "Submitting..."
+              ) : (
+                <>
+                  <span className="underline">Y</span>es
+                </>
+              )}
             </span>
           </UcatExamActionButton>
-          <UcatExamActionButton borders="all" onClick={onCancel}>
+          <UcatExamActionButton
+            borders="all"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
             <span>
               <span className="underline">N</span>o
             </span>
@@ -48,9 +64,11 @@ export function EndReviewDialog({
 export function SubmitSetDialog({
   onConfirm,
   onCancel,
+  isSubmitting = false,
 }: {
   onConfirm: () => void;
   onCancel: () => void;
+  isSubmitting?: boolean;
 }) {
   return (
     <QuestionEngineDialog
@@ -67,12 +85,26 @@ export function SubmitSetDialog({
       }
       actions={
         <>
-          <UcatExamActionButton borders="all" onClick={onConfirm}>
+          <UcatExamActionButton
+            borders="all"
+            onClick={onConfirm}
+            disabled={isSubmitting}
+          >
             <span>
-              <span className="underline">Y</span>es
+              {isSubmitting ? (
+                "Submitting..."
+              ) : (
+                <>
+                  <span className="underline">Y</span>es
+                </>
+              )}
             </span>
           </UcatExamActionButton>
-          <UcatExamActionButton borders="all" onClick={onCancel}>
+          <UcatExamActionButton
+            borders="all"
+            onClick={onCancel}
+            disabled={isSubmitting}
+          >
             <span>
               <span className="underline">N</span>o
             </span>

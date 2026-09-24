@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useProfile } from '@/features/profile';
-import { WelcomeModal } from './WelcomeModal';
+import { WelcomeOnboardingWizard } from './WelcomeOnboardingWizard';
 import { useWelcomeModalAcknowledge } from '../hooks/useWelcomeModalAcknowledge';
 import { useWelcomeModalContext } from '../hooks/useWelcomeModalContext';
 import { isTourCompleted, STUDENT_WELCOME_TOUR } from '../lib/onboarding';
@@ -14,23 +14,32 @@ export function WelcomeModalGate() {
   const acknowledgeMutation = useWelcomeModalAcknowledge();
   const [open, setOpen] = useState(false);
   const [forceOpen, setForceOpen] = useState(false);
+  const [isCelebrating, setIsCelebrating] = useState(false);
   const hasAcknowledgedWelcome = isTourCompleted(profile, STUDENT_WELCOME_TOUR);
   const shouldShowModal = !!profile && !hasAcknowledgedWelcome;
-  const isEligibleToShow = shouldShowModal || forceOpen;
-  const { data: contextData, isLoading: isContextLoading } = useWelcomeModalContext(open && isEligibleToShow);
+  const isEligibleToShow = shouldShowModal || forceOpen || isCelebrating;
+  const { data: contextData, isLoading: isContextLoading } = useWelcomeModalContext(
+    open && isEligibleToShow,
+  );
 
   useEffect(() => {
     if (isProfileLoading) return;
     if (!profile) return;
+    if (forceOpen || isCelebrating) return;
 
-    if (!forceOpen) {
-      setOpen(!hasAcknowledgedWelcome);
-    }
-  }, [profile, isProfileLoading, forceOpen, hasAcknowledgedWelcome]);
+    setOpen(!hasAcknowledgedWelcome);
+  }, [
+    profile,
+    isProfileLoading,
+    forceOpen,
+    isCelebrating,
+    hasAcknowledgedWelcome,
+  ]);
 
   useEffect(() => {
     const handler = () => {
       setForceOpen(true);
+      setIsCelebrating(false);
       setOpen(true);
     };
 
@@ -39,20 +48,14 @@ export function WelcomeModalGate() {
   }, []);
 
   const handleAcknowledge = async () => {
-    try {
-      await acknowledgeMutation.mutateAsync();
-      setOpen(false);
-      setForceOpen(false);
-    } catch (_error) {
-      // Error toast is handled by the mutation hook.
-    }
+    setIsCelebrating(true);
+    await acknowledgeMutation.mutateAsync();
   };
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    // Require explicit acknowledgement action to dismiss.
-    if (nextOpen) {
-      setOpen(true);
-    }
+  const handleDismiss = () => {
+    setOpen(false);
+    setForceOpen(false);
+    setIsCelebrating(false);
   };
 
   if (isProfileLoading || !profile) {
@@ -60,15 +63,17 @@ export function WelcomeModalGate() {
   }
 
   return (
-    <WelcomeModal
+    <WelcomeOnboardingWizard
       open={open}
-      onOpenChange={handleOpenChange}
       onAcknowledge={handleAcknowledge}
+      onDismiss={handleDismiss}
       isSubmitting={acknowledgeMutation.isPending}
       studentFirstName={profile?.first_name ?? null}
       subjects={contextData?.data.subjects ?? []}
       homeworkHelpTime={contextData?.data.homework_help_time ?? null}
-      defaultClassHourlyRateCents={contextData?.data.default_class_hourly_rate_cents ?? null}
+      defaultClassHourlyRateCents={
+        contextData?.data.default_class_hourly_rate_cents ?? null
+      }
       isContextLoading={isContextLoading}
     />
   );

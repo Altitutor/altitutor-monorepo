@@ -3,7 +3,7 @@
 import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
@@ -19,17 +19,25 @@ import { Button } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
-import { Badge } from '@altitutor/ui';
-import { Plus, X } from 'lucide-react';
+import { Plus } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
-import { studentBtnOutline } from '@/shared/lib/student-visual';
-import { formatSubjectDisplay, cn, getSubjectColorStyle } from '@/shared/utils';
+import { studentBtnOutline, studentCardCn } from '@/shared/lib/student-visual';
+import { formatSubjectDisplay, cn } from '@/shared/utils';
+import {
+  SENIOR_CURRICULUMS,
+  TRIAL_YEAR_LEVELS,
+  curriculumAfterYearLevelChange,
+  formatSubjectWithYearContext,
+  yearLevelNeedsCurriculumChoice,
+  type TrialCurriculum,
+  type TrialYearLevel,
+} from '../lib/trial-contact-academic';
 
 const trialContactSchema = z.object({
   student_first_name: z.string().min(1, 'First name is required').max(100),
-  student_last_name: z.string().min(1, 'Last name is required').max(100),
+  student_last_name: z.string().max(100).optional().or(z.literal('')),
   student_email: z.string().email('Invalid email address'),
-  student_phone: z.string().min(1, 'Phone number is required'),
+  student_phone: z.string().optional().or(z.literal('')),
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY'], {
     required_error: 'Please select a curriculum',
   }),
@@ -113,152 +121,110 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
   const yearLevel = form.watch('year_level');
   const watchedSubjectIds = form.watch('subject_ids');
   const selectedSubjectIds = useMemo(() => watchedSubjectIds || [], [watchedSubjectIds]);
+  const showCurriculum = yearLevelNeedsCurriculumChoice(yearLevel);
+  const canShowSubjects = Boolean(yearLevel && curriculum);
 
-  // Helper functions to determine valid options
-  const getYearLevelNum = (yearLevel: string | undefined): number | null => {
-    if (!yearLevel) return null;
-    if (yearLevel === 'Reception') return 0;
-    return parseInt(yearLevel, 10);
+  const applyYearLevelChange = (nextYearLevel: TrialYearLevel | null) => {
+    const nextCurriculum = curriculumAfterYearLevelChange(
+      nextYearLevel ?? undefined,
+      form.getValues('curriculum'),
+    );
+    form.setValue(
+      'year_level',
+      (nextYearLevel ?? undefined) as TrialContactFormValues['year_level'],
+      { shouldValidate: true, shouldDirty: true },
+    );
+    form.setValue(
+      'curriculum',
+      nextCurriculum as TrialContactFormValues['curriculum'],
+      { shouldValidate: true, shouldDirty: true },
+    );
   };
 
-  const getValidCurriculums = useCallback((yearLevel: string | undefined): Array<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'> => {
-    const yearLevelNum = getYearLevelNum(yearLevel);
-    if (yearLevelNum === null) return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
-    
-    if (yearLevelNum >= 11 && yearLevelNum <= 13) {
-      return ['SACE', 'IB'];
-    } else if (yearLevelNum >= 7 && yearLevelNum <= 10) {
-      return ['PRESACE'];
-    } else if (yearLevelNum >= 0 && yearLevelNum <= 6) {
-      return ['PRIMARY'];
-    }
-    return ['SACE', 'IB', 'PRESACE', 'PRIMARY'];
-  }, []);
-
-  const getValidYearLevels = useCallback((curriculum: 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | undefined): string[] => {
-    if (!curriculum) return ['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
-    
-    if (curriculum === 'SACE' || curriculum === 'IB') {
-      return ['11', '12', '13'];
-    } else if (curriculum === 'PRESACE') {
-      return ['7', '8', '9', '10'];
-    } else if (curriculum === 'PRIMARY') {
-      return ['Reception', '1', '2', '3', '4', '5', '6'];
-    }
-    return ['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13'];
-  }, []);
-
-  const validCurriculums = useMemo(() => getValidCurriculums(yearLevel), [getValidCurriculums, yearLevel]);
-  const validYearLevels = useMemo(() => getValidYearLevels(curriculum), [getValidYearLevels, curriculum]);
-
-  // Auto-select curriculum when year level changes
-  useEffect(() => {
-    if (!yearLevel) return;
-    
-    const yearLevelNum = getYearLevelNum(yearLevel);
-    if (yearLevelNum === null) return;
-
-    const currentCurriculum = form.getValues('curriculum');
-    
-    // If current curriculum is not valid for the selected year level, auto-select
-    if (yearLevelNum >= 11 && yearLevelNum <= 13) {
-      if (currentCurriculum !== 'SACE' && currentCurriculum !== 'IB') {
-        // Auto-select SACE as default
-        form.setValue('curriculum', 'SACE', { shouldValidate: true });
-      }
-    } else if (yearLevelNum >= 7 && yearLevelNum <= 10) {
-      if (currentCurriculum !== 'PRESACE') {
-        form.setValue('curriculum', 'PRESACE', { shouldValidate: true });
-      }
-    } else if (yearLevelNum >= 0 && yearLevelNum <= 6) {
-      if (currentCurriculum !== 'PRIMARY') {
-        form.setValue('curriculum', 'PRIMARY', { shouldValidate: true });
-      }
-    }
-  }, [yearLevel, form]);
-
-  // Auto-select year level when curriculum changes
-  useEffect(() => {
-    if (!curriculum) return;
-    
-    const currentYearLevel = form.getValues('year_level');
-    const validYearLevelsForCurriculum = getValidYearLevels(curriculum);
-    
-    // If current year level is not valid for the selected curriculum, auto-select first valid option
-    if (currentYearLevel && !validYearLevelsForCurriculum.includes(currentYearLevel)) {
-      form.setValue('year_level', validYearLevelsForCurriculum[0] as TrialContactFormValues['year_level'], { shouldValidate: true });
-    }
-  }, [curriculum, form, getValidYearLevels]);
-
-  // Subject search state
   const [subjectSearchQuery, setSubjectSearchQuery] = useState('');
+  const [otherYearPickerOpen, setOtherYearPickerOpen] = useState(false);
   const debouncedSearchQuery = useDebounce(subjectSearchQuery, 300);
-  // Cache of selected subject objects (to show subjects that don't match current filters)
   const [selectedSubjectsCache, setSelectedSubjectsCache] = useState<Map<string, Tables<'subjects'>>>(new Map());
+  const [otherYearSubjectIds, setOtherYearSubjectIds] = useState<Set<string>>(new Set());
+  const previousAcademicKeyRef = useRef(`${defaultValues?.year_level ?? ''}:${defaultValues?.curriculum ?? ''}`);
 
-  // Fetch subjects filtered by curriculum/year level (React Query)
   const { data: subjectsFilteredData, isLoading: isLoadingFiltered } = useSubjectsSearch({
     curriculum: curriculum ?? null,
     yearLevel: yearLevel ?? null,
+    enabled: canShowSubjects,
   });
-  const allSubjects = useMemo(() => subjectsFilteredData?.subjects ?? [], [subjectsFilteredData?.subjects]);
+  const yearSubjects = useMemo(() => subjectsFilteredData?.subjects ?? [], [subjectsFilteredData?.subjects]);
+  const yearSubjectIds = useMemo(() => new Set(yearSubjects.map((subject) => subject.id)), [yearSubjects]);
 
-  // Search by term when user types (ignores curriculum/year level)
   const { data: subjectsSearchData, isFetching: isSearchingByTerm } = useSubjectSearchWithTerm({
     searchTerm: debouncedSearchQuery,
-    enabled: debouncedSearchQuery.trim().length > 0,
+    enabled: otherYearPickerOpen,
+    allowEmptySearch: true,
   });
-  const subjectSearchResults = useMemo(
-    () =>
-      debouncedSearchQuery.trim().length > 0 ? (subjectsSearchData?.subjects ?? []) : allSubjects,
-    [debouncedSearchQuery, subjectsSearchData?.subjects, allSubjects]
-  );
-
-  const isSearchingSubjects = isLoadingFiltered || (isSearchingByTerm && debouncedSearchQuery.trim().length > 0);
-
-  const availableSubjects = useMemo(() => {
+  const otherYearSearchResults = useMemo(() => {
     const selectedIds = new Set(selectedSubjectIds);
-    return subjectSearchResults.filter((s) => !selectedIds.has(s.id));
-  }, [subjectSearchResults, selectedSubjectIds]);
+    return (subjectsSearchData?.subjects ?? []).filter(
+      (subject) => !yearSubjectIds.has(subject.id) && !selectedIds.has(subject.id),
+    );
+  }, [subjectsSearchData?.subjects, yearSubjectIds, selectedSubjectIds]);
 
   const selectedSubjects = useMemo(() => {
-    if (!selectedSubjectIds || selectedSubjectIds.length === 0) return [];
-    // Use cached subjects first, then try to find from current lists
-    const subjects: Tables<'subjects'>[] = [];
-    const allAvailableSubjects = [...allSubjects, ...subjectSearchResults];
-    const uniqueSubjectsMap = new Map(allAvailableSubjects.map(s => [s.id, s]));
-    
-    // Merge cache with current lists
-    const mergedMap = new Map([...selectedSubjectsCache, ...uniqueSubjectsMap]);
-    
-    selectedSubjectIds.forEach(id => {
-      const subject = mergedMap.get(id);
-      if (subject) {
-        subjects.push(subject);
+    if (selectedSubjectIds.length === 0) return [];
+    const merged = new Map<string, Tables<'subjects'>>([
+      ...selectedSubjectsCache,
+      ...yearSubjects.map((subject) => [subject.id, subject] as const),
+    ]);
+    return selectedSubjectIds
+      .map((id) => merged.get(id))
+      .filter((subject): subject is Tables<'subjects'> => Boolean(subject));
+  }, [selectedSubjectIds, selectedSubjectsCache, yearSubjects]);
+
+  const extraYearSubjects = useMemo(
+    () => selectedSubjects.filter((subject) => !yearSubjectIds.has(subject.id)),
+    [selectedSubjects, yearSubjectIds],
+  );
+
+  const setSelectedIds = (nextIds: string[]) => {
+    form.setValue('subject_ids', nextIds, { shouldValidate: true, shouldDirty: true });
+  };
+
+  const handleToggleYearSubject = (subject: Tables<'subjects'>, checked: boolean) => {
+    const currentIds = form.getValues('subject_ids') || [];
+    if (checked) {
+      if (!currentIds.includes(subject.id)) {
+        setSelectedIds([...currentIds, subject.id]);
       }
+      setSelectedSubjectsCache((prev) => new Map(prev).set(subject.id, subject));
+      return;
+    }
+    setSelectedIds(currentIds.filter((id) => id !== subject.id));
+    setOtherYearSubjectIds((prev) => {
+      if (!prev.has(subject.id)) return prev;
+      const next = new Set(prev);
+      next.delete(subject.id);
+      return next;
     });
-    
-    return subjects;
-  }, [selectedSubjectIds, allSubjects, subjectSearchResults, selectedSubjectsCache]);
+  };
 
-  const handleSelectSubject = (subject: Tables<'subjects'>) => {
-    const currentIds = form.getValues('subject_ids') || [];
-    form.setValue('subject_ids', [...currentIds, subject.id]);
-    // Cache the subject object so we can display it even if filters change
-    setSelectedSubjectsCache(prev => new Map(prev).set(subject.id, subject));
+  const handleSelectOtherYearSubject = (subject: Tables<'subjects'>) => {
+    handleToggleYearSubject(subject, true);
+    if (!yearSubjectIds.has(subject.id)) {
+      setOtherYearSubjectIds((prev) => new Set(prev).add(subject.id));
+    }
     setSubjectSearchQuery('');
+    setOtherYearPickerOpen(false);
   };
 
-  const handleRemoveSubject = (subjectId: string) => {
+  useEffect(() => {
+    const academicKey = `${yearLevel ?? ''}:${curriculum ?? ''}`;
+    if (previousAcademicKeyRef.current === academicKey) return;
+    previousAcademicKeyRef.current = academicKey;
     const currentIds = form.getValues('subject_ids') || [];
-    form.setValue('subject_ids', currentIds.filter(id => id !== subjectId));
-    // Remove from cache
-    setSelectedSubjectsCache(prev => {
-      const newMap = new Map(prev);
-      newMap.delete(subjectId);
-      return newMap;
-    });
-  };
+    const nextIds = currentIds.filter((id) => otherYearSubjectIds.has(id));
+    if (nextIds.length !== currentIds.length) {
+      form.setValue('subject_ids', nextIds, { shouldValidate: true, shouldDirty: true });
+    }
+  }, [yearLevel, curriculum, form, otherYearSubjectIds]);
 
   // Expose form to parent for programmatic submission (only when form reference changes to avoid infinite loops)
   const lastFormRef = useRef<UseFormReturn<TrialContactFormValues> | null>(null);
@@ -316,7 +282,7 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               name="student_last_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Name *</FormLabel>
+                  <FormLabel>Last Name</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -346,10 +312,10 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
               name="student_phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone *</FormLabel>
+                  <FormLabel>Phone</FormLabel>
                   <FormControl>
                     <PhoneInput
-                      value={field.value}
+                      value={field.value || ''}
                       onChange={field.onChange}
                       error={form.formState.errors.student_phone?.message}
                     />
@@ -360,39 +326,31 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
             />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <FormField
-              control={form.control}
-              name="year_level"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Year Level *</FormLabel>
-                  <FormControl>
-                    <SearchableSelect<string>
-                      items={validYearLevels}
-                      value={field.value && validYearLevels.includes(field.value) ? field.value : null}
-                      onValueChange={(item) => {
-                        if (item === null) {
-                          const currentCurriculum = form.getValues('curriculum');
-                          form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
-                          if (currentCurriculum && getValidYearLevels(currentCurriculum).length > 0) {
-                            form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
-                          }
-                        } else {
-                          field.onChange(item);
-                        }
-                      }}
-                      getItemLabel={(year) => (year === 'Reception' ? 'Reception' : `Year ${year}`)}
-                      getItemId={(year) => year}
-                      placeholder="Select year level"
-                      allowClear
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+          <FormField
+            control={form.control}
+            name="year_level"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Year Level *</FormLabel>
+                <FormControl>
+                  <SearchableSelect<TrialYearLevel>
+                    items={[...TRIAL_YEAR_LEVELS]}
+                    value={(field.value as TrialYearLevel | undefined) ?? null}
+                    onValueChange={(item) => applyYearLevelChange(item)}
+                    getItemLabel={(year) => (year === 'Reception' ? 'Reception' : `Year ${year}`)}
+                    getItemId={(year) => year}
+                    placeholder="Select year level"
+                    allowClear
+                    fullWidth
+                    contentWidth="var(--radix-popover-trigger-width)"
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
 
+          {showCurriculum && (
             <FormField
               control={form.control}
               name="curriculum"
@@ -400,107 +358,97 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
                 <FormItem>
                   <FormLabel>Curriculum *</FormLabel>
                   <FormControl>
-                    <SearchableSelect<'SACE' | 'IB' | 'PRESACE' | 'PRIMARY'>
-                      items={validCurriculums}
-                      value={field.value ?? null}
+                    <SearchableSelect<TrialCurriculum>
+                      items={[...SENIOR_CURRICULUMS]}
+                      value={field.value === 'SACE' || field.value === 'IB' ? field.value : null}
                       onValueChange={(item) => {
-                        if (item === null) {
-                          const currentYearLevel = form.getValues('year_level');
-                          form.setValue('curriculum', undefined as unknown as TrialContactFormValues['curriculum'], { shouldValidate: true });
-                          if (currentYearLevel) {
-                            const validCurriculumsForYear = getValidCurriculums(currentYearLevel);
-                            if (validCurriculumsForYear.length > 0 && validCurriculumsForYear.length < 4) {
-                              form.setValue('year_level', undefined as unknown as TrialContactFormValues['year_level'], { shouldValidate: true });
-                            }
-                          }
-                        } else {
-                          field.onChange(item);
-                        }
+                        field.onChange(item ?? undefined);
                       }}
                       getItemLabel={(curr) => curr}
                       getItemId={(curr) => curr}
                       placeholder="Select curriculum"
                       allowClear
+                      fullWidth
+                      contentWidth="var(--radix-popover-trigger-width)"
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-          </div>
+          )}
 
-          {/* Subject Selector */}
-          <FormField
-            control={form.control}
-            name="subject_ids"
-            render={() => (
-              <FormItem>
-                <FormLabel>Subjects *</FormLabel>
-                <div className="space-y-2">
-                {selectedSubjects.length > 0 && (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedSubjects.map((subject) => {
-                      const { style, textColorClass } = getSubjectColorStyle(subject);
-                      const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                      return (
-                        <Badge
-                          key={subject.id}
-                          className={cn(
-                            defaultClass || `${textColorClass} cursor-pointer hover:opacity-80 flex items-center gap-1`,
-                            !defaultClass && 'border-0'
-                          )}
-                          style={style.backgroundColor ? style : undefined}
+          {canShowSubjects && (
+            <FormField
+              control={form.control}
+              name="subject_ids"
+              render={() => (
+                <FormItem>
+                  <FormLabel>Subjects *</FormLabel>
+                  <div className="space-y-2">
+                    {isLoadingFiltered ? (
+                      <p className="text-sm text-muted-foreground">Loading subjects...</p>
+                    ) : yearSubjects.length === 0 && extraYearSubjects.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No subjects found for this year level.</p>
+                    ) : (
+                      <>
+                        {yearSubjects.map((subject) => (
+                          <SubjectChoiceCard
+                            key={subject.id}
+                            label={formatSubjectDisplay(subject)}
+                            checked={selectedSubjectIds.includes(subject.id)}
+                            onCheckedChange={(checked) => handleToggleYearSubject(subject, checked)}
+                          />
+                        ))}
+                        {extraYearSubjects.map((subject) => (
+                          <SubjectChoiceCard
+                            key={subject.id}
+                            label={formatSubjectWithYearContext(subject)}
+                            checked
+                            onCheckedChange={(checked) => handleToggleYearSubject(subject, checked)}
+                          />
+                        ))}
+                      </>
+                    )}
+                    <SearchableSelect<Tables<'subjects'>>
+                      items={otherYearSearchResults}
+                      value={null}
+                      onValueChange={(item) => item && handleSelectOtherYearSubject(item)}
+                      getItemLabel={formatSubjectWithYearContext}
+                      getItemId={(s) => s.id}
+                      placeholder="Select a subject from another year level"
+                      searchPlaceholder="Search subjects..."
+                      emptyMessage={
+                        subjectSearchQuery.trim()
+                          ? 'No subjects match your search'
+                          : 'No subjects from other year levels found'
+                      }
+                      loading={isSearchingByTerm}
+                      onSearchChange={(query) => setSubjectSearchQuery(query)}
+                      open={otherYearPickerOpen}
+                      onOpenChange={(open) => {
+                        setOtherYearPickerOpen(open);
+                        if (!open) setSubjectSearchQuery('');
+                      }}
+                      trigger={
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className={cn(studentBtnOutline, 'flex items-center gap-2')}
                         >
-                          {formatSubjectDisplay(subject)}
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveSubject(subject.id);
-                            }}
-                            className="ml-1 hover:text-destructive"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </Badge>
-                      );
-                    })}
+                          <Plus className="h-4 w-4" />
+                          <span>select a subject from another year level</span>
+                        </Button>
+                      }
+                      contentWidth="400px"
+                    />
                   </div>
-                )}
-                <SearchableSelect<Tables<'subjects'>>
-                  items={availableSubjects}
-                  value={null}
-                  onValueChange={(item) => item && handleSelectSubject(item)}
-                  getItemLabel={formatSubjectDisplay}
-                  getItemId={(s) => s.id}
-                  placeholder="Add subject"
-                  searchPlaceholder="Search subjects..."
-                  emptyMessage={
-                    subjectSearchQuery
-                      ? 'No subjects match your search'
-                      : 'No available subjects found'
-                  }
-                  loading={isSearchingSubjects}
-                  onSearchChange={(query) => setSubjectSearchQuery(query)}
-                  onOpenChange={(open) => !open && setSubjectSearchQuery('')}
-                  trigger={
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className={cn(studentBtnOutline, 'flex items-center gap-2')}
-                    >
-                      <Plus className="h-4 w-4" />
-                      <span>Add Subject</span>
-                    </Button>
-                  }
-                  contentWidth="400px"
-                />
-                </div>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          )}
         </div>
 
         {/* Parent Details */}
@@ -599,6 +547,31 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
         {/* Submit button is handled by BookingFlow */}
       </form>
     </Form>
+  );
+}
+
+function SubjectChoiceCard({
+  label,
+  checked,
+  onCheckedChange,
+}: {
+  label: string;
+  checked: boolean;
+  onCheckedChange: (checked: boolean) => void;
+}) {
+  return (
+    <label
+      className={cn(
+        studentCardCn('flex cursor-pointer items-center gap-3 p-3'),
+        checked && 'ring-2 ring-foreground/15',
+      )}
+    >
+      <Checkbox
+        checked={checked}
+        onCheckedChange={(value) => onCheckedChange(value === true)}
+      />
+      <span className="min-w-0 flex-1 text-sm font-medium">{label}</span>
+    </label>
   );
 }
 

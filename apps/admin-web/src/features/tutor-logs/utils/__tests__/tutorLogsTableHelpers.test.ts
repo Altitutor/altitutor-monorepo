@@ -8,6 +8,8 @@ import {
   formatSessionDate,
   extractCreatedByStaffIds,
   filterTutorLogsByStaff,
+  filterTutorLogsBySessionMeta,
+  getTutorLogSessionSubjectId,
   paginateTutorLogs,
 } from '../tutorLogsTableHelpers';
 import type { Tables } from '@altitutor/shared';
@@ -23,11 +25,23 @@ describe('tutorLogsTableHelpers', () => {
         start_time: '14:00:00',
         end_time: '16:00:00',
         status: 'ACTIVE',
+        billing_type: 'CLASS',
+      billing_type_effective_from: '2026-01-01',
+      session_type: 'CLASS',
         created_at: null,
         created_by: null,
         room: null,
-        session_end_date: null,
-        session_start_date: null,
+        session_end_date: '2026-12-31',
+        cohort_label: null,
+        next_session_start_at: null,
+        schedule_summary_long: null,
+        schedule_summary_short: null,
+        schedule_timezone: 'Australia/Adelaide',
+        schedule_weekdays: [],
+        schedule_rows: [],
+        schedule_frequency_weeks: null,
+        schedule_anchor_date: null,
+        session_start_date: '2026-01-01',
         updated_at: null,
         short_name: null,
         long_name: null,
@@ -174,10 +188,14 @@ describe('tutorLogsTableHelpers', () => {
 
   describe('filterTutorLogsByStaff', () => {
     const tutorLogs = [
-      { id: 'log-1', created_by: 'staff-1' },
-      { id: 'log-2', created_by: 'staff-2' },
-      { id: 'log-3', created_by: 'staff-3' },
-    ] as Array<{ id: string; created_by: string | null }>;
+      { id: 'log-1', created_by: 'staff-1', logged_for_staff_id: 'staff-5' },
+      { id: 'log-2', created_by: 'staff-2', logged_for_staff_id: 'staff-6' },
+      { id: 'log-3', created_by: 'staff-3', logged_for_staff_id: 'staff-7' },
+    ] as Array<{
+      id: string;
+      created_by: string | null;
+      logged_for_staff_id: string | null;
+    }>;
 
     const staffAttendance: Record<string, Array<{ staff_id: string }>> = {
       'log-2': [{ staff_id: 'staff-4' }],
@@ -208,6 +226,15 @@ describe('tutorLogsTableHelpers', () => {
       expect(result.map((r) => r.id)).toContain('log-3');
     });
 
+    it('should filter logs by operational attribution when multiple staff filters', () => {
+      const result = filterTutorLogsByStaff(
+        tutorLogs,
+        ['staff-5', 'staff-999'],
+        staffAttendance
+      );
+      expect(result.map((row) => row.id)).toEqual(['log-1']);
+    });
+
     it('should return empty array when no logs match filters', () => {
       // When staffFilters.length > 1, client-side filtering is applied
       // Use 2 filters to trigger client-side filtering
@@ -219,6 +246,108 @@ describe('tutorLogsTableHelpers', () => {
       // When staffFilters.length <= 1, server-side filtering handles it
       const result = filterTutorLogsByStaff(tutorLogs, ['staff-999'], staffAttendance);
       expect(result).toHaveLength(3); // Returns all logs, server handles filtering
+    });
+  });
+
+  describe('filterTutorLogsBySessionMeta', () => {
+    const tutorLogs = [
+      { id: 'log-1', session_id: 'session-1' },
+      { id: 'log-2', session_id: 'session-2' },
+      { id: 'log-3', session_id: 'session-3' },
+    ];
+
+    const sessions: Record<string, Tables<'sessions'>> = {
+      'session-1': {
+        id: 'session-1',
+        type: 'CLASS',
+        class_id: 'class-1',
+        subject_id: null,
+      } as Tables<'sessions'>,
+      'session-2': {
+        id: 'session-2',
+        type: 'TRIAL_SESSION',
+        class_id: null,
+        subject_id: 'subject-2',
+      } as Tables<'sessions'>,
+      'session-3': {
+        id: 'session-3',
+        type: 'ADMIN_SHIFT',
+        class_id: null,
+        subject_id: null,
+      } as Tables<'sessions'>,
+    };
+
+    const classesById: Record<string, Tables<'classes'>> = {
+      'class-1': {
+        id: 'class-1',
+        subject_id: 'subject-1',
+      } as Tables<'classes'>,
+    };
+
+    it('should return all logs when no session meta filters are set', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: [],
+        classFilters: [],
+      });
+      expect(result).toHaveLength(3);
+    });
+
+    it('should filter by session type', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: ['CLASS'],
+        subjectFilters: [],
+        classFilters: [],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-1']);
+    });
+
+    it('should filter by class', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: [],
+        classFilters: ['class-1'],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-1']);
+    });
+
+    it('should filter by subject via class subject_id', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: ['subject-1'],
+        classFilters: [],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-1']);
+    });
+
+    it('should filter by subject via session subject_id', () => {
+      const result = filterTutorLogsBySessionMeta(tutorLogs, sessions, classesById, {
+        typeFilters: [],
+        subjectFilters: ['subject-2'],
+        classFilters: [],
+      });
+      expect(result.map((r) => r.id)).toEqual(['log-2']);
+    });
+  });
+
+  describe('getTutorLogSessionSubjectId', () => {
+    const classesById: Record<string, Tables<'classes'>> = {
+      'class-1': { id: 'class-1', subject_id: 'subject-1' } as Tables<'classes'>,
+    };
+
+    it('should prefer session.subject_id', () => {
+      const session = { subject_id: 'subject-direct', class_id: 'class-1' } as Tables<'sessions'>;
+      expect(getTutorLogSessionSubjectId(session, classesById)).toBe('subject-direct');
+    });
+
+    it('should fall back to class subject_id', () => {
+      const session = { subject_id: null, class_id: 'class-1' } as Tables<'sessions'>;
+      expect(getTutorLogSessionSubjectId(session, classesById)).toBe('subject-1');
+    });
+
+    it('should return null when no subject can be resolved', () => {
+      const session = { subject_id: null, class_id: null } as Tables<'sessions'>;
+      expect(getTutorLogSessionSubjectId(session, classesById)).toBeNull();
     });
   });
 

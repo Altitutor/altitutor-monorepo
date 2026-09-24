@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
@@ -15,8 +15,7 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  FeedbackDialog,
-  type FeedbackKind,
+  ContactDialog,
 } from '@altitutor/ui';
 import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
 import { useProfile } from '@/features/profile';
@@ -27,6 +26,7 @@ import { STUDENT_SHELL_PAD_X } from '@/shared/lib/student-layout';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
 import { shouldHideNavbar } from '@/shared/lib/shell-layout';
+import { openUserFeedback } from '@/lib/sentry/open-user-feedback';
 
 export function Navbar() {
   const router = useRouter();
@@ -36,12 +36,20 @@ export function Navbar() {
   const { toggle: toggleMobileMenu, isOpen: isMobileMenuOpen } = useMobileMenu();
   const { data: profile } = useProfile();
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [formResponseSubmitted, setFormResponseSubmitted] = useState(false);
+
+  useEffect(() => {
+    setFormResponseSubmitted(false);
+    const showNavbar = () => setFormResponseSubmitted(true);
+    window.addEventListener('altitutor:form-submitted', showNavbar);
+    return () => window.removeEventListener('altitutor:form-submitted', showNavbar);
+  }, [pathname]);
 
   // Subscribe to notifications real-time updates
   useNotificationsRealtime(profile?.id ?? '');
 
-  if (shouldHideNavbar(pathname)) {
+  if (shouldHideNavbar(pathname) && !formResponseSubmitted) {
     return null;
   }
 
@@ -137,33 +145,37 @@ export function Navbar() {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
                 <DropdownMenuItem asChild>
-                  <Link href="/dashboard" className="flex items-center cursor-pointer">
+                  <Link href="/dashboard" prefetch={false} className="flex items-center cursor-pointer">
                     <LayoutDashboard className="mr-2 h-4 w-4" />
                     Dashboard
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings/profile" className="flex items-center cursor-pointer">
+                  <Link
+                    href="/settings/profile"
+                    prefetch={false}
+                    className="flex items-center cursor-pointer"
+                  >
                     <User className="mr-2 h-4 w-4" />
                     My Profile
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild>
-                  <Link href="/settings" className="flex items-center cursor-pointer">
+                  <Link href="/settings" prefetch={false} className="flex items-center cursor-pointer">
                     <Settings className="mr-2 h-4 w-4" />
                     Settings
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  onSelect={() => setFeedbackKind('contact')}
+                  onSelect={() => setContactOpen(true)}
                   className="cursor-pointer"
                 >
                   <LifeBuoy className="mr-2 h-4 w-4" />
                   Contact us
                 </DropdownMenuItem>
                 <DropdownMenuItem
-                  onSelect={() => setFeedbackKind('bug')}
+                  onSelect={() => void openUserFeedback()}
                   className="cursor-pointer"
                 >
                   <Bug className="mr-2 h-4 w-4" />
@@ -193,19 +205,16 @@ export function Navbar() {
         onOpenChange={setShowLogoutModal}
         onConfirm={handleLogout}
       />
-      {feedbackKind ? (
-        <FeedbackDialog
-          open
-          onOpenChange={(open) => !open && setFeedbackKind(null)}
-          kind={feedbackKind}
-          appName="student-web"
-          user={{
-            id: user?.id,
-            email: user?.email,
-            name: getFullName(),
-          }}
-        />
-      ) : null}
+      <ContactDialog
+        open={contactOpen}
+        onOpenChange={setContactOpen}
+        appName="student-web"
+        user={{
+          id: user?.id,
+          email: user?.email,
+          name: getFullName(),
+        }}
+      />
     </nav>
   );
 } 

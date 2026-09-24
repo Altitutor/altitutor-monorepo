@@ -25,10 +25,18 @@ BEGIN
     -- ========================
     -- TUTOR_LOGS
     -- ========================
-    INSERT INTO public.tutor_logs (id, session_id, created_by)
+    INSERT INTO public.tutor_logs (id, session_id, created_by, logged_for_staff_id)
     VALUES
-      (gen_random_uuid(), session1_id, '00000000-0000-0000-0000-000000000010'),
-      (gen_random_uuid(), session2_id, '00000000-0000-0000-0000-000000000011')
+      (
+        gen_random_uuid(), session1_id,
+        '00000000-0000-0000-0000-000000000010',
+        '00000000-0000-0000-0000-000000000010'
+      ),
+      (
+        gen_random_uuid(), session2_id,
+        '00000000-0000-0000-0000-000000000011',
+        '00000000-0000-0000-0000-000000000011'
+      )
     ON CONFLICT DO NOTHING;
 
     -- Get the tutor log IDs we just created
@@ -130,4 +138,3 @@ BEGIN
   END IF; -- End of sessions existence check
 
 END $$;
-

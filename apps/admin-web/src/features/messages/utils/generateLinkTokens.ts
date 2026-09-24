@@ -200,7 +200,7 @@ export async function batchGenerateLinkTokens(
     // Batch fetch existing tokens and student data
     const { data: students } = await (supabase as SupabaseClient)
       .from('students')
-      .select('id, invite_token, user_id, email, status')
+      .select('id, invite_token, registration_public_token, user_id, email, status')
       .in('id', studentIds);
 
     if (!students) return tokensMap;
@@ -209,6 +209,7 @@ export async function batchGenerateLinkTokens(
     for (const student of students) {
       tokensMap[student.id] = {
         inviteToken: student.invite_token || undefined,
+        registrationToken: student.registration_public_token || undefined,
       };
     }
 

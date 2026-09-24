@@ -1,15 +1,10 @@
-import { Suspense } from "react";
-import { MockAttemptDetailPage } from "@/features/progress";
-import { AttemptReviewPageFallback } from "@/features/progress/components/attempt-review-page-fallback";
+import { redirect } from "next/navigation";
 
 type PageProps = {
-  params: { id: string };
+  params: Promise<{ id: string }>;
 };
 
-export default function Page({ params }: PageProps) {
-  return (
-    <Suspense fallback={<AttemptReviewPageFallback />}>
-      <MockAttemptDetailPage mockAttemptId={params.id} />
-    </Suspense>
-  );
+export default async function Page({ params }: PageProps) {
+  const { id } = await params;
+  redirect(`/progress/mocks/mock-attempts/${id}`);
 }

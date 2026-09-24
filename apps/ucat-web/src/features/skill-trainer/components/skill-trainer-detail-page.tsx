@@ -1,126 +1,117 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { trainerKeyToSlug } from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { UcatPageHeader } from "@/features/layout";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
-import { SkillTrainerLeaderboard } from "@/features/skill-trainer/components/skill-trainer-leaderboard";
+import { SkillTrainerDemoCard } from "@/features/skill-trainer/components/skill-trainer-demo-card";
 import { useSkillTrainers } from "@/features/skill-trainer/hooks/use-skill-trainers";
-import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
-import { SKILL_TRAINER_INSTRUCTIONS } from "@/features/skill-trainer/lib/instructions";
-import {
-  UCAT_PRIMARY_ACTION_BUTTON,
-  UCAT_SURFACE_CARD,
-  UCAT_SURFACE_MOTION,
-} from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
-export function SkillTrainerDetailPage({ trainerKey }: { trainerKey: UcatSkillTrainerKey }) {
+export function SkillTrainerDetailPage({
+  trainerKey,
+}: {
+  trainerKey: UcatSkillTrainerKey;
+}) {
   const router = useRouter();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { data: trainers } = useSkillTrainers();
-  const { data: quota } = useQuotaUsage();
+  const { data: quota, isLoading: quotaLoading } = useQuotaUsage();
   const [starting, setStarting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
 
   const trainer = trainers?.find((t) => t.key === trainerKey);
-  const instructions = SKILL_TRAINER_INSTRUCTIONS[trainerKey];
+  const playHref = `/skill-trainer/${trainerKeyToSlug(trainerKey)}/play`;
 
-  const skillTrainerQuota = quota?.areas.find((a) => a.area === "skill_trainer");
+  useEffect(() => {
+    router.prefetch(playHref);
+  }, [playHref, router]);
 
-  async function handleStart() {
+  const skillTrainerQuota = quota?.areas.find(
+    (a) => a.area === "skill_trainer",
+  );
+  const quotaDialogOptions = {
+    dismissAction: { label: "Dismiss", variant: "dismiss" as const },
+  };
+
+  function handleStart() {
     if (
       skillTrainerQuota &&
       (skillTrainerQuota.atLimit || skillTrainerQuota.disabled)
     ) {
-      openQuotaLimit({
-        code: "QUOTA_EXCEEDED",
-        area: "skill_trainer",
-        used: skillTrainerQuota.used,
-        limit: skillTrainerQuota.limit,
-        period: skillTrainerQuota.period,
-      });
+      openQuotaLimit(
+        {
+          code: "QUOTA_EXCEEDED",
+          area: "skill_trainer",
+          used: skillTrainerQuota.used,
+          limit: skillTrainerQuota.limit,
+          period: skillTrainerQuota.period,
+        },
+        quotaDialogOptions,
+      );
       return;
     }
 
     setStarting(true);
-    setError(null);
-    try {
-      const state = await skillTrainerApi.startAttempt(trainerKey);
-      const activeSlug = trainerKeyToSlug(state.attempt.config_snapshot.trainer_key);
-      router.push(`/skill-trainer/${activeSlug}/play?attemptId=${state.attempt.id}`);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : "Could not start";
-      if (message.includes("QUOTA") || message.includes("quota")) {
-        if (skillTrainerQuota) {
-          openQuotaLimit({
-            code: "QUOTA_EXCEEDED",
-            area: "skill_trainer",
-            used: skillTrainerQuota.used,
-            limit: skillTrainerQuota.limit,
-            period: skillTrainerQuota.period,
-          });
-        }
-      } else {
-        setError(message);
-      }
-    } finally {
-      setStarting(false);
-    }
+    router.push(playHref);
   }
 
   if (!trainer && trainers) {
     return <p className="text-sm text-muted-foreground">Trainer not found.</p>;
   }
 
+  const startLabel = starting
+    ? "Starting…"
+    : quotaLoading
+      ? "Loading…"
+      : "Start skill trainer";
+
   return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={trainer?.name ?? "Skill trainer"}
-        description={trainer?.description ?? "Review how this trainer works before starting."}
-        backHref="/skill-trainer"
-        backLabel="Back to skill trainer"
-        breadcrumbOverrides={{ 1: trainer?.name ?? trainerKey }}
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={trainer?.name ?? "Skill trainer"}
+          description={
+            trainer?.description ?? "Timed drill to sharpen this UCAT skill."
+          }
+          backHref="/skill-trainer"
+          backLabel="Back to skill trainer"
+          breadcrumbOverrides={{ 1: trainer?.name ?? trainerKey }}
+        />
+      </motion.div>
 
-      <section
-        className={cn(
-          "space-y-3 rounded-ucatShell p-4 text-card-foreground",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
+      <motion.div
+        data-tour="skill-trainer-tutorial"
+        variants={itemVariants}
       >
-        <h2 className="text-lg font-semibold">How to play</h2>
-        <ol className="list-decimal space-y-2 pl-5 text-sm text-muted-foreground">
-          {instructions.map((step) => (
-            <li key={step}>{step}</li>
-          ))}
-        </ol>
-      </section>
+        <SkillTrainerDemoCard trainerKey={trainerKey} />
+      </motion.div>
 
-      <section aria-labelledby="leaderboard-heading" className="space-y-4">
-        <h2 id="leaderboard-heading" className="text-2xl font-semibold tracking-tight">
-          Leaderboard
-        </h2>
-        <SkillTrainerLeaderboard trainerKey={trainerKey} />
-      </section>
-
-      <div className="flex justify-end">
+      <motion.div
+        variants={itemVariants}
+        className="mt-4 flex min-h-10 items-center justify-end"
+      >
         <Button
+          data-tour="skill-trainer-start"
           type="button"
           className={UCAT_PRIMARY_ACTION_BUTTON}
-          disabled={starting}
-          onClick={() => void handleStart()}
+          disabled={starting || quotaLoading}
+          onClick={handleStart}
         >
-          {starting ? "Starting…" : "Start"}
+          {startLabel}
         </Button>
-      </div>
-
-      {error ? <p className="text-sm text-destructive">{error}</p> : null}
-    </div>
+      </motion.div>
+    </motion.div>
   );
 }

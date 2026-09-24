@@ -1,8 +1,17 @@
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
+import { fillInvoiceLinesPagination, retrieveInvoiceWithLines } from './invoice-retrieval.ts';
+import { getInvoiceSubscriptionId } from './invoice-subscription.ts';
+export { fillInvoiceLinesPagination, retrieveInvoiceWithLines } from './invoice-retrieval.ts';
 
 export type SyncSubscriptionInvoiceResult =
-  | { ok: true; dbInvoiceId: string; inserted: boolean }
+  | {
+    ok: true;
+    dbInvoiceId: string;
+    inserted: boolean;
+    studentId: string;
+    stripeSubscriptionId: string;
+  }
   | { ok: false; skipped: true; reason: string }
   | { ok: false; skipped?: false; reason: string; message?: string };
 
@@ -14,9 +23,7 @@ export function isSessionInvoiceMetadata(
 }
 
 export function getStripeSubscriptionId(invoice: Stripe.Invoice): string | null {
-  const sub = invoice.subscription;
-  if (!sub) return null;
-  return typeof sub === 'string' ? sub : sub.id;
+  return getInvoiceSubscriptionId(invoice);
 }
 
 function invoiceDateYmd(inv: Stripe.Invoice): string {
@@ -25,50 +32,6 @@ function invoiceDateYmd(inv: Stripe.Invoice): string {
     inv.status_transitions?.paid_at ??
     inv.created;
   return new Date(ts * 1000).toISOString().slice(0, 10);
-}
-
-/**
- * Stripe invoice.line lists may paginate; merge all pages into `invoice.lines.data`.
- */
-export async function fillInvoiceLinesPagination(
-  stripe: Stripe,
-  inv: Stripe.Invoice,
-): Promise<Stripe.Invoice> {
-  const lines = inv.lines;
-  if (!lines?.has_more) {
-    return inv;
-  }
-
-  const all: Stripe.InvoiceLineItem[] = [...(lines.data ?? [])];
-  let startingAfter = all[all.length - 1]?.id;
-  while (startingAfter) {
-    const page = await stripe.invoices.listLineItems(inv.id, {
-      starting_after: startingAfter,
-      limit: 100,
-    });
-    all.push(...page.data);
-    if (!page.has_more) break;
-    startingAfter = page.data[page.data.length - 1]?.id;
-  }
-
-  return {
-    ...inv,
-    lines: {
-      ...lines,
-      data: all,
-      has_more: false,
-    },
-  };
-}
-
-export async function retrieveInvoiceWithLines(
-  stripe: Stripe,
-  invoiceId: string,
-  extraExpand: string[] = [],
-): Promise<Stripe.Invoice> {
-  const expand = [...new Set(['lines.data', 'customer', 'subscription', ...extraExpand])];
-  const inv = await stripe.invoices.retrieve(invoiceId, { expand });
-  return fillInvoiceLinesPagination(stripe, inv);
 }
 
 /**
@@ -126,7 +89,7 @@ export async function syncSubscriptionInvoiceFromStripe(
   }
 
   const { data: billing, error: billErr } = await supabase
-    .from('students_billing')
+    .from('vinternal_student_billing_customers')
     .select('student_id')
     .eq('stripe_customer_id', customerId)
     .maybeSingle();
@@ -295,5 +258,11 @@ export async function syncSubscriptionInvoiceFromStripe(
     }
   }
 
-  return { ok: true, dbInvoiceId, inserted };
+  return {
+    ok: true,
+    dbInvoiceId,
+    inserted,
+    studentId,
+    stripeSubscriptionId: subscriptionId,
+  };
 }

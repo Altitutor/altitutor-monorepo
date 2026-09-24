@@ -1,5 +1,6 @@
 'use client'
 
+import React from 'react'
 import { cn } from '@/shared/utils'
 import { BulkImportRichTextPreview } from '@/features/ucat/questions/components/bulk-import/BulkImportRichTextPreview'
 import type { QuestionAnswerPreview } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
@@ -41,7 +42,7 @@ export function CollapsibleAnswerQuestionCard({
     questionTextDoc,
     options,
     answerLetter,
-    syllogismPattern,
+    placementPattern,
     explanationPreviewDoc,
     hasExplanation,
     isParsed,
@@ -54,8 +55,8 @@ export function CollapsibleAnswerQuestionCard({
   const answerLabel = isParsed
     ? answerLetter != null
       ? answerLetter
-      : syllogismPattern != null
-        ? syllogismPattern
+      : placementPattern != null
+        ? placementPattern
         : '—'
     : null
 
@@ -121,9 +122,13 @@ export function CollapsibleAnswerQuestionCard({
         <ul className="mt-2 space-y-1.5 border-t border-border/60 pt-2">
           {options.map((option) => (
             <li key={option.label} className="leading-relaxed">
-              <span className="font-medium text-muted-foreground">
-                {formatOptionLabel(option.label)})
-              </span>{' '}
+              {preview.row.isPlacement ? (
+                <span className="mr-2 font-medium text-muted-foreground">•</span>
+              ) : (
+                <span className="font-medium text-muted-foreground">
+                  {formatOptionLabel(option.label)})
+                </span>
+              )}{' '}
               <BulkImportRichTextPreview
                 json={option.answerTextDoc}
                 emptyFallback={

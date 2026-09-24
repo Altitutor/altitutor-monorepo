@@ -1,12 +1,12 @@
 'use client';
 
 import {
-  Button,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
@@ -50,13 +50,14 @@ export function TaskStatusField({ form, taskStatus }: TaskStatusFieldProps) {
                 }}
                 getItemLabel={(opt) => opt.label}
                 getItemId={(opt) => opt.value}
+                fullWidth
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal">
+                  <SearchableSelectFieldTrigger>
                     <StatusIcon className={cn('h-4 w-4', iconColor)} />
                     <span className={cn(!field.value && 'text-muted-foreground')}>
                       {displayValue}
                     </span>
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </FormControl>

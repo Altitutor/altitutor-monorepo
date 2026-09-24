@@ -85,7 +85,7 @@ export function useUnloggedSessionsForStaff(staffId: string | null | undefined) 
         );
 
         return {
-          sessions: unloggedSessions as Tables<'sessions'>[],
+          sessions: unloggedSessions,
           sessionStudents: rpcData.sessionStudents || {},
           sessionStaff: rpcData.sessionStaff || {},
           classesById: rpcData.classesById || {},

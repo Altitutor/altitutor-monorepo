@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { jsonUcatDeleteErrorResponse, jsonUcatVisibilityErrorResponse } from '@/features/ucat/shared/server/delete-blocked-response'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
+import { syncUcatCatalogAiReviewStatusesBestEffort } from '@/features/ucat/questions/server/ai-assessment/persist-catalog-status'
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 
 export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
   const access = await requireUcatTutor()
@@ -9,16 +13,47 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     const body = await request.json()
     const client = access.userClient as unknown as UcatTutorSupabaseClient
 
-    const { data, error } = await client.rpc('tutor_ucat_upsert_question_stem_bundle', {
+    const rpcName = typeof body.expectedUpdatedAt === 'string'
+      ? 'tutor_ucat_update_question_stem_bundle_revisioned'
+      : 'tutor_ucat_upsert_question_stem_bundle'
+    const { data, error } = await client.rpc(rpcName, {
       p_stem_id: params.id,
+      ...(typeof body.expectedUpdatedAt === 'string'
+        ? { p_expected_updated_at: body.expectedUpdatedAt }
+        : {}),
       p_section_id: body.sectionId,
       p_question_stem_category_id: body.categoryId ?? null,
       p_stem_text: body.stemText ?? {},
-      p_is_private: !!body.isPrivate,
+      p_access_scope: body.accessScope ?? 'public',
       p_questions: body.questions ?? [],
+      p_source_channel: body.sourceChannel ?? null,
+      p_tutor_source_note: body.tutorSourceNote ?? null,
     })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+    if (error) {
+      if (error.message.includes('question_stem_stale_revision')) {
+        return NextResponse.json(
+          { error: 'This question changed after you opened it. Reopen the editor to review the saved changes before saving again.' },
+          { status: 409 },
+        )
+      }
+      return jsonUcatVisibilityErrorResponse(client, {
+        contentType: 'stem',
+        contentId: params.id,
+        accessScope: body.accessScope === 'private' ? 'private' : 'public',
+        errorMessage: error.message,
+      })
+    }
+    if (body.requestAssessment !== false) {
+      await enqueueUcatQuestionAssessmentPreparation({
+        stemIds: [params.id],
+        triggerKind: 'content_change',
+      }).catch((assessmentError) => {
+        console.error('Could not queue supplementary UCAT AI assessment preparation after stem save', assessmentError)
+      })
+    } else {
+      await syncUcatCatalogAiReviewStatusesBestEffort(getServiceRoleClient(), [params.id])
+    }
     return NextResponse.json({ id: data })
   } catch (error) {
     return NextResponse.json({ error: 'Invalid request payload', details: String(error) }, { status: 400 })
@@ -32,6 +67,12 @@ export async function DELETE(_: NextRequest, { params }: { params: { id: string 
   const client = access.userClient as unknown as UcatTutorSupabaseClient
   const { error } = await client.rpc('tutor_ucat_delete_question_stem', { p_stem_id: params.id })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 400 })
+  if (error) {
+    return jsonUcatDeleteErrorResponse(client, {
+      contentType: 'stem',
+      contentId: params.id,
+      errorMessage: error.message,
+    })
+  }
   return NextResponse.json({ ok: true })
 }

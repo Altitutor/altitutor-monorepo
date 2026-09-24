@@ -1,12 +1,11 @@
 "use client";
 
 import { useId, useMemo, useState } from "react";
+import { format } from "date-fns";
+import Link from "next/link";
 import {
   Card,
   CardContent,
-  CardHeader,
-  CardTitle,
-  SearchableSelect,
   Table,
   TableBody,
   TableCell,
@@ -14,251 +13,308 @@ import {
   TableHeader,
   TableRow,
 } from "@altitutor/ui";
-import { TableHeaderWithTooltip } from "./table-header-with-tooltip";
+import { lookupUcatAnzTotalPercentile } from "@altitutor/ucat-percentiles";
+import type { MockAttemptRow } from "@altitutor/shared";
+import { AttemptMetricColumnHeader } from "./attempt-metric-column-header";
 import { ProgressTablePagination } from "./progress-table-pagination";
 import { UcatTableRowActionLink } from "./ucat-table-row-action-link";
-import { GraphTypeTabs } from "./graph-type-tabs";
-import { format } from "date-fns";
 import { ProgressGraph, type GraphDataType } from "./progress-graph";
-import { formatTimeSeconds } from "../lib/format-time";
 import {
-  aggregateForGraph,
-  filterByTimeFrame,
-  type SharedDateRange,
-} from "../lib/progress-data-utils";
-import type { MockAttemptRow } from "@/app/api/ucat/progress/route";
+  formatAttemptTableMetricValue,
+  getAttemptTableMetricColumn,
+  type AttemptTableMetric,
+} from "../lib/attempt-table-metric";
+import type { GraphDateRange } from "../lib/progress-mode";
+import { ProgressClearFilterButton } from "./progress-clear-filter-button";
+import { useProgressSeries } from "../hooks/use-progress-series";
+import { buildDailyProgressGraphData } from "../lib/daily-progress-series";
+import { useProgressAttempts } from "../hooks/use-progress-attempts";
+import type { MockProgressResponse } from "../types/mock-progress";
+import { calculateRecentWeightedMockScore } from "../lib/mock-progress-insights";
+import { buildMockTrajectoryInsight } from "../lib/mock-trajectory-insight";
+import { ContentRatingControls } from "@/features/content-ratings/components/content-rating-controls";
+import { contentSnapshotVersion } from "@/features/content-ratings/lib";
 import {
   UCAT_CARD_CHROME,
+  UCAT_FLOATING_GRAPH_CARD,
+} from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import {
   UCAT_TABLE_BODY_ROW,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_HEADER_ROW,
   UCAT_TABLE_SHELL,
 } from "@/lib/ucat-surface-motion";
-import type { ProgressMode, TimeFrameDays } from "../lib/progress-mode";
-
-type MockAttemptsCardProps = {
-  attempts: MockAttemptRow[];
-  mode: ProgressMode;
-  timeFrameDays: TimeFrameDays;
-  sharedDateRange?: SharedDateRange;
-};
 
 const GRAPH_DATA_TYPES: { value: GraphDataType; label: string }[] = [
   { value: "scaled_score", label: "Scaled score" },
-  { value: "percentage", label: "Percentage" },
+  { value: "percentage", label: "Accuracy" },
   { value: "time_taken", label: "Time taken" },
   { value: "exam_speed", label: "Exam speed" },
 ];
 
-const PAGE_SIZE_OPTIONS = [10, 20, 50];
+const TABLE_METRICS: { value: AttemptTableMetric; label: string }[] = [
+  { value: "raw_score", label: "Raw score" },
+  { value: "scaled_score", label: "Scaled score" },
+  { value: "time_taken", label: "Time taken" },
+  { value: "exam_speed", label: "Exam speed" },
+];
 
-function getDateRangeLabel(
-  mode: ProgressMode,
-  timeFrameDays: TimeFrameDays,
-): string {
-  if (mode === "time_frame") return `Last ${timeFrameDays} days`;
-  return mode === "weighted" ? "Weighted average (all time)" : "All time";
-}
+const MOCK_ATTEMPTS_PAGE_SIZE = 8;
 
 export function MockAttemptsCard({
-  attempts,
-  mode,
-  timeFrameDays,
-  sharedDateRange,
-}: MockAttemptsCardProps) {
+  summary,
+}: {
+  summary: MockProgressResponse;
+}) {
   const [graphDataType, setGraphDataType] =
     useState<GraphDataType>("scaled_score");
-  const [graphType, setGraphType] = useState<"line" | "bar">("line");
+  const [tableMetric, setTableMetric] =
+    useState<AttemptTableMetric>("scaled_score");
+  const [dateRange, setDateRange] = useState<GraphDateRange>("all");
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
-
-  const filteredAttempts = useMemo(() => {
-    return filterByTimeFrame(attempts, mode, timeFrameDays);
-  }, [attempts, mode, timeFrameDays]);
-
-  const mockYAxisMax = useMemo(() => {
-    const max = Math.max(
-      ...filteredAttempts.map((a) => a.scaledScoreMax ?? a.scaledScore ?? 0),
-      900,
-    );
-    return max;
-  }, [filteredAttempts]);
-
-  const { graphData, dateRangeLabel } = useMemo(() => {
-    const graphData = aggregateForGraph(
-      filteredAttempts,
-      (a) => a.completedAt ?? a.attemptedAt,
-      (a) => {
-        if (graphDataType === "scaled_score") return a.scaledScore ?? 0;
-        if (graphDataType === "percentage") {
-          const total = a.totalPoints ?? 0;
-          return total > 0 ? ((a.scorePoints ?? 0) / total) * 100 : 0;
-        }
-        if (graphDataType === "time_taken")
-          return Math.round(a.timeTakenSeconds ?? 0);
-        return (a.studentExamSpeed ?? 0) * 100;
-      },
-      mode,
-      timeFrameDays,
-      false,
-      sharedDateRange,
-    );
-    return {
-      graphData,
-      dateRangeLabel: getDateRangeLabel(mode, timeFrameDays),
-    };
-  }, [filteredAttempts, graphDataType, mode, timeFrameDays, sharedDateRange]);
-
-  const paginatedAttempts = useMemo(() => {
-    const start = (page - 1) * pageSize;
-    return filteredAttempts.slice(start, start + pageSize);
-  }, [filteredAttempts, page, pageSize]);
-
+  const seriesQuery = useProgressSeries("mock");
+  const attemptsQuery = useProgressAttempts({
+    source: "mock",
+    page,
+    pageSize: MOCK_ATTEMPTS_PAGE_SIZE,
+    dateRange,
+  });
+  const filteredAttempts = (attemptsQuery.data?.attempts ??
+    []) as MockAttemptRow[];
+  const mockYAxisMax = Math.max(
+    ...filteredAttempts.map((attempt) =>
+      Math.max(attempt.scaledScoreMax ?? 0, attempt.scaledScore ?? 0),
+    ),
+    2700,
+  );
+  const graphData = useMemo(
+    () =>
+      buildDailyProgressGraphData(
+        seriesQuery.data?.points ?? [],
+        graphDataType,
+        dateRange,
+      ),
+    [dateRange, graphDataType, seriesQuery.data?.points],
+  );
+  const scoreValues = graphData.flatMap((point) =>
+    point.value == null ? [] : [point.value],
+  );
+  const trend =
+    scoreValues.length > 1
+      ? Math.round(scoreValues.at(-1)! - scoreValues[0]!)
+      : null;
+  const recentWeightedAverage = calculateRecentWeightedMockScore(
+    seriesQuery.data?.points ?? [],
+  );
+  const benchmark = lookupUcatAnzTotalPercentile(recentWeightedAverage);
+  const insight = buildMockTrajectoryInsight({ trend });
+  const displayedInsight = { title: insight.title, body: insight.body };
   const attemptsTableTitleId = useId();
+  const metricColumn = getAttemptTableMetricColumn(tableMetric, "mock");
 
   return (
-    <>
-      <Card className={UCAT_CARD_CHROME}>
-        <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-          <CardTitle>Mock attempts</CardTitle>
-          <div className="flex flex-wrap items-center gap-2">
-            <SearchableSelect<(typeof GRAPH_DATA_TYPES)[number]>
-              items={GRAPH_DATA_TYPES}
-              value={
-                GRAPH_DATA_TYPES.find((r) => r.value === graphDataType) ?? null
-              }
-              onValueChange={(item) => item && setGraphDataType(item.value)}
-              getItemLabel={(r) => r.label}
-              getItemId={(r) => r.value}
-              placeholder="Y-axis"
-              triggerClassName="w-[140px]"
-            />
-            <GraphTypeTabs value={graphType} onValueChange={setGraphType} />
-          </div>
-        </CardHeader>
-        <CardContent>
+    <div className="space-y-6">
+      <section className="relative isolate overflow-hidden border-b border-border/50 bg-gradient-to-b from-background via-muted/15 to-background px-5 py-6 sm:px-8 lg:px-10">
+        <div className="relative min-h-[430px]">
           <ProgressGraph
             data={graphData}
-            type={graphType}
+            type="bar"
             dataType={graphDataType}
-            dateRangeLabel={dateRangeLabel}
+            dateRange={dateRange}
+            onDateRangeChange={(range) => {
+              setDateRange(range);
+              setPage(1);
+            }}
             isMockContext
             yAxisMax={
               graphDataType === "scaled_score" ? mockYAxisMax : undefined
             }
+            metricOptions={GRAPH_DATA_TYPES}
+            onDataTypeChange={setGraphDataType}
+            trailingSpace
+            emptyMessage="Mock attempts will appear here"
+            emptyDescription="Complete a mock to start building your score history."
           />
-        </CardContent>
-      </Card>
+
+          <aside
+            className={cn(
+              UCAT_FLOATING_GRAPH_CARD,
+              "mt-4 p-5 lg:absolute lg:right-0 lg:top-2 lg:mt-0 lg:w-[390px]",
+            )}
+          >
+            <p className="text-xs font-semibold uppercase tracking-[0.13em] text-muted-foreground">
+              Mock insight
+            </p>
+            <div className="mt-3 flex items-end justify-between gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground">
+                  Weighted average
+                </p>
+                <p className="text-4xl font-semibold tabular-nums">
+                  {recentWeightedAverage ?? "Pending"}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground">Percentile</p>
+                <p className="font-medium">
+                  {benchmark.percentileLabel ?? "Not available"}
+                </p>
+              </div>
+            </div>
+            <p className="mt-4 text-sm leading-relaxed text-muted-foreground">
+              {insight.body}
+            </p>
+            <ContentRatingControls
+              className="mt-3"
+              descriptor={{
+                targetType: "progress_insight",
+                targetKey: insight.ruleId,
+                targetVersion: contentSnapshotVersion(displayedInsight),
+                contextKey: `progress:mocks:${dateRange}`,
+                surface: "progress",
+                displayedContent: displayedInsight,
+              }}
+            />
+            <div className="mt-4 space-y-2 border-t border-border/60 pt-4">
+              {summary.sections
+                .filter((section) => section.sectionNumber <= 3)
+                .map((section) => (
+                  <div
+                    key={section.sectionId}
+                    className="flex items-center justify-between gap-4 text-sm"
+                  >
+                    <span className="truncate text-muted-foreground">
+                      {section.sectionName}
+                    </span>
+                    <span className="font-medium tabular-nums">
+                      {section.averageScaledScore ?? "Pending"}
+                    </span>
+                  </div>
+                ))}
+            </div>
+            {summary.attemptCount === 0 ? (
+              <Button asChild className="mt-5 w-full">
+                <Link href="/mocks">Go to mocks</Link>
+              </Button>
+            ) : null}
+          </aside>
+        </div>
+      </section>
+
+      <section
+        aria-label="Mock progress summary"
+        className="mx-auto grid w-full max-w-[1400px] gap-4 px-5 sm:grid-cols-2 sm:px-6"
+      >
+        <Card className={UCAT_CARD_CHROME}>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Mocks completed</p>
+            <p className="mt-2 text-3xl font-semibold tabular-nums">
+              {summary.attemptCount}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className={UCAT_CARD_CHROME}>
+          <CardContent className="pt-6">
+            <p className="text-sm text-muted-foreground">Average mock score</p>
+            <p className="mt-2 text-3xl font-semibold tabular-nums">
+              {summary.averageScaledScore ?? "Pending"}
+            </p>
+          </CardContent>
+        </Card>
+      </section>
+
       <section
         aria-labelledby={attemptsTableTitleId}
-        className="space-y-4"
+        className="mx-auto w-full max-w-[1400px] space-y-4 px-5 sm:px-6"
       >
         <h2
           id={attemptsTableTitleId}
-          className="text-2xl font-semibold tracking-tight"
+          className="text-xl font-semibold tracking-tight"
         >
-          All mock attempts
+          Mock attempts
         </h2>
         <div className={UCAT_TABLE_SHELL}>
-            <Table>
-              <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
-                <TableRow className={UCAT_TABLE_HEADER_ROW}>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Mock</TableHead>
-                  <TableHeaderWithTooltip tooltip="Raw score: correct points earned out of total possible points across all sets in this mock.">
-                    Points
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Total UCAT mock score. Section 4 Situational Judgement excluded.">
-                    Scaled score
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Total time taken vs total time limit for all sets in this mock.">
-                    Time
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Average set speed across all sets. >100% means you finished sets faster than their limits.">
-                    Set speed
-                  </TableHeaderWithTooltip>
-                  <TableHeaderWithTooltip tooltip="Average exam speed across all sets. >100% means you finished faster than exam pace.">
-                    Exam speed
-                  </TableHeaderWithTooltip>
-                  <TableHead className="text-right">Actions</TableHead>
+          <Table>
+            <TableHeader className={UCAT_TABLE_HEADER_CLASSNAME}>
+              <TableRow className={UCAT_TABLE_HEADER_ROW}>
+                <TableHead>Date</TableHead>
+                <TableHead>Mock</TableHead>
+                <AttemptMetricColumnHeader
+                  options={TABLE_METRICS}
+                  value={tableMetric}
+                  onValueChange={setTableMetric}
+                  label={metricColumn.label}
+                  tooltip={metricColumn.tooltip}
+                />
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredAttempts.length === 0 ? (
+                <TableRow className={UCAT_TABLE_BODY_ROW}>
+                  <TableCell colSpan={4} className="py-8 text-center">
+                    <div className="flex flex-col items-center gap-3">
+                      <p className="text-muted-foreground">
+                        No submitted mock attempts yet
+                      </p>
+                      {dateRange !== "all" ? (
+                        <ProgressClearFilterButton
+                          onClick={() => setDateRange("all")}
+                        />
+                      ) : null}
+                    </div>
+                  </TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredAttempts.length === 0 ? (
-                  <TableRow className={UCAT_TABLE_BODY_ROW}>
-                    <TableCell
-                      colSpan={8}
-                      className="text-center text-muted-foreground"
-                    >
-                      No submitted mock attempts yet
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedAttempts.map((a) => {
-                    const dateStr = a.completedAt
-                      ? format(new Date(a.completedAt), "dd MMM yyyy")
-                      : format(new Date(a.attemptedAt), "dd MMM yyyy");
-                    const total = a.totalPoints ?? 0;
-                    const points = a.scorePoints ?? 0;
-                    const timeLimit = a.setTimeLimitSeconds ?? 0;
-                    const timeTaken = a.timeTakenSeconds ?? 0;
-                    const setSpeed =
-                      a.studentSetSpeed != null
-                        ? `${(a.studentSetSpeed * 100).toFixed(1)}%`
-                        : "—";
-                    const examSpeed =
-                      a.studentExamSpeed != null
-                        ? `${(a.studentExamSpeed * 100).toFixed(1)}%`
-                        : "—";
-
-                    return (
-                      <TableRow key={a.id} className={UCAT_TABLE_BODY_ROW}>
-                        <TableCell>{dateStr}</TableCell>
-                        <TableCell>{a.mockName ?? "—"}</TableCell>
-                        <TableCell>
-                          {total > 0 ? `${points} / ${total}` : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {a.scaledScore != null && a.scaledScoreMax != null
-                            ? `${Math.round(a.scaledScore)} / ${a.scaledScoreMax}`
-                            : a.scaledScore != null
-                              ? String(Math.round(a.scaledScore))
-                              : "—"}
-                        </TableCell>
-                        <TableCell>
-                          {timeLimit > 0 && timeTaken != null
-                            ? `${formatTimeSeconds(Math.round(timeTaken))} / ${formatTimeSeconds(Math.round(timeLimit))}`
-                            : "—"}
-                        </TableCell>
-                        <TableCell>{setSpeed}</TableCell>
-                        <TableCell>{examSpeed}</TableCell>
-                        <TableCell className="text-right">
-                          <UcatTableRowActionLink
-                            href={`/progress/mock-attempts/${a.id}`}
-                            label="View attempt"
-                          />
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
-          </div>
-        {filteredAttempts.length > 0 ? (
-          <ProgressTablePagination
-            page={page}
-            pageSize={pageSize}
-            total={filteredAttempts.length}
-            onPageChange={setPage}
-            onPageSizeChange={(size) => {
-              setPageSize(size);
-              setPage(1);
-            }}
-            pageSizeOptions={PAGE_SIZE_OPTIONS}
-          />
-        ) : null}
+              ) : (
+                filteredAttempts.map((attempt) => {
+                  const date = attempt.completedAt ?? attempt.attemptedAt;
+                  return (
+                    <TableRow key={attempt.id} className={UCAT_TABLE_BODY_ROW}>
+                      <TableCell>
+                        {date ? format(new Date(date), "dd MMM yyyy") : "—"}
+                      </TableCell>
+                      <TableCell>{attempt.mockName ?? "—"}</TableCell>
+                      <TableCell>
+                        {formatAttemptTableMetricValue(
+                          tableMetric,
+                          {
+                            scaledScore: attempt.scaledScore,
+                            scaledScoreMax: attempt.scaledScoreMax,
+                            scorePoints: attempt.scorePoints,
+                            totalPoints: attempt.totalPoints,
+                            rawScoreBreakdown: attempt.rawScoreBreakdown,
+                            timeTakenSeconds: attempt.timeTakenSeconds,
+                            setTimeLimitSeconds: attempt.setTimeLimitSeconds,
+                            studentExamSpeed: attempt.studentExamSpeed,
+                          },
+                          "mock",
+                        )}
+                      </TableCell>
+                      <TableCell>
+                        <UcatTableRowActionLink
+                          href={`/progress/mocks/mock-attempts/${attempt.id}`}
+                          label="View attempt"
+                          unreviewed={attempt.reviewCompletedAt == null}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
+        </div>
+        <ProgressTablePagination
+          page={page}
+          pageSize={MOCK_ATTEMPTS_PAGE_SIZE}
+          total={attemptsQuery.data?.total ?? 0}
+          onPageChange={setPage}
+          showPageSizeSelector={false}
+          isFetching={attemptsQuery.isFetching}
+        />
       </section>
-    </>
+    </div>
   );
 }

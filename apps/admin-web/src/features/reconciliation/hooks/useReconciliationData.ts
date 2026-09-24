@@ -5,11 +5,11 @@ import {
   useUnloggedSessions,
   useUnassignedClasses,
   useUnassignedTasks,
-  useFailedDeliveryMessages,
   useStudentsWithoutClasses,
   useStudentsWithoutPaymentMethod,
   useTrialStudentsNotSignedUp,
   useProjectsWithNoLead,
+  useSessionBillingAdjustmentIssues,
 } from '../api/queries';
 
 function aggregateLoading(...flags: boolean[]) {
@@ -21,6 +21,7 @@ function aggregateError(...flags: boolean[]) {
 }
 
 export function useReconciliationFinancialData() {
+  const sessionBillingAdjustments = useSessionBillingAdjustmentIssues();
   const uninvoicedSessions = useUninvoicedSessions();
   const voidInvoiceSessions = useVoidInvoiceSessions();
   const unpaidInvoices = useUnpaidInvoices();
@@ -31,17 +32,20 @@ export function useReconciliationFinancialData() {
     voidInvoiceSessions,
     unpaidInvoices,
     studentsWithoutPaymentMethod,
+    sessionBillingAdjustments,
     isLoading: aggregateLoading(
       uninvoicedSessions.isLoading,
       voidInvoiceSessions.isLoading,
       unpaidInvoices.isLoading,
-      studentsWithoutPaymentMethod.isLoading
+      studentsWithoutPaymentMethod.isLoading,
+      sessionBillingAdjustments.isLoading,
     ),
     hasError: aggregateError(
       uninvoicedSessions.isError,
       voidInvoiceSessions.isError,
       unpaidInvoices.isError,
-      studentsWithoutPaymentMethod.isError
+      studentsWithoutPaymentMethod.isError,
+      sessionBillingAdjustments.isError,
     ),
   };
 }
@@ -61,24 +65,14 @@ export function useReconciliationSchedulingData() {
       unloggedSessions.isLoading,
       unassignedClasses.isLoading,
       studentsWithoutClasses.isLoading,
-      trialStudentsNotSignedUp.isLoading
+      trialStudentsNotSignedUp.isLoading,
     ),
     hasError: aggregateError(
       unloggedSessions.isError,
       unassignedClasses.isError,
       studentsWithoutClasses.isError,
-      trialStudentsNotSignedUp.isError
+      trialStudentsNotSignedUp.isError,
     ),
-  };
-}
-
-export function useReconciliationCommunicationData() {
-  const failedDeliveryMessages = useFailedDeliveryMessages();
-
-  return {
-    failedDeliveryMessages,
-    isLoading: failedDeliveryMessages.isLoading,
-    hasError: failedDeliveryMessages.isError,
   };
 }
 

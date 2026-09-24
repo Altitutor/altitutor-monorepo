@@ -59,6 +59,28 @@ jest.mock('@/features/topics/api', () => ({
   },
 }));
 
+jest.mock('@/features/tasks/api', () => ({
+  tasksApi: {
+    get: jest.fn(),
+  },
+}));
+
+jest.mock('@/features/issues/api/issues', () => ({
+  issuesApi: {
+    get: jest.fn(),
+  },
+}));
+
+jest.mock('@/features/projects/api/projects', () => ({
+  projectsApi: {
+    get: jest.fn(),
+  },
+}));
+
+jest.mock('@/features/notes/api/queries', () => ({
+  useNote: jest.fn(() => ({ data: undefined })),
+}));
+
 const mockStudentsApi = studentsApi as jest.Mocked<typeof studentsApi>;
 const mockStaffApi = staffApi as jest.Mocked<typeof staffApi>;
 const mockClassesApi = classesApi as jest.Mocked<typeof classesApi>;
@@ -224,7 +246,11 @@ describe('useBreadcrumbs', () => {
       employment_started_at: '2024-01-01T00:00:00.000Z',
       metric_overrides: {},
       profile_bio: null,
+      birthday: null,
       profile_image_file_id: null,
+      child_safe_agreement_number: null,
+      child_safe_policy_agreed_at: null,
+      onboarding_completed_at: null,
     });
 
     const { result } = renderHook(() => useBreadcrumbs(), {
@@ -363,8 +389,20 @@ describe('useBreadcrumbs', () => {
         level: null,
         room: null,
         status: 'ACTIVE',
-        session_start_date: null,
-        session_end_date: null,
+        billing_type: 'CLASS',
+      billing_type_effective_from: '2026-01-01',
+      session_type: 'CLASS',
+        session_start_date: '2026-01-01',
+        session_end_date: '2026-12-31',
+        cohort_label: null,
+        next_session_start_at: null,
+        schedule_summary_long: null,
+        schedule_summary_short: null,
+        schedule_timezone: 'Australia/Adelaide',
+        schedule_weekdays: [],
+        schedule_rows: [],
+        schedule_frequency_weeks: null,
+        schedule_anchor_date: null,
         created_at: null,
         updated_at: null,
         created_by: null,

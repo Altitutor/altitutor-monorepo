@@ -1,5 +1,9 @@
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
+import {
+  extractTextFromRichJson,
+  type JsonLike,
+} from "@/features/question-engine/model/rich-text";
 
 export type MockAttemptSectionScore = {
   sectionName: string;
@@ -185,14 +189,27 @@ export async function getAttemptedMockIds(): Promise<Set<string>> {
   return ids;
 }
 
+export type MockSetTiming = {
+  id: string;
+  name: string;
+  compactName: string;
+  timeLimitSeconds: number | null;
+};
+
 export type StudentMockRow = {
   id: string;
   name: string | null;
+  display_name: string | null;
   created_at: string | null;
   updated_at: string | null;
   created_by: string | null;
   set_count: number | null;
   has_timed_sets: boolean | null;
+  catalog_index: number | null;
+  /** Ordered sets in the mock with time limits (from mock detail). */
+  setTimings: MockSetTiming[];
+  /** Sum of timed set limits; null when no timed sets. */
+  totalTimeLimitSeconds: number | null;
 };
 
 export type MocksFilters = {
@@ -201,15 +218,144 @@ export type MocksFilters = {
   source?: "my" | "public" | "all";
 };
 
+type MockListRow = {
+  id: string;
+  name: string | null;
+  display_name: string | null;
+  created_at: string | null;
+  updated_at: string | null;
+  created_by: string | null;
+  set_count: number | null;
+  has_timed_sets: boolean | null;
+  catalog_index: number | null;
+};
+
+type MockDetailSetJson = {
+  id?: string;
+  name?: unknown;
+  display_name?: string | null;
+  compact_display_name?: string | null;
+  time_limit_seconds?: number | null;
+};
+
+function parseMockSetTimings(sets: unknown): MockSetTiming[] {
+  if (!Array.isArray(sets)) return [];
+  return (sets as MockDetailSetJson[])
+    .filter((set): set is MockDetailSetJson & { id: string } => Boolean(set?.id))
+    .map((set) => ({
+      id: set.id,
+      name: set.display_name || extractTextFromRichJson(set.name as JsonLike) || "Set",
+      compactName: set.compact_display_name || set.display_name || extractTextFromRichJson(set.name as JsonLike) || "Set",
+      timeLimitSeconds: set.time_limit_seconds ?? null,
+    }));
+}
+
+function totalTimedSeconds(setTimings: MockSetTiming[]): number | null {
+  const timed = setTimings
+    .map((set) => set.timeLimitSeconds)
+    .filter((seconds): seconds is number => seconds != null && seconds > 0);
+  if (timed.length === 0) return null;
+  return timed.reduce((sum, seconds) => sum + seconds, 0);
+}
+
 export async function getStudentMocks(): Promise<StudentMockRow[]> {
   const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_mocks")
     .select(
-      "id,name,created_at,updated_at,created_by,set_count,has_timed_sets",
-    );
+      "id,name,display_name,created_at,updated_at,created_by,set_count,has_timed_sets,catalog_index",
+    )
+    .order("catalog_index");
   if (error) throw new Error(error.message ?? "Failed to load mocks");
-  return (data ?? []) as StudentMockRow[];
+
+  const mocks = (data ?? []) as MockListRow[];
+  if (mocks.length === 0) return [];
+
+  const { data: details, error: detailError } = await supabase
+    .from("vstudent_ucat_mock_detail")
+    .select("id, sets")
+    .in(
+      "id",
+      mocks.map((mock) => mock.id),
+    );
+  if (detailError) {
+    throw new Error(detailError.message ?? "Failed to load mock set timings");
+  }
+
+  const timingsByMockId = new Map<string, MockSetTiming[]>();
+  for (const detail of details ?? []) {
+    if (!detail.id) continue;
+    timingsByMockId.set(detail.id, parseMockSetTimings(detail.sets));
+  }
+
+  return mocks.map((mock) => {
+    const setTimings = timingsByMockId.get(mock.id) ?? [];
+    return {
+      ...mock,
+      setTimings,
+      totalTimeLimitSeconds: totalTimedSeconds(setTimings),
+    };
+  });
+}
+
+type SetDetailStemMeta = {
+  questions_meta?: Array<unknown> | null;
+};
+
+function countQuestionsFromStems(stems: unknown): number {
+  if (!Array.isArray(stems)) return 0;
+  return stems.reduce<number>((sum, stem) => {
+    const meta = (stem as SetDetailStemMeta).questions_meta;
+    return sum + (Array.isArray(meta) ? meta.length : 0);
+  }, 0);
+}
+
+/** Total question count across all sets in a mock. */
+export async function getMockQuestionCount(mockId: string): Promise<number> {
+  const supabase = getSupabaseBrowserClient();
+  const { data: mockDetail, error: mockError } = await supabase
+    .from("vstudent_ucat_mock_detail")
+    .select("sets")
+    .eq("id", mockId)
+    .maybeSingle();
+  if (mockError) {
+    throw new Error(mockError.message ?? "Failed to load mock detail");
+  }
+
+  const setIds =
+    (
+      (mockDetail?.sets as Array<{ id?: string } | null> | null) ?? []
+    )
+      .map((set) => set?.id)
+      .filter((id): id is string => Boolean(id));
+
+  if (setIds.length === 0) return 0;
+
+  const { data: setDetails, error: setsError } = await supabase
+    .from("vstudent_ucat_question_set_detail")
+    .select("stems")
+    .in("id", setIds);
+  if (setsError) {
+    throw new Error(setsError.message ?? "Failed to load mock question count");
+  }
+
+  const rows = (setDetails ?? []) as Array<{ stems: unknown }>;
+  return rows.reduce<number>(
+    (sum, set) => sum + countQuestionsFromStems(set.stems),
+    0,
+  );
+}
+
+export function compareStudentMocksByCatalog(
+  left: StudentMockRow,
+  right: StudentMockRow,
+): number {
+  const leftIndex = left.catalog_index;
+  const rightIndex = right.catalog_index;
+  if (leftIndex == null && rightIndex == null) return 0;
+  if (leftIndex == null) return 1;
+  if (rightIndex == null) return -1;
+  return leftIndex - rightIndex;
 }
 
 export function filterMocks(
@@ -219,7 +365,7 @@ export function filterMocks(
   return mocks.filter((mock) => {
     if (filters.search?.trim()) {
       const searchLower = filters.search.trim().toLowerCase();
-      const nameText = (mock.name ?? "").toLowerCase();
+      const nameText = (mock.display_name ?? mock.name ?? "").toLowerCase();
       if (!nameText.includes(searchLower)) return false;
     }
     if (filters.timed === "timed" && !mock.has_timed_sets) {

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -34,6 +35,7 @@ export async function POST(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/sessions/[sessionId]/staff");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -52,6 +54,7 @@ export async function POST(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/sessions/[sessionId]/staff");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -67,6 +70,7 @@ export async function POST(
     
     if (sessionError) {
       console.error('Error checking session access:', sessionError);
+      captureApiError(sessionError, "/api/sessions/[sessionId]/staff");
       return NextResponse.json(
         { error: 'Failed to verify session access' },
         { status: 500 }
@@ -81,7 +85,13 @@ export async function POST(
     }
     
     // Validate type
-    const validTypes = ['MAIN_TUTOR', 'SECONDARY_TUTOR', 'TRIAL_TUTOR'];
+    const validTypes = [
+      'MAIN_TUTOR',
+      'SECONDARY_TUTOR',
+      'TRIAL_TUTOR',
+      'CHECK_IN_HOST',
+      'CHECK_IN_RECEIVER',
+    ];
     if (!validTypes.includes(type)) {
       return NextResponse.json(
         { error: `Invalid type. Must be one of: ${validTypes.join(', ')}` },
@@ -102,6 +112,7 @@ export async function POST(
     
     if (checkError) {
       console.error('Error checking existing assignment:', checkError);
+      captureApiError(checkError, "/api/sessions/[sessionId]/staff");
       return NextResponse.json(
         { error: 'Failed to check existing assignment' },
         { status: 500 }
@@ -120,7 +131,7 @@ export async function POST(
       id: crypto.randomUUID(),
       session_id: params.sessionId,
       staff_id: staffId,
-      type: type as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR',
+      type: type as TablesInsert<'sessions_staff'>['type'],
     };
     
     const { data, error } = await serviceClient
@@ -131,6 +142,7 @@ export async function POST(
     
     if (error) {
       console.error('Error assigning staff to session:', error);
+      captureApiError(error, "/api/sessions/[sessionId]/staff");
       return NextResponse.json(
         { error: 'Failed to assign staff to session' },
         { status: 500 }
@@ -139,6 +151,7 @@ export async function POST(
     
     return NextResponse.json(data, { status: 201 });
   } catch (error) {
+    captureApiError(error, "/api/sessions/[sessionId]/staff");
     console.error('Unexpected error in POST /api/sessions/[sessionId]/staff:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

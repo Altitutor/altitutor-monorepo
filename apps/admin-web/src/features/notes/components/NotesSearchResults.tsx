@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { FileText, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
+import { navLinkInactiveStyles } from '@altitutor/ui';
 import { proseMirrorToPlainText } from '../utils/rich-text';
 import { highlightSearchTerms, getSearchTerms } from '../utils/highlight';
 import type { Note } from '../types';
@@ -84,8 +85,9 @@ export function NotesSearchResults({ notes, searchQuery, onNoteClick, onProjectC
               }
             }}
             className={cn(
-              'w-full text-left flex items-start gap-2 py-2 px-2 rounded-md hover:bg-muted/50 transition-colors cursor-pointer',
-              'group'
+              'w-full text-left flex items-start gap-2 py-2 px-2 rounded-md cursor-pointer',
+              'group',
+              navLinkInactiveStyles
             )}
           >
             <FileText className="h-4 w-4 text-muted-foreground flex-shrink-0 mt-0.5" />

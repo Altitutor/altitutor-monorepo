@@ -27,6 +27,7 @@ describe('formatStudentDisplay', () => {
       active_at: null,
       registered_at: null,
       discontinued_at: null,
+      discontinued_by: null,
       created_at: null,
       updated_at: null,
       availability_monday: null,
@@ -41,18 +42,18 @@ describe('formatStudentDisplay', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      registration_public_token: null,
+      legacy_registration_token: null,
       onboarding_progress: {},
       timezone: 'Australia/Adelaide',
-      ucat_target_score_s1: null,
-      ucat_target_score_s2: null,
-      ucat_target_score_s3: null,
-      ucat_test_date: null,
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
-      ucat_test_year: null,
+      birthday: null,
+      ucat_initial_familiarity: null,
+      account_class: 'external',
     };
     
     expect(formatStudentDisplay(student)).toBe('John Doe (john@example.com)');
@@ -72,6 +73,7 @@ describe('formatStudentDisplay', () => {
       active_at: null,
       registered_at: null,
       discontinued_at: null,
+      discontinued_by: null,
       created_at: null,
       updated_at: null,
       availability_monday: null,
@@ -86,18 +88,18 @@ describe('formatStudentDisplay', () => {
       created_by: null,
       user_id: null,
       invite_token: null,
+      registration_public_token: null,
+      legacy_registration_token: null,
       onboarding_progress: {},
       timezone: 'Australia/Adelaide',
-      ucat_target_score_s1: null,
-      ucat_target_score_s2: null,
-      ucat_target_score_s3: null,
-      ucat_test_date: null,
       ucat_onboarding_completed_at: null,
       ucat_online_tier_override: 'default',
       ucat_unlimited_trial_consumed_at: null,
       ucat_signup_completed_at: null,
       ucat_signup_step: 0,
-      ucat_test_year: null,
+      birthday: null,
+      ucat_initial_familiarity: null,
+      account_class: 'external',
     };
     
     expect(formatStudentDisplay(student)).toBe('Jane Smith');
@@ -173,6 +175,7 @@ describe('getBookingSteps', () => {
     
     expect(steps).toHaveLength(4);
     expect(steps[0].id).toBe('trial-contact');
+    expect(steps[0].title).toBe('Select or Create Student');
     expect(steps[1].id).toBe('time');
     expect(steps[2].id).toBe('staff');
     expect(steps[3].id).toBe('confirm');
@@ -186,6 +189,13 @@ describe('getBookingSteps', () => {
     expect(steps[1].id).toBe('time');
     expect(steps[2].id).toBe('staff');
     expect(steps[3].id).toBe('confirm');
+  });
+
+  it('should use the create-student step for subsidy when allowCreateStudent is set', () => {
+    const steps = getBookingSteps('SUBSIDY_INTERVIEW', null, { allowCreateStudent: true });
+
+    expect(steps[0].id).toBe('trial-contact');
+    expect(steps[0].title).toBe('Select or Create Student');
   });
 
   it('should show "Confirm Reschedule" when originalSessionId is provided', () => {
@@ -262,7 +272,28 @@ describe('canProceedToNextStep', () => {
   });
 
   it('should handle TRIAL_SESSION steps correctly', () => {
-    // Trial session skips student and subject steps
+    const canProceedWithExistingStudent = canProceedToNextStep(
+      'trial-contact',
+      'TRIAL_SESSION',
+      {
+        selectedStudentId: 'student-1',
+        isCreatingTrialStudent: false,
+      }
+    );
+
+    expect(canProceedWithExistingStudent).toBe(true);
+
+    const canProceedWithNewStudent = canProceedToNextStep(
+      'trial-contact',
+      'TRIAL_SESSION',
+      {
+        trialFormValid: true,
+        isCreatingTrialStudent: true,
+      }
+    );
+
+    expect(canProceedWithNewStudent).toBe(true);
+
     const canProceedFromTime = canProceedToNextStep(
       'time',
       'TRIAL_SESSION',

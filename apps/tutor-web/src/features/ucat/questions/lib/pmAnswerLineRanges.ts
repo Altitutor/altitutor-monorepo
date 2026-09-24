@@ -13,8 +13,7 @@ import { beforeChild, inner } from '@/features/ucat/questions/lib/pmBulkImportLi
 
 /**
  * Flatten PM JSON nodes for answer TSV export without inserting spaces between siblings.
- * {@link nodeToText} joins inline children with spaces (join(' ')), which destroys pasted
- * tab characters when TipTap represents one logical TSV row as multiple adjacent text nodes.
+ * Kept for the answer-paste path; mirrors inline handling in {@link nodeToText}.
  */
 export function answerDocInlinePlainText(node: PMNode | null | undefined): string {
   if (!node?.type) return ''

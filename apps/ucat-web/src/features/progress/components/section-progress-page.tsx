@@ -1,161 +1,87 @@
 "use client";
 
-import { useMemo } from "react";
+import { useState } from "react";
+import { AnimatePresence, motion } from "motion/react";
 import { UcatPageHeader } from "@/features/layout";
-import { useProgress } from "../hooks/use-progress";
-import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
-import { SetAttemptsCard } from "./set-attempts-card";
-import { QuestionAttemptsCard } from "./question-attempts-card";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
+import { useSectionProgress } from "../hooks/use-progress";
+import { useScoreProjection } from "@/features/score-projection/hooks/use-score-projection";
+import type {
+  ScoreProjectionSnapshot,
+  SectionScoreProjection,
+} from "@/features/score-projection/types/score-projection";
+import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
+import { todayIso } from "@/features/study-plan/lib/dates";
+import { allocateSectionTargets } from "@/features/study-plan/lib/section-targets";
+import { sectionEstimateSnapshots } from "@/features/dashboard/lib/dashboard-trajectory";
+import { useProgressSeries } from "../hooks/use-progress-series";
+import { Card, CardContent } from "@altitutor/ui";
 import { UCAT_CARD_CHROME, UCAT_DIVIDER_TOP } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import {
-  filterByTimeFrame,
-  computeSingleSectionFromFiltered,
-  computeCategoryProgressFromFiltered,
-  getBestAttemptPerQuestion,
-  applyAttemptFilterToProgress,
-  getSharedDateRange,
-} from "../lib/progress-data-utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { getSectionProgressPercentage } from "../lib/progress-data-utils";
 import {
   AnimatedFraction,
   AnimatedInteger,
   ProgressCircular,
 } from "./progress-animated-display";
-import { formatUcatPercentile } from "../lib/percentiles";
-import type {
-  SectionCategoryProgress,
-  QuestionAttemptRow,
-  SetAttemptRow,
-} from "@/app/api/ucat/progress/route";
+import type { SectionCategoryProgress } from "@altitutor/shared";
+import { ProgressTrajectoryCanvas } from "./progress-trajectory-canvas";
+import { SectionTimingCanvas } from "./section-timing-canvas";
+import {
+  AttemptHistoryExplorer,
+  type AttemptHistoryPreviewData,
+} from "./attempt-history-explorer";
+import type { DailyProgressSeriesPoint } from "@/app/api/ucat/progress/series/route";
+import { buildSectionScoreInsight } from "../lib/score-insights";
+import { SegmentedControl } from "./segmented-control";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
 
 type SectionProgressPageProps = {
   sectionNumber: number;
-  /** When true, only mock set attempts are included and UI reflects mocks-only context */
-  mocksOnly?: boolean;
 };
+
+const PRACTICE_METRICS = [
+  { value: "percentage" as const, label: "Accuracy" },
+  { value: "time_taken" as const, label: "Time taken" },
+  { value: "attempt_count" as const, label: "Number of attempts" },
+];
+
+const SET_AND_MOCK_METRICS = [
+  { value: "scaled_score" as const, label: "Scaled score" },
+  { value: "percentage" as const, label: "Accuracy" },
+  { value: "exam_speed" as const, label: "Exam speed" },
+  { value: "time_taken" as const, label: "Time taken" },
+];
+
+const TRAJECTORY_VIEW_OPTIONS = [
+  { value: "score" as const, label: "Score" },
+  { value: "timing" as const, label: "Timing" },
+];
 
 export function SectionProgressPage({
   sectionNumber,
-  mocksOnly = false,
 }: SectionProgressPageProps) {
-  const { data, isLoading, error } = useProgress();
-  const progressMode = useProgressMode();
-  const backHref = mocksOnly ? "/progress/mocks" : "/progress";
-  const backLabel = mocksOnly ? "Back to mock progress" : "Back to progress";
+  const { data, isLoading, error } = useSectionProgress(sectionNumber);
+  const projectionQuery = useScoreProjection();
+  const planQuery = useStudyPlan();
+  const setSeriesQuery = useProgressSeries("set", sectionNumber);
+  const backHref = "/progress";
+  const backLabel = "Back to progress";
 
-  const sectionId = useMemo(() => {
-    if (!data) return null;
-    const section = data.sectionProgress.find(
-      (s) => s.sectionNumber === sectionNumber,
-    );
-    return section?.sectionId ?? null;
-  }, [data, sectionNumber]);
-
-  const filteredData = useMemo(() => {
-    if (!data) return null;
-    const filter = mocksOnly ? "mocks_only" : progressMode.attemptFilter;
-    return applyAttemptFilterToProgress(data, filter);
-  }, [data, progressMode.attemptFilter, mocksOnly]);
-
-  const {
-    section,
-    categoryProgress,
-    filteredQuestionAttempts,
-    filteredSetAttempts,
-    sharedDateRange,
-  } = useMemo(() => {
-    if (!filteredData || sectionId == null) {
-      return {
-        section: null,
-        categoryProgress: [] as SectionCategoryProgress[],
-        filteredQuestionAttempts: [] as QuestionAttemptRow[],
-        filteredSetAttempts: [] as SetAttemptRow[],
-        sharedDateRange: undefined,
-      };
-    }
-    const { mode, timeFrameDays } = progressMode;
-    const filteredQA = filteredData.questionAttempts.filter(
-      (a) => a.ucatSectionId === sectionId,
-    );
-    const filteredSA = filteredData.setAttempts.filter(
-      (a) => a.sectionId === sectionId,
-    );
-    const timeFilteredQA = filterByTimeFrame(filteredQA, mode, timeFrameDays);
-    const timeFilteredSA = filterByTimeFrame(filteredSA, mode, timeFrameDays);
-
-    const baseSection = filteredData.sectionProgress.find(
-      (s) => s.sectionId === sectionId,
-    );
-    const section =
-      mode === "time_frame" && baseSection
-        ? computeSingleSectionFromFiltered(
-            timeFilteredQA,
-            timeFilteredSA,
-            baseSection,
-          )
-        : (baseSection ?? null);
-    if (!section) {
-      return {
-        section: null,
-        categoryProgress: [] as SectionCategoryProgress[],
-        filteredQuestionAttempts: filteredQA,
-        filteredSetAttempts: filteredSA,
-        sharedDateRange: getSharedDateRange(
-          filteredData.questionAttempts,
-          filteredData.setAttempts,
-          filteredData.mockAttempts,
-          mode,
-          timeFrameDays,
-        ),
-      };
-    }
-
-    const categoryProgress =
-      mode === "time_frame"
-        ? (computeCategoryProgressFromFiltered(
-            timeFilteredQA,
-            filteredData.sectionCategoryProgress ?? {},
-          )[sectionId] ?? [])
-        : (filteredData.sectionCategoryProgress?.[sectionId] ?? []);
-
-    return {
-      section,
-      categoryProgress,
-      filteredQuestionAttempts: filteredQA,
-      filteredSetAttempts: filteredSA,
-      sharedDateRange: getSharedDateRange(
-        filteredData.questionAttempts,
-        filteredData.setAttempts,
-        filteredData.mockAttempts,
-        mode,
-        timeFrameDays,
-      ),
-    };
-  }, [filteredData, sectionId, progressMode]);
+  const section = data?.section ?? null;
+  const categoryProgress = data?.categoryProgress ?? [];
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Loading..."
-          backHref={backHref}
-          backLabel={backLabel}
-        />
-        <div className="animate-pulse space-y-6">
-          <div className="h-48 rounded-lg bg-muted" />
-          <div className="h-64 rounded-lg bg-muted" />
-        </div>
-      </div>
-    );
+    return <AppPageSkeleton />;
   }
 
   if (error) {
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title={mocksOnly ? "Mock progress" : "Progress"}
+          title="Progress"
           description="Could not load your progress."
           backHref={backHref}
           backLabel={backLabel}
@@ -169,7 +95,7 @@ export function SectionProgressPage({
     return (
       <div className="space-y-6">
         <UcatPageHeader
-          title={mocksOnly ? "Mock progress" : "Progress"}
+          title="Progress"
           description="No progress data available."
           backHref={backHref}
           backLabel={backLabel}
@@ -191,44 +117,95 @@ export function SectionProgressPage({
     );
   }
 
-  const score =
-    progressMode.mode === "weighted"
-      ? section.weightedAverageScaledScore
-      : section.averageScaledScore;
-  const percentage =
-    progressMode.mode === "weighted" &&
-    section.weightedAveragePercentage != null
-      ? Math.round(section.weightedAveragePercentage)
-      : section.percentage;
-
+  const sectionProjection = projectionQuery.data
+    ? (projectionQuery.data.sections.find(
+        (s) => s.sectionNumber === section.sectionNumber,
+      ) ?? null)
+    : null;
+  const score = projectionQuery.data
+    ? (sectionProjection?.currentEstimate ?? null)
+    : null;
+  const examSpeedTotals = (setSeriesQuery.data?.points ?? []).reduce(
+    (totals, point) => ({
+      sum: totals.sum + point.examSpeedPercentSum,
+      count: totals.count + point.examSpeedCount,
+    }),
+    { sum: 0, count: 0 },
+  );
+  const averageExamSpeed =
+    examSpeedTotals.count > 0
+      ? examSpeedTotals.sum / examSpeedTotals.count
+      : null;
+  const sectionTargets =
+    planQuery.data?.generation?.sectionTargets ??
+    (planQuery.data?.profile
+      ? allocateSectionTargets({
+          totalTarget: planQuery.data.profile.targetScore,
+          sections: (projectionQuery.data?.sections ?? [])
+            .filter((item) => item.sectionNumber <= 3)
+            .sort((left, right) => left.sectionNumber - right.sectionNumber)
+            .map((item) => ({
+              sectionId: item.sectionId,
+              currentEstimate: item.currentEstimate,
+              confidence: item.confidence,
+            })),
+        })
+      : {});
   return (
     <SectionProgressContent
       section={section}
       score={score}
-      percentage={percentage}
+      percentage={getSectionProgressPercentage(section, "all_time")}
       totalPublicQuestions={section.totalPublicQuestions}
-      totalPublicSets={
-        filteredData?.totalPublicSetsBySection?.[section.sectionId]
-      }
-      totalPublicUntimedSets={
-        filteredData?.totalPublicUntimedSetsBySection?.[section.sectionId]
-      }
-      totalPublicTimedSets={
-        filteredData?.totalPublicTimedSetsBySection?.[section.sectionId]
-      }
-      filteredQuestionAttempts={filteredQuestionAttempts}
-      filteredSetAttempts={filteredSetAttempts}
+      totalPublicSets={data.totalPublicSets}
+      totalPublicUntimedSets={data.totalPublicUntimedSets}
+      totalPublicTimedSets={data.totalPublicTimedSets}
+      setsCompleted={data.setsCompleted}
+      untimedSetsCompleted={data.untimedSetsCompleted}
+      timedSetsCompleted={data.timedSetsCompleted}
       categoryProgress={categoryProgress}
-      progressMode={progressMode}
-      sharedDateRange={sharedDateRange}
-      mocksOnly={mocksOnly}
-      backHref={backHref}
-      backLabel={backLabel}
+      scoreProjection={sectionProjection}
+      snapshots={projectionQuery.data?.snapshots ?? []}
+      targetScore={sectionTargets[section.sectionId] ?? null}
+      testDate={planQuery.data?.profile?.testDate ?? null}
+      today={planQuery.data?.today ?? todayIso()}
+      averageExamSpeed={averageExamSpeed}
+      timingSeries={setSeriesQuery.data?.points ?? []}
     />
   );
 }
 
-function SectionProgressContent({
+export type SectionProgressContentProps = {
+  section: {
+    sectionId: string;
+    sectionName: string;
+    sectionNumber: number;
+    correctScore: number;
+    maxScore: number;
+  };
+  score: number | null;
+  percentage: number;
+  totalPublicQuestions?: number;
+  totalPublicSets?: number;
+  totalPublicUntimedSets?: number;
+  totalPublicTimedSets?: number;
+  setsCompleted: number;
+  untimedSetsCompleted: number;
+  timedSetsCompleted: number;
+  categoryProgress: SectionCategoryProgress[];
+  scoreProjection: SectionScoreProjection | null;
+  snapshots?: ScoreProjectionSnapshot[];
+  targetScore: number | null;
+  testDate: string | null;
+  today: string;
+  averageExamSpeed: number | null;
+  timingSeries?: DailyProgressSeriesPoint[];
+  attemptHistoryPreviewData?: Partial<
+    Record<"practice" | "set" | "mock", AttemptHistoryPreviewData>
+  >;
+};
+
+export function SectionProgressContent({
   section,
   score,
   percentage,
@@ -236,139 +213,182 @@ function SectionProgressContent({
   totalPublicSets,
   totalPublicUntimedSets,
   totalPublicTimedSets,
-  filteredQuestionAttempts,
-  filteredSetAttempts,
+  setsCompleted,
+  untimedSetsCompleted,
+  timedSetsCompleted,
   categoryProgress,
-  progressMode,
-  sharedDateRange,
-  mocksOnly,
-  backHref,
-  backLabel,
-}: {
-  section: { sectionId: string; sectionName: string; sectionNumber: number };
-  score: number | null;
-  percentage: number;
-  totalPublicQuestions?: number;
-  totalPublicSets?: number;
-  totalPublicUntimedSets?: number;
-  totalPublicTimedSets?: number;
-  filteredQuestionAttempts: QuestionAttemptRow[];
-  filteredSetAttempts: SetAttemptRow[];
-  categoryProgress: SectionCategoryProgress[];
-  progressMode: ReturnType<typeof useProgressMode>;
-  sharedDateRange?: ReturnType<typeof getSharedDateRange>;
-  mocksOnly: boolean;
-  backHref: string;
-  backLabel: string;
-}) {
-  const stats = useMemo(() => {
-    const timeFiltered =
-      progressMode.mode === "time_frame"
-        ? filterByTimeFrame(
-            filteredQuestionAttempts,
-            progressMode.mode,
-            progressMode.timeFrameDays,
-          )
-        : filteredQuestionAttempts;
-    const unique = getBestAttemptPerQuestion(timeFiltered);
-    let completed = 0;
-    let correct = 0;
-    for (const a of unique) {
-      const maxPerQuestion = a.questionType === "syllogism" ? 2 : 1;
-      completed += maxPerQuestion;
-      correct += a.score ?? 0;
-    }
-    return {
-      completed,
-      correct,
-      incorrect: completed - correct,
-    };
-  }, [filteredQuestionAttempts, progressMode.mode, progressMode.timeFrameDays]);
+  scoreProjection,
+  snapshots = [],
+  targetScore,
+  testDate,
+  today,
+  averageExamSpeed,
+  timingSeries,
+  attemptHistoryPreviewData,
+}: SectionProgressContentProps) {
+  const [trajectoryView, setTrajectoryView] = useState<"score" | "timing">(
+    "score",
+  );
+  const stats = {
+    completed: section.maxScore,
+    correct: section.correctScore,
+    incorrect: section.maxScore - section.correctScore,
+  };
 
-  const setsStats = useMemo(() => {
-    const timeFiltered =
-      progressMode.mode === "time_frame"
-        ? filterByTimeFrame(
-            filteredSetAttempts,
-            progressMode.mode,
-            progressMode.timeFrameDays,
-          )
-        : filteredSetAttempts;
-    const nonStudentGenerated = timeFiltered.filter(
-      (a) => !a.isStudentGenerated,
-    );
-    const uniqueSetIds = new Set(
-      nonStudentGenerated.map((a) => a.questionSetId),
-    );
-    const untimedCompleted = new Set(
-      nonStudentGenerated
-        .filter((a) => !a.wasTimed)
-        .map((a) => a.questionSetId),
-    );
-    const timedCompleted = new Set(
-      nonStudentGenerated.filter((a) => a.wasTimed).map((a) => a.questionSetId),
-    );
-    return {
-      totalCompleted: uniqueSetIds.size,
-      untimedCompleted: untimedCompleted.size,
-      timedCompleted: timedCompleted.size,
-    };
-  }, [filteredSetAttempts, progressMode.mode, progressMode.timeFrameDays]);
-  const percentile = formatUcatPercentile(score, "section");
+  const setsStats = {
+    totalCompleted: setsCompleted,
+    untimedCompleted: untimedSetsCompleted,
+    timedCompleted: timedSetsCompleted,
+  };
+  const supportsScoreTarget = section.sectionNumber <= 3;
+  const effectiveTargetScore = supportsScoreTarget ? targetScore : null;
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
+  const weakestCategory = categoryProgress
+    .filter((category) => category.maxScore > 0)
+    .sort((left, right) => left.percentage - right.percentage)[0];
+  const projectedGain =
+    score != null && scoreProjection?.projection.length
+      ? Math.round(scoreProjection.projection.at(-1)!.realistic - score)
+      : null;
+  const insight = buildSectionScoreInsight({
+    sectionName: section.sectionName,
+    score,
+    projectedGain,
+    weakestCategory: weakestCategory
+      ? {
+          name: weakestCategory.categoryName,
+          accuracy: weakestCategory.percentage,
+        }
+      : null,
+    averageExamSpeed,
+  });
+  const resolvedTimingSeries =
+    timingSeries ?? attemptHistoryPreviewData?.set?.series ?? [];
+  const trajectoryToggle = (
+    <SegmentedControl
+      value={trajectoryView}
+      onValueChange={setTrajectoryView}
+      options={TRAJECTORY_VIEW_OPTIONS}
+      aria-label="Section progress view"
+    />
+  );
 
   return (
-    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
-      <UcatPageHeader
-        title={
-          mocksOnly
-            ? `${section.sectionName} (mocks only)`
-            : section.sectionName
-        }
-        description={
-          mocksOnly
-            ? `Mock exam progress for ${section.sectionName}`
-            : `Progress for ${section.sectionName}`
-        }
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={
-          mocksOnly
-            ? { 3: section.sectionName }
-            : { 2: section.sectionName }
-        }
-      />
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <div className="mx-auto w-full max-w-[1400px] px-5 pt-6 sm:px-6">
+        <UcatPageHeader
+          title={section.sectionName}
+          backHref="/progress"
+          backLabel="Back to progress"
+          actions={trajectoryToggle}
+        />
+      </div>
+      <AnimatePresence mode="wait" initial={false}>
+        <motion.div
+          id="tour-section-predicted-score"
+          key={trajectoryView}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -8 }}
+          transition={{ duration: 0.2, ease: "easeOut" }}
+        >
+          {trajectoryView === "score" ? (
+            <ProgressTrajectoryCanvas
+              projection={scoreProjection}
+              snapshots={sectionEstimateSnapshots(snapshots, section.sectionId)}
+              today={today}
+              targetScore={effectiveTargetScore}
+              testDate={testDate}
+              targetBreakdown={
+                supportsScoreTarget
+                  ? [
+                      {
+                        sectionName: section.sectionName,
+                        target: effectiveTargetScore,
+                        currentEstimate: score,
+                      },
+                    ]
+                  : []
+              }
+              scoreMinimum={300}
+              scoreMaximum={900}
+              insightTitle={insight.title}
+              insightBody={insight.body}
+              insightRuleId={insight.ruleId}
+              ratingContextKey={`progress:section:${section.sectionId}`}
+              insightMeta={
+                <>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between gap-4">
+                      <span className="text-muted-foreground">
+                        Current estimate
+                      </span>
+                      <span className="font-medium tabular-nums">
+                        {score ?? "Pending"}
+                      </span>
+                    </div>
+                    {supportsScoreTarget ? (
+                      <>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Target</span>
+                          {effectiveTargetScore == null ? (
+                            <Link
+                              href="/ucat-goal/setup"
+                              className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+                            >
+                              Set target
+                            </Link>
+                          ) : (
+                            <span className="font-medium tabular-nums">
+                              {effectiveTargetScore}
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex justify-between gap-4">
+                          <span className="text-muted-foreground">Gap</span>
+                          <span className="font-medium tabular-nums">
+                            {score == null || effectiveTargetScore == null
+                              ? "Pending"
+                              : effectiveTargetScore <= score
+                                ? `${score - effectiveTargetScore} ahead`
+                                : `${effectiveTargetScore - score} points`}
+                          </span>
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                  {setsCompleted === 0 ? (
+                    <Button asChild className="mt-5 w-full">
+                      <Link href={`/sets/sections/${section.sectionNumber}`}>
+                        Go to sets
+                      </Link>
+                    </Button>
+                  ) : null}
+                </>
+              }
+            />
+          ) : (
+            <SectionTimingCanvas
+              sectionName={section.sectionName}
+              points={resolvedTimingSeries}
+            />
+          )}
+        </motion.div>
+      </AnimatePresence>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex justify-center">
-          <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
-            <CardHeader className="pb-2">
-              <CardTitle className="text-base font-medium text-center">
-                Scaled score
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div
-                className={cn(
-                  "text-4xl font-bold tabular-nums text-center",
-                  score == null && "text-muted-foreground",
-                )}
-              >
-                {score != null ? (
-                  <AnimatedInteger value={Math.round(score)} />
-                ) : (
-                  "—"
-                )}
-              </div>
-              {percentile ? (
-                <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
-                  {percentile}
-                </div>
-              ) : null}
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <motion.div
+        className="mx-auto w-full max-w-[1400px] px-5 sm:px-6"
+        variants={itemVariants}
+      >
+        <div
+          id="tour-section-stats"
+          className="grid grid-cols-1 gap-4 md:grid-cols-3"
+        >
           <Card className={UCAT_CARD_CHROME}>
             <CardContent className="flex flex-col gap-4 pt-6">
               <div className="flex flex-row justify-between items-center gap-4">
@@ -386,7 +406,7 @@ function SectionProgressContent({
                 <ProgressCircular
                   percentage={stats.completed > 0 ? percentage : 0}
                   size={48}
-                  className="text-accent shrink-0"
+                  className="shrink-0 text-primary"
                 />
               </div>
               {categoryProgress.length > 0 ? (
@@ -399,21 +419,16 @@ function SectionProgressContent({
                       const catsWithAttempts = categoryProgress.filter(
                         (c) => c.maxScore > 0,
                       );
-                      const pct = (c: SectionCategoryProgress) =>
-                        progressMode.mode === "weighted" &&
-                        c.weightedAveragePercentage != null
-                          ? c.weightedAveragePercentage
-                          : c.percentage;
                       const best =
                         catsWithAttempts.length > 0
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) >= pct(b) ? a : b,
+                              a.percentage >= b.percentage ? a : b,
                             )
                           : null;
                       const worst =
                         catsWithAttempts.length > 1
                           ? catsWithAttempts.reduce((a, b) =>
-                              pct(a) <= pct(b) ? a : b,
+                              a.percentage <= b.percentage ? a : b,
                             )
                           : null;
                       return categoryProgress.map((cat) => (
@@ -462,11 +477,12 @@ function SectionProgressContent({
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
                     <AnimatedInteger value={stats.completed} />
-                    {progressMode.mode !== "time_frame" &&
-                    totalPublicQuestions != null ? (
+                    {totalPublicQuestions != null ? (
                       <>
                         {" / "}
-                        <span className="tabular-nums">{totalPublicQuestions}</span>
+                        <span className="tabular-nums">
+                          {totalPublicQuestions}
+                        </span>
                       </>
                     ) : null}
                   </span>
@@ -482,7 +498,7 @@ function SectionProgressContent({
                         : 0
                   }
                   size={48}
-                  className="text-accent shrink-0"
+                  className="shrink-0 text-primary"
                 />
               </div>
               {categoryProgress.length > 0 ? (
@@ -526,8 +542,7 @@ function SectionProgressContent({
                   </div>
                   <span className="text-2xl font-bold tabular-nums">
                     <AnimatedInteger value={setsStats.totalCompleted} />
-                    {progressMode.mode !== "time_frame" &&
-                    totalPublicSets != null ? (
+                    {totalPublicSets != null ? (
                       <>
                         {" / "}
                         <span className="tabular-nums">{totalPublicSets}</span>
@@ -546,7 +561,7 @@ function SectionProgressContent({
                         : 0
                   }
                   size={48}
-                  className="text-accent shrink-0"
+                  className="shrink-0 text-primary"
                 />
               </div>
               <div className={cn(UCAT_DIVIDER_TOP, "pt-3")}>
@@ -560,8 +575,7 @@ function SectionProgressContent({
                     </span>
                     <span className="shrink-0">
                       <AnimatedInteger value={setsStats.untimedCompleted} />
-                      {progressMode.mode !== "time_frame" &&
-                      totalPublicUntimedSets != null ? (
+                      {totalPublicUntimedSets != null ? (
                         <>
                           {" / "}
                           <span className="tabular-nums">
@@ -577,8 +591,7 @@ function SectionProgressContent({
                     </span>
                     <span className="shrink-0">
                       <AnimatedInteger value={setsStats.timedCompleted} />
-                      {progressMode.mode !== "time_frame" &&
-                      totalPublicTimedSets != null ? (
+                      {totalPublicTimedSets != null ? (
                         <>
                           {" / "}
                           <span className="tabular-nums">
@@ -593,31 +606,32 @@ function SectionProgressContent({
             </CardContent>
           </Card>
         </div>
-      </div>
+      </motion.div>
 
-      <QuestionAttemptsCard
-        attempts={filteredQuestionAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-      <SetAttemptsCard
-        attempts={filteredSetAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-        sectionNumber={section.sectionNumber}
-      />
-
-      <ProgressModeFloatingToolbar
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
-        showAttemptFilter={!mocksOnly}
-      />
-    </div>
+      <motion.div id="tour-section-practice-attempts" variants={itemVariants}>
+        <AttemptHistoryExplorer
+          source="practice"
+          title="Practice sessions"
+          sectionNumber={section.sectionNumber}
+          defaultMetric="percentage"
+          metricOptions={PRACTICE_METRICS}
+          previewData={attemptHistoryPreviewData?.practice}
+          emptyActionHref="/practice"
+          emptyActionLabel="Go to practice"
+        />
+      </motion.div>
+      <motion.div id="tour-section-set-attempts" variants={itemVariants}>
+        <AttemptHistoryExplorer
+          source="set"
+          title="Set attempts"
+          sectionNumber={section.sectionNumber}
+          defaultMetric="scaled_score"
+          metricOptions={SET_AND_MOCK_METRICS}
+          previewData={attemptHistoryPreviewData?.set}
+          emptyActionHref={`/sets/sections/${section.sectionNumber}`}
+          emptyActionLabel="Go to sets"
+        />
+      </motion.div>
+    </motion.div>
   );
 }

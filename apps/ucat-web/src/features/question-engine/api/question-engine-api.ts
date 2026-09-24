@@ -7,10 +7,12 @@ import {
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type {
+  AnswerOption,
   QuestionEngineExam,
   QuestionEngineMode,
   QuestionItem,
 } from "@/features/question-engine/model/types";
+import { SECTION_NAME_TO_NUMBER } from "@/features/sets/lib/section-labels";
 
 type SetDetailStem = {
   stem_id: string;
@@ -37,18 +39,34 @@ type MockDetailRow = {
   sets: MockSetMeta[];
 };
 
+type SetEnginePayload = {
+  source_type: "set";
+  set_detail: SetDetailRow;
+  stem_details: StemDetailRow[];
+};
+
+type MockEnginePayload = {
+  source_type: "mock";
+  mock_detail: MockDetailRow;
+  sets: Array<{
+    set_detail: SetDetailRow;
+    stem_details: StemDetailRow[];
+  }>;
+};
+
 type StemDetailQuestion = {
   id: string;
   question_text: unknown;
   answer_explanation?: unknown;
   index: number;
-  question_type: "multiple_choice" | "syllogism";
+  response_type: QuestionItem["responseType"];
+  answer_scheme: QuestionItem["answerScheme"];
   answer_options: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
-    is_answer?: boolean;
+    answer_key_value?: AnswerOption["answerKeyValue"];
     selection_count?: number;
     total_answered?: number;
     percentage?: number;
@@ -71,6 +89,38 @@ function hasInstructionsContent(value: unknown): boolean {
   const obj = value as Record<string, unknown>;
   const content = obj.content;
   return Array.isArray(content) && content.length > 0;
+}
+
+function selectInstructionStem(
+  set: SetDetailRow,
+  stemDetails: StemDetailRow[],
+): StemDetailRow | null {
+  const stemMap = new Map(stemDetails.map((stem) => [stem.id, stem]));
+  const countsBySection = new Map<string, number>();
+  const firstStemBySection = new Map<string, StemDetailRow>();
+
+  for (const stemMeta of set.stems ?? []) {
+    const stem = stemMap.get(stemMeta.stem_id);
+    if (!stem?.section_name) continue;
+    countsBySection.set(
+      stem.section_name,
+      (countsBySection.get(stem.section_name) ?? 0) + 1,
+    );
+    if (!firstStemBySection.has(stem.section_name)) {
+      firstStemBySection.set(stem.section_name, stem);
+    }
+  }
+
+  const selectedSection = [...countsBySection.entries()].sort(
+    ([aName, aCount], [bName, bCount]) =>
+      bCount - aCount ||
+      (SECTION_NAME_TO_NUMBER[aName] ?? Number.MAX_SAFE_INTEGER) -
+        (SECTION_NAME_TO_NUMBER[bName] ?? Number.MAX_SAFE_INTEGER),
+  )[0]?.[0];
+
+  return selectedSection
+    ? (firstStemBySection.get(selectedSection) ?? null)
+    : null;
 }
 
 type DbQuestionEngineMode = Extract<QuestionEngineMode, "set" | "mock">;
@@ -106,7 +156,9 @@ function mapSetToQuestions(
 
       const options = (question.answer_options || [])
         .map((option) => {
-          const optionExplanation = mapRichExplanation(option.answer_explanation);
+          const optionExplanation = mapRichExplanation(
+            option.answer_explanation,
+          );
 
           return {
             id: option.id,
@@ -117,7 +169,7 @@ function mapSetToQuestions(
               typeof option.answer_text === "object"
                 ? (option.answer_text as Record<string, unknown>)
                 : null,
-            isAnswer: option.is_answer ?? false,
+            answerKeyValue: option.answer_key_value ?? null,
             answerExplanation: optionExplanation.text,
             answerExplanationJson: optionExplanation.json,
             selectionCount: option.selection_count,
@@ -126,8 +178,12 @@ function mapSetToQuestions(
           };
         })
         .sort((a, b) => a.index - b.index);
-      const correctOption = options.find((o) => o.isAnswer);
-      const questionExplanation = mapRichExplanation(question.answer_explanation);
+      const correctOption = options.find(
+        (option) => option.answerKeyValue === "correct",
+      );
+      const questionExplanation = mapRichExplanation(
+        question.answer_explanation,
+      );
       const stemJson =
         stem.stem_text != null && typeof stem.stem_text === "object"
           ? (stem.stem_text as Record<string, unknown>)
@@ -151,7 +207,8 @@ function mapSetToQuestions(
         ),
         stemJson,
         questionJson,
-        questionType: question.question_type,
+        responseType: question.response_type,
+        answerScheme: question.answer_scheme,
         options,
         correctOptionId: correctOption?.id,
         answerExplanation: questionExplanation.text,
@@ -163,89 +220,43 @@ function mapSetToQuestions(
   return questions;
 }
 
-async function loadSetDetail(setId: string): Promise<SetDetailRow> {
+async function loadEnginePayload(
+  sourceType: DbQuestionEngineMode,
+  sourceId: string,
+): Promise<SetEnginePayload | MockEnginePayload> {
   const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string,
-        ) => {
-          maybeSingle: () => Promise<{
-            data: SetDetailRow | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    };
+    rpc: (
+      fn: string,
+      args:
+        | { p_set_id: string }
+        | { p_source_type: DbQuestionEngineMode; p_source_id: string },
+    ) => Promise<{
+      data: SetEnginePayload | MockEnginePayload | null;
+      error: { message: string } | null;
+    }>;
   };
+  const { data, error } =
+    sourceType === "set"
+      ? await supabase.rpc("get_student_ucat_question_set_engine_payload", {
+          p_set_id: sourceId,
+        })
+      : await supabase.rpc("get_student_ucat_question_engine_payload", {
+          p_source_type: sourceType,
+          p_source_id: sourceId,
+        });
 
-  const { data, error } = await supabase
-    .from("vstudent_ucat_question_set_detail")
-    .select("id,name,description,time_limit_seconds,stems")
-    .eq("id", setId)
-    .maybeSingle();
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to load question set detail");
+  if (error || !data || data.source_type !== sourceType) {
+    throw new Error(error?.message ?? `Unable to load ${sourceType} detail`);
   }
 
   return data;
 }
 
-async function loadStemDetails(stemIds: string[]): Promise<StemDetailRow[]> {
-  if (stemIds.length === 0) {
-    return [];
-  }
-
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        in: (
-          column: string,
-          values: string[],
-        ) => Promise<{
-          data: StemDetailRow[] | null;
-          error: { message: string } | null;
-        }>;
-      };
-    };
-  };
-
-  const { data, error } = await supabase
-    .from("vstudent_ucat_question_stem_detail")
-    .select(
-      "id,section_name,display_columns,section_instructions_text,section_instructions_time_limit_seconds,section_time_limit_seconds,stem_text,questions",
-    )
-    .in("id", stemIds);
-
-  if (error || !data) {
-    throw new Error(error?.message ?? "Unable to load question stem details");
-  }
-
-  return data;
-}
-
-async function loadMockDetail(mockId: string): Promise<MockDetailRow> {
-  const supabase = getSupabaseBrowserClient() as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        eq: (
-          column: string,
-          value: string,
-        ) => {
-          maybeSingle: () => Promise<{
-            data: MockDetailRow | null;
-            error: { message: string } | null;
-          }>;
-        };
-      };
-    };
-  };
-
+async function loadMockEnginePayload(mockId: string): Promise<MockEnginePayload> {
+  const supabase = getSupabaseBrowserClient();
   const { data, error } = await supabase
     .from("vstudent_ucat_mock_detail")
-    .select("id,name,instructions_text,sets")
+    .select("id, name, instructions_text, sets")
     .eq("id", mockId)
     .maybeSingle();
 
@@ -253,13 +264,30 @@ async function loadMockDetail(mockId: string): Promise<MockDetailRow> {
     throw new Error(error?.message ?? "Unable to load mock detail");
   }
 
-  return data;
+  const mockDetail = data as unknown as MockDetailRow;
+  const sets = await Promise.all(
+    (mockDetail.sets ?? []).map(async (set) => {
+      const payload = await loadEnginePayload("set", set.id);
+      if (payload.source_type !== "set") {
+        throw new Error(`Unable to load question set detail: ${set.id}`);
+      }
+      return {
+        set_detail: payload.set_detail,
+        stem_details: payload.stem_details,
+      };
+    }),
+  );
+
+  return { source_type: "mock", mock_detail: mockDetail, sets };
 }
 
 async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
-  const setDetail = await loadSetDetail(setId);
-  const stemIds = (setDetail.stems || []).map((stem) => stem.stem_id);
-  const stemDetails = await loadStemDetails(stemIds);
+  const payload = await loadEnginePayload("set", setId);
+  if (payload.source_type !== "set") {
+    throw new Error("Unable to load question set detail");
+  }
+  const setDetail = payload.set_detail;
+  const stemDetails = payload.stem_details;
 
   const title =
     extractTextFromRichJson(setDetail.name as JsonLike) ||
@@ -268,23 +296,23 @@ async function buildSetExam(setId: string): Promise<QuestionEngineExam> {
 
   const questions = mapSetToQuestions(setDetail, stemDetails);
   const instructionsScreens: QuestionEngineExam["instructionsScreens"] = [];
-  const firstStem = stemDetails[0];
+  const instructionStem = selectInstructionStem(setDetail, stemDetails);
   const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
   const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
   if (
-    firstStem &&
-    hasInstructionsContent(firstStem.section_instructions_text)
+    instructionStem &&
+    hasInstructionsContent(instructionStem.section_instructions_text)
   ) {
     instructionsScreens.push({
-      instructionsJson: firstStem.section_instructions_text as Record<
+      instructionsJson: instructionStem.section_instructions_text as Record<
         string,
         unknown
       >,
     });
   }
   const instructionsTimeLimitSeconds =
-    isSetTimed && firstStem
-      ? (firstStem.section_instructions_time_limit_seconds ?? null)
+    isSetTimed && instructionStem
+      ? (instructionStem.section_instructions_time_limit_seconds ?? null)
       : null;
 
   return {
@@ -311,42 +339,49 @@ type SetPayloadWithTiming = {
 };
 
 async function buildMockExam(mockId: string): Promise<QuestionEngineExam> {
-  const mockDetail = await loadMockDetail(mockId);
+  const payload = await loadMockEnginePayload(mockId);
+  const mockDetail = payload.mock_detail;
   const setIds = (mockDetail.sets || []).map((set) => set.id) as string[];
-
-  const setPayloadsWithTiming = await Promise.all(
-    setIds.map(async (setId, idx) => {
-      const setDetail = await loadSetDetail(setId);
-      const stemIds = (setDetail.stems || []).map((stem) => stem.stem_id);
-      const stemDetails = await loadStemDetails(stemIds);
-      const questions = mapSetToQuestions(setDetail, stemDetails);
-      const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
-      const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
-      const firstStem = stemDetails[0];
-      const hasInstructions = !!(
-        firstStem && hasInstructionsContent(firstStem.section_instructions_text)
-      );
-      const instructionsTimeLimitSeconds =
-        isSetTimed && firstStem
-          ? (firstStem.section_instructions_time_limit_seconds ?? null)
-          : null;
-      const sectionInstructionsJson =
-        firstStem && hasInstructionsContent(firstStem.section_instructions_text)
-          ? (firstStem.section_instructions_text as Record<string, unknown>)
-          : null;
-      return {
-        name:
-          (setDetail.name && typeof setDetail.name === "string"
-            ? setDetail.name
-            : null) ?? `Set ${idx + 1}`,
-        questions,
-        setTimeLimitSeconds,
-        instructionsTimeLimitSeconds,
-        hasInstructions,
-        sectionInstructionsJson,
-      } satisfies SetPayloadWithTiming;
-    }),
+  const setPayloadById = new Map(
+    payload.sets.map((setPayload) => [setPayload.set_detail.id, setPayload]),
   );
+
+  const setPayloadsWithTiming = setIds.map((setId, idx) => {
+    const setPayload = setPayloadById.get(setId);
+    if (!setPayload) {
+      throw new Error(`Unable to load question set detail: ${setId}`);
+    }
+    const setDetail = setPayload.set_detail;
+    const stemDetails = setPayload.stem_details;
+    const questions = mapSetToQuestions(setDetail, stemDetails);
+    const setTimeLimitSeconds = setDetail.time_limit_seconds ?? null;
+    const isSetTimed = setTimeLimitSeconds != null && setTimeLimitSeconds > 0;
+    const instructionStem = selectInstructionStem(setDetail, stemDetails);
+    const hasInstructions = !!(
+      instructionStem &&
+      hasInstructionsContent(instructionStem.section_instructions_text)
+    );
+    const instructionsTimeLimitSeconds =
+      isSetTimed && instructionStem
+        ? (instructionStem.section_instructions_time_limit_seconds ?? null)
+        : null;
+    const sectionInstructionsJson =
+      instructionStem &&
+      hasInstructionsContent(instructionStem.section_instructions_text)
+        ? (instructionStem.section_instructions_text as Record<string, unknown>)
+        : null;
+    return {
+      name:
+        (setDetail.name && typeof setDetail.name === "string"
+          ? setDetail.name
+          : null) ?? `Set ${idx + 1}`,
+      questions,
+      setTimeLimitSeconds,
+      instructionsTimeLimitSeconds,
+      hasInstructions,
+      sectionInstructionsJson,
+    } satisfies SetPayloadWithTiming;
+  });
 
   const instructionsScreens: QuestionEngineExam["instructionsScreens"] = [];
   const mockTimingSegments: NonNullable<

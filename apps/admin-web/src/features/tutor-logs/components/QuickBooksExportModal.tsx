@@ -2,34 +2,24 @@
 
 import { useMemo, useEffect, useRef, useState } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   Button,
   DataTableToolbar,
   ScrollArea,
 } from '@altitutor/ui';
 import { useQuery } from '@tanstack/react-query';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import type { DataTableFilterDefinition } from '@altitutor/shared';
 import type { Database } from '@altitutor/shared';
 import { fetchTutorLogsForExport } from '../api/quickbooks-export';
+import { processTutorLogsForExport } from '../utils/quickbooks-export.processor';
 import {
-  processTutorLogsForExport,
-  type ProcessTutorLogsForExportOptions,
-} from '../utils/quickbooks-export.processor';
-import { applyTutorLogsExportTableFilters } from '../utils/quickbooks-export.client-filters';
+  applyTutorLogsExportTableFilters,
+  getEmptyClassSessionsMode,
+} from '../utils/quickbooks-export.client-filters';
 import { generateCsv, downloadCsv } from '../utils/quickbooks-export.utils';
 import { getDefaultDateRange } from '../config/quickbooks-export.config';
 import { useToast } from '@altitutor/ui';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { formatSessionType } from '@/shared/utils/index';
 import { useStaffSearchForFilter } from '@/features/sessions/hooks/useStaffSearchForFilter';
@@ -39,6 +29,7 @@ import type { MinimalClass } from '@/features/classes/api/classes';
 
 const SESSION_TYPES: Database['public']['Enums']['session_type'][] = [
   'CLASS',
+  'HOMEWORK_HELP',
   'DRAFTING',
   'EXAM_COURSE',
   'SUBSIDY_INTERVIEW',
@@ -54,16 +45,6 @@ function formatClassOptionLabel(c: MinimalClass): string {
   return subj ? `${title} (${subj})` : title;
 }
 
-function getEmptyClassSessionsMode(
-  showWithStudents: boolean,
-  showEmptyClassSessions: boolean
-): NonNullable<ProcessTutorLogsForExportOptions['emptyClassSessions']> {
-  if (showWithStudents && showEmptyClassSessions) return 'include_all';
-  if (showWithStudents && !showEmptyClassSessions) return 'exclude';
-  if (!showWithStudents && showEmptyClassSessions) return 'only_empty';
-  return 'include_all';
-}
-
 type QuickBooksExportModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -74,7 +55,6 @@ export function QuickBooksExportModal({
   onClose,
 }: QuickBooksExportModalProps) {
   const { toast } = useToast();
-  const [expanded, setExpanded] = useState(false);
   const [staffFilterSearch, setStaffFilterSearch] = useState('');
   const [subjectFilterSearch, setSubjectFilterSearch] = useState('');
   const [classFilterSearch, setClassFilterSearch] = useState('');
@@ -98,10 +78,6 @@ export function QuickBooksExportModal({
     defaultVisibleColumns: [],
     filterKeys: ['type', 'subject', 'class', 'staff', 'empty_sessions', 'from', 'to'],
   });
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && !wasOpenRef.current) {
@@ -220,10 +196,6 @@ export function QuickBooksExportModal({
     const sessionTypes = (state.filters.type as string[] | undefined) ?? [];
     const emptySessionFilters =
       (state.filters.empty_sessions as string[] | undefined) ?? [];
-    const showWithStudents =
-      emptySessionFilters.length === 0 || emptySessionFilters.includes('with_students');
-    const showEmptyClassSessions =
-      emptySessionFilters.length === 0 || emptySessionFilters.includes('empty_class');
 
     const narrowed = applyTutorLogsExportTableFilters(tutorLogsData, {
       staffIds,
@@ -231,7 +203,7 @@ export function QuickBooksExportModal({
       classIds,
       sessionTypes,
     });
-    const emptyMode = getEmptyClassSessionsMode(showWithStudents, showEmptyClassSessions);
+    const emptyMode = getEmptyClassSessionsMode(emptySessionFilters);
     return processTutorLogsForExport(narrowed, { emptyClassSessions: emptyMode });
   }, [tutorLogsData, state.filters]);
 
@@ -282,43 +254,30 @@ export function QuickBooksExportModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <div className="flex-shrink-0 border-b bg-background">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Export to QuickBooks</DialogTitle>
-                  <DialogDescription>
-                    Export tutor logs as a QuickBooks-compatible timesheet CSV file
-                  </DialogDescription>
-                </div>
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              </div>
-            </div>
-          </DialogHeader>
-        </div>
-
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="flex h-full min-h-0 flex-1 flex-col overflow-y-auto">
-            <div className="flex min-h-0 flex-1 flex-col gap-4 p-6">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title="Export to QuickBooks"
+      subtitle="Export tutor logs as a QuickBooks-compatible timesheet CSV file"
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose}>
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleExport}
+            disabled={isLoading || !!error || quickBooksEntries.length === 0}
+          >
+            Export CSV
+          </Button>
+        </>
+      }
+    >
+      <div className="flex h-full min-h-0 flex-1 flex-col gap-4 overflow-y-auto p-6">
               <DataTableToolbar
                 state={state}
                 onSearchChange={setSearch}
@@ -383,23 +342,7 @@ export function QuickBooksExportModal({
                   </ScrollArea>
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex shrink-0 justify-end gap-2 px-6 py-4 border-t bg-background">
-          <Button type="button" variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleExport}
-            disabled={isLoading || !!error || quickBooksEntries.length === 0}
-          >
-            Export CSV
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

@@ -1,5 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Database, Json } from '@altitutor/shared'
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
+import { callCodexOAuthJson, type CodexOAuthUserContentPart } from './ucat-codex-oauth'
 
 type SupabaseAny = SupabaseClient<Database> & {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -23,6 +25,10 @@ export type UcatAiJsonResult = {
   maxCompletionTokens: number | null
 }
 
+export type UcatAiUserContentPart =
+  | { type: 'text'; text: string }
+  | { type: 'image'; imageUrl: string; detail?: 'low' | 'high' | 'auto' }
+
 export class UcatAiJsonParseError extends Error {
   content: string
   finishReason: string | null
@@ -42,7 +48,13 @@ export class UcatAiJsonParseError extends Error {
     modelProfileId: string | null
     maxCompletionTokens: number | null
   }) {
-    super(`UCAT AI ${params.operation} returned invalid JSON: ${params.content.slice(0, 160)}`)
+    const completionTokens = params.usage?.completion_tokens ?? 'unknown'
+    super(
+      `UCAT AI ${params.operation} returned invalid JSON `
+      + `(finish=${params.finishReason ?? 'unknown'}, outputChars=${params.content.length}, `
+      + `completionTokens=${completionTokens}, maxOutputTokens=${params.maxCompletionTokens ?? 'unknown'}): `
+      + params.content.slice(0, 160)
+    )
     this.name = 'UcatAiJsonParseError'
     this.content = params.content
     this.finishReason = params.finishReason
@@ -83,10 +95,21 @@ export class UcatAiEmptyResponseError extends Error {
   }
 }
 
+export class UcatAiBudgetExceededError extends Error {
+  resetAt: Date
+
+  constructor(message: string, resetAt: Date) {
+    super(message)
+    this.name = 'UcatAiBudgetExceededError'
+    this.resetAt = resetAt
+  }
+}
+
 type ProviderRow = {
   id: string
   name: string
   provider_key: string
+  provider_kind?: 'chat_completions' | 'codex_oauth'
   base_url: string
   secret_env_var_name: string
   default_headers: Record<string, string> | null
@@ -159,26 +182,122 @@ function parseHeaders(value: unknown): Record<string, string> {
   return headers
 }
 
+function repairCommonGeneratedJson(value: string): string | null {
+  const normalizedValue = value.replace(
+    /\}\]\s*,\s*"\}\s*,\s*\{\s*"type"/gu,
+    ']},{"type"'
+  )
+  const stack: Array<{ opening: '{' | '['; propertyName: string | null }> = []
+  let repaired = ''
+  let inString = false
+  let escaped = false
+  let propertyName: string | null = null
+  let stringStart = -1
+
+  for (let index = 0; index < normalizedValue.length; index += 1) {
+    const character = normalizedValue[index]
+    if (inString) {
+      repaired += character
+      if (escaped) escaped = false
+      else if (character === '\\') escaped = true
+      else if (character === '"') {
+        inString = false
+        const next = normalizedValue.slice(index + 1).match(/^\s*:/u)
+        if (next) propertyName = normalizedValue.slice(stringStart + 1, index)
+      }
+      continue
+    }
+
+    if (character === '"') {
+      inString = true
+      stringStart = index
+      repaired += character
+      continue
+    }
+
+    if (character === '{' || character === '[') {
+      stack.push({ opening: character, propertyName })
+      propertyName = null
+      repaired += character
+      continue
+    }
+
+    if (character === '}' || character === ']') {
+      const requiredOpening = character === '}' ? '{' : '['
+      const top = stack.at(-1)
+      if (top?.opening !== requiredOpening) {
+        // Some completed responses add an extra object closer between content
+        // blocks (for example, `table}}, {paragraph...}`). It is safe to drop
+        // only when the surrounding array is a generated-content field and a
+        // further typed block immediately follows.
+        if (
+          character === '}'
+          && top?.opening === '['
+          && ['stemText', 'answerText', 'answerExplanation'].includes(top.propertyName ?? '')
+          && /^\s*,\s*\{\s*"type"\s*:/u.test(normalizedValue.slice(index + 1))
+        ) {
+          continue
+        }
+        // A frequent writer slip is closing a table object after its final row
+        // without first closing the rows array. Repair only that exact case.
+        if (character === '}' && top?.opening === '[' && top.propertyName === 'rows') {
+          repaired += ']'
+          stack.pop()
+        } else {
+          return null
+        }
+      }
+      if (stack.at(-1)?.opening !== requiredOpening) return null
+      stack.pop()
+      repaired += character
+      continue
+    }
+
+    repaired += character
+  }
+
+  if (inString || stack.length > 2) return null
+  if (stack.length === 0) return repaired
+  if (stack[0]?.opening !== '{') return null
+  if (stack.length === 2 && (stack[1]?.opening !== '[' || stack[1]?.propertyName !== 'stems')) return null
+  if (stack.length === 1 && !/^\s*\{\s*"stems"\s*:/u.test(normalizedValue)) return null
+
+  for (let index = stack.length - 1; index >= 0; index -= 1) {
+    repaired += stack[index].opening === '{' ? '}' : ']'
+  }
+  return repaired
+}
+
+function parseJsonCandidate(value: string): unknown {
+  try {
+    return JSON.parse(value)
+  } catch (error) {
+    const repaired = repairCommonGeneratedJson(value)
+    if (!repaired) throw error
+    return JSON.parse(repaired)
+  }
+}
+
 export function parseUcatAiJsonContent(content: string): unknown {
   const trimmed = content.trim()
   const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/iu)
-  if (fenced?.[1]) return JSON.parse(fenced[1])
+  if (fenced?.[1]) return parseJsonCandidate(fenced[1])
 
   try {
-    return JSON.parse(trimmed)
+    return parseJsonCandidate(trimmed)
   } catch (directError) {
     const objectStart = trimmed.indexOf('{')
     const objectEnd = trimmed.lastIndexOf('}')
     if (objectStart >= 0 && objectEnd > objectStart) {
-      return JSON.parse(trimmed.slice(objectStart, objectEnd + 1))
+      return parseJsonCandidate(trimmed.slice(objectStart, objectEnd + 1))
     }
     throw directError
   }
 }
 
-async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRow> {
+async function getSettings(client: SupabaseClient<Database>, tutorScoped = false): Promise<SettingsRow> {
   const { data, error } = await asAny(client)
-    .from('ucat_ai_generation_settings')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_settings' : 'ucat_ai_generation_settings')
     .select('*')
     .order('created_at')
     .limit(1)
@@ -187,9 +306,9 @@ async function getSettings(client: SupabaseClient<Database>): Promise<SettingsRo
   return data as unknown as SettingsRow
 }
 
-export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Database>): Promise<ModelProfileRow[]> {
+export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Database>, tutorScoped = false): Promise<ModelProfileRow[]> {
   const { data, error } = await asAny(client)
-    .from('ucat_ai_generation_model_profiles')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_model_profiles' : 'ucat_ai_generation_model_profiles')
     .select('*')
     .eq('is_enabled', true)
     .order('is_default', { ascending: false })
@@ -200,10 +319,14 @@ export async function getEnabledUcatAiModelProfiles(client: SupabaseClient<Datab
 
 export async function resolveUcatAiConfig(
   client: SupabaseClient<Database>,
-  modelProfileId?: string | null
+  modelProfileId?: string | null,
+  tutorScoped = false,
 ): Promise<UcatAiResolvedConfig> {
-  const settings = await getSettings(client)
-  let profileQuery = asAny(client).from('ucat_ai_generation_model_profiles').select('*').eq('is_enabled', true)
+  const settings = await getSettings(client, tutorScoped)
+  let profileQuery = asAny(client)
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_model_profiles' : 'ucat_ai_generation_model_profiles')
+    .select('*')
+    .eq('is_enabled', true)
   profileQuery = modelProfileId ? profileQuery.eq('id', modelProfileId) : profileQuery.eq('is_default', true)
   const { data: profileData, error: profileError } = await profileQuery.maybeSingle()
 
@@ -213,7 +336,7 @@ export async function resolveUcatAiConfig(
 
   const modelProfile = profileData as unknown as ModelProfileRow
   const { data: providerData, error: providerError } = await asAny(client)
-    .from('ucat_ai_generation_providers')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_providers' : 'ucat_ai_generation_providers')
     .select('*')
     .eq('id', modelProfile.provider_id)
     .eq('is_enabled', true)
@@ -224,7 +347,7 @@ export async function resolveUcatAiConfig(
   }
 
   const { data: systemPromptsData, error: systemPromptsError } = await asAny(client)
-    .from('ucat_ai_generation_system_prompts')
+    .from(tutorScoped ? 'vtutor_ucat_ai_generation_system_prompts' : 'ucat_ai_generation_system_prompts')
     .select('*')
     .limit(1)
     .maybeSingle()
@@ -243,6 +366,7 @@ export async function resolveUcatAiConfig(
 
 export async function getUcatAiPromptLayers(params: {
   client: SupabaseClient<Database>
+  tutorScoped?: boolean
   sectionId?: string | null
   categoryId?: string | null
   categoryIds?: string[]
@@ -254,7 +378,7 @@ export async function getUcatAiPromptLayers(params: {
   if (ids.length === 0) return []
 
   const { data, error } = await asAny(params.client)
-    .from('ucat_ai_generation_prompt_layers')
+    .from(params.tutorScoped ? 'vtutor_ucat_ai_generation_prompt_layers' : 'ucat_ai_generation_prompt_layers')
     .select('*')
     .eq('is_enabled', true)
     .in('scope_id', ids)
@@ -263,9 +387,10 @@ export async function getUcatAiPromptLayers(params: {
   return (data ?? []) as unknown as PromptLayerRow[]
 }
 
-async function assertBudget(client: SupabaseClient<Database>, settings: SettingsRow) {
+async function assertBudget(settings: SettingsRow) {
   if (!settings.daily_token_budget && !settings.daily_cost_budget_cents) return
 
+  const client = getServiceRoleClient()
   const since = new Date()
   since.setHours(0, 0, 0, 0)
   const { data, error } = await asAny(client)
@@ -279,23 +404,25 @@ async function assertBudget(client: SupabaseClient<Database>, settings: Settings
   const tokens = rows.reduce((sum, row) => sum + (row.total_tokens ?? 0), 0)
   const cost = rows.reduce((sum, row) => sum + (row.estimated_cost_cents ?? 0), 0)
 
+  const resetAt = new Date(since)
+  resetAt.setDate(resetAt.getDate() + 1)
+
   if (settings.daily_token_budget && tokens >= settings.daily_token_budget) {
-    throw new Error('UCAT AI daily token budget has been reached')
+    throw new UcatAiBudgetExceededError('UCAT AI daily token budget has been reached', resetAt)
   }
   if (settings.daily_cost_budget_cents && cost >= settings.daily_cost_budget_cents) {
-    throw new Error('UCAT AI daily cost budget has been reached')
+    throw new UcatAiBudgetExceededError('UCAT AI daily cost budget has been reached', resetAt)
   }
 }
 
 async function recordUsage(params: {
-  client: SupabaseClient<Database>
   config: UcatAiResolvedConfig
   operation: string
   model: string
   usage: UcatAiUsage
   metadata?: Json | null
 }) {
-  await asAny(params.client)
+  const { error } = await asAny(getServiceRoleClient())
     .from('ucat_ai_generation_usage')
     .insert({
       model_profile_id: params.config.modelProfile.id,
@@ -308,95 +435,154 @@ async function recordUsage(params: {
       estimated_cost_cents: null,
       metadata: params.metadata ?? null,
     })
+  if (error) {
+    console.error('Failed to record UCAT AI usage', error)
+  }
 }
 
 export async function callUcatAiJson(params: {
   client: SupabaseClient<Database>
   operation: string
   modelProfileId?: string | null
+  /** Use vtutor_* facades when the client is a tutor session (not service role). */
+  tutorScoped?: boolean
   systemPrompt: string
   userPrompt: string
+  userContentParts?: UcatAiUserContentPart[]
   temperature?: number
   maxCompletionTokens?: number
   timeoutMs?: number
   providerSort?: 'price' | 'throughput' | 'latency'
   reasoningEffort?: 'none' | 'minimal' | 'low' | 'medium' | 'high'
   metadata?: Json | null
+  signal?: AbortSignal
 }): Promise<UcatAiJsonResult> {
-  const config = await resolveUcatAiConfig(params.client, params.modelProfileId)
-  await assertBudget(params.client, config.settings)
+  const config = await resolveUcatAiConfig(
+    params.client,
+    params.modelProfileId,
+    params.tutorScoped ?? false,
+  )
+  await assertBudget(config.settings)
 
-  const apiKey = process.env[config.provider.secret_env_var_name]
-  if (!apiKey) {
-    throw new Error(`${config.provider.secret_env_var_name} is not configured`)
-  }
-
-  const controller = new AbortController()
   const timeoutMs = params.timeoutMs ?? 120000
-  const timeout = setTimeout(() => controller.abort(), timeoutMs)
   const maxCompletionTokens = params.maxCompletionTokens ?? config.modelProfile.max_completion_tokens
+  const appliedMaxCompletionTokens = config.provider.provider_kind === 'codex_oauth'
+    ? null
+    : maxCompletionTokens
 
-  let response: Response
-  try {
-    response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
-      method: 'POST',
-      signal: controller.signal,
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        ...parseHeaders(config.provider.default_headers),
-      },
-      body: JSON.stringify({
-        model: config.modelProfile.model,
-        temperature: params.temperature ?? Number(config.modelProfile.temperature),
-        response_format: { type: 'json_object' },
-        max_completion_tokens: maxCompletionTokens,
-        provider: params.providerSort ? { sort: params.providerSort } : undefined,
-        reasoning: params.reasoningEffort
-          ? { effort: params.reasoningEffort, exclude: true }
-          : undefined,
-        messages: [
-          { role: 'system', content: params.systemPrompt },
-          { role: 'user', content: params.userPrompt },
-        ],
-      }),
+  let content: string | null | undefined
+  let finishReason: string | null = null
+  let usage: UcatAiUsage = null
+
+  if (config.provider.provider_kind === 'codex_oauth') {
+    const codexContentParts: CodexOAuthUserContentPart[] | undefined = params.userContentParts?.map((part) => (
+      part.type === 'text'
+        ? { type: 'input_text', text: part.text }
+        : { type: 'input_image', image_url: part.imageUrl, detail: part.detail }
+    ))
+    const result = await callCodexOAuthJson({
+      providerId: config.provider.id,
+      baseUrl: config.provider.base_url,
+      model: config.modelProfile.model,
+      systemPrompt: params.systemPrompt,
+      userPrompt: params.userPrompt,
+      userContentParts: codexContentParts,
+      timeoutMs,
+      signal: params.signal,
     })
-  } catch (error) {
-    if (error instanceof Error && error.name === 'AbortError') {
-      throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
+    content = result.content
+    usage = result.usage
+    finishReason = result.finishReason
+  } else {
+    const apiKey = process.env[config.provider.secret_env_var_name]
+    if (!apiKey) {
+      throw new Error(`${config.provider.secret_env_var_name} is not configured`)
     }
-    throw error
-  } finally {
-    clearTimeout(timeout)
+
+    const controller = new AbortController()
+    let timedOut = false
+    const abortFromCaller = () => controller.abort(params.signal?.reason)
+    if (params.signal?.aborted) abortFromCaller()
+    else params.signal?.addEventListener('abort', abortFromCaller, { once: true })
+    const timeout = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, timeoutMs)
+    let response: Response
+    try {
+      response = await fetch(`${config.provider.base_url.replace(/\/$/u, '')}/chat/completions`, {
+        method: 'POST',
+        signal: controller.signal,
+        headers: {
+          Authorization: `Bearer ${apiKey}`,
+          'Content-Type': 'application/json',
+          ...parseHeaders(config.provider.default_headers),
+        },
+        body: JSON.stringify({
+          model: config.modelProfile.model,
+          temperature: params.temperature ?? Number(config.modelProfile.temperature),
+          response_format: { type: 'json_object' },
+          max_completion_tokens: maxCompletionTokens,
+          provider: params.providerSort ? { sort: params.providerSort } : undefined,
+          reasoning: params.reasoningEffort
+            ? { effort: params.reasoningEffort, exclude: true }
+            : undefined,
+          messages: [
+            { role: 'system', content: params.systemPrompt },
+            {
+              role: 'user',
+              content: params.userContentParts
+                ? params.userContentParts.map((part) => (
+                    part.type === 'text'
+                      ? { type: 'text', text: part.text }
+                      : { type: 'image_url', image_url: { url: part.imageUrl, detail: part.detail } }
+                  ))
+                : params.userPrompt,
+            },
+          ],
+        }),
+      })
+    } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        if (!timedOut && params.signal?.aborted) throw error
+        throw new Error(`UCAT AI ${params.operation} timed out after ${Math.round(timeoutMs / 1000)}s`)
+      }
+      throw error
+    } finally {
+      clearTimeout(timeout)
+      params.signal?.removeEventListener('abort', abortFromCaller)
+    }
+
+    if (!response.ok) {
+      throw new Error(`UCAT AI ${params.operation} failed: ${await response.text()}`)
+    }
+
+    const json = (await response.json()) as {
+      choices?: Array<{ message?: { content?: string | null }; finish_reason?: string | null }>
+      usage?: UcatAiUsage
+    }
+    content = json.choices?.[0]?.message?.content
+    usage = json.usage ?? null
+    finishReason = json.choices?.[0]?.finish_reason ?? null
   }
 
-  if (!response.ok) {
-    throw new Error(`UCAT AI ${params.operation} failed: ${await response.text()}`)
-  }
-
-  const json = (await response.json()) as {
-    choices?: Array<{ message?: { content?: string | null }; finish_reason?: string | null }>
-    usage?: UcatAiUsage
-  }
-  const content = json.choices?.[0]?.message?.content
   if (!content) {
     throw new UcatAiEmptyResponseError({
       operation: params.operation,
       model: config.modelProfile.model,
       providerId: config.provider.id,
       modelProfileId: config.modelProfile.id,
-      usage: json.usage ?? null,
-      finishReason: json.choices?.[0]?.finish_reason ?? null,
-      maxCompletionTokens,
+      usage,
+      finishReason,
+      maxCompletionTokens: appliedMaxCompletionTokens,
     })
   }
 
   await recordUsage({
-    client: params.client,
     config,
     operation: params.operation,
     model: config.modelProfile.model,
-    usage: json.usage ?? null,
+    usage,
     metadata: params.metadata ?? null,
   })
 
@@ -410,9 +596,9 @@ export async function callUcatAiJson(params: {
       model: config.modelProfile.model,
       providerId: config.provider.id,
       modelProfileId: config.modelProfile.id,
-      usage: json.usage ?? null,
-      finishReason: json.choices?.[0]?.finish_reason ?? null,
-      maxCompletionTokens,
+      usage,
+      finishReason,
+      maxCompletionTokens: appliedMaxCompletionTokens,
     })
   }
 
@@ -422,8 +608,8 @@ export async function callUcatAiJson(params: {
     model: config.modelProfile.model,
     providerId: config.provider.id,
     modelProfileId: config.modelProfile.id,
-    usage: json.usage ?? null,
-    finishReason: json.choices?.[0]?.finish_reason ?? null,
-    maxCompletionTokens,
+    usage,
+    finishReason,
+    maxCompletionTokens: appliedMaxCompletionTokens,
   }
 }

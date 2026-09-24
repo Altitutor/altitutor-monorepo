@@ -8,10 +8,13 @@ export const sessionsKeys = {
   list: (filters: string) => [...sessionsKeys.lists(), { filters }] as const,
   listRange: (rangeStart: string, rangeEnd: string) =>
     [...sessionsKeys.lists(), 'range', rangeStart, rangeEnd] as const,
+  listOriginalRange: (rangeStart: string, rangeEnd: string) =>
+    [...sessionsKeys.lists(), 'original-range', rangeStart, rangeEnd] as const,
   details: () => [...sessionsKeys.all, 'detail'] as const,
   detail: (id: string) => [...sessionsKeys.details(), id] as const,
   detailsBatch: (sessionIds: string[]) =>
     [...sessionsKeys.all, 'details-batch', [...sessionIds].sort().join(',')] as const,
+  pastDetails: () => [...sessionsKeys.lists(), 'past-details'] as const,
 };
 
 // Get all sessions (uses vtutor_sessions view)
@@ -29,6 +32,15 @@ export function useTutorSessionsInRange(rangeStart: string, rangeEnd: string) {
   return useQuery({
     queryKey: sessionsKeys.listRange(rangeStart, rangeEnd),
     queryFn: () => sessionsApi.getSessionsInDateRange(rangeStart, rangeEnd),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
+export function useTutorSessionsOriginallyInRange(rangeStart: string, rangeEnd: string) {
+  return useQuery({
+    queryKey: sessionsKeys.listOriginalRange(rangeStart, rangeEnd),
+    queryFn: () => sessionsApi.getSessionsOriginallyInDateRange(rangeStart, rangeEnd),
     staleTime: 1000 * 60 * 3,
     gcTime: 1000 * 60 * 5,
   });
@@ -64,5 +76,15 @@ export function useSession(sessionId: string) {
     enabled: !!sessionId,
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
+  });
+}
+
+export function usePastSessionsWithDetails(enabled = true) {
+  return useQuery({
+    queryKey: sessionsKeys.pastDetails(),
+    queryFn: sessionsApi.getPastSessionsWithDetails,
+    enabled,
+    staleTime: 1000 * 60 * 2,
+    gcTime: 1000 * 60 * 5,
   });
 }

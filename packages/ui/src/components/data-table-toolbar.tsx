@@ -40,6 +40,7 @@ import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
 import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
+import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import {
   canResolveDefaultVisibleColumns,
   countColumnViewLayoutDiff,
@@ -162,8 +163,12 @@ export function DataTableToolbar({
   const debouncedSearch = useDebounce(searchValue, 300);
   const prevStateSearchRef = React.useRef(state.search);
   const isInternalUpdateRef = React.useRef(false);
+  const onSearchChangeRef = React.useRef(onSearchChange);
+  onSearchChangeRef.current = onSearchChange;
   const [groupByOpen, setGroupByOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  const filterPersistenceKey = `data-table-toolbar:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
+  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
 
   // Sync internal search state with prop state (e.g. if cleared from outside)
   // Only sync when state.search changes externally, not during local typing
@@ -182,14 +187,14 @@ export function DataTableToolbar({
     }
   }, [state.search]);
 
-  // Call onSearchChange when debounced value changes
+  // Push debounced local search to parent. Keep the callback in a ref so URL-driven
+  // parent identity churn (common on tab switches) cannot re-fire this effect and
+  // fight an external reset into an update-depth loop.
   React.useEffect(() => {
-    // Only trigger if the debounced value is different from the current state search
-    if (debouncedSearch !== state.search) {
-      isInternalUpdateRef.current = true;
-      onSearchChange(debouncedSearch);
-    }
-  }, [debouncedSearch, onSearchChange, state.search]);
+    if (debouncedSearch === state.search) return;
+    isInternalUpdateRef.current = true;
+    onSearchChangeRef.current(debouncedSearch);
+  }, [debouncedSearch, state.search]);
 
   const rangeFilterDefs = filterDefinitions.filter((d) => d.type === 'number-range' && d.minKey && d.maxKey);
   const dateRangeFilterDefs = filterDefinitions.filter(
@@ -215,7 +220,10 @@ export function DataTableToolbar({
       const maxArr = def.maxKey ? state.filters[def.maxKey] : [];
       const minSet = Array.isArray(minArr) && minArr.length > 0 && minArr[0] != null && minArr[0] !== '';
       const maxSet = Array.isArray(maxArr) && maxArr.length > 0 && maxArr[0] != null && maxArr[0] !== '';
-      if (minSet || maxSet) count += 1;
+      const nullSet =
+        !!def.nullOptionLabel &&
+        (state.filters[def.key] ?? []).some((v) => String(v) === '__null__');
+      if (minSet || maxSet || nullSet) count += 1;
     }
     for (const def of dateRangeFilterDefs) {
       const fromArr = def.fromKey ? state.filters[def.fromKey] : [];
@@ -730,7 +738,7 @@ export function DataTableToolbar({
 
           {/* Filters */}
           <div className="relative flex items-center">
-            <DropdownMenu>
+            <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
               <DropdownMenuTrigger asChild>
                 <Button
                   variant="outline"
@@ -803,13 +811,31 @@ export function DataTableToolbar({
                       const maxVal = def.maxKey != null ? (state.filters[def.maxKey]?.[0] ?? '') : '';
                       const minSet = minVal !== '' && minVal != null && String(minVal).trim() !== '';
                       const maxSet = maxVal !== '' && maxVal != null && String(maxVal).trim() !== '';
-                      if (!minSet && !maxSet) return null;
+                      const nullSet =
+                        !!def.nullOptionLabel &&
+                        (state.filters[def.key] ?? []).some((v) => String(v) === '__null__');
+                      if (!minSet && !maxSet && !nullSet) return null;
                       const label = def.label;
                       return (
                         <div key={def.key} className="flex flex-wrap items-center gap-1 p-1 bg-muted/50 rounded border text-[10px]">
+                          {nullSet ? (
+                            <>
+                              <span className="font-semibold">{label} is</span>
+                              <button
+                                onClick={() => clearRangeFilterBound(def.key)}
+                                className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
+                                aria-label={`Clear ${def.nullOptionLabel}`}
+                              >
+                                {def.nullOptionLabel}
+                                <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
+                              </button>
+                              {(minSet || maxSet) && <span className="opacity-50">OR</span>}
+                            </>
+                          ) : null}
                           {minSet && maxSet ? (
                             <>
-                              <span>{label} is between</span>
+                              {!nullSet && <span>{label} is between</span>}
+                              {nullSet && <span>between</span>}
                               <button
                                 onClick={() => def.minKey && clearRangeFilterBound(def.minKey)}
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
@@ -831,7 +857,8 @@ export function DataTableToolbar({
                             </>
                           ) : minSet ? (
                             <>
-                              <span>{label} is more than or equal to</span>
+                              {!nullSet && <span>{label} is more than or equal to</span>}
+                              {nullSet && <span>≥</span>}
                               <button
                                 onClick={() => def.minKey && clearRangeFilterBound(def.minKey)}
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
@@ -841,9 +868,10 @@ export function DataTableToolbar({
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                             </>
-                          ) : (
+                          ) : maxSet ? (
                             <>
-                              <span>{label} is less than or equal to</span>
+                              {!nullSet && <span>{label} is less than or equal to</span>}
+                              {nullSet && <span>≤</span>}
                               <button
                                 onClick={() => def.maxKey && clearRangeFilterBound(def.maxKey)}
                                 className="inline-flex items-center gap-0.5 px-1 bg-background hover:bg-muted rounded border group"
@@ -853,7 +881,7 @@ export function DataTableToolbar({
                                 <X className="h-3 w-3 opacity-50 group-hover:opacity-100" />
                               </button>
                             </>
-                          )}
+                          ) : null}
                         </div>
                       );
                     })}
@@ -915,11 +943,28 @@ export function DataTableToolbar({
                   {filterDefinitions
                     .filter((def) => def.type !== 'date')
                     .map((def) => {
+                    const customContent = customFilterContent[def.key];
+                    if (customContent != null) {
+                      return (
+                        <DropdownMenuSub
+                          key={def.key}
+                          persistOpenOnRemountKey={`${filterPersistenceKey}:filter:${def.key}`}
+                        >
+                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
+                          <DropdownMenuSubContent className="w-[280px] p-0">
+                            {customContent}
+                          </DropdownMenuSubContent>
+                        </DropdownMenuSub>
+                      );
+                    }
                     if (def.type === 'date-range' && def.fromKey && def.toKey) {
                       const fromVal = String((state.filters[def.fromKey] ?? [])[0] ?? '');
                       const toVal = String((state.filters[def.toKey] ?? [])[0] ?? '');
                       return (
-                        <DropdownMenuSub key={def.key}>
+                        <DropdownMenuSub
+                          key={def.key}
+                          persistOpenOnRemountKey={`${filterPersistenceKey}:date:${def.key}`}
+                        >
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-[260px] p-0">
                             <DateRangeFilter
@@ -944,26 +989,38 @@ export function DataTableToolbar({
                         </DropdownMenuSub>
                       );
                     }
-                    const customContent = customFilterContent[def.key];
-                    if (customContent != null) {
-                      return (
-                        <DropdownMenuSub key={def.key}>
-                          <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
-                          <DropdownMenuSubContent className="w-[240px] p-0">
-                            {customContent}
-                          </DropdownMenuSubContent>
-                        </DropdownMenuSub>
-                      );
-                    }
                     if (def.type === 'number-range' && def.minKey && def.maxKey) {
                       const minKey = def.minKey;
                       const maxKey = def.maxKey;
                       const minVal = String((state.filters[minKey] ?? [])[0] ?? '');
                       const maxVal = String((state.filters[maxKey] ?? [])[0] ?? '');
+                      const nullSelected =
+                        !!def.nullOptionLabel &&
+                        (state.filters[def.key] ?? []).some((v) => String(v) === '__null__');
                       return (
                         <DropdownMenuSub key={def.key}>
                           <DropdownMenuSubTrigger>{def.label}</DropdownMenuSubTrigger>
                           <DropdownMenuSubContent className="w-[200px]">
+                            {def.nullOptionLabel ? (
+                              <>
+                                <DropdownMenuCheckboxItem
+                                  checked={nullSelected}
+                                  onCheckedChange={(checked) => {
+                                    const nextFilters = { ...state.filters };
+                                    if (checked) {
+                                      nextFilters[def.key] = ['__null__'];
+                                    } else {
+                                      delete nextFilters[def.key];
+                                    }
+                                    onFiltersChange(nextFilters);
+                                  }}
+                                  onSelect={(e) => e.preventDefault()}
+                                >
+                                  {def.nullOptionLabel}
+                                </DropdownMenuCheckboxItem>
+                                <DropdownMenuSeparator />
+                              </>
+                            ) : null}
                             <div className="p-2 flex items-center gap-2">
                               <div className="flex-1 min-w-0">
                                 <label className="text-xs font-medium text-muted-foreground">Min</label>

@@ -1,18 +1,14 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
-import { pickStems } from "../generated-sets/pick-stems";
-import type { SetGeneratorInput } from "@/features/set-generator/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
+import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import {
-  mapStemDetailToQuestionStemWithQuestions,
-  type StemDetailRowFromDb,
-} from "@/features/practice/lib/map-stem-detail-for-practice";
-import {
-  checkPracticeStartQuota,
-  getPracticeQuotaStatusForStudent,
-  quotaExceededResponse,
-} from "@/lib/ucat/quota/quota-service";
+  preparePracticeStems,
+  PracticeStemSelectionError,
+} from "@/features/practice/server/prepare-practice-stems";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -37,9 +33,9 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let body: { input?: SetGeneratorInput };
+  let body: { input?: PracticeSelectionInput };
   try {
-    body = (await request.json()) as { input?: SetGeneratorInput };
+    body = (await request.json()) as { input?: PracticeSelectionInput };
   } catch {
     return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
   }
@@ -73,60 +69,28 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const quotaStatus = await getPracticeQuotaStatusForStudent(
-    supabaseAdmin,
-    student.id,
-  );
-  const enforcePracticeQuota =
-    quotaStatus != null && !quotaStatus.isQuotaExempt;
-
-  const result = await pickStems(supabase, input, {
-    allowOversizedFallback: !enforcePracticeQuota,
-  });
-
-  if (result.chosenStemIds.length === 0) {
+  try {
     return NextResponse.json(
-      { error: "No question stems match these filters." },
-      { status: 400 },
+      await preparePracticeStems({
+        reader: supabase,
+        admin: supabaseAdmin,
+        studentId: student.id,
+        input,
+      }),
     );
-  }
-
-  const { data: stemDetails, error: stemDetailsError } = await supabase
-    .from("vstudent_ucat_question_stem_detail")
-    .select("id,section_name,display_columns,stem_text,questions")
-    .in("id", result.chosenStemIds);
-
-  if (stemDetailsError || !stemDetails?.length) {
+  } catch (error) {
+    captureApiError(error, "/api/ucat/practice-stems");
+    if (error instanceof QuotaExceededError) {
+      return quotaExceededResponse(error.payload);
+    }
+    if (error instanceof PracticeStemSelectionError) {
+      return NextResponse.json({ error: error.message }, { status: 400 });
+    }
     return NextResponse.json(
-      { error: stemDetailsError?.message ?? "Failed to load stem details" },
+      {
+        error: error instanceof Error ? error.message : "Failed to load stems",
+      },
       { status: 500 },
     );
   }
-
-  const stemRows = stemDetails as StemDetailRowFromDb[];
-  const orderedStems = result.chosenStemIds
-    .map((id) => stemRows.find((s) => s.id === id))
-    .filter((s): s is StemDetailRowFromDb => s != null);
-
-  const stems: QuestionStemWithQuestions[] = orderedStems.map((row) =>
-    mapStemDetailToQuestionStemWithQuestions(row),
-  );
-
-  const questionIds = stems.flatMap((stem) =>
-    stem.questions.map((question) => question.id),
-  );
-  const quotaCheck = await checkPracticeStartQuota(
-    supabaseAdmin,
-    student.id,
-    questionIds,
-  );
-  if (!quotaCheck.allowed) {
-    return quotaExceededResponse(quotaCheck.payload);
-  }
-
-  return NextResponse.json({
-    stems,
-    questionCount: result.questionCount,
-    totalMatchingQuestions: result.totalMatchingQuestions,
-  });
 }

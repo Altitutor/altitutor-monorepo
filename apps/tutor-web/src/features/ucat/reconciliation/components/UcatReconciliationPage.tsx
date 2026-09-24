@@ -12,14 +12,16 @@ import { StemsWithNoCategoryTable } from './StemsWithNoCategoryTable'
 import { QuestionsWithNoExplanationTable } from './QuestionsWithNoExplanationTable'
 import { UntaggedQuestionsTable } from './UntaggedQuestionsTable'
 import { PrivateStemsNotInSetTable } from './PrivateStemsNotInSetTable'
+import { StemsInMultipleSetsTable } from './StemsInMultipleSetsTable'
 import { SetsReconciliationTable } from './SetsReconciliationTable'
 import { MocksWithIncorrectSetsTable } from './MocksWithIncorrectSetsTable'
+import { SET_RECONCILIATION_ISSUES } from '@/features/ucat/reconciliation/lib/set-issue-definitions'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
-import type { UcatQuestionStemBundlePayload } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -27,8 +29,6 @@ import {
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import { filterOptionsWithContent } from '@/features/ucat/shared/lib/rich-text'
-import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { useReconciliationData } from '@/features/ucat/reconciliation/hooks/useReconciliation'
 import {
@@ -36,40 +36,6 @@ import {
   getSetReconciliationWarnings,
   getStemReconciliationWarnings,
 } from '@/features/ucat/reconciliation/lib/reconciliation-warning-labels'
-
-function toExplanationNull(value: unknown): import('@altitutor/shared').Json | null {
-  if (value == null) return null
-  if (typeof value === 'string' && value === 'null') return null
-  return value as import('@altitutor/shared').Json
-}
-
-function mapFormValuesToBundlePayload(
-  payload: UcatQuestionStemFormValues,
-  stemId: string
-): UcatQuestionStemBundlePayload {
-  return {
-    stemId,
-    sectionId: payload.sectionId,
-    categoryId: payload.categoryId || null,
-    stemText: payload.stemText,
-    isPrivate: payload.isPrivate,
-    questions: payload.questions.map((question, index) => ({
-      index: index + 1,
-      questionText: question.questionText,
-      questionType: question.questionType,
-      answerExplanation: toExplanationNull(question.answerExplanation),
-      difficulty: question.difficulty,
-      timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-      tagIds: question.tagIds ?? [],
-      options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
-        index: optionIndex + 1,
-        answerText: option.answerText,
-        answerExplanation: toExplanationNull(option.answerExplanation),
-        isAnswer: option.isAnswer,
-      })),
-    })),
-  }
-}
 
 export function UcatReconciliationPage() {
   const access = useUcatAccess()
@@ -102,7 +68,7 @@ export function UcatReconciliationPage() {
   const handleStemUpdate = useCallback(
     async (payload: UcatQuestionStemFormValues) => {
       if (!editingStemId) return
-      const mapped = mapFormValuesToBundlePayload(payload, editingStemId)
+      const mapped = formValuesToStemBundlePayload(payload, editingStemId)
       await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
       setEditingStemId(null)
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
@@ -122,7 +88,7 @@ export function UcatReconciliationPage() {
     <div className="space-y-8 py-8 md:py-10">
       <UcatPageHeader
         title="Reconciliation"
-        description="Identify and resolve UCAT content gaps: uncategorized stems, missing explanations, private stems not in sets, sets with incorrect questions/timing/sections, and mocks with incorrect sets."
+        description="Identify and resolve UCAT content gaps: uncategorized stems, missing explanations, unused private stems, sets with incorrect questions/timing/sections, and mocks with incorrect sets."
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Reconciliation' }]}
       />
 
@@ -134,28 +100,23 @@ export function UcatReconciliationPage() {
             <QuestionsWithNoExplanationTable onOpenStemDialog={handleOpenStemDialog} />
             <UntaggedQuestionsTable onOpenStemDialog={handleOpenStemDialog} />
             <PrivateStemsNotInSetTable onOpenStemDialog={handleOpenStemDialog} onEditSet={setEditingSetId} />
+            <StemsInMultipleSetsTable onOpenStemDialog={handleOpenStemDialog} onEditSet={setEditingSetId} />
           </div>
         </section>
 
         <section className="space-y-6">
           <h2 className="text-xl font-semibold tracking-tight">Sets</h2>
           <div className="space-y-8">
-            <SetsReconciliationTable
-              title="Sets with incorrect number of questions"
-              dataKey="setsWithIncorrectQuestionCount"
-              onEditSet={setEditingSetId}
-            />
-            <SetsReconciliationTable
-              title="Sets with incorrect timing"
-              dataKey="setsWithIncorrectTiming"
-              onEditSet={setEditingSetId}
-              showTimeColumn
-            />
-            <SetsReconciliationTable
-              title="Sets with more than 1 section"
-              dataKey="setsWithMultipleSections"
-              onEditSet={setEditingSetId}
-            />
+            {SET_RECONCILIATION_ISSUES.map((definition) => (
+              <SetsReconciliationTable
+                key={definition.slug}
+                title={definition.title}
+                description={definition.description}
+                dataKey={definition.dataKey}
+                onEditSet={setEditingSetId}
+                showTimeColumn={definition.showTimeColumn}
+              />
+            ))}
           </div>
         </section>
 

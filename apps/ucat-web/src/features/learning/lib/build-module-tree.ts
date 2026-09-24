@@ -1,5 +1,12 @@
 import type { LearningModuleRow, LearningModuleTreeNode } from "@/features/learning/types";
 
+const CANONICAL_UCAT_SECTION_ORDER = [
+  "Verbal Reasoning",
+  "Decision Making",
+  "Quantitative Reasoning",
+  "Situational Judgement",
+] as const;
+
 export function buildLearningModuleTree(
   modules: LearningModuleRow[],
 ): LearningModuleTreeNode[] {
@@ -44,5 +51,23 @@ export function groupModulesBySection(
     groups.set(sectionId, group);
   }
 
-  return [...groups.values()];
+  return [...groups.values()].sort((a, b) => {
+    if (a.sectionId == null && b.sectionId != null) return -1;
+    if (a.sectionId != null && b.sectionId == null) return 1;
+
+    const aIndex = CANONICAL_UCAT_SECTION_ORDER.indexOf(
+      a.sectionName as (typeof CANONICAL_UCAT_SECTION_ORDER)[number],
+    );
+    const bIndex = CANONICAL_UCAT_SECTION_ORDER.indexOf(
+      b.sectionName as (typeof CANONICAL_UCAT_SECTION_ORDER)[number],
+    );
+
+    if (aIndex !== -1 || bIndex !== -1) {
+      if (aIndex === -1) return 1;
+      if (bIndex === -1) return -1;
+      return aIndex - bIndex;
+    }
+
+    return a.sectionName.localeCompare(b.sectionName);
+  });
 }

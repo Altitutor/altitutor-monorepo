@@ -16,8 +16,13 @@ export interface TablePaginationProps {
   total: number;
   isFetching?: boolean;
   onPageChange: (page: number) => void;
-  onPageSizeChange: (pageSize: number) => void;
+  onPageSizeChange?: (pageSize: number) => void;
   pageSizeOptions?: number[];
+  showPageSizeSelector?: boolean;
+  /** When false, hides the "Page n of n • n total" summary. Defaults to true. */
+  showPageSummary?: boolean;
+  /** Replaces the default "{total} total" fragment after the page numbers. */
+  countSummary?: string;
   className?: string;
   /** @deprecated Use default nav-style active page. Override only for exceptional theming. */
   activePageButtonClassName?: string;
@@ -34,6 +39,9 @@ export function TablePagination({
   onPageChange,
   onPageSizeChange,
   pageSizeOptions = DEFAULT_PAGE_SIZE_OPTIONS,
+  showPageSizeSelector = true,
+  showPageSummary = true,
+  countSummary,
   className,
   activePageButtonClassName,
 }: TablePaginationProps) {
@@ -83,33 +91,44 @@ export function TablePagination({
   const selectedPageSize = pageSizeItems.find((i) => i.value === pageSize) ?? pageSizeItems[0];
 
   const handlePageSizeChange = (item: PageSizeItem | null) => {
-    if (item && item.value !== pageSize) {
+    if (item && item.value !== pageSize && onPageSizeChange) {
       onPageSizeChange(item.value);
     }
   };
 
   return (
     <div className={cn('w-full overflow-x-auto overscroll-x-contain text-sm text-muted-foreground', className)}>
-      <div className="flex min-w-max items-center justify-between gap-4">
-        <div className="flex shrink-0 items-center gap-2">
-          <span className="whitespace-nowrap">
-            Page {currentPage} of {pageCount} • {total} total
-          </span>
-          {isFetching && <span className="text-xs">(Refreshing...)</span>}
-        </div>
+      <div
+        className={cn(
+          'flex min-w-max items-center gap-4',
+          showPageSummary ? 'justify-between' : 'justify-end',
+        )}
+      >
+        {showPageSummary ? (
+          <div className="flex shrink-0 items-center gap-2">
+            <span className="whitespace-nowrap">
+              Page {currentPage} of {pageCount} • {countSummary ?? `${total} total`}
+            </span>
+            {isFetching && <span className="text-xs">(Refreshing...)</span>}
+          </div>
+        ) : isFetching ? (
+          <span className="sr-only">Refreshing...</span>
+        ) : null}
 
         <div className="flex shrink-0 items-center gap-4">
-          <div className="flex items-center gap-2 whitespace-nowrap">
-            <span>Rows per page</span>
-            <SearchableSelect<PageSizeItem>
-              items={pageSizeItems}
-              value={selectedPageSize}
-              onValueChange={handlePageSizeChange}
-              getItemLabel={(i) => String(i.value)}
-              getItemId={(i) => String(i.value)}
-              triggerClassName="!w-auto min-w-[5.25rem] shrink-0 max-w-[6.5rem]"
-            />
-          </div>
+          {showPageSizeSelector ? (
+            <div className="hidden items-center gap-2 whitespace-nowrap md:flex">
+              <span>Rows per page</span>
+              <SearchableSelect<PageSizeItem>
+                items={pageSizeItems}
+                value={selectedPageSize}
+                onValueChange={handlePageSizeChange}
+                getItemLabel={(i) => String(i.value)}
+                getItemId={(i) => String(i.value)}
+                triggerClassName="!w-auto min-w-[5.25rem] shrink-0 max-w-[6.5rem]"
+              />
+            </div>
+          ) : null}
 
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => handlePageChange(currentPage - 1)} disabled={currentPage <= 1}>

@@ -25,6 +25,14 @@ const detailsFormSchema = z.object({
   last_name: z.string().min(1, 'Last name is required'),
   email: z.string().email('Invalid email address').optional().or(z.literal('')),
   phone: z.string().optional().nullable(),
+  birthday: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
   school: z.string().optional(),
 });
 
@@ -41,6 +49,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
     last_name: profile.last_name || '',
     email: profile.email || '',
     phone: profile.phone || '',
+    birthday: profile.birthday || '',
     school: profile.school || '',
   });
 
@@ -62,6 +71,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
       last_name: profile.last_name || '',
       email: profile.email || '',
       phone: profile.phone || '',
+      birthday: profile.birthday || '',
       school: profile.school || '',
     });
     setIsEditing(false);
@@ -99,6 +109,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
         last_name: formData.last_name,
         email: formData.email || undefined,
         phone: formData.phone || undefined,
+        birthday: formData.birthday || null,
         school: formData.school || undefined,
       });
       
@@ -196,13 +207,25 @@ export function DetailsTab({ profile }: DetailsTabProps) {
             </div>
           </div>
 
-          <div>
-            <Label htmlFor="school">School</Label>
-            <Input
-              id="school"
-              value={formData.school || ''}
-              onChange={(e) => handleInputChange('school', e.target.value)}
-            />
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="birthday">Birthday</Label>
+              <Input
+                id="birthday"
+                type="date"
+                value={formData.birthday || ''}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => handleInputChange('birthday', e.target.value || null)}
+              />
+            </div>
+            <div>
+              <Label htmlFor="school">School</Label>
+              <Input
+                id="school"
+                value={formData.school || ''}
+                onChange={(e) => handleInputChange('school', e.target.value)}
+              />
+            </div>
           </div>
         </form>
       </div>
@@ -239,6 +262,11 @@ export function DetailsTab({ profile }: DetailsTabProps) {
         <div className="text-sm font-medium">Student Phone:</div>
         <div>
           <TruncatedText text={profile.phone || '-'} />
+        </div>
+
+        <div className="text-sm font-medium">Birthday:</div>
+        <div>
+          <TruncatedText text={profile.birthday || '-'} />
         </div>
         
         <div className="text-sm font-medium">School:</div>

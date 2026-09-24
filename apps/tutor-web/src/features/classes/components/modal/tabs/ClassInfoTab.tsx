@@ -17,7 +17,7 @@ const classInfoSchema = z.object({
   dayOfWeek: z.number().min(0).max(6),
   startTime: z.string().min(1, 'Start time is required'),
   endTime: z.string().min(1, 'End time is required'),
-  status: z.enum(['ACTIVE','INACTIVE','FULL']),
+  status: z.enum(['ACTIVE','INACTIVE']),
   subjectId: z.string().optional(),
   room: z.string().optional(),
 });
@@ -27,7 +27,6 @@ type FormData = z.infer<typeof classInfoSchema>;
 const STATUS_OPTIONS = [
   { value: 'ACTIVE' as const, label: 'Active' },
   { value: 'INACTIVE' as const, label: 'Inactive' },
-  { value: 'FULL' as const, label: 'Full' },
 ] as const;
 
 const DAY_OPTIONS = [
@@ -70,7 +69,7 @@ export function ClassInfoTab({
       dayOfWeek: classData.day_of_week || 1,
       startTime: classData.start_time || '',
       endTime: classData.end_time || '',
-      status: (classData.status as 'ACTIVE' | 'INACTIVE' | 'FULL') || 'ACTIVE',
+      status: classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE',
       subjectId: classData.subject_id || '',
       room: classData.room || '',
     },
@@ -264,17 +263,15 @@ export function ClassInfoTab({
         // View Mode
         <>
           <div className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">Day:</div>
-            <div className="min-w-0">{getDayOfWeek(classData.day_of_week)}</div>
-            
-            <div className="text-sm font-medium">Time:</div>
+            <div className="text-sm font-medium">Timetable:</div>
             <div className="min-w-0">
-              {formatTime(classData.start_time)} - {formatTime(classData.end_time)}
+              {classData.schedule_summary_long ||
+                `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`}
             </div>
             
             <div className="text-sm font-medium">Status:</div>
             <div className="min-w-0">
-              <ClassStatusBadge value={classData.status as 'ACTIVE' | 'INACTIVE' | 'FULL' | null} />
+              <ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} />
             </div>
             
             <div className="text-sm font-medium">Subject:</div>
@@ -294,4 +291,4 @@ export function ClassInfoTab({
 }
 
 export { classInfoSchema };
-export type { FormData as ClassInfoFormData }; 
+export type { FormData as ClassInfoFormData };

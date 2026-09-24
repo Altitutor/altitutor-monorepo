@@ -1,56 +1,66 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo } from "react";
-import { BookOpen, BrainCircuit, ListChecks, NotebookText } from "lucide-react";
-import { Card, CardContent } from "@altitutor/ui";
+import { useMemo, useState } from "react";
+import { motion } from "motion/react";
+import { BookOpen, ListChecks, NotebookText } from "lucide-react";
+import { Card, CardContent, useToast } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
 import {
   useStudentUcatSessionResources,
   useStudentUcatSessions,
+  useCompletedSessionResourceIds,
+  useCompleteSessionResource,
 } from "@/features/sessions/hooks/use-sessions";
+import { SessionQuestionStemActivity } from "@/features/sessions/components/session-question-stem-activity";
 import { formatSessionBreadcrumbDate } from "@/features/sessions/lib/format-session-breadcrumb-date";
 import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
-import { useSets } from "@/features/sets";
+import { useAccessibleSets } from "@/features/sets";
 import type { StudentSetRow } from "@/features/sets/api/sets-api";
 import { useMocks } from "@/features/mocks";
 import type { StudentMockRow } from "@/features/mocks/api/mocks-api";
 import { formatSetSections } from "@/features/sets/lib/section-labels";
 import { sessionCardIconChipClassName } from "@/features/sessions/lib/session-card-icon-chip";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
-import { UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_CARD_CHROME,
+  UCAT_CARD_RAISED_HOVER,
+} from "@/lib/ucat-surface-motion";
 import { useLearningModules } from "@/features/learning/hooks/use-learning";
+import { learningModuleHref } from "@/features/learning/lib/learning-module-href";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import { cn } from "@/lib/utils";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 const sessionResourceLinkClassName = cn(
   "group block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-foreground/25 focus-visible:ring-offset-2 focus-visible:ring-offset-background dark:focus-visible:ring-white/35",
 );
 
-const sessionResourceCardClassName = cn(UCAT_CARD_CHROME, UCAT_CARD_RAISED_HOVER);
+const sessionResourceCardClassName = cn(
+  UCAT_CARD_CHROME,
+  UCAT_CARD_RAISED_HOVER,
+);
 
 type SessionDetailPageProps = {
   sessionId: string;
 };
 
-function formatPracticeTiming(seconds: number | null): string {
-  if (seconds == null || seconds <= 0) return "Untimed";
-  return `${Math.round(seconds / 60)} min`;
-}
-
 function setResourceSubtitle(set: StudentSetRow): string {
   const sections = formatSetSections(set.sections);
-  const timing = formatPracticeTiming(set.time_limit_seconds);
+  const timing = formatExamDurationSeconds(set.time_limit_seconds);
   return [sections, timing].filter(Boolean).join(" · ");
 }
 
 function mockResourceSubtitle(mock: StudentMockRow): string {
-  return mock.has_timed_sets === true ? "Timed" : "Untimed";
+  return formatExamDurationSeconds(mock.totalTimeLimitSeconds);
 }
 
 export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
+  const { toast } = useToast();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const { data: sessions } = useStudentUcatSessions();
   const sessionBreadcrumbLabel = useMemo(() => {
     const s = sessions?.find((x) => x.session_id === sessionId);
@@ -63,9 +73,20 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
     isLoading,
     error,
   } = useStudentUcatSessionResources(sessionId);
-  const { data: sets, isLoading: setsLoading } = useSets();
+  const { data: sets, isLoading: setsLoading } = useAccessibleSets();
   const { data: mocks, isLoading: mocksLoading } = useMocks();
-  const { data: learningModules, isLoading: lessonsLoading } = useLearningModules();
+  const { data: learningModules, isLoading: lessonsLoading } =
+    useLearningModules();
+  const { data: completedResourceIds = [] } = useCompletedSessionResourceIds();
+  const completeResource = useCompleteSessionResource();
+  const [activeStemResourceId, setActiveStemResourceId] = useState<
+    string | null
+  >(null);
+  const [startedStemResourceIds, setStartedStemResourceIds] = useState(
+    () => new Set<string>(),
+  );
+  const [locallyCompletedResourceIds, setLocallyCompletedResourceIds] =
+    useState(() => new Set<string>());
 
   const setsById = useMemo(
     () => new Map((sets ?? []).map((s) => [s.id, s])),
@@ -225,18 +246,32 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
         breadcrumbOverrides={sessionBreadcrumbOverrides}
       />
 
-      <ul className="flex flex-col gap-4">
+      <motion.ul
+        className="flex flex-col gap-4"
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+      >
         {visibleResources.map((resource) => {
           if (resource.type === "lesson") {
             const lesson = lessonsById.get(resource.ucat_learning_module_id);
-            const href = `/learn/${encodeURIComponent(resource.ucat_learning_module_id)}`;
+            const href = learningModuleHref(
+              resource.ucat_learning_module_id,
+              lesson?.section_number,
+            );
             return (
-              <li key={resource.id} className="min-w-0">
+              <motion.li
+                key={resource.id}
+                className="min-w-0"
+                variants={itemVariants}
+              >
                 <Link href={href} className={sessionResourceLinkClassName}>
                   <Card className={sessionResourceCardClassName}>
                     <CardContent className="p-6">
                       <div className="flex items-center gap-4">
-                        <div className={sessionCardIconChipClassName("default")}>
+                        <div
+                          className={sessionCardIconChipClassName("default")}
+                        >
                           <BookOpen className="h-5 w-5" aria-hidden />
                         </div>
                         <div className="min-w-0 flex-1 space-y-1">
@@ -252,37 +287,54 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                     </CardContent>
                   </Card>
                 </Link>
-              </li>
+              </motion.li>
             );
           }
 
           if (resource.type === "stem") {
-            const href = `/practice/stem/${encodeURIComponent(resource.question_stem_id)}`;
+            const started = startedStemResourceIds.has(resource.id);
+            const completed =
+              locallyCompletedResourceIds.has(resource.id) ||
+              completedResourceIds.includes(resource.id);
             return (
-              <li key={resource.id} className="min-w-0">
-                <Link href={href} className={sessionResourceLinkClassName}>
-                  <Card className={sessionResourceCardClassName}>
-                    <CardContent className="p-6">
-                      <div className="flex items-center gap-4">
-                        <div
-                          className={sessionCardIconChipClassName("default")}
-                        >
-                          <BrainCircuit className="h-5 w-5" aria-hidden />
-                        </div>
-                        <div className="min-w-0 flex-1 space-y-1">
-                          <h3 className="font-semibold leading-tight">
-                            Question stem
-                          </h3>
-                          <p className="text-sm text-muted-foreground">
-                            Practice questions for this stem
-                          </p>
-                        </div>
-                        <UcatHoverChevron />
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              </li>
+              <motion.li
+                key={resource.id}
+                className="min-w-0"
+                variants={itemVariants}
+              >
+                <SessionQuestionStemActivity
+                  resourceId={resource.id}
+                  stemId={resource.question_stem_id}
+                  started={started}
+                  active={activeStemResourceId === resource.id}
+                  completed={completed}
+                  onActivate={() => {
+                    setStartedStemResourceIds((current) =>
+                      new Set(current).add(resource.id),
+                    );
+                    setActiveStemResourceId(resource.id);
+                  }}
+                  onComplete={() => {
+                    if (completed) return;
+                    setLocallyCompletedResourceIds((current) =>
+                      new Set(current).add(resource.id),
+                    );
+                    setActiveStemResourceId(null);
+                    void completeResource.mutateAsync(resource.id).catch(() => {
+                      setLocallyCompletedResourceIds((current) => {
+                        const next = new Set(current);
+                        next.delete(resource.id);
+                        return next;
+                      });
+                      toast({
+                        title: "Completion not saved",
+                        description: "Please submit the question stem again.",
+                        variant: "destructive",
+                      });
+                    });
+                  }}
+                />
+              </motion.li>
             );
           }
 
@@ -296,7 +348,11 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
             const href = `/sessions/${encodeURIComponent(sessionId)}/sets/${encodeURIComponent(resource.question_set_id)}`;
 
             return (
-              <li key={resource.id} className="min-w-0">
+              <motion.li
+                key={resource.id}
+                className="min-w-0"
+                variants={itemVariants}
+              >
                 <Link href={href} className={sessionResourceLinkClassName}>
                   <Card className={sessionResourceCardClassName}>
                     <CardContent className="p-6">
@@ -319,7 +375,7 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                     </CardContent>
                   </Card>
                 </Link>
-              </li>
+              </motion.li>
             );
           }
 
@@ -329,14 +385,16 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
           const href = `/sessions/${encodeURIComponent(sessionId)}/mocks/${encodeURIComponent(resource.ucat_mock_id)}`;
 
           return (
-            <li key={resource.id} className="min-w-0">
+            <motion.li
+              key={resource.id}
+              className="min-w-0"
+              variants={itemVariants}
+            >
               <Link href={href} className={sessionResourceLinkClassName}>
                 <Card className={sessionResourceCardClassName}>
                   <CardContent className="p-6">
                     <div className="flex items-center gap-4">
-                      <div
-                        className={sessionCardIconChipClassName("default")}
-                      >
+                      <div className={sessionCardIconChipClassName("default")}>
                         <NotebookText className="h-5 w-5" aria-hidden />
                       </div>
                       <div className="min-w-0 flex-1 space-y-1">
@@ -352,10 +410,10 @@ export function SessionDetailPage({ sessionId }: SessionDetailPageProps) {
                   </CardContent>
                 </Card>
               </Link>
-            </li>
+            </motion.li>
           );
         })}
-      </ul>
+      </motion.ul>
     </div>
   );
 }

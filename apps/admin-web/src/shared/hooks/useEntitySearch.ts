@@ -40,7 +40,10 @@ export function useEntitySearch({
   const studentsQuery = useQuery({
     queryKey: ['entity-search-students', trimmedSearch],
     queryFn: async () => {
-      const results = await studentsApi.searchStudents(trimmedSearch, ['ACTIVE', 'TRIAL', 'DISCONTINUED'], true);
+      const results = await studentsApi.searchAllStudents(
+        trimmedSearch,
+        entityTypes.students.limit,
+      );
       return results.slice(0, entityTypes.students.limit).map((student) => ({
         type: 'student' as const,
         id: student.id,

@@ -1,18 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@altitutor/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { getErrorMessage } from '@/shared/utils';
 import { Loader2, RefreshCw, ChevronDown, ChevronUp, X } from 'lucide-react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
@@ -21,15 +14,11 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useCurrentStaff } from '@/shared/hooks';
 import type { Tables } from '@altitutor/shared';
 import { calculateSessionPrice } from '@/shared/utils/pricing';
+import { combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { fetchStudentSubsidies } from '../api/subsidies';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface CustomerBalanceData {
   balance_cents: number;
@@ -87,7 +76,7 @@ function grossUp(
   isInternational: boolean,
   percentDomestic: number,
   percentIntl: number,
-  fixedCents: number
+  fixedCents: number,
 ): number {
   const percent = isInternational ? percentIntl : percentDomestic;
   return Math.round((net + fixedCents) / (1 - percent));
@@ -103,12 +92,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   const [showHistory, setShowHistory] = useState(false);
   const [nextSessionId, setNextSessionId] = useState(1);
   const [sessionSelectValue, setSessionSelectValue] = useState('');
-  const [expanded, setExpanded] = useState(false);
   const { toast } = useToast();
-
-  useEffect(() => {
-    if (!isAdjustModalOpen) setExpanded(false);
-  }, [isAdjustModalOpen]);
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
 
@@ -119,30 +103,47 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       const supabase = getSupabaseClient();
       const { data, error } = await supabase
         .from('classes_students')
-        .select(`
+        .select(
+          `
           class:classes(
             id,
             subject_id,
             start_time,
             end_time,
+            billing_type,
             subject:subjects(*)
           )
-        `)
+        `,
+        )
         .eq('student_id', studentId)
         .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
-        
+
       if (error) throw error;
-      
-      type ClassRow = { class?: { id: string; subject: Tables<'subjects'> | null; start_time: string | null; end_time: string | null } | null };
+
+      type ClassRow = {
+        class?: {
+          id: string;
+          subject: Tables<'subjects'> | null;
+          start_time: string | null;
+          end_time: string | null;
+          billing_type: Tables<'classes'>['billing_type'];
+        } | null;
+      };
       return ((data || []) as ClassRow[])
         .map((row) => row.class)
-        .filter((cls): cls is NonNullable<ClassRow['class']> & { subject: Tables<'subjects'> } => cls != null && cls.subject != null)
+        .filter(
+          (
+            cls,
+          ): cls is NonNullable<ClassRow['class']> & {
+            subject: Tables<'subjects'>;
+          } => cls != null && cls.subject != null,
+        )
         .map((cls) => ({
           class_id: cls.id,
           subject: cls.subject,
           start_time: cls.start_time,
           end_time: cls.end_time,
-          billing_type: 'CLASS' as const, // Classes always use CLASS billing type
+          billing_type: cls.billing_type,
         }));
     },
     enabled: isAdjustModalOpen, // Only fetch when modal is open
@@ -176,7 +177,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
 
     const options: SessionPriceOption[] = [];
     const targetDate = new Date();
-    
+
     // Build pricing maps
     const pricingByBillingType: Record<string, { hourly_rate_cents: number; currency: string }> = {};
     billingPricing.forEach((p) => {
@@ -186,7 +187,10 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       };
     });
 
-    const overridesBySubjectAndBilling: Record<string, Record<string, { hourly_rate_cents: number; currency: string }>> = {};
+    const overridesBySubjectAndBilling: Record<
+      string,
+      Record<string, { hourly_rate_cents: number; currency: string }>
+    > = {};
     pricingOverrides.forEach((override) => {
       if (!overridesBySubjectAndBilling[override.subject_id]) {
         overridesBySubjectAndBilling[override.subject_id] = {};
@@ -204,8 +208,9 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       // Create session start and end times using the class's actual times
       // Format: YYYY-MM-DDTHH:MM:SS (Adelaide local time, will be parsed correctly)
       const dateStr = targetDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
-      const sessionStart = `${dateStr}T${start_time}:00`;
-      const sessionEnd = `${dateStr}T${end_time}:00`;
+      const sessionStart = combineLocalDateAndTime(dateStr, start_time);
+      const sessionEnd = combineLocalDateAndTime(dateStr, end_time);
+      if (!sessionStart || !sessionEnd) return;
 
       const session = {
         billing_type: billing_type,
@@ -221,7 +226,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
         pricingByBillingType,
         overridesBySubjectAndBilling,
         pricingOverrides,
-        subsidies
+        subsidies,
       );
 
       // Always include the option, even if price is 0 (for free sessions)
@@ -231,13 +236,13 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       const feePercentIntl = 0.029;
       const feeFixedCents = 30;
       const isInternational = false; // Could be enhanced to check payment method country
-      
+
       const grossCents = grossUp(
         priceResult.amount_cents,
         isInternational,
         feePercentDom,
         feePercentIntl,
-        feeFixedCents
+        feeFixedCents,
       );
 
       options.push({
@@ -253,7 +258,11 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
     return options.sort((a, b) => a.label.localeCompare(b.label));
   }, [studentClasses, billingPricing, subsidies, pricingOverrides, studentId]);
 
-  const { data: balanceData, isLoading, refetch } = useQuery<CustomerBalanceData>({
+  const {
+    data: balanceData,
+    isLoading,
+    refetch,
+  } = useQuery<CustomerBalanceData>({
     queryKey: ['customer-balance', studentId],
     queryFn: async () => {
       const response = await fetch(`/api/students/${studentId}/customer-balance`);
@@ -265,7 +274,11 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
     staleTime: 1000 * 60, // 1 minute
   });
 
-  const { data: historyData, isLoading: isLoadingHistory, refetch: refetchHistory } = useQuery<BalanceHistoryData>({
+  const {
+    data: historyData,
+    isLoading: isLoadingHistory,
+    refetch: refetchHistory,
+  } = useQuery<BalanceHistoryData>({
     queryKey: ['customer-balance-history', studentId],
     queryFn: async () => {
       const response = await fetch(`/api/students/${studentId}/customer-balance/history?limit=50`);
@@ -288,7 +301,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   // Generate description from selected sessions (for submission)
   const generatedDescription = useMemo(() => {
     if (selectedSessions.length === 0) return '';
-    const sessionLabels = selectedSessions.map(s => s.label);
+    const sessionLabels = selectedSessions.map((s) => s.label);
     return `Credit for ${sessionLabels.join(', ')}`;
   }, [selectedSessions]);
 
@@ -296,7 +309,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   const finalDescription = useMemo(() => {
     const manualDesc = adjustmentDescription.trim();
     if (!manualDesc) return '';
-    
+
     if (generatedDescription) {
       return `${generatedDescription}. Reason: ${manualDesc}`;
     }
@@ -316,7 +329,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   const previewBalance = useMemo(() => {
     const currentBalance = balanceCents || 0;
     let adjustment = 0;
-    
+
     if (selectedSessions.length > 0) {
       const totalCents = selectedSessions.reduce((sum, session) => sum + session.amount_cents, 0);
       adjustment = adjustmentType === 'credit' ? -totalCents : totalCents;
@@ -324,20 +337,20 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       const amountCents = Math.round(parseFloat(adjustmentAmount) * 100);
       adjustment = adjustmentType === 'credit' ? -amountCents : amountCents;
     }
-    
+
     return currentBalance + adjustment;
   }, [balanceCents, selectedSessions, adjustmentAmount, adjustmentType]);
 
   // Calculate adjustment amount for preview message
   const previewAdjustment = useMemo(() => {
     let amountCents = 0;
-    
+
     if (selectedSessions.length > 0) {
       amountCents = selectedSessions.reduce((sum, session) => sum + session.amount_cents, 0);
     } else if (adjustmentAmount && !isNaN(parseFloat(adjustmentAmount))) {
       amountCents = Math.round(parseFloat(adjustmentAmount) * 100);
     }
-    
+
     return { amountCents };
   }, [selectedSessions, adjustmentAmount]);
 
@@ -359,7 +372,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
   };
 
   const handleRemoveSession = (sessionId: string) => {
-    setSelectedSessions(selectedSessions.filter(s => s.id !== sessionId));
+    setSelectedSessions(selectedSessions.filter((s) => s.id !== sessionId));
   };
 
   const handleAdjustBalance = async () => {
@@ -374,7 +387,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
     }
 
     let amountCents: number;
-    
+
     // Use selected sessions if any, otherwise use manual amount
     if (selectedSessions.length > 0) {
       amountCents = selectedSessions.reduce((sum, session) => sum + session.amount_cents, 0);
@@ -396,9 +409,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
       // Negative amount = credit (customer owes less), positive = debit (customer owes more)
       const isCredit = adjustmentType === 'credit';
       const adjustmentCents = isCredit ? -amountCents : amountCents;
-      const currency = selectedSessions.length > 0 
-        ? selectedSessions[0].currency 
-        : balanceData?.currency || 'aud';
+      const currency = selectedSessions.length > 0 ? selectedSessions[0].currency : balanceData?.currency || 'aud';
 
       const response = await fetch(`/api/students/${studentId}/customer-balance`, {
         method: 'POST',
@@ -422,17 +433,15 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
         description: `Balance ${isCredit ? 'credited' : 'debited'} successfully`,
       });
 
-      setIsAdjustModalOpen(false);
-      setAdjustmentAmount('');
-      setAdjustmentDescription('');
-      setSelectedSessions([]);
-      setAdjustmentType('credit'); // Reset to credit
-      setNextSessionId(1);
-      setSessionSelectValue('');
+      resetAdjustModal();
       await refetch();
       await refetchHistory();
-      queryClient.invalidateQueries({ queryKey: ['customer-balance', studentId] });
-      queryClient.invalidateQueries({ queryKey: ['customer-balance-history', studentId] });
+      queryClient.invalidateQueries({
+        queryKey: ['customer-balance', studentId],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['customer-balance-history', studentId],
+      });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -453,22 +462,27 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
     });
   };
 
+  const resetAdjustModal = () => {
+    setIsAdjustModalOpen(false);
+    setAdjustmentAmount('');
+    setAdjustmentDescription('');
+    setSelectedSessions([]);
+    setAdjustmentType('credit');
+    setNextSessionId(1);
+    setSessionSelectValue('');
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">Customer Balance</h3>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleRefresh}
-            disabled={isLoading}
-          >
+          <Button variant="outline" size="sm" onClick={handleRefresh} disabled={isLoading}>
             <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button onClick={() => setIsAdjustModalOpen(true)} size="sm">
-            Adjust Balance
+          <Button disabled size="sm" title="Issue a credit note from the invoice instead">
+            Credit notes only
           </Button>
         </div>
       </div>
@@ -482,7 +496,9 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
           <div className="flex items-center justify-between">
             <div>
               <div className="text-sm text-muted-foreground">Current Balance</div>
-              <div className={`text-2xl font-bold ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+              <div
+                className={`text-2xl font-bold ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}
+              >
                 {formattedBalance} {currency.toUpperCase()}
               </div>
               {balanceData?.updated_at && (
@@ -493,23 +509,17 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
             </div>
             {isCredit && (
               <div className="rounded-full bg-green-100 dark:bg-green-900/20 px-3 py-1">
-                <span className="text-sm font-medium text-green-700 dark:text-green-400">
-                  Credit Available
-                </span>
+                <span className="text-sm font-medium text-green-700 dark:text-green-400">Credit Available</span>
               </div>
             )}
           </div>
           <div className="mt-4 text-sm text-muted-foreground">
             {isCredit ? (
-              <p>
-                This customer has a credit balance. Credits will be automatically applied to future invoices.
-              </p>
+              <p>This customer has a credit balance. Credits will be automatically applied to future invoices.</p>
             ) : balanceCents === 0 ? (
               <p>No balance. Customer will be charged normally for invoices.</p>
             ) : (
-              <p>
-                This customer has a positive balance. They owe this amount.
-              </p>
+              <p>This customer has a positive balance. They owe this amount.</p>
             )}
           </div>
         </div>
@@ -538,7 +548,8 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
             ) : historyData?.transactions && historyData.transactions.length > 0 ? (
               <div className="space-y-2">
                 <div className="text-sm text-muted-foreground mb-4">
-                  Showing {historyData.transactions.length} transaction{historyData.transactions.length !== 1 ? 's' : ''}
+                  Showing {historyData.transactions.length} transaction
+                  {historyData.transactions.length !== 1 ? 's' : ''}
                 </div>
                 <div className="overflow-x-auto -mx-4 px-4">
                   <table className="w-full text-sm">
@@ -579,9 +590,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
 
                         return (
                           <tr key={tx.id} className="border-b hover:bg-muted/50">
-                            <td className="p-2">
-                              {new Date(tx.created * 1000).toLocaleString()}
-                            </td>
+                            <td className="p-2">{new Date(tx.created * 1000).toLocaleString()}</td>
                             <td className="p-2">
                               <span className="inline-flex items-center rounded-full px-2 py-1 text-xs font-medium bg-muted">
                                 {typeLabels[tx.type] || tx.type}
@@ -592,9 +601,7 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
                                 {tx.description || '-'}
                               </div>
                               {tx.invoice_id && (
-                                <div className="text-xs text-muted-foreground mt-1">
-                                  Invoice: {tx.invoice_id}
-                                </div>
+                                <div className="text-xs text-muted-foreground mt-1">Invoice: {tx.invoice_id}</div>
                               )}
                               {tx.credit_note_id && (
                                 <div className="text-xs text-muted-foreground mt-1">
@@ -602,10 +609,14 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
                                 </div>
                               )}
                             </td>
-                            <td className={`p-2 text-right font-medium whitespace-nowrap ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            <td
+                              className={`p-2 text-right font-medium whitespace-nowrap ${isCredit ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}
+                            >
                               {isCredit ? '+' : '-'}${amountDisplay.toFixed(2)} {tx.currency.toUpperCase()}
                             </td>
-                            <td className={`p-2 text-right whitespace-nowrap ${endingIsCredit ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}>
+                            <td
+                              className={`p-2 text-right whitespace-nowrap ${endingIsCredit ? 'text-green-600 dark:text-green-400' : 'text-foreground'}`}
+                            >
                               {endingIsCredit ? '-' : ''}${endingBalanceDisplay.toFixed(2)} {tx.currency.toUpperCase()}
                             </td>
                           </tr>
@@ -621,245 +632,211 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
                 )}
               </div>
             ) : (
-              <div className="text-center py-8 text-muted-foreground">
-                No balance transactions found.
-              </div>
+              <div className="text-center py-8 text-muted-foreground">No balance transactions found.</div>
             )}
           </div>
         )}
       </div>
 
-      <Dialog open={isAdjustModalOpen} onOpenChange={(open) => {
-        if (!open) {
-          setIsAdjustModalOpen(false);
-          setAdjustmentAmount('');
-          setAdjustmentDescription('');
-          setSelectedSessions([]);
-          setAdjustmentType('credit');
-          setNextSessionId(1);
-          setSessionSelectValue('');
-        } else {
-          setIsAdjustModalOpen(true);
+      <AdminDialogShell
+        fillHeight
+        open={isAdjustModalOpen}
+        onClose={resetAdjustModal}
+        title="Adjust Customer Balance"
+        subtitle="Credits will be automatically applied to future invoices."
+        contentClassName="md:max-w-4xl"
+        bodyClassName="min-h-0 flex-1 overflow-hidden flex flex-col p-0"
+        footer={
+          <div className="flex w-full justify-between">
+            <Button variant="outline" onClick={resetAdjustModal} disabled={isAdjusting}>
+              Cancel
+            </Button>
+            <Button
+              variant="default"
+              onClick={handleAdjustBalance}
+              disabled={
+                isAdjusting || (!adjustmentAmount && selectedSessions.length === 0) || !adjustmentDescription.trim()
+              }
+            >
+              Apply
+            </Button>
+          </div>
         }
-      }}>
-        <DialogContent
-          className={cn(
-            'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          {/* Header */}
-          <div className="flex-shrink-0 border-b bg-background">
-            <DialogHeader className="px-6 pt-6 pb-4">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => {
-                      setIsAdjustModalOpen(false);
-                      setAdjustmentAmount('');
-                      setAdjustmentDescription('');
-                      setSelectedSessions([]);
-                      setAdjustmentType('credit');
-                      setNextSessionId(1);
-                      setSessionSelectValue('');
+      >
+        <div className="h-full overflow-y-auto">
+          <div className="p-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Left Column: Options */}
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="session-option">Select Session(s)</Label>
+                  <SearchableSelect<SessionPriceOption>
+                    items={sessionPriceOptions}
+                    value={
+                      sessionSelectValue ? (sessionPriceOptions.find((o) => o.id === sessionSelectValue) ?? null) : null
+                    }
+                    onValueChange={(item) => {
+                      if (item) handleAddSession(item.id);
                     }}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <DialogTitle>Adjust Customer Balance</DialogTitle>
-                    <DialogDescription>
-                      Credits will be automatically applied to future invoices.
-                    </DialogDescription>
+                    getItemLabel={(o) =>
+                      `${o.label} - $${(o.amount_cents / 100).toFixed(2)} ${o.currency.toUpperCase()}`
+                    }
+                    getItemId={(o) => o.id}
+                    placeholder="Select a session to add"
+                    disabled={isAdjusting}
+                    emptyMessage="No session options available"
+                  />
+                </div>
+
+                {/* Custom Amount - only show when no sessions selected */}
+                {selectedSessions.length === 0 && (
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Custom Amount ({currency.toUpperCase()})</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      step="0.01"
+                      min="0.01"
+                      placeholder="0.00"
+                      value={adjustmentAmount}
+                      onChange={(e) => {
+                        setAdjustmentAmount(e.target.value);
+                        if (e.target.value) {
+                          setSelectedSessions([]); // Clear sessions when manually entering amount
+                        }
+                      }}
+                      disabled={isAdjusting}
+                    />
                   </div>
-                  <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
+                )}
+                <div className="space-y-2">
+                  <Label htmlFor="description">
+                    Reason <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    id="description"
+                    type="text"
+                    placeholder="e.g., Refund for cancelled session"
+                    value={adjustmentDescription}
+                    onChange={(e) => setAdjustmentDescription(e.target.value)}
+                    disabled={isAdjusting}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Adjustment Type</Label>
+                  <RadioGroup
+                    value={adjustmentType}
+                    onValueChange={(value) => setAdjustmentType(value as 'credit' | 'debit')}
+                    disabled={isAdjusting}
+                  >
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="credit" id="credit" />
+                      <Label htmlFor="credit" className="font-normal cursor-pointer">
+                        Credit (give the student money)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="debit" id="debit" />
+                      <Label htmlFor="debit" className="font-normal cursor-pointer">
+                        Debit (charge the student money)
+                      </Label>
+                    </div>
+                  </RadioGroup>
                 </div>
               </div>
-            </DialogHeader>
-          </div>
 
-          {/* Content */}
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="h-full overflow-y-auto">
-              <div className="p-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column: Options */}
-                  <div className="space-y-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="session-option">Select Session(s)</Label>
-                      <SearchableSelect<SessionPriceOption>
-                        items={sessionPriceOptions}
-                        value={
-                          sessionSelectValue
-                            ? sessionPriceOptions.find((o) => o.id === sessionSelectValue) ?? null
-                            : null
-                        }
-                        onValueChange={(item) => {
-                          if (item) handleAddSession(item.id);
-                        }}
-                        getItemLabel={(o) =>
-                          `${o.label} - $${(o.amount_cents / 100).toFixed(2)} ${o.currency.toUpperCase()}`
-                        }
-                        getItemId={(o) => o.id}
-                        placeholder="Select a session to add"
-                        disabled={isAdjusting}
-                        emptyMessage="No session options available"
-                      />
-                    </div>
-
-                    {/* Custom Amount - only show when no sessions selected */}
-                    {selectedSessions.length === 0 && (
-                      <div className="space-y-2">
-                        <Label htmlFor="amount">Custom Amount ({currency.toUpperCase()})</Label>
-                        <Input
-                          id="amount"
-                          type="number"
-                          step="0.01"
-                          min="0.01"
-                          placeholder="0.00"
-                          value={adjustmentAmount}
-                          onChange={(e) => {
-                            setAdjustmentAmount(e.target.value);
-                            if (e.target.value) {
-                              setSelectedSessions([]); // Clear sessions when manually entering amount
-                            }
-                          }}
-                          disabled={isAdjusting}
-                        />
+              {/* Right Column: Preview */}
+              <div className="space-y-4">
+                {/* Selected Sessions Table */}
+                {selectedSessions.length > 0 && (
+                  <div className="space-y-2">
+                    <Label>Selected Sessions</Label>
+                    <div className="border rounded-md">
+                      <div className="overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="border-b bg-muted/50">
+                              <th className="text-left p-2 font-medium">Session</th>
+                              <th className="text-right p-2 font-medium">Amount</th>
+                              <th className="w-[40px] p-2"></th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {selectedSessions.map((session) => (
+                              <tr key={session.id} className="border-b hover:bg-muted/50">
+                                <td className="p-2">{session.label}</td>
+                                <td className="p-2 text-right font-medium">
+                                  ${(session.amount_cents / 100).toFixed(2)} {session.currency.toUpperCase()}
+                                </td>
+                                <td className="p-2">
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleRemoveSession(session.id)}
+                                    disabled={isAdjusting}
+                                    className="h-8 w-8"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                          <tfoot>
+                            <tr className="border-t bg-muted/30">
+                              <td className="p-2 font-medium">Total</td>
+                              <td className="p-2 text-right font-semibold">
+                                ${(selectedSessions.reduce((sum, s) => sum + s.amount_cents, 0) / 100).toFixed(2)}{' '}
+                                {selectedSessions[0]?.currency.toUpperCase() || currency.toUpperCase()}
+                              </td>
+                              <td className="p-2"></td>
+                            </tr>
+                          </tfoot>
+                        </table>
                       </div>
-                    )}
-                    <div className="space-y-2">
-                      <Label htmlFor="description">
-                        Reason <span className="text-destructive">*</span>
-                      </Label>
-                      <Input
-                        id="description"
-                        type="text"
-                        placeholder="e.g., Refund for cancelled session"
-                        value={adjustmentDescription}
-                        onChange={(e) => setAdjustmentDescription(e.target.value)}
-                        disabled={isAdjusting}
-                        required
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Adjustment Type</Label>
-                      <RadioGroup
-                        value={adjustmentType}
-                        onValueChange={(value) => setAdjustmentType(value as 'credit' | 'debit')}
-                        disabled={isAdjusting}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="credit" id="credit" />
-                          <Label htmlFor="credit" className="font-normal cursor-pointer">
-                            Credit (give the student money)
-                          </Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="debit" id="debit" />
-                          <Label htmlFor="debit" className="font-normal cursor-pointer">
-                            Debit (charge the student money)
-                          </Label>
-                        </div>
-                      </RadioGroup>
                     </div>
                   </div>
+                )}
 
-                  {/* Right Column: Preview */}
-                  <div className="space-y-4">
-                    {/* Selected Sessions Table */}
-                    {selectedSessions.length > 0 && (
-                      <div className="space-y-2">
-                        <Label>Selected Sessions</Label>
-                        <div className="border rounded-md">
-                          <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                              <thead>
-                                <tr className="border-b bg-muted/50">
-                                  <th className="text-left p-2 font-medium">Session</th>
-                                  <th className="text-right p-2 font-medium">Amount</th>
-                                  <th className="w-[40px] p-2"></th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {selectedSessions.map((session) => (
-                                  <tr key={session.id} className="border-b hover:bg-muted/50">
-                                    <td className="p-2">{session.label}</td>
-                                    <td className="p-2 text-right font-medium">
-                                      ${(session.amount_cents / 100).toFixed(2)} {session.currency.toUpperCase()}
-                                    </td>
-                                    <td className="p-2">
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        onClick={() => handleRemoveSession(session.id)}
-                                        disabled={isAdjusting}
-                                        className="h-8 w-8"
-                                      >
-                                        <X className="h-4 w-4" />
-                                      </Button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                              <tfoot>
-                                <tr className="border-t bg-muted/30">
-                                  <td className="p-2 font-medium">Total</td>
-                                  <td className="p-2 text-right font-semibold">
-                                    ${(selectedSessions.reduce((sum, s) => sum + s.amount_cents, 0) / 100).toFixed(2)} {selectedSessions[0]?.currency.toUpperCase() || currency.toUpperCase()}
-                                  </td>
-                                  <td className="p-2"></td>
-                                </tr>
-                              </tfoot>
-                            </table>
-                          </div>
-                        </div>
+                <div className="rounded-md bg-muted p-4 text-sm">
+                  <div className="space-y-3">
+                    {/* Current Balance */}
+                    <div className="flex justify-between items-center">
+                      <span className="text-muted-foreground">Current Balance</span>
+                      <span className="font-semibold">
+                        {formattedBalance} {currency.toUpperCase()}
+                      </span>
+                    </div>
+
+                    {/* Adjustment */}
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <div className="text-muted-foreground">Adjustment</div>
+                        {previewDescription && (
+                          <div className="text-xs text-muted-foreground mt-1 max-w-[200px]">{previewDescription}</div>
+                        )}
                       </div>
-                    )}
+                      <span
+                        className={`font-semibold ${previewAdjustment.amountCents > 0 ? (adjustmentType === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-muted-foreground'}`}
+                      >
+                        {previewAdjustment.amountCents > 0
+                          ? `${adjustmentType === 'credit' ? '+' : '-'}$${(previewAdjustment.amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`
+                          : `$0.00 ${currency.toUpperCase()}`}
+                      </span>
+                    </div>
 
-                    <div className="rounded-md bg-muted p-4 text-sm">
-                      <div className="space-y-3">
-                        {/* Current Balance */}
-                        <div className="flex justify-between items-center">
-                          <span className="text-muted-foreground">Current Balance</span>
-                          <span className="font-semibold">{formattedBalance} {currency.toUpperCase()}</span>
-                        </div>
-
-                        {/* Adjustment */}
-                        <div className="flex justify-between items-start">
-                          <div className="flex-1">
-                            <div className="text-muted-foreground">Adjustment</div>
-                            {previewDescription && (
-                              <div className="text-xs text-muted-foreground mt-1 max-w-[200px]">
-                                {previewDescription}
-                              </div>
-                            )}
-                          </div>
-                          <span className={`font-semibold ${previewAdjustment.amountCents > 0 ? (adjustmentType === 'credit' ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400') : 'text-muted-foreground'}`}>
-                            {previewAdjustment.amountCents > 0 
-                              ? `${adjustmentType === 'credit' ? '+' : '-'}$${(previewAdjustment.amountCents / 100).toFixed(2)} ${currency.toUpperCase()}`
-                              : `$0.00 ${currency.toUpperCase()}`
-                            }
-                          </span>
-                        </div>
-
-                        {/* Divider */}
-                        <div className="border-t pt-3">
-                          <div className="flex justify-between items-center">
-                            <span className="font-medium">New Balance</span>
-                            <span className="text-lg font-semibold">
-                              {(() => {
-                                const isNewCredit = previewBalance < 0;
-                                const displayBalance = Math.abs(previewBalance) / 100;
-                                return `${isNewCredit ? '-' : ''}$${displayBalance.toFixed(2)} ${currency.toUpperCase()}`;
-                              })()}
-                            </span>
-                          </div>
-                        </div>
+                    {/* Divider */}
+                    <div className="border-t pt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-medium">New Balance</span>
+                        <span className="text-lg font-semibold">
+                          {(() => {
+                            const isNewCredit = previewBalance < 0;
+                            const displayBalance = Math.abs(previewBalance) / 100;
+                            return `${isNewCredit ? '-' : ''}$${displayBalance.toFixed(2)} ${currency.toUpperCase()}`;
+                          })()}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -867,34 +844,8 @@ export function CustomerBalanceSection({ studentId, studentName: _studentName }:
               </div>
             </div>
           </div>
-
-          {/* Footer */}
-          <div className="flex justify-between px-6 py-4 border-t bg-background">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsAdjustModalOpen(false);
-                setAdjustmentAmount('');
-                setAdjustmentDescription('');
-                setSelectedSessions([]);
-                setAdjustmentType('credit');
-                setNextSessionId(1);
-                setSessionSelectValue('');
-              }}
-              disabled={isAdjusting}
-            >
-              Cancel
-            </Button>
-            <Button
-              variant="default"
-              onClick={handleAdjustBalance}
-              disabled={isAdjusting || (!adjustmentAmount && selectedSessions.length === 0) || !adjustmentDescription.trim()}
-            >
-              Apply
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      </AdminDialogShell>
     </div>
   );
 }

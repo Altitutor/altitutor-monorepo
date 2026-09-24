@@ -16,13 +16,13 @@ import {
   ScrollText,
   Settings,
   Tag,
-  Target,
   TrendingUp,
   Users,
   Brain,
 } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
-import { getResourceSubjectHref, getResourceSubjectNavLabel } from '@altitutor/shared';
+import { getResourceSubjectNavLabel } from '@altitutor/shared';
+import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { ResourceSubjectNavItem } from '@/features/resources/lib/types';
 
 export interface CommandPalettePage {
@@ -106,15 +106,9 @@ export const ucatPages: CommandPalettePage[] = [
   { id: 'ucat-learning-modules', title: 'UCAT learning modules', href: '/ucat/learning-modules', icon: BookOpen },
   {
     id: 'ucat-skill-trainer-questions',
-    title: 'UCAT skill trainer questions',
+    title: 'UCAT Skill trainer',
     href: '/ucat/skill-trainer-questions',
     icon: Dumbbell,
-  },
-  {
-    id: 'ucat-skill-trainer-sets',
-    title: 'UCAT skill trainer sets',
-    href: '/ucat/skill-trainer-sets',
-    icon: Target,
   },
   { id: 'ucat-questions', title: 'UCAT questions', href: '/ucat/questions', icon: FileQuestion },
   { id: 'ucat-sets', title: 'UCAT sets', href: '/ucat/sets', icon: Layers },
@@ -136,7 +130,7 @@ export function buildSubjectPages(subjects: ResourceSubjectNavItem[]): CommandPa
   return subjects.map((subject) => ({
     id: `subject-page-${subject.id}`,
     title: getResourceSubjectNavLabel(subject),
-    href: getResourceSubjectHref(subject),
+    href: getTutorResourceSubjectHref(subject),
     icon: BookOpen,
     keywords: [subject.short_name ?? '', subject.name ?? '', subject.long_name ?? ''].filter(Boolean),
   }));

@@ -1,29 +1,49 @@
 "use client";
 
-import { Gauge } from "lucide-react";
+import { Gauge, Sparkles } from "lucide-react";
 import { usePathname } from "next/navigation";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { getQuotaAreaForPathname } from "@/features/ucat-access/lib/quota-area-for-pathname";
-import {
-  formatQuotaUsageCompact,
-} from "@/features/ucat-access/lib/format-quota-period";
+import { formatQuotaUsageCompact } from "@/features/ucat-access/lib/format-quota-period";
 import { HeaderStatusPill } from "@/shared/components/header-status-pill";
 
 export function QuotaHeaderPill() {
   const pathname = usePathname();
   const area = getQuotaAreaForPathname(pathname);
   const { data, isLoading } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
 
-  if (!area || isLoading || !data || data.isQuotaExempt || data.onlineTier !== "free") {
+  if (isLoading || !data || data.isQuotaExempt || data.onlineTier !== "free") {
     return null;
   }
 
-  const entry = data.areas.find((item) => item.area === area);
-  if (!entry || entry.disabled) return null;
+  const entry = area
+    ? data.areas.find((item) => item.area === area && !item.disabled)
+    : null;
+
+  if (!entry) {
+    return (
+      <HeaderStatusPill
+        variant="sky"
+        icon={<Sparkles className="h-3.5 w-3.5" />}
+        action={{
+          type: "button",
+          label: "Upgrade",
+          onClick: () =>
+            openPlanPicker({
+              title: "Upgrade your UCAT plan",
+              description:
+                "Compare UCAT Free and Unlimited with accountability pricing.",
+            }),
+        }}
+      >
+        <span className="font-medium">UCAT Free</span>
+      </HeaderStatusPill>
+    );
+  }
 
   const handleAction = () => {
     if (entry.atLimit) {
@@ -40,7 +60,7 @@ export function QuotaHeaderPill() {
     openPlanPicker({
       title: "Upgrade to UCAT Unlimited",
       description:
-        "Compare Free, Unlimited, and Pro plans with accountability pricing.",
+        "Compare UCAT Free and Unlimited with accountability pricing.",
     });
   };
 

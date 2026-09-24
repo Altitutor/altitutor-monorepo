@@ -1,0 +1,132 @@
+import type {
+  StudyPlanAvailability,
+  StudyPlanExtraStudyInput,
+  StudyPlanProfileInput,
+  StudyPlanSection,
+  StudyPlanWeekday,
+} from "@/features/study-plan/model/types";
+import { parseIsoDate, todayIso } from "@/features/study-plan/lib/dates";
+import { roundTargetScore } from "@/features/study-plan/lib/target-score";
+import { isTestDateInBounds } from "@/features/study-plan/lib/test-date-bounds";
+import {
+  DEFAULT_SJT_PREFERENCE,
+  isSjtPreference,
+} from "@/features/preparation/lib/sjt-allocation-policy";
+
+function integer(value: unknown, label: string): number {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    throw new Error(`${label} must be a whole number.`);
+  }
+  return value;
+}
+
+const EXTRA_STUDY_MINUTES = new Set([10, 20, 30, 45]);
+const SECTION_KEYS = new Set<StudyPlanSection["key"]>([
+  "verbal_reasoning",
+  "decision_making",
+  "quantitative_reasoning",
+  "situational_judgement",
+]);
+
+export function parseExtraStudyInput(value: unknown): StudyPlanExtraStudyInput {
+  if (!value || typeof value !== "object") {
+    throw new Error("Choose how much time you have.");
+  }
+  const record = value as Record<string, unknown>;
+  const minutes = integer(record.minutes, "Extra study time");
+  if (!EXTRA_STUDY_MINUTES.has(minutes)) {
+    throw new Error("Choose 10, 20, 30, or 45 minutes.");
+  }
+  const sectionKey =
+    record.sectionKey == null ? null : String(record.sectionKey);
+  if (
+    sectionKey != null &&
+    !SECTION_KEYS.has(sectionKey as StudyPlanSection["key"])
+  ) {
+    throw new Error("Choose a valid UCAT section.");
+  }
+  return {
+    minutes: minutes as StudyPlanExtraStudyInput["minutes"],
+    sectionKey: sectionKey as StudyPlanExtraStudyInput["sectionKey"],
+  };
+}
+
+export function parseStudyPlanProfileInput(
+  value: unknown,
+): StudyPlanProfileInput {
+  if (!value || typeof value !== "object")
+    throw new Error("Invalid Study plan settings.");
+  const record = value as Record<string, unknown>;
+  if (typeof record.studyPlanEnabled !== "boolean") {
+    throw new Error("Choose whether you want to use a Study plan.");
+  }
+  const studyPlanEnabled = record.studyPlanEnabled;
+  const targetScore = roundTargetScore(
+    integer(record.targetScore, "Target score"),
+  );
+  if (targetScore < 900 || targetScore > 2700) {
+    throw new Error("Target score must be between 900 and 2700.");
+  }
+  const testYear = integer(record.testYear, "Test year");
+  if (
+    testYear < new Date().getUTCFullYear() ||
+    testYear > new Date().getUTCFullYear() + 3
+  ) {
+    throw new Error("Choose a valid upcoming UCAT year.");
+  }
+  const testDate =
+    record.testDate == null || record.testDate === ""
+      ? null
+      : String(record.testDate);
+  if (testDate) {
+    parseIsoDate(testDate);
+    if (Number(testDate.slice(0, 4)) !== testYear) {
+      throw new Error("Test date must be in the selected test year.");
+    }
+    if (!isTestDateInBounds(testDate, testYear, todayIso())) {
+      throw new Error("Test date must be today or in the future.");
+    }
+  }
+  if (!Array.isArray(record.availableDays)) {
+    throw new Error("Choose at least one available study day.");
+  }
+  const availableDays: StudyPlanAvailability[] = record.availableDays.map(
+    (item) => {
+      if (!item || typeof item !== "object")
+        throw new Error("Invalid available day.");
+      const day = item as Record<string, unknown>;
+      const weekday = integer(day.weekday, "Weekday");
+      if (weekday < 0 || weekday > 6) throw new Error("Invalid weekday.");
+      return { weekday: weekday as StudyPlanWeekday };
+    },
+  );
+  if (
+    (studyPlanEnabled && availableDays.length < 1) ||
+    availableDays.length > 7
+  ) {
+    throw new Error("Choose between one and seven available study days.");
+  }
+  if (
+    new Set(availableDays.map((day) => day.weekday)).size !==
+    availableDays.length
+  ) {
+    throw new Error("Each available day can only be selected once.");
+  }
+  const preferredMockWeekday = integer(record.preferredMockWeekday, "Mock day");
+  if (preferredMockWeekday < 0 || preferredMockWeekday > 6) {
+    throw new Error("Choose a valid preferred mock day.");
+  }
+  const sjtPreference = record.sjtPreference ?? DEFAULT_SJT_PREFERENCE;
+  if (!isSjtPreference(sjtPreference)) {
+    throw new Error("Choose how much standalone SJT practice you want.");
+  }
+  return {
+    studyPlanEnabled,
+    targetScore,
+    testYear,
+    testDate,
+    availableDays,
+    preferredMockWeekday: preferredMockWeekday as StudyPlanWeekday,
+    sjtPreference,
+  };
+}

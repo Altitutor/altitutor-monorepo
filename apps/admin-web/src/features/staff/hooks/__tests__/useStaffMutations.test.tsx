@@ -60,18 +60,6 @@ describe('useStaffMutations', () => {
         status: 'ACTIVE' as const,
         officeKeyNumber: 123,
         hasParkingRemote: 'VIRTUAL' as const,
-        availability_monday: true,
-        availability_tuesday: false,
-        availability_wednesday: true,
-        availability_thursday: false,
-        availability_friday: true,
-        availability_saturday_am: false,
-        availability_saturday_pm: false,
-        availability_sunday_am: false,
-        availability_sunday_pm: false,
-        drafting_availability: true,
-        trial_session_availability: true,
-        subsidy_interview_availability: false,
       };
 
       await act(async () => {
@@ -105,18 +93,6 @@ describe('useStaffMutations', () => {
         status: 'ACTIVE' as const,
         officeKeyNumber: null,
         hasParkingRemote: null,
-        availability_monday: false,
-        availability_tuesday: false,
-        availability_wednesday: false,
-        availability_thursday: false,
-        availability_friday: false,
-        availability_saturday_am: false,
-        availability_saturday_pm: false,
-        availability_sunday_am: false,
-        availability_sunday_pm: false,
-        drafting_availability: false,
-        trial_session_availability: false,
-        subsidy_interview_availability: false,
       };
 
       await act(async () => {
@@ -144,18 +120,6 @@ describe('useStaffMutations', () => {
         status: 'ACTIVE' as const,
         officeKeyNumber: null,
         hasParkingRemote: null,
-        availability_monday: false,
-        availability_tuesday: false,
-        availability_wednesday: false,
-        availability_thursday: false,
-        availability_friday: false,
-        availability_saturday_am: false,
-        availability_saturday_pm: false,
-        availability_sunday_am: false,
-        availability_sunday_pm: false,
-        drafting_availability: false,
-        trial_session_availability: false,
-        subsidy_interview_availability: false,
       };
 
       await act(async () => {
@@ -189,18 +153,6 @@ describe('useStaffMutations', () => {
         status: 'ACTIVE' as const,
         officeKeyNumber: null,
         hasParkingRemote: null,
-        availability_monday: false,
-        availability_tuesday: false,
-        availability_wednesday: false,
-        availability_thursday: false,
-        availability_friday: false,
-        availability_saturday_am: false,
-        availability_saturday_pm: false,
-        availability_sunday_am: false,
-        availability_sunday_pm: false,
-        drafting_availability: false,
-        trial_session_availability: false,
-        subsidy_interview_availability: false,
       };
 
       act(() => {
@@ -236,18 +188,6 @@ describe('useStaffMutations', () => {
         status: 'ACTIVE' as const,
         officeKeyNumber: null,
         hasParkingRemote: null,
-        availability_monday: false,
-        availability_tuesday: false,
-        availability_wednesday: false,
-        availability_thursday: false,
-        availability_friday: false,
-        availability_saturday_am: false,
-        availability_saturday_pm: false,
-        availability_sunday_am: false,
-        availability_sunday_pm: false,
-        drafting_availability: false,
-        trial_session_availability: false,
-        subsidy_interview_availability: false,
       };
 
       await expect(

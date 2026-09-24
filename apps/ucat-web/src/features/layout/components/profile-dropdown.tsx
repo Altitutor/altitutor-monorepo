@@ -3,7 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
-import { Bug, LifeBuoy, LogOut, LayoutDashboard, User } from "lucide-react";
+import {
+  Bug,
+  Gift,
+  LifeBuoy,
+  LogOut,
+  LayoutDashboard,
+  User,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -11,19 +18,21 @@ import {
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  FeedbackDialog,
-  type FeedbackKind,
+  ContactDialog,
 } from "@altitutor/ui";
 import { useAuth } from "@/features/auth";
 import { useUcatProfile } from "@/features/layout/hooks/use-ucat-profile";
+import { ReferralDialog } from "@/features/subscription/components/referral-dialog";
 import { UCAT_HEADER_BTN_OUTLINE } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
+import { openUserFeedback } from "@/lib/sentry/open-user-feedback";
 
 export function ProfileDropdown() {
   const router = useRouter();
   const { user, signOut } = useAuth();
   const { data: profile } = useUcatProfile(!!user);
-  const [feedbackKind, setFeedbackKind] = useState<FeedbackKind | null>(null);
+  const [contactOpen, setContactOpen] = useState(false);
+  const [referralOpen, setReferralOpen] = useState(false);
 
   if (!user) return null;
 
@@ -62,7 +71,7 @@ export function ProfileDropdown() {
               "flex h-9 items-center gap-2 px-3 active:scale-[0.98]",
             )}
           >
-            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sidebar text-xs font-medium text-sidebar-foreground">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-primary text-xs font-medium text-primary-foreground">
               {getInitials()}
             </div>
             <span className="hidden max-w-[10rem] truncate text-sm sm:inline">
@@ -86,16 +95,23 @@ export function ProfileDropdown() {
               Settings
             </Link>
           </DropdownMenuItem>
+          <DropdownMenuItem
+            onSelect={() => setReferralOpen(true)}
+            className="cursor-pointer"
+          >
+            <Gift className="mr-2 h-4 w-4" />
+            Refer a friend
+          </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem
-            onSelect={() => setFeedbackKind("contact")}
+            onSelect={() => setContactOpen(true)}
             className="cursor-pointer"
           >
             <LifeBuoy className="mr-2 h-4 w-4" />
             Contact us
           </DropdownMenuItem>
           <DropdownMenuItem
-            onSelect={() => setFeedbackKind("bug")}
+            onSelect={() => void openUserFeedback()}
             className="cursor-pointer"
           >
             <Bug className="mr-2 h-4 w-4" />
@@ -108,19 +124,17 @@ export function ProfileDropdown() {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {feedbackKind ? (
-        <FeedbackDialog
-          open
-          onOpenChange={(open) => !open && setFeedbackKind(null)}
-          kind={feedbackKind}
-          appName="ucat-web"
-          user={{
-            id: user.id,
-            email: user.email,
-            name: getFullName(),
-          }}
-        />
-      ) : null}
+      <ContactDialog
+        open={contactOpen}
+        onOpenChange={setContactOpen}
+        appName="ucat-web"
+        user={{
+          id: user.id,
+          email: user.email,
+          name: getFullName(),
+        }}
+      />
+      <ReferralDialog open={referralOpen} onOpenChange={setReferralOpen} />
     </>
   );
 }

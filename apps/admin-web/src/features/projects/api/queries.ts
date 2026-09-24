@@ -16,6 +16,13 @@ export function useProjects(filters?: ProjectFilters) {
     extraQueryKeys: [tasksKeys.all],
     debounceMs: PROJECTS_REALTIME_DEBOUNCE_MS,
   });
+  useSupabaseRealtimeInvalidation({
+    table: 'project_members',
+    queryKey: projectKeys.all,
+    extraQueryKeys: [tasksKeys.all],
+    getRelatedKeys: (row) => (row.project_id ? [projectKeys.detail(row.project_id)] : []),
+    debounceMs: PROJECTS_REALTIME_DEBOUNCE_MS,
+  });
 
   return useQuery({
     queryKey: projectKeys.list(JSON.stringify(filters || {})),
@@ -29,6 +36,14 @@ export function useProject(projectId: string, enabled = true) {
     queryKey: projectKeys.all,
     detailKey: getProjectDetailKey,
     extraQueryKeys: [tasksKeys.all],
+    debounceMs: PROJECTS_REALTIME_DEBOUNCE_MS,
+    enabled: enabled && !!projectId,
+  });
+  useSupabaseRealtimeInvalidation({
+    table: 'project_members',
+    queryKey: projectKeys.all,
+    extraQueryKeys: [tasksKeys.all],
+    getRelatedKeys: (row) => (row.project_id ? [projectKeys.detail(row.project_id)] : []),
     debounceMs: PROJECTS_REALTIME_DEBOUNCE_MS,
     enabled: enabled && !!projectId,
   });

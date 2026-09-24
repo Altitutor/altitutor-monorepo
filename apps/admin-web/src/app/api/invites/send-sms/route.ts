@@ -1,7 +1,9 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { getStudentInviteMessage } from '@/features/messages/api/systemTemplates';
+import type { TablesInsert } from '@altitutor/shared';
 
 export async function POST(request: NextRequest) {
   try {
@@ -107,9 +109,11 @@ export async function POST(request: NextRequest) {
 
     // If no contact exists, create one
     if (!contactId) {
-      const contactData = type === 'staff' 
-        ? { phone_e164: phoneNumber, contact_type: 'STAFF' as const, staff_id: id }
-        : { phone_e164: phoneNumber, contact_type: 'STAFF' as const, student_id: id };
+      const contactData: TablesInsert<'contacts'> = {
+        phone_e164: phoneNumber,
+        contact_type: type === 'staff' ? 'STAFF' : 'STUDENT',
+        ...(type === 'staff' ? { staff_id: id } : { student_id: id }),
+      };
       
       const { data: newContact, error: createContactError } = await supabaseAdmin
         .from('contacts')
@@ -119,6 +123,7 @@ export async function POST(request: NextRequest) {
 
       if (createContactError || !newContact) {
         console.error('Failed to create contact:', createContactError);
+        captureApiError(createContactError, "/api/invites/send-sms");
         return NextResponse.json(
           { error: 'Failed to create contact for SMS' },
           { status: 500 }
@@ -157,6 +162,7 @@ export async function POST(request: NextRequest) {
 
       if (ownedError || !data) {
         console.error('No owned number found:', ownedError);
+        captureApiError(ownedError, "/api/invites/send-sms");
         return NextResponse.json(
           { error: 'No SMS number available' },
           { status: 500 }
@@ -188,6 +194,7 @@ export async function POST(request: NextRequest) {
 
       if (convoCreateError || !newConvo) {
         console.error('Failed to create conversation:', convoCreateError);
+        captureApiError(convoCreateError, "/api/invites/send-sms");
         return NextResponse.json(
           { error: 'Failed to create conversation for SMS' },
           { status: 500 }
@@ -240,6 +247,7 @@ export async function POST(request: NextRequest) {
 
     if (convDataError || !convData) {
       console.error('Failed to fetch conversation data:', convDataError);
+      captureApiError(convDataError, "/api/invites/send-sms");
       return NextResponse.json(
         { error: 'Failed to fetch conversation data' },
         { status: 500 }
@@ -271,6 +279,7 @@ export async function POST(request: NextRequest) {
 
     if (messageError || !message) {
       console.error('Failed to create message:', messageError);
+      captureApiError(messageError, "/api/invites/send-sms");
       return NextResponse.json(
         { error: 'Failed to create message' },
         { status: 500 }
@@ -305,6 +314,7 @@ export async function POST(request: NextRequest) {
       messageId: message.id 
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/invites/send-sms");
     console.error('Unexpected error sending invite SMS:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
@@ -312,4 +322,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

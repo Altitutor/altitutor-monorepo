@@ -1,13 +1,28 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useQueries } from '@tanstack/react-query'
 import type { DataTableColumnDefinition, DataTableFilterDefinition } from '@altitutor/shared'
 import { Badge, Button, getUcatVisibilityColor } from '@altitutor/ui'
-import { Eye, Pencil, Plus } from 'lucide-react'
-import type { UcatStemCatalogItem } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { Eye, Pencil, Plus, Trash2 } from 'lucide-react'
+import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
+import {
+  useUcatQuestionCatalogByStemIds,
+  type UcatStemCatalogItem,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useUcatQuestionsTable } from '@/features/ucat/questions/hooks/useUcatQuestionsTable'
+import { UcatQuestionStemsTable } from '@/features/ucat/questions/components/UcatQuestionStemsTable'
+import {
+  defaultVisibleColumnKeys,
+  QUESTION_STEM_NESTED_ANSWER_COLUMNS,
+  QUESTION_STEM_NESTED_QUESTION_COLUMNS,
+  SET_MEMBERSHIP_TABLE_COLUMNS,
+} from '@/features/ucat/questions/lib/question-stems-table-columns'
 import { UcatCatalogListPanel } from '@/features/ucat/shared/components/ucat-catalog-list-panel'
-import { mergeVisibleOrderIntoFull, UcatSortableList } from '@/features/ucat/shared/drag-list'
+import { mergeVisibleOrderIntoFull } from '@/features/ucat/shared/drag-list'
 import { useUcatCatalogListState } from '@/features/ucat/shared/hooks/useUcatCatalogListState'
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import {
   resolveCategoryPathLabel,
 } from '@/features/ucat/shared/lib/taxonomy-paths'
@@ -23,9 +38,18 @@ import {
   stemCatalogSortOptions,
   type StemCatalogSearchScope,
 } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import {
+  buildSetMembershipCatalogRows,
+  setDetailStemToFallback,
+  stemCatalogItemToFallback,
+  type SetDetailMembershipStem,
+} from '@/features/ucat/sets/lib/set-membership-rows'
 import { cn, formatDateTime } from '@/shared/utils'
 import { tutorBtnIconOutline, tutorBtnPrimary, tutorTransition } from '@/shared/lib/tutor-visual'
 import { EXPANDABLE_DIALOG_TRANSITION } from '@/shared/components/expandable-dialog'
+
+const EMPTY_STEM_EXCLUDED_IDS: string[] = []
+const EMPTY_CATEGORY_PATH_LOOKUP = new Map<string, string>()
 
 function stemShowsColumn(visibleColumns: string[], key: string) {
   return visibleColumns.length === 0 || visibleColumns.includes(key)
@@ -59,9 +83,9 @@ export function UcatStemCatalogMetadata({
       {stemShowsColumn(visibleColumns, 'visibility') ? (
         <Badge
           variant="outline"
-          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.isPrivate))}
+          className={cn('px-1.5 py-0 text-[10px] font-normal', getUcatVisibilityColor(stem.accessScope === 'private'))}
         >
-          {stem.isPrivate ? 'Private' : 'Public'}
+          {stem.accessScope === 'private' ? 'Private' : 'Public'}
         </Badge>
       ) : null}
       {stemShowsColumn(visibleColumns, 'question_count') ? (
@@ -99,7 +123,7 @@ export function UcatStemCatalogRow({
 }) {
   const title = stem.text || stem.id
   const titleContent = (
-    <div className="line-clamp-2 break-words text-xs sm:text-sm">{title}</div>
+    <div className="line-clamp-2 w-full break-words text-xs sm:text-sm">{title}</div>
   )
 
   return (
@@ -177,10 +201,10 @@ export function UcatStemCatalogLabel({
   visibleColumns?: string[]
 }) {
   return (
-    <div className="flex items-start gap-2">
+    <div className="flex min-w-0 flex-1 items-start gap-2">
       <span className="mt-0.5 shrink-0 text-xs font-medium">{index + 1}.</span>
-      <div className="min-w-0">
-        <div className="line-clamp-2 break-words text-xs sm:text-sm">{stem?.text || id}</div>
+      <div className="min-w-0 flex-1">
+        <div className="line-clamp-2 w-full break-words text-xs sm:text-sm">{stem?.text || id}</div>
         {stem ? (
           <UcatStemCatalogMetadata stem={stem} visibleColumns={visibleColumns} />
         ) : null}
@@ -202,10 +226,14 @@ type UcatStemCatalogListPanelProps = {
   categoryPathLookup?: Map<string, string>
   filterSearchValues?: Record<string, string>
   onFilterSearchChange?: (filterKey: string, value: string) => void
+  publishedSetIds?: ReadonlySet<string>
+  currentSetId?: string | null
+  lockedSectionId?: string | null
   isLoading?: boolean
   emptyMessage?: string
   searchPlaceholder?: string
   className?: string
+  compact?: boolean
   onAddStem?: (stemId: string) => void
   onViewStem?: (stemId: string) => void
   onEditStem?: (stemId: string) => void
@@ -214,7 +242,7 @@ type UcatStemCatalogListPanelProps = {
 
 export function UcatStemCatalogListPanel({
   stems,
-  excludedIds = [],
+  excludedIds = EMPTY_STEM_EXCLUDED_IDS,
   includedIds,
   search,
   onSearchChange,
@@ -222,13 +250,17 @@ export function UcatStemCatalogListPanel({
   onFiltersChange,
   filterDefinitions,
   columnDefinitions = stemCatalogColumnDefinitions,
-  categoryPathLookup = new Map(),
+  categoryPathLookup = EMPTY_CATEGORY_PATH_LOOKUP,
   filterSearchValues,
   onFilterSearchChange,
+  publishedSetIds,
+  currentSetId = null,
+  lockedSectionId = null,
   isLoading = false,
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
   className,
+  compact = true,
   onAddStem,
   onViewStem,
   onEditStem,
@@ -251,8 +283,11 @@ export function UcatStemCatalogListPanel({
         search,
         filters,
         searchScopes,
+        publishedSetIds,
+        currentSetId,
+        lockedSectionId,
       }),
-    [stems, excludedIds, includedIds, search, filters, searchScopes],
+    [stems, excludedIds, includedIds, search, filters, searchScopes, publishedSetIds, currentSetId, lockedSectionId],
   )
 
   const sortedStems = useMemo(
@@ -307,6 +342,7 @@ export function UcatStemCatalogListPanel({
       emptyMessage={emptyMessage}
       hasItems={paginatedStems.length > 0}
       className={className}
+      compact={compact}
     >
       {paginatedStems.map((stem) => (
         <UcatStemCatalogRow
@@ -333,22 +369,34 @@ type UcatStemMembershipListPanelProps = {
   stemIds: string[]
   onStemIdsChange: (ids: string[]) => void
   stems: UcatStemCatalogItem[]
+  setDetailStems?: SetDetailMembershipStem[]
   filterDefinitions: DataTableFilterDefinition[]
   filterSearchValues?: Record<string, string>
   onFilterSearchChange?: (filterKey: string, value: string) => void
+  publishedSetIds?: ReadonlySet<string>
+  currentSetId?: string | null
+  categoryPathLookup?: Map<string, string>
   onEditStem?: (stemId: string) => void
   emptyMessage?: string
   searchPlaceholder?: string
   className?: string
 }
 
+const defaultMembershipVisibleColumns = defaultVisibleColumnKeys(SET_MEMBERSHIP_TABLE_COLUMNS)
+const defaultVisibleQuestionColumns = defaultVisibleColumnKeys(QUESTION_STEM_NESTED_QUESTION_COLUMNS)
+const defaultVisibleAnswerOptionColumns = defaultVisibleColumnKeys(QUESTION_STEM_NESTED_ANSWER_COLUMNS)
+
 export function UcatStemMembershipListPanel({
   stemIds,
   onStemIdsChange,
   stems,
+  setDetailStems = [],
   filterDefinitions,
   filterSearchValues,
   onFilterSearchChange,
+  publishedSetIds,
+  currentSetId = null,
+  categoryPathLookup = EMPTY_CATEGORY_PATH_LOOKUP,
   onEditStem,
   emptyMessage = 'No stems match the current filters.',
   searchPlaceholder = 'Search stems or questions',
@@ -357,28 +405,103 @@ export function UcatStemMembershipListPanel({
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
   const [searchScopes, setSearchScopes] = useState<StemCatalogSearchScope[]>(defaultStemCatalogSearchScopes)
-  const listState = useUcatCatalogListState(getDefaultStemCatalogVisibleColumns())
+  const [expandedStemIds, setExpandedStemIds] = useState<Set<string>>(new Set())
+  const [expandedQuestionKeys, setExpandedQuestionKeys] = useState<Set<string>>(new Set())
+  const [visibleQuestionColumns, setVisibleQuestionColumns] = useState(defaultVisibleQuestionColumns)
+  const [visibleAnswerOptionColumns, setVisibleAnswerOptionColumns] = useState(defaultVisibleAnswerOptionColumns)
+  const listState = useUcatCatalogListState(defaultMembershipVisibleColumns)
+  const catalogQuery = useUcatQuestionCatalogByStemIds(stemIds, stemIds.length > 0)
 
-  const stemById = useMemo(() => new Map(stems.map((stem) => [stem.id, stem])), [stems])
+  const fallbackStems = useMemo(() => {
+    const byId = new Map<string, ReturnType<typeof stemCatalogItemToFallback>>()
+    for (const stem of setDetailStems) {
+      byId.set(stem.stem_id, setDetailStemToFallback(stem))
+    }
+    for (const stem of stems) {
+      byId.set(stem.id, stemCatalogItemToFallback(stem))
+    }
+    return [...byId.values()]
+  }, [setDetailStems, stems])
 
-  const membershipStems = useMemo(
+  const membershipCatalogRows = useMemo(
     () =>
-      stemIds
-        .map((id) => stemById.get(id))
-        .filter((stem): stem is UcatStemCatalogItem => stem != null),
-    [stemIds, stemById],
+      buildSetMembershipCatalogRows({
+        stemIds,
+        catalogRows: catalogQuery.data ?? [],
+        fallbackStems,
+      }),
+    [catalogQuery.data, fallbackStems, stemIds],
+  )
+
+  const dummyTableState = listState.state
+  const { rows } = useUcatQuestionsTable({
+    data: membershipCatalogRows,
+    stemTagIds: {},
+    questionSearchTexts: undefined,
+    categoryPathLookup,
+    tableState: dummyTableState,
+    showDeleted: false,
+    status: 'published',
+    searchScopes: ['stem_text', 'question_text', 'answer_option_text'],
+    serverProcessed: true,
+  })
+
+  const rowById = useMemo(() => new Map(rows.map((row) => [row.id, row])), [rows])
+
+  const filterableStems = useMemo(
+    () =>
+      stemIds.flatMap((stemId) => {
+        const row = rowById.get(stemId)
+        const catalogStem = stems.find((stem) => stem.id === stemId)
+        if (!row && !catalogStem) return []
+        return [{
+          id: stemId,
+          text: row?.stem_text ?? catalogStem?.text ?? '',
+          questionsCount: row?.question_count ?? catalogStem?.questionsCount ?? 0,
+          sectionName: row?.section_name ?? catalogStem?.sectionName ?? '',
+          sectionNumber: catalogStem?.sectionNumber ?? 0,
+          sectionId: row?.section_id ?? catalogStem?.sectionId ?? null,
+          categoryId: row?.question_stem_category_id ?? catalogStem?.categoryId ?? null,
+          categoryName: row?.category_name ?? catalogStem?.categoryName ?? null,
+          accessScope: row?.access_scope ?? catalogStem?.accessScope ?? 'public',
+          status: row?.status ?? catalogStem?.status ?? 'draft',
+          sourceChannel: row?.source_channel ?? catalogStem?.sourceChannel ?? 'individual',
+          tagIds: row?.tag_ids ?? catalogStem?.tagIds ?? [],
+          createdAt: row?.created_at ?? catalogStem?.createdAt ?? null,
+          questionSearchText: row?.question_text ?? catalogStem?.questionSearchText ?? '',
+          answerOptionSearchText: row?.answer_option_text ?? catalogStem?.answerOptionSearchText ?? '',
+          setNames: row?.set_names ?? catalogStem?.setNames ?? '—',
+          setIds: row?.set_ids ?? catalogStem?.setIds ?? [],
+          typeSummary: row?.type_summary ?? catalogStem?.typeSummary ?? '-',
+        } satisfies UcatStemCatalogItem]
+      }),
+    [rowById, stemIds, stems],
   )
 
   const filteredStems = useMemo(
-    () => filterStemCatalogItems({ stems: membershipStems, search, filters, searchScopes }),
-    [membershipStems, search, filters, searchScopes],
+    () =>
+      filterStemCatalogItems({
+        stems: filterableStems,
+        search,
+        filters,
+        searchScopes,
+        publishedSetIds,
+        currentSetId,
+      }),
+    [filterableStems, search, filters, searchScopes, publishedSetIds, currentSetId],
   )
 
   const filteredIdSet = useMemo(() => new Set(filteredStems.map((stem) => stem.id)), [filteredStems])
-
   const displayIds = useMemo(
     () => stemIds.filter((id) => filteredIdSet.has(id)),
     [stemIds, filteredIdSet],
+  )
+  const displayRows = useMemo(
+    () => displayIds.flatMap((id) => {
+      const row = rowById.get(id)
+      return row ? [row] : []
+    }),
+    [displayIds, rowById],
   )
 
   const reorderDisabled = useMemo(
@@ -390,6 +513,55 @@ export function UcatStemMembershipListPanel({
         filters,
       }),
     [search, searchScopes, filters],
+  )
+
+  const expandedStemArray = useMemo(() => Array.from(expandedStemIds), [expandedStemIds])
+  const detailQueries = useQueries({
+    queries: expandedStemArray.map((stemId) => ({
+      queryKey: [...ucatKeys.question(stemId), 'detail'],
+      queryFn: () => ucatQuestionsApi.getDetail(stemId),
+      enabled: true,
+    })),
+  })
+  const detailsMap = useMemo(() => {
+    const map: Record<string, StemDetailRow | null> = {}
+    detailQueries.forEach((query, index) => {
+      const stemId = expandedStemArray[index]
+      if (stemId) map[stemId] = query.data ?? null
+    })
+    return map
+  }, [detailQueries, expandedStemArray])
+
+  const columnViewGroups = useMemo(
+    () => [
+      {
+        heading: 'Stem columns',
+        columnDefinitions: SET_MEMBERSHIP_TABLE_COLUMNS,
+        visibleColumns: listState.state.visibleColumns,
+        onVisibleColumnsChange: listState.actions.onVisibleColumnsChange,
+        defaultVisibleColumns: defaultMembershipVisibleColumns,
+      },
+      {
+        heading: 'Question columns',
+        columnDefinitions: QUESTION_STEM_NESTED_QUESTION_COLUMNS,
+        visibleColumns: visibleQuestionColumns,
+        onVisibleColumnsChange: setVisibleQuestionColumns,
+        defaultVisibleColumns: defaultVisibleQuestionColumns,
+      },
+      {
+        heading: 'Answer option columns',
+        columnDefinitions: QUESTION_STEM_NESTED_ANSWER_COLUMNS,
+        visibleColumns: visibleAnswerOptionColumns,
+        onVisibleColumnsChange: setVisibleAnswerOptionColumns,
+        defaultVisibleColumns: defaultVisibleAnswerOptionColumns,
+      },
+    ],
+    [
+      listState.actions.onVisibleColumnsChange,
+      listState.state.visibleColumns,
+      visibleAnswerOptionColumns,
+      visibleQuestionColumns,
+    ],
   )
 
   if (stemIds.length === 0) {
@@ -409,31 +581,60 @@ export function UcatStemMembershipListPanel({
       onFiltersChange={setFilters}
       filterSearchValues={filterSearchValues}
       onFilterSearchChange={onFilterSearchChange}
-      columnDefinitions={stemCatalogColumnDefinitions}
+      columnDefinitions={SET_MEMBERSHIP_TABLE_COLUMNS}
       visibleColumns={listState.state.visibleColumns}
       onVisibleColumnsChange={listState.actions.onVisibleColumnsChange}
+      columnViewGroups={columnViewGroups}
+      defaultVisibleColumns={defaultMembershipVisibleColumns}
       emptyMessage={emptyMessage}
-      hasItems={displayIds.length > 0}
+      hasItems={displayRows.length > 0}
       hidePagination
       compact={false}
       className={className}
     >
-      <UcatSortableList
-        ids={displayIds}
-        disableReorder={reorderDisabled}
-        onChange={(reorderedVisibleIds) => {
+      <UcatQuestionStemsTable
+        rows={displayRows}
+        visibleColumns={listState.state.visibleColumns}
+        visibleQuestionColumns={visibleQuestionColumns}
+        visibleAnswerOptionColumns={visibleAnswerOptionColumns}
+        categoryPathLookup={categoryPathLookup}
+        expandedStemIds={expandedStemIds}
+        expandedQuestionKeys={expandedQuestionKeys}
+        detailsMap={detailsMap}
+        reorderEnabled={!reorderDisabled}
+        onReorder={(reorderedVisibleIds) => {
           onStemIdsChange(mergeVisibleOrderIntoFull(stemIds, displayIds, reorderedVisibleIds))
         }}
-        onRemove={(id) => onStemIdsChange(stemIds.filter((stemId) => stemId !== id))}
-        onEdit={onEditStem}
-        renderLabel={(id) => (
-          <UcatStemCatalogLabel
-            stem={stemById.get(id)}
-            id={id}
-            index={stemIds.indexOf(id)}
-            visibleColumns={listState.state.visibleColumns}
-          />
-        )}
+        onToggleStemExpanded={(stemId) => {
+          setExpandedStemIds((current) => {
+            const next = new Set(current)
+            if (next.has(stemId)) next.delete(stemId)
+            else next.add(stemId)
+            return next
+          })
+        }}
+        onToggleQuestionExpanded={(stemId, questionId) => {
+          const key = `${stemId}-${questionId}`
+          setExpandedQuestionKeys((current) => {
+            const next = new Set(current)
+            if (next.has(key)) next.delete(key)
+            else next.add(key)
+            return next
+          })
+        }}
+        getRowActions={(row) => [
+          {
+            label: row.status === 'published' ? 'View' : 'Edit',
+            icon: row.status === 'published' ? <Eye className="h-4 w-4" /> : <Pencil className="h-4 w-4" />,
+            onClick: () => onEditStem?.(row.id),
+          },
+          {
+            label: 'Remove',
+            icon: <Trash2 className="h-4 w-4" />,
+            destructive: true,
+            onClick: () => onStemIdsChange(stemIds.filter((stemId) => stemId !== row.id)),
+          },
+        ]}
       />
     </UcatCatalogListPanel>
   )

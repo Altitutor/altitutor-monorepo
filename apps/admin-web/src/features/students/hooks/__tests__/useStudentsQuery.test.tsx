@@ -122,7 +122,7 @@ describe('useStudents hooks', () => {
 
       const params = {
         search: 'John',
-        statuses: ['ACTIVE'] as Tables<'students'>['status'][],
+        statuses: ['ACTIVE'] as NonNullable<Tables<'students'>['status']>[],
         page: 1,
         pageSize: 50,
       };

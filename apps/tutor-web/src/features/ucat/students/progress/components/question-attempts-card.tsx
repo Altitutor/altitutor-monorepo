@@ -13,6 +13,7 @@ import { ProgressGraph, type GraphDataType } from './progress-graph'
 import { aggregateForGraph, type SharedDateRange } from '../lib/progress-data-utils'
 import type { QuestionAttemptRow } from '@altitutor/shared'
 import type { ProgressMode, TimeFrameDays } from '../lib/progress-mode'
+import { getAnswerSchemeMaximum } from '@altitutor/ucat-response-contract'
 
 type QuestionAttemptsCardProps = {
   attempts: QuestionAttemptRow[]
@@ -50,7 +51,9 @@ export function QuestionAttemptsCard({
       attempts,
       (a) => a.attemptedAt,
       (a) => {
-        const maxPerQuestion = a.questionType === 'syllogism' ? 2 : 1
+        const maxPerQuestion = a.answerScheme
+          ? getAnswerSchemeMaximum(a.answerScheme)
+          : 1
         if (graphDataType === 'attempt_count') return 1
         if (graphDataType === 'percentage') {
           return maxPerQuestion > 0 ? ((a.score ?? 0) / maxPerQuestion) * 100 : 0

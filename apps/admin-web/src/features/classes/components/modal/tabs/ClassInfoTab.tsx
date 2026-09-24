@@ -1,71 +1,39 @@
-import { useState, useEffect, useRef, useMemo } from 'react';
-import type { Tables } from '@altitutor/shared';
-import { Button } from "@altitutor/ui";
-import { Input } from "@altitutor/ui";
-import { Label } from "@altitutor/ui";
-import { Badge } from "@altitutor/ui";
-import { SearchableSelect } from "@altitutor/ui";
-import { Alert, AlertDescription, AlertTitle } from "@altitutor/ui";
-import { Pencil, AlertTriangle } from "lucide-react";
-import { Controller, useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { getSubjectColorStyle } from "@/shared/utils";
-import { ClassStatusBadge } from "@altitutor/ui";
-import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
-import { calculateSessionChanges } from '../../../utils/calculateSessionChanges';
-import { sessionsApi } from '@/features/sessions/api/sessions';
-import { useQuery } from '@tanstack/react-query';
+'use client';
+
+import { useEffect, useState } from 'react';
 import { format } from 'date-fns';
+import { AlertTriangle, Loader2, Pencil, Plus, Trash2 } from 'lucide-react';
+import type { Tables } from '@altitutor/shared';
+import { Badge, Button, ClassStatusBadge, Input, Label, SearchableSelect, SmartDatePickerField } from '@altitutor/ui';
+import { getSubjectColorStyle } from '@/shared/utils';
+import { formatCurrency } from '@/shared/utils/pricing';
+import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
+import { useBillingPricing, useSubjectPricingOverrides } from '@/features/billing';
+import { useApplyClassSchedule, useClassScheduleTimeline, usePreviewClassSchedule } from '../../../hooks/useClassesQuery';
+import type { ClassBillingType, ClassSchedulePlan, ClassScheduleProposal, ClassScheduleRow, ScheduledOfferingType, StoredClassSchedule } from '../../../types/schedule';
+import { buildClassScheduleProposal, resolveClassScheduleRows, validateClassScheduleRows } from '../../../utils/classScheduleForm';
+import { calculateStandardClassSessionPrice, resolveStandardClassRate } from '../../../utils/classPricing';
+import { partitionClassScheduleTimeline } from '../../../utils/classScheduleTimeline';
+import { GeneratedTimetablePreview } from '../../GeneratedTimetablePreview';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
-// Form schema for class details
-const classInfoSchema = z.object({
-  level: z.string().optional().nullable(),
-  dayOfWeek: z.number().min(0).max(6),
-  startTime: z.string().min(1, 'Start time is required'),
-  endTime: z.string().min(1, 'End time is required'),
-  status: z.enum(['ACTIVE','INACTIVE','FULL']),
-  subjectId: z.string().optional(),
-  room: z.string().optional(),
-  sessionStartDate: z.string().optional().nullable(),
-  sessionEndDate: z.string().optional().nullable(),
-}).refine((data) => {
-  // Validate that end date is after start date if both are provided
-  if (data.sessionStartDate && data.sessionEndDate) {
-    return new Date(data.sessionStartDate) <= new Date(data.sessionEndDate);
-  }
-  return true;
-}, {
-  message: 'Session end date must be after or equal to start date',
-  path: ['sessionEndDate'],
-}).refine((data) => {
-  // Validate that end time is after start time
-  if (data.startTime && data.endTime) {
-    return data.endTime > data.startTime;
-  }
-  return true;
-}, {
-  message: 'End time must be after start time',
-  path: ['endTime'],
-});
+const DAYS = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'].map((label, value) => ({ label, value }));
+const FREQUENCIES = [{ label: 'Every week', value: 1 as const }, { label: 'Every fortnight', value: 2 as const }];
+const STATUSES = [{ label: 'Active', value: 'ACTIVE' as const }, { label: 'Inactive', value: 'INACTIVE' as const }];
+const BILLING_TYPES: Array<{ label: string; value: ClassBillingType }> = [
+  { label: 'Class', value: 'CLASS' },
+  { label: 'Exam course', value: 'EXAM_COURSE' },
+  { label: 'Drafting', value: 'DRAFTING' },
+];
+const OFFERING_TYPES: Array<{ label: string; value: ScheduledOfferingType }> = [
+  { label: 'Class', value: 'CLASS' },
+  { label: 'Homework Help', value: 'HOMEWORK_HELP' },
+];
 
-type FormData = z.infer<typeof classInfoSchema>;
-
-const STATUS_OPTIONS = [
-  { value: 'ACTIVE' as const, label: 'Active' },
-  { value: 'INACTIVE' as const, label: 'Inactive' },
-  { value: 'FULL' as const, label: 'Full' },
-] as const;
-
-const DAY_OPTIONS = [
-  { value: 0, label: 'Sunday' },
-  { value: 1, label: 'Monday' },
-  { value: 2, label: 'Tuesday' },
-  { value: 3, label: 'Wednesday' },
-  { value: 4, label: 'Thursday' },
-  { value: 5, label: 'Friday' },
-  { value: 6, label: 'Saturday' },
-] as const;
+function billingTypeLabel(value: ClassBillingType | null): string {
+  if (!value) return 'Free';
+  return BILLING_TYPES.find((option) => option.value === value)?.label ?? value;
+}
 
 interface ClassInfoTabProps {
   classData: Tables<'classes'>;
@@ -75,489 +43,311 @@ interface ClassInfoTabProps {
   isLoading: boolean;
   onEdit: () => void;
   onCancelEdit: () => void;
-  onSubmit: (data: FormData) => Promise<void>;
+  onSaved: () => void;
 }
 
-export function ClassInfoTab({
-  classData,
-  subject,
-  subjects,
-  isEditing,
-  isLoading,
-  onEdit,
-  onCancelEdit: _onCancelEdit,
-  onSubmit,
-}: ClassInfoTabProps) {
-  const form = useForm<FormData>({
-    resolver: zodResolver(classInfoSchema),
-    defaultValues: {
-      level: null,
-      dayOfWeek: 1,
-      startTime: '',
-      endTime: '',
-      status: 'ACTIVE' as const,
-      subjectId: '',
-      room: '',
-      sessionStartDate: null,
-      sessionEndDate: null,
-    },
-  });
+function todayInAdelaide(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'Australia/Adelaide', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date());
+}
 
-  const hasResetRef = useRef(false);
-  const [editKey, setEditKey] = useState(0);
+interface ScheduleConfigurationCardProps {
+  title: string;
+  revision: StoredClassSchedule;
+  subjectId: string | null;
+  pricingDate: string;
+  pricing: Tables<'billing_pricing'>[];
+  overrides: Tables<'billing_pricing_overrides'>[];
+  isPricingLoading: boolean;
+}
 
-  // Fetch future sessions for this class when editing
-  const { data: futureSessionsData } = useQuery({
-    queryKey: ['classFutureSessions', classData.id, isEditing],
-    queryFn: async () => {
-      const now = new Date();
-      const endOfYear = new Date(now.getFullYear(), 11, 31);
-      const result = await sessionsApi.getAllSessionsWithDetails({
-        classId: classData.id,
-        rangeStart: now.toISOString().split('T')[0],
-        rangeEnd: endOfYear.toISOString().split('T')[0],
-      });
-      return result.sessions;
-    },
-    enabled: isEditing && !!classData.id,
-    staleTime: 1000 * 60 * 2,
-  });
+function ScheduleConfigurationCard({
+  title,
+  revision,
+  subjectId,
+  pricingDate,
+  pricing,
+  overrides,
+  isPricingLoading,
+}: ScheduleConfigurationCardProps) {
+  const standardRate = revision.sessionType === 'CLASS' && revision.billingType
+    ? resolveStandardClassRate(
+        revision.billingType,
+        subjectId,
+        new Date(`${pricingDate}T12:00:00Z`),
+        pricing,
+        overrides
+      )
+    : null;
 
-  // Reset form values when entering edit mode - only once per edit session
-  useEffect(() => {
-    if (isEditing && !hasResetRef.current && classData) {
-      const dayValue = classData.day_of_week != null ? classData.day_of_week : 1;
-      // Map ARCHIVED status to INACTIVE for form (form schema doesn't support ARCHIVED)
-      const formStatus = classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : 'ACTIVE');
-      form.reset({
-        level: classData.level || null,
-        dayOfWeek: dayValue,
-        startTime: classData.start_time || '',
-        endTime: classData.end_time || '',
-        status: formStatus as 'ACTIVE' | 'INACTIVE' | 'FULL',
-        subjectId: classData.subject_id ?? undefined,
-        room: classData.room || '',
-        sessionStartDate: classData.session_start_date || null,
-        sessionEndDate: classData.session_end_date || null,
-      }, {
-        keepDefaultValues: false
-      });
-      // Explicitly set dayOfWeek to ensure it's set correctly
-      form.setValue('dayOfWeek', dayValue, { shouldValidate: false });
-      hasResetRef.current = true;
-      setEditKey(prev => prev + 1); // Force re-render of Select
-    } else if (!isEditing) {
-      // Reset the flag when exiting edit mode
-      hasResetRef.current = false;
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditing, classData?.id]); // form is stable, don't include it
-
-  // Watch form values for session changes calculation
-  const sessionStartDate = form.watch('sessionStartDate');
-  const sessionEndDate = form.watch('sessionEndDate');
-  const dayOfWeek = form.watch('dayOfWeek');
-  const startTime = form.watch('startTime');
-  const endTime = form.watch('endTime');
-
-  // Calculate session changes based on form values
-  const sessionChanges = useMemo(() => {
-    if (!isEditing || !classData) {
-      return null;
-    }
-
-    const newStartDate = sessionStartDate || null;
-    const newEndDate = sessionEndDate || null;
-    const newDayOfWeek = dayOfWeek;
-    const newStartTime = startTime;
-    const newEndTime = endTime;
-
-    // Check if dates/times actually changed
-    const datesChanged = 
-      classData.session_start_date !== newStartDate ||
-      classData.session_end_date !== newEndDate ||
-      classData.day_of_week !== newDayOfWeek ||
-      classData.start_time !== newStartTime ||
-      classData.end_time !== newEndTime;
-
-    if (!datesChanged) {
-      return null;
-    }
-
-    return calculateSessionChanges({
-      newStartDate,
-      newEndDate,
-      newDayOfWeek,
-      newStartTime,
-      newEndTime,
-      existingFutureSessions: futureSessionsData || [],
-    });
-    // form is stable from react-hook-form, watched values are already in deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    isEditing,
-    classData,
-    sessionStartDate,
-    futureSessionsData,
-    sessionEndDate,
-    dayOfWeek,
-    startTime,
-    endTime,
-    futureSessionsData,
-  ]);
-
-  return isEditing ? (
-    <div className="flex flex-col h-full min-h-0">
-      <div className="flex-1 overflow-y-auto">
-        <form 
-          id="class-edit-form" 
-          onSubmit={form.handleSubmit(onSubmit)} 
-          className="space-y-6"
-        >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="level">Level</Label>
-                  <Controller
-                    control={form.control}
-                    name="level"
-                    render={({ field }) => (
-                      <Input 
-                        id="level" 
-                        {...field}
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        disabled={isLoading} 
-                        placeholder="e.g., A/B/C/D"
-                      />
-                    )}
-                  />
-                  {form.formState.errors.level && (
-                    <p className="text-sm text-red-500">{form.formState.errors.level.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="status">Status</Label>
-                  <Controller
-                    control={form.control}
-                    name="status"
-                    render={({ field }) => {
-                      const selected = STATUS_OPTIONS.find((o) => o.value === field.value) ?? null;
-                      return (
-                        <SearchableSelect<typeof STATUS_OPTIONS[number]>
-                          items={[...STATUS_OPTIONS]}
-                          value={selected}
-                          onValueChange={(item) => field.onChange(item?.value)}
-                          getItemLabel={(o) => o.label}
-                          getItemId={(o) => o.value}
-                          placeholder="Select status"
-                          disabled={isLoading}
-                        />
-                      );
-                    }}
-                  />
-                  {form.formState.errors.status && (
-                    <p className="text-sm text-red-500">{form.formState.errors.status.message}</p>
-                  )}
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="dayOfWeek">Day of Week</Label>
-                  <Controller
-                    key={`dayOfWeek-${editKey}`}
-                    control={form.control}
-                    name="dayOfWeek"
-                    render={({ field }) => {
-                      const fieldValue = field.value != null ? field.value : (classData?.day_of_week != null ? classData.day_of_week : 1);
-                      const selected = DAY_OPTIONS.find((o) => o.value === fieldValue) ?? DAY_OPTIONS[1];
-                      return (
-                        <SearchableSelect<typeof DAY_OPTIONS[number]>
-                          items={[...DAY_OPTIONS]}
-                          value={selected}
-                          onValueChange={(item) => field.onChange(item?.value ?? 1)}
-                          getItemLabel={(o) => o.label}
-                          getItemId={(o) => String(o.value)}
-                          placeholder="Select day"
-                          disabled={isLoading}
-                        />
-                      );
-                    }}
-                  />
-                  {form.formState.errors.dayOfWeek && (
-                    <p className="text-sm text-red-500">{form.formState.errors.dayOfWeek.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="room">Room</Label>
-                  <Controller
-                    control={form.control}
-                    name="room"
-                    render={({ field }) => (
-                      <Input 
-                        id="room" 
-                        {...field}
-                        disabled={isLoading} 
-                        placeholder="Room number/name"
-                      />
-                    )}
-                  />
-                  {form.formState.errors.room && (
-                    <p className="text-sm text-red-500">{form.formState.errors.room.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="startTime">Start Time</Label>
-                  <Controller
-                    control={form.control}
-                    name="startTime"
-                    render={({ field }) => (
-                      <Input 
-                        id="startTime" 
-                        type="time"
-                        {...field}
-                        disabled={isLoading} 
-                      />
-                    )}
-                  />
-                  {form.formState.errors.startTime && (
-                    <p className="text-sm text-red-500">{form.formState.errors.startTime.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="endTime">End Time</Label>
-                  <Controller
-                    control={form.control}
-                    name="endTime"
-                    render={({ field }) => (
-                      <Input 
-                        id="endTime" 
-                        type="time"
-                        {...field}
-                        disabled={isLoading} 
-                      />
-                    )}
-                  />
-                  {form.formState.errors.endTime && (
-                    <p className="text-sm text-red-500">{form.formState.errors.endTime.message}</p>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label htmlFor="subjectId">Subject</Label>
-                <Controller
-                  key={`subjectId-${editKey}`}
-                  control={form.control}
-                  name="subjectId"
-                  render={({ field }) => {
-                    const subjectItems = [
-                      { id: 'none', long_name: 'None' },
-                      ...(subjects ?? []),
-                    ];
-                    const selected =
-                      field.value && field.value !== 'none'
-                        ? subjects?.find((s) => s.id === field.value) ?? null
-                        : subjectItems[0];
-                    return (
-                      <SearchableSelect<{ id: string; long_name?: string | null }>
-                        items={subjectItems}
-                        value={selected}
-                        onValueChange={(item) =>
-                          field.onChange(item?.id === 'none' ? null : item?.id ?? null)
-                        }
-                        getItemLabel={(s) => s?.long_name ?? 'None'}
-                        getItemId={(s) => s.id}
-                        placeholder="Select subject"
-                        disabled={isLoading}
-                      />
-                    );
-                  }}
-                />
-                {form.formState.errors.subjectId && (
-                  <p className="text-sm text-red-500">{form.formState.errors.subjectId.message}</p>
-                )}
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="sessionStartDate">Session Start Date (Optional)</Label>
-                  <Controller
-                    control={form.control}
-                    name="sessionStartDate"
-                    render={({ field }) => (
-                      <Input 
-                        id="sessionStartDate" 
-                        type="date"
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        disabled={isLoading} 
-                      />
-                    )}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to create sessions from today
-                  </p>
-                  {form.formState.errors.sessionStartDate && (
-                    <p className="text-sm text-red-500">{form.formState.errors.sessionStartDate.message}</p>
-                  )}
-                </div>
-                
-                <div>
-                  <Label htmlFor="sessionEndDate">Session End Date (Optional)</Label>
-                  <Controller
-                    control={form.control}
-                    name="sessionEndDate"
-                    render={({ field }) => (
-                      <Input 
-                        id="sessionEndDate" 
-                        type="date"
-                        value={field.value || ''}
-                        onChange={(e) => field.onChange(e.target.value || null)}
-                        disabled={isLoading}
-                        min={form.watch('sessionStartDate') || undefined}
-                      />
-                    )}
-                  />
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Leave empty to create sessions until end of year
-                  </p>
-                  {form.formState.errors.sessionEndDate && (
-                    <p className="text-sm text-red-500">{form.formState.errors.sessionEndDate.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* Warning preview for session changes */}
-              {sessionChanges && (sessionChanges.sessionsToDelete.length > 0 || sessionChanges.sessionsToCreate.length > 0) && (
-                <Alert>
-                  <AlertTriangle className="h-4 w-4" />
-                  <AlertTitle>Session Changes Preview</AlertTitle>
-                  <AlertDescription className="space-y-2">
-                    {sessionChanges.sessionsToDelete.length > 0 && (
-                      <div>
-                        <p className="font-medium text-destructive">
-                          {sessionChanges.sessionsToDelete.length} future session(s) will be deleted:
-                        </p>
-                        <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                          {sessionChanges.sessionsToDelete.slice(0, 5).map((session) => {
-                            const date = session.start_at ? format(new Date(session.start_at), 'MMM d, yyyy') : 'Unknown';
-                            return (
-                              <li key={session.id}>{date}</li>
-                            );
-                          })}
-                          {sessionChanges.sessionsToDelete.length > 5 && (
-                            <li className="text-muted-foreground">
-                              ...and {sessionChanges.sessionsToDelete.length - 5} more
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                    {sessionChanges.sessionsToCreate.length > 0 && (
-                      <div>
-                        <p className="font-medium text-green-600 dark:text-green-400">
-                          {sessionChanges.sessionsToCreate.length} new session(s) will be created:
-                        </p>
-                        <ul className="list-disc list-inside text-sm mt-1 space-y-1">
-                          {sessionChanges.sessionsToCreate.slice(0, 5).map((session, idx) => (
-                            <li key={idx}>{format(new Date(session.date), 'MMM d, yyyy')}</li>
-                          ))}
-                          {sessionChanges.sessionsToCreate.length > 5 && (
-                            <li className="text-muted-foreground">
-                              ...and {sessionChanges.sessionsToCreate.length - 5} more
-                            </li>
-                          )}
-                        </ul>
-                      </div>
-                    )}
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Note: Only future sessions are affected. Past sessions are never modified.
-                    </p>
-                  </AlertDescription>
-                </Alert>
-              )}
-            </form>
-          </div>
-    </div>
-  ) : (
-    // View mode
-    <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold">Class Information</h3>
-        <Button variant="outline" size="sm" onClick={onEdit}>
-          <Pencil className="h-4 w-4 mr-2" />
-          Edit
-        </Button>
+  return (
+    <div className="space-y-3 rounded-md border p-4">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h4 className="font-medium">{title}</h4>
+        <Badge variant="outline">
+          {revision.sessionType === 'HOMEWORK_HELP' ? 'Homework Help · Free' : billingTypeLabel(revision.billingType)}
+        </Badge>
       </div>
-
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">Level:</div>
-        <div>{classData.level || '-'}</div>
-        
-        <div className="text-sm font-medium">Day:</div>
-        <div>{getDayOfWeek(classData.day_of_week)}</div>
-        
-        <div className="text-sm font-medium">Time:</div>
-        <div>
-          {formatTime(classData.start_time)} - {formatTime(classData.end_time)}
-        </div>
-        
-        <div className="text-sm font-medium">Status:</div>
-        <div>
-          <ClassStatusBadge value={classData.status === 'ARCHIVED' ? 'INACTIVE' : (classData.status === 'ACTIVE' || classData.status === 'INACTIVE' || classData.status === 'FULL' ? classData.status : null)} />
-        </div>
-        
-        <div className="text-sm font-medium">Subject:</div>
-        <div>
-          {subject ? (() => {
-            const { style, textColorClass } = getSubjectColorStyle(subject);
-            const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
+      {revision.scheduleType === 'CUSTOM' || revision.rows.length === 0 ? (
+        <p className="text-sm text-muted-foreground">Custom timetable — see Sessions for dated times and prices.</p>
+      ) : (
+        <div className="divide-y">
+          {revision.rows.map((row) => {
+            const sessionPrice = revision.sessionType === 'CLASS'
+              ? calculateStandardClassSessionPrice(row.startTime, row.endTime, standardRate)
+              : null;
             return (
-              <Badge 
-                className={defaultClass || textColorClass}
-                style={style.backgroundColor ? style : undefined}
-              >
-                {subject?.long_name ?? ''}
-              </Badge>
+              <div key={row.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2 text-sm first:pt-0 last:pb-0">
+                <div>
+                  <span>{getDayOfWeek(row.dayOfWeek)} {formatTime(row.startTime)}–{formatTime(row.endTime)}</span>
+                  {row.room ? <span className="text-muted-foreground"> · {row.room}</span> : null}
+                </div>
+                <span className="font-medium">
+                  {revision.sessionType === 'HOMEWORK_HELP'
+                    ? 'Free'
+                    : isPricingLoading
+                    ? 'Loading price…'
+                    : sessionPrice
+                      ? `${formatCurrency(sessionPrice.amountCents, sessionPrice.currency)}/session`
+                      : 'Price not configured'}
+                </span>
+              </div>
             );
-          })() : (
-            '-'
-          )}
+          })}
         </div>
-        
-        <div className="text-sm font-medium">Room:</div>
-        <div>{classData.room || '-'}</div>
-        
-        <div className="text-sm font-medium">Session Start Date:</div>
-        <div>
-          {classData.session_start_date 
-            ? format(new Date(classData.session_start_date), 'MMM d, yyyy')
-            : classData.created_at 
-              ? format(new Date(classData.created_at), 'MMM d, yyyy')
-              : 'Not set'
-          }
-        </div>
-        
-        <div className="text-sm font-medium">Session End Date:</div>
-        <div>
-          {classData.session_end_date 
-            ? format(new Date(classData.session_end_date), 'MMM d, yyyy')
-            : classData.created_at
-              ? `Dec 31, ${new Date(classData.created_at).getFullYear()}`
-              : 'Not set'
-          }
-        </div>
-      </div>
+      )}
     </div>
   );
 }
 
-export { classInfoSchema };
-export type { FormData as ClassInfoFormData };
+export function ClassInfoTab({ classData, subject, subjects, isEditing, isLoading, onEdit, onCancelEdit, onSaved }: ClassInfoTabProps) {
+  const { data: scheduleTimeline, isLoading: isScheduleLoading } = useClassScheduleTimeline(classData.id);
+  const { data: billingPricing = [], isLoading: isBillingPricingLoading } = useBillingPricing();
+  const { data: pricingOverrides = [], isLoading: isPricingOverridesLoading } = useSubjectPricingOverrides();
+  const storedSchedule = scheduleTimeline?.[scheduleTimeline.length - 1];
+  const previewMutation = usePreviewClassSchedule();
+  const applyMutation = useApplyClassSchedule();
+  const [level, setLevel] = useState('');
+  const [sessionType, setSessionType] = useState<ScheduledOfferingType>('CLASS');
+  const [subjectId, setSubjectId] = useState<string | null>(null);
+  const [billingType, setBillingType] = useState<ClassBillingType>('CLASS');
+  const [rows, setRows] = useState<ClassScheduleRow[]>([]);
+  const [frequencyWeeks, setFrequencyWeeks] = useState<1 | 2>(1);
+  const [classStatus, setClassStatus] = useState<'ACTIVE' | 'INACTIVE'>('ACTIVE');
+  const [effectiveFrom, setEffectiveFrom] = useState(todayInAdelaide());
+  const [endDate, setEndDate] = useState(classData.session_end_date);
+  const [proposal, setProposal] = useState<ClassScheduleProposal | null>(null);
+  const [plan, setPlan] = useState<ClassSchedulePlan | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isEditing || storedSchedule === undefined) return;
+    setLevel(classData.cohort_label ?? classData.level ?? '');
+    setSessionType(storedSchedule?.sessionType ?? classData.session_type);
+    setSubjectId(classData.subject_id);
+    setBillingType(storedSchedule?.billingType ?? classData.billing_type ?? 'CLASS');
+    setRows(resolveClassScheduleRows(storedSchedule?.rows, {
+      dayOfWeek: classData.day_of_week, startTime: classData.start_time, endTime: classData.end_time, room: classData.room,
+    }, () => crypto.randomUUID()));
+    setFrequencyWeeks(storedSchedule?.frequencyWeeks ?? 1);
+    setClassStatus(classData.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE');
+    const today = todayInAdelaide();
+    setEffectiveFrom(
+      storedSchedule?.effectiveFrom && storedSchedule.effectiveFrom >= today
+        ? storedSchedule.effectiveFrom
+        : today < classData.session_start_date
+          ? classData.session_start_date
+          : today
+    );
+    setEndDate(classData.session_end_date);
+    setProposal(null); setPlan(null); setError(null);
+  }, [classData, isEditing, storedSchedule]);
+
+  const markChanged = () => { setProposal(null); setPlan(null); setError(null); };
+  const updateRow = (id: string, patch: Partial<ClassScheduleRow>) => {
+    setRows((current) => current.map((row) => row.id === id ? { ...row, ...patch } : row));
+    markChanged();
+  };
+
+  const preview = async () => {
+    const validationError = validateClassScheduleRows(rows);
+    if (validationError) return setError(validationError);
+    if (!endDate || endDate < classData.session_start_date) return setError('The Class end date must be on or after its start date.');
+    if (effectiveFrom < todayInAdelaide() || effectiveFrom > endDate) return setError('The effective date must be today or later and inside the Class dates.');
+    const nextProposal = buildClassScheduleProposal({
+      classId: classData.id, sessionType,
+      subjectId: sessionType === 'CLASS' ? subjectId : null,
+      cohortLabel: level, startDate: classData.session_start_date, endDate,
+      billingType: sessionType === 'CLASS' ? billingType : null,
+      effectiveFrom, anchorDate: storedSchedule?.anchorDate ?? classData.session_start_date, frequencyWeeks, rows, status: classStatus,
+    });
+    setError(null);
+    try {
+      setPlan(await previewMutation.mutateAsync(nextProposal));
+      setProposal(nextProposal);
+    } catch (previewError) {
+      setError(previewError instanceof Error ? previewError.message : 'Unable to preview these changes.');
+    }
+  };
+
+  const apply = async () => {
+    if (!proposal || !plan) return;
+    try {
+      await applyMutation.mutateAsync({ proposal, expectedProposalHash: plan.proposal_hash });
+      onSaved();
+    } catch (applyError) {
+      setError(applyError instanceof Error ? applyError.message : 'Unable to update this Class.');
+    }
+  };
+  const busy = isLoading || isScheduleLoading || previewMutation.isPending || applyMutation.isPending;
+  const today = todayInAdelaide();
+  const { current: currentSchedule, upcoming: upcomingSchedules } = partitionClassScheduleTimeline(
+    scheduleTimeline,
+    today
+  );
+  const isPricingLoading = isBillingPricingLoading || isPricingOverridesLoading;
+
+  if (isEditing) {
+    return (
+      <form id="class-edit-form" className="space-y-6" onSubmit={(event) => { event.preventDefault(); void (plan ? apply() : preview()); }}>
+        {error && <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">{error}</div>}
+        {busy && rows.length === 0 ? <div className="flex justify-center p-10"><Loader2 className="h-5 w-5 animate-spin" /></div> : !plan ? <>
+          <PropertyForm className="items-center">
+            <Label>Offering type:</Label>
+            <div>
+              <SearchableSelect<(typeof OFFERING_TYPES)[number]> items={OFFERING_TYPES} value={OFFERING_TYPES.find((item) => item.value === sessionType) ?? null} onValueChange={(item) => { setSessionType(item?.value ?? 'CLASS'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} disabled />
+              <p className="mt-1 text-xs text-muted-foreground">Type is fixed after Sessions have been generated.</p>
+            </div>
+            <Label htmlFor="level">Level:</Label>
+            <Input id="level" value={level} onChange={(event) => { setLevel(event.target.value); markChanged(); }} disabled={busy} placeholder="e.g., A/B/C/D" />
+
+            {sessionType === 'CLASS' ? <>
+              <Label>Subject:</Label>
+              <SearchableSelect<Tables<'subjects'>> items={subjects} value={subjects.find((item) => item.id === subjectId) ?? null} onValueChange={(item) => { setSubjectId(item?.id ?? null); markChanged(); }} getItemLabel={(item) => item.long_name ?? ''} getItemId={(item) => item.id} placeholder="Select subject" disabled={busy} />
+
+              <Label>Billing type:</Label>
+              <SearchableSelect<(typeof BILLING_TYPES)[number]> items={BILLING_TYPES} value={BILLING_TYPES.find((item) => item.value === billingType) ?? null} onValueChange={(item) => { setBillingType(item?.value ?? 'CLASS'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} placeholder="Select billing type" disabled={busy} />
+            </> : <>
+              <Label>Student billing:</Label><p className="text-sm text-muted-foreground">Free — students are not billed.</p>
+            </>}
+
+            <Label>Status:</Label>
+            <SearchableSelect<(typeof STATUSES)[number]> items={STATUSES} value={STATUSES.find((item) => item.value === classStatus) ?? null} onValueChange={(item) => { setClassStatus(item?.value ?? 'ACTIVE'); markChanged(); }} getItemId={(item) => item.value} getItemLabel={(item) => item.label} disabled={busy} />
+
+            <Label>Session start date:</Label>
+            <div className="text-sm">{format(new Date(classData.session_start_date), 'MMM d, yyyy')}</div>
+
+            <Label>Session end date:</Label>
+            <SmartDatePickerField value={endDate} minDate={effectiveFrom || classData.session_start_date} onChange={(value) => { setEndDate(value ?? ''); markChanged(); }} />
+
+            <Label>Changes effective from:</Label>
+            <SmartDatePickerField value={effectiveFrom} minDate={todayInAdelaide()} onChange={(value) => { setEffectiveFrom(value ?? ''); markChanged(); }} />
+
+            <Label>Repeat:</Label>
+            <SearchableSelect<(typeof FREQUENCIES)[number]> items={FREQUENCIES} value={FREQUENCIES.find((item) => item.value === frequencyWeeks) ?? null} onValueChange={(item) => { setFrequencyWeeks(item?.value ?? 1); markChanged(); }} getItemId={(item) => String(item.value)} getItemLabel={(item) => item.label} disabled={busy} />
+          </PropertyForm>
+          <div className="space-y-3 border-t pt-6">
+            <div><h3 className="font-medium">Repeating timetable</h3><p className="text-sm text-muted-foreground">Add every day and time this class runs. Changes only reconcile future Sessions.</p></div>
+            {rows.map((row, index) => <div key={row.id} className="grid gap-3 rounded-md border p-3 md:grid-cols-[1.2fr_1fr_1fr_1.2fr_auto]">
+              <div className="flex min-w-0 flex-col gap-2"><Label>Day {index + 1}</Label><SearchableSelect<(typeof DAYS)[number]> items={DAYS} value={DAYS.find((day) => day.value === row.dayOfWeek) ?? null} onValueChange={(day) => updateRow(row.id, { dayOfWeek: day?.value ?? 1 })} getItemId={(day) => String(day.value)} getItemLabel={(day) => day.label} disabled={busy} fullWidth /></div>
+              <div className="space-y-2"><Label>Start</Label><Input type="time" value={row.startTime} disabled={busy} onChange={(event) => updateRow(row.id, { startTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>End</Label><Input type="time" value={row.endTime} disabled={busy} onChange={(event) => updateRow(row.id, { endTime: event.target.value })} /></div>
+              <div className="space-y-2"><Label>Room</Label><Input value={row.room} disabled={busy} onChange={(event) => updateRow(row.id, { room: event.target.value })} /></div>
+              <div className="flex items-end"><Button type="button" size="icon" variant="ghost" className="text-destructive hover:bg-destructive/10 hover:text-destructive" aria-label={`Remove schedule row ${index + 1}`} disabled={busy || rows.length === 1} onClick={() => { setRows((current) => current.filter((item) => item.id !== row.id)); markChanged(); }}><Trash2 className="h-4 w-4" /></Button></div>
+            </div>)}
+            <Button type="button" variant="outline" disabled={busy} onClick={() => { setRows((current) => [...current, { id: crypto.randomUUID(), dayOfWeek: 1, startTime: '16:00', endTime: '17:30', room: '' }]); markChanged(); }}><Plus className="mr-2 h-4 w-4" />Add day / time</Button>
+          </div>
+        </> : <div className="space-y-4">
+          <div><h3 className="font-medium">Review Class changes</h3><p className="text-sm text-muted-foreground">Confirm the future Session changes before they are applied.</p></div>
+          <div className="grid grid-cols-3 gap-3"><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.create}</strong><span className="text-sm text-muted-foreground">create</span></div><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.cancel}</strong><span className="text-sm text-muted-foreground">remove</span></div><div className="rounded-md border p-3"><strong className="block text-2xl">{plan.counts.protected}</strong><span className="text-sm text-muted-foreground">protected</span></div></div>
+          {plan.counts.protected > 0 && <div className="flex gap-2 rounded-md border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><AlertTriangle className="h-4 w-4 shrink-0" />Exceptional or enriched Sessions will remain unchanged.</div>}
+          {plan.conflicts.length > 0 && <div className="rounded-md border border-amber-300 p-3 text-sm"><div className="font-medium">Warnings</div>{plan.conflicts.map((conflict) => <p key={conflict.message}>{conflict.message}</p>)}</div>}
+          <GeneratedTimetablePreview occurrences={plan.occurrences} />
+          {plan.removals.length > 0 && <div className="max-h-64 divide-y overflow-y-auto rounded-md border">{plan.removals.map((removal) => <div key={removal.session_id} className="flex justify-between p-3 text-sm"><span>{new Date(removal.start_at).toLocaleString('en-AU', { timeZone: 'Australia/Adelaide' })}</span><span>{removal.action.toLowerCase()}</span></div>)}</div>}
+          <Button type="button" variant="outline" disabled={busy} onClick={() => { setPlan(null); setProposal(null); }}>Back to editing</Button>
+        </div>}
+        <div className="flex justify-end gap-2 border-t pt-4">
+          <Button type="button" variant="outline" disabled={busy} onClick={onCancelEdit}>Cancel</Button>
+          <Button type="submit" disabled={busy || rows.length === 0}>
+            {(previewMutation.isPending || applyMutation.isPending) && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {plan ? 'Apply offering changes' : 'Review changes'}
+          </Button>
+        </div>
+      </form>
+    );
+  }
+
+  return <div className="space-y-6 pb-6 flex-1 overflow-y-auto px-1 pt-4">
+    <div className="flex items-center justify-between"><h3 className="text-lg font-semibold">Class information</h3><Button variant="outline" size="sm" onClick={onEdit}><Pencil className="h-4 w-4 mr-2" />Edit</Button></div>
+    <PropertyForm>
+      <PropertyFormRow label="Offering type">
+        {classData.session_type === 'HOMEWORK_HELP' ? 'Homework Help' : 'Class'}
+      </PropertyFormRow>
+      <PropertyFormRow label="Level">
+        {classData.level || '-'}
+      </PropertyFormRow>
+      <PropertyFormRow label="Status">
+        <div>
+          <ClassStatusBadge value={classData.status === 'ACTIVE' || classData.status === 'INACTIVE' ? classData.status : null} />
+        </div>
+      </PropertyFormRow>
+      {classData.session_type === 'CLASS' ? (
+        <PropertyFormRow label="Subject">
+          {subject ? (() => {
+            const { style, textColorClass } = getSubjectColorStyle(subject);
+            return (
+              <div>
+                <Badge
+                  className={!subject.color ? 'bg-gray-100 text-gray-800' : textColorClass}
+                  style={style.backgroundColor ? style : undefined}
+                >
+                  {subject.long_name ?? ''}
+                </Badge>
+              </div>
+            );
+          })() : '-'}
+        </PropertyFormRow>
+      ) : null}
+      <PropertyFormRow label="Session start date">
+        {classData.session_start_date ? format(new Date(classData.session_start_date), 'MMM d, yyyy') : 'Not set'}
+      </PropertyFormRow>
+      <PropertyFormRow label="Session end date">
+        {classData.session_end_date ? format(new Date(classData.session_end_date), 'MMM d, yyyy') : 'Not set'}
+      </PropertyFormRow>
+    </PropertyForm>
+    <div className="space-y-3">
+      <h3 className="text-base font-semibold">Schedule and standard price</h3>
+      {isScheduleLoading ? (
+        <div className="flex justify-center p-6"><Loader2 className="h-5 w-5 animate-spin" /></div>
+      ) : (
+        <>
+          {currentSchedule ? (
+            <ScheduleConfigurationCard
+              title="Current schedule"
+              revision={currentSchedule}
+              subjectId={classData.subject_id}
+              pricingDate={today}
+              pricing={billingPricing}
+              overrides={pricingOverrides}
+              isPricingLoading={isPricingLoading}
+            />
+          ) : null}
+          {upcomingSchedules.map((revision) => (
+            <ScheduleConfigurationCard
+              key={revision.id}
+              title={`${currentSchedule ? 'From' : 'Starts'} ${format(new Date(`${revision.effectiveFrom}T12:00:00Z`), 'MMM d, yyyy')}`}
+              revision={revision}
+              subjectId={classData.subject_id}
+              pricingDate={revision.effectiveFrom}
+              pricing={billingPricing}
+              overrides={pricingOverrides}
+              isPricingLoading={isPricingLoading}
+            />
+          ))}
+          {!currentSchedule && upcomingSchedules.length === 0 ? (
+            <p className="text-sm text-muted-foreground">No active or upcoming schedule is configured.</p>
+          ) : null}
+        </>
+      )}
+    </div>
+  </div>;
+}

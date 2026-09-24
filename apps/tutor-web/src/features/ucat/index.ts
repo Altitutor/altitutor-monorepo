@@ -9,4 +9,3 @@ export { UcatStudentsPage } from '@/features/ucat/students/components/UcatStuden
 export { UcatClassesPage } from '@/features/ucat/classes/components/UcatClassesPage'
 export { UcatLearningModulesPage } from '@/features/ucat/learning-modules/components/UcatLearningModulesPage'
 export { UcatSkillTrainerQuestionsPage } from '@/features/ucat/skill-trainer/components/UcatSkillTrainerQuestionsPage'
-export { UcatSkillTrainerSetsPage } from '@/features/ucat/skill-trainer-sets/components/UcatSkillTrainerSetsPage'

@@ -62,6 +62,49 @@ export const SUPPORTED_ENTITIES: EntityConfig[] = [
           { value: 8, label: '8 (XL)' },
         ],
       },
+      {
+        key: 'unlinked',
+        label: 'Link',
+        type: 'select',
+        options: [
+          { value: 'none', label: 'Not linked to an issue or project' },
+        ],
+      },
+    ],
+  },
+  {
+    id: 'projects',
+    label: 'Projects',
+    fields: [
+      {
+        key: 'status',
+        label: 'Status',
+        type: 'select',
+        options: [
+          { value: 'backlog', label: 'Backlog' },
+          { value: 'planned', label: 'Planned' },
+          { value: 'in_progress', label: 'In Progress' },
+          { value: 'completed', label: 'Completed' },
+        ],
+      },
+      {
+        key: 'priority',
+        label: 'Priority',
+        type: 'select',
+        options: [
+          { value: 0, label: 'No priority' },
+          { value: 1, label: 'Urgent' },
+          { value: 2, label: 'High' },
+          { value: 3, label: 'Medium' },
+          { value: 4, label: 'Low' },
+        ],
+      },
+      {
+        key: 'member',
+        label: 'Member',
+        type: 'select',
+        supportPlaceholders: true,
+      },
     ],
   },
   {
@@ -265,6 +308,32 @@ export const SUPPORTED_ENTITIES: EntityConfig[] = [
     id: 'tutor_logs',
     label: 'Tutor Logs',
     fields: [
+      {
+        key: 'type',
+        label: 'Session Type',
+        type: 'select',
+        options: [
+          { value: 'CLASS', label: 'Class' },
+          { value: 'DRAFTING', label: 'Drafting' },
+          { value: 'EXAM_COURSE', label: 'Exam Course' },
+          { value: 'SUBSIDY_INTERVIEW', label: 'Subsidy Interview' },
+          { value: 'TRIAL_SESSION', label: 'Trial Session' },
+          { value: 'STAFF_INTERVIEW', label: 'Staff Interview' },
+          { value: 'ADMIN_SHIFT', label: 'Admin Shift' },
+          { value: 'CHECK_IN', label: 'Check In' },
+          { value: 'ADMIN_MEETING', label: 'Admin Meeting' },
+        ],
+      },
+      {
+        key: 'subject',
+        label: 'Subject',
+        type: 'select',
+      },
+      {
+        key: 'class',
+        label: 'Class',
+        type: 'select',
+      },
       {
         key: 'staff',
         label: 'Staff',

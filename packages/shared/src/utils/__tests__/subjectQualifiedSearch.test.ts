@@ -1,6 +1,11 @@
 import {
+  buildCodeAndFilenameOrFilter,
+  buildCodeAndNameOrFilter,
+  buildCodeExactOrPrefixOrFilter,
+  buildSubjectNameOrFilter,
   looksLikeTopicOrFileCode,
   parseSubjectQualifiedSearch,
+  quotePostgrestFilterValue,
 } from '../ilike';
 
 describe('looksLikeTopicOrFileCode', () => {
@@ -46,5 +51,31 @@ describe('parseSubjectQualifiedSearch', () => {
       mode: 'general',
       query: '12CHEM',
     });
+  });
+});
+
+describe('PostgREST filter builders', () => {
+  it('quotes reserved characters in subject name filters', () => {
+    expect(buildSubjectNameOrFilter('12CHEM')).toBe(
+      `short_name.ilike.${quotePostgrestFilterValue('%12CHEM%')},long_name.ilike.${quotePostgrestFilterValue('%12CHEM%')},name.ilike.${quotePostgrestFilterValue('%12CHEM%')}`,
+    );
+  });
+
+  it('quotes dotted codes in code/name filters', () => {
+    expect(buildCodeAndNameOrFilter('code', 'name', '2.2')).toBe(
+      `code.ilike.${quotePostgrestFilterValue('2.2')},code.ilike.${quotePostgrestFilterValue('2.2%')},name.ilike.${quotePostgrestFilterValue('%2.2%')}`,
+    );
+  });
+
+  it('quotes dotted codes in code/filename filters', () => {
+    expect(buildCodeAndFilenameOrFilter('code', 'filename', '2.2')).toBe(
+      `code.ilike.${quotePostgrestFilterValue('2.2')},code.ilike.${quotePostgrestFilterValue('2.2%')},filename.ilike.${quotePostgrestFilterValue('%2.2%')}`,
+    );
+  });
+
+  it('builds code-only or filters for nested filename searches', () => {
+    expect(buildCodeExactOrPrefixOrFilter('code', '2.2')).toBe(
+      `code.ilike.${quotePostgrestFilterValue('2.2')},code.ilike.${quotePostgrestFilterValue('2.2%')}`,
+    );
   });
 });

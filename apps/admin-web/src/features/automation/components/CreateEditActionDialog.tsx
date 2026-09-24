@@ -1,18 +1,10 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from '@altitutor/ui';
-import { Button } from '@altitutor/ui';
+import { Button, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import {
   Form,
   FormControl,
@@ -33,11 +25,7 @@ import type { Tables } from '@altitutor/shared';
 import type { AutomationAction, ActionType, ActivityEntityType } from '../types';
 import { TemplateVariablesPicker } from './TemplateVariablesPicker';
 import { MessageTemplatesPicker } from '@/features/messages/components/MessageTemplatesPicker';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
+import { AdminDialogShell } from '@/shared/components';
 import { cn } from '@/shared/utils';
 
 // Entity types that have class_id available in activity events
@@ -112,7 +100,7 @@ const actionFormSchema = z.object({
   message_content: z.string().optional(),
   target_contact_id: z.string().optional(),
   selected_sender_id: z.string().optional(),
-  message_recipient_type: z.enum(['single', 'class_students', 'class_students_and_parents', 'session_students', 'session_students_and_parents', 'student_and_parents', 'tutor_log_students', 'tutor_log_students_and_parents']).optional(),
+  message_recipient_type: z.enum(['single', 'class_students', 'class_students_and_parents', 'session_students', 'session_students_and_parents', 'student_and_parents', 'tutor_log_students', 'tutor_log_students_and_parents', 'tutor_log_attendees']).optional(),
   // CREATE_TASK config
   title_template: z.string().optional(),
   description_template: z.string().optional(),
@@ -123,11 +111,12 @@ const actionFormSchema = z.object({
   status: z.enum(['backlog', 'todo', 'in_progress', 'in_review', 'done']).optional(),
   // CREATE_NOTIFICATION config
   notification_type: z.string().optional(),
+  notification_app_scope: z.enum(['auto', 'student_web', 'ucat_web', 'staff_web']).optional(),
   notification_title: z.string().optional(),
   notification_body: z.string().optional(),
   action_url: z.string().optional(),
   target_staff_id: z.string().optional(),
-  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
+  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'all_ucat_students', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
 }).refine((data) => {
   if (data.action_type === 'SEND_MESSAGE') {
     return !!data.message_content && data.message_content.trim().length > 0 && !!data.selected_sender_id;
@@ -170,11 +159,6 @@ export function CreateEditActionDialog({
   staffList,
 }: CreateEditActionDialogProps) {
   const isEditing = !!action;
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const createMutation = useCreateAutomationAction();
   const updateMutation = useUpdateAutomationAction();
@@ -194,6 +178,7 @@ export function CreateEditActionDialog({
       assigned_to: '',
       priority: 0,
       notification_type: '',
+      notification_app_scope: 'auto' as const,
       notification_title: '',
       notification_body: '',
       action_url: '',
@@ -282,7 +267,7 @@ export function CreateEditActionDialog({
         }
       }
       
-      let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' | 'student_and_parents' | 'tutor_log_students' | 'tutor_log_students_and_parents' = 'single';
+      let messageRecipientType: 'single' | 'class_students' | 'class_students_and_parents' | 'session_students' | 'session_students_and_parents' | 'student_and_parents' | 'tutor_log_students' | 'tutor_log_students_and_parents' | 'tutor_log_attendees' = 'single';
       if (action.action_type === 'SEND_MESSAGE' && 'recipients' in config && config.recipients?.type) {
         const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
@@ -296,7 +281,7 @@ export function CreateEditActionDialog({
             (isSessionType && hasSessionId) ||
             (isTutorLogType && isTutorLogEntity) ||
             (isStudentType && hasStudentId)) {
-          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents' || recipientType === 'student_and_parents' || recipientType === 'tutor_log_students' || recipientType === 'tutor_log_students_and_parents') {
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_students_and_parents' || recipientType === 'session_students' || recipientType === 'session_students_and_parents' || recipientType === 'student_and_parents' || recipientType === 'tutor_log_students' || recipientType === 'tutor_log_students_and_parents' || recipientType === 'tutor_log_attendees') {
             messageRecipientType = recipientType;
           }
         }
@@ -318,6 +303,7 @@ export function CreateEditActionDialog({
         estimate: action.action_type === 'CREATE_TASK' && 'estimate' in config ? config.estimate : undefined,
         status: action.action_type === 'CREATE_TASK' && 'status' in config && typeof config.status === 'string' && ['backlog', 'todo', 'in_progress', 'in_review', 'done'].includes(config.status) ? config.status as 'backlog' | 'todo' | 'in_progress' | 'in_review' | 'done' : undefined,
         notification_type: action.action_type === 'CREATE_NOTIFICATION' && 'notification_type' in config ? config.notification_type : undefined,
+        notification_app_scope: action.action_type === 'CREATE_NOTIFICATION' && 'app_scope' in config && typeof config.app_scope === 'string' && ['student_web', 'ucat_web', 'staff_web'].includes(config.app_scope) ? config.app_scope as 'student_web' | 'ucat_web' | 'staff_web' : 'auto',
         notification_title: action.action_type === 'CREATE_NOTIFICATION' && 'title' in config ? config.title : undefined,
         notification_body: action.action_type === 'CREATE_NOTIFICATION' && 'body' in config ? config.body : undefined,
         action_url: action.action_type === 'CREATE_NOTIFICATION' && 'action_url' in config ? config.action_url : undefined,
@@ -331,6 +317,7 @@ export function CreateEditActionDialog({
         order_index: 0,
         message_recipient_type: 'single',
         notification_recipient_type: 'single',
+        notification_app_scope: 'auto',
       });
     }
   }, [isOpen, isEditing, action, form, hasClassId, hasSessionId, hasStudentId, isTutorLogEntity]);
@@ -415,6 +402,7 @@ export function CreateEditActionDialog({
         const recipientType = data.notification_recipient_type || 'single';
         const createNotificationConfig: CreateNotificationActionConfig = {
           notification_type: data.notification_type || 'GENERIC',
+          ...(data.notification_app_scope && data.notification_app_scope !== 'auto' ? { app_scope: data.notification_app_scope } : {}),
           title: data.notification_title,
           body: data.notification_body || undefined,
           action_url: data.action_url || undefined,
@@ -457,35 +445,27 @@ export function CreateEditActionDialog({
 
   const isLoading = createMutation.isPending || updateMutation.isPending;
 
-  const handleOpenChange = (open: boolean) => {
-    if (!open) {
-      onClose();
-    }
-  };
-
   return (
-    <Dialog open={isOpen} onOpenChange={handleOpenChange}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-2xl max-h-[90vh] overflow-y-auto',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>{isEditing ? 'Edit Action' : 'Create Action'}</DialogTitle>
-              <DialogDescription>
-                Configure an action to execute when the rule matches an activity event
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title={isEditing ? 'Edit Action' : 'Create Action'}
+      subtitle="Configure an action to execute when the rule matches an activity event"
+      footer={
+        <>
+          <Button variant="outline" onClick={onClose} disabled={isLoading}>
+            Cancel
+          </Button>
+          <Button type="submit" form="create-edit-action-form" disabled={isLoading}>
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isEditing ? 'Update Action' : 'Create Action'}
+          </Button>
+        </>
+      }
+    >
+      <Form {...form}>
+        <form id="create-edit-action-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <FormField
               control={form.control}
               name="action_type"
@@ -503,11 +483,11 @@ export function CreateEditActionDialog({
                         getItemLabel={(i) => i.label}
                         placeholder="Select action type"
                         trigger={
-                          <Button variant="outline" className="w-full justify-start font-normal">
+                          <SearchableSelectFieldTrigger>
                             <span className={cn(!selected && 'text-muted-foreground')}>
                               {selected ? selected.label : 'Select action type'}
                             </span>
-                          </Button>
+                          </SearchableSelectFieldTrigger>
                         }
                       />
                     </FormControl>
@@ -623,11 +603,11 @@ export function CreateEditActionDialog({
                               allowClear
                               clearLabel="Unassigned"
                               trigger={
-                                <Button variant="outline" className="w-full justify-start font-normal">
+                                <SearchableSelectFieldTrigger>
                                   <span className={cn(!selected && 'text-muted-foreground')}>
                                     {selected ? `${selected.first_name} ${selected.last_name}` : 'Unassigned'}
                                   </span>
-                                </Button>
+                                </SearchableSelectFieldTrigger>
                               }
                             />
                           </FormControl>
@@ -719,11 +699,11 @@ export function CreateEditActionDialog({
                             getItemLabel={(i) => i.label}
                             placeholder="Todo"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 <span className={cn(!selected && 'text-muted-foreground')}>
                                   {selected ? selected.label : 'Todo'}
                                 </span>
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -829,11 +809,11 @@ export function CreateEditActionDialog({
                               placeholder="Select a sender"
                               loading={isLoadingSenders}
                               trigger={
-                                <Button variant="outline" className="w-full justify-start font-normal">
+                                <SearchableSelectFieldTrigger>
                                   <span className={cn(!selected && 'text-muted-foreground')}>
                                     {selected ? getItemLabel(selected) : 'Select a sender'}
                                   </span>
-                                </Button>
+                                </SearchableSelectFieldTrigger>
                               }
                             />
                           </FormControl>
@@ -868,6 +848,7 @@ export function CreateEditActionDialog({
                         ? [
                             { id: 'tutor_log_students', label: 'All Students in Tutor Log' },
                             { id: 'tutor_log_students_and_parents', label: 'All Students & Parents in Tutor Log' },
+                            { id: 'tutor_log_attendees', label: 'Attended Students & Parents' },
                           ]
                         : []),
                     ];
@@ -886,11 +867,11 @@ export function CreateEditActionDialog({
                             getItemLabel={(i) => i.label}
                             placeholder="Single Contact"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 <span className={cn(!selected && 'text-muted-foreground')}>
                                   {selected ? selected.label : 'Single Contact'}
                                 </span>
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -944,6 +925,44 @@ export function CreateEditActionDialog({
                       <FormMessage />
                     </FormItem>
                   )}
+                />
+
+                <FormField
+                  control={form.control}
+                  name="notification_app_scope"
+                  render={({ field }) => {
+                    const scopeOptions = [
+                      { id: 'auto', label: 'Automatic from recipient' },
+                      { id: 'student_web', label: 'Student portal' },
+                      { id: 'ucat_web', label: 'UCAT app' },
+                      { id: 'staff_web', label: 'Staff apps' },
+                    ];
+                    const selected = scopeOptions.find((option) => option.id === (field.value || 'auto')) ?? scopeOptions[0];
+                    return (
+                      <FormItem>
+                        <FormLabel>App destination</FormLabel>
+                        <FormControl>
+                          <SearchableSelect<{ id: string; label: string }>
+                            items={scopeOptions}
+                            value={selected}
+                            onValueChange={(item) => field.onChange(item?.id ?? 'auto')}
+                            getItemId={(item) => item.id}
+                            getItemLabel={(item) => item.label}
+                            placeholder="Automatic from recipient"
+                            trigger={
+                              <SearchableSelectFieldTrigger>
+                                {selected.label}
+                              </SearchableSelectFieldTrigger>
+                            }
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          Choose UCAT app for UCAT promotions, reminders and content announcements.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    );
+                  }}
                 />
 
                 <FormField
@@ -1015,6 +1034,7 @@ export function CreateEditActionDialog({
                       { id: 'single', label: 'Single Staff Member' },
                       { id: 'all_admin_staff', label: 'All Admin Staff' },
                       { id: 'all_staff', label: 'All Staff' },
+                      { id: 'all_ucat_students', label: 'All UCAT Students' },
                       ...(hasClassId
                         ? [
                             { id: 'class_students', label: 'All Students in Class' },
@@ -1049,11 +1069,11 @@ export function CreateEditActionDialog({
                             getItemLabel={(i) => i.label}
                             placeholder="Single Staff Member"
                             trigger={
-                              <Button variant="outline" className="w-full justify-start font-normal">
+                              <SearchableSelectFieldTrigger>
                                 <span className={cn(!selected && 'text-muted-foreground')}>
                                   {selected ? selected.label : 'Single Staff Member'}
                                 </span>
-                              </Button>
+                              </SearchableSelectFieldTrigger>
                             }
                           />
                         </FormControl>
@@ -1098,11 +1118,11 @@ export function CreateEditActionDialog({
                               getItemLabel={(i) => i.label}
                               placeholder="Select staff member"
                               trigger={
-                                <Button variant="outline" className="w-full justify-start font-normal">
+                                <SearchableSelectFieldTrigger>
                                   <span className={cn(!selected && 'text-muted-foreground')}>
                                     {selected ? selected.label : 'Select staff member'}
                                   </span>
-                                </Button>
+                                </SearchableSelectFieldTrigger>
                               }
                             />
                           </FormControl>
@@ -1144,7 +1164,7 @@ export function CreateEditActionDialog({
                         />
                       </FormControl>
                       <FormDescription>
-                        URL to navigate to when notification is clicked. You can use variables like {'{task_id}'}, {'{student_id}'}, etc.
+                        URL to navigate to when notification is clicked. You can use variables like {'{task_id}'}, {'{student_id}'}, etc. Use {'modal://session/{entity_id}'} to open a session modal.
                       </FormDescription>
                       <FormMessage />
                     </FormItem>
@@ -1153,19 +1173,8 @@ export function CreateEditActionDialog({
               </>
             )}
 
-            <DialogFooter>
-              <Button variant="outline" onClick={onClose} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button type="submit" disabled={isLoading}>
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                {isEditing ? 'Update Action' : 'Create Action'}
-              </Button>
-            </DialogFooter>
           </form>
         </Form>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }
-

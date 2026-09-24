@@ -7,10 +7,15 @@ import Image from '@tiptap/extension-image';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
-import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
+import {
+  Details,
+  DetailsContent,
+  DetailsSummary,
+} from '@tiptap/extension-details';
 import { CollapsibleHeading } from '@altitutor/ui';
 import type { JSONContent } from '@tiptap/core';
 import type { MentionClickDetail } from '@altitutor/ui';
+import { useRefreshedAdminContent } from '@/features/rich-text-images';
 import { cn } from '@/shared/utils';
 import { renderTextWithTagsAsPlainText } from '@/shared/utils/tagDisplay';
 
@@ -38,9 +43,21 @@ const VIEW_EXTENSIONS = [
     addAttributes() {
       return {
         ...this.parent?.(),
-        id: { default: null, parseHTML: (el) => el.getAttribute('data-id'), renderHTML: (attrs) => ({ 'data-id': attrs.id }) },
-        label: { default: null, parseHTML: (el) => el.getAttribute('data-label') || el.innerText, renderHTML: (attrs) => ({ 'data-label': attrs.label }) },
-        type: { default: null, parseHTML: (el) => el.getAttribute('data-type'), renderHTML: (attrs) => ({ 'data-type': attrs.type }) },
+        id: {
+          default: null,
+          parseHTML: (el) => el.getAttribute('data-id'),
+          renderHTML: (attrs) => ({ 'data-id': attrs.id }),
+        },
+        label: {
+          default: null,
+          parseHTML: (el) => el.getAttribute('data-label') || el.innerText,
+          renderHTML: (attrs) => ({ 'data-label': attrs.label }),
+        },
+        type: {
+          default: null,
+          parseHTML: (el) => el.getAttribute('data-type'),
+          renderHTML: (attrs) => ({ 'data-type': attrs.type }),
+        },
       };
     },
   }),
@@ -71,39 +88,25 @@ const VIEW_EXTENSIONS = [
  * Component to render ProseMirror JSON content in view mode.
  * Handles TipTap JSON, plain text, and legacy @[type:id:text] format.
  */
-export function NoteViewer({ content, className, onMentionClick }: NoteViewerProps) {
-  if (!content) {
-    return (
-      <div className={cn('text-muted-foreground italic', className)}>
-        No content yet. Click edit to add content.
-      </div>
-    );
+function JsonNoteViewer({
+  jsonContent,
+  className,
+  onMentionClick,
+}: {
+  jsonContent: JSONContent;
+  className?: string;
+  onMentionClick?: (detail: MentionClickDetail) => boolean;
+}) {
+  const { content, isLoading, hasImageRefs } = useRefreshedAdminContent(
+    jsonContent as Record<string, unknown>,
+  );
+  if (isLoading && hasImageRefs) {
+    return <div className={className} aria-label="Loading note images" />;
   }
 
-  let jsonContent: JSONContent;
+  const renderableContent = (content ?? jsonContent) as JSONContent;
   try {
-    if (typeof content === 'string') {
-      const parsed = JSON.parse(content);
-      jsonContent = parsed;
-    } else {
-      jsonContent = content;
-    }
-  } catch {
-    // Plain text or legacy @[type:id:text] - render as plain text (replace tags with display text)
-    return (
-      <div
-        className={cn(
-          'prose prose-sm dark:prose-invert max-w-none prose-p:my-2 whitespace-pre-wrap break-words',
-          className
-        )}
-      >
-        {renderTextWithTagsAsPlainText(String(content))}
-      </div>
-    );
-  }
-
-  try {
-    const html = generateHTML(jsonContent, VIEW_EXTENSIONS);
+    const html = generateHTML(renderableContent, VIEW_EXTENSIONS);
 
     const handleMentionPointerDown = (e: React.MouseEvent<HTMLDivElement>) => {
       if (e.button !== 0) return;
@@ -117,7 +120,9 @@ export function NoteViewer({ content, className, onMentionClick }: NoteViewerPro
       const detail: MentionClickDetail = { id, type, label };
       const handled = onMentionClick?.(detail) ?? false;
       if (!handled) {
-        window.dispatchEvent(new CustomEvent<MentionClickDetail>('mentionClick', { detail }));
+        window.dispatchEvent(
+          new CustomEvent<MentionClickDetail>('mentionClick', { detail }),
+        );
       }
     };
 
@@ -132,7 +137,7 @@ export function NoteViewer({ content, className, onMentionClick }: NoteViewerPro
           'prose-li:my-1',
           'prose-table:my-4 prose-th:border prose-th:border-border prose-th:p-2 prose-th:bg-muted',
           'prose-td:border prose-td:border-border prose-td:p-2',
-          className
+          className,
         )}
         dangerouslySetInnerHTML={{ __html: html }}
         onPointerDownCapture={handleMentionPointerDown}
@@ -143,11 +148,50 @@ export function NoteViewer({ content, className, onMentionClick }: NoteViewerPro
       <div
         className={cn(
           'prose prose-sm dark:prose-invert max-w-none prose-p:my-2 whitespace-pre-wrap break-words',
-          className
+          className,
         )}
       >
-        {renderTextWithTagsAsPlainText(JSON.stringify(jsonContent))}
+        {renderTextWithTagsAsPlainText(JSON.stringify(renderableContent))}
       </div>
     );
   }
+}
+
+export function NoteViewer({
+  content,
+  className,
+  onMentionClick,
+}: NoteViewerProps) {
+  if (!content) {
+    return (
+      <div className={cn('text-muted-foreground italic', className)}>
+        No content yet. Click edit to add content.
+      </div>
+    );
+  }
+
+  let jsonContent: JSONContent;
+  try {
+    jsonContent = typeof content === 'string' ? JSON.parse(content) : content;
+  } catch {
+    // Plain text or legacy @[type:id:text] - render as plain text (replace tags with display text)
+    return (
+      <div
+        className={cn(
+          'prose prose-sm dark:prose-invert max-w-none prose-p:my-2 whitespace-pre-wrap break-words',
+          className,
+        )}
+      >
+        {renderTextWithTagsAsPlainText(String(content))}
+      </div>
+    );
+  }
+
+  return (
+    <JsonNoteViewer
+      jsonContent={jsonContent}
+      className={className}
+      onMentionClick={onMentionClick}
+    />
+  );
 }

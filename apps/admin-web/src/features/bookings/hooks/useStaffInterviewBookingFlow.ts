@@ -1,11 +1,13 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { createStaffInterview } from '../api/staff-interview';
-import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
-import { staffKeys } from '@/features/staff/hooks/useStaffQuery';
 import { getErrorMessage } from '@/shared/utils';
 import { showSessionBookedToast } from '@/shared/utils/toastHelpers';
+import {
+  invalidateSessionListSurfaces,
+  invalidateStaffListSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 const STAFF_INTERVIEW_STEPS = [
   { id: 'interviewee', title: 'Select Candidate' },
@@ -29,13 +31,15 @@ function getDefaultStartEnd(): { startAt: string; endAt: string } {
 }
 
 export function useStaffInterviewBookingFlow({
-  isOpen: _isOpen,
+  isOpen,
   onBookingCreated,
   onClose,
+  initialPhone = null,
 }: {
   isOpen: boolean;
   onBookingCreated?: (sessionId: string) => void;
   onClose: () => void;
+  initialPhone?: string | null;
 }) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -51,6 +55,13 @@ export function useStaffInterviewBookingFlow({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [createdSessionId, setCreatedSessionId] = useState<string | null>(null);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    if (initialPhone) {
+      setIsCreatingStaff(true);
+    }
+  }, [isOpen, initialPhone]);
+
   const steps = STAFF_INTERVIEW_STEPS;
   const currentStepData = steps[currentStep];
   const currentStepId = currentStepData?.id;
@@ -58,8 +69,10 @@ export function useStaffInterviewBookingFlow({
   const createMutation = useMutation({
     mutationFn: createStaffInterview,
     onSuccess: (sessionId) => {
-      queryClient.invalidateQueries({ queryKey: sessionsKeys.all });
-      queryClient.invalidateQueries({ queryKey: staffKeys.all });
+      void Promise.all([
+        invalidateSessionListSurfaces(queryClient),
+        invalidateStaffListSurfaces(queryClient),
+      ]);
       showSessionBookedToast({
         toast,
         sessionId,

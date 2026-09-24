@@ -1,12 +1,45 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
+import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
 import type { Database } from '@altitutor/shared';
 import type { TutorLogFormData } from '@/features/tutor-logs/types';
 
 export async function POST(request: Request) {
   try {
+    const userClient = createUserClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: isAdmin, error: adminError } = await userClient.rpc('is_adminstaff_active');
+
+    if (adminError || !isAdmin) {
+      return NextResponse.json(
+        { error: 'Forbidden: Admin access required' },
+        { status: 403 }
+      );
+    }
+
+    const { data: actorStaffId, error: actorError } = await userClient.rpc('current_staff_id');
+
+    if (actorError || !actorStaffId) {
+      return NextResponse.json(
+        { error: 'Failed to resolve the authenticated admin staff member' },
+        { status: 500 }
+      );
+    }
+
     const body = await request.json();
-    const { data, createdBy } = body as { data: TutorLogFormData; createdBy: string };
+    const { data, loggedForStaffId } = body as {
+      data: TutorLogFormData;
+      loggedForStaffId: string;
+    };
 
     // Validate required fields
     if (!data || !data.sessionId) {
@@ -16,9 +49,9 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!createdBy) {
+    if (!loggedForStaffId) {
       return NextResponse.json(
-        { error: 'createdBy is required' },
+        { error: 'loggedForStaffId is required' },
         { status: 400 }
       );
     }
@@ -34,12 +67,46 @@ export async function POST(request: Request) {
       );
     }
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
+    const supabase = createServiceClient<Database>(supabaseUrl, supabaseServiceKey, {
       auth: {
         autoRefreshToken: false,
         persistSession: false,
       },
     });
+
+    const { data: sessionToLog, error: sessionToLogError } = await supabase
+      .from('sessions')
+      .select('id')
+      .eq('id', data.sessionId)
+      .maybeSingle();
+
+    if (sessionToLogError) {
+      captureApiError(sessionToLogError, "/api/tutor-logs/create");
+      return NextResponse.json({ error: 'Failed to verify session' }, { status: 500 });
+    }
+
+    if (!sessionToLog) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    const { data: assignment, error: assignmentError } = await supabase
+      .from('sessions_staff')
+      .select('id')
+      .eq('session_id', data.sessionId)
+      .eq('staff_id', loggedForStaffId)
+      .maybeSingle();
+
+    if (assignmentError) {
+      captureApiError(assignmentError, "/api/tutor-logs/create");
+      return NextResponse.json({ error: 'Failed to verify staff assignment' }, { status: 500 });
+    }
+
+    if (!assignment) {
+      return NextResponse.json(
+        { error: 'The staff member logged for must be assigned to the session' },
+        { status: 400 }
+      );
+    }
 
     // Prepare data for RPC call
     const staffAttendance = (data.staffAttendance || []).map((sa) => ({
@@ -83,7 +150,8 @@ export async function POST(request: Request) {
     // Pass empty arrays as [] - the function will handle serialization issues
     const rpcParams = {
       p_session_id: data.sessionId,
-      p_created_by: createdBy,
+      p_created_by: actorStaffId,
+      p_logged_for_staff_id: loggedForStaffId,
       p_staff_attendance: staffAttendance.length > 0 ? staffAttendance : [],
       p_student_attendance: studentAttendance.length > 0 ? studentAttendance : [],
       p_parent_attendance: parentAttendance.length > 0 ? parentAttendance : [],
@@ -96,6 +164,7 @@ export async function POST(request: Request) {
     const { data: result, error } = await supabase.rpc('create_tutor_log', rpcParams);
 
     if (error) {
+      captureApiError(error, "/api/tutor-logs/create");
       return NextResponse.json(
         { error: error.message || 'Failed to create tutor log' },
         { status: 500 }
@@ -114,10 +183,10 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data: result });
   } catch (error) {
+    captureApiError(error, "/api/tutor-logs/create");
     return NextResponse.json(
       { error: 'An unexpected error occurred' },
       { status: 500 }
     );
   }
 }
-

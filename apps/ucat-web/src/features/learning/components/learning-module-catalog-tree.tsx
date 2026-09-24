@@ -2,16 +2,35 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Badge } from "@altitutor/ui";
 import { BookOpen, ChevronRight } from "lucide-react";
+import { useLearnQuotaGate } from "@/features/learning/hooks/use-learn-quota-gate";
+import { learningModuleHref } from "@/features/learning/lib/learning-module-href";
 import type { LearningModuleTreeNode } from "@/features/learning/types";
 import { cn } from "@/lib/utils";
 
 function progressLabel(node: LearningModuleTreeNode): string {
   const percent = Number(node.completion_percent ?? 0);
-  if (node.kind === "lesson") {
-    return node.completed_at ? "Complete" : `${percent}%`;
-  }
   return `${percent}%`;
+}
+
+function LessonStatusBadge({ node }: { node: LearningModuleTreeNode }) {
+  if (node.kind !== "lesson") return null;
+  if (node.completed_at) {
+    return (
+      <Badge variant="secondary" className="shrink-0 text-[10px]">
+        Complete
+      </Badge>
+    );
+  }
+  if (node.started_at) {
+    return (
+      <Badge variant="outline" className="shrink-0 text-[10px]">
+        Started
+      </Badge>
+    );
+  }
+  return null;
 }
 
 function LearningModuleCatalogTreeNode({
@@ -24,6 +43,7 @@ function LearningModuleCatalogTreeNode({
   const isFolder = node.kind === "folder";
   const hasChildren = node.children.length > 0;
   const [expanded, setExpanded] = useState(depth === 0);
+  const { guardLessonClick } = useLearnQuotaGate();
 
   const toggleExpanded = () => {
     if (hasChildren) setExpanded((prev) => !prev);
@@ -36,7 +56,9 @@ function LearningModuleCatalogTreeNode({
           type="button"
           onClick={toggleExpanded}
           disabled={!hasChildren}
-          aria-label={expanded ? `Collapse ${node.title}` : `Expand ${node.title}`}
+          aria-label={
+            expanded ? `Collapse ${node.title}` : `Expand ${node.title}`
+          }
           aria-expanded={hasChildren ? expanded : undefined}
           className={cn(
             "flex w-full items-center gap-1 rounded-lg py-1.5 pl-1 pr-2.5 text-left transition-colors duration-300",
@@ -69,7 +91,10 @@ function LearningModuleCatalogTreeNode({
             className="flex h-6 w-6 shrink-0 items-center justify-center opacity-0"
           />
           <Link
-            href={node.id ? `/learn/${node.id}` : "#"}
+            href={
+              node.id ? learningModuleHref(node.id, node.section_number) : "#"
+            }
+            onClick={(event) => guardLessonClick(event, node)}
             className="flex min-w-0 flex-1 items-center justify-between gap-3 rounded-lg px-2.5 py-1.5 text-sm font-medium transition-colors duration-300 hover:bg-muted/80"
           >
             <span className="flex min-w-0 items-center gap-2">
@@ -79,7 +104,10 @@ function LearningModuleCatalogTreeNode({
               </span>
             </span>
             <span className="flex shrink-0 items-center gap-2 text-muted-foreground">
-              <span className="text-xs tabular-nums">{progressLabel(node)}</span>
+              <LessonStatusBadge node={node} />
+              <span className="text-xs tabular-nums">
+                {progressLabel(node)}
+              </span>
               <ChevronRight className="size-4" />
             </span>
           </Link>
@@ -90,12 +118,17 @@ function LearningModuleCatalogTreeNode({
         <div
           className={cn(
             "grid transition-all duration-300 ease-out",
-            expanded ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0",
+            expanded
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0",
           )}
         >
           <div className="overflow-hidden">
             <div className="pl-3">
-              <LearningModuleCatalogTree nodes={node.children} depth={depth + 1} />
+              <LearningModuleCatalogTree
+                nodes={node.children}
+                depth={depth + 1}
+              />
             </div>
           </div>
         </div>
@@ -123,7 +156,11 @@ export function LearningModuleCatalogTree({
     <ul className={cn("space-y-0", className)}>
       {nodes.map((node) =>
         node.id ? (
-          <LearningModuleCatalogTreeNode key={node.id} node={node} depth={depth} />
+          <LearningModuleCatalogTreeNode
+            key={node.id}
+            node={node}
+            depth={depth}
+          />
         ) : null,
       )}
     </ul>

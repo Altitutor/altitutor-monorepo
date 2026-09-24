@@ -1,10 +1,13 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import type { Database } from '@altitutor/shared';
 import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { formatTime } from '@/shared/utils/datetime';
 
-type StudentSubject = Database['public']['Views']['vstudent_subjects']['Row'];
+export const dynamic = 'force-dynamic';
+
+type InPersonStudySubject = Database['public']['Views']['vstudent_in_person_subjects']['Row'];
 
 type HomeworkHelpClassRow = {
   day_of_week: number | null;
@@ -38,7 +41,7 @@ function formatHomeworkHelpTime(homeworkClass: HomeworkHelpClassRow | null): str
 /**
  * GET /api/welcome-modal/context
  * Returns dynamic content for the student welcome modal:
- * - Student's enrolled subjects
+ * - Student's intended in-person study subjects (via vstudent_in_person_subjects)
  * - Homework help session time
  */
 export async function GET(_request: NextRequest) {
@@ -48,6 +51,7 @@ export async function GET(_request: NextRequest) {
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
     if (studentCheckError) {
       console.error('Error checking student status:', studentCheckError);
+      captureApiError(studentCheckError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to verify student status' },
         { status: 500 }
@@ -64,14 +68,17 @@ export async function GET(_request: NextRequest) {
     const { data: studentId, error: studentIdError } = await userClient.rpc('current_student_id');
     if (studentIdError || !studentId) {
       console.error('Error getting student ID:', studentIdError);
+      captureApiError(studentIdError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to get student ID' },
         { status: 500 }
       );
     }
 
+    // The welcome flow describes what the student registered to study in person.
+    // Do not replace this with the online entitlement view.
     const { data: subjectsData, error: subjectsError } = await userClient
-      .from('vstudent_subjects')
+      .from('vstudent_in_person_subjects')
       .select('id, name, long_name, curriculum, year_level, color, discipline')
       .order('curriculum', { ascending: true })
       .order('year_level', { ascending: true })
@@ -79,15 +86,16 @@ export async function GET(_request: NextRequest) {
 
     if (subjectsError) {
       console.error('Error fetching student subjects:', subjectsError);
+      captureApiError(subjectsError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch student subjects' },
         { status: 500 }
       );
     }
 
-    const typedSubjects = (subjectsData ?? []) as StudentSubject[];
+    const typedSubjects = (subjectsData ?? []) as InPersonStudySubject[];
     const baseSubjects = typedSubjects
-      .filter((subject): subject is StudentSubject & { id: string; name: string } => !!subject.id && !!subject.name)
+      .filter((subject): subject is InPersonStudySubject & { id: string; name: string } => !!subject.id && !!subject.name)
       .map((subject) => ({
         id: subject.id,
         name: subject.name,
@@ -110,6 +118,7 @@ export async function GET(_request: NextRequest) {
 
     if (defaultPricingError) {
       console.error('Error fetching default CLASS pricing:', defaultPricingError);
+      captureApiError(defaultPricingError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch class pricing' },
         { status: 500 }
@@ -126,6 +135,7 @@ export async function GET(_request: NextRequest) {
 
     if (overridesError) {
       console.error('Error fetching class pricing overrides:', overridesError);
+      captureApiError(overridesError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch class pricing overrides' },
         { status: 500 }
@@ -156,9 +166,9 @@ export async function GET(_request: NextRequest) {
 
     const { data: homeworkHelpClass, error: homeworkHelpError } = await adminClient
       .from('classes')
-      .select('day_of_week, start_time, end_time, subjects!inner(name)')
+      .select('day_of_week, start_time, end_time')
       .eq('status', 'ACTIVE')
-      .eq('subjects.name', 'Homework Help')
+      .eq('session_type', 'HOMEWORK_HELP')
       .order('day_of_week', { ascending: true })
       .order('start_time', { ascending: true })
       .limit(1)
@@ -166,6 +176,7 @@ export async function GET(_request: NextRequest) {
 
     if (homeworkHelpError) {
       console.error('Error fetching homework help class:', homeworkHelpError);
+      captureApiError(homeworkHelpError, "/api/welcome-modal/context");
       return NextResponse.json(
         { error: 'Failed to fetch homework help session time' },
         { status: 500 }
@@ -182,6 +193,7 @@ export async function GET(_request: NextRequest) {
       },
     });
   } catch (error) {
+    captureApiError(error, "/api/welcome-modal/context");
     console.error('Error in GET /api/welcome-modal/context:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

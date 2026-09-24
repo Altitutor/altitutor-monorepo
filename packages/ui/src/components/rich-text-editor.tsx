@@ -3,6 +3,7 @@
 import { useEditor, EditorContent, type Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import { Markdown } from '@tiptap/markdown';
+import { Mathematics } from '@tiptap/extension-mathematics';
 import { TableKit } from '@tiptap/extension-table';
 import { TextStyleKit } from '@tiptap/extension-text-style';
 import Typography from '@tiptap/extension-typography';
@@ -10,16 +11,29 @@ import Placeholder from '@tiptap/extension-placeholder';
 import Mention from '@tiptap/extension-mention';
 import Image from '@tiptap/extension-image';
 import { TextSelection, NodeSelection } from '@tiptap/pm/state';
+import {
+  CellSelection,
+  deleteColumn,
+  deleteRow,
+  deleteTable,
+} from '@tiptap/pm/tables';
 import { Details, DetailsContent, DetailsSummary } from '@tiptap/extension-details';
 import { ImageUploadPlaceholderExtension } from './rich-text-editor-image-upload-placeholder';
 import { CollapsibleHeading } from '../extensions/collapsible-heading';
+import { ExternalVideoExtension } from '../extensions/external-video';
+import { ImageSelectionHighlight } from '../extensions/image-selection-highlight';
 import { SlashCommandExtension } from '../extensions/slash-command';
+import { OMIT_TYPOGRAPHY_HEADING_CLASSNAME } from './rich-text-editor-styles';
+import { RichTextEditorBottomToolbar } from './rich-text-editor-bottom-toolbar';
 import type { JSONContent } from '@tiptap/core';
 import type { SuggestionOptions } from '@tiptap/suggestion';
-import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback } from 'react';
+import { useEffect, useRef, useImperativeHandle, forwardRef, useCallback, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { cn } from '../lib/cn';
+import { shouldPreferMarkdownPaste } from '../lib/markdown-paste';
 import { transformPastedHtmlForBulkImport } from '../lib/sanitize-pasted-html';
 import '../styles/prosemirror-tables.css';
+import 'katex/dist/katex.min.css';
 
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
@@ -202,6 +216,8 @@ export interface RichTextEditorProps {
    * Keep this off for normal rich text fields; enable only for document editors.
    */
   enableCollapsibleHeadings?: boolean;
+  /** Show a contextual toolbar while the editor has focus, including table controls. */
+  floatingToolbar?: boolean;
 }
 
 const BLOCK_TAGS = ['P', 'DIV', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'LI'];
@@ -304,6 +320,36 @@ function hasEmbeddablePastedImages(html: string): boolean {
   return /<img[\s\S]*?src\s*=\s*["']?(data:|blob:)/i.test(html);
 }
 
+/** Images are configured as block nodes, so lift pasted images out of paragraphs before TipTap parses them. */
+function liftPastedImagesOutOfParagraphs(html: string): string {
+  if (!/<img\b/i.test(html)) return html;
+  try {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const images = Array.from(doc.body.querySelectorAll('p img'));
+    for (const image of images) {
+      const paragraph = image.closest('p');
+      const parent = paragraph?.parentNode;
+      if (!paragraph || !parent) continue;
+
+      const trailingParagraph = paragraph.cloneNode(false) as HTMLParagraphElement;
+      while (image.nextSibling) {
+        trailingParagraph.appendChild(image.nextSibling);
+      }
+      image.remove();
+      parent.insertBefore(image, paragraph.nextSibling);
+      if (trailingParagraph.hasChildNodes()) {
+        parent.insertBefore(trailingParagraph, image.nextSibling);
+      }
+      if (!paragraph.hasChildNodes()) {
+        paragraph.remove();
+      }
+    }
+    return doc.body.innerHTML;
+  } catch {
+    return html;
+  }
+}
+
 type PasteHtmlInsertOptions = {
   pasteTableBehavior?: 'strip_all' | 'strip_outside' | 'keep';
   pasteStripFormatting?: boolean;
@@ -325,10 +371,10 @@ async function preparePastedHtmlForInsert(
     }
   }
 
-  const html = applyPasteHtmlTransforms(htmlToTransform, {
+  const html = liftPastedImagesOutOfParagraphs(applyPasteHtmlTransforms(htmlToTransform, {
     pasteTableBehavior: options.pasteTableBehavior,
     pasteStripFormatting: options.pasteStripFormatting,
-  });
+  }));
 
   return { html, imageFiles };
 }
@@ -415,7 +461,11 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   slashMenuSuggestions,
   onChangeDebounceMs,
   enableCollapsibleHeadings = false,
+  floatingToolbar = false,
 }, ref) => {
+  const [isEditorFocused, setIsEditorFocused] = useState(false);
+  const editorContainerRef = useRef<HTMLDivElement>(null);
+  const [floatingToolbarStyle, setFloatingToolbarStyle] = useState<React.CSSProperties | null>(null);
   // Tracks the last value emitted to avoid unnecessary re-renders/content resets
   const lastEmittedJsonRef = useRef<string>('');
   const lastEmittedMarkdownRef = useRef<string>('');
@@ -469,6 +519,12 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           gfm: true,
         },
       }),
+      Mathematics.configure({
+        katexOptions: {
+          throwOnError: false,
+          strict: 'warn',
+        },
+      }),
       TableKit.configure({
         table: {
           resizable: true,
@@ -515,6 +571,45 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
               parseHTML: (el) => el.getAttribute('data-storage-path'),
               renderHTML: (attrs) =>
                 attrs.storagePath ? { 'data-storage-path': attrs.storagePath } : {},
+            },
+            visualType: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-visual-type'),
+              renderHTML: (attrs) =>
+                attrs.visualType ? { 'data-visual-type': attrs.visualType } : {},
+            },
+            visualSpec: {
+              default: null,
+              parseHTML: (el) => {
+                const value = el.getAttribute('data-visual-spec')
+                if (!value) return null
+                try {
+                  return JSON.parse(value)
+                } catch {
+                  return null
+                }
+              },
+              // The source spec is persisted in TipTap JSON. Avoid duplicating a potentially
+              // large JSON object into rendered HTML; visualType is enough for DOM affordances.
+              renderHTML: () => ({}),
+            },
+            visualTitle: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-visual-title'),
+              renderHTML: () => ({}),
+            },
+            visualAltText: {
+              default: null,
+              parseHTML: (el) => el.getAttribute('data-visual-alt-text'),
+              renderHTML: () => ({}),
+            },
+            visualVersion: {
+              default: null,
+              parseHTML: (el) => {
+                const value = Number(el.getAttribute('data-visual-version'))
+                return Number.isFinite(value) ? value : null
+              },
+              renderHTML: () => ({}),
             },
           };
         },
@@ -598,7 +693,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           class: 'my-3 rounded-md max-w-full h-auto cursor-pointer',
         },
       }),
+      ImageSelectionHighlight,
       ImageUploadPlaceholderExtension,
+      ExternalVideoExtension,
       ...(slashMenuSuggestions
         ? [
             SlashCommandExtension.configure({
@@ -669,6 +766,33 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       handleKeyDown: (view, event) => {
         const { state } = view;
         const { selection } = state;
+
+        // Full row/column cell selections: Delete/Backspace removes the row/column
+        // (default table editing only clears cell contents).
+        if (
+          (event.key === 'Backspace' || event.key === 'Delete') &&
+          selection instanceof CellSelection
+        ) {
+          const isRow = selection.isRowSelection();
+          const isCol = selection.isColSelection();
+          if (isRow && isCol) {
+            if (deleteTable(state, view.dispatch)) {
+              event.preventDefault();
+              return true;
+            }
+          } else if (isRow) {
+            if (deleteRow(state, view.dispatch)) {
+              event.preventDefault();
+              return true;
+            }
+          } else if (isCol) {
+            if (deleteColumn(state, view.dispatch)) {
+              event.preventDefault();
+              return true;
+            }
+          }
+        }
+
         if (!(selection instanceof NodeSelection)) return false;
         if (selection.node.type.name !== 'image') return false;
 
@@ -682,7 +806,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         ) {
           event.preventDefault();
           const tr = state.tr
-            .setSelection(TextSelection.create(state.doc, posAfter))
+            .setSelection(TextSelection.near(state.doc.resolve(posAfter), 1))
             .insertText(event.key);
           view.dispatch(tr);
           return true;
@@ -735,16 +859,17 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         class: cn(
           omitTypography
             ? [
-                'max-w-none focus:outline-none text-foreground text-sm dark:text-foreground not-prose',
-                /* [&_.ProseMirror_*] not [&_*]: classes are on view.dom; [&_p] etc. break bulk-import highlight spans */
-                '[&_.ProseMirror_h1]:text-2xl [&_.ProseMirror_h2]:text-xl [&_.ProseMirror_h3]:text-lg',
-                '[&_.ProseMirror_h1]:font-semibold [&_.ProseMirror_h2]:font-semibold [&_.ProseMirror_h3]:font-semibold [&_.ProseMirror_h3]:tracking-tight',
-                '[&_.ProseMirror_h1]:mt-7 [&_.ProseMirror_h1]:mb-1.5 [&_.ProseMirror_h2]:mt-6 [&_.ProseMirror_h2]:mb-1 [&_.ProseMirror_h3]:mt-5 [&_.ProseMirror_h3]:mb-1',
+                /* Inherit parent color so white UCAT exam chrome stays readable in dark mode */
+                'max-w-none focus:outline-none text-inherit text-sm not-prose',
+                /* These classes are on view.dom (.ProseMirror), so target its heading children directly. */
+                OMIT_TYPOGRAPHY_HEADING_CLASSNAME,
                 '[&_.ProseMirror_p]:my-2 [&_.ProseMirror_ul]:my-2 [&_.ProseMirror_ol]:my-2',
                 '[&_.ProseMirror_li]:my-1',
                 '[&_.ProseMirror_li_ol]:mt-2 [&_.ProseMirror_li_ul]:mt-2',
-                '[&_.ProseMirror_table]:my-4 [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:bg-muted',
-                '[&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2',
+                /* Tables: className is on view.dom (.ProseMirror) — use [&_table]/[&_td], not nested [&_.ProseMirror_table] */
+                '[&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-visible',
+                '[&_th]:border [&_th]:border-solid [&_th]:border-border [&_th]:bg-muted [&_th]:p-2 [&_th]:text-left',
+                '[&_td]:border [&_td]:border-solid [&_td]:border-border [&_td]:p-2 [&_td]:align-top',
                 '[&_details]:my-4 [&_details]:rounded-lg [&_details]:border [&_details]:border-border [&_details]:bg-card/40',
                 '[&_summary]:cursor-pointer [&_summary]:list-none [&_summary]:px-3 [&_summary]:py-2 [&_summary]:font-semibold [&_summary]:outline-none',
                 '[&_.details-content]:border-t [&_.details-content]:border-border [&_.details-content]:px-3 [&_.details-content]:pb-3 [&_.details-content]:pt-2',
@@ -768,7 +893,9 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           /* Preflight clears list markers; [&_ol]/[&_ul] target view.dom children (tiptap/ProseMirror root) */
           '[&_ol]:list-decimal [&_ol]:pl-[1.625em] [&_ol]:[list-style-position:outside]',
           '[&_ul]:list-disc [&_ul]:pl-[1.625em] [&_ul]:[list-style-position:outside]',
-          '[&_li]:list-item [&_li]:marker:text-foreground',
+          omitTypography
+            ? '[&_li]:list-item [&_li]:marker:text-inherit'
+            : '[&_li]:list-item [&_li]:marker:text-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:content-[attr(data-placeholder)]',
           '[&_p.is-empty.is-editor-empty:first-child::before]:text-muted-foreground',
           '[&_p.is-empty.is-editor-empty:first-child::before]:float-left',
@@ -778,9 +905,6 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           '[&_p.is-empty.is-editor-empty:first-child::before]:!visible',
           '[&_.ProseMirror_ul>li>p:empty]:min-h-[1.5em]',
           '[&_.ProseMirror_ol>li>p:empty]:min-h-[1.5em]',
-          '[&_.ProseMirror_h1:empty]:min-h-[2em]',
-          '[&_.ProseMirror_h2:empty]:min-h-[1.75em]',
-          '[&_.ProseMirror_h3:empty]:min-h-[1.5em]',
           className
         ),
         'data-placeholder': placeholder,
@@ -788,6 +912,31 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       handlePaste: (view, event) => {
         let pastedText = event.clipboardData?.getData('text/plain') ?? '';
         let pastedHtml = event.clipboardData?.getData('text/html') ?? '';
+
+        // Markdown source paste (e.g. from Cursor/VS Code `.md` files): TipTap's Markdown
+        // extension does not parse clipboard text unless contentType is 'markdown'. Without
+        // this, `#` / `**` land as literal characters (often with syntax-highlight spans).
+        const hasSpecialPasteMode =
+          Boolean(pasteTableBehavior) || pastePlainTextAsParagraphs || pasteStripFormatting;
+        if (
+          editor &&
+          !hasSpecialPasteMode &&
+          pastedText &&
+          shouldPreferMarkdownPaste(pastedText, pastedHtml)
+        ) {
+          const imageFiles = collectClipboardImageFiles(event);
+          if (imageFiles.length === 0) {
+            event.preventDefault();
+            editor
+              .chain()
+              .focus()
+              .deleteSelection()
+              .insertContent(pastedText, { contentType: 'markdown' })
+              .run();
+            return true;
+          }
+        }
+
         if (pastedText === '' && pastedHtml === '' && clipboardCaptureRef.current) {
           const captured = clipboardCaptureRef.current;
           clipboardCaptureRef.current = null;
@@ -1115,9 +1264,19 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       return incomingContent;
     })();
 
-    editor.commands.setContent(parsedContent as JSONContent | string, { contentType: isMarkdown ? 'markdown' : undefined });
+    // Prop-driven sync must not emit onUpdate — that re-enters RHF onChange and can
+    // infinite-loop when a parent mirrors form state back into `content`.
+    editor.commands.setContent(parsedContent as JSONContent | string, {
+      contentType: isMarkdown ? 'markdown' : undefined,
+      emitUpdate: false,
+    });
 
     lastContentPropRef.current = incomingContent;
+    if (!isMarkdown) {
+      lastEmittedJsonRef.current = JSON.stringify(editor.getJSON());
+    } else {
+      lastEmittedMarkdownRef.current = editor.getMarkdown();
+    }
   }, [content, editor, isMarkdown]);
 
   // Flush debounced onChange so navigations / saves don't drop the last edits.
@@ -1164,6 +1323,58 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       onEditorReady(editor);
     }
   }, [editor, onEditorReady]);
+
+  useEffect(() => {
+    if (!editor || !floatingToolbar) return;
+
+    const handleFocus = () => setIsEditorFocused(true);
+    const handleBlur = () => setIsEditorFocused(false);
+
+    editor.on('focus', handleFocus);
+    editor.on('blur', handleBlur);
+    setIsEditorFocused(editor.isFocused);
+
+    return () => {
+      editor.off('focus', handleFocus);
+      editor.off('blur', handleBlur);
+    };
+  }, [editor, floatingToolbar]);
+
+  useEffect(() => {
+    if (!floatingToolbar || !isEditorFocused) {
+      setFloatingToolbarStyle(null);
+      return;
+    }
+
+    const toolbarContainer = editorContainerRef.current?.closest<HTMLElement>(
+      '[data-rich-text-toolbar-container]'
+    );
+    if (!toolbarContainer) return;
+
+    const updatePosition = () => {
+      const rect = toolbarContainer.getBoundingClientRect();
+      const inset = 12;
+      setFloatingToolbarStyle({
+        position: 'fixed',
+        zIndex: 70,
+        left: rect.left + inset,
+        width: Math.max(0, rect.width - inset * 2),
+        bottom: Math.max(inset, window.innerHeight - rect.bottom + inset),
+      });
+    };
+
+    updatePosition();
+    const resizeObserver = new ResizeObserver(updatePosition);
+    resizeObserver.observe(toolbarContainer);
+    window.addEventListener('resize', updatePosition);
+    window.addEventListener('scroll', updatePosition, true);
+
+    return () => {
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', updatePosition);
+      window.removeEventListener('scroll', updatePosition, true);
+    };
+  }, [floatingToolbar, isEditorFocused]);
 
   useImperativeHandle(ref, () => ({
     focusToEnd: () => {
@@ -1212,7 +1423,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
   }
 
   return (
-    <div 
+    <div
+      ref={editorContainerRef}
       className={cn(
         'relative flex w-full min-w-0 cursor-text flex-col overflow-visible',
         autoHeight ? 'h-auto' : 'h-full min-h-0',
@@ -1231,6 +1443,14 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         editor={editor}
         className={cn(autoHeight ? 'h-auto overflow-visible' : 'min-h-0 flex-1 overflow-visible')}
       />
+      {floatingToolbar && isEditorFocused && floatingToolbarStyle && createPortal(
+        <div className="pointer-events-none" style={floatingToolbarStyle}>
+          <div className="pointer-events-auto">
+            <RichTextEditorBottomToolbar editor={editor} />
+          </div>
+        </div>,
+        document.body
+      )}
     </div>
   );
 });

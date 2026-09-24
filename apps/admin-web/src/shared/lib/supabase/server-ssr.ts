@@ -1,6 +1,7 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import type { Database } from '@altitutor/shared';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 /**
  * Create a Supabase client for use in Server Components and API Routes
@@ -10,7 +11,7 @@ export function createClient() {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
-    return createServerClient<Database>(
+    return instrumentSupabaseClient(createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
       {
@@ -19,12 +20,12 @@ export function createClient() {
           setAll: () => {},
         },
       }
-    );
+    ));
   }
 
   const cookieStore = cookies();
 
-  return createServerClient<Database>(
+  return instrumentSupabaseClient(createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -53,6 +54,5 @@ export function createClient() {
         secure: process.env.NODE_ENV === 'production',
       },
     }
-  );
+  ));
 }
-

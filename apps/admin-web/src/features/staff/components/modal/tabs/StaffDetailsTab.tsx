@@ -5,7 +5,6 @@ import { StaffRoleBadge, StaffStatusBadge } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { Input } from "@altitutor/ui";
 import { Label } from "@altitutor/ui";
-import { Checkbox } from "@altitutor/ui";
 import { PhoneInput } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
 import { SearchableSelect } from "@altitutor/ui";
@@ -32,6 +31,7 @@ import { getSubjectColorStyle } from '@/shared/utils';
 import { useToast } from "@altitutor/ui";
 import { SendInviteDialog } from '../SendInviteDialog';
 import { AdminPasswordResetSection } from '@/features/auth/components/password-reset/AdminPasswordResetSection';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 // Form schema for staff details
 const formSchema = z.object({
@@ -43,6 +43,14 @@ const formSchema = z.object({
     .regex(/^\+?[0-9]{10,14}$/, 'Invalid phone number format')
     .optional()
     .nullish(),
+  birthday: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
   role: z.enum(['TUTOR','ADMINSTAFF']),
   status: z.enum(['ACTIVE','INACTIVE','TRIAL']),
   officeKeyNumber: z.union([
@@ -52,21 +60,6 @@ const formSchema = z.object({
     z.null()
   ]).optional(),
   hasParkingRemote: z.enum(['VIRTUAL', 'PHYSICAL', 'NONE']).nullable().optional(),
-  
-  // Availability checkboxes
-  availability_monday: z.boolean(),
-  availability_tuesday: z.boolean(),
-  availability_wednesday: z.boolean(),
-  availability_thursday: z.boolean(),
-  availability_friday: z.boolean(),
-  availability_saturday_am: z.boolean(),
-  availability_saturday_pm: z.boolean(),
-  availability_sunday_am: z.boolean(),
-  availability_sunday_pm: z.boolean(),
-  // Session-type availability
-  drafting_availability: z.boolean(),
-  trial_session_availability: z.boolean(),
-  subsidy_interview_availability: z.boolean(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -115,22 +108,11 @@ export function StaffDetailsTab({
       lastName: '',
       email: '',
       phoneNumber: '',
+      birthday: '',
       role: staffMember?.role === 'TUTOR' || staffMember?.role === 'ADMINSTAFF' ? staffMember.role : undefined,
       status: staffMember?.status === 'ACTIVE' || staffMember?.status === 'INACTIVE' || staffMember?.status === 'TRIAL' ? staffMember.status : undefined,
       officeKeyNumber: null,
       hasParkingRemote: 'NONE' as const,
-      availability_monday: false,
-      availability_tuesday: false,
-      availability_wednesday: false,
-      availability_thursday: false,
-      availability_friday: false,
-      availability_saturday_am: false,
-      availability_saturday_pm: false,
-      availability_sunday_am: false,
-      availability_sunday_pm: false,
-      drafting_availability: false,
-      trial_session_availability: false,
-      subsidy_interview_availability: false,
     },
   });
 
@@ -152,22 +134,11 @@ export function StaffDetailsTab({
         lastName: staffMember.last_name || '',
         email: staffMember.email || '',
         phoneNumber: staffMember.phone_number || '',
+        birthday: staffMember.birthday || '',
         role,
         status,
         officeKeyNumber: staffMember.office_key_number || null,
         hasParkingRemote: ((staffMember.has_parking_remote === 'VIRTUAL' || staffMember.has_parking_remote === 'PHYSICAL' || staffMember.has_parking_remote === 'NONE') ? staffMember.has_parking_remote : 'NONE') as 'VIRTUAL' | 'PHYSICAL' | 'NONE' | null,
-        availability_monday: !!staffMember.availability_monday,
-        availability_tuesday: !!staffMember.availability_tuesday,
-        availability_wednesday: !!staffMember.availability_wednesday,
-        availability_thursday: !!staffMember.availability_thursday,
-        availability_friday: !!staffMember.availability_friday,
-        availability_saturday_am: !!staffMember.availability_saturday_am,
-        availability_saturday_pm: !!staffMember.availability_saturday_pm,
-        availability_sunday_am: !!staffMember.availability_sunday_am,
-        availability_sunday_pm: !!staffMember.availability_sunday_pm,
-        drafting_availability: !!staffMember.drafting_availability,
-        trial_session_availability: !!staffMember.trial_session_availability,
-        subsidy_interview_availability: !!staffMember.subsidy_interview_availability,
       };
       form.reset(resetValues);
       hasResetRef.current = true;
@@ -211,15 +182,14 @@ export function StaffDetailsTab({
           onSubmit={handleFormSubmit} 
           className="space-y-6"
         >
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="firstName">First Name *</Label>
+              <PropertyForm>
+                <PropertyFormRow label="First Name *" htmlFor="staff-first-name">
                   <Controller
                     control={form.control}
                     name="firstName"
                     render={({ field }) => (
                       <Input 
-                        id="firstName" 
+                        id="staff-first-name"
                         {...field}
                         disabled={isLoading} 
                         required
@@ -227,18 +197,17 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.firstName && (
-                    <p className="text-sm text-red-500">{form.formState.errors.firstName.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.firstName.message}</p>
                   )}
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="lastName">Last Name *</Label>
+                <PropertyFormRow label="Last Name *" htmlFor="staff-last-name">
                   <Controller
                     control={form.control}
                     name="lastName"
                     render={({ field }) => (
                       <Input 
-                        id="lastName" 
+                        id="staff-last-name"
                         {...field}
                         disabled={isLoading} 
                         required
@@ -246,20 +215,17 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.lastName && (
-                    <p className="text-sm text-red-500">{form.formState.errors.lastName.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.lastName.message}</p>
                   )}
-                </div>
-              </div>
+                </PropertyFormRow>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="email">Email</Label>
+                <PropertyFormRow label="Email" htmlFor="staff-email">
                   <Controller
                     control={form.control}
                     name="email"
                     render={({ field }) => (
                       <Input 
-                        id="email" 
+                        id="staff-email"
                         type="email" 
                         {...field}
                         disabled={isLoading} 
@@ -267,17 +233,17 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.email && (
-                    <p className="text-sm text-red-500">{form.formState.errors.email.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.email.message}</p>
                   )}
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="phoneNumber">Phone Number</Label>
+                <PropertyFormRow label="Phone Number" htmlFor="staff-phone-number">
                   <Controller
                     control={form.control}
                     name="phoneNumber"
                     render={({ field }) => (
                       <PhoneInput
+                        id="staff-phone-number"
                         value={field.value ?? ''}
                         onChange={field.onChange}
                         disabled={isLoading}
@@ -285,18 +251,35 @@ export function StaffDetailsTab({
                       />
                     )}
                   />
-                </div>
-              </div>
+                </PropertyFormRow>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="officeKeyNumber">Office Key Number</Label>
+                <PropertyFormRow label="Birthday" htmlFor="staff-birthday">
+                <Controller
+                  control={form.control}
+                  name="birthday"
+                  render={({ field }) => (
+                    <Input
+                      id="staff-birthday"
+                      type="date"
+                      value={field.value ?? ''}
+                      max={new Date().toISOString().slice(0, 10)}
+                      onChange={field.onChange}
+                      disabled={isLoading}
+                    />
+                  )}
+                />
+                {form.formState.errors.birthday && (
+                  <p className="mt-1 text-sm text-destructive">{form.formState.errors.birthday.message}</p>
+                )}
+                </PropertyFormRow>
+
+                <PropertyFormRow label="Office Key Number" htmlFor="staff-office-key-number">
                   <Controller
                     control={form.control}
                     name="officeKeyNumber"
                     render={({ field }) => (
                       <Input
-                        id="officeKeyNumber"
+                        id="staff-office-key-number"
                         type="number"
                         {...field}
                         value={field.value ?? ''}
@@ -310,12 +293,11 @@ export function StaffDetailsTab({
                     )}
                   />
                   {form.formState.errors.officeKeyNumber && (
-                    <p className="text-sm text-red-500">{form.formState.errors.officeKeyNumber.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.officeKeyNumber.message}</p>
                   )}
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="hasParkingRemote">Parking Remote</Label>
+                <PropertyFormRow label="Parking Remote">
                   <Controller
                     control={form.control}
                     name="hasParkingRemote"
@@ -338,18 +320,16 @@ export function StaffDetailsTab({
                         getItemId={(i) => i.value}
                         placeholder="Select option"
                         disabled={isLoading}
+                        ariaLabel="Parking remote"
                       />
                     )}
                   />
                   {form.formState.errors.hasParkingRemote && (
-                    <p className="text-sm text-red-500">{form.formState.errors.hasParkingRemote.message}</p>
+                    <p className="mt-1 text-sm text-destructive">{form.formState.errors.hasParkingRemote.message}</p>
                   )}
-                </div>
-              </div>
+                </PropertyFormRow>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="role">Role</Label>
+                <PropertyFormRow label="Role">
                   <Controller
                     control={form.control}
                     name="role"
@@ -369,13 +349,13 @@ export function StaffDetailsTab({
                         getItemId={(i) => i.value}
                         placeholder="Select role"
                         disabled={isLoading}
+                        ariaLabel="Role"
                       />
                     )}
                   />
-                </div>
+                </PropertyFormRow>
                 
-                <div>
-                  <Label htmlFor="status">Status</Label>
+                <PropertyFormRow label="Status">
                   <Controller
                     control={form.control}
                     name="status"
@@ -404,15 +384,14 @@ export function StaffDetailsTab({
                         getItemId={(i) => i.value}
                         placeholder="Select status"
                         disabled={isLoading}
+                        ariaLabel="Status"
                       />
                     )}
                   />
-                </div>
-              </div>
+                </PropertyFormRow>
 
               {/* Subjects Field */}
-              <div>
-                <Label>Subjects</Label>
+                <PropertyFormRow label="Subjects" labelClassName="self-start pt-3">
                 <div className="space-y-2">
                   {staffSubjects.length > 0 && (
                     <div className="flex flex-wrap gap-2">
@@ -453,96 +432,8 @@ export function StaffDetailsTab({
                   )}
                   {addSubjectButton}
                 </div>
-              </div>
-
-              <Separator className="my-6" />
-
-              {/* Availability Section */}
-              <div>
-                <h3 className="text-lg font-semibold mb-4">Availability</h3>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Weekdays</h4>
-                    {[
-                      { key: 'availability_monday', label: 'Monday' },
-                      { key: 'availability_tuesday', label: 'Tuesday' },
-                      { key: 'availability_wednesday', label: 'Wednesday' },
-                      { key: 'availability_thursday', label: 'Thursday' },
-                      { key: 'availability_friday', label: 'Friday' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Controller
-                          control={form.control}
-                          name={key as keyof FormData}
-                          render={({ field }) => (
-                            <Checkbox 
-                              id={key} 
-                              checked={field.value as boolean}
-                              onCheckedChange={field.onChange}
-                              disabled={isLoading}
-                            />
-                          )}
-                        />
-                        <Label htmlFor={key}>{label}</Label>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-3">
-                    <h4 className="font-medium">Weekends</h4>
-                    {[
-                      { key: 'availability_saturday_am', label: 'Saturday AM' },
-                      { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                      { key: 'availability_sunday_am', label: 'Sunday AM' },
-                      { key: 'availability_sunday_pm', label: 'Sunday PM' },
-                    ].map(({ key, label }) => (
-                      <div key={key} className="flex items-center space-x-2">
-                        <Controller
-                          control={form.control}
-                          name={key as keyof FormData}
-                          render={({ field }) => (
-                            <Checkbox 
-                              id={key} 
-                              checked={field.value as boolean}
-                              onCheckedChange={field.onChange}
-                              disabled={isLoading}
-                            />
-                          )}
-                        />
-                        <Label htmlFor={key}>{label}</Label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-
-              {/* Session-Type Availability Section */}
-              <div className="mt-4">
-                <h4 className="font-medium mb-3">Session-Type Availability</h4>
-                <div className="space-y-3">
-                  {[
-                    { key: 'drafting_availability', label: 'Drafting Sessions' },
-                    { key: 'trial_session_availability', label: 'Trial Sessions' },
-                    { key: 'subsidy_interview_availability', label: 'Subsidy Interviews' },
-                  ].map(({ key, label }) => (
-                    <div key={key} className="flex items-center space-x-2">
-                      <Controller
-                        control={form.control}
-                        name={key as keyof FormData}
-                        render={({ field }) => (
-                          <Checkbox 
-                            id={key} 
-                            checked={field.value as boolean}
-                            onCheckedChange={field.onChange}
-                            disabled={isLoading}
-                          />
-                        )}
-                      />
-                      <Label htmlFor={key}>{label}</Label>
-                    </div>
-                  ))}
-                </div>
-              </div>
+                </PropertyFormRow>
+              </PropertyForm>
 
               <Separator className="my-6" />
 
@@ -713,77 +604,71 @@ export function StaffDetailsTab({
         };
 
         return (
-          <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-            <div className="text-sm font-medium">First Name:</div>
-            <div>
+          <PropertyForm>
+            <PropertyFormRow label="First name">
               <TruncatedText text={staffMember.first_name || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Last Name:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Last name">
               <TruncatedText text={staffMember.last_name || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Email:</div>
-            <div className="flex items-center gap-2">
-              <TruncatedText text={staffMember.email || '-'} className="flex-1 min-w-0" />
-              {staffMember.email && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 flex-shrink-0"
-                  onClick={() => handleCopy(staffMember.email!, 'email')}
-                >
-                  {copiedField === 'email' ? (
-                    <Check className="h-3 w-3" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-            </div>
-            
-            <div className="text-sm font-medium">Phone Number:</div>
-            <div className="flex items-center gap-2">
-              <TruncatedText text={staffMember.phone_number || '-'} className="flex-1 min-w-0" />
-              {staffMember.phone_number && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-6 w-6 flex-shrink-0"
-                  onClick={() => handleCopy(staffMember.phone_number!, 'phone')}
-                >
-                  {copiedField === 'phone' ? (
-                    <Check className="h-3 w-3" />
-                  ) : (
-                    <Copy className="h-3 w-3" />
-                  )}
-                </Button>
-              )}
-            </div>
-            
-            <div className="text-sm font-medium">Office Key Number:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Email">
+              <div className="flex items-center gap-2">
+                <TruncatedText text={staffMember.email || '-'} className="flex-1 min-w-0" />
+                {staffMember.email && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => handleCopy(staffMember.email!, 'email')}
+                  >
+                    {copiedField === 'email' ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Phone number">
+              <div className="flex items-center gap-2">
+                <TruncatedText text={staffMember.phone_number || '-'} className="flex-1 min-w-0" />
+                {staffMember.phone_number && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6 flex-shrink-0"
+                    onClick={() => handleCopy(staffMember.phone_number!, 'phone')}
+                  >
+                    {copiedField === 'phone' ? (
+                      <Check className="h-3 w-3" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                )}
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Birthday">
+              <TruncatedText text={staffMember.birthday || '-'} />
+            </PropertyFormRow>
+            <PropertyFormRow label="Office key number">
               <TruncatedText text={staffMember.office_key_number?.toString() || '-'} />
-            </div>
-            
-            <div className="text-sm font-medium">Parking Remote:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Parking remote">
               <TruncatedText text={staffMember.has_parking_remote || 'None'} />
-            </div>
-            
-            <div className="text-sm font-medium">Role:</div>
-            <div>
-              <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
-            </div>
-            
-            <div className="text-sm font-medium">Status:</div>
-            <div>
-              <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
-            </div>
-            
-            <div className="text-sm font-medium">Subjects:</div>
-            <div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Role">
+              <div>
+                <StaffRoleBadge value={(staffMember.role === 'ADMIN' || staffMember.role === 'TUTOR' || staffMember.role === 'ADMINSTAFF') ? staffMember.role : null} />
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Status">
+              <div>
+                <StaffStatusBadge value={(staffMember.status === 'ACTIVE' || staffMember.status === 'INACTIVE' || staffMember.status === 'TRIAL') ? staffMember.status : null} />
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow label="Subjects">
               {staffSubjects.length > 0 ? (
                 <div className="flex flex-wrap gap-2">
                   {staffSubjects.map((subject) => {
@@ -805,76 +690,10 @@ export function StaffDetailsTab({
               ) : (
                 <span className="text-muted-foreground">No subjects assigned</span>
               )}
-            </div>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
         );
       })()}
-
-      <Separator className="my-6" />
-
-      {/* Availability Section */}
-      <div>
-        <h3 className="text-lg font-semibold mb-4">Availability</h3>
-        <div className="grid grid-cols-2 gap-6">
-          <div>
-            <h4 className="font-medium mb-3">Weekdays</h4>
-            <div className="space-y-2">
-              {[
-                { key: 'availability_monday', label: 'Monday' },
-                { key: 'availability_tuesday', label: 'Tuesday' },
-                { key: 'availability_wednesday', label: 'Wednesday' },
-                { key: 'availability_thursday', label: 'Thursday' },
-                { key: 'availability_friday', label: 'Friday' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div>
-            <h4 className="font-medium mb-3">Weekends</h4>
-            <div className="space-y-2">
-              {[
-                { key: 'availability_saturday_am', label: 'Saturday AM' },
-                { key: 'availability_saturday_pm', label: 'Saturday PM' },
-                { key: 'availability_sunday_am', label: 'Sunday AM' },
-                { key: 'availability_sunday_pm', label: 'Sunday PM' },
-              ].map(({ key, label }) => (
-                <div key={key} className="flex items-center space-x-2">
-                  <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                  <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                    {label}
-                  </span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-
-        {/* Session-Type Availability Section */}
-        <div className="mt-6">
-          <h4 className="font-medium mb-3">Session-Type Availability</h4>
-          <div className="space-y-2">
-            {[
-              { key: 'drafting_availability', label: 'Drafting Sessions' },
-              { key: 'trial_session_availability', label: 'Trial Sessions' },
-              { key: 'subsidy_interview_availability', label: 'Subsidy Interviews' },
-            ].map(({ key, label }) => (
-              <div key={key} className="flex items-center space-x-2">
-                <div className={`w-3 h-3 rounded-full ${staffMember[key as keyof Tables<'staff'>] ? 'bg-green-500' : 'bg-gray-300'}`} />
-                <span className={`text-sm ${staffMember[key as keyof Tables<'staff'>] ? 'text-foreground' : 'text-muted-foreground'}`}>
-                  {label}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       <Separator className="my-6" />
 

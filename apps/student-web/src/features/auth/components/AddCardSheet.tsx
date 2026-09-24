@@ -1,8 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
+import { PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import {
   Dialog,
   DialogContent,
@@ -18,9 +17,7 @@ import { SkeletonStripeCardForm } from '@altitutor/ui';
 import { paymentMethodsApi } from '@/shared/api';
 import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
 import { cn } from '@/shared/utils';
-
-// Initialize Stripe outside of component to avoid recreating on every render
-const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
+import { StripeElementsProvider } from '@/shared/components/payments/StripeElementsProvider';
 
 interface AddCardSheetProps {
   studentId: string;
@@ -161,8 +158,7 @@ export function AddCardSheet({ studentId, onSuccess }: AddCardSheetProps) {
           {loading ? (
             <SkeletonStripeCardForm />
           ) : clientSecret ? (
-            <Elements
-              stripe={stripePromise}
+            <StripeElementsProvider
               options={{
                 clientSecret,
                 appearance: {
@@ -171,11 +167,10 @@ export function AddCardSheet({ studentId, onSuccess }: AddCardSheetProps) {
               }}
             >
               <AddCardForm studentId={studentId} onSuccess={onSuccess} onClose={handleClose} />
-            </Elements>
+            </StripeElementsProvider>
           ) : null}
         </div>
       </DialogContent>
     </Dialog>
   );
 }
-

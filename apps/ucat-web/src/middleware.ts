@@ -1,9 +1,115 @@
-import { NextResponse, type NextRequest } from "next/server";
+import * as Sentry from "@sentry/nextjs";
+import {
+  getClaimsWithJwtIssuedInFutureRetry,
+  headersWithVerifiedUser,
+  isUnauthenticatedSessionError,
+  type Database,
+} from "@altitutor/shared";
 import { createServerClient } from "@supabase/ssr";
-import type { Database } from "@altitutor/shared";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import { NextResponse, type NextRequest } from "next/server";
+import { authEntryPath } from "@/features/auth/lib/return-intent";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
-export async function middleware(request: NextRequest) {
-  const { pathname, origin } = new URL(request.url);
+const SESSION_DEADLINE_MS = 10_000;
+const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
+const RETRY_AFTER_SECONDS = 5;
+
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+};
+
+function forwardRequest(request: NextRequest, userId: string | null) {
+  return NextResponse.next({
+    request: { headers: headersWithVerifiedUser(request.headers, userId) },
+  });
+}
+
+function createDeadline() {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout>;
+  const expiration = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new Error("UCAT session dependency deadline exceeded"));
+    }, SESSION_DEADLINE_MS);
+  });
+  return {
+    fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
+      fetch(input, { ...init, signal: controller.signal }),
+    race<T>(operation: PromiseLike<T>) {
+      return Promise.race([Promise.resolve(operation), expiration]);
+    },
+    dispose: () => clearTimeout(timeout),
+  };
+}
+
+function field(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null) return null;
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
+  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
+function unavailable(
+  request: NextRequest,
+  startedAt: number,
+  error: unknown,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  Sentry.captureMessage("Middleware dependency unavailable", {
+    level: "error",
+    fingerprint: ["middleware-dependency-unavailable", "ucat-web", "authentication"],
+    tags: {
+      app: "ucat-web",
+      dependency_stage: "authentication",
+      http_status: "503",
+      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+    },
+    extra: {
+      elapsed_ms: Math.max(0, Date.now() - startedAt),
+      error_message: field(error, "message"),
+      request_method: request.method,
+      request_path: request.nextUrl.pathname,
+    },
+  });
+  return applyMetadata(
+    new NextResponse("We couldn't verify account access. Please try again.", {
+      status: 503,
+      headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
+    }),
+    cookies,
+    headers,
+  );
+}
+
+function captureRecoveredClockSkew(startedAt: number) {
+  Sentry.captureMessage("Middleware JWT clock skew recovered", {
+    level: "warning",
+    fingerprint: ["middleware-jwt-clock-skew", "ucat-web"],
+    tags: {
+      app: "ucat-web",
+      dependency_stage: "authentication",
+      retry_outcome: "recovered",
+    },
+    extra: { elapsed_ms: Math.max(0, Date.now() - startedAt) },
+  });
+}
+
+/** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
+export async function handleAuthRequest(request: NextRequest) {
+  const startedAt = Date.now();
+  const { pathname, origin } = request.nextUrl;
+  if (request.method === "OPTIONS") return forwardRequest(request, null);
 
   if (pathname.startsWith("/auth/callback&")) {
     const redirectUrl = new URL(request.url);
@@ -11,95 +117,138 @@ export async function middleware(request: NextRequest) {
     redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
+  if (pathname === "/auth/callback") return forwardRequest(request, null);
+  if (pathname === "/pricing") return NextResponse.redirect(new URL("/subscribe", origin));
 
-  // PKCE magic links: do not run Supabase session logic here. getUser() refreshes cookies and
-  // can clear PKCE verifier storage before /auth/callback runs exchangeCodeForSession.
-  if (pathname === "/auth/callback") {
-    return NextResponse.next({ request });
-  }
-
-  if (pathname === "/pricing") {
-    return NextResponse.redirect(new URL("/subscribe", origin));
-  }
-
-  const publicPaths = ["/", "/login", "/signup", "/forgot-password"];
-  const isPublicPath = publicPaths.includes(pathname);
-  const isNoAuthPublicPath =
+  const isNoSessionPath =
     pathname === "/reset-password" ||
-    pathname.startsWith("/api/auth") ||
+    pathname.startsWith("/marketing-preview/") ||
+    pathname.startsWith("/api/") ||
     pathname.startsWith("/auth/") ||
-    pathname === "/api/ucat/subscription-config" ||
-    pathname === "/api/ucat/signup/check-email";
+    (process.env.NODE_ENV === "development" && pathname === "/sentry-example-page");
+  if (isNoSessionPath) return forwardRequest(request, null);
 
-  if (isNoAuthPublicPath) {
-    return NextResponse.next({ request });
-  }
-
-  let response = NextResponse.next({
-    request,
-  });
-
+  const isPublicEntry =
+    pathname === "/login" || pathname === "/signup" || pathname === "/forgot-password";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-
+  const cookies: CookieToSet[] = [];
+  const responseHeaders: Record<string, string> = {};
   if (!supabaseUrl || !supabaseAnonKey) {
-    return response;
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
-    cookies: {
-      getAll() {
-        return request.cookies.getAll();
+  const deadline = createDeadline();
+  const supabase = instrumentSupabaseClient(
+    createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+      cookies: {
+        getAll: () => request.cookies.getAll(),
+        setAll(updatedCookies, updatedHeaders) {
+          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach((cookie) => {
+            const index = cookies.findIndex((current) => current.name === cookie.name);
+            if (index >= 0) cookies[index] = cookie;
+            else cookies.push(cookie);
+          });
+          Object.assign(responseHeaders, updatedHeaders);
+        },
       },
-      setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value }) => {
-          request.cookies.set(name, value);
-        });
-        response = NextResponse.next({
-          request,
-        });
-        cookiesToSet.forEach(({ name, value, options }) => {
-          response.cookies.set(name, value, options);
-        });
-      },
-    },
-    cookieOptions: {
-      name: "student-auth",
-    },
-  });
+      cookieOptions: { name: "student-auth" },
+      global: { fetch: deadline.fetch },
+    }) as unknown as SupabaseClient<Database>,
+  );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user && pathname.startsWith("/subscribe")) {
-    const signupUrl = new URL("/signup", origin);
-    signupUrl.searchParams.set("redirect", pathname);
-    return NextResponse.redirect(signupUrl);
+  try {
+    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    try {
+      claims = await getClaimsWithJwtIssuedInFutureRetry(
+        () => deadline.race(supabase.auth.getClaims()),
+        () =>
+          deadline.race(
+            new Promise((resolve) =>
+              setTimeout(resolve, JWT_CLOCK_SKEW_RETRY_MS),
+            ),
+          ),
+        () => captureRecoveredClockSkew(startedAt),
+      );
+    } catch (error) {
+      if (isUnauthenticatedSessionError(error)) {
+        if (pathname.startsWith("/subscribe")) {
+          const signupUrl = new URL(
+            authEntryPath(
+              "/signup",
+              `${pathname}${request.nextUrl.search}`,
+              request.nextUrl.searchParams,
+            ),
+            origin,
+          );
+          return applyMetadata(
+            NextResponse.redirect(signupUrl),
+            cookies,
+            responseHeaders,
+          );
+        }
+        if (!isPublicEntry) {
+          const loginUrl = new URL(
+            authEntryPath(
+              "/login",
+              `${pathname}${request.nextUrl.search}`,
+              request.nextUrl.searchParams,
+            ),
+            origin,
+          );
+          return applyMetadata(
+            NextResponse.redirect(loginUrl),
+            cookies,
+            responseHeaders,
+          );
+        }
+        return applyMetadata(
+          forwardRequest(request, null),
+          cookies,
+          responseHeaders,
+        );
+      }
+      return unavailable(request, startedAt, error, cookies, responseHeaders);
+    }
+    const missingSession = isUnauthenticatedSessionError(claims.error);
+    if (claims.error && !missingSession) {
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
+    }
+    const userId = claims.data?.claims?.sub;
+    if (!userId && pathname.startsWith("/subscribe")) {
+      const signupUrl = new URL(
+        authEntryPath(
+          "/signup",
+          `${pathname}${request.nextUrl.search}`,
+          request.nextUrl.searchParams,
+        ),
+        origin,
+      );
+      return applyMetadata(NextResponse.redirect(signupUrl), cookies, responseHeaders);
+    }
+    if (!userId && !isPublicEntry) {
+      const loginUrl = new URL(
+        authEntryPath(
+          "/login",
+          `${pathname}${request.nextUrl.search}`,
+          request.nextUrl.searchParams,
+        ),
+        origin,
+      );
+      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
+    }
+    return applyMetadata(
+      forwardRequest(request, userId ?? null),
+      cookies,
+      responseHeaders,
+    );
+  } finally {
+    deadline.dispose();
   }
-
-  if (!user && !isPublicPath) {
-    return NextResponse.redirect(new URL("/login", origin));
-  }
-
-  if (user && pathname === "/") {
-    return NextResponse.redirect(new URL("/dashboard", origin));
-  }
-
-  if (user && pathname === "/forgot-password") {
-    return NextResponse.redirect(new URL("/dashboard", origin));
-  }
-
-  if (user && (pathname === "/login" || pathname === "/signup")) {
-    const redirectTo =
-      request.nextUrl.searchParams.get("redirect")?.startsWith("/") === true
-        ? request.nextUrl.searchParams.get("redirect")!
-        : "/dashboard";
-    return NextResponse.redirect(new URL(redirectTo, origin));
-  }
-
-  return response;
 }
+
+export const middleware = handleAuthRequest;
 
 export const config = {
   matcher: [

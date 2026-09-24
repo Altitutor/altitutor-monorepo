@@ -133,6 +133,7 @@ export function SkillTrainerItemPreview({
       return (
         <FindWordTrainer
           content={findWordContent}
+          shuffleKey={contentKey}
           placedIds={placedIds}
           selectedKeywordId={selectedKeywordId}
           draggingKeywordId={draggingKeywordId}
@@ -155,7 +156,7 @@ export function SkillTrainerItemPreview({
           onClickOccurrence={(index) => {
             setFoundIndexes((prev) => (prev.includes(index) ? prev : [...prev, index]));
           }}
-          onSubmit={noop}
+          onSkip={noop}
         />
       );
     case "quick_syllogism":

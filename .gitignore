@@ -8,11 +8,14 @@ dev-debug.log
 
 # Dependency directories
 node_modules/
+.pnpm-store/
 
 # Environment variables
 **/.env
 **/.env.*
 !**/.env.example
+.sentryclirc
+sentry.properties
 
 # Expo / EAS local credentials (never commit)
 apps/student-app/credentials.json
@@ -23,6 +26,8 @@ apps/student-app/credentials/*
 # Editor directories and files
 .idea
 .vscode
+# Local MCP server config (may contain API keys)
+.cursor/mcp.json
 *.suo
 *.ntvs*
 *.njsproj
@@ -37,6 +42,9 @@ tasks.json
 /tasks/ 
 *storybook.log
 .next
+.next-e2e
+.next-onboarding-prototype
+test-results/
 
 # TypeScript build artifacts
 *.tsbuildinfo
@@ -68,3 +76,12 @@ supabase/templates-rendered/
 
 # Reference code
 ref/
+
+# Local wayfinder / planning scratch (not for commit)
+.scratch/
+
+# Copied at Next start from pdfjs-dist (webpack cannot bundle its ESM)
+apps/tutor-web/public/pdfjs/
+apps/student-web/public/pdfjs/
+
+.next-onboarding-local

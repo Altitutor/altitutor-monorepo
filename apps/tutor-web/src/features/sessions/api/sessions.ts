@@ -1,17 +1,28 @@
-import type { Database } from '@altitutor/shared';
+import { hasSessionStarted, type Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { dateStringToUtcEnd, dateStringToUtcStart } from '@/shared/utils/datetime';
 import type { SupabaseClient } from '@supabase/supabase-js';
-import type { SessionStaff, SessionStudent } from '../utils/session-helpers';
+import type { SessionParent, SessionStaff, SessionStudent } from '../utils/session-helpers';
+import { parseSessionParentList, parseSessionStaffList, parseSessionStudentList } from '../utils/parseSessionDetailJson';
 
-interface SessionDetailsMap {
+export type PastSessionWithDetails = Omit<
+  Database['public']['Views']['vtutor_session_detail']['Row'],
+  'staff' | 'students' | 'session_id'
+> & {
+  session_id: string;
   staff: SessionStaff[];
   students: SessionStudent[];
-}
+};
+
+export type TutorSessionDetailsMap = {
+  staff: SessionStaff[];
+  students: SessionStudent[];
+  parents: SessionParent[];
+};
 
 /**
  * Sessions API client for tutor-web
- * 
+ *
  * IMPORTANT: Tutor-web can only READ through views (vtutor_sessions, vtutor_session_detail)
  * All writes must go through API routes that use service role client
  */
@@ -21,10 +32,8 @@ export const sessionsApi = {
    * Uses vtutor_sessions view
    */
   getAllSessions: async () => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    const { data, error } = await supabase
-      .from('vtutor_sessions')
-      .select('*');
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.from('vtutor_sessions').select('*');
     if (error) throw error;
     return data ?? [];
   },
@@ -33,7 +42,7 @@ export const sessionsApi = {
    * Sessions for the current tutor within [rangeStart, rangeEnd] (YYYY-MM-DD, local calendar days).
    */
   getSessionsInDateRange: async (rangeStart: string, rangeEnd: string) => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const utcStart = dateStringToUtcStart(rangeStart);
     const utcEnd = dateStringToUtcEnd(rangeEnd);
     const { data, error } = await supabase
@@ -47,26 +56,55 @@ export const sessionsApi = {
   },
 
   /**
+   * Sessions originally scheduled in this range (moved off the viewed day).
+   * Falls back to [] if the view does not yet expose original_start_at.
+   */
+  getSessionsOriginallyInDateRange: async (rangeStart: string, rangeEnd: string) => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const utcStart = dateStringToUtcStart(rangeStart);
+    const utcEnd = dateStringToUtcEnd(rangeEnd);
+    const { data, error } = await supabase
+      .from('vtutor_sessions')
+      .select('*')
+      .filter('original_start_at', 'gte', utcStart)
+      .filter('original_start_at', 'lte', utcEnd)
+      .not('original_start_at', 'is', null)
+      .order('start_at', { ascending: true });
+
+    if (error) {
+      if (
+        error.code === 'PGRST204' ||
+        error.code === '42703' ||
+        /original_start_at/i.test(error.message)
+      ) {
+        return [];
+      }
+      throw error;
+    }
+    return data ?? [];
+  },
+
+  /**
    * Get a single session with all details
    * Uses vtutor_session_detail view which includes students and staff
    */
   getSessionWithDetails: async (sessionId: string) => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+
     try {
       const { data, error } = await supabase
         .from('vtutor_session_detail')
         .select('*')
         .eq('session_id', sessionId)
         .maybeSingle();
-      
+
       if (error) {
         if (error.code === 'PGRST116') {
           return null;
         }
         throw error;
       }
-      
+
       return data;
     } catch (error) {
       console.error('Error getting session with details:', error);
@@ -95,12 +133,8 @@ export const sessionsApi = {
    * Note: The view uses 'session_id' as the column name, not 'id'
    */
   getSession: async (id: string) => {
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    const { data, error } = await supabase
-      .from('vtutor_sessions')
-      .select('*')
-      .eq('session_id', id)
-      .maybeSingle();
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.from('vtutor_sessions').select('*').eq('session_id', id).maybeSingle();
     if (error && error.code !== 'PGRST116') throw error;
     return data ?? null;
   },
@@ -110,73 +144,56 @@ export const sessionsApi = {
    * Uses vtutor_session_detail view
    * Returns a map of session_id -> { staff, students }
    */
-  getSessionsWithDetails: async (sessionIds: string[]): Promise<Record<string, SessionDetailsMap>> => {
+  getSessionsWithDetails: async (sessionIds: string[]): Promise<Record<string, TutorSessionDetailsMap>> => {
     if (sessionIds.length === 0) return {};
-    
-    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-    
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+
+    const { data, error } = await supabase.from('vtutor_session_detail').select('*').in('session_id', sessionIds);
+
+    if (error) throw error;
+
+    const detailsMap: Record<string, TutorSessionDetailsMap> = {};
+
+    (data || []).forEach((detail) => {
+      if (!detail.session_id) return;
+      const extra = detail as typeof detail & { parents?: unknown };
+      detailsMap[detail.session_id] = {
+        staff: parseSessionStaffList(detail.staff),
+        students: parseSessionStudentList(detail.students),
+        parents: parseSessionParentList(extra.parents),
+      };
+    });
+
+    return detailsMap;
+  },
+
+  /**
+   * Past sessions (start_at <= now) with staff and students from vtutor_session_detail.
+   */
+  getPastSessionsWithDetails: async (): Promise<PastSessionWithDetails[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const nowIso = new Date().toISOString();
     const { data, error } = await supabase
       .from('vtutor_session_detail')
-      .select('session_id, staff, students')
-      .in('session_id', sessionIds);
-    
+      .select('*')
+      .lte('start_at', nowIso)
+      .order('start_at', { ascending: false })
+      .limit(1000);
+
     if (error) throw error;
-    
-    // Create a map of session_id -> { staff, students }
-    const detailsMap: Record<string, SessionDetailsMap> = {};
-    
-    (data || []).forEach((detail) => {
-      const staffJson = detail.staff;
-      const studentsJson = detail.students;
-      
-      // Parse JSON arrays if they're strings, otherwise use as-is
-      const staff: SessionStaff[] = Array.isArray(staffJson) 
-        ? staffJson.map((s: unknown) => {
-            if (typeof s === 'object' && s !== null && 'id' in s && 'first_name' in s && 'last_name' in s && 'role' in s) {
-              return {
-                id: String(s.id),
-                first_name: String(s.first_name),
-                last_name: String(s.last_name),
-                role: String(s.role),
-                type: 'type' in s ? String(s.type) : undefined,
-                subjects: 'subjects' in s && Array.isArray(s.subjects) 
-                  ? s.subjects.map((subj: unknown) => {
-                      if (typeof subj === 'object' && subj !== null && 'id' in subj && 'name' in subj) {
-                        return { id: String(subj.id), name: String(subj.name) };
-                      }
-                      return { id: '', name: '' };
-                    })
-                  : undefined,
-              };
-            }
-            return { id: '', first_name: '', last_name: '', role: '' };
-          })
-        : [];
-      
-      const students: SessionStudent[] = Array.isArray(studentsJson)
-        ? studentsJson.map((s: unknown) => {
-            if (typeof s === 'object' && s !== null && 'id' in s && 'first_name' in s && 'last_name' in s) {
-              return {
-                id: String(s.id),
-                first_name: String(s.first_name),
-                last_name: String(s.last_name),
-                year_level: 'year_level' in s && typeof s.year_level === 'number' ? s.year_level : null,
-                planned_absence: 'planned_absence' in s ? Boolean(s.planned_absence) : false,
-              };
-            }
-            return { id: '', first_name: '', last_name: '', year_level: null, planned_absence: false };
-          })
-        : [];
-      
-      if (detail.session_id) {
-        detailsMap[detail.session_id] = {
-          staff,
-          students,
-        };
-      }
+
+    return (data ?? []).flatMap((row) => {
+      if (!row.session_id || !hasSessionStarted(row.start_at)) return [];
+      return [
+        {
+          ...row,
+          session_id: row.session_id,
+          staff: parseSessionStaffList(row.staff),
+          students: parseSessionStudentList(row.students),
+        },
+      ];
     });
-    
-    return detailsMap;
   },
 
   /**
@@ -189,12 +206,12 @@ export const sessionsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ staffId, type }),
     });
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Failed to assign staff to session' }));
       throw new Error(error.error || 'Failed to assign staff to session');
     }
-    
+
     return response.json();
   },
 
@@ -208,12 +225,12 @@ export const sessionsApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ studentId }),
     });
-    
+
     if (!response.ok) {
       const error = await response.json().catch(() => ({ error: 'Failed to add student to session' }));
       throw new Error(error.error || 'Failed to add student to session');
     }
-    
+
     return response.json();
   },
 };

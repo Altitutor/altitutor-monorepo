@@ -1,9 +1,10 @@
-import { buildFileCountByTopic, mapTopicFile, normalizeSlug } from '@altitutor/shared';
+import { buildFileCountByTopic, normalizeSlug } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
+import { mapTutorTopicFile } from '../lib/map-tutor-topic-file';
 import type {
-  ResourceFile,
   ResourceSubject,
   ResourceSubjectNavItem,
+  TutorResourceFile,
   TutorTopicFileRow,
   TutorTopicRow,
   TutorSubjectRow,
@@ -116,7 +117,7 @@ export const resourcesApi = {
     return buildFileCountByTopic((data ?? []) as Pick<TutorTopicFileRow, 'topic_id'>[]);
   },
 
-  async getTopicFiles(topicId: string): Promise<ResourceFile[]> {
+  async getTopicFiles(topicId: string): Promise<TutorResourceFile[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vtutor_topics_files')
@@ -127,11 +128,11 @@ export const resourcesApi = {
 
     if (error) throw error;
     return ((data ?? []) as TutorTopicFileRow[])
-      .map(mapTopicFile)
-      .filter((row): row is ResourceFile => row !== null);
+      .map(mapTutorTopicFile)
+      .filter((row): row is TutorResourceFile => row !== null);
   },
 
-  async getTopicFileByCode(topicId: string, fileCode: string): Promise<ResourceFile | null> {
+  async getTopicFileByCode(topicId: string, fileCode: string): Promise<TutorResourceFile | null> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
       .from('vtutor_topics_files')
@@ -142,10 +143,10 @@ export const resourcesApi = {
 
     if (error && error.code !== 'PGRST116') throw error;
     if (!data) return null;
-    return mapTopicFile(data as TutorTopicFileRow);
+    return mapTutorTopicFile(data as TutorTopicFileRow);
   },
 
-  async getSignedFileUrl(file: ResourceFile, expiresIn = 3600): Promise<string | null> {
+  async getSignedFileUrl(file: TutorResourceFile, expiresIn = 3600): Promise<string | null> {
     if (file.externalUrl) {
       return null;
     }

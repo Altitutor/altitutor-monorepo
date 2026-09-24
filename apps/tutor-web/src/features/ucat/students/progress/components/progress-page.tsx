@@ -1,22 +1,12 @@
 'use client'
 
-import Link from 'next/link'
-import { useMemo } from 'react'
 import { UcatPageHeader } from '@/features/ucat/shared/components'
 import { useUcatStudentSummary } from '@/features/ucat/students/hooks/useUcatStudents'
 import { useProgress } from '../hooks/useProgress'
-import { useProgressMode } from '../hooks/useProgressMode'
-import { ProgressModeSelector } from './progress-mode-selector'
 import { SectionProgressCards } from './section-progress-cards'
-import { SetAttemptsCard } from './set-attempts-card'
-import { MockAttemptsCard } from './mock-attempts-card'
-import { QuestionAttemptsCard } from './question-attempts-card'
-import {
-  filterByTimeFrame,
-  computeSectionProgressFromFiltered,
-  getSharedDateRange,
-  applyAttemptFilterToProgress,
-} from '../lib/progress-data-utils'
+import { StudentScoreProgress } from './student-score-progress'
+import { StudentReviewActivity } from './student-review-activity'
+import { calculateRecentWeightedMockScore } from '../lib/mock-progress-insights'
 
 type ProgressPageProps = {
   studentId: string
@@ -31,45 +21,9 @@ export function ProgressPage({
 }: ProgressPageProps) {
   const { data, isLoading, error } = useProgress(studentId)
   const { data: summary } = useUcatStudentSummary(studentId)
-  const studentName = studentNameProp ?? (summary as { student_name?: string } | undefined)?.student_name
-  const progressMode = useProgressMode()
-
-  const filteredData = useMemo(() => {
-    if (!data) return null
-    return applyAttemptFilterToProgress(data, progressMode.attemptFilter)
-  }, [data, progressMode.attemptFilter])
-
-  const sectionProgress = useMemo(() => {
-    if (!filteredData) return []
-    const { mode, timeFrameDays } = progressMode
-    if (mode !== 'time_frame') return filteredData.sectionProgress
-    const filteredQA = filterByTimeFrame(
-      filteredData.questionAttempts,
-      mode,
-      timeFrameDays
-    )
-    const filteredSA = filterByTimeFrame(
-      filteredData.setAttempts,
-      mode,
-      timeFrameDays
-    )
-    return computeSectionProgressFromFiltered(
-      filteredQA,
-      filteredSA,
-      filteredData.sectionProgress
-    )
-  }, [filteredData, progressMode])
-
-  const sharedDateRange = useMemo(() => {
-    if (!filteredData) return undefined
-    return getSharedDateRange(
-      filteredData.questionAttempts,
-      filteredData.setAttempts,
-      filteredData.mockAttempts,
-      progressMode.mode,
-      progressMode.timeFrameDays
-    )
-  }, [filteredData, progressMode.mode, progressMode.timeFrameDays])
+  const studentName =
+    studentNameProp ??
+    (summary as { student_name?: string } | undefined)?.student_name
 
   const title = studentName ? `Progress – ${studentName}` : 'Progress'
   const description = studentName
@@ -82,7 +36,9 @@ export function ProgressPage({
         <UcatPageHeader
           title={title}
           description="Loading progress..."
-          backHref={basePath.split('/').slice(0, -1).join('/') || '/ucat/students'}
+          backHref={
+            basePath.split('/').slice(0, -1).join('/') || '/ucat/students'
+          }
           backLabel="Back"
         />
         <div className="animate-pulse space-y-6">
@@ -104,7 +60,9 @@ export function ProgressPage({
         <UcatPageHeader
           title={title}
           description="Could not load progress."
-          backHref={basePath.split('/').slice(0, -1).join('/') || '/ucat/students'}
+          backHref={
+            basePath.split('/').slice(0, -1).join('/') || '/ucat/students'
+          }
           backLabel="Back"
         />
         <p className="text-sm text-destructive">{error.message}</p>
@@ -112,81 +70,53 @@ export function ProgressPage({
     )
   }
 
-  if (!data || !filteredData) {
+  if (!data) {
     return (
       <div className="space-y-6 py-8 md:py-10">
         <UcatPageHeader
           title={title}
           description="No progress data available."
-          backHref={basePath.split('/').slice(0, -1).join('/') || '/ucat/students'}
+          backHref={
+            basePath.split('/').slice(0, -1).join('/') || '/ucat/students'
+          }
           backLabel="Back"
         />
       </div>
     )
   }
 
-  const breadcrumbs = [
-    { label: 'UCAT', href: '/ucat' },
-    { label: 'Students', href: '/ucat/students' },
-    { label: studentName ?? 'Student', href: basePath },
-    { label: 'Progress' },
-  ]
-
   return (
-    <div className="space-y-6 py-8 md:py-10">
-      <UcatPageHeader
-        title={title}
-        description={description}
-        backHref={basePath.split('/').slice(0, -1).join('/') || '/ucat/students'}
-        backLabel="Back"
-        breadcrumbs={breadcrumbs}
-      />
-
-      <ProgressModeSelector
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        attemptFilter={progressMode.attemptFilter}
-        onAttemptFilterChange={progressMode.onAttemptFilterChange}
-      />
-
-      <SectionProgressCards
-        sections={sectionProgress}
-        linkToSection
-        basePath={basePath}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-      />
-      <QuestionAttemptsCard
-        attempts={filteredData.questionAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-      <SetAttemptsCard
-        attempts={filteredData.setAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-        basePath={basePath}
-      />
-      <div className="space-y-2">
-        <div className="flex justify-end">
-          <Link
-            href={`${basePath}/mocks`}
-            className="text-sm text-muted-foreground hover:text-foreground"
-          >
-            View mock progress →
-          </Link>
-        </div>
-        <MockAttemptsCard
-          attempts={filteredData.mockAttempts}
-          mode={progressMode.mode}
-          timeFrameDays={progressMode.timeFrameDays}
-          sharedDateRange={sharedDateRange}
-          basePath={basePath}
+    <div className="pb-8">
+      <div className="px-5 py-6 sm:px-6">
+        <UcatPageHeader
+          title={title}
+          description={description}
+          backHref="/ucat/students"
+          backLabel="Students"
+          breadcrumbs={[
+            { label: 'UCAT', href: '/ucat' },
+            { label: 'Students', href: '/ucat/students' },
+            { label: studentName ?? 'Student' },
+          ]}
         />
+      </div>
+
+      <StudentScoreProgress data={data} studentName={studentName} />
+
+      <div className="mx-auto grid w-full max-w-[1400px] gap-5 px-5 pt-6 sm:px-6 lg:grid-cols-2 lg:items-start">
+        <StudentReviewActivity data={data} />
+        <section aria-label="Sections">
+          <SectionProgressCards
+            sections={data.sectionProgress}
+            linkToSection
+            basePath={basePath}
+            mode="all_time"
+            timeFrameDays="30"
+            mockRecentWeightedAverage={calculateRecentWeightedMockScore(
+              data.mockAttempts
+            )}
+          />
+        </section>
       </div>
     </div>
   )

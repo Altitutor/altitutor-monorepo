@@ -1,19 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Button,
-  Input,
-  Label,
-} from '@altitutor/ui';
-import { X } from 'lucide-react';
+import { Button, Input, Label } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
+import { AdminDialogShell } from '@/shared/components';
 import { useCreateRichTextTemplate } from '../api/templates';
 import { getErrorMessage } from '@/shared/utils';
 import { toEditorContent } from '@/shared/utils/plainTextToTiptapJson';
@@ -93,52 +83,40 @@ export function SaveAsTemplateDialog({
   const isLoading = createMutation.isPending;
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-md [&>button]:hidden">
-        <DialogHeader>
-          <div className="flex items-center gap-3">
-            <Button variant="outline" size="icon" onClick={onClose} className="shrink-0">
-              <X className="h-4 w-4" />
-            </Button>
-            <div>
-              <DialogTitle>Save as Template</DialogTitle>
-              <DialogDescription>
-                Save the current content as a reusable template. You can insert it later in any
-                rich text field.
-              </DialogDescription>
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="py-4">
-          <div className="space-y-2">
-            <Label htmlFor="save-template-name">Template Name</Label>
-            <Input
-              id="save-template-name"
-              ref={nameInputRef}
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="e.g., Meeting Notes"
-              disabled={isLoading}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  e.preventDefault();
-                  handleSave();
-                }
-              }}
-            />
-          </div>
-        </div>
-
-        <DialogFooter>
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title="Save as Template"
+      subtitle="Save the current content as a reusable template. You can insert it later in any rich text field."
+      contentClassName="md:max-w-md"
+      footer={
+        <>
           <Button variant="outline" onClick={onClose} disabled={isLoading}>
             Cancel
           </Button>
           <Button onClick={handleSave} disabled={isLoading || !name.trim()}>
             {isLoading ? 'Saving...' : 'Save'}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="space-y-2">
+        <Label htmlFor="save-template-name">Template Name</Label>
+        <Input
+          id="save-template-name"
+          ref={nameInputRef}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="e.g., Meeting Notes"
+          disabled={isLoading}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              handleSave();
+            }
+          }}
+        />
+      </div>
+    </AdminDialogShell>
   );
 }

@@ -16,10 +16,10 @@ export function filterAvailableStaff<T extends { id: string }>(
 /**
  * Filter students by search query and status
  */
-export function filterStudentsBySearch<T extends { 
-  first_name: string | null; 
-  last_name: string | null; 
-  status: string;
+export function filterStudentsBySearch<T extends {
+  first_name: string | null;
+  last_name: string | null;
+  status: string | null;
 }>(
   students: T[],
   searchQuery: string,
@@ -27,11 +27,14 @@ export function filterStudentsBySearch<T extends {
   limit?: number
 ): T[] {
   if (!searchQuery.trim()) return [];
-  
+
   const query = searchQuery.toLowerCase();
   let filtered = students.filter((student) => {
-    // Filter by status
-    if (statusFilter.length > 0 && !statusFilter.includes(student.status)) {
+    // Filter by status (null status never matches a non-empty filter)
+    if (
+      statusFilter.length > 0 &&
+      (student.status === null || !statusFilter.includes(student.status))
+    ) {
       return false;
     }
     

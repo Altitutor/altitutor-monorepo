@@ -22,16 +22,74 @@ interface ConditionInput {
   value?: unknown;
   old_value?: unknown;
   new_value?: unknown;
+  all?: ConditionInput[];
+  any?: ConditionInput[];
 }
 
 interface ActivityEventLike {
   event_type?: string;
   changed_fields?: Record<string, { old: unknown; new: unknown }>;
+  metadata?: unknown;
+  entity_type?: string;
+  entity_id?: string;
+  student_id?: string;
+  staff_id?: string;
+  class_id?: string;
+  session_id?: string;
+}
+
+function getNestedValue(value: unknown, path: string): unknown {
+  return path.split('.').reduce<unknown>((current, key) => {
+    if (!current || typeof current !== 'object' || Array.isArray(current)) return undefined;
+    return (current as Record<string, unknown>)[key];
+  }, value);
+}
+
+export function getActivityEventVariables(activityEvent: ActivityEventLike): Record<string, unknown> {
+  const variables: Record<string, unknown> = {
+    event_type: activityEvent.event_type || '',
+    entity_type: activityEvent.entity_type || '',
+    entity_id: activityEvent.entity_id || '',
+    student_id: activityEvent.student_id || '',
+    staff_id: activityEvent.staff_id || '',
+    class_id: activityEvent.class_id || '',
+    session_id: activityEvent.session_id || '',
+  };
+
+  const display = getNestedValue(activityEvent.metadata, 'display');
+  if (display && typeof display === 'object' && !Array.isArray(display)) {
+    for (const [key, value] of Object.entries(display as Record<string, unknown>)) {
+      variables[key] = value ?? '';
+    }
+  }
+
+  // Delete-safe activity writers keep labels in metadata when the related FK
+  // must be null to avoid cascade-delete failures.
+  for (const key of ['student_name', 'staff_name', 'class_name', 'session_name']) {
+    const metadataValue = getNestedValue(activityEvent.metadata, key);
+    if (metadataValue != null && !Object.prototype.hasOwnProperty.call(variables, key)) {
+      variables[key] = metadataValue;
+    }
+  }
+
+  return variables;
 }
 
 export function evaluateConditions(conditions: ConditionInput | null | undefined, activityEvent: ActivityEventLike, entityData: Record<string, unknown> | null | undefined): boolean {
   if (!conditions || Object.keys(conditions).length === 0) {
     return true; // No conditions = always match
+  }
+
+  if (Array.isArray(conditions.all)) {
+    return conditions.all.length > 0 && conditions.all.every((condition) =>
+      evaluateConditions(condition, activityEvent, entityData)
+    );
+  }
+
+  if (Array.isArray(conditions.any)) {
+    return conditions.any.length > 0 && conditions.any.some((condition) =>
+      evaluateConditions(condition, activityEvent, entityData)
+    );
   }
 
   if (!conditions.field || !conditions.operator) {
@@ -88,7 +146,9 @@ export function evaluateConditions(conditions: ConditionInput | null | undefined
   }
 
   // Standard condition evaluation (for CREATED events or current state checks)
-  const fieldValue = entityData?.[fieldName];
+  const fieldValue = fieldName.startsWith('activity.')
+    ? getNestedValue(activityEvent, fieldName.slice('activity.'.length))
+    : getNestedValue(entityData, fieldName);
   
   switch (operator) {
     case 'equals':
@@ -132,6 +192,13 @@ export function evaluateConditions(conditions: ConditionInput | null | undefined
         return false;
       }
       return Number(fieldValue) < Number(conditions.value);
+
+    case 'in':
+      if (!Array.isArray(conditions.value)) {
+        console.warn('[activity-processor] in operator requires an array value');
+        return false;
+      }
+      return conditions.value.some((value) => String(value) === String(fieldValue));
     
     default:
       console.warn('[activity-processor] Unknown operator:', operator);
@@ -175,6 +242,7 @@ export function formatDayOfWeek(dayOfWeek: number | null | undefined): string {
 export function formatDate(timestamp: string): string {
   try {
     const date = new Date(timestamp);
+    if (Number.isNaN(date.getTime())) return '';
     return date.toLocaleDateString('en-US', { 
       year: 'numeric', 
       month: 'long', 
@@ -185,15 +253,34 @@ export function formatDate(timestamp: string): string {
   }
 }
 
-// Format timestamp to time string
+// Format a session timestamp as a compact Adelaide date and time.
 export function formatDateTime(timestamp: string): string {
   try {
     const date = new Date(timestamp);
-    return date.toLocaleTimeString('en-US', { 
-      hour: 'numeric', 
+    if (isNaN(date.getTime())) return '';
+
+    const formatter = new Intl.DateTimeFormat('en-AU', {
+      timeZone: 'Australia/Adelaide',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: 'numeric',
       minute: '2-digit',
-      hour12: true 
+      hour12: true,
     });
+
+    const parts = formatter.formatToParts(date);
+    const getPart = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((part) => part.type === type)?.value || '';
+
+    const weekday = getPart('weekday');
+    const day = getPart('day');
+    const month = getPart('month');
+    const hour = getPart('hour');
+    const minute = getPart('minute');
+    const dayPeriod = getPart('dayPeriod').toLowerCase();
+
+    return `${weekday} ${day} ${month} ${hour}:${minute}${dayPeriod}`;
   } catch {
     return '';
   }
@@ -209,6 +296,26 @@ interface ClassDataLike {
 
 interface SubjectLike {
   long_name?: string | null;
+}
+
+interface EntityDataLike extends Record<string, unknown> {
+  id?: string;
+  class_id?: string;
+  day_of_week?: number | null;
+  end_at?: string;
+  end_time?: string;
+  first_name?: string;
+  last_name?: string;
+  level?: string | number;
+  room?: string;
+  session_id?: string;
+  staff_id?: string;
+  start_at?: string;
+  start_time?: string;
+  student_id?: string;
+  subject_id?: string;
+  title?: string;
+  type?: string;
 }
 
 export function formatClassName(classData: ClassDataLike, subject: SubjectLike | null | undefined): string {
@@ -263,7 +370,7 @@ export function formatSessionDateTime(timestamp: string): string {
 export async function formatEntityName(
   supabase: SupabaseClient,
   entityType: string,
-  entityData: Record<string, unknown> | null | undefined,
+  entityData: EntityDataLike | null | undefined,
   activityEvent: ActivityEventLike
 ): Promise<string> {
   if (!entityData) return '';
@@ -425,12 +532,18 @@ export function generateUUID(): string {
 
 // Helper function to build student invite URL
 export function buildStudentInviteUrl(token: string, path: 'invite' | 'register' = 'invite'): string {
-  const isDevelopment = Deno.env.get('ENVIRONMENT') === 'development' || 
-                        Deno.env.get('NODE_ENV') === 'development';
-  const baseUrl = isDevelopment 
-    ? 'http://localhost:3001'
-    : (Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com');
-  return `${baseUrl}/${path}/${token}`;
+  const baseUrl = Deno.env.get('STUDENT_WEB_URL') ||
+                  Deno.env.get('NEXT_PUBLIC_STUDENT_URL') ||
+                  'https://student.altitutor.com';
+  const route = path === 'register' ? 'r' : 'invite';
+  return `${baseUrl.replace(/\/$/, '')}/${route}/${token}`;
+}
+
+export function buildBookingManagementUrl(token: string): string {
+  const baseUrl = Deno.env.get('STUDENT_WEB_URL') ||
+                  Deno.env.get('NEXT_PUBLIC_STUDENT_URL') ||
+                  'https://student.altitutor.com';
+  return `${baseUrl.replace(/\/$/, '')}/b/${token}`;
 }
 
 // Helper function to build staff invite URL
@@ -500,10 +613,10 @@ export async function getOrGenerateStudentRegistrationToken(
   supabase: SupabaseClient,
   studentId: string
 ): Promise<string | null> {
-  // Check if student exists and get invite_token (used for registration)
+  // Check eligibility before issuing the durable registration token.
   const { data: student, error } = await supabase
     .from('students')
-    .select('id, user_id, invite_token')
+    .select('id, status, registration_public_token')
     .eq('id', studentId)
     .maybeSingle();
   
@@ -512,29 +625,50 @@ export async function getOrGenerateStudentRegistrationToken(
     return null;
   }
   
-  // Registration link can be sent even if student has account but hasn't registered (status != ACTIVE)
-  // But if they're fully registered (user_id exists AND status is ACTIVE), skip
-  // For now, we'll allow registration link if they don't have user_id or if they have invite_token
-  
-  // Reuse existing token if available
-  if (student.invite_token) {
-    return student.invite_token;
-  }
-  
-  // Generate new token
-  const token = generateUUID();
-  
-  // Update student with invite token
-  const { error: updateError } = await supabase
-    .from('students')
-    .update({ invite_token: token })
-    .eq('id', studentId);
-  
-  if (updateError) {
-    console.warn('[activity-processor] Failed to update student registration token', { studentId, error: updateError });
+  // `status` is the in-person lifecycle. Account linkage is deliberately not
+  // used here: an online Student may already have a user_id while still needing
+  // to complete in-person registration.
+  if (student.status !== 'TRIAL') {
     return null;
   }
   
+  if (student.registration_public_token) {
+    return student.registration_public_token;
+  }
+
+  const { data: token, error: issueError } = await supabase.rpc(
+    'issue_student_registration_public_token',
+    { p_student_id: studentId }
+  );
+
+  if (issueError || typeof token !== 'string') {
+    console.warn('[activity-processor] Failed to issue student registration token', {
+      studentId,
+      error: issueError,
+    });
+    return null;
+  }
+
+  return token;
+}
+
+export async function getOrGenerateSessionBookingToken(
+  supabase: SupabaseClient,
+  sessionId: string
+): Promise<string | null> {
+  const { data: token, error } = await supabase.rpc(
+    'issue_session_booking_public_token',
+    { p_session_id: sessionId }
+  );
+
+  if (error || typeof token !== 'string') {
+    console.warn('[activity-processor] Failed to issue booking public token', {
+      sessionId,
+      error,
+    });
+    return null;
+  }
+
   return token;
 }
 
@@ -586,9 +720,9 @@ export async function getOrGenerateStaffInviteToken(
 export async function extractTemplateVariables(
   supabase: SupabaseClient,
   activityEvent: ActivityEventLike & { performed_by?: string; student_id?: string; staff_id?: string; class_id?: string; session_id?: string; entity_type?: string },
-  entityData: Record<string, unknown> | null | undefined
+  entityData: EntityDataLike | null | undefined
 ): Promise<Record<string, unknown>> {
-  const variables: Record<string, unknown> = {};
+  const variables: Record<string, unknown> = getActivityEventVariables(activityEvent);
   
   // Load sender name from performed_by staff
   if (activityEvent.performed_by) {
@@ -621,6 +755,8 @@ export async function extractTemplateVariables(
     if (student) {
       variables['first_name'] = student.first_name || '';
       variables['last_name'] = student.last_name || '';
+      variables['student.first_name'] = student.first_name || '';
+      variables['student.last_name'] = student.last_name || '';
       
       // Load student classes for {classes} variable
       const { data: enrollments } = await supabase
@@ -647,9 +783,13 @@ export async function extractTemplateVariables(
       
       if (enrollments && enrollments.length > 0) {
         const classesList = enrollments
-          .map((e: { classes?: { day_of_week?: number; start_time?: string; end_time?: string; subjects?: { short_name?: string; long_name?: string } } }) => {
-            const cls = e.classes;
-            const subject = cls?.subjects;
+          .map((enrollment) => {
+            const cls = Array.isArray(enrollment.classes)
+              ? enrollment.classes[0]
+              : enrollment.classes;
+            const subject = Array.isArray(cls?.subjects)
+              ? cls.subjects[0]
+              : cls?.subjects;
             if (!cls) return null;
             
             const dayName = formatDayOfWeek(cls.day_of_week);
@@ -794,6 +934,9 @@ export async function extractTemplateVariables(
     if (sessionData) {
       // Session fields
       variables['session.type'] = sessionData.type || '';
+      variables['session.type_label'] = sessionData.type
+        ? String(sessionData.type).toLowerCase().replaceAll('_', ' ')
+        : '';
       variables['session.start_at'] = sessionData.start_at ? formatDateTime(sessionData.start_at) : '';
       variables['session.end_at'] = sessionData.end_at ? formatDateTime(sessionData.end_at) : '';
       
@@ -842,15 +985,19 @@ export async function extractTemplateVariables(
         }
       }
       
-      // Generate booking confirmation link for trial sessions
-      if (sessionData.type === 'TRIAL_SESSION' && sessionData.id) {
-        // Determine base URL (use environment variable or default to production)
-        const studentUrl = Deno.env.get('NEXT_PUBLIC_STUDENT_URL') || 'https://student.altitutor.com';
-        const bookingConfirmationUrl = `${studentUrl}/booking-success?sessionId=${sessionData.id}`;
-        variables['booking_confirmation_link'] = bookingConfirmationUrl;
-        variables['booking_confirmation_url'] = bookingConfirmationUrl;
-        variables['session.booking_confirmation_link'] = bookingConfirmationUrl;
-        variables['session.booking_confirmation_url'] = bookingConfirmationUrl;
+      // Public booking details support both trial sessions and subsidy interviews.
+      if (
+        ['TRIAL_SESSION', 'SUBSIDY_INTERVIEW'].includes(sessionData.type) &&
+        sessionData.id
+      ) {
+        const bookingToken = await getOrGenerateSessionBookingToken(supabase, sessionData.id);
+        const bookingManagementUrl = bookingToken
+          ? buildBookingManagementUrl(bookingToken)
+          : '';
+        variables['booking_confirmation_link'] = bookingManagementUrl;
+        variables['booking_confirmation_url'] = bookingManagementUrl;
+        variables['session.booking_confirmation_link'] = bookingManagementUrl;
+        variables['session.booking_confirmation_url'] = bookingManagementUrl;
       }
     }
   }
@@ -883,9 +1030,6 @@ export async function extractTemplateVariables(
   }
   
   // Extract common entity fields (always available from activity event)
-  variables['entity_type'] = activityEvent.entity_type || '';
-  variables['entity_id'] = activityEvent.entity_id || '';
-  
   // Extract entity data fields (if entityData is provided)
   if (entityData) {
     // Add specific fields based on entity type

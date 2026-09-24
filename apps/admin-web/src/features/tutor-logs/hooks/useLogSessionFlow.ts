@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import type { Tables } from '@altitutor/shared';
+import { defaultCheckInSessionsStaffType } from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '../types';
 import { useCreateTutorLog } from './useTutorLogsQuery';
 import { useSessionForLogging } from './useSessionForLogging';
@@ -53,6 +54,8 @@ export interface UseLogSessionFlowReturn {
   handleAddStaffToSession: (staffId: string) => Promise<void>;
   handleAddStudentToSession: (studentId: string) => Promise<void>;
   handleAddParentToSession: (parentId: string) => Promise<void>;
+  handleRemoveStaffFromSession: (staffId: string) => Promise<void>;
+  handleRemoveStudentFromSession: (studentId: string) => Promise<void>;
   canGoNext: boolean;
 }
 
@@ -176,7 +179,7 @@ export function useLogSessionFlow({
         ? { ...base, topics: [], topicFiles: [] }
         : base;
 
-    const submitPayload = { data, createdBy: selectedStaffId };
+    const submitPayload = { data, loggedForStaffId: selectedStaffId };
 
     setSubmissionState('submitting');
     setSubmissionError(null);
@@ -208,9 +211,15 @@ export function useLogSessionFlow({
   const handleAddStaffToSession = useCallback(
     async (staffId: string) => {
       if (!formData.sessionId) return;
-      await sessionsApi.assignStaffToSession(formData.sessionId, staffId);
+      const type =
+        selectedSession?.type === 'CHECK_IN'
+          ? defaultCheckInSessionsStaffType(
+              sessionStudents.length > 0 || sessionParents.length > 0
+            )
+          : 'MAIN_TUTOR';
+      await sessionsApi.assignStaffToSession(formData.sessionId, staffId, type);
     },
-    [formData.sessionId]
+    [formData.sessionId, selectedSession?.type, sessionStudents.length, sessionParents.length]
   );
 
   const handleAddStudentToSession = useCallback(
@@ -225,6 +234,22 @@ export function useLogSessionFlow({
     async (parentId: string) => {
       if (!formData.sessionId) return;
       await sessionsApi.addParentToSession(formData.sessionId, parentId);
+    },
+    [formData.sessionId]
+  );
+
+  const handleRemoveStaffFromSession = useCallback(
+    async (staffId: string) => {
+      if (!formData.sessionId) return;
+      await sessionsApi.removeStaffFromSession(formData.sessionId, staffId);
+    },
+    [formData.sessionId]
+  );
+
+  const handleRemoveStudentFromSession = useCallback(
+    async (studentId: string) => {
+      if (!formData.sessionId) return;
+      await sessionsApi.removeStudentFromSession(formData.sessionId, studentId);
     },
     [formData.sessionId]
   );
@@ -267,6 +292,8 @@ export function useLogSessionFlow({
     handleAddStaffToSession,
     handleAddStudentToSession,
     handleAddParentToSession,
+    handleRemoveStaffFromSession,
+    handleRemoveStudentFromSession,
     canGoNext,
   };
 }

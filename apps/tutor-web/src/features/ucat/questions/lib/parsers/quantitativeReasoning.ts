@@ -262,7 +262,7 @@ export function normalizeQuantitativeReasoningItemStemLines(
 export type QuantitativeReasoningToFormOptions = {
   sectionId: string
   categoryId?: string | null
-  isPrivate?: boolean
+  accessScope?: 'public' | 'private'
   getCategoryIdForStem?: (stem: ParsedStem) => string | null
   getTagIdsForQuestion?: (args: {
     stem: ParsedStem
@@ -316,7 +316,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
   const {
     sectionId,
     categoryId = null,
-    isPrivate = false,
+    accessScope = 'public',
     getCategoryIdForStem,
     getTagIdsForQuestion,
   } = options
@@ -333,7 +333,8 @@ export function mapParsedQuantitativeReasoningToFormValues(
           q.text,
           tableMap
         ) as Json,
-        questionType: 'multiple_choice' as const,
+        responseType: 'multiple_choice' as const,
+        answerScheme: 'single_choice' as const,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
@@ -341,7 +342,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
         options: q.options.map((opt) => ({
           answerText: tokenizedPlainTextToProseMirrorWithTables(opt.text, tableMap) as Json,
           answerExplanation: null,
-          isAnswer: false,
+          answerKeyValue: null,
         })),
       }))
 
@@ -354,7 +355,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
         stem.stemText,
         tableMap
       ) as Json,
-      isPrivate,
+      accessScope,
       questions,
     })
   }
@@ -365,6 +366,7 @@ export function mapParsedQuantitativeReasoningToFormValues(
 function normalizedText(value: string): string {
   return value
     .replace(/\[\[(?:TABLE|IMG):[^\]]+\]\]/g, ' ')
+    .replace(/\[\[(?:\/?[BI]|LI):\]\]/g, ' ')
     .replace(/[−–—]/g, '-')
     .replace(/\s+/g, ' ')
     .trim()
@@ -381,20 +383,29 @@ export function getQuantitativeReasoningStemCategoryName(stem: ParsedStem): stri
   const raw = stem.stemText
   const text = normalizedText(raw)
   const hasTable = raw.includes('[[TABLE:') || hasAny(text, [/\btables?\b/])
-  const hasGraphOrChart = hasAny(text, [
-    /\bgraphs?\b/,
-    /\bcharts?\b/,
-    /\bbar chart\b/,
-    /\bbar graph\b/,
-    /\bline graph\b/,
-    /\bline chart\b/,
-    /\bpie chart\b/,
-    /\bscatter plot\b/,
-    /\bhistogram\b/,
-    /\bfigure above shows\b/,
-    /\bgraph below\b/,
-  ])
-  const hasSchedule = hasAny(text, [/\btimetables?\b/, /\bcalendars?\b/])
+  const hasImage = raw.includes('[[IMG:')
+  const hasGraphOrChart =
+    hasImage ||
+    hasAny(text, [
+      /\bgraphs?\b/,
+      /\bcharts?\b/,
+      /\bbar chart\b/,
+      /\bbar graph\b/,
+      /\bline graph\b/,
+      /\bline chart\b/,
+      /\bpie chart\b/,
+      /\bscatter plot\b/,
+      /\bhistogram\b/,
+      /\bfigures?\b/,
+      /\bthe figure\b/,
+      /\bfollowing figure\b/,
+      /\bfigure below\b/,
+      /\bfigure above\b/,
+      /\bfigure shows\b/,
+      /\bfigure above shows\b/,
+      /\bgraph below\b/,
+    ])
+  const hasSchedule = hasAny(text, [/\btimetables?\b/, /\bcalendars?\b/, /\bschedules?\b/])
   const hasDiagram = hasAny(text, [/\bmaps?\b/, /\bdiagrams?\b/, /\bschematic\b/])
   const structuredSourceCount = [hasTable, hasGraphOrChart, hasSchedule, hasDiagram].filter(Boolean).length
 
@@ -408,7 +419,7 @@ export function getQuantitativeReasoningStemCategoryName(stem: ParsedStem): stri
   if (hasGraphOrChart) return 'Graphs and Charts'
   if (hasDiagram) return 'Maps and Diagrams'
   if (hasTable) return 'Data Tables'
-  if (text.length > 0 && !raw.includes('[[IMG:')) return 'Text-Only Scenarios'
+  if (text.length > 0 && !hasImage) return 'Text-Only Scenarios'
   return null
 }
 

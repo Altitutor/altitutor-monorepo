@@ -17,11 +17,17 @@ import {
 } from '@/features/ucat/questions/lib/parseAnswersFromDoc'
 import { answerDocToPlainTsv } from '@/features/ucat/questions/lib/pmAnswerLineRanges'
 import { hasRichTextContent, proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
+import {
+  answerEvidenceFitsOptionCount,
+  inferResponseContract,
+  parseUntypedAnswerEvidence,
+  type UntypedAnswerEvidence,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
 
 export type QuestionOptionPreview = {
   label: string
   answerTextDoc: Json | null
-  isAnswer: boolean
+  isKeyed: boolean
 }
 
 export type QuestionAnswerPreview = {
@@ -30,7 +36,7 @@ export type QuestionAnswerPreview = {
   questionTextDoc: Json | null
   options: QuestionOptionPreview[]
   answerLetter: string | null
-  syllogismPattern: string | null
+  placementPattern: string | null
   explanationPreview: string | null
   explanationPreviewDoc: Json | null
   hasExplanation: boolean
@@ -66,7 +72,7 @@ function optionsForRow(stems: BulkImportStemDraft[], row: FlatQuestionRef): Ques
   return options.map((opt, index) => ({
     label: optionLabelForIndex(index),
     answerTextDoc: (opt.answerText ?? null) as Json | null,
-    isAnswer: opt.isAnswer === true,
+    isKeyed: opt.answerKeyValue != null,
   }))
 }
 
@@ -77,12 +83,51 @@ function emptyPreview(stems: BulkImportStemDraft[], row: FlatQuestionRef): Quest
     questionTextDoc: questionTextDocForRow(stems, row),
     options: optionsForRow(stems, row),
     answerLetter: null,
-    syllogismPattern: null,
+    placementPattern: null,
     explanationPreview: null,
     explanationPreviewDoc: null,
     hasExplanation: false,
     isParsed: false,
   }
+}
+
+function isMostLeastQuestion(stems: BulkImportStemDraft[], row: FlatQuestionRef): boolean {
+  const stem = stems.find((candidate) => candidate.id === row.stemId)
+  const question = stem?.values.questions?.[row.questionIndex]
+  if (!question) return false
+  if (question.answerScheme === 'situational_judgement_most_least') return true
+  return inferResponseContract({
+    directive: proseMirrorToPlainText(question.questionText)?.trim() ?? '',
+    targetCount: question.options.length,
+    optionTexts: question.options.map(
+      (option) => proseMirrorToPlainText(option.answerText)?.trim() ?? ''
+    ),
+  }).answerScheme.value === 'situational_judgement_most_least'
+}
+
+function alignOptionalMostLeastEvidence(
+  evidence: UntypedAnswerEvidence[],
+  questions: FlatQuestionRef[],
+  stems: BulkImportStemDraft[]
+): Array<UntypedAnswerEvidence | null> | null {
+  const aligned: Array<UntypedAnswerEvidence | null> = []
+  let evidenceIndex = 0
+  for (const question of questions) {
+    const next = evidence[evidenceIndex]
+    if (isMostLeastQuestion(stems, question)) {
+      if (next?.kind === 'most_least_pair' && next.conflicts.length === 0) {
+        aligned.push(next)
+        evidenceIndex += 1
+      } else {
+        aligned.push(null)
+      }
+      continue
+    }
+    if (!next) return null
+    aligned.push(next)
+    evidenceIndex += 1
+  }
+  return evidenceIndex === evidence.length ? aligned : null
 }
 
 /** Live preview of parsed bulk answers aligned to wizard questions (paste order). */
@@ -99,20 +144,50 @@ export function buildQuestionAnswerPreviews(
     return flat.map((row) => emptyPreview(stems, row))
   }
 
+  const untypedEvidence = parseUntypedAnswerEvidence(plain)
+  const hasMostLeastQuestion = flat.some((row) => isMostLeastQuestion(stems, row))
+  if (hasMostLeastQuestion) {
+    const aligned = alignOptionalMostLeastEvidence(untypedEvidence, flat, stems)
+    if (aligned) {
+      return flat.map((row, index) => {
+        const evidence = aligned[index]
+        if (!evidence) return emptyPreview(stems, row)
+        if (evidence.kind === 'most_least_pair') {
+          return {
+            ...emptyPreview(stems, row),
+            placementPattern: evidence.keyValues
+              .slice(0, row.optionCount)
+              .map((value) => value === 'most' ? 'M' : value === 'least' ? 'L' : 'N')
+              .join(' · '),
+            isParsed: true,
+          }
+        }
+        const correctIndex = evidence.keyValues.indexOf('correct')
+        return correctIndex >= 0
+          ? {
+              ...emptyPreview(stems, row),
+              answerLetter: String.fromCharCode(65 + correctIndex),
+              isParsed: true,
+            }
+          : emptyPreview(stems, row)
+      })
+    }
+  }
+
   if (isDecisionMakingSection) {
-    const questionTypes = flat.map((row) =>
-      row.isSyllogism ? ('syllogism' as const) : ('multiple_choice' as const)
+    const responseKinds = flat.map((row) =>
+      row.isPlacement ? ('placement' as const) : ('single_choice' as const)
     )
     const parsed = parseDecisionMakingAnswersFromDoc(
       pastedAnswersJson,
-      questionTypes,
+      responseKinds,
       answerParseOptions
     )
     return flat.map((row, index) => {
       const answer = parsed[index]
       if (!answer) return emptyPreview(stems, row)
 
-      if (row.isSyllogism && answer.pattern) {
+      if (row.isPlacement && answer.pattern) {
         const optionExplanations = answer.optionExplanations ?? []
         const optionExplanationDocs = answer.optionExplanationDocs ?? []
         const firstExplanationDoc =
@@ -130,7 +205,7 @@ export function buildQuestionAnswerPreviews(
           questionTextDoc: questionTextDocForRow(stems, row),
           options: optionsForRow(stems, row),
           answerLetter: null,
-          syllogismPattern: answer.pattern.split('').join(' · '),
+          placementPattern: answer.pattern.split('').join(' · '),
           explanationPreview: firstExplanation ? truncatePreview(firstExplanation, 120) : null,
           explanationPreviewDoc: firstExplanationDoc,
           hasExplanation:
@@ -152,7 +227,7 @@ export function buildQuestionAnswerPreviews(
           questionTextDoc: questionTextDocForRow(stems, row),
           options: optionsForRow(stems, row),
           answerLetter: answer.letter.toUpperCase(),
-          syllogismPattern: null,
+          placementPattern: null,
           explanationPreview: explanationPlain ? truncatePreview(explanationPlain, 120) : null,
           explanationPreviewDoc: explanationDoc,
           hasExplanation: explanationPlain.length > 0 || hasRichTextContent(explanationDoc),
@@ -177,7 +252,7 @@ export function buildQuestionAnswerPreviews(
       questionTextDoc: questionTextDocForRow(stems, row),
       options: optionsForRow(stems, row),
       answerLetter: answer.letter.toUpperCase(),
-      syllogismPattern: null,
+      placementPattern: null,
       explanationPreview: explanation ? truncatePreview(explanation, 120) : null,
       explanationPreviewDoc: explanationDoc,
       hasExplanation: explanation.length > 0 || hasRichTextContent(explanationDoc),
@@ -197,28 +272,74 @@ export function validateBulkAnswersDocument(
   answerParseOptions?: AnswerParseOptions
 ): { ok: true } | { ok: false; message: string } {
   const totalQuestions = countFlatQuestions(stems)
+  const flatQuestions = flattenBulkImportQuestions(stems)
   if (totalQuestions === 0) {
     return { ok: false, message: 'No questions to match answers against.' }
   }
 
   const plain = answerDocToPlainTsv(pastedAnswersJson)
   if (!plain.trim()) {
+    const allQuestionsAreOptionalMostLeast = flatQuestions.every((question) => {
+      const stem = stems.find((candidate) => candidate.id === question.stemId)
+      return stem?.values.questions?.[question.questionIndex]?.answerScheme ===
+        'situational_judgement_most_least'
+    })
+    if (allQuestionsAreOptionalMostLeast) return { ok: true }
     return { ok: false, message: 'Paste an answers document before continuing.' }
   }
 
+  const untypedEvidence = parseUntypedAnswerEvidence(plain)
+  const alignedEvidence = alignOptionalMostLeastEvidence(
+    untypedEvidence,
+    flatQuestions,
+    stems
+  )
+  if (!alignedEvidence) {
+    return {
+      ok: false,
+      message: `Expected answers for ${totalQuestions} questions; Most/Least answers may be omitted.`,
+    }
+  }
+  const unresolved = alignedEvidence.find(
+    (evidence) => evidence != null && (evidence.kind == null || evidence.conflicts.length > 0)
+  )
+  if (unresolved) {
+    return {
+      ok: false,
+      message: unresolved.conflicts.length > 0
+        ? `Answer evidence conflicts: ${unresolved.conflicts.join(', ')}.`
+        : 'One or more answer shapes are ambiguous and require review.',
+    }
+  }
+  if (alignedEvidence.some(
+      (evidence, index) => evidence != null && !answerEvidenceFitsOptionCount(
+        evidence,
+        flatQuestions[index]?.optionCount ?? 0
+      )
+    )) {
+    return {
+      ok: false,
+      message: 'Answer evidence does not fit the target question options.',
+    }
+  }
+
+  if (flatQuestions.some((question) => isMostLeastQuestion(stems, question))) {
+    return { ok: true }
+  }
+
   if (isDecisionMakingSection) {
-    const flat: { questionType: 'syllogism' | 'multiple_choice' }[] = []
+    const flat: { responseKind: 'placement' | 'single_choice' }[] = []
     stems.forEach((stem) => {
       ;(stem.values.questions ?? []).forEach((q) => {
         flat.push({
-          questionType:
-            (q as { questionType?: string }).questionType === 'syllogism'
-              ? 'syllogism'
-              : 'multiple_choice',
+          responseKind:
+            q.responseType === 'drag_and_drop'
+              ? 'placement'
+              : 'single_choice',
         })
       })
     })
-    const parsed = parseDecisionMakingAnswers(plain, flat.map((f) => f.questionType), answerParseOptions)
+    const parsed = parseDecisionMakingAnswers(plain, flat.map((f) => f.responseKind), answerParseOptions)
     if (parsed.length !== totalQuestions) {
       return {
         ok: false,
@@ -253,18 +374,22 @@ export function applyBulkAnswersToStems(
   if (flat.length === 0) return
 
   const updatesByStem = new Map<string, UcatQuestionStemFormValues>()
+  const untypedEvidence = parseUntypedAnswerEvidence(answerDocToPlainTsv(pastedAnswersJson))
+  const flatQuestions = flattenBulkImportQuestions(stems)
+  const alignedEvidence = alignOptionalMostLeastEvidence(untypedEvidence, flatQuestions, stems)
+  const hasMostLeastQuestion = flatQuestions.some((row) => isMostLeastQuestion(stems, row))
 
   if (isDecisionMakingSection) {
-    const questionTypes = flat.map(({ stemId, questionIndex }) => {
+    const responseKinds = flat.map(({ stemId, questionIndex }) => {
       const stem = stems.find((s) => s.id === stemId)
-      const q = stem?.values.questions?.[questionIndex] as { questionType?: string } | undefined
-      return (q?.questionType === 'syllogism' ? 'syllogism' : 'multiple_choice') as
-        | 'syllogism'
-        | 'multiple_choice'
+      const q = stem?.values.questions?.[questionIndex]
+      return (q?.responseType === 'drag_and_drop' ? 'placement' : 'single_choice') as
+        | 'placement'
+        | 'single_choice'
     })
     const dmParsed = parseDecisionMakingAnswersFromDoc(
       pastedAnswersJson,
-      questionTypes,
+      responseKinds,
       answerParseOptions
     )
     dmParsed.forEach((answer, i) => {
@@ -277,23 +402,23 @@ export function applyBulkAnswersToStems(
       const questions = [...(nextValues.questions ?? [])]
       const q = questions[questionIndex]
       if (!q || !q.options) return
-      const qWithPattern = q as typeof q & { syllogismAnswerPattern?: string | null }
-      if (answer.pattern && qWithPattern.questionType === 'syllogism') {
+      if (answer.pattern && q.responseType === 'drag_and_drop') {
         const pattern = answer.pattern
         const options = (q.options ?? []).map((opt, j) => ({
           ...opt,
-          isAnswer: pattern.charAt(j).toUpperCase() === 'Y',
+          answerKeyValue: pattern.charAt(j).toUpperCase() === 'Y' ? 'yes' as const : 'no' as const,
           answerExplanation:
             answer.optionExplanationDocs?.[j] ??
             opt.answerExplanation ??
             null,
         }))
-        questions[questionIndex] = { ...q, syllogismAnswerPattern: pattern, options }
+        questions[questionIndex] = { ...q, options }
       } else if (answer.letter) {
         const optionIndex = letterToOptionIndex(answer.letter)
+        if (optionIndex == null || optionIndex >= q.options.length) return
         const options = q.options.map((opt, j) => ({
           ...opt,
-          isAnswer: j === optionIndex,
+          answerKeyValue: j === optionIndex ? 'correct' as const : null,
         }))
         questions[questionIndex] = {
           ...q,
@@ -304,7 +429,7 @@ export function applyBulkAnswersToStems(
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)
     })
-  } else {
+  } else if (!hasMostLeastQuestion) {
     const parsed = parseAnswersTableFromDoc(pastedAnswersJson, answerParseOptions)
     parsed.forEach((row, i) => {
       if (i >= flat.length) return
@@ -317,9 +442,10 @@ export function applyBulkAnswersToStems(
       const q = questions[questionIndex]
       if (!q || !q.options) return
       const optionIndex = letterToOptionIndex(row.letter)
+      if (optionIndex == null || optionIndex >= q.options.length) return
       const options = q.options.map((opt, j) => ({
         ...opt,
-        isAnswer: j === optionIndex,
+        answerKeyValue: j === optionIndex ? 'correct' as const : null,
       }))
       questions[questionIndex] = {
         ...q,
@@ -328,6 +454,48 @@ export function applyBulkAnswersToStems(
       }
       nextValues = { ...nextValues, questions }
       updatesByStem.set(stemId, nextValues)
+    })
+  }
+
+  if (alignedEvidence) {
+    alignedEvidence.forEach((evidence, index) => {
+      if (!evidence) return
+      if (!evidence.kind || evidence.conflicts.length > 0) return
+      const target = flat[index]
+      if (!target) return
+      const stem = stems.find((candidate) => candidate.id === target.stemId)
+      if (!stem) return
+      let nextValues = updatesByStem.get(target.stemId)
+      if (!nextValues) {
+        nextValues = { ...stem.values, questions: [...(stem.values.questions ?? [])] }
+      }
+      const questions = [...(nextValues.questions ?? [])]
+      const question = questions[target.questionIndex]
+      if (!question) return
+      if (!answerEvidenceFitsOptionCount(evidence, question.options.length)) return
+      const inferred = inferResponseContract({
+        directive: proseMirrorToPlainText(question.questionText)?.trim() ?? '',
+        targetCount: question.options.length,
+        optionTexts: question.options.map(
+          (option) => proseMirrorToPlainText(option.answerText)?.trim() ?? ''
+        ),
+        answerEvidenceKind: evidence.kind,
+      })
+      if (inferred.reviewState === 'blocked') return
+      const options = question.options.map((option, optionIndex) => {
+        const answerKeyValue = evidence.keyValues[optionIndex] ?? null
+        return {
+          ...option,
+          answerKeyValue,
+        }
+      })
+      questions[target.questionIndex] = {
+        ...question,
+        responseType: inferred.responseType.value ?? question.responseType,
+        answerScheme: inferred.answerScheme.value ?? question.answerScheme,
+        options,
+      }
+      updatesByStem.set(target.stemId, { ...nextValues, questions })
     })
   }
 

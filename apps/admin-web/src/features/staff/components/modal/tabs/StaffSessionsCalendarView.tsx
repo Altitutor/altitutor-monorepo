@@ -72,7 +72,7 @@ export function StaffSessionsCalendarView({
 
       <div className="flex-1 overflow-auto relative">
         <div
-          className="grid gap-0 min-h-full relative bg-background"
+          className="grid gap-0 relative bg-background"
           style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))` }}
         >
           {/* Headers */}

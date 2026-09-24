@@ -14,7 +14,7 @@ function canManuallyCompleteBlock(block: LearningModuleBlockRow): boolean {
   return (
     block.block_type !== "question_stem" &&
     block.block_type !== "question" &&
-    block.block_type !== "skill_trainer_set"
+    block.block_type !== "skill_trainer"
   );
 }
 
@@ -23,14 +23,12 @@ type LearningLessonContentsSidebarProps = {
   activeIndex: number;
   completionPercent: number;
   isLessonComplete: boolean;
-  canAccessBlock: (index: number) => boolean;
   isBlockComplete: (block: LearningModuleBlockRow) => boolean;
   onSelectBlock: (index: number) => void;
   onMarkBlockComplete: (blockId: string) => void;
   onRequestMarkComplete: () => void;
   onRequestMarkIncomplete: () => void;
   isResettingProgress?: boolean;
-  prevLesson: LessonNavEntry | null;
   nextLesson: LessonNavEntry | null;
 };
 
@@ -39,18 +37,16 @@ export function LearningLessonContentsSidebar({
   activeIndex,
   completionPercent,
   isLessonComplete,
-  canAccessBlock,
   isBlockComplete,
   onSelectBlock,
   onMarkBlockComplete,
   onRequestMarkComplete,
   onRequestMarkIncomplete,
   isResettingProgress = false,
-  prevLesson,
   nextLesson,
 }: LearningLessonContentsSidebarProps) {
   return (
-    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
+    <aside className="flex w-full flex-col gap-3 lg:sticky lg:top-20 lg:w-72 lg:shrink-0 lg:self-start">
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Progress</CardTitle>
@@ -62,19 +58,34 @@ export function LearningLessonContentsSidebar({
               style={{ width: `${completionPercent}%` }}
             />
           </div>
-          <p className="text-sm text-muted-foreground">{completionPercent}% complete</p>
+          <p className="text-sm text-muted-foreground">
+            {completionPercent}% complete
+          </p>
           {isLessonComplete ? (
             <Button
               type="button"
               variant="outline"
-              className={cn("w-full", UCAT_HEADER_BTN_OUTLINE, "active:scale-[0.98]")}
+              className={cn(
+                "w-full",
+                UCAT_HEADER_BTN_OUTLINE,
+                "active:scale-[0.98]",
+              )}
               disabled={isResettingProgress}
               onClick={onRequestMarkIncomplete}
             >
               Mark incomplete
             </Button>
           ) : (
-            <Button type="button" className="w-full" onClick={onRequestMarkComplete}>
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                "w-full",
+                UCAT_HEADER_BTN_OUTLINE,
+                "active:scale-[0.98]",
+              )}
+              onClick={onRequestMarkComplete}
+            >
               Mark lesson complete
             </Button>
           )}
@@ -83,11 +94,10 @@ export function LearningLessonContentsSidebar({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Contents</CardTitle>
+          <CardTitle className="text-base">On this page</CardTitle>
         </CardHeader>
         <CardContent className="space-y-1">
           {blocks.map((block, index) => {
-            const locked = !canAccessBlock(index);
             const complete = isBlockComplete(block);
             const manualComplete = canManuallyCompleteBlock(block);
             const isActive = index === activeIndex;
@@ -97,47 +107,48 @@ export function LearningLessonContentsSidebar({
                 key={block.id}
                 className={cn(
                   "group flex items-center gap-2 rounded-md px-2 py-1.5",
-                  isActive && "bg-muted",
-                  locked && "opacity-50",
+                  isActive && "bg-muted/70",
                 )}
               >
                 <button
                   type="button"
-                  disabled={locked}
-                  onClick={() => {
-                    if (!locked) onSelectBlock(index);
-                  }}
+                  onClick={() => onSelectBlock(index)}
                   className={cn(
-                    "min-w-0 flex-1 text-left text-sm",
-                    locked ? "cursor-not-allowed" : "cursor-pointer",
+                    "min-w-0 flex-1 text-left text-sm text-muted-foreground transition-colors",
+                    isActive && "text-foreground",
+                    "cursor-pointer hover:text-foreground",
                   )}
                 >
-                  <span className="line-clamp-2">{formatBlockLabel(block, index)}</span>
+                  <span className="line-clamp-2">
+                    {formatBlockLabel(block)}
+                  </span>
                 </button>
 
                 {manualComplete && block.id ? (
                   <button
                     type="button"
                     aria-label={
-                      complete ? "Block complete" : `Mark block ${index + 1} complete`
+                      complete
+                        ? "Block complete"
+                        : `Mark block ${index + 1} complete`
                     }
-                    disabled={complete || locked}
+                    disabled={complete}
                     onClick={() => onMarkBlockComplete(block.id!)}
                     className={cn(
-                      "inline-flex size-5 shrink-0 items-center justify-center rounded-full border transition-opacity",
+                      "inline-flex size-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/60 transition-[color,opacity]",
                       complete
-                        ? "pointer-events-none border-primary bg-primary text-primary-foreground opacity-100"
-                        : "border-muted-foreground/40 text-muted-foreground opacity-0 hover:border-primary hover:text-primary group-hover:opacity-100 focus-visible:opacity-100",
+                        ? "pointer-events-none opacity-100"
+                        : "opacity-0 hover:text-foreground group-hover:opacity-100 focus-visible:opacity-100",
                     )}
                   >
-                    <Check className="size-3" strokeWidth={3} />
+                    <Check className="size-3.5" strokeWidth={2} />
                   </button>
                 ) : complete ? (
                   <span
-                    className="inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-primary bg-primary text-primary-foreground"
+                    className="inline-flex size-5 shrink-0 items-center justify-center text-muted-foreground/60"
                     aria-hidden
                   >
-                    <Check className="size-3" strokeWidth={3} />
+                    <Check className="size-3.5" strokeWidth={2} />
                   </span>
                 ) : null}
               </div>
@@ -146,7 +157,9 @@ export function LearningLessonContentsSidebar({
         </CardContent>
       </Card>
 
-      <LearningLessonPager prev={prevLesson} next={nextLesson} />
+      <div id="tour-learning-navigation">
+        <LearningLessonPager next={nextLesson} />
+      </div>
     </aside>
   );
 }

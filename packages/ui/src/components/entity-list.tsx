@@ -20,6 +20,7 @@ import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
 import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
+import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import { type JSONContent } from './rich-text-editor';
 import {
   LayoutGrid,
@@ -31,6 +32,7 @@ import {
   Check,
   X,
   Layers,
+  Search,
 } from 'lucide-react';
 
 // ---------------------------------------------------------------------------
@@ -57,6 +59,8 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   key: string;
   label: string;
   visibleByDefault?: boolean;
+  /** Filterable in the toolbar, but omitted from card/row pills and the view menu. */
+  filterOnly?: boolean;
   getValue: (item: TItem) => TValue;
   renderPill: (item: TItem, onChange: (value: TValue) => void, collapsed?: boolean) => React.ReactNode;
   filterOptions?: { value: TValue; label: string }[];
@@ -68,6 +72,32 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   filterable?: boolean;
   compare?: (a: TValue, b: TValue) => number;
   defaultValue?: TValue;
+}
+
+export function selectedFilterMatchesValue(selected: unknown[], value: unknown): boolean {
+  return selected.some((v) => {
+    if (v === value) return true;
+    if (Array.isArray(value) && value.includes(v)) return true;
+
+    if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
+      const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
+      const itemDateStr = typeof value === 'string' ? value : null;
+      if (!itemDateStr) return false;
+      const itemTime = new Date(itemDateStr).getTime();
+      if (isNaN(itemTime)) return false;
+
+      if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
+      if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
+      if (dr.start && dr.end) {
+        return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
+      }
+      if (dr.start) return itemTime >= new Date(dr.start).getTime();
+      if (dr.end) return itemTime <= new Date(dr.end).getTime();
+      return false;
+    }
+
+    return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
+  });
 }
 
 type FilterOption = { value: unknown; label: string };
@@ -108,6 +138,9 @@ export interface EntityListProps<TItem> {
   onFiltersChange?: (filters: Record<string, unknown[]>) => void;
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
   /** Resolve group key to display label (e.g. id -> name for assignee) */
   getGroupLabel?: (columnKey: string, valueKey: string) => string;
   /** Custom ordering function for groups. Returns a number for ordering (lower = earlier). If not provided, groups are sorted alphabetically. */
@@ -220,6 +253,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     onFiltersChange,
     quickFilters = [],
     onApplyQuickFilter,
+    searchValue,
+    onSearchChange,
+    searchPlaceholder = 'Search...',
     getGroupLabel,
     getGroupOrder,
     descriptionConfig,
@@ -232,7 +268,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   } = props;
 
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
-    rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
+    rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
   );
   const [internalGroupBy, setInternalGroupBy] = React.useState<string | null>(null);
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
@@ -240,6 +276,31 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
   const [groupByOpen, setGroupByOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  const filterPersistenceKey = `entity-list:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
+  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
+  const [sortSearchValue, setSortSearchValue] = React.useState('');
+  const [localSearchValue, setLocalSearchValue] = React.useState(searchValue ?? '');
+  const sortSearchInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    setLocalSearchValue(searchValue ?? '');
+  }, [searchValue]);
+
+  React.useEffect(() => {
+    if (!onSearchChange) return;
+    const timeout = window.setTimeout(() => {
+      if (localSearchValue !== (searchValue ?? '')) {
+        onSearchChange(localSearchValue);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [localSearchValue, onSearchChange, searchValue]);
+
+  React.useEffect(() => {
+    if (!sortOpen) return;
+    requestAnimationFrame(() => sortSearchInputRef.current?.focus());
+  }, [sortOpen]);
 
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
@@ -308,6 +369,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
   };
 
   const visibleSortByOptions = sortByOptions.filter(o => o.key !== groupBy);
+  const filteredSortByOptions = visibleSortByOptions.filter((option) =>
+    option.label.toLowerCase().includes(sortSearchValue.trim().toLowerCase())
+  );
   const filters = controlledFilters ?? internalFilters;
   const setFilters = onFiltersChange ?? setInternalFilters;
 
@@ -332,29 +396,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         const value = pill ? pill.getValue(item) : statusVal;
         const hasColumn = pill !== undefined || statusColumn?.key === columnKey;
         if (!hasColumn) continue;
-        const match = selected.some((v) => {
-          if (v === value) return true;
-          
-          // Handle date range objects from quick filters
-          if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
-            const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
-            const itemDateStr = typeof value === 'string' ? value : null;
-            if (!itemDateStr) return false;
-            const itemTime = new Date(itemDateStr).getTime();
-            if (isNaN(itemTime)) return false;
-            
-            if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
-            if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
-            if (dr.start && dr.end) {
-              return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
-            }
-            if (dr.start) return itemTime >= new Date(dr.start).getTime();
-            if (dr.end) return itemTime <= new Date(dr.end).getTime();
-            return false;
-          }
-
-          return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
-        });
+        const match = selectedFilterMatchesValue(selected, value);
         if (!match) return false;
       }
       return true;
@@ -411,25 +453,50 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
       {/* Toolbar */}
       {!hideToolbar && (
         <div className="flex flex-wrap items-center gap-2 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
+          {onSearchChange ? (
+            <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+              <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+                <Search className="h-3.5 w-3.5" />
+              </span>
+              <Input
+                placeholder={searchPlaceholder}
+                value={localSearchValue}
+                onChange={(event) => setLocalSearchValue(event.target.value)}
+                className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+              />
+              {localSearchValue ? (
+                <button
+                  type="button"
+                  onClick={() => setLocalSearchValue('')}
+                  className="shrink-0 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null}
+            </div>
+          ) : null}
+
+          <div className="ml-auto flex shrink-0 items-center gap-2">
           {rightPills.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="mr-auto h-10">
+                <Button variant="outline" size="sm" className="h-10">
                   <LayoutGrid className="h-4 w-4 md:mr-2" />
-                  <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
+                  <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View</span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-[200px] p-0">
+              <DropdownMenuContent align="end" className="w-[200px] p-0">
                 <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                  items={rightPills}
-                  value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
+                  items={rightPills.filter((p) => p.filterOnly !== true)}
+                  value={rightPills.filter((p) => p.filterOnly !== true && visiblePillKeys.includes(p.key))}
                   onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
                   getItemId={(p) => p.key}
                   getItemLabel={(p) => p.label}
-                  searchPlaceholder="Search columns..."
-                  emptyMessage="No columns found"
+                  searchPlaceholder="Search pills..."
+                  emptyMessage="No pills found"
                   multiSelect
                 />
               </DropdownMenuContent>
@@ -485,9 +552,18 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-[220px]">
+                <DropdownMenuContent align="end" className="w-[240px]">
                   <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                  <DropdownMenuSeparator />
+                  <div className="flex items-center border-b px-3">
+                    <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                    <Input
+                      ref={sortSearchInputRef}
+                      value={sortSearchValue}
+                      onChange={(event) => setSortSearchValue(event.target.value)}
+                      placeholder="Search sort options..."
+                      className="flex h-11 w-full rounded-md border-0 bg-transparent px-0 py-3 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+                    />
+                  </div>
                   <DropdownMenuItem
                     onSelect={() => {
                       setSortBy('name', 'asc');
@@ -496,7 +572,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                   >
                     None (by name)
                   </DropdownMenuItem>
-                  {visibleSortByOptions.map((option) => {
+                  {filteredSortByOptions.map((option) => {
                     const selected = sortBy === option.key;
                     return (
                       <DropdownMenuItem
@@ -562,7 +638,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           )}
 
           <div className="relative flex items-center">
-            <DropdownMenu>
+            <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="h-10">
                   <Filter className="h-4 w-4 md:mr-2" />
@@ -724,7 +800,10 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                           const fromVal = dr?.start ?? '';
                           const toVal = dr?.end ?? '';
                           filterElements.push(
-                            <DropdownMenuSub key={p.key}>
+                            <DropdownMenuSub
+                              key={p.key}
+                              persistOpenOnRemountKey={`${filterPersistenceKey}:date:${p.key}`}
+                            >
                               <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
                               <DropdownMenuSubContent className="w-[260px] p-0">
                                 <DateRangeFilter
@@ -825,6 +904,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
                 {activeFilterCount}
               </ToolbarActiveBadge>
             ) : null}
+          </div>
           </div>
         </div>
       )}
@@ -972,23 +1052,28 @@ export function EntityListAddRow<TItem>(props: EntityListAddRowRenderProps<TItem
         />
 
         <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
-          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => (
-            <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
-              {compact ? (
-                pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)
-              ) : (
-                <>
-                  {/* Responsive: show full pill on larger screens, icon on smaller */}
-                  <div className="hidden lg:block">
-                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), false)}
-                  </div>
-                  <div className="lg:hidden">
-                    {pill.renderPill(addValues as TItem, (val) => setAddValues(prev => ({ ...prev, [pill.key]: val })), true)}
-                  </div>
-                </>
-              )}
-            </div>
-          ))}
+          {rightPills.filter(p => visiblePillKeys.includes(p.key)).map((pill, index) => {
+            const onChange = (val: unknown) => setAddValues(prev => ({ ...prev, [pill.key]: val }));
+            const collapsedNode = pill.renderPill(addValues as TItem, onChange, true);
+            const expandedNode = compact ? collapsedNode : pill.renderPill(addValues as TItem, onChange, false);
+            if (collapsedNode == null && expandedNode == null) return null;
+
+            return (
+              <div key={pill.key} className={cn("flex-shrink-0", index > 0 && "hidden sm:flex")}>
+                {compact ? collapsedNode : (
+                  <>
+                    {/* Responsive: show full pill on larger screens, icon on smaller */}
+                    <div className="hidden lg:block">
+                      {expandedNode}
+                    </div>
+                    <div className="lg:hidden">
+                      {collapsedNode}
+                    </div>
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <Button
@@ -1048,6 +1133,9 @@ function EntityListRow<TItem>({
       tabIndex={0}
       onClick={() => onRowClick?.(item)}
       onKeyDown={(e) => {
+        // Only activate when the row itself is focused — nested controls (e.g. SmartDatePicker
+        // CommandInput in a portal) bubble Enter/Space through the React tree and must not open the entity.
+        if (e.target !== e.currentTarget) return;
         if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault();
           onRowClick?.(item);
@@ -1093,22 +1181,24 @@ function EntityListRow<TItem>({
       {/* Right: pills */}
       <div className="flex items-center gap-2 flex-shrink-0 overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden">
         {rightPills.map((pill, index) => {
+          const collapsedNode = pill.renderPill(item, () => {}, true);
+          const expandedNode = compact ? collapsedNode : pill.renderPill(item, () => {}, false);
+          if (collapsedNode == null && expandedNode == null) return null;
+
           return (
             <div
               key={pill.key}
               onClick={(e) => e.stopPropagation()}
               className={cn("transition-opacity flex-shrink-0", index > 0 && "hidden sm:flex")}
             >
-              {compact ? (
-                pill.renderPill(item, () => {}, true)
-              ) : (
+              {compact ? collapsedNode : (
                 <>
                   {/* Responsive: show full pill on larger screens, icon on smaller */}
                   <div className="hidden lg:block">
-                    {pill.renderPill(item, () => {}, false)}
+                    {expandedNode}
                   </div>
                   <div className="lg:hidden">
-                    {pill.renderPill(item, () => {}, true)}
+                    {collapsedNode}
                   </div>
                 </>
               )}

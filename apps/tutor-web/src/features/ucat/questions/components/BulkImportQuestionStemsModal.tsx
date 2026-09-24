@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import {
   Button,
@@ -9,6 +10,7 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
+  isToastInteraction,
 } from '@altitutor/ui'
 import { ChevronLeft, ChevronRight, X } from 'lucide-react'
 import {
@@ -28,20 +30,36 @@ import {
   useUcatTags,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/components/bulk-import/bulkImportLogicalLines'
+import { inferParsingIndicators } from '@/features/ucat/questions/components/bulk-import/bulkImportParsingIndicatorHints'
+import { inferBulkImportCategoryIdForFormValues } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
+import { collectLogicalLinesFromDoc } from '@/features/ucat/questions/lib/parsers/core'
+import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
 import { Step1ChooseSection } from '@/features/ucat/questions/components/bulk-import/Step1ChooseSection'
+import {
+  readBulkImportTutorSourceNoteDraft,
+  writeBulkImportTutorSourceNoteDraft,
+} from '@/features/ucat/questions/components/bulk-import/bulkImportTutorSourceNoteDraft'
 import {
   Step2PasteDocument,
   type ParsingOptions,
   type PasteTableBehavior,
 } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
-import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
+import { BulkImportReadinessReview } from '@/features/ucat/questions/components/bulk-import/BulkImportReadinessReview'
 import {
   Step4CreateSet,
   type AddToSetConfig,
 } from '@/features/ucat/questions/components/bulk-import/Step4CreateSet'
 import { StepPasteStems } from '@/features/ucat/questions/components/bulk-import/StepPasteStems'
-import { StepPerStemQuestions } from '@/features/ucat/questions/components/bulk-import/StepPerStemQuestions'
-import { StepAnswers, DEFAULT_ANSWER_PARSING_OPTIONS, type AnswerParsingOptions, answerParsingOptionsToParseOptions } from '@/features/ucat/questions/components/bulk-import/StepAnswers'
+import {
+  StepPerStemQuestions,
+  type PerStemQuestionPasteMode,
+} from '@/features/ucat/questions/components/bulk-import/StepPerStemQuestions'
+import {
+  StepAnswers,
+  DEFAULT_ANSWER_PARSING_OPTIONS,
+  type AnswerParsingOptions,
+  answerParsingOptionsToParseOptions,
+} from '@/features/ucat/questions/components/bulk-import/StepAnswers'
 import { BulkImportConfirmDialog } from '@/features/ucat/questions/components/bulk-import/BulkImportConfirmDialog'
 import {
   getBulkImportStepKind,
@@ -65,6 +83,7 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportParseSection'
 import {
   DEFAULT_STEM_SPLIT_OPTIONS,
+  splitQuestionDocumentFromDoc,
   type StemSplitOptions,
 } from '@/features/ucat/questions/lib/parsers/splitStemDocument'
 import {
@@ -73,7 +92,6 @@ import {
 } from '@/features/ucat/questions/components/bulk-import/bulkImportBulkAnswers'
 import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { findMissingExplanations } from '@/features/ucat/questions/lib/ai-tools'
 import {
   StepStemCategories,
   everyStemHasCategory,
@@ -83,10 +101,17 @@ import {
   StepQuestionTags,
   type BulkImportTagOption,
 } from '@/features/ucat/questions/components/bulk-import/StepQuestionTags'
+import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
+import { BulkImportFormattingWarnings } from '@/features/ucat/questions/components/bulk-import/BulkImportFormattingWarnings'
+import { lintBulkImportFormatting } from '@/features/ucat/questions/components/bulk-import/bulkImportFormattingLint'
+import { runBulkImportDeterministicReview } from '@/features/ucat/questions/components/bulk-import/bulkImportDeterministicReview'
+import { useBulkImportDecisions } from '@/features/ucat/questions/hooks/useBulkImportDecisions'
+import { useBulkImportDuplicateAnalysis } from '@/features/ucat/questions/hooks/useBulkImportDuplicateAnalysis'
 
 export type BulkImportSubmitArgs = {
   sectionId: string
-  stems: UcatQuestionStemFormValues[]
+  stems: Array<BulkImportStemDraft & { importStatus: 'draft' | 'in_review' }>
+  tutorSourceNote: string | null
   addToSet: AddToSetConfig | null
 }
 
@@ -102,15 +127,6 @@ type PendingConfirm =
   | { type: 'back_to_stems' }
   | { type: 'close_modal' }
   | null
-
-function summarizeBulkImportMissingExplanations(stems: BulkImportStemDraft[]) {
-  const targets = stems.flatMap((stem, stemIndex) => findMissingExplanations(stem.values, stemIndex))
-  if (targets.length === 0) return null
-  const questions = new Set(targets.map((target) => `${target.stemIndex ?? 0}-${target.questionIndex}`))
-  return `${questions.size} question${questions.size === 1 ? '' : 's'} still ${
-    questions.size === 1 ? 'needs' : 'need'
-  } explanation text before you can continue. Multiple-choice questions need a question-level explanation; syllogism questions need every answer option explained. Use "Generate missing explanations" or expand the row and type the missing explanation.`
-}
 
 export function BulkImportQuestionStemsModal({
   open,
@@ -130,17 +146,26 @@ export function BulkImportQuestionStemsModal({
   const [parseError, setParseError] = useState<string | null>(null)
   const [isParsing, setIsParsing] = useState(false)
   const [sectionId, setSectionId] = useState<string | null>(null)
+  const [tutorSourceNote, setTutorSourceNote] = useState('')
   const [separateStemDocument, setSeparateStemDocument] = useState(false)
   const [pastedContent, setPastedContent] = useState<Json | null>(null)
-  const [stemSplitOptions, setStemSplitOptions] = useState<StemSplitOptions>(DEFAULT_STEM_SPLIT_OPTIONS)
+  const [stemSplitOptions, setStemSplitOptions] = useState<StemSplitOptions>(
+    DEFAULT_STEM_SPLIT_OPTIONS
+  )
+  const [questionSplitOptions, setQuestionSplitOptions] = useState<StemSplitOptions>(
+    DEFAULT_STEM_SPLIT_OPTIONS
+  )
   const [pastedStemDoc, setPastedStemDoc] = useState<Json | null>(null)
   const [parsedStemTexts, setParsedStemTexts] = useState<string[]>([])
   const [perStemQuestionDocs, setPerStemQuestionDocs] = useState<Array<Json | null>>([])
+  const [perStemQuestionPasteMode, setPerStemQuestionPasteMode] =
+    useState<PerStemQuestionPasteMode>('separate')
+  const [pastedAllQuestionsDoc, setPastedAllQuestionsDoc] = useState<Json | null>(null)
   const [pastedAnswersJson, setPastedAnswersJson] = useState<Json | null>(null)
   const [answerParsingOptions, setAnswerParsingOptions] = useState<AnswerParsingOptions>(
     DEFAULT_ANSWER_PARSING_OPTIONS
   )
-  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('strip_outside')
+  const [pasteTableBehavior, setPasteTableBehavior] = useState<PasteTableBehavior>('keep')
   const [addToSetEnabled, setAddToSetEnabled] = useState(false)
   const [addToSetConfig, setAddToSetConfig] = useState<AddToSetConfig | null>(null)
   const [expanded, setExpanded] = useState(true)
@@ -154,13 +179,17 @@ export function BulkImportQuestionStemsModal({
     quantitativeReasoningQuestionNumberPlacement: 'question',
   })
   const [pendingConfirm, setPendingConfirm] = useState<PendingConfirm>(null)
-  const [syllogismManualTargets, setSyllogismManualTargets] = useState<SyllogismManualEntryTarget[]>(
-    []
-  )
+  const [syllogismManualTargets, setSyllogismManualTargets] = useState<
+    SyllogismManualEntryTarget[]
+  >([])
   const [syllogismManualStepIncluded, setSyllogismManualStepIncluded] = useState(false)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const step2NewImageFileIdsRef = useRef<Set<string>>(new Set())
   /** Blocks parent Dialog close while a nested confirm is opening/open (Radix races onOpenChange). */
   const suppressDialogCloseRef = useRef(false)
+  /** Once true, skip further auto-detect (initial paste done or tutor edited settings). */
+  const indicatorsLockedRef = useRef(false)
+  const questionSplitOptionsTouchedRef = useRef(false)
 
   function queueConfirm(confirm: PendingConfirm) {
     suppressDialogCloseRef.current = true
@@ -175,16 +204,18 @@ export function BulkImportQuestionStemsModal({
     }, 0)
   }
 
+  const handleTutorSourceNoteChange = useCallback((value: string) => {
+    setTutorSourceNote(value)
+    writeBulkImportTutorSourceNoteDraft(value)
+  }, [])
+
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categoryOptions = useMemo(
     () => mapCategoriesToOptions(categoriesQuery.data ?? []),
     [categoriesQuery.data]
   )
   const categories = categoriesQuery.data ?? []
-  const tagOptions = useMemo(
-    () => mapTagsToOptions(tagsQuery.data ?? []),
-    [tagsQuery.data]
-  )
+  const tagOptions = useMemo(() => mapTagsToOptions(tagsQuery.data ?? []), [tagsQuery.data])
   const selectableTagOptions = useMemo(
     () =>
       mapTagsToOptions(
@@ -203,34 +234,114 @@ export function BulkImportQuestionStemsModal({
     [selectedSection?.name]
   )
 
+  const inferMissingCategoryId = useCallback(
+    (values: UcatQuestionStemFormValues) => {
+      if (!resolvedBulkImportSection || !sectionId) return null
+      return inferBulkImportCategoryIdForFormValues({
+        values,
+        section: resolvedBulkImportSection,
+        sectionId,
+        categories: categoryOptions,
+      })
+    },
+    [categoryOptions, resolvedBulkImportSection, sectionId]
+  )
+
   const isDecisionMakingSection = resolvedBulkImportSection === 'decision_making'
   const isBulkParseSection = resolvedBulkImportSection != null
 
   const includeSyllogismManualStep =
-    isDecisionMakingSection &&
-    (syllogismManualStepIncluded || syllogismManualTargets.length > 0)
+    isDecisionMakingSection && (syllogismManualStepIncluded || syllogismManualTargets.length > 0)
 
-  const totalStepsResolved = getBulkImportTotalSteps(separateStemDocument, includeSyllogismManualStep)
+  const totalStepsResolved = getBulkImportTotalSteps(
+    separateStemDocument,
+    includeSyllogismManualStep
+  )
   const stepKind = getBulkImportStepKind(step, separateStemDocument, includeSyllogismManualStep)
+  const readinessByStemId = useMemo(
+    () =>
+      Object.fromEntries(
+        wizard.state.stems.map((stem) => {
+          const review = runBulkImportDeterministicReview({
+            values: stem.values,
+            sectionName: sections.find((section) => section.id === stem.values.sectionId)?.name,
+            categoryName: categoryOptions.find((category) => category.id === stem.values.categoryId)
+              ?.name,
+          })
+          return [stem.id, { ...review, stemId: stem.id }]
+        })
+      ),
+    [categoryOptions, sections, wizard.state.stems]
+  )
+  const importEligibilityByStemId = useMemo(
+    () =>
+      Object.fromEntries(
+        Object.entries(readinessByStemId).map(([id, review]) => [
+          id,
+          { eligibleForInReview: !review.hasHardFailures },
+        ])
+      ),
+    [readinessByStemId]
+  )
+  const duplicateAnalysis = useBulkImportDuplicateAnalysis(
+    wizard.state.stems,
+    stepKind === 'review'
+  )
+  const importDecisions = useBulkImportDecisions({
+    stems: wizard.state.stems,
+    readinessByStemId: importEligibilityByStemId,
+    defaultExcludedStemIds: duplicateAnalysis.duplicateStemIds,
+  })
 
   const wipeDownstreamFromStems = useCallback(() => {
     setParsedStemTexts([])
     setPerStemQuestionDocs([])
+    setPerStemQuestionPasteMode('separate')
+    setPastedAllQuestionsDoc(null)
+    setQuestionSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
+    questionSplitOptionsTouchedRef.current = false
     setPastedAnswersJson(null)
     setSyllogismManualTargets([])
     setSyllogismManualStepIncluded(false)
+    importDecisions.reset()
+    duplicateAnalysis.reset()
     wizard.reset()
-  }, [wizard])
+  }, [duplicateAnalysis, importDecisions, wizard])
 
   const wipeDownstreamFull = useCallback(() => {
     setPastedContent(null)
     setPastedStemDoc(null)
+    indicatorsLockedRef.current = false
     wipeDownstreamFromStems()
   }, [wipeDownstreamFromStems])
+
+  const handleParsingOptionsChange = useCallback((options: ParsingOptions) => {
+    indicatorsLockedRef.current = true
+    setParsingOptions(options)
+  }, [])
+
+  const maybeAutoDetectParsingIndicators = useCallback((doc: Json | null | undefined) => {
+    if (indicatorsLockedRef.current) return
+    if (!hasRichTextContent(doc)) return
+    const lines = collectLogicalLinesFromDoc(doc, {
+      detectNestedQuestionTables: true,
+    })
+    const inferred = inferParsingIndicators(lines)
+    if (!inferred.questionIndicator && !inferred.answerOptionIndicator) return
+    indicatorsLockedRef.current = true
+    setParsingOptions((prev) => ({
+      ...prev,
+      ...(inferred.questionIndicator ? { questionIndicator: inferred.questionIndicator } : {}),
+      ...(inferred.answerOptionIndicator
+        ? { answerOptionIndicator: inferred.answerOptionIndicator }
+        : {}),
+    }))
+  }, [])
 
   useEffect(() => {
     if (open) {
       setExpanded(true)
+      setTutorSourceNote(readBulkImportTutorSourceNoteDraft())
       return
     }
     setStep(0)
@@ -242,12 +353,15 @@ export function BulkImportQuestionStemsModal({
     setSeparateStemDocument(false)
     setPastedContent(null)
     setStemSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
+    setQuestionSplitOptions(DEFAULT_STEM_SPLIT_OPTIONS)
     setPastedStemDoc(null)
     setParsedStemTexts([])
     setPerStemQuestionDocs([])
+    setPerStemQuestionPasteMode('separate')
+    setPastedAllQuestionsDoc(null)
     setPastedAnswersJson(null)
     setAnswerParsingOptions(DEFAULT_ANSWER_PARSING_OPTIONS)
-    setPasteTableBehavior('strip_outside')
+    setPasteTableBehavior('keep')
     setAddToSetEnabled(false)
     setAddToSetConfig(null)
     setParsingOptions({
@@ -259,14 +373,25 @@ export function BulkImportQuestionStemsModal({
       decisionMakingQuestionNumberPlacement: 'question',
       quantitativeReasoningQuestionNumberPlacement: 'question',
     })
+    indicatorsLockedRef.current = false
+    questionSplitOptionsTouchedRef.current = false
     suppressDialogCloseRef.current = false
     setPendingConfirm(null)
     setSyllogismManualTargets([])
     setSyllogismManualStepIncluded(false)
+    setActiveTextEditor(null)
     step2NewImageFileIdsRef.current = new Set()
+    importDecisions.reset()
+    duplicateAnalysis.reset()
     wizard.reset()
     // eslint-disable-next-line react-hooks/exhaustive-deps -- reset only when modal closes
   }, [open])
+
+  useEffect(() => {
+    if (stepKind !== 'review') {
+      setActiveTextEditor(null)
+    }
+  }, [stepKind])
 
   const handleStep2ImageFileIds = useCallback((fileIds: string[]) => {
     fileIds.forEach((id) => step2NewImageFileIdsRef.current.add(id))
@@ -276,6 +401,7 @@ export function BulkImportQuestionStemsModal({
     () =>
       parsedStemTexts.length > 0 ||
       perStemQuestionDocs.some((d) => d != null) ||
+      pastedAllQuestionsDoc != null ||
       pastedContent != null ||
       pastedStemDoc != null ||
       wizard.state.stems.length > 0 ||
@@ -283,6 +409,7 @@ export function BulkImportQuestionStemsModal({
     [
       parsedStemTexts.length,
       perStemQuestionDocs,
+      pastedAllQuestionsDoc,
       pastedContent,
       pastedStemDoc,
       wizard.state.stems.length,
@@ -295,29 +422,109 @@ export function BulkImportQuestionStemsModal({
     return (
       step > 0 ||
       sectionId != null ||
+      tutorSourceNote.trim().length > 0 ||
       separateStemDocument ||
       addToSetEnabled ||
       hasDownstreamPasteWork
     )
-  }, [status, step, sectionId, separateStemDocument, addToSetEnabled, hasDownstreamPasteWork])
+  }, [
+    status,
+    step,
+    sectionId,
+    tutorSourceNote,
+    separateStemDocument,
+    addToSetEnabled,
+    hasDownstreamPasteWork,
+  ])
+
+  const splitAllQuestionsDocument = useMemo(
+    () => splitQuestionDocumentFromDoc(pastedAllQuestionsDoc, questionSplitOptions),
+    [pastedAllQuestionsDoc, questionSplitOptions]
+  )
+  const effectivePerStemQuestionDocs =
+    perStemQuestionPasteMode === 'single_document'
+      ? splitAllQuestionsDocument.documents
+      : perStemQuestionDocs
 
   const allPerStemQuestionsParsed = useMemo(() => {
     if (!resolvedBulkImportSection || parsedStemTexts.length === 0) return false
+    if (
+      perStemQuestionPasteMode === 'single_document' &&
+      effectivePerStemQuestionDocs.length !== parsedStemTexts.length
+    ) {
+      return false
+    }
     return parsedStemTexts.every((_, index) => {
       const { questions } = parseQuestionsOnlyForSection(
-        perStemQuestionDocs[index],
+        effectivePerStemQuestionDocs[index],
         resolvedBulkImportSection,
         parsingOptions
       )
       return questions.length > 0
     })
-  }, [parsedStemTexts, perStemQuestionDocs, resolvedBulkImportSection, parsingOptions])
+  }, [
+    parsedStemTexts,
+    effectivePerStemQuestionDocs,
+    resolvedBulkImportSection,
+    parsingOptions,
+    perStemQuestionPasteMode,
+  ])
 
   const canGoPrevious = step > 0 && status !== 'submitting' && !isParsing
 
   const answerParseOptions = useMemo(
     () => answerParsingOptionsToParseOptions(answerParsingOptions),
     [answerParsingOptions]
+  )
+
+  const formattingSourceDocuments = useMemo(() => {
+    if (separateStemDocument) {
+      return [
+        { label: 'Pasted stem document', value: pastedStemDoc },
+        ...(perStemQuestionPasteMode === 'single_document'
+          ? [
+              {
+                label: 'Pasted questions document',
+                value: pastedAllQuestionsDoc,
+              },
+            ]
+          : perStemQuestionDocs.map((value, index) => ({
+              label: `Pasted questions for stem ${index + 1}`,
+              value,
+            }))),
+        {
+          label: 'Pasted answers document',
+          value: pastedAnswersJson,
+          compareTableCount: false,
+        },
+      ]
+    }
+    return [
+      { label: 'Pasted questions document', value: pastedContent },
+      {
+        label: 'Pasted answers document',
+        value: pastedAnswersJson,
+        compareTableCount: false,
+      },
+    ]
+  }, [
+    separateStemDocument,
+    pastedStemDoc,
+    perStemQuestionDocs,
+    perStemQuestionPasteMode,
+    pastedAllQuestionsDoc,
+    pastedAnswersJson,
+    pastedContent,
+  ])
+
+  const formattingIssues = useMemo(
+    () =>
+      lintBulkImportFormatting({
+        sourceDocuments: formattingSourceDocuments,
+        stems: wizard.state.stems.map((stem) => stem.values),
+        compareParsedOutput: wizard.state.stems.length > 0,
+      }),
+    [formattingSourceDocuments, wizard.state.stems]
   )
 
   const canGoNext = useMemo(() => {
@@ -329,7 +536,8 @@ export function BulkImportQuestionStemsModal({
     }
     if (stepKind === 'per_stem_questions') return allPerStemQuestionsParsed
     if (stepKind === 'paste_document') return true
-    if (stepKind === 'syllogism_manual') return syllogismManualEntryIsComplete(syllogismManualTargets)
+    if (stepKind === 'syllogism_manual')
+      return syllogismManualEntryIsComplete(syllogismManualTargets)
     if (stepKind === 'answers') {
       if (wizard.state.stems.length === 0) return false
       const validation = validateBulkAnswersDocument(
@@ -361,10 +569,8 @@ export function BulkImportQuestionStemsModal({
     totalStepsResolved,
   ])
 
-  const isLoadingMeta =
-    sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
-  const hasErrorMeta =
-    sectionsQuery.isError || categoriesQuery.isError || tagsQuery.isError
+  const isLoadingMeta = sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
+  const hasErrorMeta = sectionsQuery.isError || categoriesQuery.isError || tagsQuery.isError
 
   function performClose() {
     if (status === 'submitting' || isParsing) return
@@ -392,8 +598,7 @@ export function BulkImportQuestionStemsModal({
   }
 
   function handleDismissAttempt(event: Event) {
-    const target = event.target as HTMLElement | null
-    if (target?.closest('[data-toast-container]')) {
+    if (isToastInteraction(event)) {
       event.preventDefault()
       return
     }
@@ -430,16 +635,16 @@ export function BulkImportQuestionStemsModal({
       )
       if (forms.length === 0) {
         const ocrMessage =
-          ocr != null && ocr.warnings.length > 0
-            ? ` ${ocr.warnings.join(' ')}`
-            : ''
+          ocr != null && ocr.warnings.length > 0 ? ` ${ocr.warnings.join(' ')}` : ''
         setParseError(
           `No valid stems and questions were detected. Please check the formatting.${ocrMessage}`
         )
+        importDecisions.reset()
         wizard.setStems([])
         setSyllogismManualTargets([])
         return { ok: false }
       }
+      importDecisions.reset()
       const drafts = wizard.setStems(forms)
       const manualTargets = collectSyllogismManualEntryTargets(drafts)
       setSyllogismManualTargets(manualTargets)
@@ -455,20 +660,21 @@ export function BulkImportQuestionStemsModal({
       }
       return { ok: true, drafts }
     } catch (error) {
-      setParseError(
-        error instanceof Error ? error.message : 'Failed to parse the pasted document.'
-      )
+      setParseError(error instanceof Error ? error.message : 'Failed to parse the pasted document.')
+      importDecisions.reset()
       wizard.setStems([])
       return { ok: false }
     }
   }
 
-  function buildStemsFromSeparateFlow(): { ok: true; drafts: BulkImportStemDraft[] } | { ok: false } {
+  function buildStemsFromSeparateFlow():
+    | { ok: true; drafts: BulkImportStemDraft[] }
+    | { ok: false } {
     if (!sectionId || !resolvedBulkImportSection) return { ok: false }
     try {
       const forms = buildFormValuesFromSeparateStemDocuments(
         parsedStemTexts,
-        perStemQuestionDocs,
+        effectivePerStemQuestionDocs,
         resolvedBulkImportSection,
         sectionId,
         parsingOptions,
@@ -477,14 +683,17 @@ export function BulkImportQuestionStemsModal({
       )
       if (forms.length === 0) {
         setParseError('No valid stems and questions were detected.')
+        importDecisions.reset()
         wizard.setStems([])
         return { ok: false }
       }
+      importDecisions.reset()
       const drafts = wizard.setStems(forms)
       setParseError(null)
       return { ok: true, drafts }
     } catch (error) {
       setParseError(error instanceof Error ? error.message : 'Failed to parse per-stem questions.')
+      importDecisions.reset()
       wizard.setStems([])
       return { ok: false }
     }
@@ -511,6 +720,9 @@ export function BulkImportQuestionStemsModal({
       }
       setParsedStemTexts(split.stems)
       setPerStemQuestionDocs(split.stems.map(() => null))
+      if (!questionSplitOptionsTouchedRef.current) {
+        setQuestionSplitOptions(stemSplitOptions)
+      }
       setParseError(null)
     }
 
@@ -554,14 +766,7 @@ export function BulkImportQuestionStemsModal({
       setParseError(null)
     }
 
-    if (stepKind === 'review') {
-      const missingExplanationMessage = summarizeBulkImportMissingExplanations(wizard.state.stems)
-      if (missingExplanationMessage) {
-        setParseError(missingExplanationMessage)
-        return
-      }
-      setParseError(null)
-    }
+    if (stepKind === 'review') setParseError(null)
 
     setStep((current) => (current < totalStepsResolved - 1 ? current + 1 : current))
   }
@@ -609,7 +814,7 @@ export function BulkImportQuestionStemsModal({
 
   async function handleImportAll() {
     if (!sectionId) return
-    if (wizard.state.stems.length === 0) {
+    if (importDecisions.selectedStems.length === 0) {
       setParseError('No parsed stems available to import.')
       return
     }
@@ -618,38 +823,36 @@ export function BulkImportQuestionStemsModal({
       return
     }
     if (
-      addToSetEnabled &&
-      addToSetConfig?.mode === 'create' &&
-      !addToSetConfig.name.trim()
+      addToSetEnabled
+      && addToSetConfig?.mode === 'create'
+      && !addToSetConfig.referenceBlueprintId
     ) {
-      setParseError('Please enter a name for the new set.')
+      setParseError('Please select a reference blueprint for the new set.')
       return
     }
     if (
       addToSetEnabled &&
       addToSetConfig?.mode === 'create' &&
-      addToSetConfig.isTimed &&
-      (addToSetConfig.timeLimitSeconds == null || addToSetConfig.timeLimitSeconds <= 0)
+      addToSetConfig.timingMode === 'fixed' &&
+      (addToSetConfig.fixedTimeLimitSeconds == null || addToSetConfig.fixedTimeLimitSeconds <= 0)
     ) {
-      setParseError('Please enter a time limit greater than 0 for timed sets.')
+      setParseError('Please enter a time limit greater than 0 for fixed-time sets.')
       return
     }
 
     try {
       setStatus('submitting')
       setSubmitError(null)
-      const stemsToSubmit = wizard.state.stems.map((stem) => stem.values)
       await onSubmit({
         sectionId,
-        stems: stemsToSubmit,
+        stems: importDecisions.selectedStems,
+        tutorSourceNote: tutorSourceNote.trim() || null,
         addToSet: addToSetEnabled ? addToSetConfig : null,
       })
       setStatus('success')
     } catch (error) {
       setStatus('error')
-      setSubmitError(
-        error instanceof Error ? error.message : 'Failed to import question stems'
-      )
+      setSubmitError(error instanceof Error ? error.message : 'Failed to import question stems')
     }
   }
 
@@ -672,7 +875,7 @@ export function BulkImportQuestionStemsModal({
           </div>
           <div className="text-lg font-semibold">Bulk import completed</div>
           <p className="text-sm text-muted-foreground">
-            All question stems have been created successfully.
+            Question stems were imported to their selected destinations.
           </p>
         </div>
       )
@@ -705,6 +908,8 @@ export function BulkImportQuestionStemsModal({
           onChangeSection={setSectionId}
           separateStemDocument={separateStemDocument}
           onSeparateStemDocumentChange={handleSeparateStemDocumentChange}
+          tutorSourceNote={tutorSourceNote}
+          onTutorSourceNoteChange={handleTutorSourceNoteChange}
         />
       )
     }
@@ -729,6 +934,7 @@ export function BulkImportQuestionStemsModal({
           stemTexts={parsedStemTexts}
           perStemDocs={perStemQuestionDocs}
           onPerStemDocChange={(index, doc) => {
+            maybeAutoDetectParsingIndicators(doc)
             setPerStemQuestionDocs((prev) => {
               const next = [...prev]
               next[index] = doc
@@ -737,9 +943,22 @@ export function BulkImportQuestionStemsModal({
           }}
           section={resolvedBulkImportSection}
           parsingOptions={parsingOptions}
-          onParsingOptionsChange={setParsingOptions}
+          onParsingOptionsChange={handleParsingOptionsChange}
           pasteTableBehavior={pasteTableBehavior}
           onPasteTableBehaviorChange={setPasteTableBehavior}
+          pasteMode={perStemQuestionPasteMode}
+          onPasteModeChange={setPerStemQuestionPasteMode}
+          singleDocument={pastedAllQuestionsDoc}
+          onSingleDocumentChange={(doc) => {
+            maybeAutoDetectParsingIndicators(doc)
+            setPastedAllQuestionsDoc(doc)
+          }}
+          singleDocumentSplit={splitAllQuestionsDocument}
+          questionSplitOptions={questionSplitOptions}
+          onQuestionSplitOptionsChange={(options) => {
+            questionSplitOptionsTouchedRef.current = true
+            setQuestionSplitOptions(options)
+          }}
           onImageFileIdsChange={handleStep2ImageFileIds}
         />
       )
@@ -752,6 +971,7 @@ export function BulkImportQuestionStemsModal({
           layout="split"
           value={pastedContent}
           onChange={(value) => {
+            maybeAutoDetectParsingIndicators(value)
             setPastedContent(value)
             setParseError(null)
             setSyllogismManualTargets([])
@@ -759,7 +979,7 @@ export function BulkImportQuestionStemsModal({
           }}
           onImageFileIdsChange={handleStep2ImageFileIds}
           parsingOptions={parsingOptions}
-          onParsingOptionsChange={setParsingOptions}
+          onParsingOptionsChange={handleParsingOptionsChange}
           pasteTableBehavior={pasteTableBehavior}
           onPasteTableBehaviorChange={setPasteTableBehavior}
           liveParseSection={resolvedBulkImportSection}
@@ -808,6 +1028,9 @@ export function BulkImportQuestionStemsModal({
               : []
           )}
           onUpdateStem={wizard.updateStemForm}
+          inferMissingCategoryId={
+            resolvedBulkImportSection && sectionId ? inferMissingCategoryId : undefined
+          }
         />
       )
     }
@@ -825,7 +1048,7 @@ export function BulkImportQuestionStemsModal({
 
     if (stepKind === 'review') {
       return (
-        <Step3SetAnswers
+        <BulkImportReadinessReview
           stems={wizard.state.stems}
           categories={categoryOptions}
           sections={sections.map((s) => ({
@@ -836,19 +1059,37 @@ export function BulkImportQuestionStemsModal({
           tags={tagOptions}
           onUpdateStem={wizard.updateStemForm}
           onNewImageFileIds={handleStep2ImageFileIds}
+          onActiveTextEditorChange={setActiveTextEditor}
+          readinessByStemId={readinessByStemId}
+          decisions={importDecisions.decisions}
+          onDecisionChange={importDecisions.setDecision}
+          onSetAll={importDecisions.setAll}
+          duplicateFindings={duplicateAnalysis.findings}
+          duplicateStatus={duplicateAnalysis.status}
+          duplicateError={duplicateAnalysis.error}
+          duplicateSimilarityThreshold={duplicateAnalysis.similarityThreshold}
+          onDuplicateSimilarityThresholdChange={duplicateAnalysis.setSimilarityThreshold}
+          onRetryDuplicateAnalysis={() => void duplicateAnalysis.run()}
         />
       )
     }
 
     if (stepKind === 'create_set') {
       return (
-        <Step4CreateSet
-          addToSetEnabled={addToSetEnabled}
-          onAddToSetEnabledChange={setAddToSetEnabled}
-          addToSetConfig={addToSetConfig}
-          onAddToSetConfigChange={setAddToSetConfig}
-          onEditSet={onEditSet}
-        />
+        <div className="space-y-4">
+          <Step4CreateSet
+            sectionId={sectionId ?? ''}
+            questionCount={importDecisions.selectedStems.reduce(
+              (total, stem) => total + stem.values.questions.length,
+              0,
+            )}
+            addToSetEnabled={addToSetEnabled}
+            onAddToSetEnabledChange={setAddToSetEnabled}
+            addToSetConfig={addToSetConfig}
+            onAddToSetConfigChange={setAddToSetConfig}
+            onEditSet={onEditSet}
+          />
+        </div>
       )
     }
 
@@ -904,7 +1145,8 @@ export function BulkImportQuestionStemsModal({
       >
         <DialogContent
           className={cn(
-            'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-5xl [&>button]:hidden',
+            // Lock shell height/overflow so only step bodies scroll (not header/footer).
+            'flex h-[90vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!h-[90vh] md:max-w-5xl [&>button]:hidden',
             EXPANDABLE_DIALOG_TRANSITION,
             expanded && EXPANDED_DIALOG_CONTENT_CLASS
           )}
@@ -941,11 +1183,7 @@ export function BulkImportQuestionStemsModal({
                       key={index}
                       className={cn(
                         'h-2 flex-1 rounded-full transition-colors',
-                        index < step
-                          ? 'bg-primary'
-                          : index === step
-                            ? 'bg-primary/50'
-                            : 'bg-muted'
+                        index < step ? 'bg-primary' : index === step ? 'bg-primary/50' : 'bg-muted'
                       )}
                     />
                   ))}
@@ -958,6 +1196,11 @@ export function BulkImportQuestionStemsModal({
             {useFullHeightLayout ? (
               <div className="flex h-full min-h-0 flex-col px-6 py-4">
                 <div className="min-h-0 flex-1 overflow-hidden">{renderBody()}</div>
+                {formattingIssues.length > 0 ? (
+                  <div className="mt-3 shrink-0">
+                    <BulkImportFormattingWarnings issues={formattingIssues} />
+                  </div>
+                ) : null}
                 {parseError ? (
                   <div className="mt-3 shrink-0 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                     {parseError}
@@ -973,6 +1216,11 @@ export function BulkImportQuestionStemsModal({
               <div className="h-full overflow-y-auto">
                 <div className="px-6 py-4">
                   {renderBody()}
+                  {formattingIssues.length > 0 ? (
+                    <div className="mt-4">
+                      <BulkImportFormattingWarnings issues={formattingIssues} />
+                    </div>
+                  ) : null}
                   {parseError ? (
                     <div className="mt-4 rounded-md border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive">
                       {parseError}
@@ -988,11 +1236,19 @@ export function BulkImportQuestionStemsModal({
             )}
           </div>
 
-          <div className="flex justify-between border-t bg-background px-6 py-4">
+          <div className="flex items-center gap-3 border-t bg-background px-6 py-4">
             <Button variant="outline" onClick={handlePreviousClick} disabled={!canGoPrevious}>
               <ChevronLeft className="mr-2 h-4 w-4" />
               Previous
             </Button>
+
+            {stepKind === 'review' && activeTextEditor ? (
+              <div className="min-w-0 flex-1 overflow-x-auto" data-rich-text-toolbar>
+                <UcatRichTextToolbar editor={activeTextEditor} />
+              </div>
+            ) : (
+              <div className="flex-1" />
+            )}
 
             {status === 'success' ? (
               <Button onClick={handleRequestClose}>Close</Button>
@@ -1006,19 +1262,19 @@ export function BulkImportQuestionStemsModal({
                 onClick={handleImportAll}
                 disabled={
                   status === 'submitting' ||
-                  wizard.state.stems.length === 0 ||
+                  importDecisions.selectedStems.length === 0 ||
                   (addToSetEnabled && !addToSetConfig) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
-                    !addToSetConfig.name.trim()) ||
+                    !addToSetConfig.referenceBlueprintId) ||
                   (addToSetEnabled &&
                     addToSetConfig?.mode === 'create' &&
-                    addToSetConfig.isTimed &&
-                    (addToSetConfig.timeLimitSeconds == null ||
-                      addToSetConfig.timeLimitSeconds <= 0))
+                    addToSetConfig.timingMode === 'fixed' &&
+                    (addToSetConfig.fixedTimeLimitSeconds == null ||
+                      addToSetConfig.fixedTimeLimitSeconds <= 0))
                 }
               >
-                Import all stems
+                Import stems
               </Button>
             ) : (
               <Button onClick={handleRequestClose}>Close</Button>

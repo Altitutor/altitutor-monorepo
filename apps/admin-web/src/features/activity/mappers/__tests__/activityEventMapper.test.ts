@@ -1,0 +1,394 @@
+import type { ActivityEvent, ActivityEventsResponse } from '../../types';
+import { mapActivityEventToDisplay, mapActivityEventsToDisplay } from '../activityEventMapper';
+
+function makeEvent(overrides: Partial<ActivityEvent> = {}): ActivityEvent {
+  return {
+    id: '10000000-0000-4000-8000-000000000001',
+    event_name: 'student.created',
+    event_version: 1,
+    subject_type: 'student',
+    subject_id: '10000000-0000-4000-8000-000000000002',
+    payload: {},
+    actor_staff_id: null,
+    recorded_at: '2026-08-30T10:00:00.000Z',
+    effective_at: '2026-08-30T10:00:00.000Z',
+    correlation_id: null,
+    idempotency_key: null,
+    source: 'application',
+    is_backfilled: false,
+    entities: [],
+    ...overrides,
+  };
+}
+
+describe('lifecycle activity mapper', () => {
+  it('renders safe payment-method display details', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'student.payment_method_added',
+      payload: {
+        card_brand: 'visa',
+        card_last4: '4242',
+        display: { actor_name: 'Admin User' },
+      },
+      actor_staff_id: '10000000-0000-4000-8000-000000000003',
+    }));
+
+    expect(result.message).toBe('added visa ending 4242');
+    expect(result.performedBy.name).toBe('Admin User');
+    expect(result.icon).toBe('check');
+  });
+
+  it('renders attendance with snapshotted student and session names', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_absent',
+      subject_type: 'session',
+      payload: {
+        display: { student_name: 'Alex Student', session_name: 'Tuesday UCAT' },
+      },
+    }));
+
+    expect(result.message).toBe('recorded Alex Student as absent from Tuesday UCAT');
+    expect(result.iconColor).toBe('red');
+  });
+
+  it.each([
+    ['class.student_added', 'added Alex Student to Tuesday UCAT'],
+    [
+      'session.student_absence_recorded',
+      "recorded Alex Student's planned absence from Tuesday UCAT",
+    ],
+  ])('includes linked entity names for %s', (eventName, expectedMessage) => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: eventName,
+      payload: {
+        display: {
+          student_name: 'Alex Student',
+          class_name: 'Tuesday UCAT',
+          session_name: 'Tuesday UCAT',
+        },
+      },
+    }));
+
+    expect(result.message).toBe(expectedMessage);
+  });
+
+  it('describes an invoice by number and all linked sessions', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.issued',
+      subject_type: 'invoice',
+      payload: {
+        display: {
+          invoice_name: 'INV-1042',
+          session_names: ['Tuesday UCAT', 'Thursday UCAT'],
+        },
+      },
+    }));
+
+    expect(result.message).toBe('issued invoice INV-1042 for Tuesday UCAT and Thursday UCAT');
+  });
+
+  it('includes card vs credit-balance settlement on a paid invoice', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.paid',
+      subject_type: 'invoice',
+      payload: {
+        amount_paid_cents: 15000,
+        amount_paid_from_balance_cents: 2000,
+        amount_paid_from_card_cents: 13000,
+        currency: 'AUD',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+
+    expect(result.message).toBe(
+      'recorded invoice INV-1042 as paid ($150.00 AUD, $20.00 AUD from credit balance, $130.00 AUD from card)'
+    );
+  });
+
+  it('describes a credit-balance-only payment without a card portion', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.paid',
+      subject_type: 'invoice',
+      payload: {
+        amount_paid_cents: 8000,
+        amount_paid_from_balance_cents: 8000,
+        amount_paid_from_card_cents: 0,
+        currency: 'AUD',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+
+    expect(result.message).toBe('recorded invoice INV-1042 as paid ($80.00 AUD from credit balance)');
+  });
+
+  it('describes sending an invoice notification and a declined card attempt', () => {
+    expect(mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.notification_sent',
+      subject_type: 'invoice',
+      payload: {
+        recipient_count: 2,
+        display: { invoice_name: 'INV-1042' },
+      },
+    })).message).toBe('sent the invoice notification for invoice INV-1042 to 2 recipients');
+
+    const declined = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.payment_attempted',
+      subject_type: 'invoice',
+      payload: {
+        outcome: 'declined',
+        display: { invoice_name: 'INV-1042' },
+      },
+    }));
+    expect(declined.message).toBe('attempted to charge the card for invoice INV-1042 (declined)');
+    expect(declined.iconColor).toBe('red');
+  });
+
+  it('includes the credit-note amount and why it was added', () => {
+    const manual = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.credit_note_added',
+      subject_type: 'invoice',
+      payload: {
+        credit_note_type: 'refund',
+        amount_cents: 5000,
+        currency: 'AUD',
+        reason: 'duplicate',
+        memo: 'Duplicate invoice line',
+        display: { invoice_name: 'INV-1042' },
+      },
+      actor_staff_id: '00000000-0000-0000-0000-000000000001',
+    }));
+
+    expect(manual.message).toBe(
+      'added a Refund credit note of $50.00 AUD to invoice INV-1042 (Duplicate invoice line)'
+    );
+    expect(manual.performedBy.name).toBe('Staff');
+
+    const absenceCredit = mapActivityEventToDisplay(makeEvent({
+      event_name: 'invoice.credit_note_added',
+      subject_type: 'invoice',
+      payload: {
+        credit_note_type: 'credit',
+        amount_cents: 9000,
+        currency: 'AUD',
+        reason: 'order_change',
+        reason_category: 'approved_absence',
+        reason_note: 'Sick with flu',
+        memo: 'Session absence credit',
+        display: { invoice_name: 'INV-1042', actor_name: 'Admin User' },
+      },
+      actor_staff_id: '00000000-0000-0000-0000-000000000001',
+    }));
+
+    expect(absenceCredit.message).toBe(
+      'added a Credit credit note of $90.00 AUD to invoice INV-1042 (Approved Absence: Sick with flu)'
+    );
+    expect(absenceCredit.performedBy.name).toBe('Admin User');
+  });
+
+  it('marks snapshotted entity names as clickable message parts', () => {
+    const studentId = '10000000-0000-4000-8000-000000000010';
+    const sessionId = '10000000-0000-4000-8000-000000000011';
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_absent',
+      subject_type: 'session',
+      entities: [
+        { entityType: 'student', entityId: studentId, role: 'subject', displayName: 'Alex Student' },
+        { entityType: 'session', entityId: sessionId, role: 'context', displayName: 'Tuesday UCAT' },
+      ],
+    }));
+
+    expect(result.message).toBe('recorded Alex Student as absent from Tuesday UCAT');
+    expect(result.messageParts).toEqual([
+      { kind: 'text', text: 'recorded ' },
+      {
+        kind: 'entity',
+        text: 'Alex Student',
+        entity: expect.objectContaining({ entityType: 'student', entityId: studentId }),
+      },
+      { kind: 'text', text: ' as absent from ' },
+      {
+        kind: 'entity',
+        text: 'Tuesday UCAT',
+        entity: expect.objectContaining({ entityType: 'session', entityId: sessionId }),
+      },
+    ]);
+  });
+
+  it('describes a staff swap as one action with both staff members and the session', () => {
+    const outgoingStaffId = '10000000-0000-4000-8000-000000000020';
+    const incomingStaffId = '10000000-0000-4000-8000-000000000021';
+    const sessionId = '10000000-0000-4000-8000-000000000022';
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.staff_swapped',
+      subject_type: 'session',
+      subject_id: sessionId,
+      entities: [
+        { entityType: 'session', entityId: sessionId, role: 'subject', displayName: 'Thursday UCAT' },
+        { entityType: 'staff', entityId: outgoingStaffId, role: 'staff_out', displayName: 'John Doe' },
+        { entityType: 'staff', entityId: incomingStaffId, role: 'staff_in', displayName: 'Emily Davis' },
+      ],
+    }));
+
+    expect(result.message).toBe('swapped John Doe out for Emily Davis in Thursday UCAT');
+    expect(result.messageParts?.filter((part) => part.kind === 'entity')).toEqual([
+      expect.objectContaining({ text: 'John Doe' }),
+      expect.objectContaining({ text: 'Emily Davis' }),
+      expect.objectContaining({ text: 'Thursday UCAT' }),
+    ]);
+  });
+
+  it('describes a student reschedule with both sessions', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'session.student_rescheduled',
+      subject_type: 'session',
+      entities: [
+        { entityType: 'student', entityId: '10000000-0000-4000-8000-000000000030', role: 'related', displayName: 'Bob Taylor' },
+        { entityType: 'session', entityId: '10000000-0000-4000-8000-000000000031', role: 'session_from', displayName: 'Monday UCAT' },
+        { entityType: 'session', entityId: '10000000-0000-4000-8000-000000000032', role: 'session_to', displayName: 'Thursday UCAT' },
+      ],
+    }));
+
+    expect(result.message).toBe('rescheduled Bob Taylor from Monday UCAT to Thursday UCAT');
+  });
+
+  it('exposes the allowlisted work-item changes to the existing field renderer', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'task.properties_changed',
+      subject_type: 'task',
+      payload: {
+        changes: {
+          priority: { old: 1, new: 2 },
+          due_date: { old: null, new: '2026-09-03T00:00:00.000Z' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      { fieldName: 'priority', fieldLabel: 'Priority', oldValue: '1', newValue: '2' },
+      { fieldName: 'due_date', fieldLabel: 'Due Date', oldValue: undefined, newValue: 'Thu 3 Sep' },
+    ]);
+  });
+
+  it('formats each project date property without changing ordinary text values', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'project.properties_changed',
+      subject_type: 'project',
+      payload: {
+        changes: {
+          name: { old: 'Old project', new: 'New project' },
+          start_date: { old: '2026-09-02T00:00:00.000Z', new: '2026-09-03T00:00:00.000Z' },
+          target_date: { old: null, new: '2026-09-10T00:00:00.000Z' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      { fieldName: 'name', fieldLabel: 'Name', oldValue: 'Old project', newValue: 'New project' },
+      { fieldName: 'start_date', fieldLabel: 'Start Date', oldValue: 'Wed 2 Sep', newValue: 'Thu 3 Sep' },
+      { fieldName: 'target_date', fieldLabel: 'Target Date', oldValue: undefined, newValue: 'Thu 10 Sep' },
+    ]);
+  });
+
+  it('formats student birthday property changes as calendar dates', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'student.properties_changed',
+      subject_type: 'student',
+      payload: {
+        changes: {
+          birthday: { old: '2000-01-02', new: '2000-01-03' },
+        },
+      },
+    }));
+
+    expect(result.changedFields).toEqual([
+      {
+        fieldName: 'birthday',
+        fieldLabel: 'Birthday',
+        oldValue: 'Sun 2 Jan',
+        newValue: 'Mon 3 Jan',
+      },
+    ]);
+  });
+
+  it('keeps the form response id available to the open-response action', () => {
+    const result = mapActivityEventToDisplay(makeEvent({
+      event_name: 'form.response_submitted',
+      subject_type: 'form_response',
+      subject_id: '10000000-0000-4000-8000-000000000004',
+    }));
+
+    expect(result.entityType).toBe('form_responses');
+    expect(result.entityId).toBe('10000000-0000-4000-8000-000000000004');
+  });
+
+  it('uses the current note body instead of the immutable event snapshot', () => {
+    const noteId = '10000000-0000-4000-8000-000000000040';
+    const event = makeEvent({
+      event_name: 'note.added',
+      subject_type: 'note',
+      subject_id: noteId,
+      payload: { note: 'Original note' },
+    });
+    const liveNote = {
+      id: noteId,
+      admin_revision: 1, target_type: 'student',
+      target_id: '10000000-0000-4000-8000-000000000041',
+      note: 'Edited note',
+      created_at: '2026-08-30T10:00:00.000Z',
+      created_by: '10000000-0000-4000-8000-000000000042',
+      updated_at: '2026-08-30T11:00:00.000Z',
+    };
+
+    const result = mapActivityEventsToDisplay({
+      events: [event],
+      relatedEntities: { notes: { [noteId]: liveNote } },
+      total: 1,
+      hasMore: false,
+    });
+
+    expect(result).toHaveLength(1);
+    expect(result[0].noteContent).toBe('Edited note');
+  });
+
+  it('omits a note card when the live note has been deleted', () => {
+    const result = mapActivityEventsToDisplay({
+      events: [makeEvent({
+        event_name: 'note.added',
+        subject_type: 'note',
+        subject_id: '10000000-0000-4000-8000-000000000043',
+        payload: { note: 'Deleted note' },
+      })],
+      relatedEntities: { notes: {} },
+      total: 1,
+      hasMore: false,
+    });
+
+    expect(result).toEqual([]);
+  });
+
+  it('displays and orders activity by when the event was recorded', () => {
+    const response: ActivityEventsResponse = {
+      events: [
+        makeEvent({
+          id: '1',
+          recorded_at: '2026-08-30T10:00:00.000Z',
+          effective_at: '2026-08-31T10:00:00.000Z',
+        }),
+        makeEvent({
+          id: '2',
+          recorded_at: '2026-08-31T10:00:00.000Z',
+          effective_at: '2026-08-29T10:00:00.000Z',
+        }),
+      ],
+      relatedEntities: {},
+      total: 2,
+      hasMore: false,
+    };
+
+    expect(mapActivityEventsToDisplay(response).map((event) => event.id)).toEqual(['2', '1']);
+    expect(mapActivityEventsToDisplay(response, { chronological: true }).map((event) => event.id)).toEqual(['1', '2']);
+    expect(mapActivityEventToDisplay(response.events[0]).performedAt).toBe(
+      '2026-08-30T10:00:00.000Z'
+    );
+  });
+});

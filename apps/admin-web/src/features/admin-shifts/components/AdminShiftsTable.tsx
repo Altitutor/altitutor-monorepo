@@ -354,14 +354,16 @@ export function AdminShiftsTable({ addModalState }: AdminShiftsTableProps) {
         onPageSizeChange={setPageSize}
       />
 
-      {/* Add Admin Shift Modal */}
-      <AddAdminShiftModal 
-        isOpen={isAddModalOpen} 
-        onClose={() => setIsAddModalOpen(false)} 
-        onAdminShiftAdded={() => {
-          refetch();
-        }}
-      />
+      {/* The page owns this modal when it supplies controlled state. */}
+      {!addModalState && (
+        <AddAdminShiftModal
+          isOpen={isAddModalOpen}
+          onClose={() => setIsAddModalOpen(false)}
+          onAdminShiftAdded={() => {
+            refetch();
+          }}
+        />
+      )}
 
       {/* Admin Shift Detail Modal */}
       {selectedAdminShift && (

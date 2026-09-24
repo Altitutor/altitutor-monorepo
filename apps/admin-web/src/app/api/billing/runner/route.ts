@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import type { Tables } from '@altitutor/shared';
@@ -70,6 +71,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(data);
   } catch (error) {
+    captureApiError(error, "/api/billing/runner");
     console.error('Error calling billing runner:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Failed to run billing' },

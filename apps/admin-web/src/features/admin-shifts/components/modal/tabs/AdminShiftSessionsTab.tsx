@@ -3,6 +3,7 @@
 import { useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import { SessionsTable } from '@/features/sessions/components/SessionsTable';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface AdminShiftSessionsTabProps {
   adminShiftData: Tables<'admin_shifts'>;
@@ -11,13 +12,15 @@ interface AdminShiftSessionsTabProps {
 }
 
 export function AdminShiftSessionsTab({ adminShiftData }: AdminShiftSessionsTabProps) {
+  const entityModals = useEntityModals();
+
   const handleOpenSession = useCallback((sessionId: string) => {
-    window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-  }, []);
+    entityModals.openSession(sessionId);
+  }, [entityModals]);
 
   const handleOpenStaff = useCallback((staffId: string) => {
-    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id: staffId } }));
-  }, []);
+    entityModals.openStaff(staffId);
+  }, [entityModals]);
 
   return (
     <div className="h-full flex flex-col space-y-4 min-h-0">

@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { ReportEntityLink } from '../types';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
 import {
@@ -9,10 +8,7 @@ import {
   useMarketingStatsReport,
 } from '../hooks/useAdditionalReports';
 import { IssuesReportChart } from './IssuesReportChart';
-import { ViewStudentModal } from '@/features/students';
-import { ViewClassModal } from '@/features/classes';
-import { ViewStaffModal } from '@/features/staff';
-import { SessionModal } from '@/features/sessions';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface SchedulingStatsSectionProps {
   dateRange: ReportsDateRange;
@@ -20,10 +16,7 @@ interface SchedulingStatsSectionProps {
 }
 
 export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingStatsSectionProps) {
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const entityModals = useEntityModals();
 
   const { data: studentData, isLoading: studentLoading, error: studentError } =
     useStudentStatsReport(dateRange.start, dateRange.end);
@@ -44,18 +37,20 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
         link.kind === 'unenrolment') &&
       link.studentId
     ) {
-      setSelectedStudentId(link.studentId);
+      entityModals.openStudent(link.studentId);
     } else if (
       (link.kind === 'class' || link.kind === 'enrolment') &&
       link.classId
     ) {
-      setSelectedClassId(link.classId);
+      entityModals.openClass(link.classId);
     } else if (link.kind === 'staff' && link.staffId) {
-      setSelectedStaffId(link.staffId);
+      entityModals.openStaff(link.staffId);
+    } else if (link.kind === 'session' && link.sessionId) {
+      entityModals.openSession(link.sessionId);
     } else if ((link.kind === 'absence' || link.kind === 'staff') && link.sessionId) {
-      setSelectedSessionId(link.sessionId);
+      entityModals.openSession(link.sessionId);
     } else if (link.studentId) {
-      setSelectedStudentId(link.studentId);
+      entityModals.openStudent(link.studentId);
     }
   };
 
@@ -92,6 +87,8 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Active students"
                         entityLabelSingular="student"
                         tableVariant="activeStudents"
+                        totalMode="latest"
+                        staffMetaKeys={['createdBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -115,6 +112,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Student registrations"
                         entityLabelSingular="registration"
                         tableVariant="studentRegistrations"
+                        staffMetaKeys={['createdBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -138,6 +136,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Student discontinuations"
                         entityLabelSingular="discontinuation"
                         tableVariant="discontinuations"
+                        staffMetaKeys={['discontinuedBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -161,10 +160,38 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Student absences"
                         entityLabelSingular="absence"
                         tableVariant="studentAbsences"
+                        staffMetaKeys={['loggedBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
                   </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {/* Sessions */}
+          {visibleCharts.sessions.trialSessions && (
+            <div className="space-y-6">
+              <h3 className="text-sm font-semibold">Sessions</h3>
+              <div>
+                <h4 className="text-sm font-medium mb-2">Trial sessions</h4>
+                <p className="text-xs text-muted-foreground mb-3">
+                  Number of student trial sessions scheduled on each day in the period.
+                </p>
+                {isLoading ? (
+                  <div className="h-[280px] flex items-center justify-center bg-muted/30 rounded-lg">
+                    <p className="text-sm text-muted-foreground">Loading...</p>
+                  </div>
+                ) : (
+                  <IssuesReportChart
+                    data={studentData?.trialSessionsByDay ?? []}
+                    title="Trial sessions"
+                    entityLabelSingular="trial session"
+                    tableVariant="trialSessions"
+                    staffMetaKeys={['staff']}
+                    onEntityClick={handleEntityClick}
+                  />
                 )}
               </div>
             </div>
@@ -190,6 +217,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                     title="Staff absences"
                     entityLabelSingular="absence"
                     tableVariant="staffAbsences"
+                    staffMetaKeys={['staff']}
                     onEntityClick={handleEntityClick}
                   />
                 )}
@@ -221,6 +249,8 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Active classes"
                         entityLabelSingular="class"
                         tableVariant="activeClasses"
+                        totalMode="latest"
+                        staffMetaKeys={['createdBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -243,6 +273,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Class enrolments"
                         entityLabelSingular="enrolment"
                         tableVariant="classEnrolments"
+                        staffMetaKeys={['enrolledBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -265,6 +296,7 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
                         title="Class unenrolments"
                         entityLabelSingular="unenrolment"
                         tableVariant="classUnenrolments"
+                        staffMetaKeys={['unenrolledBy']}
                         onEntityClick={handleEntityClick}
                       />
                     )}
@@ -274,33 +306,6 @@ export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingS
             </div>
           )}
       </div>
-
-      <ViewStudentModal
-        isOpen={!!selectedStudentId}
-        onClose={() => setSelectedStudentId(null)}
-        studentId={selectedStudentId}
-        onStudentUpdated={() => {}}
-      />
-
-      <ViewClassModal
-        isOpen={!!selectedClassId}
-        onClose={() => setSelectedClassId(null)}
-        classId={selectedClassId}
-        onClassUpdated={() => {}}
-      />
-
-      <ViewStaffModal
-        isOpen={!!selectedStaffId}
-        staffId={selectedStaffId}
-        onClose={() => setSelectedStaffId(null)}
-        onStaffUpdated={() => {}}
-      />
-
-      <SessionModal
-        isOpen={!!selectedSessionId}
-        sessionId={selectedSessionId}
-        onClose={() => setSelectedSessionId(null)}
-      />
     </>
   );
 }

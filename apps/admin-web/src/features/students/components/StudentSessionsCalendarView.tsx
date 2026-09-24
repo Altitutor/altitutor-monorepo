@@ -11,7 +11,7 @@ import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from "@altitutor/ui";
 
 interface StudentSessionsCalendarViewProps {
-  studentId: string;
+  studentId?: string;
   onOpenSession?: (id: string) => void;
   classId?: string;
 }
@@ -31,7 +31,7 @@ export function StudentSessionsCalendarView({
   const { data } = useSessionsWithDetails({ 
     rangeStart: rangeStartStr, 
     rangeEnd: rangeEndStr,
-    studentId,
+    studentId: studentId || undefined,
     classId,
     includeInactive: false // Only show active sessions in calendar view
   });
@@ -77,7 +77,7 @@ export function StudentSessionsCalendarView({
 
       <div className="flex-1 overflow-auto relative">
         <div
-          className="grid gap-0 min-h-full relative bg-background"
+          className="grid gap-0 relative bg-background"
           style={{ gridTemplateColumns: `minmax(80px, 100px) repeat(7, minmax(150px, 1fr))` }}
         >
           {/* Headers */}

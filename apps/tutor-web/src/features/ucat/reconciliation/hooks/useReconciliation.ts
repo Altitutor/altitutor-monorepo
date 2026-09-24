@@ -1,12 +1,33 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { fetchReconciliationData } from '../api/reconciliation'
+import {
+  fetchPotentialDuplicateStems,
+  fetchPrivateStemsNotInSet,
+  fetchReconciliationData,
+  type ReconciliationQueueQuery,
+} from '../api/reconciliation'
 import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 
 export function useReconciliationData() {
   return useQuery({
     queryKey: ucatKeys.reconciliation(),
     queryFn: fetchReconciliationData,
+  })
+}
+
+export function usePrivateStemsNotInSetQueue(query: ReconciliationQueueQuery) {
+  return useQuery({
+    queryKey: ucatKeys.reconciliationQueue('private-stems-not-in-set', query),
+    queryFn: () => fetchPrivateStemsNotInSet(query),
+    placeholderData: (previous) => previous,
+  })
+}
+
+export function usePotentialDuplicateStemsQueue(query: ReconciliationQueueQuery) {
+  return useQuery({
+    queryKey: ucatKeys.reconciliationQueue('potential-duplicates', query),
+    queryFn: () => fetchPotentialDuplicateStems(query),
+    placeholderData: (previous) => previous,
   })
 }
 
@@ -17,7 +38,7 @@ export function useSetStemCategory() {
       ucatQuestionsApi.bulkUpdateMetadata([stemId], { categoryId }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
   })
@@ -30,7 +51,7 @@ export function useAddQuestionTag() {
       ucatQuestionsApi.addQuestionTag(stemId, questionId, tagId),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },
@@ -44,7 +65,7 @@ export function useAddQuestionTags() {
       ucatQuestionsApi.addQuestionTags(stemId, questionId, tagIds),
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(variables.stemId) })
       queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() })
     },

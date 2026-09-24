@@ -8,7 +8,7 @@ type ClassStatus = 'ACTIVE' | 'INACTIVE' | 'FULL';
 type EnrollmentStatus = 'ACTIVE' | 'INACTIVE' | 'DISCONTINUED' | 'TRIAL';
 type AbsenceType = 'PLANNED' | 'UNPLANNED';
 type MeetingType = 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'PARENT_MEETING' | 'OTHER';
-type SessionType = 'CLASS' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
+type SessionType = 'CLASS' | 'HOMEWORK_HELP' | 'DRAFTING' | 'SUBSIDY_INTERVIEW' | 'TRIAL_SESSION' | 'TRIAL_SHIFT' | 'STAFF_INTERVIEW';
 type MessageStatus = 'DRAFT' | 'SENT' | 'FAILED';
 
 // Color mapping types
@@ -93,6 +93,7 @@ export const MEETING_TYPE_COLORS: Record<MeetingType, BadgeColorClass> = {
 // Session Type Colors
 export const SESSION_TYPE_COLORS: Record<SessionType, BadgeColorClass> = {
   CLASS: 'bg-blue-100 text-blue-800',
+  HOMEWORK_HELP: 'bg-emerald-100 text-emerald-800',
   DRAFTING: 'bg-green-100 text-green-800',
   SUBSIDY_INTERVIEW: 'bg-purple-100 text-purple-800',
   TRIAL_SESSION: 'bg-orange-100 text-orange-800',
@@ -124,6 +125,13 @@ export const PARKING_REMOTE_COLORS = {
 export const UCAT_VISIBILITY_COLORS = {
   public: 'border border-input bg-transparent',
   private: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+} as const;
+
+// UCAT content lifecycle status (draft / in review / published)
+export const UCAT_CONTENT_STATUS_COLORS = {
+  draft: 'border border-input bg-transparent text-muted-foreground',
+  in_review: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200',
+  published: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-200',
 } as const;
 
 /**
@@ -201,6 +209,13 @@ export function getUcatVisibilityColor(isPrivate: boolean | null | undefined): B
   return isPrivate ? UCAT_VISIBILITY_COLORS.private : UCAT_VISIBILITY_COLORS.public;
 }
 
+export function getUcatContentStatusColor(
+  status: keyof typeof UCAT_CONTENT_STATUS_COLORS | null | undefined,
+): BadgeColorClass {
+  if (!status) return UCAT_CONTENT_STATUS_COLORS.draft;
+  return UCAT_CONTENT_STATUS_COLORS[status] ?? UCAT_CONTENT_STATUS_COLORS.draft;
+}
+
 /**
  * Generic function that can handle any enum type
  * Useful for dynamic scenarios where the enum type isn't known at compile time
@@ -211,4 +226,4 @@ export function getEnumColor<T extends string>(
 ): BadgeColorClass {
   if (!value) return 'bg-gray-100 text-gray-800';
   return colorMap[value] ?? 'bg-gray-100 text-gray-800';
-} 
+}

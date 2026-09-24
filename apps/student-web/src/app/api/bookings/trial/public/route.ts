@@ -1,6 +1,8 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@altitutor/shared';
+import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
+import { capturePublicBookingOutcome } from '@/features/bookings/lib/capture-public-booking-outcome';
+import { IN_PERSON_BOOKING_EVENTS } from '@/shared/lib/analytics/in-person-booking-event';
 
 // Simple in-memory rate limiter (replace with Redis for production)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -21,15 +23,19 @@ function checkRateLimit(ip: string, email: string): { allowed: boolean; error?: 
     rateLimitMap.set(ipKey, { count: 1, resetAt: now + 3600000 }); // 1 hour
   }
   
-  // Email-based limiting (1 booking/day)
+  // Email-based limiting (5 requests/hour) — counts attempts, not successes,
+  // so leave headroom for validation failures and form retries.
   const emailLimit = rateLimitMap.get(emailKey);
   if (emailLimit && emailLimit.resetAt > now) {
-    if (emailLimit.count >= 1) {
-      return { allowed: false, error: 'You have already booked a session today. Please try again tomorrow.' };
+    if (emailLimit.count >= 5) {
+      return {
+        allowed: false,
+        error: 'Too many booking attempts for this email. Please try again later.',
+      };
     }
     rateLimitMap.set(emailKey, { count: emailLimit.count + 1, resetAt: emailLimit.resetAt });
   } else {
-    rateLimitMap.set(emailKey, { count: 1, resetAt: now + 86400000 }); // 24 hours
+    rateLimitMap.set(emailKey, { count: 1, resetAt: now + 3600000 }); // 1 hour
   }
   
   return { allowed: true };
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
     const sessionType = body.session_type === 'SUBSIDY_INTERVIEW' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION';
 
     // Validation
-    if (!body.student_first_name || !body.student_last_name || 
+    if (!body.student_first_name ||
         !body.student_email || !body.curriculum || 
         !body.start_at || !body.end_at) {
       return NextResponse.json(
@@ -90,11 +96,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Create Supabase client
-    const supabase = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
+    // The anonymous HTTP endpoint performs validation and rate limiting; the
+    // database RPC itself is service-only so it cannot be invoked directly.
+    const supabase = getServerSupabaseAdmin();
     
     // Map year level: 'Reception' -> 0, numeric strings -> numbers
     let yearLevel: number | null = null;
@@ -114,7 +118,7 @@ export async function POST(request: NextRequest) {
     // Call database function (parameters must be in order: required first, then optional)
     const { data, error } = await supabase.rpc('create_public_trial_booking', {
       p_student_first_name: body.student_first_name,
-      p_student_last_name: body.student_last_name,
+      p_student_last_name: body.student_last_name || '',
       p_student_email: body.student_email,
       p_student_phone: body.student_phone || null,
       p_curriculum: body.curriculum,
@@ -202,12 +206,28 @@ export async function POST(request: NextRequest) {
       }
       
       const result = data as { session_id: string; student_id: string };
+      const { data: bookingToken } = await supabase.rpc(
+        'issue_session_booking_public_token',
+        { p_session_id: result.session_id }
+      );
+      capturePublicBookingOutcome(request, {
+        event: IN_PERSON_BOOKING_EVENTS.completed,
+        sessionId: result.session_id,
+        studentId: result.student_id,
+        sessionType,
+        properties: {
+          curriculum: body.curriculum,
+          subject_count: Array.isArray(body.subject_ids) ? body.subject_ids.length : 0,
+        },
+      });
       return NextResponse.json({
         session_id: result.session_id,
         student_id: result.student_id,
+        booking_token: typeof bookingToken === 'string' ? bookingToken : null,
       });
     
   } catch (error: unknown) {
+    captureApiError(error, "/api/bookings/trial/public");
     console.error('API error:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -215,4 +235,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

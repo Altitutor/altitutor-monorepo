@@ -71,3 +71,58 @@ export type AggregatedConversation = {
   latestMessage: { id: string; direction: string } | null;
   unreadCount: number;
 };
+
+export type GroupConversation = {
+  kind: 'group';
+  conversationId: string;
+  groupChatId: string;
+  groupName: string | null;
+  participantNames: string[];
+  ownedNumberId: string;
+  latestMessageAt: string | null;
+  latestMessage: { id: string; direction: string } | null;
+  unreadCount: number;
+};
+
+export type ContactConversationSelection = {
+  kind: 'contact';
+  contactId: string;
+};
+
+export type GroupConversationSelection = {
+  kind: 'group';
+  conversationId: string;
+};
+
+export type ConversationSelection =
+  | ContactConversationSelection
+  | GroupConversationSelection;
+
+export type ConversationListItem =
+  | (AggregatedConversation & { kind: 'contact' })
+  | GroupConversation;
+
+export function isGroupConversation(
+  item: ConversationListItem
+): item is GroupConversation {
+  return item.kind === 'group';
+}
+
+export function isContactConversation(
+  item: ConversationListItem
+): item is AggregatedConversation & { kind: 'contact' } {
+  return item.kind === 'contact';
+}
+
+export function getConversationSelectionKey(selection: ConversationSelection): string {
+  switch (selection.kind) {
+    case 'contact':
+      return `contact:${selection.contactId}`;
+    case 'group':
+      return `group:${selection.conversationId}`;
+    default: {
+      const exhaustive: never = selection;
+      return exhaustive;
+    }
+  }
+}

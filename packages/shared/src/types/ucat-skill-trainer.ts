@@ -3,13 +3,16 @@ export const UCAT_SKILL_TRAINER_KEYS = [
   "find_concept",
   "quick_syllogism",
   "mental_maths",
-  "numpad_speed",
   "calculator_maths",
+  "numpad_speed",
 ] as const;
 
 export type UcatSkillTrainerKey = (typeof UCAT_SKILL_TRAINER_KEYS)[number];
 
-export type UcatSkillTrainerApprovalStatus = "approved" | "pending" | "rejected";
+export type UcatSkillTrainerApprovalStatus =
+  | "approved"
+  | "pending"
+  | "rejected";
 
 export type SkillTrainerStreakStep = {
   min_streak: number;
@@ -18,18 +21,25 @@ export type SkillTrainerStreakStep = {
 
 export type SkillTrainerConfigSnapshot = {
   time_limit_seconds: number;
-  wrong_cooldown_seconds: number;
   points_correct: number;
   points_wrong: number;
   streak_enabled: boolean;
   streak_multiplier_steps: SkillTrainerStreakStep[];
+  speed_bonus_enabled: boolean;
+  speed_bonus_max_points: number;
+  speed_bonus_window_seconds: number;
   trainer_key: UcatSkillTrainerKey;
 };
 
 export type FindWordKeyword = {
   id: string;
   text: string;
-  target_sentence_index: number;
+};
+
+export type FindWordKeywordOccurrence = {
+  keyword_id: string;
+  start: number;
+  end: number;
 };
 
 export type FindWordItemContent = {
@@ -49,19 +59,46 @@ export type FindConceptItemContent = {
 };
 
 export type QuickSyllogismItemContent = {
+  premises?: string[];
+  conclusion?: string;
   statement: string;
   answer: boolean;
+  difficulty?: UcatSkillTrainerDifficulty;
 };
 
 export type MentalMathsItemContent = {
   expression: string;
   answer: number;
+  difficulty?: UcatSkillTrainerDifficulty;
 };
 
 export type NumpadSpeedItemContent = {
   button_sequence: string[];
   label?: string;
+  difficulty?: UcatSkillTrainerDifficulty;
 };
+
+export const UCAT_CALCULATOR_MATHS_CATEGORIES = [
+  "arithmetic",
+  "percentages",
+  "probability",
+  "averages",
+  "algebra",
+  "basic_stats",
+  "decimals",
+  "fractions",
+  "unit_conversions",
+  "geometry",
+  "graphs_tables",
+  "proportion_ratios",
+  "speed_distance_time",
+  "financial_maths",
+] as const;
+
+export type UcatCalculatorMathsCategory =
+  (typeof UCAT_CALCULATOR_MATHS_CATEGORIES)[number];
+
+export type UcatSkillTrainerDifficulty = "easy" | "medium" | "hard";
 
 export type CalculatorMathsItemContent = {
   /** Plain-text fallback when `question` is not set */
@@ -69,6 +106,9 @@ export type CalculatorMathsItemContent = {
   /** Rich-text question body (TipTap JSON) */
   question?: Record<string, unknown>;
   answer: number;
+  /** Broad QR-style concept bucket for later learning-module filtering. */
+  category?: UcatCalculatorMathsCategory;
+  difficulty?: UcatSkillTrainerDifficulty;
 };
 
 export type SkillTrainerItemContent =
@@ -79,9 +119,7 @@ export type SkillTrainerItemContent =
   | NumpadSpeedItemContent
   | CalculatorMathsItemContent;
 
-export type SkillTrainerAttemptProgress = {
-  cooldown_until?: string | null;
-} & (
+export type SkillTrainerAttemptProgress =
   | {
       type: "find_word";
       placed_keyword_ids: string[];
@@ -101,10 +139,11 @@ export type SkillTrainerAttemptProgress = {
     }
   | {
       type: "calculator_maths";
-    }
-);
+    };
 
-export function isUcatSkillTrainerKey(value: string): value is UcatSkillTrainerKey {
+export function isUcatSkillTrainerKey(
+  value: string,
+): value is UcatSkillTrainerKey {
   return (UCAT_SKILL_TRAINER_KEYS as readonly string[]).includes(value);
 }
 
@@ -121,4 +160,103 @@ export function trainerSlugToKey(slug: string): UcatSkillTrainerKey | null {
 
 export function isUcatSkillTrainerSlug(slug: string): boolean {
   return trainerSlugToKey(slug) !== null;
+}
+
+export function extractSkillTrainerPlainText(
+  doc: Record<string, unknown> | null | undefined,
+  options: { blockSeparator?: string } = {},
+): string {
+  if (!doc || typeof doc !== "object") return "";
+  const blockSeparator = options.blockSeparator ?? "";
+  const parts: string[] = [];
+
+  const walk = (node: unknown) => {
+    if (!node || typeof node !== "object") return;
+    const n = node as { type?: string; text?: string; content?: unknown[] };
+    if (n.type === "text" && typeof n.text === "string") {
+      parts.push(n.text);
+      return;
+    }
+
+    const before = parts.length;
+    if (Array.isArray(n.content)) n.content.forEach(walk);
+    const addedText = parts.length > before;
+    if (
+      addedText &&
+      blockSeparator &&
+      ["paragraph", "heading"].includes(n.type ?? "")
+    ) {
+      parts.push(blockSeparator);
+    }
+  };
+
+  walk(doc);
+  let text = parts.join("");
+  if (blockSeparator) {
+    const escapedSeparator = blockSeparator.replace(
+      /[.*+?^${}()|[\]\\]/g,
+      "\\$&",
+    );
+    text = text.replace(new RegExp(`${escapedSeparator}+$`), "");
+  }
+  return text;
+}
+
+export type FindWordClickableToken = {
+  text: string;
+  start: number;
+  end: number;
+};
+
+export function findFindWordClickableTokens(
+  plainText: string,
+): FindWordClickableToken[] {
+  const pattern = /[\p{L}\p{N}]+(?:['’-][\p{L}\p{N}]+)*/gu;
+  const tokens: FindWordClickableToken[] = [];
+  for (const match of plainText.matchAll(pattern)) {
+    const text = match[0];
+    const start = match.index ?? 0;
+    tokens.push({ text, start, end: start + text.length });
+  }
+  return tokens;
+}
+
+export function findFindWordKeywordOccurrences(
+  plainText: string,
+  keyword: Pick<FindWordKeyword, "id" | "text">,
+): FindWordKeywordOccurrence[] {
+  const needle = keyword.text.trim();
+  if (!needle) return [];
+  const lowerNeedle = needle.toLocaleLowerCase();
+  const tokens = findFindWordClickableTokens(plainText);
+  const occurrences: FindWordKeywordOccurrence[] = [];
+
+  for (let startIndex = 0; startIndex < tokens.length; startIndex += 1) {
+    for (let endIndex = startIndex; endIndex < tokens.length; endIndex += 1) {
+      const start = tokens[startIndex]!.start;
+      const end = tokens[endIndex]!.end;
+      const lowerSpan = plainText.slice(start, end).toLocaleLowerCase();
+      if (lowerSpan === lowerNeedle) {
+        occurrences.push({
+          keyword_id: keyword.id,
+          start,
+          end,
+        });
+        break;
+      }
+      if (lowerSpan.length >= lowerNeedle.length) break;
+    }
+  }
+
+  return occurrences;
+}
+
+export function findFindWordOccurrencesForContent(
+  content: FindWordItemContent,
+  options: { blockSeparator?: string } = { blockSeparator: "\n" },
+): FindWordKeywordOccurrence[] {
+  const plain = extractSkillTrainerPlainText(content.passage, options);
+  return (content.keywords ?? []).flatMap((keyword) =>
+    findFindWordKeywordOccurrences(plain, keyword),
+  );
 }

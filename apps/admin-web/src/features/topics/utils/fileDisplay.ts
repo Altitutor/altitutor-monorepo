@@ -64,3 +64,38 @@ export function findLinkedSolution(
     ) || null
   );
 }
+
+export type TopicFileDisplayRow =
+  | {
+      kind: 'paired';
+      file: TopicFileWithFile;
+      solution: TopicFileWithFile | null;
+    }
+  | {
+      kind: 'unlinked-solution';
+      solution: TopicFileWithFile;
+    };
+
+/**
+ * Rows for the topic file list: parent files with their linked solution,
+ * then leftover solutions that are not attached to a parent.
+ */
+export function getTopicFileDisplayRows(
+  files: TopicFileWithFile[]
+): TopicFileDisplayRow[] {
+  const paired: TopicFileDisplayRow[] = getNonSolutionFiles(files).map((file) => ({
+    kind: 'paired',
+    file,
+    solution: findLinkedSolution(file.id, files),
+  }));
+
+  const unlinked: TopicFileDisplayRow[] = files
+    .filter((file) => file.is_solutions && !file.is_solutions_of_id)
+    .sort((a, b) => a.index - b.index)
+    .map((solution) => ({
+      kind: 'unlinked-solution',
+      solution,
+    }));
+
+  return [...paired, ...unlinked];
+}

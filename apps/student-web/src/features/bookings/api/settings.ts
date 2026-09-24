@@ -13,6 +13,13 @@ export const bookingSettingsApi = {
     return data.setting_value ?? null;
   },
 
+  async getMinAdvanceBookingDays(): Promise<number> {
+    const value = await this.getSettingValue('min_advance_booking_days');
+    if (value === null) return 1;
+    const parsed = parseInt(value, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 1;
+  },
+
   async getSessionDurationMinutes(sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW'): Promise<number> {
     let settingKey: string;
     switch (sessionType) {

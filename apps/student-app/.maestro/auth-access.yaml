@@ -1,0 +1,9 @@
+appId: com.altitutor.altitutorstudent
+name: Anonymous access reaches login and password recovery
+---
+- launchApp:
+    clearState: true
+- assertVisible: "Student app"
+- assertVisible: "Sign in"
+- tapOn: "Forgot password?"
+- assertVisible: "Reset password"

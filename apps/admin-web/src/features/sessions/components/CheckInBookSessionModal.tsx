@@ -1,15 +1,10 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
   Input,
-  Label,
   SearchableSelect,
   Separator,
   Table,
@@ -27,21 +22,22 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
+  SmartDatePickerField,
   useToast,
 } from '@altitutor/ui';
 import {
+  checkInStaffingError,
+  defaultCheckInStaffUiRole,
   formatCheckInHostLabel,
   formatCheckInReceiverLabel,
 } from '@altitutor/shared/pay-tiers';
-import { Loader2, MoreVertical, Trash2, X } from 'lucide-react';
+import { Loader2, MoreVertical, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { getTodayAdelaideDate, adelaideWallDateTimePlusMinutesUtcIso } from '@/features/bookings/utils/dateTimeHelpers';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
+import { useCurrentStaff } from '@/shared/hooks';
+import { staffApi } from '@/features/staff/api/staff';
 import type { CheckInModalPrefill, CheckInSessionType } from '@/shared/contexts/QuickActionsContext';
 import { MeetingEntitySearchAdd } from './MeetingEntitySearchAdd';
 import { AttendanceCell } from './AttendanceCell';
@@ -67,7 +63,10 @@ export type CheckInBookSessionModalProps = {
   initialPrefill?: CheckInModalPrefill | null;
 };
 
-function picksFromPrefill(prefill: CheckInModalPrefill | null | undefined): {
+function picksFromPrefill(
+  prefill: CheckInModalPrefill | null | undefined,
+  currentStaffId?: string | null
+): {
   staff: StaffPick[];
   students: IdLabel[];
   parents: IdLabel[];
@@ -75,11 +74,16 @@ function picksFromPrefill(prefill: CheckInModalPrefill | null | undefined): {
   if (!prefill) {
     return { staff: [], students: [], parents: [] };
   }
+  const hasStudentsOrParents =
+    (prefill.students?.length ?? 0) > 0 || (prefill.parents?.length ?? 0) > 0;
   return {
     staff: (prefill.staff ?? []).map((s) => ({
       id: s.id,
       label: `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Staff',
-      role: 'receiver' as const,
+      role:
+        hasStudentsOrParents || s.id === currentStaffId
+          ? 'host'
+          : defaultCheckInStaffUiRole(false),
     })),
     students: (prefill.students ?? []).map((s) => ({
       id: s.id,
@@ -112,7 +116,7 @@ export function CheckInBookSessionModal({
   initialPrefill = null,
 }: CheckInBookSessionModalProps) {
   const { toast } = useToast();
-  const [expanded, setExpanded] = useState(false);
+  const { data: currentStaff } = useCurrentStaff();
   const [date, setDate] = useState('');
   const [time, setTime] = useState('09:00');
   const [durationMinutes, setDurationMinutes] = useState<number>(60);
@@ -122,11 +126,14 @@ export function CheckInBookSessionModal({
   const [submitting, setSubmitting] = useState(false);
 
   const wasOpenRef = useRef(false);
+  const appliedDefaultAdminStaffRef = useRef(false);
+  const shouldDefaultAdminStaff =
+    sessionType === 'ADMIN_MEETING' && !(initialPrefill?.staff && initialPrefill.staff.length > 0);
 
   useEffect(() => {
     if (!isOpen) {
       wasOpenRef.current = false;
-      setExpanded(false);
+      appliedDefaultAdminStaffRef.current = false;
       return;
     }
     if (!wasOpenRef.current) {
@@ -134,39 +141,83 @@ export function CheckInBookSessionModal({
       setDate(getTodayAdelaideDate());
       setTime('09:00');
       setDurationMinutes(60);
-      const { staff, students, parents } = picksFromPrefill(initialPrefill ?? null);
+      const { staff, students, parents } = picksFromPrefill(
+        initialPrefill ?? null,
+        currentStaff?.id
+      );
       setStaffPicks(staff);
       setStudentPicks(students);
       setParentPicks(parents);
     }
-  }, [isOpen, initialPrefill]);
+  }, [isOpen, initialPrefill, currentStaff?.id]);
+
+  const { data: defaultAdminStaff } = useQuery({
+    queryKey: ['admin-meeting-default-staff'],
+    queryFn: async () => {
+      const { staff } = await staffApi.list({
+        role: 'ADMINSTAFF',
+        status: 'ACTIVE',
+        limit: 200,
+        offset: 0,
+      });
+      return [...staff].sort((a, b) => {
+        const aName = `${a.first_name ?? ''} ${a.last_name ?? ''}`.trim().toLowerCase();
+        const bName = `${b.first_name ?? ''} ${b.last_name ?? ''}`.trim().toLowerCase();
+        return aName.localeCompare(bName);
+      });
+    },
+    enabled: isOpen && shouldDefaultAdminStaff,
+    staleTime: 1000 * 60 * 5,
+  });
+
+  useEffect(() => {
+    if (!isOpen || !shouldDefaultAdminStaff || appliedDefaultAdminStaffRef.current) return;
+    if (!defaultAdminStaff?.length) return;
+    appliedDefaultAdminStaffRef.current = true;
+    setStaffPicks(
+      defaultAdminStaff.map((s) => ({
+        id: s.id,
+        label: nameStaff(s as Tables<'staff'>),
+        role: 'receiver' as const,
+      }))
+    );
+  }, [isOpen, shouldDefaultAdminStaff, defaultAdminStaff]);
 
   const staffIds = staffPicks.map((p) => p.id);
   const studentIds = studentPicks.map((p) => p.id);
   const parentIds = parentPicks.map((p) => p.id);
   const canManageStudentsAndParents = sessionType !== 'ADMIN_MEETING';
 
+  const setStaffToConducting = useCallback(() => {
+    if (sessionType !== 'CHECK_IN') return;
+    setStaffPicks((prev) => prev.map((p) => (p.role === 'host' ? p : { ...p, role: 'host' as const })));
+  }, [sessionType]);
+
   const addStaff = useCallback((s: Tables<'staff'>) => {
     const id = s.id;
     const label = nameStaff(s);
-    setStaffPicks((prev) =>
-      prev.some((p) => p.id === id)
-        ? prev
-        : [...prev, { id, label, role: sessionType === 'CHECK_IN' ? 'receiver' : 'receiver' }]
-    );
-  }, [sessionType]);
+    setStaffPicks((prev) => {
+      if (prev.some((p) => p.id === id)) return prev;
+      const hasStudentsOrParents = studentPicks.length > 0 || parentPicks.length > 0;
+      const role =
+        sessionType === 'CHECK_IN' ? defaultCheckInStaffUiRole(hasStudentsOrParents) : 'receiver';
+      return [...prev, { id, label, role }];
+    });
+  }, [sessionType, studentPicks.length, parentPicks.length]);
 
   const addStudent = useCallback((s: Tables<'students'>) => {
     const id = s.id;
     const label = nameStudent(s);
     setStudentPicks((prev) => (prev.some((p) => p.id === id) ? prev : [...prev, { id, label }]));
-  }, []);
+    setStaffToConducting();
+  }, [setStaffToConducting]);
 
   const addParent = useCallback((p: Tables<'parents'>) => {
     const id = p.id;
     const label = nameParent(p);
     setParentPicks((prev) => (prev.some((x) => x.id === id) ? prev : [...prev, { id, label }]));
-  }, []);
+    setStaffToConducting();
+  }, [setStaffToConducting]);
 
   const durationValue =
     DURATION_ITEMS.find((d) => d.minutes === durationMinutes) ?? DURATION_ITEMS.find((d) => d.minutes === 60)!;
@@ -177,11 +228,15 @@ export function CheckInBookSessionModal({
       return;
     }
     if (sessionType === 'CHECK_IN') {
-      const receivers = staffPicks.filter((p) => p.role === 'receiver');
-      if (receivers.length === 0) {
+      const staffingError = checkInStaffingError({
+        hostCount: staffPicks.filter((p) => p.role === 'host').length,
+        receiverCount: staffPicks.filter((p) => p.role === 'receiver').length,
+        hasStudentsOrParents: studentIds.length > 0 || parentIds.length > 0,
+      });
+      if (staffingError) {
         toast({
-          title: 'Receiving staff required',
-          description: 'Add at least one staff member receiving the check-in.',
+          title: 'Staff roles required',
+          description: staffingError,
           variant: 'destructive',
         });
         return;
@@ -232,67 +287,53 @@ export function CheckInBookSessionModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <div className="flex-shrink-0 border-b bg-background">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1 min-w-0">
-                <Button variant="outline" size="icon" onClick={onClose} className="shrink-0" type="button">
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>
-                    {sessionType === 'ADMIN_MEETING' ? 'Schedule admin meeting' : 'Schedule check in'}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {sessionType === 'ADMIN_MEETING'
-                      ? 'Schedule an admin meeting with staff.'
-                      : 'Schedule a check in with a staff member, student or parent.'}
-                  </DialogDescription>
-                </div>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-        </div>
-
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6 space-y-6">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 min-w-0">
-                <div className="min-w-0 space-y-2">
-                  <Label htmlFor="checkin-date">Date</Label>
-                  <Input id="checkin-date" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
-                </div>
-                <div className="min-w-0 space-y-2">
-                  <Label htmlFor="checkin-time">Start time</Label>
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title={sessionType === 'ADMIN_MEETING' ? 'Schedule admin meeting' : 'Schedule check in'}
+      subtitle={
+        sessionType === 'ADMIN_MEETING'
+          ? 'Schedule an admin meeting with staff.'
+          : 'Schedule a check in with a staff member, student or parent.'
+      }
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0 flex-1 overflow-y-auto p-0"
+      footer={
+        <>
+          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
+            Cancel
+          </Button>
+          <Button type="button" onClick={handleSubmit} disabled={submitting}>
+            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {sessionType === 'ADMIN_MEETING' ? 'Create admin meeting' : 'Create check in'}
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-6 p-6">
+              <PropertyForm>
+                <PropertyFormRow label="Date">
+                  <SmartDatePickerField value={date} onChange={(value) => setDate(value ?? '')} />
+                </PropertyFormRow>
+                <PropertyFormRow label="Start time" htmlFor="checkin-time">
                   <Input id="checkin-time" type="time" value={time} onChange={(e) => setTime(e.target.value)} />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="checkin-duration">Duration</Label>
-                <SearchableSelect<DurationItem>
-                  items={DURATION_ITEMS}
-                  value={durationValue}
-                  onValueChange={(item) => item && setDurationMinutes(item.minutes)}
-                  getItemId={(d) => String(d.minutes)}
-                  getItemLabel={(d) => d.label}
-                  placeholder="Select duration"
-                  searchPlaceholder="Search duration…"
-                  emptyMessage="No duration matches"
-                  disabled={submitting}
-                  className="w-full"
-                  triggerClassName="w-full"
-                />
-              </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Duration">
+                  <SearchableSelect<DurationItem>
+                    items={DURATION_ITEMS}
+                    value={durationValue}
+                    onValueChange={(item) => item && setDurationMinutes(item.minutes)}
+                    getItemId={(d) => String(d.minutes)}
+                    getItemLabel={(d) => d.label}
+                    placeholder="Select duration"
+                    searchPlaceholder="Search duration…"
+                    emptyMessage="No duration matches"
+                    disabled={submitting}
+                    ariaLabel="Duration"
+                  />
+                </PropertyFormRow>
+              </PropertyForm>
 
               {canManageStudentsAndParents && (
                 <>
@@ -535,20 +576,7 @@ export function CheckInBookSessionModal({
                   </div>
                 </>
               )}
-            </div>
-          </div>
-        </div>
-
-        <div className="flex-shrink-0 flex justify-end gap-2 px-6 py-4 border-t bg-background">
-          <Button type="button" variant="outline" onClick={onClose} disabled={submitting}>
-            Cancel
-          </Button>
-          <Button type="button" onClick={handleSubmit} disabled={submitting}>
-            {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            {sessionType === 'ADMIN_MEETING' ? 'Create admin meeting' : 'Create check in'}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

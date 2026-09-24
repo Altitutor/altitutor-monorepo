@@ -1,0 +1,3 @@
+# Separate Study-plan Practice prescription from launch fulfilment
+
+Study-plan generation owns a Practice task's section or category objective, dose, and pace, and may use compact global availability only to avoid an impossible prescription. It does not load Student-specific catalogue inventory or preselect exact Question stems; when the Student starts the task, launch fulfilment selects the best currently accessible whole stems, applies unanswered and incorrect preferences with bounded fallbacks, and persists that exact resumable session snapshot. This keeps future scheduling independent of a large and rapidly changing catalogue while preserving deterministic started work.

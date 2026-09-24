@@ -2,9 +2,11 @@
 
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
+import { useAuthSessionRecovery } from '@altitutor/shared/hooks';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
+import { shouldRedirectAuthenticatedLogin } from '@/features/auth/utils/shouldRedirectAuthenticatedLogin';
 
-const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password'];
+const PUBLIC_PATHS = ['/login', '/forgot-password', '/reset-password', '/sentry-example-page'];
 
 // Helper function to check if a path is public
 const isPublicPath = (pathname: string): boolean => {
@@ -15,23 +17,22 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const pathname = usePathname();
   const { user, loading } = useAuthStore();
+  const publicPath = isPublicPath(pathname);
+
+  useAuthSessionRecovery({
+    enabled: !publicPath,
+    isLoading: loading,
+    hasSession: Boolean(user),
+  });
 
   useEffect(() => {
-    // Skip auth check for public paths
-    if (isPublicPath(pathname)) {
-      // If user is authenticated and trying to access login page, redirect immediately
-      if (user && pathname === '/login') {
-        // Redirect directly to dashboard for faster navigation
-        router.replace('/dashboard');
-      }
-      return;
+    if (!user) return;
+    const accessDenied =
+      new URLSearchParams(window.location.search).get('error') === 'access_denied';
+    if (shouldRedirectAuthenticatedLogin(pathname, accessDenied)) {
+      router.replace('/dashboard');
     }
-
-    // For protected routes
-    if (!user && !loading) {
-      router.replace('/login');
-    }
-  }, [user, loading, pathname, router]);
+  }, [user, pathname, router]);
 
   // Show nothing while checking auth
   if (loading) {
@@ -39,10 +40,10 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   // For public routes, always render
-  if (isPublicPath(pathname)) {
+  if (publicPath) {
     return <>{children}</>;
   }
 
   // For protected routes, only render if authenticated
   return user ? <>{children}</> : null;
-} 
+}

@@ -1,8 +1,9 @@
 import type { Tables, TablesInsert, TablesUpdate, Enums } from '@altitutor/shared';
 import {
-  buildCodeAndFilenameOrFilter,
   buildCodeContainsPattern,
+  buildCodeExactOrPrefixOrFilter,
   buildSubjectNameOrFilter,
+  escapeIlikePattern,
   parseSubjectQualifiedSearch,
 } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -503,46 +504,45 @@ export const topicsFilesApi = {
         .order('code', { ascending: true })
         .limit(limit));
     } else {
-      const orFilter = buildCodeAndFilenameOrFilter('code', 'file.filename', trimmed);
+      // Nested `file.filename` is not reliable inside PostgREST `.or()` — search
+      // code and filename separately, then merge.
+      const codeOrFilter = buildCodeExactOrPrefixOrFilter('code', trimmed);
+      const filenamePattern = `%${escapeIlikePattern(trimmed)}%`;
 
-      ({ data, error } = await supabase
-        .from('topics_files')
-        .select(fileSelect)
-        .is('file.deleted_at', null)
-        .or(orFilter)
-        .order('code', { ascending: true })
-        .limit(limit));
+      const [codeResult, filenameResult] = await Promise.all([
+        supabase
+          .from('topics_files')
+          .select(fileSelect)
+          .is('file.deleted_at', null)
+          .or(codeOrFilter)
+          .order('code', { ascending: true })
+          .limit(limit),
+        supabase
+          .from('topics_files')
+          .select(fileSelect)
+          .is('file.deleted_at', null)
+          .ilike('file.filename', filenamePattern)
+          .order('code', { ascending: true })
+          .limit(limit),
+      ]);
+
+      if (codeResult.error) throw codeResult.error;
+      if (filenameResult.error) throw filenameResult.error;
+
+      const byId = new Map<string, CommandPaletteFileRow>();
+      for (const row of [
+        ...((codeResult.data ?? []) as CommandPaletteFileRow[]),
+        ...((filenameResult.data ?? []) as CommandPaletteFileRow[]),
+      ]) {
+        byId.set(row.id, row);
+      }
+      data = Array.from(byId.values())
+        .sort((a, b) => (a.code ?? '').localeCompare(b.code ?? ''))
+        .slice(0, limit);
+      error = null;
     }
 
     if (error) throw error;
-
-    type CommandPaletteFileRow = {
-      id: string;
-      topic_id: string;
-      type: string;
-      index: number;
-      code: string | null;
-      file_id: string;
-      file: {
-        id: string;
-        filename: string;
-        mimetype: string | null;
-        size_bytes: number | null;
-        deleted_at: string | null;
-      };
-      topic: {
-        id: string;
-        name: string;
-        code: string | null;
-        subject: {
-          id: string;
-          name: string;
-          short_name: string | null;
-          long_name: string | null;
-          color: string | null;
-        };
-      };
-    };
 
     const files = ((data ?? []) as CommandPaletteFileRow[]).map((row) => ({
       id: row.id,
@@ -573,5 +573,33 @@ export const topicsFilesApi = {
 
     return { files };
   },
+};
+
+type CommandPaletteFileRow = {
+  id: string;
+  topic_id: string;
+  type: string;
+  index: number;
+  code: string | null;
+  file_id: string;
+  file: {
+    id: string;
+    filename: string;
+    mimetype: string | null;
+    size_bytes: number | null;
+    deleted_at: string | null;
+  };
+  topic: {
+    id: string;
+    name: string;
+    code: string | null;
+    subject: {
+      id: string;
+      name: string;
+      short_name: string | null;
+      long_name: string | null;
+      color: string | null;
+    };
+  };
 };
 

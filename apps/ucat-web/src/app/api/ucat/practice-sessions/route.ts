@@ -1,20 +1,33 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Json, TablesInsert } from "@altitutor/shared";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import type { PracticeSelectionInput } from "@/features/practice/model/types";
 import {
   checkPracticeStartQuota,
   getPracticeQuotaStatusForStudent,
   quotaExceededResponse,
 } from "@/lib/ucat/quota/quota-service";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
+import {
+  preparePracticeStems,
+  PracticeStemSelectionError,
+} from "@/features/practice/server/prepare-practice-stems";
+import { ServerTiming } from "@/lib/performance/server-timing";
+import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
+import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
 
 export async function POST(request: NextRequest) {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
 
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
 
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -46,11 +59,36 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const filtersSnapshot =
+    body.filtersSnapshot && typeof body.filtersSnapshot === "object"
+      ? (body.filtersSnapshot as {
+          timePerQuestionSeconds?: number | null;
+          reviewTiming?: PracticeReviewTiming;
+          studyPlanTaskId?: string;
+        })
+      : null;
+  if (
+    filtersSnapshot &&
+    resolvePracticeTimingScope({
+      timePerQuestionSeconds: filtersSnapshot.timePerQuestionSeconds,
+      unlimited: body.unlimited === true,
+      reviewTiming: filtersSnapshot.reviewTiming ?? "afterEachStem",
+    }) === "invalid"
+  ) {
+    return NextResponse.json(
+      {
+        error: "Timed review-at-end practice requires a fixed question count",
+      },
+      { status: 400 },
+    );
+  }
+
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
     .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
+  timing.mark("student");
 
   if (studentError) {
     return NextResponse.json(
@@ -64,6 +102,43 @@ export async function POST(request: NextRequest) {
       { error: "No student profile found" },
       { status: 404 },
     );
+  }
+
+  let prepared: Awaited<ReturnType<typeof preparePracticeStems>> | undefined;
+  if (!body.unlimited && !Array.isArray(body.stemsSnapshot)) {
+    if (!body.filtersSnapshot || typeof body.filtersSnapshot !== "object") {
+      return NextResponse.json(
+        { error: "Missing practice filters" },
+        { status: 400 },
+      );
+    }
+    try {
+      prepared = await preparePracticeStems({
+        reader: supabase,
+        admin: supabaseAdmin,
+        studentId: student.id,
+        input: body.filtersSnapshot as PracticeSelectionInput,
+      });
+      body.stemsSnapshot = prepared.stems;
+      timing.mark("prepare");
+    } catch (error) {
+      if (error instanceof QuotaExceededError) {
+        return quotaExceededResponse(error.payload);
+      }
+      if (error instanceof PracticeStemSelectionError) {
+        return NextResponse.json({ error: error.message }, { status: 400 });
+      }
+      captureApiError(error, "/api/ucat/practice-sessions");
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Failed to prepare practice session",
+        },
+        { status: 500 },
+      );
+    }
   }
 
   if (body.unlimited) {
@@ -84,7 +159,7 @@ export async function POST(request: NextRequest) {
         period: status.period,
       });
     }
-  } else {
+  } else if (!prepared) {
     const stems = Array.isArray(body.stemsSnapshot)
       ? (body.stemsSnapshot as QuestionStemWithQuestions[])
       : [];
@@ -103,28 +178,28 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const insertPayload = {
+  const insertPayload: TablesInsert<"student_practice_sessions"> = {
     student_id: student.id,
     ucat_section_id: body.ucatSectionId,
     section_key: body.sectionKey,
-    filters_snapshot: body.filtersSnapshot ?? null,
-    stems_snapshot: body.stemsSnapshot ?? null,
+    filters_snapshot: (body.filtersSnapshot ?? null) as Json,
+    stems_snapshot: (body.stemsSnapshot ?? null) as Json,
     unlimited: body.unlimited ?? false,
+    study_plan_task_id:
+      typeof filtersSnapshot?.studyPlanTaskId === "string"
+        ? filtersSnapshot.studyPlanTaskId
+        : null,
   };
 
-  const { data: inserted, error: insertError } = await (
-    supabaseAdmin! as {
-      from: (
-        t: string,
-      ) => ReturnType<NonNullable<typeof supabaseAdmin>["from"]>;
-    }
-  )
+  const { data: inserted, error: insertError } = await supabaseAdmin!
     .from("student_practice_sessions")
     .insert(insertPayload)
     .select("id")
     .maybeSingle();
+  timing.mark("insert");
 
   if (insertError || !inserted) {
+    captureApiError(insertError, "/api/ucat/practice-sessions");
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to create practice session" },
       { status: 500 },
@@ -132,5 +207,10 @@ export async function POST(request: NextRequest) {
   }
 
   const insertedData = inserted as { id?: string };
-  return NextResponse.json({ id: insertedData.id ?? "" });
+  return timing.apply(
+    NextResponse.json({
+      id: insertedData.id ?? "",
+      ...(prepared ?? {}),
+    }),
+  );
 }

@@ -9,13 +9,30 @@ export const ucatKeys = {
   questions: (mode: 'default' | 'generated' | 'all' = 'default') =>
     [...ucatKeys.all, 'questions', mode] as const,
   question: (id: string) => [...ucatKeys.all, 'question', id] as const,
+  aiAssessment: (stemId: string) => [...ucatKeys.question(stemId), 'ai-assessment'] as const,
+  aiAssessmentStatuses: (stemIds: string[]) =>
+    [...ucatKeys.questions('all'), 'ai-assessment-statuses', ...stemIds] as const,
   questionStemTypes: () => [...ucatKeys.questions('all'), 'stem-types'] as const,
   questionStemTagIds: () => [...ucatKeys.questions('all'), 'stem-tag-ids'] as const,
+  /** Shared index for types + tag ids + question/answer search texts (one detail fetch). */
+  questionStemListIndex: () => [...ucatKeys.questions('all'), 'stem-list-index'] as const,
   stemCatalog: () => [...ucatKeys.questions('all'), 'stem-catalog'] as const,
   questionCatalog: () => [...ucatKeys.questions('all'), 'question-catalog'] as const,
+  questionCatalogPage: (query: object) =>
+    [...ucatKeys.questions('all'), 'catalog-page', query] as const,
+  questionCatalogByStemIds: (stemIds: string[]) =>
+    [...ucatKeys.questions('all'), 'catalog-by-stem-ids', stemIds] as const,
+  questionCatalogCreators: () =>
+    [...ucatKeys.questions('all'), 'catalog-creators'] as const,
+  questionCatalogAuditRuns: () =>
+    [...ucatKeys.questions('all'), 'catalog-audit-runs'] as const,
+  audits: () => [...ucatKeys.all, 'audits'] as const,
+  audit: (id: string) => [...ucatKeys.audits(), id] as const,
+  contentChanges: (status: string) => [...ucatKeys.all, 'content-changes', status] as const,
   sets: () => [...ucatKeys.all, 'sets'] as const,
   set: (id: string) => [...ucatKeys.sets(), id] as const,
   mocks: () => [...ucatKeys.all, 'mocks'] as const,
+  mockBlueprints: () => [...ucatKeys.mocks(), 'blueprints'] as const,
   mock: (id: string) => [...ucatKeys.mocks(), id] as const,
   students: () => [...ucatKeys.all, 'students'] as const,
   student: (id: string) => [...ucatKeys.students(), id] as const,
@@ -23,13 +40,14 @@ export const ucatKeys = {
   classSessions: (classId: string) => [...ucatKeys.classes(), classId, 'sessions'] as const,
   sessionResources: (sessionId: string) => [...ucatKeys.classes(), 'session', sessionId, 'resources'] as const,
   reconciliation: () => [...ucatKeys.all, 'reconciliation'] as const,
-  learningModules: (kind?: string) => [...ucatKeys.all, 'learning-modules', kind ?? 'all'] as const,
+  reconciliationQueue: (kind: string, query?: object) =>
+    [...ucatKeys.reconciliation(), 'queue', kind, ...(query ? [query] : [])] as const,
+  learningModules: (kind?: string, status?: string, includeDeleted?: boolean) =>
+    [...ucatKeys.all, 'learning-modules', kind ?? 'all', status ?? 'any', includeDeleted ? 'deleted' : 'active'] as const,
   learningModule: (id: string) => [...ucatKeys.all, 'learning-module', id] as const,
   learningModuleBlocks: (moduleId: string) => [...ucatKeys.learningModule(moduleId), 'blocks'] as const,
-  skillTrainerSets: (trainerKey?: string) =>
-    [...ucatKeys.all, 'skill-trainer-sets', trainerKey ?? 'all'] as const,
-  skillTrainerSet: (id: string) => [...ucatKeys.all, 'skill-trainer-set', id] as const,
-  skillTrainerSetItems: (setId: string) => [...ucatKeys.skillTrainerSet(setId), 'items'] as const,
+  learningModuleStemMembership: (stemId: string) =>
+    [...ucatKeys.learningModules(), 'stem-membership', stemId] as const,
   skillTrainers: () => [...ucatKeys.all, 'skill-trainers'] as const,
   skillTrainerItems: (trainerKey?: string, approvalStatus?: string) =>
     [...ucatKeys.all, 'skill-trainer-items', trainerKey ?? 'all', approvalStatus ?? 'all'] as const,

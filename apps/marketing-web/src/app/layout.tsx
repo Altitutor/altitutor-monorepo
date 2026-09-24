@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Cormorant_Garamond, IBM_Plex_Mono, Outfit, Plus_Jakarta_Sans } from "next/font/google";
 import clsx from "clsx";
 import "./globals.css";
+import { MarketingPostHogProvider } from "@/lib/analytics/posthog-provider";
 import { SITE_NAME, SITE_URL } from "@/lib/site";
 
 const bodyFont = Plus_Jakarta_Sans({
@@ -65,7 +66,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en-AU" className={clsx(bodyFont.variable, headingFont.variable, displayFont.variable, monoFont.variable)}>
-      <body>{children}</body>
+      <body><MarketingPostHogProvider>{children}</MarketingPostHogProvider></body>
     </html>
   );
 }

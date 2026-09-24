@@ -143,6 +143,7 @@ export function IssueNotes({ issueId, notes, onNoteAdded }: IssueNotesProps) {
                           placeholder="Edit note..."
                           disabled={updateNoteMutation.isPending}
                           minHeight="80px"
+                          floatingToolbar
                         />
                         <div className="flex items-center gap-2">
                           <Button
@@ -217,6 +218,7 @@ export function IssueNotes({ issueId, notes, onNoteAdded }: IssueNotesProps) {
           onSubmit={handleSubmit}
           isSubmitting={createNoteMutation.isPending}
           canPost={Boolean(currentStaff)}
+          floatingToolbar
         />
       </div>
     </div>

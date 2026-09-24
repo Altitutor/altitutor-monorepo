@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -18,13 +19,14 @@ type StemDetailQuestion = {
   question_text: unknown;
   answer_explanation?: unknown;
   index: number;
-  question_type: "multiple_choice" | "syllogism";
+  response_type: QuestionEngineQuestion["responseType"];
+  answer_scheme: QuestionEngineQuestion["answerScheme"];
   answer_options?: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
-    is_answer?: boolean;
+    answer_key_value?: AnswerOption["answerKeyValue"];
   }>;
 };
 
@@ -70,6 +72,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (blockError) {
+    captureApiError(blockError, "/api/ucat/learn/questions/[questionId]");
     return NextResponse.json({ error: blockError.message }, { status: 500 });
   }
   if (!block || block.block_type !== "question" || block.question_id !== questionId) {
@@ -84,6 +87,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (questionMetaError) {
+    captureApiError(questionMetaError, "/api/ucat/learn/questions/[questionId]");
     return NextResponse.json({ error: questionMetaError.message }, { status: 500 });
   }
   if (!questionMeta?.question_stem_id) {
@@ -97,6 +101,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (stemError) {
+    captureApiError(stemError, "/api/ucat/learn/questions/[questionId]");
     return NextResponse.json({ error: stemError.message }, { status: 500 });
   }
   if (!stemRow) {
@@ -117,7 +122,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
         id: opt.id,
         index: opt.index,
         text: extractTextFromRichJson(opt.answer_text as JsonLike),
-        isAnswer: opt.is_answer ?? false,
+        answerKeyValue: opt.answer_key_value ?? null,
         answerExplanation: optionExplanation.text,
         answerExplanationJson: optionExplanation.json,
       };
@@ -133,7 +138,8 @@ export async function GET(request: NextRequest, context: RouteContext) {
     sectionDisplayColumns: (stem.display_columns ?? 1) === 2 ? 2 : 1,
     stemText: extractTextFromRichJson(stem.stem_text as JsonLike),
     questionText: extractTextFromRichJson(question.question_text as JsonLike),
-    questionType: question.question_type,
+    responseType: question.response_type,
+    answerScheme: question.answer_scheme,
     options,
     answerExplanation: questionExplanation.text,
     answerExplanationJson: questionExplanation.json,

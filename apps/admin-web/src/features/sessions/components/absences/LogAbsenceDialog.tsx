@@ -1,19 +1,9 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  Button,
-} from '@altitutor/ui';
+import { Button, Label, Textarea } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../../hooks';
-import {
-  useMissingStudentSession,
-  useInitialStudentForAbsence,
-} from '../../hooks/useAbsenceInitialData';
+import { useMissingStudentSession, useInitialStudentForAbsence } from '../../hooks/useAbsenceInitialData';
 import { AbsenceSessionSelector } from './AbsenceSessionSelector';
 import { AbsenceBulkActionSelector } from './AbsenceBulkActionSelector';
 import { AbsenceMessageScreen } from './AbsenceMessageScreen';
@@ -22,16 +12,12 @@ import type {
   AbsenceDecision,
   AbsenceOperation,
   AbsenceAction,
+  AbsenceBillingStatus,
   RescheduleSession,
   StudentSession,
 } from '../../types/absence';
-import { Search, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { AdminDialogShell } from '@/shared/components';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
 import type { Tables } from '@altitutor/shared';
@@ -47,30 +33,33 @@ interface LogAbsenceDialogProps {
   allowPastSessions?: boolean;
 }
 
-export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, initialSessionId, allowPastSessions = false }: LogAbsenceDialogProps) {
+export function LogAbsenceDialog({
+  isOpen,
+  onClose,
+  staffId,
+  initialStudentId,
+  initialSessionId,
+  allowPastSessions = false,
+}: LogAbsenceDialogProps) {
   // Start at select-sessions if we have an initial student, otherwise start at select-student
   const [step, setStep] = useState<WizardStep>(initialStudentId ? 'select-sessions' : 'select-student');
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
   const [selectedSessionIds, setSelectedSessionIds] = useState<Set<string>>(new Set());
   const [decisions, setDecisions] = useState<AbsenceDecision[]>([]);
   const [, setCurrentSessionIndex] = useState(0);
-  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<
-    Map<string, RescheduleSession>
-  >(new Map());
+  const [rescheduledSessionsMap, setRescheduledSessionsMap] = useState<Map<string, RescheduleSession>>(new Map());
   const [processedSessionsForMessage, setProcessedSessionsForMessage] = useState<StudentSession[]>([]);
   const [errorMessage, setErrorMessage] = useState<string>('');
   const [hasInitialized, setHasInitialized] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
+  const [reasonNote, setReasonNote] = useState('');
+  const [billingWarning, setBillingWarning] = useState<string | undefined>();
+  const [billingStatus, setBillingStatus] = useState<AbsenceBillingStatus | undefined>();
 
   // Student search and pagination
   const [searchQuery, setSearchQuery] = useState('');
   const [page, setPage] = useState(0);
   const pageSize = 20;
-  
+
   const { data: studentResults, isLoading: loadingStudents } = useStudentsSearchForAbsence({
     search: searchQuery,
     page,
@@ -87,14 +76,14 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     selectedStudent?.id || initialStudentId || null,
     null, // null = fetch all future sessions with no limit
     allowPastSessions,
-    4 // weeks back when allowing past sessions
+    4, // weeks back when allowing past sessions
   );
 
   const { data: missingSessionData } = useMissingStudentSession(
     initialStudentId ?? undefined,
     initialSessionId ?? undefined,
     futureSessions ?? undefined,
-    isOpen
+    isOpen,
   );
   const missingSession = missingSessionData ?? null;
 
@@ -103,7 +92,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     if (!futureSessions) return missingSession ? [missingSession] : [];
     if (!missingSession) return futureSessions;
     // Check if missingSession is already in futureSessions
-    if (futureSessions.some(s => s.id === missingSession.id)) {
+    if (futureSessions.some((s) => s.id === missingSession.id)) {
       return futureSessions;
     }
     return [...futureSessions, missingSession];
@@ -114,7 +103,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   const { data: initialStudentData } = useInitialStudentForAbsence(
     initialStudentId ?? undefined,
-    isOpen && !!initialStudentId && !selectedStudent && !hasInitialized
+    isOpen && !!initialStudentId && !selectedStudent && !hasInitialized,
   );
 
   useEffect(() => {
@@ -138,7 +127,14 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   // Auto-advance to process-sessions when session is selected and both initial values are provided
   useEffect(() => {
-    if (isOpen && selectedStudent && initialSessionId && selectedSessionIds.has(initialSessionId) && step === 'select-sessions' && hasInitialized) {
+    if (
+      isOpen &&
+      selectedStudent &&
+      initialSessionId &&
+      selectedSessionIds.has(initialSessionId) &&
+      step === 'select-sessions' &&
+      hasInitialized
+    ) {
       // Auto-advance to process step since we have everything pre-filled
       setStep('process-sessions');
     }
@@ -158,6 +154,9 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       setPage(0);
       setErrorMessage('');
       setHasInitialized(false);
+      setReasonNote('');
+      setBillingWarning(undefined);
+      setBillingStatus(undefined);
     }
   }, [isOpen]);
 
@@ -198,7 +197,14 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     setStep('process-sessions');
   };
 
-  const handleBulkDecisionsChange = (bulkDecisions: Array<{ sessionId: string; action: AbsenceAction; targetSessionId?: string; targetSession?: RescheduleSession }>) => {
+  const handleBulkDecisionsChange = (
+    bulkDecisions: Array<{
+      sessionId: string;
+      action: AbsenceAction;
+      targetSessionId?: string;
+      targetSession?: RescheduleSession;
+    }>,
+  ) => {
     if (!selectedStudent) return;
 
     const newRescheduledMap = new Map<string, RescheduleSession>();
@@ -227,7 +233,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
 
   const handleConfirmAndSubmit = () => {
     if (!selectedStudent) return;
-    
+
     // Check if all decisions are complete
     const allComplete = decisions.every((d) => {
       if (!d.action) return false;
@@ -260,9 +266,15 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
       const result = await logAbsencesMutation.mutateAsync({
         operations,
         staffId,
+        reason: {
+          category: 'approved_absence',
+          note: reasonNote.trim() || undefined,
+        },
       });
 
       if (result.success) {
+        setBillingWarning(result.warning);
+        setBillingStatus(result.billing?.status);
         setProcessedSessionsForMessage(sessionsSnapshot);
         setStep('message');
       } else {
@@ -335,9 +347,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             ) : searchQuery.trim() ? (
               <div className="py-8 text-center text-muted-foreground">No students found</div>
             ) : (
-              <div className="py-8 text-center text-muted-foreground">
-                Loading students...
-              </div>
+              <div className="py-8 text-center text-muted-foreground">Loading students...</div>
             )}
           </div>
         );
@@ -350,17 +360,10 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             {/* Sticky Header */}
             {displayStudent && (
               <div className="sticky top-0 bg-background z-10 pb-4 border-b mb-4">
-                <StudentCard
-                  student={displayStudent}
-                  subjects={[]}
-                  showSubjects={false}
-                  showActions={false}
-                />
+                <StudentCard student={displayStudent} subjects={[]} showSubjects={false} showActions={false} />
                 <div className="flex items-center justify-between mt-4">
                   <h4 className="font-semibold">Select Sessions to Log Absence</h4>
-                  <div className="text-sm text-muted-foreground">
-                    {selectedSessionIds.size} selected
-                  </div>
+                  <div className="text-sm text-muted-foreground">{selectedSessionIds.size} selected</div>
                 </div>
               </div>
             )}
@@ -383,14 +386,19 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             {/* Sticky Header */}
             {selectedStudent && (
               <div className="sticky top-0 bg-background z-10 pb-4 border-b mb-4">
-                <StudentCard
-                  student={selectedStudent}
-                  subjects={[]}
-                  showSubjects={false}
-                  showActions={false}
-                />
+                <StudentCard student={selectedStudent} subjects={[]} showSubjects={false} showActions={false} />
                 <div className="text-sm text-muted-foreground mt-2">
-                  Select action for {selectedSessionsArray.length} session{selectedSessionsArray.length !== 1 ? 's' : ''}
+                  Select action for {selectedSessionsArray.length} session
+                  {selectedSessionsArray.length !== 1 ? 's' : ''}
+                </div>
+                <div className="space-y-2 mt-4">
+                  <Label htmlFor="absence-note">Internal note (optional)</Label>
+                  <Textarea
+                    id="absence-note"
+                    value={reasonNote}
+                    onChange={(event) => setReasonNote(event.target.value)}
+                    placeholder="Add context for the audit history"
+                  />
                 </div>
               </div>
             )}
@@ -423,7 +431,6 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
           </div>
         );
 
-
       case 'message':
         return (
           <AbsenceMessageScreen
@@ -431,6 +438,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             decisions={decisions}
             selectedSessionsArray={processedSessionsForMessage}
             rescheduledSessionsMap={rescheduledSessionsMap}
+            billingWarning={billingWarning}
+            billingStatus={billingStatus}
           />
         );
 
@@ -451,9 +460,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
               </svg>
             </div>
             <div className="text-lg font-semibold">Error Logging Absences</div>
-            <div className="text-sm text-muted-foreground max-w-md mx-auto">
-              {errorMessage}
-            </div>
+            <div className="text-sm text-muted-foreground max-w-md mx-auto">{errorMessage}</div>
           </div>
         );
 
@@ -496,8 +503,8 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
     switch (step) {
       case 'select-student':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <div></div>
+          <div className="flex w-full justify-between">
+            <div />
             <Button
               onClick={() => {
                 if (selectedStudent) {
@@ -513,7 +520,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
       case 'select-sessions':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className="flex w-full justify-between">
             <Button
               variant="outline"
               onClick={() => {
@@ -526,10 +533,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
-            <Button
-              onClick={handleProceedToProcess}
-              disabled={selectedSessionIds.size === 0}
-            >
+            <Button onClick={handleProceedToProcess} disabled={selectedSessionIds.size === 0}>
               Next
               <ChevronRight className="h-4 w-4 ml-2" />
             </Button>
@@ -537,7 +541,7 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
       case 'process-sessions':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className="flex w-full justify-between">
             <Button
               variant="outline"
               onClick={() => {
@@ -551,11 +555,13 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
             </Button>
             <Button
               onClick={handleConfirmAndSubmit}
-              disabled={!decisions.every((d) => {
-                if (!d.action) return false;
-                if (d.action === 'reschedule' && !d.targetSessionId) return false;
-                return true;
-              }) || decisions.length === 0}
+              disabled={
+                !decisions.every((d) => {
+                  if (!d.action) return false;
+                  if (d.action === 'reschedule' && !d.targetSessionId) return false;
+                  return true;
+                }) || decisions.length === 0
+              }
             >
               Confirm All Actions
               <ChevronRight className="h-4 w-4 ml-2" />
@@ -564,23 +570,18 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
         );
       case 'message':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
-            <div></div>
-            <Button onClick={onClose}>
-              Done
-            </Button>
+          <div className="flex w-full justify-end">
+            <Button onClick={onClose}>Done</Button>
           </div>
         );
       case 'error':
         return (
-          <div className="flex justify-between px-4 py-3 border-t bg-background">
+          <div className="flex w-full justify-between">
             <Button variant="outline" onClick={() => setStep('process-sessions')}>
               <ChevronLeft className="h-4 w-4 mr-2" />
               Go Back
             </Button>
-            <Button onClick={onClose}>
-              Close
-            </Button>
+            <Button onClick={onClose}>Close</Button>
           </div>
         );
       default:
@@ -589,39 +590,17 @@ export function LogAbsenceDialog({ isOpen, onClose, staffId, initialStudentId, i
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={onClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>{getStepTitle()}</DialogTitle>
-                <DialogDescription>{getStepDescription()}</DialogDescription>
-              </div>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <div className="flex-1 overflow-hidden min-h-0 px-6 py-4">{renderStepContent()}</div>
-        
-        {renderFooter()}
-      </DialogContent>
-    </Dialog>
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title={getStepTitle()}
+      subtitle={getStepDescription()}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="min-h-0"
+      footer={renderFooter()}
+    >
+      {renderStepContent()}
+    </AdminDialogShell>
   );
 }
-

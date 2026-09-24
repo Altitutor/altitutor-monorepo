@@ -6,5 +6,6 @@ export * from './FolderTreeNode';
 export * from './NoteDetailPage';
 export * from './NotePropertiesPanel';
 export * from './NotePropertyPills';
+export * from './NoteDocumentSidebarPanel';
 export * from './NoteTableOfContents';
 export * from './EditDocumentDialog';

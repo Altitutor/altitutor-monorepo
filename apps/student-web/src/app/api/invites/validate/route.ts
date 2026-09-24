@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -62,6 +63,7 @@ export async function GET(request: NextRequest) {
       { status: 404 }
     );
   } catch (error) {
+    captureApiError(error, "/api/invites/validate");
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }

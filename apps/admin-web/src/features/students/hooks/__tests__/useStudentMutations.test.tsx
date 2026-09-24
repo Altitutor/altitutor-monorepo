@@ -90,6 +90,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await act(async () => {
@@ -131,6 +132,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await act(async () => {
@@ -175,6 +177,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await act(async () => {
@@ -214,6 +217,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await act(async () => {
@@ -253,6 +257,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await act(async () => {
@@ -292,6 +297,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await act(async () => {
@@ -339,6 +345,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       act(() => {
@@ -387,6 +394,7 @@ describe('useStudentMutations', () => {
         availability_saturday_pm: false,
         availability_sunday_am: false,
         availability_sunday_pm: false,
+        birthday: '',
       };
 
       await expect(

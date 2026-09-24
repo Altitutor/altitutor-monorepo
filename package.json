@@ -15,9 +15,14 @@
     "test": "turbo run test",
     "test:coverage": "turbo run test:coverage",
     "typecheck": "turbo run typecheck",
-    "checkall": "turbo run lint && turbo run typecheck && turbo run test && turbo run build",
-    "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm --filter @altitutor/shared run build",
-    "db:email-templates": "bash supabase/scripts/render-email-templates.sh",
+    "check": "turbo run lint && turbo run typecheck && turbo run test",
+    "checkall": "bash scripts/checkall.sh",
+    "db:types": "supabase gen types typescript --local --schema public > packages/shared/src/supabase/generated.ts && pnpm turbo run build --filter=@altitutor/shared",
+    "db:seed:ucat": "bash supabase/scripts/apply-ucat-test-seed.sh",
+    "db:email-templates": "pnpm --filter @altitutor/email generate:auth && bash supabase/scripts/render-email-templates.sh",
+    "email:check": "pnpm --filter @altitutor/email check:auth",
+    "email:preview": "node supabase/scripts/watch-ucat-email-previews.mjs",
+    "ucat:email-preview": "pnpm email:preview",
     "db:committypes": "supabase db reset && supabase db lint --local --level=error --fail-on error && pnpm db:types && git add packages/shared/src/supabase/generated.ts && (git diff --cached --quiet || git commit -m 'chore: regenerate types')"
   },
   "devDependencies": {
@@ -27,7 +32,8 @@
     "eslint-config-next": "14.1.0",
     "eslint-plugin-storybook": "^0.12.0",
     "supabase": "^2.108.0",
-    "turbo": "^2.10.0"
+    "turbo": "^2.10.0",
+    "typescript": "^5.8.3"
   },
   "packageManager": "pnpm@11.7.0",
   "repository": {

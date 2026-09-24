@@ -1,25 +1,32 @@
 'use client';
 
 import { cn } from '@/shared/utils/index';
+import { formatTutorLogStaffAttendanceLabel } from '@altitutor/shared/pay-tiers';
 
 type AttendanceCellProps = {
-  status: 'attending' | 'attending-trial' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged';
+  status: 'attending' | 'attending-extra' | 'attending-trial' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged';
   linkTo?: {
     type: 'session' | 'staff';
     id: string;
     onClick: () => void;
   };
   linkText?: string;
-  staffType?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
+  staffType?: string;
+  sessionType?: string | null;
 };
 
-export function AttendanceCell({ status, linkTo, linkText, staffType }: AttendanceCellProps) {
+export function AttendanceCell({ status, linkTo, linkText, staffType, sessionType }: AttendanceCellProps) {
   const getStatusConfig = () => {
     switch (status) {
       case 'attending':
         return {
           text: 'Attending',
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
+        };
+      case 'attending-extra':
+        return {
+          text: 'Attending (extra)',
+          className: 'bg-orange-50 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
         };
       case 'attending-trial':
         return {
@@ -46,12 +53,16 @@ export function AttendanceCell({ status, linkTo, linkText, staffType }: Attendan
           text: `Swapped${linkText ? `: ${linkText}` : ''}`,
           className: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400',
         };
-      case 'attended':
-        const typeText = staffType ? ` (${staffType})` : '';
+      case 'attended': {
+        const label = staffType
+          ? formatTutorLogStaffAttendanceLabel(staffType, sessionType)
+          : '';
+        const typeText = label ? ` (${label})` : '';
         return {
           text: `Attended${typeText}`,
           className: 'bg-green-50 text-green-700 dark:bg-green-900/20 dark:text-green-400',
         };
+      }
       case 'attended-trial':
         return {
           text: 'Attended (TRIAL)',

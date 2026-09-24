@@ -1,4 +1,10 @@
-import type { Flashcard } from '@altitutor/shared';
+import type { Flashcard, FlashcardWriteInput, ImageOcclusionUpload } from '@altitutor/shared';
+
+export type FlashcardMutationInput = FlashcardWriteInput & {
+  topicId: string;
+  extra?: string;
+  index?: number;
+};
 
 async function readJson<T>(response: Response): Promise<T> {
   const json = await response.json();
@@ -12,20 +18,19 @@ export const flashcardsApi = {
     return readJson<Flashcard[]>(res);
   },
 
-  async createCard(input: {
-    topicId: string;
-    clozeText: string;
-    extra?: string;
-    index?: number;
-  }): Promise<Flashcard> {
+  async createCard(input: FlashcardMutationInput): Promise<Flashcard> {
     const res = await fetch('/api/flashcards', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         topic_id: input.topicId,
-        cloze_text: input.clozeText,
+        card_type: input.cardType,
+        cloze_text: input.cardType === 'text_cloze' ? input.clozeText : null,
         extra: input.extra,
         index: input.index,
+        image_file_id: input.cardType === 'image_occlusion' ? input.imageFileId : null,
+        image_alt_text: input.cardType === 'image_occlusion' ? input.imageAltText : null,
+        occlusion_data: input.cardType === 'image_occlusion' ? input.occlusionData : null,
       }),
     });
     return readJson<Flashcard>(res);
@@ -36,24 +41,38 @@ export const flashcardsApi = {
     await readJson<unknown>(res);
   },
 
-  async updateCard(input: {
+  async updateCard(input: FlashcardMutationInput & {
     cardId: string;
-    clozeText: string;
-    extra?: string;
-    index?: number;
-    topicId?: string;
   }): Promise<Flashcard> {
     const res = await fetch(`/api/flashcards/cards/${encodeURIComponent(input.cardId)}`, {
       method: 'PATCH',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        cloze_text: input.clozeText,
+        card_type: input.cardType,
+        cloze_text: input.cardType === 'text_cloze' ? input.clozeText : null,
         extra: input.extra,
         index: input.index,
         topic_id: input.topicId,
+        image_file_id: input.cardType === 'image_occlusion' ? input.imageFileId : null,
+        image_alt_text: input.cardType === 'image_occlusion' ? input.imageAltText : null,
+        occlusion_data: input.cardType === 'image_occlusion' ? input.occlusionData : null,
       }),
     });
     return readJson<Flashcard>(res);
+  },
+
+  async uploadImage(topicId: string, file: File): Promise<ImageOcclusionUpload> {
+    const formData = new FormData();
+    formData.set('topicId', topicId);
+    formData.set('file', file);
+    const res = await fetch('/api/flashcards/images/upload', { method: 'POST', body: formData });
+    return readJson<ImageOcclusionUpload>(res);
+  },
+
+  async cleanupImage(fileId: string): Promise<void> {
+    const res = await fetch(`/api/flashcards/images/upload?fileId=${encodeURIComponent(fileId)}`, { method: 'DELETE' });
+    if (res.status === 409) return;
+    await readJson<unknown>(res);
   },
 
   async reorderCards(topicId: string, cardIds: string[]): Promise<{ updated: number }> {

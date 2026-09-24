@@ -33,19 +33,18 @@ export function getSessionTypeLabel(sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 
  */
 export function getBookingSteps(
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW',
-  originalSessionId?: string | null
+  originalSessionId?: string | null,
+  options?: { allowCreateStudent?: boolean }
 ): Array<{ id: string; title: string }> {
   const baseSteps = [];
 
-  // For TRIAL_SESSION, always start with new student form (skip student selection)
-  if (sessionType === 'TRIAL_SESSION') {
-    // Step 0: Trial Contact Form (new student)
+  // Trial always allows select-or-create. Subsidy does too when launched with a new-student prefill.
+  if (sessionType === 'TRIAL_SESSION' || options?.allowCreateStudent) {
     baseSteps.push({
       id: 'trial-contact',
-      title: 'Student Details',
+      title: 'Select or Create Student',
     });
   } else {
-    // Step 0: Select Student (for DRAFTING and SUBSIDY_INTERVIEW)
     baseSteps.push({
       id: 'student',
       title: 'Select Student',
@@ -94,13 +93,14 @@ export function canProceedToNextStep(
     selectedSlot?: { startAt: string; endAt: string; availableStaffIds: string[] } | null;
     selectedStaffId?: string;
     trialFormValid?: boolean;
+    isCreatingTrialStudent?: boolean;
   }
 ): boolean {
   switch (stepId) {
     case 'student':
       return !!state.selectedStudentId;
     case 'trial-contact':
-      return state.trialFormValid ?? false;
+      return state.isCreatingTrialStudent ? (state.trialFormValid ?? false) : !!state.selectedStudentId;
     case 'subject':
       // For DRAFTING, subject is required; for others it's optional
       return sessionType === 'DRAFTING' ? !!state.selectedSubjectId : true;

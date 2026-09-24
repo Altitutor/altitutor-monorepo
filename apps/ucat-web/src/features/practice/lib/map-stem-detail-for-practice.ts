@@ -13,13 +13,14 @@ export type StemDetailQuestionFromDb = {
   question_text: unknown;
   answer_explanation?: unknown;
   index: number;
-  question_type: "multiple_choice" | "syllogism";
+  response_type: QuestionStemWithQuestions["questions"][number]["responseType"];
+  answer_scheme: QuestionStemWithQuestions["questions"][number]["answerScheme"];
   answer_options?: Array<{
     id: string;
     answer_text: unknown;
     answer_explanation?: unknown;
     index: number;
-    is_answer?: boolean;
+    answer_key_value?: AnswerOption["answerKeyValue"];
     selection_count?: number;
     total_answered?: number;
     percentage?: number;
@@ -57,7 +58,7 @@ export function mapStemDetailToQuestionStemWithQuestions(
           index: opt.index,
           text: extractTextFromRichJson(opt.answer_text as JsonLike),
           textJson: richJsonField(opt.answer_text),
-          isAnswer: opt.is_answer ?? false,
+          answerKeyValue: opt.answer_key_value ?? null,
           answerExplanation: optionExplanation.text,
           answerExplanationJson: optionExplanation.json,
           selectionCount: opt.selection_count,
@@ -74,7 +75,8 @@ export function mapStemDetailToQuestionStemWithQuestions(
       index: q.index,
       questionText: extractTextFromRichJson(q.question_text as JsonLike),
       questionJson: richJsonField(q.question_text),
-      questionType: q.question_type,
+      responseType: q.response_type,
+      answerScheme: q.answer_scheme,
       options,
       answerExplanation: questionExplanation.text,
       answerExplanationJson: questionExplanation.json,

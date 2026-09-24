@@ -7,3 +7,4 @@ export * from './resources-nav';
 export * from './topic-files-list';
 export * from './topic-resource-sidebar';
 export * from './resource-file-viewer';
+export * from './ucat-resources-navigation-dialog';

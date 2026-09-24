@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin'
@@ -50,6 +51,7 @@ export async function POST(request: NextRequest) {
       .in('id', fileIds)
 
     if (error) {
+      captureApiError(error, "/api/ucat/images/signed-urls");
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
@@ -75,6 +77,7 @@ export async function POST(request: NextRequest) {
       .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS)
 
     if (error) {
+      captureApiError(error, "/api/ucat/images/signed-urls");
       return NextResponse.json(
         { error: error.message, path },
         { status: error.message === 'Object not found' ? 404 : 500 }

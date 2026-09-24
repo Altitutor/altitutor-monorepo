@@ -1,21 +1,75 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
-import type { UcatMockPayload } from '@/features/ucat/shared/types'
+import type { UcatContentStatus, UcatMockPayload } from '@/features/ucat/shared/types'
+import {
+  throwFirstUcatBulkStatusFailure,
+  throwUcatLifecycleResponseError,
+} from '@/features/ucat/shared/lifecycle-errors'
+import { patchUcatContentStatus } from '@/features/ucat/shared/lib/content-status-request'
 
 export const ucatMocksApi = {
+  async blueprints() {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_blueprints')
+      .select('*')
+      .order('test_year', { ascending: false })
+      .order('version', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
   async list() {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('updated_at', { ascending: false })
+    const { data, error } = await supabase.from('vtutor_ucat_mocks').select('*').order('catalog_index', { nullsFirst: false }).order('id')
     if (error) throw error
     return data ?? []
   },
 
   async detail(mockId: string) {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
-    const { data, error } = await supabase.from('vtutor_ucat_mock_detail').select('*').eq('id', mockId).maybeSingle()
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_detail')
+      .select('*')
+      .eq('id', mockId)
+      .is('deleted_at', null)
+      .maybeSingle()
     if (error) throw error
     return data
+  },
+
+  async blueprintAudits(mockId: string) {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>
+    const { data, error } = await supabase
+      .from('vtutor_ucat_mock_blueprint_audits')
+      .select('*')
+      .eq('mock_id', mockId)
+      .order('checked_at', { ascending: false })
+    if (error) throw error
+    return data ?? []
+  },
+
+  async auditBlueprint(mockId: string, blueprintId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/blueprint-audit`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ blueprintId }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(body.error ?? 'Failed to audit blueprint candidate')
+    return body as { auditId: string }
+  },
+
+  async confirmBlueprintAudit(mockId: string, auditId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/blueprint-audit`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ auditId }),
+    })
+    const body = await response.json().catch(() => ({}))
+    if (!response.ok) throw new Error(body.error ?? 'Failed to confirm blueprint candidate')
+    return body as { auditId: string }
   },
 
   async create(payload: UcatMockPayload) {
@@ -24,10 +78,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to create mock')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to create mock')
     return response.json() as Promise<{ id: string }>
   },
 
@@ -37,19 +88,61 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ ...payload, id: mockId }),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to update mock')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to update mock')
     return response.json() as Promise<{ id: string }>
+  },
+
+  async reorder(mockIds: string[]) {
+    const response = await fetch('/api/ucat/mocks/order', {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mockIds }),
+    })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to reorder mocks')
+  },
+
+  async attachSet(mockId: string, setId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/sets`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ setId }),
+    })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to attach set')
+  },
+
+  async detachSet(mockId: string, setId: string) {
+    const response = await fetch(`/api/ucat/mocks/${mockId}/sets/${setId}`, { method: 'DELETE' })
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to detach set')
+  },
+
+  async setStatus(mockId: string, status: UcatContentStatus) {
+    const result = await this.bulkSetStatus([mockId], status)
+    throwFirstUcatBulkStatusFailure(result)
+    return result
+  },
+
+  async bulkSetStatus(mockIds: string[], status: UcatContentStatus) {
+    return patchUcatContentStatus({
+      contentType: 'mock',
+      contentIds: mockIds,
+      status,
+      fallback: 'Failed to update mock status',
+    })
+  },
+
+  async bulkRestoreStatus(mockIds: string[], currentStatus: UcatContentStatus, previousStatus: UcatContentStatus) {
+    return patchUcatContentStatus({
+      contentType: 'mock',
+      contentIds: mockIds,
+      status: currentStatus,
+      previousStatus,
+      fallback: 'Failed to restore mock status',
+    })
   },
 
   async remove(mockId: string) {
     const response = await fetch(`/api/ucat/mocks/${mockId}`, { method: 'DELETE' })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to delete mock')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to delete mock')
   },
 
   async bulkRemove(mockIds: string[]) {
@@ -58,10 +151,7 @@ export const ucatMocksApi = {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ mockIds }),
     })
-    if (!response.ok) {
-      const body = await response.json().catch(() => ({}))
-      throw new Error(body.error ?? 'Failed to bulk delete mocks')
-    }
+    if (!response.ok) await throwUcatLifecycleResponseError(response, 'Failed to bulk delete mocks')
     return response.json() as Promise<{ ok: true }>
   },
 

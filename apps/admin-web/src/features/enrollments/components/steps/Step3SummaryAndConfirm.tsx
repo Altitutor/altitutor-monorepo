@@ -8,7 +8,7 @@ import { cn } from '@/shared/utils';
 import { calculateFirstSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { subDays, isBefore, startOfDay } from 'date-fns';
-import { formatDate } from '@/shared/utils/datetime';
+import { formatDate, combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
 import { pricingApi } from '@/features/billing/api/pricing';
 import { subjectPricingOverridesApi } from '@/features/billing/api/subject-pricing-overrides';
@@ -36,7 +36,7 @@ export function Step3SummaryAndConfirm({
   // Calculate first session date
   const firstSessionDate = selectedClass && enrollmentDate && selectedClass.day_of_week !== undefined && selectedClass.start_time
     ? calculateFirstSessionDate(
-        { day_of_week: selectedClass.day_of_week, start_time: selectedClass.start_time },
+        selectedClass,
         getMidnightAdelaide(new Date(enrollmentDate))
       )
     : null;
@@ -81,11 +81,14 @@ export function Step3SummaryAndConfirm({
     // Create a mock session object for the first session
     // Format: YYYY-MM-DDTHH:MM:SS (Adelaide local time, will be parsed correctly)
     const dateStr = firstSessionDate.toISOString().split('T')[0]; // Get YYYY-MM-DD
-    const sessionStart = `${dateStr}T${selectedClass.start_time}:00`;
-    const sessionEnd = `${dateStr}T${selectedClass.end_time}:00`;
+    const sessionStart = combineLocalDateAndTime(dateStr, selectedClass.start_time);
+    const sessionEnd = combineLocalDateAndTime(dateStr, selectedClass.end_time);
+    if (!sessionStart || !sessionEnd) {
+      return null;
+    }
 
     const mockSession = {
-      billing_type: 'CLASS' as const, // Classes always have CLASS billing type
+      billing_type: selectedClass.billing_type,
       subject_id: selectedClass.subject_id,
       start_at: sessionStart,
       end_at: sessionEnd,
@@ -221,4 +224,3 @@ export function Step3SummaryAndConfirm({
     </div>
   );
 }
-

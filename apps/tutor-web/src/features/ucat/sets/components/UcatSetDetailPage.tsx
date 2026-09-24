@@ -2,16 +2,15 @@
 
 import { useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Button, useToast } from '@altitutor/ui'
 import { useUcatSetDetail, useUpdateUcatSet } from '@/features/ucat/sets/hooks/useUcatSets'
 import {
-  filterOptionsWithContent,
-  plainTextToProseMirror,
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
+import { setDetailToUpdatePayload } from '@/features/ucat/sets/lib/set-payload-mappers'
 import { isSnapshotDirty, snapshotSetDetail } from '@/features/ucat/shared/lib/dirty-state'
-import { minutesSecondsToTotal, parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
+import { isSetTimeLimitValid, resolveSetTimeLimitSeconds, type SetTimeLimitSource } from '@/features/ucat/sets/lib/set-time-limit'
 import {
   useUcatCategories,
   useUcatQuestionDetail,
@@ -22,20 +21,26 @@ import {
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { UcatQuestionStemDialog } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import { formValuesToStemBundlePayload } from '@/features/ucat/questions/lib/stem-editor-form'
 import { tutorTableShell } from '@/shared/lib/tutor-visual'
 import { cn } from '@/shared/utils'
-import type { UcatQuestionStemBundlePayload, RichTextJson } from '@/features/ucat/shared/types'
+import type { RichTextJson, UcatQuestionSetFormat } from '@/features/ucat/shared/types'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, buildTaxonomyPathLookup, categoriesToTaxonomyNodes } from '@/features/ucat/shared/lib/taxonomy-paths'
-import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions } from '@/features/ucat/shared/lib/stem-catalog-filters'
+import { buildStemCatalogFilterDefinitions, buildStemCatalogSetFilterOptions, getDefaultStemCatalogFiltersForSetStatus } from '@/features/ucat/shared/lib/stem-catalog-filters'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
 import { UcatPageHeader, UcatPageSkeleton, UcatAccessDenied } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
+import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { UcatSetEditorContent } from '@/features/ucat/sets/components/UcatSetEditorContent'
+import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatRichTextFloatingToolbar } from '@/features/ucat/shared/components/UcatRichTextFloatingToolbar'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import {
+  parseLinkedMockBlueprintCompliance,
+  recalculateLinkedMockBlueprintCompliance,
+} from '@/features/ucat/mocks/lib/blueprint-compliance'
 
 /** Shape of each stem in vtutor_ucat_question_set_detail.stems (from DB view) */
 type SetDetailStem = { stem_id: string; stem_text?: unknown; questions_meta?: Array<{ id: string; index: number }> }
@@ -46,6 +51,7 @@ type UcatSetDetailPageProps = {
 
 export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const { toast } = useToast()
+  const router = useRouter()
   const access = useUcatAccess()
   const detail = useUcatSetDetail(setId)
   const updateSet = useUpdateUcatSet()
@@ -56,20 +62,30 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const setsQuery = useUcatSets()
+  const blueprintsQuery = useUcatMockBlueprints()
   const [editingStemId, setEditingStemId] = useState<string | null>(null)
+  const [viewingMockId, setViewingMockId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [setFilterSearch, setSetFilterSearch] = useState('')
   const [draftName, setDraftName] = useState('')
   const [draftDescription, setDraftDescription] = useState<RichTextJson | null>(null)
-  const [draftIsTimed, setDraftIsTimed] = useState(true)
   const [draftTimeLimitMinutes, setDraftTimeLimitMinutes] = useState('')
   const [draftTimeLimitSeconds, setDraftTimeLimitSeconds] = useState('')
-  const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<'untimed' | 'section_full' | 'section_auto' | 'custom'>('custom')
+  const [draftTimeLimitSource, setDraftTimeLimitSource] = useState<SetTimeLimitSource>('custom')
   const [draftTimeLimitSpeed, setDraftTimeLimitSpeed] = useState(1)
   const [draftPrivate, setDraftPrivate] = useState(false)
+  const [draftSetFormat, setDraftSetFormat] = useState<UcatQuestionSetFormat>('partial_section')
+  const [draftReferenceBlueprintId, setDraftReferenceBlueprintId] = useState('')
+  const [draftSectionId, setDraftSectionId] = useState('')
   const [draftStemIds, setDraftStemIds] = useState<string[]>([])
   const [baseline, setBaseline] = useState<string>('')
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const storedLinkedBlueprintReports = useMemo(() => {
+    const row = (setsQuery.data ?? []).find(candidate => candidate.id === setId)
+    return parseLinkedMockBlueprintCompliance(row?.linked_mock_blueprint_compliance)
+  }, [setId, setsQuery.data])
+
+  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
   useEffect(() => {
     const current = detail.data
@@ -78,165 +94,162 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
     const stems = (current.stems as SetDetailStem[] | null) ?? []
     const stemIds = stems.map((s) => s.stem_id)
 
-    setDraftName(proseMirrorToPlainText(current.name ?? null))
+    setDraftName(current.authoring_note ?? '')
     setDraftDescription((current.description ?? null) as RichTextJson | null)
-    const sec = current.time_limit_seconds ?? 0
-    setDraftIsTimed(sec > 0)
+    const sec = current.fixed_time_limit_seconds ?? 0
     setDraftTimeLimitMinutes(String(Math.floor(sec / 60)))
     setDraftTimeLimitSeconds(String(Math.floor(sec % 60)))
-    setDraftTimeLimitSource(sec > 0 ? 'custom' : 'untimed')
-    setDraftTimeLimitSpeed(1)
-    setDraftPrivate(!!current.is_private)
+    setDraftTimeLimitSource(current.timing_mode === 'pace' ? 'paced' : current.timing_mode === 'fixed' ? 'custom' : 'untimed')
+    setDraftTimeLimitSpeed(current.pace_multiplier ?? 1)
+    setDraftPrivate(current.access_scope === 'private')
+    setDraftSetFormat(current.set_format ?? 'partial_section')
+    setDraftReferenceBlueprintId(current.reference_blueprint_id ?? '')
+    setDraftSectionId(current.section_id ?? '')
     setDraftStemIds(stemIds)
     setBaseline(
       snapshotSetDetail({
-        name: proseMirrorToPlainText(current.name ?? null),
+        name: current.authoring_note ?? '',
         description: (current.description ?? null) as RichTextJson | null,
         time: current.time_limit_seconds ?? null,
-        isPrivate: !!current.is_private,
-        isStudentGenerated: false,
+        accessScope: current.access_scope ?? 'public',
+        sectionId: current.section_id ?? '',
+        setFormat: current.set_format ?? 'partial_section',
+        referenceBlueprintId: current.reference_blueprint_id ?? '',
         stemIds,
       })
     )
+    setFilters(getDefaultStemCatalogFiltersForSetStatus(current.status))
   }, [detail.data])
-
-  const [filters, setFilters] = useState<Record<string, unknown[]>>({})
 
   const stemDetail = useUcatQuestionDetail(editingStemId)
   const updateStemMutation = useUpdateUcatQuestionStem()
 
-  const setSectionsFromStems = useMemo(() => {
-    const sectionMap = new Map<string, { sectionId: string; questionCount: number }>()
-    for (const stemId of draftStemIds) {
-      const stem = stemCatalog.find((s) => s.id === stemId)
-      if (!stem?.sectionId) continue
-      const existing = sectionMap.get(stem.sectionId)
-      if (existing) {
-        existing.questionCount += stem.questionsCount
-      } else {
-        sectionMap.set(stem.sectionId, { sectionId: stem.sectionId, questionCount: stem.questionsCount })
+  const authoredSection = (sectionsQuery.data ?? []).find((section) => section.id === draftSectionId) ?? null
+  const memberQuestionCount = useMemo(
+    () =>
+      draftStemIds.reduce((sum, stemId) => {
+        const stem = stemCatalog.find((item) => item.id === stemId)
+        return sum + (stem?.questionsCount ?? 0)
+      }, 0),
+    [draftStemIds, stemCatalog],
+  )
+  const firstUcatSection = authoredSection
+
+  const timeLimitSeconds = resolveSetTimeLimitSeconds({
+    source: draftTimeLimitSource,
+    timePerQuestion: firstUcatSection?.time_per_question,
+    questionCount: memberQuestionCount,
+    speed: draftTimeLimitSpeed,
+    customMinutes: draftTimeLimitMinutes,
+    customSeconds: draftTimeLimitSeconds,
+  })
+
+  const linkedBlueprintReports = useMemo(() => recalculateLinkedMockBlueprintCompliance({
+    linkedReports: storedLinkedBlueprintReports,
+    blueprints: blueprintsQuery.data ?? [],
+    setCatalog: (setsQuery.data ?? []).map(set => {
+      return {
+        id: set.id ?? '',
+        name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+        sectionDisplay: '',
+        sectionCount: set.section_id ? 1 : 0,
+        firstSectionNumber: set.section_number ?? null,
+        question_count: set.question_count ?? null,
+        time_limit_seconds: set.time_limit_seconds ?? null,
+        access_scope: set.access_scope ?? null,
+        stem_count: set.stem_count ?? null,
       }
-    }
-    return Array.from(sectionMap.values())
-  }, [draftStemIds, stemCatalog])
+    }),
+    stemCatalog,
+    editedSet: {
+      id: setId,
+      stemIds: draftStemIds,
+      timeLimitSeconds,
+      sectionNumbers: firstUcatSection?.section_number == null ? [] : [firstUcatSection.section_number],
+    },
+  }), [
+    blueprintsQuery.data,
+    draftStemIds,
+    firstUcatSection,
+    setId,
+    setsQuery.data,
+    stemCatalog,
+    storedLinkedBlueprintReports,
+    timeLimitSeconds,
+  ])
 
-  const setSectionCount = setSectionsFromStems.length
-  const firstSetSection = setSectionsFromStems[0]
-  const firstUcatSection = firstSetSection
-    ? (sectionsQuery.data ?? []).find((s) => s.id === firstSetSection.sectionId)
-    : null
-
-  const sectionFullTimeSeconds = firstUcatSection?.time_limit_seconds ?? null
-  const sectionAutoTimeSeconds = useMemo(() => {
-    let total = 0
-    const sectionsData = sectionsQuery.data ?? []
-    for (const ss of setSectionsFromStems) {
-      const sec = sectionsData.find((s) => s.id === ss.sectionId)
-      const tpq = sec?.time_per_question
-      if (tpq != null && tpq > 0) {
-        total += ss.questionCount * tpq
-      }
-    }
-    return total > 0 ? total : null
-  }, [setSectionsFromStems, sectionsQuery.data])
-
-  const timeLimitSeconds = (() => {
-    if (draftTimeLimitSource === 'untimed' || !draftIsTimed) return null
-    if (draftTimeLimitSource === 'section_full' && setSectionCount === 1 && sectionFullTimeSeconds != null && sectionFullTimeSeconds > 0) {
-      return sectionFullTimeSeconds
-    }
-    if (draftTimeLimitSource === 'section_auto' && setSectionCount === 1 && sectionAutoTimeSeconds != null) {
-      const speed = Math.max(0.1, Math.min(2, draftTimeLimitSpeed))
-      return Math.round(sectionAutoTimeSeconds / speed)
-    }
-    return minutesSecondsToTotal(draftTimeLimitMinutes, draftTimeLimitSeconds)
-  })()
-
-  const isTimeLimitValid =
-    !draftIsTimed ||
-    (timeLimitSeconds != null &&
-      timeLimitSeconds > 0 &&
-      !(draftTimeLimitSource === 'section_auto' && setSectionCount > 1))
+  const isTimeLimitValid = isSetTimeLimitValid(draftTimeLimitSource, timeLimitSeconds)
   const isDirty = useMemo(() => {
     const snapshot = snapshotSetDetail({
       name: draftName,
       description: draftDescription,
       time: timeLimitSeconds,
-      isPrivate: draftPrivate,
-      isStudentGenerated: false,
+      accessScope: draftPrivate ? 'private' : 'public',
+      sectionId: draftSectionId,
+      setFormat: draftSetFormat,
+      referenceBlueprintId: draftReferenceBlueprintId,
       stemIds: draftStemIds,
     })
     return isSnapshotDirty(snapshot, baseline)
-  }, [baseline, draftName, draftDescription, draftPrivate, draftStemIds, timeLimitSeconds])
+  }, [baseline, draftDescription, draftName, draftPrivate, draftReferenceBlueprintId, draftSectionId, draftSetFormat, draftStemIds, timeLimitSeconds])
 
   const filterDefinitions = useMemo(
     () => {
       const setsList = (setsQuery.data ?? []).filter(
-        (set) =>
-          !(set as { deleted_at?: string | null }).deleted_at &&
-          !(set as { is_student_generated?: boolean }).is_student_generated,
+        (set) => !(set as { deleted_at?: string | null }).deleted_at,
       )
       return buildStemCatalogFilterDefinitions(
         sectionsQuery.data ?? [],
         categoriesQuery.data ?? [],
         tagsQuery.data ?? [],
         filters,
-        buildStemCatalogSetFilterOptions(setsList, setFilterSearch),
+        buildStemCatalogSetFilterOptions(setsList, setFilterSearch, { includeNotInPublishedSet: true }),
+        { lockedSectionId: draftSectionId || null },
       )
     },
-    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch],
+    [sectionsQuery.data, categoriesQuery.data, tagsQuery.data, filters, setsQuery.data, setFilterSearch, draftSectionId],
   )
+
+  const publishedSetIds = useMemo(() => {
+    const ids = new Set<string>()
+    for (const set of setsQuery.data ?? []) {
+      if ((set as { deleted_at?: string | null }).deleted_at) continue
+      if (set.status === 'published' && set.id) ids.add(set.id)
+    }
+    return ids
+  }, [setsQuery.data])
 
   const categoryPathLookup = useMemo(
     () => buildTaxonomyPathLookup(categoriesToTaxonomyNodes(categoriesQuery.data ?? [])),
     [categoriesQuery.data],
   )
 
+  function openLifecycleEntity(entityType: UcatLifecycleEntityType, entityId: string) {
+    if (entityType === 'stem') {
+      setEditingStemId(entityId)
+      return true
+    }
+    if (entityType === 'mock') {
+      setViewingMockId(entityId)
+      return true
+    }
+    if (entityType === 'set' && entityId === setId) {
+      setEditingStemId(null)
+      return true
+    }
+    return false
+  }
+
   async function handleStemUpdate(payload: UcatQuestionStemFormValues) {
     if (!editingStemId) return
 
-    const mapped: UcatQuestionStemBundlePayload = {
-      stemId: editingStemId,
-      sectionId: payload.sectionId,
-      categoryId: payload.categoryId || null,
-      stemText: payload.stemText,
-      isPrivate: payload.isPrivate,
-      questions: payload.questions.map((question, index) => ({
-        index: index + 1,
-        questionText: question.questionText,
-        questionType: question.questionType,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: parseTimeToSeconds(question.timeBurdenSeconds ?? '') ?? null,
-        tagIds: question.tagIds ?? [],
-        options: filterOptionsWithContent(question.options).map((option, optionIndex) => ({
-          index: optionIndex + 1,
-          answerText: option.answerText,
-          answerExplanation: option.answerExplanation,
-          isAnswer: option.isAnswer,
-        })),
-      })),
-    }
+    const mapped = formValuesToStemBundlePayload(payload, editingStemId)
 
     try {
       await updateStemMutation.mutateAsync({ stemId: editingStemId, payload: mapped })
       setEditingStemId(null)
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to save question stem'
-      const parsed = parseUcatVisibilityError(msg)
-      toast({
-        title: 'Failed to save',
-        description: parsed.link ? (
-          <span>
-            {parsed.textBeforeLink}{' '}
-            <Link href={parsed.link.href} className="underline font-medium">
-              {parsed.link.label}
-            </Link>
-          </span>
-        ) : (
-          msg
-        ),
-        variant: 'destructive',
-      })
+      toast(lifecycleErrorToast(error, 'Failed to save', router.push, openLifecycleEntity))
     }
   }
 
@@ -245,41 +258,25 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
       await updateSet.mutateAsync({
         setId,
         payload: {
+          ...setDetailToUpdatePayload(detail.data ?? {}, {
+            authoringNote: draftName,
+            description: draftDescription,
+            timingMode: draftTimeLimitSource === 'paced' ? 'pace' : draftTimeLimitSource === 'custom' ? 'fixed' : 'untimed',
+            paceMultiplier: draftTimeLimitSource === 'paced' ? draftTimeLimitSpeed : null,
+            fixedTimeLimitSeconds: draftTimeLimitSource === 'custom' ? timeLimitSeconds : null,
+            accessScope: draftPrivate ? 'private' : 'public',
+            sectionId: draftSectionId,
+            setFormat: draftSetFormat,
+            referenceBlueprintId: draftReferenceBlueprintId,
+            stemIds: draftStemIds,
+          }),
           id: setId,
-          name: plainTextToProseMirror(draftName),
-          description: draftDescription,
-          timeLimitSeconds,
-          isPrivate: draftPrivate,
-          isStudentGenerated: false,
-          stemIds: draftStemIds,
         },
       })
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to save set'
-      const parsed = parseUcatVisibilityError(msg)
-      toast({
-        title: 'Failed to save',
-        description: parsed.link ? (
-          <span>
-            {parsed.textBeforeLink}{' '}
-            <Link href={parsed.link.href} className="underline font-medium">
-              {parsed.link.label}
-            </Link>
-          </span>
-        ) : (
-          msg
-        ),
-        variant: 'destructive',
-      })
+      toast(lifecycleErrorToast(error, 'Failed to save', router.push, openLifecycleEntity))
     }
   }
-
-  const stemsThatWillBecomePublicCount = useMemo(() => {
-    if (draftPrivate) return 0
-    return draftStemIds.filter(
-      (id) => (stemCatalog as UcatStemCatalogItem[]).find((s) => s.id === id)?.isPrivate
-    ).length
-  }, [draftPrivate, draftStemIds, stemCatalog])
 
   const isLoading =
     access.isLoading ||
@@ -306,28 +303,29 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           },
         ]}
         actions={
-          <Button onClick={save} disabled={!isDirty || !isTimeLimitValid || updateSet.isPending}>
+          <Button onClick={save} disabled={!isDirty || !isTimeLimitValid || !draftSectionId || updateSet.isPending}>
             {updateSet.isPending ? 'Saving...' : 'Save changes'}
           </Button>
         }
       />
 
-      {stemsThatWillBecomePublicCount > 0 && (
-        <UcatVisibilityCascadeWarning type="set" count={stemsThatWillBecomePublicCount} />
-      )}
       <div className={cn('relative mt-4 flex h-[70vh] min-h-0 flex-col', tutorTableShell)}>
         <UcatSetEditorContent
           draftName={draftName}
           draftDescription={draftDescription}
-          draftIsTimed={draftIsTimed}
           draftTimeLimitMinutes={draftTimeLimitMinutes}
           draftTimeLimitSeconds={draftTimeLimitSeconds}
           draftTimeLimitSource={draftTimeLimitSource}
           draftTimeLimitSpeed={draftTimeLimitSpeed}
           draftPrivate={draftPrivate}
+          draftSetFormat={draftSetFormat}
+          draftReferenceBlueprintId={draftReferenceBlueprintId}
+          draftSectionId={draftSectionId}
+          onChangeSectionId={setDraftSectionId}
           draftStemIds={draftStemIds}
           setDraftStemIds={setDraftStemIds}
           stemCatalog={stemCatalog as unknown as UcatStemCatalogItem[]}
+          setDetailStems={(detail.data?.stems as SetDetailStem[] | null) ?? []}
           search={search}
           setSearch={setSearch}
           filters={filters}
@@ -338,27 +336,32 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
           onFilterSearchChange={(filterKey, value) => {
             if (filterKey === 'question_set_id') setSetFilterSearch(value)
           }}
+          publishedSetIds={publishedSetIds}
+          currentSetId={setId}
           stemCatalogLoading={stemCatalogQuery.isLoading}
           onEditStem={(id) => setEditingStemId(id)}
           onChangeName={setDraftName}
           onChangeDescription={setDraftDescription}
-          onChangeIsTimed={(v) => {
-            setDraftIsTimed(v)
-            if (!v) {
-              setDraftTimeLimitMinutes('')
-              setDraftTimeLimitSeconds('')
-              setDraftTimeLimitSource('untimed')
-            }
-          }}
           onChangeTimeLimitMinutes={setDraftTimeLimitMinutes}
           onChangeTimeLimitSeconds={setDraftTimeLimitSeconds}
           onChangeTimeLimitSource={setDraftTimeLimitSource}
           onChangeTimeLimitSpeed={setDraftTimeLimitSpeed}
           onChangePrivate={(value) => setDraftPrivate(value)}
+          onChangeSetFormat={setDraftSetFormat}
+          onChangeReferenceBlueprintId={setDraftReferenceBlueprintId}
+          blueprintOptions={(blueprintsQuery.data ?? []).flatMap((blueprint) =>
+            blueprint.id
+              ? [{ id: blueprint.id, label: `${blueprint.code ?? 'Blueprint'} (${blueprint.test_year ?? '—'} v${blueprint.version ?? '—'})` }]
+              : [],
+          )}
+          isMockSet={detail.data?.mock_id != null}
           onActiveTextEditorChange={setActiveTextEditor}
+          linkedBlueprintReports={linkedBlueprintReports}
+          onViewMock={setViewingMockId}
           sections={(sectionsQuery.data ?? []).map((s) => ({
             id: s.id ?? '',
             name: s.name ?? null,
+            section_number: s.section_number ?? null,
             time_limit_seconds: s.time_limit_seconds ?? null,
             time_per_question: s.time_per_question ?? null,
             number_of_questions: s.number_of_questions ?? null,
@@ -366,6 +369,12 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         />
         <UcatRichTextFloatingToolbar editor={activeTextEditor} />
       </div>
+
+      <UcatMockEditorDialog
+        open={!!viewingMockId}
+        mockId={viewingMockId}
+        onClose={() => setViewingMockId(null)}
+      />
 
       <UcatQuestionStemDialog
         open={!!editingStemId}
@@ -382,8 +391,8 @@ export function UcatSetDetailPage({ setId }: UcatSetDetailPageProps) {
         tags={mapTagsToOptions(tagsQuery.data ?? []) as TagOption[]}
         initial={stemDetail.data}
         loading={updateStemMutation.isPending || stemDetail.isLoading}
+        onOpenLifecycleEntity={openLifecycleEntity}
       />
     </div>
   )
 }
-

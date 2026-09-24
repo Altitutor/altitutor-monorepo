@@ -2,8 +2,18 @@
 
 import { useState, useEffect, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
-import { Badge, Button, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@altitutor/ui'
+import {
+  Badge,
+  Button,
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@altitutor/ui'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
+import { UcatSelectedImageMenu } from '@/features/ucat/shared/components/UcatSelectedImageMenu'
 import { X } from 'lucide-react'
 import {
   ExpandButton,
@@ -19,6 +29,7 @@ import {
   tutorDialogFooterStrip,
   tutorDialogHeaderStrip,
 } from '@/shared/lib/tutor-visual'
+import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
 
 export function UcatDialogShell({
   open,
@@ -31,10 +42,16 @@ export function UcatDialogShell({
   saveDisabled,
   isSaving,
   hideCancel = false,
+  footerActions,
+  headerControls,
   headerActions,
+  headerBadge,
   warningPills,
   defaultExpanded = false,
+  mobileFullscreen = false,
   richTextToolbarEditor = null,
+  onEditSelectedVisual,
+  onUseSelectedImageWithAi,
 }: {
   open: boolean
   onClose: () => void
@@ -46,11 +63,20 @@ export function UcatDialogShell({
   saveDisabled?: boolean
   isSaving?: boolean
   hideCancel?: boolean
+  footerActions?: ReactNode
+  /** Primary mode controls shown immediately before the expand button. */
+  headerControls?: ReactNode
   headerActions?: ReactNode
+  /** Lifecycle or other compact metadata shown beside the dialog title. */
+  headerBadge?: ReactNode
   warningPills?: string[]
   defaultExpanded?: boolean
+  /** Make dense authoring workspaces use the whole viewport on phones. */
+  mobileFullscreen?: boolean
   /** When set, renders the rich-text toolbar inline in the dialog footer beside action buttons. */
   richTextToolbarEditor?: Editor | null
+  onEditSelectedVisual?: (image: SelectedVisualImage, editor: Editor) => void
+  onUseSelectedImageWithAi?: (image: SelectedVisualImage, editor: Editor) => void
 }) {
   const [expanded, setExpanded] = useState(defaultExpanded)
 
@@ -68,21 +94,32 @@ export function UcatDialogShell({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent
         className={cn(
-          'flex h-[90vh] w-full flex-col gap-0 p-0 md:max-w-4xl [&>button]:hidden',
+          'flex h-[90vh] w-full flex-col gap-0 p-0 sm:!h-[90vh] md:max-w-4xl [&>button]:hidden',
+          mobileFullscreen && 'max-w-none rounded-none !h-[100dvh] !w-screen sm:!h-[90vh] sm:!w-full sm:max-w-4xl sm:!rounded-2xl',
           tutorDialogContentClass,
           EXPANDABLE_DIALOG_TRANSITION,
           expandedContentClass,
         )}
       >
+        <UcatSelectedImageMenu
+          editor={richTextToolbarEditor}
+          onEditVisual={onEditSelectedVisual}
+          onUseImageWithAi={onUseSelectedImageWithAi}
+        />
         <DialogHeader className={cn('flex-shrink-0 px-6 py-4', tutorDialogHeaderStrip)}>
-          <div className="flex items-start justify-between gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
             <div className="flex flex-1 items-center gap-3">
               <Button variant="outline" size="icon" onClick={onClose} className={tutorBtnIconOutline}>
                 <X className="h-4 w-4" />
               </Button>
               <div className="flex-1">
-                <DialogTitle>{title}</DialogTitle>
-                {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
+                <div className="flex flex-wrap items-center gap-2">
+                  <DialogTitle>{title}</DialogTitle>
+                  {headerBadge ?? null}
+                </div>
+                <DialogDescription className={cn(!subtitle && 'sr-only', subtitle && 'mt-1')}>
+                  {subtitle ?? title}
+                </DialogDescription>
                 {warningPills && warningPills.length > 0 ? (
                   <div className="mt-2 flex flex-wrap gap-1.5">
                     {warningPills.map((warning) => (
@@ -94,7 +131,8 @@ export function UcatDialogShell({
                 ) : null}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="flex w-full flex-shrink-0 items-center justify-end gap-2 sm:w-auto">
+              {headerControls ? headerControls : null}
               <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
               {headerActions ? headerActions : null}
             </div>
@@ -112,10 +150,13 @@ export function UcatDialogShell({
           <div className="flex min-w-0 flex-1 items-center gap-3">
             {richTextToolbarEditor ? (
               <div className="min-w-0 flex-1 overflow-x-auto" data-rich-text-toolbar>
-                <UcatRichTextToolbar editor={richTextToolbarEditor} />
+                <UcatRichTextToolbar
+                  editor={richTextToolbarEditor}
+                />
               </div>
             ) : null}
             <div className={cn('flex shrink-0 items-center gap-2', !richTextToolbarEditor && 'ml-auto')}>
+              {footerActions ? footerActions : null}
               {!hideCancel ? (
                 <Button type="button" variant="outline" className={tutorBtnOutline} onClick={onClose}>
                   Cancel

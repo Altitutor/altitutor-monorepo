@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import type { RevenueReportDataPoint } from '../types';
 import { ReportsEntitiesTable, type ReportsEntitiesTableVariant } from './ReportsEntitiesTable';
+import { ReportSummaryCard } from './ReportSummaryCard';
 
 type RevenueReportEntity = RevenueReportDataPoint['entities'][number];
 
@@ -79,11 +80,17 @@ export function RevenueReportChart({
   const highlightColor = CHART_PRIMARY;
 
   const deduplicatedEntities = getDeduplicatedEntities(data);
+  const totalCents = data.reduce((sum, point) => sum + point.amountCents, 0);
+  const formattedTotal = new Intl.NumberFormat('en-AU', {
+    style: 'currency',
+    currency,
+  }).format(totalCents / 100);
 
   return (
     <div className="space-y-4">
-      <div className="h-[280px]">
-        <ResponsiveContainer width="100%" height="100%">
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+        <div className="h-[280px] min-w-0">
+          <ResponsiveContainer width="100%" height="100%" minWidth={0}>
           <BarChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" className="stroke-muted" />
             <XAxis
@@ -120,7 +127,9 @@ export function RevenueReportChart({
               })}
             </Bar>
           </BarChart>
-        </ResponsiveContainer>
+          </ResponsiveContainer>
+        </div>
+        <ReportSummaryCard total={formattedTotal} />
       </div>
       <ReportsEntitiesTable
         entities={deduplicatedEntities}
@@ -130,4 +139,3 @@ export function RevenueReportChart({
     </div>
   );
 }
-

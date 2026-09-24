@@ -29,5 +29,7 @@ export function useQuestionEngineData({
       return getQuestionEngineExam({ mode, setId, mockId });
     },
     enabled: isDbMode && enabled,
+    staleTime: 10 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
   });
 }

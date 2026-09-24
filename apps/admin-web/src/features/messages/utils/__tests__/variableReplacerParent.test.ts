@@ -199,6 +199,34 @@ describe('replaceVariablesForParent', () => {
       expect(result).toContain('- SACE 12 Mathematics Mon 2:00 PM - 4:00 PM');
     });
 
+    it('uses the canonical multi-row Class name when available', async () => {
+      const parent = createParent();
+      const students = [
+        createStudentWithClasses({
+          classes: [
+            {
+              class: createClass({
+                long_name: 'SACE 12 Mathematics · Tuesday 1:00 pm–2:00 pm, Wednesday 2:00 pm–3:00 pm',
+                schedule_summary_long:
+                  'Tuesday 1:00 pm–2:00 pm, Wednesday 2:00 pm–3:00 pm',
+              }),
+              subject: createSubject({ long_name: 'SACE 12 Mathematics' }),
+            },
+          ],
+        }),
+      ];
+
+      const result = await replaceVariablesForParent(
+        '{parent.student1.classes}',
+        parent,
+        students
+      );
+
+      expect(result).toBe(
+        '- SACE 12 Mathematics · Tuesday 1:00 pm–2:00 pm, Wednesday 2:00 pm–3:00 pm'
+      );
+    });
+
     it('should replace {parent.student1.classes} with "No classes enrolled" when empty', async () => {
       const parent = createParent();
       const students = [

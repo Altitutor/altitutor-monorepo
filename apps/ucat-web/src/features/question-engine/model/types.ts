@@ -1,3 +1,12 @@
+import type {
+  AnswerScheme,
+  ResponseSnapshotV1,
+  ResponseType,
+  PlacementValue,
+} from "@altitutor/ucat-response-contract";
+
+export type PlacementSnapshot = Record<string, PlacementValue>;
+
 export type QuestionEngineMode = "set" | "mock" | "questionStem" | "questions";
 
 export type AnswerOption = {
@@ -6,8 +15,8 @@ export type AnswerOption = {
   text: string;
   /** Rich JSON for option text (Tiptap). When present, use for rendering images/formatting. */
   textJson?: Record<string, unknown> | null;
-  /** True if this option is the correct answer. Used for marking display. */
-  isAnswer?: boolean;
+  /** Canonical answer-key role used by the shared response contract. */
+  answerKeyValue?: "correct" | "yes" | "no" | "most" | "least" | null;
   /** Option-level answer explanation (shown in results review). */
   answerExplanation?: string;
   /** Rich JSON for option answer explanation (Tiptap). */
@@ -33,7 +42,10 @@ export type QuestionItem = {
   stemJson?: Record<string, unknown> | null;
   /** Rich JSON for question text (Tiptap). When present, use for rendering images/formatting. */
   questionJson?: Record<string, unknown> | null;
-  questionType: "multiple_choice" | "syllogism";
+  /** Candidate interaction, independent of the authored category. */
+  responseType: ResponseType;
+  /** Validation, scoring, persistence, and review behavior. */
+  answerScheme: AnswerScheme["kind"];
   options: AnswerOption[];
   /** ID of the correct answer option. Used for marking. */
   correctOptionId?: string;
@@ -91,6 +103,8 @@ export type QuestionEngineExam = {
   }>;
   /** Questions/questionStem mode only. Seconds per question for timing. Null = untimed. */
   timePerQuestionSeconds?: number | null;
+  /** Fixed practice review-at-end only. One deadline shared by every question. */
+  practiceSessionTimeLimitSeconds?: number | null;
 };
 
 export type QuestionStemWithQuestions = {
@@ -107,13 +121,79 @@ export type QuestionStemWithQuestions = {
     questionText: string;
     /** Rich JSON for question text (Tiptap). */
     questionJson?: Record<string, unknown> | null;
-    questionType: "multiple_choice" | "syllogism";
+    responseType: ResponseType;
+    answerScheme: QuestionItem["answerScheme"];
     options: AnswerOption[];
     /** Question-level explanation (shown in review when present). */
     answerExplanation?: string;
     answerExplanationJson?: Record<string, unknown> | null;
   }[];
 };
+
+// Practice sessions keep immutable question snapshots, so a session created
+// before the response-contract rollout can be resumed after a deployment.
+// Remove this adapter only when production retention guarantees that no
+// pre-contract practice snapshot can still be active or resumed.
+type LegacyPracticeQuestion = Omit<
+  QuestionStemWithQuestions["questions"][number],
+  "answerScheme" | "options" | "responseType"
+> & {
+  questionType?: "multiple_choice" | "syllogism";
+  responseType?: ResponseType;
+  answerScheme?: AnswerScheme["kind"];
+  options: Array<AnswerOption & { isAnswer?: boolean }>;
+};
+
+function normalizePracticeQuestion(
+  question: QuestionStemWithQuestions["questions"][number],
+): Pick<QuestionItem, "answerScheme" | "options" | "responseType"> {
+  const legacyQuestion = question as LegacyPracticeQuestion;
+  const answerScheme =
+    question.answerScheme ??
+    (legacyQuestion.questionType === "syllogism"
+      ? "decision_making_binary_placement"
+      : legacyQuestion.questionType === "multiple_choice"
+        ? "single_choice"
+        : undefined);
+  const responseType =
+    question.responseType ??
+    (legacyQuestion.questionType === "syllogism"
+      ? "drag_and_drop"
+      : legacyQuestion.questionType === "multiple_choice"
+        ? "multiple_choice"
+        : undefined);
+
+  if (!answerScheme || !responseType) {
+    throw new Error(
+      "Practice question snapshot is missing its response contract",
+    );
+  }
+
+  const options = legacyQuestion.options.map((option) => {
+    if (option.answerKeyValue != null || typeof option.isAnswer !== "boolean") {
+      return option;
+    }
+
+    if (answerScheme === "decision_making_binary_placement") {
+      return {
+        ...option,
+        answerKeyValue: option.isAnswer ? ("yes" as const) : ("no" as const),
+      };
+    }
+    if (
+      answerScheme === "single_choice" ||
+      answerScheme === "situational_judgement_rating"
+    ) {
+      return {
+        ...option,
+        answerKeyValue: option.isAnswer ? ("correct" as const) : null,
+      };
+    }
+    return option;
+  });
+
+  return { answerScheme, options, responseType };
+}
 
 export function mapQuestionStemsToItems(
   stems: QuestionStemWithQuestions[],
@@ -127,10 +207,13 @@ export function mapQuestionStemsToItems(
     );
 
     for (const question of sortedQuestions) {
-      const sortedOptions = [...question.options].sort(
+      const normalized = normalizePracticeQuestion(question);
+      const sortedOptions = [...normalized.options].sort(
         (a, b) => a.index - b.index,
       );
-      const correctOption = sortedOptions.find((o) => o.isAnswer);
+      const correctOption = sortedOptions.find(
+        (option) => option.answerKeyValue === "correct",
+      );
 
       items.push({
         id: question.id,
@@ -143,7 +226,8 @@ export function mapQuestionStemsToItems(
         stemJson: stem.stemJson,
         questionText: question.questionText,
         questionJson: question.questionJson,
-        questionType: question.questionType,
+        responseType: normalized.responseType,
+        answerScheme: normalized.answerScheme,
         options: sortedOptions,
         correctOptionId: correctOption?.id,
         answerExplanation: question.answerExplanation,
@@ -162,7 +246,8 @@ export type QuestionEngineQuestion = {
   sectionDisplayColumns: 1 | 2;
   stemText: string;
   questionText: string;
-  questionType: "multiple_choice" | "syllogism";
+  responseType: ResponseType;
+  answerScheme: QuestionItem["answerScheme"];
   options: AnswerOption[];
   /** Question-level explanation (shown in review when present). */
   answerExplanation?: string;
@@ -176,7 +261,9 @@ export function mapQuestionsToItems(
     const sortedOptions = [...question.options].sort(
       (a, b) => a.index - b.index,
     );
-    const correctOption = sortedOptions.find((o) => o.isAnswer);
+    const correctOption = sortedOptions.find(
+      (option) => option.answerKeyValue === "correct",
+    );
     return {
       id: question.id,
       index,
@@ -186,7 +273,8 @@ export function mapQuestionsToItems(
       sectionDisplayColumns: question.sectionDisplayColumns,
       stemText: question.stemText,
       questionText: question.questionText,
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       options: sortedOptions,
       correctOptionId: correctOption?.id,
       answerExplanation: question.answerExplanation,
@@ -199,7 +287,7 @@ export function mapQuestionsToItems(
 export type ReviewFilter = "all" | "incomplete" | "flagged";
 
 export type QuestionEngineState = {
-  /** 'instructions' | 'intro' | 'question' | 'review' | 'marking' | 'mockScore' | 'practiceAnswer' | 'practiceComplete' | 'loadingMore' */
+  /** `marking` and `mockScore` are completion sentinels; the engine redirects instead of rendering them. */
   phase:
     | "instructions"
     | "intro"
@@ -220,6 +308,8 @@ export type QuestionEngineState = {
   timerStartedAt: number | null;
   /** When true, show "Time Expired" dialog. On OK: set mode = end set; mock mode = advance to next segment. */
   showTimeExpiredDialog: boolean;
+  /** The expiry notice belongs to instructions; acknowledging it reveals the already-started question segment. */
+  timeExpiredFromInstructions?: boolean;
   /** Mock only: when we showed time expired, the next segment's timer was started at this time (ms). */
   nextSegmentTimerStartedAt: number | null;
   currentIndex: number;
@@ -227,8 +317,10 @@ export type QuestionEngineState = {
   visitedQuestionIds: string[];
   flaggedIds: string[];
   selectedAnswers: Record<string, string>;
-  /** For syllogism questions: map of questionId -> optionId -> true (Yes) / false (No). */
-  syllogismSnapshots?: Record<string, Record<string, boolean>>;
+  /** Placement response state, keyed by question then option. */
+  placementSnapshots?: Record<string, PlacementSnapshot>;
+  /** Canonical durable responses. */
+  responseSnapshots?: Record<string, ResponseSnapshotV1>;
   showNavigator: boolean;
   showCalculator: boolean;
   showEndExamDialog: boolean;
@@ -242,10 +334,8 @@ export type QuestionEngineState = {
   showNoFlaggedDialog: boolean;
   showReviewInstructionsDialog: boolean;
   showEndReviewDialog: boolean;
-  /** When phase === 'marking': index of question being viewed in fullscreen, or null for results table. */
+  /** Current question in practice answer/review flows, or null when none is open. */
   viewingQuestionIndex: number | null;
-  /** When true, show Exit Results confirmation dialog. */
-  showExitResultsDialog: boolean;
   /** Practice mode only: unit being reviewed. viewingQuestionIndex is the current question in this range. */
   practiceAnswerUnitStartIndex?: number;
   practiceAnswerUnitEndIndex?: number;
@@ -253,4 +343,13 @@ export type QuestionEngineState = {
   loadingMoreTargetIndex?: number;
   /** Unlimited mode: stem IDs to exclude when fetching next. */
   loadingMoreExcludeStemIds?: string[];
+  /** Server-owned open interval for question active-time accumulation. */
+  activeQuestionTiming?: {
+    questionId: string;
+    questionSetId: string;
+    mode: QuestionEngineMode;
+    wasTimed: boolean;
+    startedAt: string;
+    segmentEndsAt: string | null;
+  } | null;
 };

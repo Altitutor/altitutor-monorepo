@@ -31,6 +31,7 @@ import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableC
 import { cn, getErrorMessage } from '@/shared/utils/index';
 import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { useParentsList, useDeleteParent } from '../hooks/useParentsQuery';
+import type { ParentSearchField } from '../api/parents';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
@@ -48,9 +49,10 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   const { data: quickFilters = [] } = useQuickFilters('parents');
   const { openCheckInModal } = useQuickActions();
   
+  const [searchFields, setSearchFields] = useState<ParentSearchField[]>(['name', 'email', 'phone']);
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['first_name', 'last_name', 'students'], []);
+  const defaultVisibleColumns = useMemo(() => ['parent', 'students'], []);
 
   const {
     state,
@@ -77,6 +79,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
     refetch,
   } = useParentsList({
     search: state.search,
+    searchFields,
     page: state.page,
     pageSize: state.pageSize,
     orderBy: state.sortBy as keyof Tables<'parents'> || 'last_name',
@@ -92,6 +95,7 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   ];
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    { key: 'parent', label: 'Parent' },
     { key: 'first_name', label: 'First Name' },
     { key: 'last_name', label: 'Last Name' },
     { key: 'email', label: 'Email' },
@@ -118,11 +122,6 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
       refetch();
     }
   }, [_onRefresh, refetch]);
-
-  // Sync state from URL params on mount and when URL changes
-  useEffect(() => {
-    setPage(1);
-  }, [state.search, state.filters, setPage]);
 
   const handleParentClick = (id: string) => {
     setSelectedParentId(id);
@@ -155,7 +154,14 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
           quickFilters={quickFilters}
-          searchPlaceholder="Search parents..."
+          searchPlaceholder="Search name, email or phone..."
+          searchFromOptions={[
+            { label: 'Name', value: 'name' },
+            { label: 'Email', value: 'email' },
+            { label: 'Phone', value: 'phone' },
+          ]}
+          searchFromValue={searchFields}
+          onSearchFromChange={(values) => setSearchFields(values as ParentSearchField[])}
           isLoading={true}
         />
         
@@ -200,7 +206,14 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}
-        searchPlaceholder="Search parents..."
+        searchPlaceholder="Search name, email or phone..."
+        searchFromOptions={[
+          { label: 'Name', value: 'name' },
+          { label: 'Email', value: 'email' },
+          { label: 'Phone', value: 'phone' },
+        ]}
+        searchFromValue={searchFields}
+        onSearchFromChange={(values) => setSearchFields(values as ParentSearchField[])}
         isLoading={isFetching}
       />
 
@@ -208,6 +221,15 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
         <Table className="min-w-full">
           <TableHeader>
             <TableRow>
+              {state.visibleColumns.includes('parent') && (
+                <TableHead className="cursor-pointer" onClick={() => setSort('last_name', state.sortBy === 'last_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
+                  Parent
+                  <ArrowUpDown className={cn(
+                    "ml-2 h-4 w-4 inline",
+                    state.sortBy === 'last_name' ? "opacity-100" : "opacity-40"
+                  )} />
+                </TableHead>
+              )}
               {state.visibleColumns.includes('first_name') && (
                 <TableHead className="cursor-pointer" onClick={() => setSort('first_name', state.sortBy === 'first_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
                   First Name
@@ -254,6 +276,18 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
                     className="cursor-pointer"
                     onClick={() => handleParentClick(parent.id)}
                   >
+                    {state.visibleColumns.includes('parent') && (
+                      <TableCell>
+                        <div className="font-medium">
+                          {`${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Unnamed Parent'}
+                        </div>
+                        {(parent.email || parent.phone) ? (
+                          <div className="text-xs text-muted-foreground">
+                            {[parent.email, parent.phone].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
+                      </TableCell>
+                    )}
                     {state.visibleColumns.includes('first_name') && (
                       <TableCell className="font-medium">
                         {parent.first_name || '-'}

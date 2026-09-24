@@ -1,25 +1,93 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@altitutor/shared';
+import { createClient as createUserClient } from '@/shared/lib/supabase/server-ssr';
+
+const REASON_CATEGORIES = new Set(['approved_absence', 'extended_absence', 'admin_discretion']);
+const BILLING_RETRY_WARNING = 'Absence saved; billing queued for retry.';
+
+type BillingRunnerResult = {
+  ok?: boolean;
+  adjustmentsOnly?: boolean;
+  skipped?: boolean;
+  adjustments?: {
+    claimed?: number;
+    succeeded?: number;
+    failed?: number;
+  };
+};
+
+function isCompletedTargetedBillingRun(
+  data: BillingRunnerResult,
+): data is BillingRunnerResult & {
+  adjustmentsOnly: true;
+  adjustments: { claimed: number; succeeded: number; failed: number };
+} {
+  const adjustments = data.adjustments;
+  return (
+    data.ok === true &&
+    data.adjustmentsOnly === true &&
+    adjustments !== undefined &&
+    [adjustments.claimed, adjustments.succeeded, adjustments.failed].every(
+      (count) => Number.isInteger(count) && (count ?? -1) >= 0,
+    )
+  );
+}
+
+function getAdjustmentIds(data: unknown): string[] {
+  if (!data || typeof data !== 'object' || !('billing_adjustment_ids' in data)) return [];
+  const ids = (data as { billing_adjustment_ids?: unknown }).billing_adjustment_ids;
+  if (!Array.isArray(ids)) return [];
+  return ids.filter((id): id is string => typeof id === 'string');
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { operations, staffId } = body;
+    const { operations, reasonCategory, reasonNote } = body;
+
+    const userClient = createUserClient();
+    const {
+      data: { user },
+      error: authError,
+    } = await userClient.auth.getUser();
+
+    if (authError || !user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await userClient.auth.getSession();
+    if (sessionError || !session) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const { data: staff, error: adminError } = await userClient
+      .from('staff')
+      .select('id, role, status')
+      .eq('user_id', user.id)
+      .maybeSingle();
+    if (adminError || !staff || staff.role !== 'ADMINSTAFF' || staff.status !== 'ACTIVE') {
+      return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
+    }
 
     // Validate required fields
     if (!operations || !Array.isArray(operations)) {
-      return NextResponse.json(
-        { error: 'operations array is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: 'operations array is required' }, { status: 400 });
     }
 
-    if (!staffId) {
-      return NextResponse.json(
-        { error: 'staffId is required' },
-        { status: 400 }
-      );
+    const actions = operations.map((operation) =>
+      operation && typeof operation === 'object' ? (operation as { action?: unknown }).action : null,
+    );
+    if (actions.length === 0 || actions.some((action) => action !== 'credit' && action !== 'reschedule')) {
+      return NextResponse.json({ error: 'Every operation must be a credit or reschedule action' }, { status: 400 });
+    }
+
+    if (typeof reasonCategory !== 'string' || !REASON_CATEGORIES.has(reasonCategory)) {
+      return NextResponse.json({ error: 'A valid absence reason is required' }, { status: 400 });
     }
 
     // Get Supabase client with service role key for RPC call
@@ -28,10 +96,7 @@ export async function POST(request: Request) {
 
     if (!supabaseUrl || !supabaseServiceKey) {
       console.error('Missing Supabase configuration');
-      return NextResponse.json(
-        { error: 'Server configuration error' },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: 'Server configuration error' }, { status: 500 });
     }
 
     const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey, {
@@ -43,36 +108,89 @@ export async function POST(request: Request) {
 
     // Call the RPC function
     // operations is JSONB array, validate it's an array and cast to Json
-    const { data, error } = await supabase.rpc('log_student_absences', {
+    const { data, error } = await supabase.rpc('log_student_absences_with_billing', {
       operations: operations as Json,
-      logged_by_staff_id: staffId,
+      logged_by_staff_id: staff.id,
+      reason_category: reasonCategory,
+      reason_note: typeof reasonNote === 'string' ? reasonNote : undefined,
     });
 
     if (error) {
-      console.error('Error calling log_student_absences RPC:', error);
-      return NextResponse.json(
-        { error: error.message || 'Failed to log absences' },
-        { status: 500 }
-      );
+      console.error('Error calling log_student_absences_with_billing RPC:', error);
+      captureApiError(error, '/api/absences/log');
+      return NextResponse.json({ error: error.message || 'Failed to log absences' }, { status: 500 });
     }
 
     // Check if the RPC function returned an error in the result
     type RpcResult = { success: boolean; error?: string } | unknown;
     if (data && typeof data === 'object' && 'success' in data && !(data as RpcResult & { success: boolean }).success) {
-      const errorResult = data as RpcResult & { success: boolean; error?: string };
-      return NextResponse.json(
-        { error: errorResult.error || 'Failed to log absences' },
-        { status: 400 }
-      );
+      const errorResult = data as RpcResult & {
+        success: boolean;
+        error?: string;
+      };
+      return NextResponse.json({ error: errorResult.error || 'Failed to log absences' }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true, data });
+    const adjustmentIds = getAdjustmentIds(data);
+    if (adjustmentIds.length === 0) {
+      return NextResponse.json({
+        success: true,
+        data,
+        billing: { status: 'not_required' },
+      });
+    }
+
+    const billingAbortController = new AbortController();
+    const billingTimeout = setTimeout(() => billingAbortController.abort(), 25_000);
+    try {
+      const billingResponse = await fetch(`${supabaseUrl}/functions/v1/billing-runner`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${supabaseServiceKey}`,
+          apikey: supabaseServiceKey,
+          'x-admin-token': session.access_token,
+        },
+        body: JSON.stringify({ adjustmentsOnly: true, adjustmentIds }),
+        signal: billingAbortController.signal,
+      });
+      const billingData = (await billingResponse.json()) as BillingRunnerResult;
+      if (
+        !billingResponse.ok ||
+        billingData.skipped ||
+        !isCompletedTargetedBillingRun(billingData) ||
+        billingData.adjustments.failed > 0
+      ) {
+        throw new Error('Immediate billing adjustment processing did not complete');
+      }
+
+      const { adjustments } = billingData;
+
+      return NextResponse.json({
+        success: true,
+        data,
+        billing: {
+          status: 'processed',
+          claimed: adjustments.claimed,
+          succeeded: adjustments.succeeded,
+          failed: adjustments.failed,
+        },
+      });
+    } catch (billingError) {
+      captureApiError(billingError, '/api/absences/log/immediate-billing');
+      console.error('Absence saved but immediate billing processing failed:', billingError);
+      return NextResponse.json({
+        success: true,
+        data,
+        billing: { status: 'queued' },
+        warning: BILLING_RETRY_WARNING,
+      });
+    } finally {
+      clearTimeout(billingTimeout);
+    }
   } catch (error) {
+    captureApiError(error, '/api/absences/log');
     console.error('Unexpected error in log absences API route:', error);
-    return NextResponse.json(
-      { error: 'An unexpected error occurred' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: 'An unexpected error occurred' }, { status: 500 });
   }
 }
-

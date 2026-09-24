@@ -1,0 +1,42 @@
+/* Matches ucat-web / tutor-web mobile nav: transform slide, 300ms ease-out. */
+@media (max-width: 767px) {
+  [data-slot="dialog-overlay"][data-mobile-bottom-sheet="true"][data-state="open"] {
+    animation: ui-dialog-overlay-in 300ms cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  [data-slot="dialog-overlay"][data-mobile-bottom-sheet="true"][data-state="closed"] {
+    animation: ui-dialog-overlay-out 300ms cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  [data-slot="dialog-content"][data-mobile-bottom-sheet="true"][data-state="open"] {
+    animation: ui-dialog-bottom-sheet-in 300ms cubic-bezier(0, 0, 0.2, 1);
+  }
+
+  [data-slot="dialog-content"][data-mobile-bottom-sheet="true"][data-state="closed"] {
+    animation: ui-dialog-bottom-sheet-out 300ms cubic-bezier(0, 0, 0.2, 1);
+  }
+}
+
+@keyframes ui-dialog-overlay-in {
+  from {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-dialog-overlay-out {
+  to {
+    opacity: 0;
+  }
+}
+
+@keyframes ui-dialog-bottom-sheet-in {
+  from {
+    transform: translate3d(0, 100%, 0);
+  }
+}
+
+@keyframes ui-dialog-bottom-sheet-out {
+  to {
+    transform: translate3d(0, 100%, 0);
+  }
+}

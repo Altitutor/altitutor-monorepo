@@ -6,6 +6,7 @@ import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { formatDate } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
 import type { Tables } from '@altitutor/shared';
+import { getSessionCardDisplayName } from '../utils/session-helpers';
 
 // Base session type that both StudentSession and RescheduleSession share
 type BaseSession = {
@@ -14,6 +15,8 @@ type BaseSession = {
   end_at: string | null;
   class_id: string | null;
   type: Tables<'sessions'>['type'] | null;
+  short_name?: string | null;
+  long_name?: string | null;
   subject?: Tables<'subjects'> | null;
   class?: Tables<'classes'> | null;
 };
@@ -185,6 +188,8 @@ export function WeekViewCalendar({
                       end_at: session.end_at,
                       class_id: session.class_id,
                       type: session.type || 'CLASS', // Default to 'CLASS' if null (satisfies type requirement)
+                      short_name: session.short_name ?? null,
+                      long_name: session.long_name ?? null,
                       created_at: null,
                       updated_at: null,
                     } as Tables<'sessions'>;
@@ -204,6 +209,16 @@ export function WeekViewCalendar({
                           isSelecting={true}
                           isSelected={isSelected}
                           compact={true}
+                          title={getSessionCardDisplayName(
+                            {
+                              type: session.type,
+                              short_name: session.short_name,
+                              long_name: session.long_name,
+                              class: session.class,
+                              subject: session.subject,
+                            },
+                            true
+                          )}
                         />
                       </div>
                     );

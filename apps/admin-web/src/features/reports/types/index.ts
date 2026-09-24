@@ -12,4 +12,7 @@ export type {
   MarketingStatsReportData,
   BillingStatsReportData,
   RevenueReportDataPoint,
+  CommunicationsStatsReportData,
+  ReportEntityPeople,
+  ReportEntityPerson,
 } from './reports';

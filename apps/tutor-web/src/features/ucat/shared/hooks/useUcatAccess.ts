@@ -3,6 +3,7 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+import { useAuthStore } from '@/shared/lib/supabase/auth'
 
 async function getUcatAccess(): Promise<boolean> {
   const supabase = getSupabaseClient() as SupabaseClient<Database>
@@ -12,9 +13,12 @@ async function getUcatAccess(): Promise<boolean> {
 }
 
 export function useUcatAccess() {
+  const { user, loading } = useAuthStore()
+
   return useQuery({
     queryKey: ucatKeys.access(),
     queryFn: getUcatAccess,
+    enabled: !loading && Boolean(user),
     staleTime: 60_000,
   })
 }

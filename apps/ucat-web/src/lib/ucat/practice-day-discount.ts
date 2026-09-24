@@ -78,11 +78,19 @@ export async function maybeGrantPracticeDayDiscount(
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const { data: student, error: studentErr } = await supabase
-    .from("students")
-    .select("id, timezone")
-    .eq("id", studentId)
-    .maybeSingle();
+  const [studentResult, configResult] = await Promise.all([
+    supabase
+      .from("students")
+      .select("id, timezone")
+      .eq("id", studentId)
+      .maybeSingle(),
+    supabase
+      .from("ucat_subscription_config")
+      .select("min_questions_per_day")
+      .limit(1)
+      .maybeSingle(),
+  ]);
+  const { data: student, error: studentErr } = studentResult;
 
   if (studentErr || !student) {
     return { earnedDiscount: false, discountCents: 0 };
@@ -91,11 +99,7 @@ export async function maybeGrantPracticeDayDiscount(
   const tz = student.timezone ?? "Australia/Adelaide";
   const dateStr = todayLocalDateString(tz);
 
-  const { data: config, error: configErr } = await supabase
-    .from("ucat_subscription_config")
-    .select("min_questions_per_day")
-    .limit(1)
-    .maybeSingle();
+  const { data: config, error: configErr } = configResult;
 
   if (configErr || !config) {
     return { earnedDiscount: false, discountCents: 0 };
@@ -118,19 +122,22 @@ export async function maybeGrantPracticeDayDiscount(
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const { data: existingCredit } = await supabase
-    .from("student_ucat_practice_day_credits")
-    .select("id")
-    .eq("student_id", studentId)
-    .eq("credit_date", dateStr)
-    .is("forfeited_at", null)
-    .maybeSingle();
+  const [existingCreditResult, ucatSubjectId] = await Promise.all([
+    supabase
+      .from("student_ucat_practice_day_credits")
+      .select("id")
+      .eq("student_id", studentId)
+      .eq("credit_date", dateStr)
+      .is("forfeited_at", null)
+      .maybeSingle(),
+    getUcatSubjectId(supabase),
+  ]);
+  const { data: existingCredit } = existingCreditResult;
 
   if (existingCredit) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const ucatSubjectId = await getUcatSubjectId(supabase);
   if (!ucatSubjectId) {
     return { earnedDiscount: false, discountCents: 0 };
   }
@@ -149,28 +156,30 @@ export async function maybeGrantPracticeDayDiscount(
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const rule = await getPracticeDayDiscountRule(supabase, sub.billing_interval);
+  const [rule, earnedInPeriod, billingResult] = await Promise.all([
+    getPracticeDayDiscountRule(supabase, sub.billing_interval),
+    countPracticeDayCreditsInBillingPeriod(
+      supabase,
+      studentId,
+      sub.current_period_start,
+      sub.current_period_end,
+      tz,
+    ),
+    supabase
+      .from("students_billing")
+      .select("stripe_customer_id")
+      .eq("student_id", studentId)
+      .maybeSingle(),
+  ]);
   if (!rule || rule.discountPerDayCents <= 0) {
     return { earnedDiscount: false, discountCents: 0 };
   }
-
-  const earnedInPeriod = await countPracticeDayCreditsInBillingPeriod(
-    supabase,
-    studentId,
-    sub.current_period_start,
-    sub.current_period_end,
-    tz,
-  );
 
   if (earnedInPeriod >= rule.maxDiscountsPerPeriod) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const { data: billing } = await supabase
-    .from("students_billing")
-    .select("stripe_customer_id")
-    .eq("student_id", studentId)
-    .maybeSingle();
+  const { data: billing } = billingResult;
 
   const customerId = billing?.stripe_customer_id;
   if (!customerId) {
@@ -182,31 +191,51 @@ export async function maybeGrantPracticeDayDiscount(
   });
 
   const discountCents = rule.discountPerDayCents;
+  const reservationId = crypto.randomUUID();
+  const pendingInvoiceItemId = `pending:${reservationId}`;
 
-  let invoiceItemId: string;
-  try {
-    const item = await stripe.invoiceItems.create({
-      customer: customerId,
-      subscription: sub.stripe_subscription_id,
-      amount: -discountCents,
-      currency: "aud",
-      description: "Practice day discount",
+  const { error: reservationError } = await supabase
+    .from("student_ucat_practice_day_credits")
+    .insert({
+      id: reservationId,
+      student_id: studentId,
+      credit_date: dateStr,
+      stripe_invoice_item_id: pendingInvoiceItemId,
+      discount_cents: discountCents,
     });
-    invoiceItemId = item.id;
-  } catch {
+  if (reservationError) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 
-  const { error: insertErr } = await supabase
-    .from("student_ucat_practice_day_credits")
-    .insert({
-      student_id: studentId,
-      credit_date: dateStr,
-      stripe_invoice_item_id: invoiceItemId,
-      discount_cents: discountCents,
-    });
+  let invoiceItemId: string;
+  try {
+    const item = await stripe.invoiceItems.create(
+      {
+        customer: customerId,
+        subscription: sub.stripe_subscription_id,
+        amount: -discountCents,
+        currency: "aud",
+        description: "Practice day discount",
+      },
+      { idempotencyKey: `ucat-practice-day-credit:${studentId}:${dateStr}` },
+    );
+    invoiceItemId = item.id;
+  } catch {
+    await supabase
+      .from("student_ucat_practice_day_credits")
+      .delete()
+      .eq("id", reservationId)
+      .eq("stripe_invoice_item_id", pendingInvoiceItemId);
+    return { earnedDiscount: false, discountCents: 0 };
+  }
 
-  if (insertErr) {
+  const { error: updateErr } = await supabase
+    .from("student_ucat_practice_day_credits")
+    .update({ stripe_invoice_item_id: invoiceItemId })
+    .eq("id", reservationId)
+    .eq("stripe_invoice_item_id", pendingInvoiceItemId);
+
+  if (updateErr) {
     return { earnedDiscount: false, discountCents: 0 };
   }
 

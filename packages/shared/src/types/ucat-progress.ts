@@ -10,10 +10,13 @@ export type SectionProgress = {
   correctScore: number
   maxScore: number
   percentage: number
-  averageScaledScore: number | null
-  weightedAverageScaledScore: number | null
-  weightedAveragePercentage: number | null
-  /** Total public question points in this section (syllogism=2, else=1) */
+  /** @deprecated ucat-web no longer uses legacy section-level scaled score averages. */
+  averageScaledScore?: number | null
+  /** @deprecated ucat-web no longer uses legacy section-level scaled score EMA. */
+  weightedAverageScaledScore?: number | null
+  /** @deprecated ucat-web no longer uses legacy section-level percentage EMA. */
+  weightedAveragePercentage?: number | null
+  /** Total accessible question progress points in this section, weighted by Answer scheme. */
   totalPublicQuestions?: number
 }
 
@@ -23,18 +26,21 @@ export type SetAttemptRow = {
   completedAt: string | null
   questionSetId: string
   questionSetName: string | null
-  isStudentGenerated: boolean
   studentUcatMockAttemptId: string | null
   scorePoints: number | null
   totalPoints: number | null
   scaledScore: number | null
   timeTakenSeconds: number | null
   setTimeLimitSeconds: number | null
+  /** Working pace applied to this attempt; null for fixed or untimed delivery. */
+  effectivePace: number | null
   studentSetSpeed: number | null
   studentExamSpeed: number | null
   wasTimed: boolean
   /** First section ID for sets with sections (for filtering by section) */
   sectionId: string | null
+  /** Null until the student completes the durable attempt review. */
+  reviewCompletedAt?: string | null
 }
 
 export type MockAttemptRow = {
@@ -45,6 +51,12 @@ export type MockAttemptRow = {
   mockName: string | null
   scorePoints: number | null
   totalPoints: number | null
+  rawScoreBreakdown?: Array<{
+    sectionNumber: number
+    sectionLabel: string
+    scorePoints: number
+    totalPoints: number
+  }>
   scaledScore: number | null
   /** Max possible scaled score (900 × section 1–3 sets). Section 4 excluded. */
   scaledScoreMax: number | null
@@ -53,6 +65,8 @@ export type MockAttemptRow = {
   studentSetSpeed: number | null
   studentExamSpeed: number | null
   wasTimed: boolean
+  /** Null until the student completes the durable attempt review. */
+  reviewCompletedAt?: string | null
 }
 
 export type PracticeAttemptRow = {
@@ -64,16 +78,26 @@ export type PracticeAttemptRow = {
   scorePoints: number | null
   totalPoints: number | null
   questionCount: number | null
+  /** Session duration in seconds when start/end are known. */
+  timeTakenSeconds: number | null
   unlimited: boolean
+  /** Null until the student completes the durable attempt review. */
+  reviewCompletedAt?: string | null
 }
 
 export type QuestionAttemptRow = {
   id: string
   questionId: string
+  questionStemId: string | null
   studentQuestionSetAttemptId: string | null
   attemptedAt: string
   score: number | null
-  questionType: string | null
+  answerScheme:
+    | 'single_choice'
+    | 'situational_judgement_rating'
+    | 'decision_making_binary_placement'
+    | 'situational_judgement_most_least'
+    | null
   timeSpentSeconds: number | null
   studentQuestionSpeed: number | null
   wasTimed: boolean
@@ -90,8 +114,9 @@ export type SectionCategoryProgress = {
   correctScore: number
   maxScore: number
   percentage: number
-  weightedAveragePercentage: number | null
-  /** Total public question points in this category (syllogism=2, else=1) */
+  /** @deprecated ucat-web now uses raw/filtered category correctness only. */
+  weightedAveragePercentage?: number | null
+  /** Total accessible question progress points in this category, weighted by Answer scheme. */
   totalPublicQuestions?: number
 }
 
@@ -101,7 +126,7 @@ export type ProgressResponse = {
   mockAttempts: MockAttemptRow[]
   practiceAttempts: PracticeAttemptRow[]
   questionAttempts: QuestionAttemptRow[]
-  /** Per-section category stats (all-time and weighted %) */
+  /** Per-section category stats */
   sectionCategoryProgress: Record<string, SectionCategoryProgress[]>
   /** Total count of public mocks (for mocks completed card) */
   totalPublicMocks?: number
@@ -111,4 +136,10 @@ export type ProgressResponse = {
   totalPublicUntimedSetsBySection?: Record<string, number>
   /** Per-section: total count of public timed sets (for breakdown denominator) */
   totalPublicTimedSetsBySection?: Record<string, number>
+  /** Daily score projections, exposed to authorised tutors for the selected student. */
+  scoreProjectionSnapshots?: Array<{
+    date: string
+    confidence: 'low' | 'medium' | 'high'
+    sectionEstimates: Record<string, number>
+  }>
 }

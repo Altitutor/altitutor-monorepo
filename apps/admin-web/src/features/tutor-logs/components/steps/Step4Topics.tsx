@@ -1,10 +1,10 @@
 'use client';
 
 import { useState } from 'react';
-import { Checkbox } from '@altitutor/ui';
+import { Checkbox, SearchableSelect } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
-import { Plus, Search, ChevronRight, ChevronDown } from 'lucide-react';
+import { Plus, Search } from 'lucide-react';
 import { TopicCard } from '../TopicCard';
 import { useSessionForLogging } from '../../hooks';
 import { useTopicsBySubject, useTopics } from '@/features/topics/hooks/useTopicsQuery';
@@ -25,9 +25,6 @@ type Step4TopicsProps = {
 export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsProps) {
   const { data: sessionData, isLoading: isLoadingSession } = useSessionForLogging(sessionId);
   const [additionalTopicIds, setAdditionalTopicIds] = useState<string[]>([]);
-  const [expandedTopics, setExpandedTopics] = useState<Set<string>>(new Set());
-  const [showSearch, setShowSearch] = useState(false);
-  const [searchTerm, setSearchTerm] = useState('');
   const [searchFilter, setSearchFilter] = useState('');
 
   // Get subject ID from session data
@@ -83,16 +80,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
     return topics.some((t) => t.topicId === topicId);
   };
 
-  const toggleExpanded = (topicId: string) => {
-    const newExpanded = new Set(expandedTopics);
-    if (newExpanded.has(topicId)) {
-      newExpanded.delete(topicId);
-    } else {
-      newExpanded.add(topicId);
-    }
-    setExpandedTopics(newExpanded);
-  };
-
   const handleAddTopic = (topicId: string) => {
     if (!additionalTopicIds.includes(topicId)) {
       setAdditionalTopicIds([...additionalTopicIds, topicId]);
@@ -100,8 +87,6 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
         onUpdate([...topics, { topicId, studentIds: [] }]);
       }
     }
-    setSearchTerm('');
-    setShowSearch(false);
   };
 
   if (isLoading) {
@@ -118,39 +103,35 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
     );
   });
 
+  const availableAdditionalTopics = allTopics.filter(
+    (topic) => topic.subject_id !== subjectId && !isTopicSelected(topic.id)
+  );
+
   const renderFilteredTopicTree = (parentId: string | null, depth: number = 0) => {
     const childTopics = filteredSubjectTopics.filter((t) => t.parent_id === parentId);
 
     return childTopics.map((topic) => {
       const hasChildren = filteredSubjectTopics.some((t) => t.parent_id === topic.id);
-      const isExpanded = expandedTopics.has(topic.id);
+      const selected = isTopicSelected(topic.id);
       const parentTopic = topic.parent_id ? filteredSubjectTopics.find((t) => t.id === topic.parent_id) : undefined;
 
       return (
         <div key={topic.id}>
           <div
-            className="flex items-start gap-2 py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded"
+            role="button"
+            tabIndex={0}
+            aria-pressed={selected}
+            onClick={() => handleToggleTopic(topic.id, !selected)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                handleToggleTopic(topic.id, !selected);
+              }
+            }}
+            className="flex cursor-pointer items-start gap-2 rounded py-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70"
             style={{ paddingLeft: `${depth * 20}px` }}
           >
-            {hasChildren && (
-              <button
-                type="button"
-                onClick={() => toggleExpanded(topic.id)}
-                className="p-1 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded mt-1"
-              >
-                {isExpanded ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
-            )}
-            {!hasChildren && <div className="w-6" />}
-            <Checkbox
-              checked={isTopicSelected(topic.id)}
-              onCheckedChange={(checked) => handleToggleTopic(topic.id, checked === true)}
-              className="mt-1"
-            />
+            <Checkbox checked={selected} tabIndex={-1} className="pointer-events-none mt-1" />
             <div className="flex-1">
               <TopicCard
                 topic={topic}
@@ -159,7 +140,7 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
               />
             </div>
           </div>
-          {isExpanded && hasChildren && renderFilteredTopicTree(topic.id, depth + 1)}
+          {hasChildren ? renderFilteredTopicTree(topic.id, depth + 1) : null}
         </div>
       );
     });
@@ -169,7 +150,7 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
     <div className="space-y-4">
       {title && <h2 className="text-xl font-semibold">{title}</h2>}
       <p className="text-sm text-muted-foreground">
-        Select topics covered in this session. Selecting a parent automatically selects all children.
+        Select all topic(s) taught during this session.
       </p>
 
       {subjectTopics.length > 0 && (
@@ -212,52 +193,34 @@ export function Step4Topics({ title, sessionId, topics, onUpdate }: Step4TopicsP
         </div>
       )}
 
-      {!showSearch && (
-        <Button variant="outline" onClick={() => setShowSearch(true)}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Topic from Another Subject
-        </Button>
-      )}
-
-      {showSearch && (
-        <div className="space-y-2 border rounded-md p-4 bg-muted/30">
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search topics..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-              autoFocus
-            />
-          </div>
-
-          <div className="max-h-60 overflow-y-auto space-y-1">
-            {allTopics
-              .filter(
-                (topic) =>
-                  !isTopicSelected(topic.id) &&
-                  (searchTerm === '' || topic.name.toLowerCase().includes(searchTerm.toLowerCase()))
-              )
-              .map((topic) => (
-                <button
-                  key={topic.id}
-                  type="button"
-                  onClick={() => handleAddTopic(topic.id)}
-                  className="w-full text-left p-2 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 rounded-md transition-colors"
-                >
-                  {topic.name}
-                </button>
-              ))}
-          </div>
-
-          <Button variant="outline" size="sm" onClick={() => setShowSearch(false)}>
-            Cancel
+      <SearchableSelect
+        items={availableAdditionalTopics}
+        value={null}
+        onValueChange={(topic) => topic && handleAddTopic(topic.id)}
+        getItemLabel={(topic) => topic.name}
+        getItemId={(topic) => topic.id}
+        getItemValue={(topic) => [topic.name, topic.code ?? ''].filter(Boolean).join(' ')}
+        placeholder="Add topic from another subject"
+        searchPlaceholder="Search topics..."
+        emptyMessage="No topics found"
+        showChevron={false}
+        trigger={
+          <Button type="button" variant="outline">
+            <Plus className="h-4 w-4 mr-2" />
+            Add Topic from Another Subject
           </Button>
-        </div>
-      )}
+        }
+        contentWidth="min(560px, calc(100vw - 2rem))"
+        renderItem={(topic) => (
+          <div className="min-w-0">
+            <div className="truncate font-medium">{topic.name}</div>
+            {topic.code ? (
+              <div className="truncate text-xs text-muted-foreground">{topic.code}</div>
+            ) : null}
+          </div>
+        )}
+      />
     </div>
   );
 }
-
 

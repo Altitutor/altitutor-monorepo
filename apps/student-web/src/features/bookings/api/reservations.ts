@@ -1,6 +1,5 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
-import type { SupabaseClient } from '@supabase/supabase-js';
 
 export interface ReservationRow {
   id: string;
@@ -24,43 +23,24 @@ export interface CreateReservationInput {
 
 export const reservationsApi = {
   async createReservation(input: CreateReservationInput): Promise<ReservationRow> {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    // Get current user
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) {
-      throw new Error('User not authenticated');
-    }
-
-    const { data, error } = await supabase
-      .from('slot_reservations')
-      .insert({
-        start_at: input.start_at,
-        end_at: input.end_at,
-        session_type: input.session_type,
-        subject_id: input.subject_id || null,
-        staff_id: input.staff_id || null,
-        reserved_by: user.id,
-        expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(), // 10 minutes
-      })
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data as ReservationRow;
+    const response = await fetch('/api/bookings/reservations', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input),
+    });
+    if (!response.ok) throw new Error('Failed to create reservation');
+    return await response.json() as ReservationRow;
   },
 
   async deleteReservation(id: string): Promise<void> {
-    const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
-      .from('slot_reservations')
-      .delete()
-      .eq('id', id);
-    
-    if (error) throw error;
+    const response = await fetch(`/api/bookings/reservations?id=${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) throw new Error('Failed to delete reservation');
   },
 
   async getMyReservations(): Promise<ReservationRow[]> {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const supabase = getSupabaseClient();
     const reservationsClient = supabase as unknown as {
       from: (table: string) => {
         select: (columns: string) => {
@@ -82,5 +62,4 @@ export const reservationsApi = {
     return (data ?? []) as ReservationRow[];
   },
 };
-
 

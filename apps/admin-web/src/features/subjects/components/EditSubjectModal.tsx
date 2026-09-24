@@ -1,14 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
@@ -21,12 +13,7 @@ import { useToast } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { subjectsApi } from '../api';
 import { getErrorMessage } from '@/shared/utils';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
 import { DraggableTopicsList } from '@/features/topics/components';
 import { useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
@@ -78,11 +65,6 @@ export function EditSubjectModal({
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Topics are not used in this component
   // const { data: allTopics = [] } = useTopics();
@@ -188,26 +170,32 @@ export function EditSubjectModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'sm:max-w-[600px] max-h-[90vh] overflow-y-auto',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Edit Subject</DialogTitle>
-              <DialogDescription>
-                Update subject details and reorder root-level topics.
-              </DialogDescription>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
+    <AdminDialogShell
+      open={isOpen}
+      onClose={onClose}
+      title="Edit Subject"
+      subtitle="Update subject details and reorder root-level topics."
+      contentClassName="sm:max-w-[600px]"
+      bodyClassName="max-h-[70vh] overflow-y-auto"
+      footer={
+        subject ? (
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onClose}
+              disabled={submitting}
+            >
+              Cancel
+            </Button>
+            <Button type="submit" form="edit-subject-form" disabled={submitting}>
+              {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Save Changes
+            </Button>
+          </>
+        ) : undefined
+      }
+    >
         {loading ? (
           <div className="flex justify-center items-center py-12">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -227,7 +215,7 @@ export function EditSubjectModal({
             </Button>
           </div>
         ) : subject ? (
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form id="edit-subject-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
             <div className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="name">Subject Name *</Label>
@@ -314,25 +302,9 @@ export function EditSubjectModal({
                 />
               </div>
             )}
-
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={onClose}
-                disabled={submitting}
-              >
-                Cancel
-              </Button>
-              <Button type="submit" disabled={submitting}>
-                {submitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </DialogFooter>
           </form>
         ) : null}
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }
 

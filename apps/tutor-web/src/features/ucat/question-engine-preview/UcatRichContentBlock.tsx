@@ -12,8 +12,13 @@ import {
 import {
   UCAT_ENGINE_READONLY_EDITOR_CLASSNAME,
   UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME,
+  UCAT_THEME_TABLE_WRAPPER_CLASSNAME,
 } from '@/features/ucat/shared/UcatRichTextEditor'
 import { hasRichTextContent } from '@/features/ucat/shared/lib/rich-text'
+import {
+  expandParagraphBreaksInDoc,
+  UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME,
+} from '@/features/ucat/shared/lib/ucat-paragraph-spacing'
 import { cn } from '@/shared/utils'
 
 const ENGINE_RICH_TEXT = cn(
@@ -30,11 +35,10 @@ const THEME_RICH_TEXT = cn(
   '[&_h1]:text-foreground [&_h2]:text-foreground [&_h3]:text-foreground',
   '[&_.ProseMirror_span[style*="color"]]:!text-foreground',
   '[&_.ProseMirror_span[style*="background"]]:!bg-transparent',
-  UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
+  UCAT_THEME_TABLE_WRAPPER_CLASSNAME
 )
 
-const PARAGRAPH_SPACING_CLASS =
-  '[&_p]:!my-2 [&_p:first-child]:!mt-0 [&_p:last-child]:!mb-0'
+const PARAGRAPH_SPACING_CLASS = UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME
 
 type UcatRichContentBlockProps = {
   json?: Record<string, unknown> | null
@@ -60,6 +64,11 @@ export function UcatRichContentBlock({
   const displayContent = preloadedContent ?? content
   const richJson = json as Json | null | undefined
   const toneClass = textTone === 'theme' ? THEME_RICH_TEXT : ENGINE_RICH_TEXT
+  const renderedContent = useMemo(() => {
+    if (!displayContent || typeof displayContent !== 'object') return null
+    if (!paragraphSpacing) return displayContent
+    return expandParagraphBreaksInDoc(displayContent as Json)
+  }, [displayContent, paragraphSpacing])
 
   const hasImageRefs = useMemo(() => {
     if (!json || typeof json !== 'object') return false
@@ -78,12 +87,12 @@ export function UcatRichContentBlock({
     isLoading
 
   const editorKey = useMemo(() => {
-    if (!displayContent || !hasRichTextContent(richJson)) return plainText
+    if (!renderedContent || !hasRichTextContent(richJson)) return plainText
     if (hasImageRefs) {
-      return extractImageUrlsFromDoc(displayContent as Record<string, unknown>).join('\0')
+      return extractImageUrlsFromDoc(renderedContent as Record<string, unknown>).join('\0')
     }
-    return docStructureFingerprint(displayContent as Record<string, unknown>)
-  }, [displayContent, hasImageRefs, plainText, richJson])
+    return docStructureFingerprint(renderedContent as Record<string, unknown>)
+  }, [renderedContent, hasImageRefs, plainText, richJson])
 
   const renderPlainText = () => {
     const text = plainText || '\u00A0'
@@ -110,14 +119,14 @@ export function UcatRichContentBlock({
     if (waitingForImageRefresh) {
       return renderPlainText()
     }
-    if (displayContent == null) {
+    if (displayContent == null || renderedContent == null) {
       return renderPlainText()
     }
     return (
       <div className={cn(toneClass, className)}>
         <RichTextEditor
           key={editorKey}
-          content={displayContent}
+          content={renderedContent as Record<string, unknown>}
           editable={false}
           omitTypography
           minHeight="auto"

@@ -2,11 +2,6 @@
 
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -16,7 +11,7 @@ import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
 import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getStudentInviteMessageForClient,
   getStudentRegistrationInviteMessageForClient,
@@ -32,12 +27,7 @@ import { templateContainsLinkVariables } from '@/features/messages/utils/generat
 import { generateLinkTokensForStudent } from '@/features/messages/utils/generateLinkTokens';
 import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveButtons';
 import { useStudentInviteData, studentInviteDataKeys } from '../hooks/useStudentInviteData';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { useStudentClassesForTemplate } from '@/features/messages/hooks/useTemplatePreviewData';
 import { useContactIdForRelated } from '@/features/messages/hooks/useContactIdForRelated';
 import type { Tables } from '@altitutor/shared';
@@ -69,12 +59,7 @@ export function SendStudentInviteDialog({
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [composerDraft, setComposerDraft] = useState<string>('');
-  const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
 
@@ -250,7 +235,7 @@ export function SendStudentInviteDialog({
         }
 
         await response.json();
-        queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'register') });
+        queryClient.invalidateQueries({ queryKey: studentInviteDataKeys.detail(student.id, 'registration') });
       }
     } catch (error) {
       console.error('Failed to generate token:', error);
@@ -263,6 +248,34 @@ export function SendStudentInviteDialog({
       setIsGenerating(false);
     }
   }, [student.id, linkType, token, toast, queryClient]);
+
+  const replaceRegistrationLink = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/public-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'registration', id: student.id }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Failed to replace registration link');
+    },
+    onSuccess: async () => {
+      setComposerDraft('');
+      setCustomMessage('');
+      await queryClient.invalidateQueries({
+        queryKey: studentInviteDataKeys.detail(student.id, 'registration'),
+      });
+      toast({
+        title: 'Registration link replaced',
+        description: 'Previously sent registration links no longer work.',
+      });
+    },
+    onError: (error) => toast({
+      title: 'Could not replace link',
+      description: error instanceof Error ? error.message : 'Please try again',
+      variant: 'destructive',
+    }),
+  });
 
   // Generate token when modal opens ONLY if no existing token
   useEffect(() => {
@@ -547,37 +560,16 @@ export function SendStudentInviteDialog({
     : `Send a registration link to ${student.first_name} ${student.last_name} to complete registration`;
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent
-        className={cn(
-          'md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>{dialogTitle}</DialogTitle>
-                <DialogDescription>
-                  {dialogDescription}
-                </DialogDescription>
-              </div>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <div className="flex flex-col flex-1 min-h-0 py-4 overflow-hidden">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={handleClose}
+      title={dialogTitle}
+      subtitle={dialogDescription}
+      contentClassName="md:max-w-4xl"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden"
+    >
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
           {/* Loading State */}
           {isGenerating ? (
             <div className="flex flex-col gap-4 px-4">
@@ -617,6 +609,24 @@ export function SendStudentInviteDialog({
                       </>
                     )}
                   </Button>
+                  {linkType === 'registration' && (
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={replaceRegistrationLink.isPending}
+                      onClick={() => {
+                        if (window.confirm('Replace this registration link? Previously sent links will stop working.')) {
+                          replaceRegistrationLink.mutate();
+                        }
+                      }}
+                    >
+                      {replaceRegistrationLink.isPending ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        'Replace link'
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -857,8 +867,6 @@ export function SendStudentInviteDialog({
             </>
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }
-

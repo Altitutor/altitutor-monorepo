@@ -1,15 +1,13 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import Image from 'next/image';
+import { useState } from 'react';
 import { Button } from '@altitutor/ui';
+import { Input } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
-import { Textarea } from '@altitutor/ui';
 import { Pencil, Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
-import { profileApi } from '../../api';
 import { useUpdateProfile } from '../../hooks';
 import type { Database } from '@altitutor/shared';
 import { z } from 'zod';
@@ -23,7 +21,14 @@ interface DetailsTabProps {
 
 const detailsFormSchema = z.object({
   phone_number: z.string().optional().nullable(),
-  profile_bio: z.string().max(1200, 'Bio must be 1200 characters or fewer').optional().nullable(),
+  birthday: z
+    .union([
+      z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Invalid date'),
+      z.literal(''),
+      z.null(),
+    ])
+    .optional()
+    .nullable(),
 });
 
 type DetailsFormData = z.infer<typeof detailsFormSchema>;
@@ -33,27 +38,11 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   const updateProfile = useUpdateProfile();
   const [isEditing, setIsEditing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedImage, setSelectedImage] = useState<File | null>(null);
-  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   
   const [formData, setFormData] = useState<DetailsFormData>({
     phone_number: profile.phone || '',
-    profile_bio: profile.profile_bio || '',
+    birthday: profile.birthday || '',
   });
-
-  useEffect(() => {
-    let cancelled = false;
-
-    profileApi.getProfileImageUrl(profile.profile_image_file_id).then((url) => {
-      if (!cancelled) setProfileImageUrl(url);
-    }).catch(() => {
-      if (!cancelled) setProfileImageUrl(null);
-    });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [profile.profile_image_file_id]);
 
   const handleInputChange = (field: keyof DetailsFormData, value: string | null) => {
     setFormData(prev => ({ ...prev, [field]: value }));
@@ -70,9 +59,8 @@ export function DetailsTab({ profile }: DetailsTabProps) {
   const handleCancelEdit = () => {
     setFormData({
       phone_number: profile.phone || '',
-      profile_bio: profile.profile_bio || '',
-    });
-    setSelectedImage(null);
+      birthday: profile.birthday || '',
+      });
     setIsEditing(false);
   };
 
@@ -103,18 +91,9 @@ export function DetailsTab({ profile }: DetailsTabProps) {
 
     setIsSubmitting(true);
     try {
-      let profileImageFileId = profile.profile_image_file_id;
-      if (selectedImage) {
-        if (!profile.id) {
-          throw new Error('Profile ID is missing');
-        }
-        profileImageFileId = await profileApi.uploadProfileImage(profile.id, selectedImage);
-      }
-
       await updateProfile.mutateAsync({
         phone_number: formData.phone_number || undefined,
-        profile_bio: formData.profile_bio?.trim() || null,
-        profile_image_file_id: profileImageFileId,
+        birthday: formData.birthday || null,
       });
       
       toast({
@@ -123,8 +102,7 @@ export function DetailsTab({ profile }: DetailsTabProps) {
       });
       
       setIsEditing(false);
-      setSelectedImage(null);
-    } catch (error) {
+      } catch (error) {
       toast({
         title: 'Error',
         description: error instanceof Error ? error.message : 'Failed to update profile',
@@ -178,30 +156,17 @@ export function DetailsTab({ profile }: DetailsTabProps) {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="profile-image">Public Profile Picture</Label>
-            <input
-              id="profile-image"
-              type="file"
-              accept="image/jpeg,image/png,image/webp"
-              onChange={(event) => setSelectedImage(event.target.files?.[0] ?? null)}
-              className="block w-full text-sm text-muted-foreground file:mr-4 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-2 file:text-sm file:font-medium file:text-primary-foreground"
+          <div>
+            <Label htmlFor="birthday">Birthday</Label>
+            <Input
+              id="birthday"
+              type="date"
+              value={formData.birthday || ''}
+              max={new Date().toISOString().slice(0, 10)}
+              onChange={(e) => handleInputChange('birthday', e.target.value || null)}
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="profile-bio">Public Bio</Label>
-            <Textarea
-              id="profile-bio"
-              value={formData.profile_bio || ''}
-              onChange={(event) => handleInputChange('profile_bio', event.target.value)}
-              rows={6}
-              placeholder="Short public bio for the About page"
-            />
-            <p className="text-xs text-muted-foreground">
-              Plain text. Use blank lines for paragraph breaks.
-            </p>
-          </div>
         </form>
       </div>
     );
@@ -219,22 +184,6 @@ export function DetailsTab({ profile }: DetailsTabProps) {
       </div>
 
       <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">Profile Picture:</div>
-        <div>
-          {profileImageUrl ? (
-            <Image
-              src={profileImageUrl}
-              alt={`${profile.first_name ?? ''} ${profile.last_name ?? ''}`.trim()}
-              width={80}
-              height={80}
-              className="h-20 w-20 rounded-full object-cover"
-              unoptimized
-            />
-          ) : (
-            '-'
-          )}
-        </div>
-
         <div className="text-sm font-medium">First Name:</div>
         <div>
           <TruncatedText text={profile.first_name || '-'} />
@@ -255,11 +204,11 @@ export function DetailsTab({ profile }: DetailsTabProps) {
           <TruncatedText text={profile.phone || '-'} />
         </div>
 
-        <div className="text-sm font-medium">Public Bio:</div>
-        <div className="whitespace-pre-wrap text-sm">
-          {profile.profile_bio || '-'}
+        <div className="text-sm font-medium">Birthday:</div>
+        <div>
+          <TruncatedText text={profile.birthday || '-'} />
         </div>
-        
+
         <div className="text-sm font-medium">Role:</div>
         <div>
           {profile.role ? (

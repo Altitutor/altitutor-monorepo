@@ -1,15 +1,13 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   clearSignupJustCompleted,
   isSignupJustCompleted,
 } from "@/features/signup-onboarding/lib/signup-tour-flag";
+import { isAllowedBeforeSignupComplete } from "@/features/signup-onboarding/lib/signup-complete-paths";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-
-/** Paths reachable before the student completes signup onboarding. */
-const ALLOWED_BEFORE_SIGNUP_COMPLETE = ["/signup/complete"];
 
 /**
  * Redirects authenticated students who have not finished signup onboarding
@@ -19,24 +17,41 @@ export function OnboardingGateRedirect() {
   const router = useRouter();
   const pathname = usePathname();
   const access = useUcatAccess();
+  const redirectingRef = useRef(false);
 
   useEffect(() => {
     if (access.isLoading) return;
 
+    // An access lookup failure is not evidence that signup is incomplete.
+    // Fail open so a transient Supabase/network error cannot create a
+    // /dashboard ↔ /signup/complete redirect loop.
+    if (access.accessLoadFailed) return;
+
     if (access.signupCompleted) {
       clearSignupJustCompleted();
+      redirectingRef.current = false;
       return;
     }
 
     if (isSignupJustCompleted()) return;
 
-    const allowed = ALLOWED_BEFORE_SIGNUP_COMPLETE.some(
-      (prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`),
-    );
-    if (allowed) return;
+    if (isAllowedBeforeSignupComplete(pathname)) {
+      redirectingRef.current = false;
+      return;
+    }
 
+    // Avoid spamming history.replaceState while the soft navigation is in
+    // flight (Safari throws after ~100 replaceState calls / 10s).
+    if (redirectingRef.current) return;
+    redirectingRef.current = true;
     router.replace("/signup/complete");
-  }, [access.isLoading, access.signupCompleted, pathname, router]);
+  }, [
+    access.accessLoadFailed,
+    access.isLoading,
+    access.signupCompleted,
+    pathname,
+    router,
+  ]);
 
   return null;
 }

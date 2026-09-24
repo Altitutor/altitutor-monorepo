@@ -1,10 +1,11 @@
 'use client';
 
 import { Button } from '@altitutor/ui';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { FlashcardManager } from '@/features/flashcards';
 import { useTopicById } from '@/features/topics/hooks';
+import { AdminLoadingSkeleton } from '@/shared/components';
 
 export default function TopicFlashcardsPage({
   params,
@@ -18,11 +19,7 @@ export default function TopicFlashcardsPage({
   const { data: topic, isLoading, error } = useTopicById(id);
 
   if (isLoading) {
-    return (
-      <div className="flex h-64 items-center justify-center p-6">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="card" />;
   }
 
   if (error || !topic) {

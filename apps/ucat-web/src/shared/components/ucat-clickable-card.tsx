@@ -18,6 +18,7 @@ type UcatClickableCardContentProps = {
   iconClassName?: string;
   title: ReactNode;
   description?: ReactNode;
+  footer?: ReactNode;
   /** Badges or labels rendered beside the title (inline layout). */
   titleAddon?: ReactNode;
   /** Replaces the default hover chevron in the header row. */
@@ -65,6 +66,7 @@ export function UcatClickableCardContent({
   iconClassName,
   title,
   description,
+  footer,
   titleAddon,
   trailing,
   showChevron = true,
@@ -113,6 +115,7 @@ export function UcatClickableCardContent({
           {description}
         </p>
       ) : null}
+      {footer ? <div className="mt-4">{footer}</div> : null}
     </>
   );
 }
@@ -121,17 +124,20 @@ type UcatClickableCardLinkProps = UcatClickableCardContentProps & {
   href: string;
   className?: string;
   interactive?: boolean;
+  onClick?: ComponentPropsWithoutRef<typeof Link>["onClick"];
 };
 
 export function UcatClickableCardLink({
   href,
   className,
   interactive = true,
+  onClick,
   ...contentProps
 }: UcatClickableCardLinkProps) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={ucatClickableCardClassName({ interactive, className })}
     >
       <UcatClickableCardContent {...contentProps} />
@@ -140,17 +146,23 @@ export function UcatClickableCardLink({
 }
 
 type UcatClickableCardButtonProps = UcatClickableCardContentProps &
-  Pick<ComponentPropsWithoutRef<"button">, "onClick" | "type" | "aria-label"> & {
+  Pick<
+    ComponentPropsWithoutRef<"button">,
+    "onClick" | "type" | "aria-label" | "aria-pressed"
+  > & {
     className?: string;
     interactive?: boolean;
+    selected?: boolean;
   };
 
 export function UcatClickableCardButton({
   onClick,
   type = "button",
   "aria-label": ariaLabel,
+  "aria-pressed": ariaPressed,
   className,
   interactive = true,
+  selected = false,
   ...contentProps
 }: UcatClickableCardButtonProps) {
   return (
@@ -158,7 +170,8 @@ export function UcatClickableCardButton({
       type={type}
       onClick={onClick}
       aria-label={ariaLabel}
-      className={ucatClickableCardClassName({ interactive, className })}
+      aria-pressed={ariaPressed ?? selected}
+      className={ucatClickableCardClassName({ interactive, selected, className })}
     >
       <UcatClickableCardContent {...contentProps} />
     </button>
@@ -168,16 +181,18 @@ export function UcatClickableCardButton({
 type UcatClickableCardSurfaceProps = UcatClickableCardContentProps & {
   className?: string;
   interactive?: boolean;
+  selected?: boolean;
 };
 
 /** Card surface without its own link/button — wrap with Link or button as needed. */
 export function UcatClickableCardSurface({
   className,
   interactive = true,
+  selected = false,
   ...contentProps
 }: UcatClickableCardSurfaceProps) {
   return (
-    <div className={ucatClickableCardClassName({ interactive, className })}>
+    <div className={ucatClickableCardClassName({ interactive, selected, className })}>
       <UcatClickableCardContent {...contentProps} />
     </div>
   );

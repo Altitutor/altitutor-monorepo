@@ -33,7 +33,7 @@ function castAccessSource(value: string | null): ResourceAccessSource | null {
 export const resourcesApi = {
   async getAccessBySubjectId(): Promise<Map<string, ResourceAccessSource[]>> {
     const supabase = getSupabaseClient();
-    const { data, error } = await supabase.from('vstudent_my_subject_access').select('*');
+    const { data, error } = await supabase.from('vstudent_online_subject_access').select('*');
     if (error) throw error;
 
     const rows = (data ?? []) as StudentSubjectAccessRow[];
@@ -54,7 +54,7 @@ export const resourcesApi = {
   async getMySubjectNavItems(): Promise<ResourceSubjectNavItem[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('vstudent_subjects')
+      .from('vstudent_online_subjects')
       .select('id, name, short_name, long_name, curriculum, year_level')
       .order('curriculum', { ascending: true })
       .order('year_level', { ascending: true })
@@ -67,7 +67,7 @@ export const resourcesApi = {
   async getMySubjects(): Promise<ResourceSubject[]> {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('vstudent_subjects')
+      .from('vstudent_online_subjects')
       .select('*')
       .order('curriculum', { ascending: true })
       .order('year_level', { ascending: true })

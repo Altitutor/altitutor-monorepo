@@ -41,16 +41,16 @@ export const authApi = {
     if (typeof window === 'undefined') {
       throw new Error('This method must be called from the browser');
     }
-    
+
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
+
     const { error } = await supabase.auth.resetPasswordForEmail(
       data.email,
       {
         redirectTo: `${window.location.origin}/auth/callback`,
       }
     );
-    
+
     if (error) {
       console.error('Password reset request error:', error);
       throw new Error(error.message || 'Failed to send password reset email');

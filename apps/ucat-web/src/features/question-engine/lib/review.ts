@@ -1,5 +1,8 @@
-import type { QuestionItem } from "@/features/question-engine/model/types";
-import type { ReviewFilter } from "@/features/question-engine/model/types";
+import type { PlacementSnapshot, QuestionItem, ReviewFilter } from "@/features/question-engine/model/types";
+import {
+  evaluatePersistedQuestionResponse,
+  snapshotQuestionResponse,
+} from "@/features/question-engine/lib/response-state";
 
 export type ReviewQuestionStatus = "unseen" | "incomplete" | "complete";
 
@@ -7,18 +10,17 @@ export function getReviewQuestionStatus(
   question: QuestionItem,
   visitedQuestionIds: string[],
   selectedAnswers: Record<string, string>,
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): ReviewQuestionStatus {
-  if (question.questionType === "syllogism") {
-    const snapshot = syllogismSnapshots?.[question.id];
-    const optionCount = question.options.length;
-    const answeredCount = snapshot ? Object.keys(snapshot).length : 0;
-    const allAnswered = optionCount > 0 && answeredCount >= optionCount;
-    if (allAnswered) return "complete";
-  } else {
-    const answered = Boolean(selectedAnswers[question.id]);
-    if (answered) return "complete";
-  }
+  const evaluation = evaluatePersistedQuestionResponse(
+    question,
+    snapshotQuestionResponse(
+      question,
+      selectedAnswers[question.id],
+      placementSnapshots?.[question.id],
+    ),
+  );
+  if (evaluation.complete) return "complete";
 
   const visited = visitedQuestionIds.includes(question.id);
   return visited ? "incomplete" : "unseen";
@@ -33,7 +35,7 @@ export function getReviewFilterIndices(
   visitedQuestionIds: string[],
   selectedAnswers: Record<string, string>,
   flaggedIds: string[],
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): number[] {
   const indices: number[] = [];
   for (let i = 0; i < questions.length; i++) {
@@ -42,7 +44,7 @@ export function getReviewFilterIndices(
       q,
       visitedQuestionIds,
       selectedAnswers,
-      syllogismSnapshots,
+      placementSnapshots,
     );
     const flagged = flaggedIds.includes(q.id);
     if (filter === "all") {
@@ -60,7 +62,7 @@ export function getIncompleteCount(
   questions: QuestionItem[],
   visitedQuestionIds: string[],
   selectedAnswers: Record<string, string>,
-  syllogismSnapshots?: Record<string, Record<string, boolean>>,
+  placementSnapshots?: Record<string, PlacementSnapshot>,
 ): number {
   return questions.filter(
     (q) =>
@@ -68,7 +70,7 @@ export function getIncompleteCount(
         q,
         visitedQuestionIds,
         selectedAnswers,
-        syllogismSnapshots,
+        placementSnapshots,
       ) !== "complete",
   ).length;
 }

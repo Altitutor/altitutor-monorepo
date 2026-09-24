@@ -1,9 +1,10 @@
 'use client';
 
+import { useWorkItemRevision, mutateWorkItem } from '@/features/admin-mcp/client/operations';
+
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useAuthStore } from '@/shared/lib/supabase/auth';
-import type { Database, Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
+import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { JSONContent } from '@tiptap/core';
 
@@ -21,8 +22,7 @@ export function useRichTextTemplates() {
     queryKey: richTextTemplatesKeys.list(),
     queryFn: async (): Promise<Tables<'rich_text_templates'>[]> => {
       const supabase = getSupabaseClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase Json type causes "excessively deep" inference
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as SupabaseClient<Database>)
         .from('rich_text_templates')
         .select('*')
         .order('updated_at', { ascending: false });
@@ -41,8 +41,7 @@ export function useRichTextTemplate(id: string) {
     queryKey: richTextTemplatesKeys.detail(id),
     queryFn: async (): Promise<Tables<'rich_text_templates'>> => {
       const supabase = getSupabaseClient();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase Json type causes "excessively deep" inference
-      const { data, error } = await (supabase as any)
+      const { data, error } = await (supabase as SupabaseClient<Database>)
         .from('rich_text_templates')
         .select('*')
         .eq('id', id)
@@ -60,35 +59,12 @@ export function useRichTextTemplate(id: string) {
  */
 export function useCreateRichTextTemplate() {
   const qc = useQueryClient();
-  const user = useAuthStore((s) => s.user);
 
   return useMutation({
     mutationFn: async (
       template: { name: string; content: JSONContent }
     ): Promise<Tables<'rich_text_templates'>> => {
-      const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-      const { data: staffRow } = await supabase
-        .from('staff')
-        .select('id')
-        .eq('user_id', user?.id || '')
-        .maybeSingle();
-
-      const insertData: TablesInsert<'rich_text_templates'> = {
-        name: template.name,
-        content: template.content as TablesInsert<'rich_text_templates'>['content'],
-        created_by: staffRow?.id ?? null,
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase Json type causes "excessively deep" inference
-      const { data, error } = await (getSupabaseClient() as any)
-        .from('rich_text_templates')
-        .insert(insertData)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Tables<'rich_text_templates'>;
+      return mutateWorkItem<Tables<'rich_text_templates'>>('template', template);
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: richTextTemplatesKeys.list() });
@@ -99,7 +75,8 @@ export function useCreateRichTextTemplate() {
 /**
  * Update an existing rich text template
  */
-export function useUpdateRichTextTemplate() {
+export function useUpdateRichTextTemplate(editorSession?: string | boolean) {
+  const withRevision = useWorkItemRevision(editorSession);
   const qc = useQueryClient();
 
   return useMutation({
@@ -107,24 +84,7 @@ export function useUpdateRichTextTemplate() {
       id: string;
       updates: { name?: string; content?: JSONContent };
     }): Promise<Tables<'rich_text_templates'>> => {
-      const updateData: TablesUpdate<'rich_text_templates'> = {
-        ...params.updates,
-        content:
-          params.updates.content !== undefined
-            ? (params.updates.content as TablesUpdate<'rich_text_templates'>['content'])
-            : undefined,
-      };
-
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase Json type causes "excessively deep" inference
-      const { data, error } = await (getSupabaseClient() as any)
-        .from('rich_text_templates')
-        .update(updateData)
-        .eq('id', params.id)
-        .select()
-        .single();
-
-      if (error) throw error;
-      return data as Tables<'rich_text_templates'>;
+      return withRevision(params.id, (revision) => mutateWorkItem<Tables<'rich_text_templates'>>('template', params.updates, params.id, revision));
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: richTextTemplatesKeys.list() });
@@ -141,8 +101,7 @@ export function useDeleteRichTextTemplate() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Supabase Json type causes "excessively deep" inference
-      const { error } = await (getSupabaseClient() as any)
+      const { error } = await (getSupabaseClient() as SupabaseClient<Database>)
         .from('rich_text_templates')
         .delete()
         .eq('id', id);

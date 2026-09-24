@@ -8,8 +8,14 @@ const config = {
     '^@altitutor/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',
     '^@altitutor/ui$': '<rootDir>/../../packages/ui/src/index.ts',
     '^@altitutor/ui/(.*)$': '<rootDir>/../../packages/ui/src/$1',
+    // Shared imports this; map to source so tests work without a package build (CI).
+    '^@altitutor/ucat-response-contract$':
+      '<rootDir>/../../packages/ucat-response-contract/src/index.ts',
+    '^@altitutor/ucat-response-contract/(.*)$':
+      '<rootDir>/../../packages/ucat-response-contract/src/$1',
   },
   testMatch: ['**/__tests__/**/*.test.[jt]s?(x)', '**/?(*.)+(spec|test).[jt]s?(x)'],
+  testPathIgnorePatterns: ['<rootDir>/e2e/'],
   transform: {
     '^.+\\.(t|j)sx?$': ['@swc/jest'],
   },

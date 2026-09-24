@@ -98,12 +98,14 @@ export function TutorClassesTable() {
                 return (
                   <TableRow key={classItem.id || ''} className={tutorTableBodyRow}>
                     <TableCell className="font-medium">
-                      {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
+                      {classItem.schedule_weekdays?.length
+                        ? classItem.schedule_weekdays.map(getDayShortName).join(', ')
+                        : classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
                     </TableCell>
                     <TableCell>
-                      {classItem.start_time && classItem.end_time
+                      {classItem.schedule_summary_short || (classItem.start_time && classItem.end_time
                         ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
-                        : '-'}
+                        : '-')}
                     </TableCell>
                     <TableCell>
                       {(() => {

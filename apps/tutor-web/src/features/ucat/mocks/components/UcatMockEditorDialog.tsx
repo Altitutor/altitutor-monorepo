@@ -1,7 +1,7 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import Link from 'next/link'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useToast } from '@altitutor/ui'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
@@ -12,11 +12,20 @@ import { buildCopyIdRowAction, withCopyIdDescription } from '@/features/ucat/sha
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { Trash2 } from 'lucide-react'
 import { UcatMockEditorContent } from '@/features/ucat/mocks/components/UcatMockEditorContent'
-import { UcatVisibilityCascadeWarning } from '@/features/ucat/shared/components/UcatVisibilityCascadeWarning'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
+import { lifecycleErrorToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import { parseSetSections } from '@/features/ucat/shared/lib/set-section-status'
 import { buildSetCatalogFilterDefinitions } from '@/features/ucat/shared/lib/set-catalog-filters'
+import { useUcatStemCatalog } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
+import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import { UcatMockPreviewContent } from '@/features/ucat/mocks/components/UcatMockPreviewContent'
+import { UcatPdfExportDialog } from '@/features/ucat/shared/components/UcatPdfExportDialog'
+import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
+import { useUcatMockBlueprints } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useUcatMockBlueprintCandidate } from '@/features/ucat/mocks/hooks/useUcatMockBlueprintCandidate'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
+import { UcatCreateSetDialog } from '@/features/ucat/sets/components/UcatCreateSetDialog'
 
 export type SetOption = {
   id: string
@@ -26,7 +35,7 @@ export type SetOption = {
   firstSectionNumber: number | null
   question_count: number | null
   time_limit_seconds: number | null
-  is_private?: boolean | null
+  access_scope?: 'public' | 'private' | null
   stem_count?: number | null
 }
 
@@ -62,6 +71,12 @@ export function UcatMockEditorDialog({
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const [search, setSearch] = useState('')
   const [filters, setFilters] = useState<Record<string, unknown[]>>({})
+  const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [exportDialogOpen, setExportDialogOpen] = useState(false)
+  const [createSetSectionId, setCreateSetSectionId] = useState<string | null>(null)
+  const stemCatalogQuery = useUcatStemCatalog(open)
+  const blueprintsQuery = useUcatMockBlueprints()
 
   const setFilterDefinitions = useMemo(
     () => buildSetCatalogFilterDefinitions(sections),
@@ -69,13 +84,16 @@ export function UcatMockEditorDialog({
   )
 
   const { toast } = useToast()
+  const router = useRouter()
   const { copyId } = useUcatCopyId()
   const {
+    detail,
     name,
     isPrivate,
     instructionsText,
     setInstructionsText,
     draftSetIds,
+    blueprintId,
     setName,
     setIsPrivate,
     setDraftSetIds,
@@ -86,31 +104,58 @@ export function UcatMockEditorDialog({
 
   const setCatalog = useMemo<SetOption[]>(() => {
     return (sets.data ?? [])
-      .filter(
-        (set) =>
-          (set as { deleted_at?: string | null }).deleted_at == null &&
-          !(set as { is_student_generated?: boolean }).is_student_generated
-      )
+      .filter((set) => (set as { deleted_at?: string | null }).deleted_at == null)
+      .filter((set) => set.mock_id == null || set.mock_id === mockId)
       .map((set) => {
         const parsed = parseSetSections(set.sections ?? null)
         return {
           id: set.id ?? '',
-          name: proseMirrorToPlainText(set.name ?? null) || 'Untitled',
+          name: set.display_name ?? (proseMirrorToPlainText(set.name ?? null) || 'Untitled'),
           sectionDisplay: formatSectionsDisplay(set.sections ?? null),
           sectionCount: parsed.sectionCount,
           firstSectionNumber: parsed.firstSectionNumber,
           question_count: set.question_count ?? null,
           time_limit_seconds: set.time_limit_seconds ?? null,
-          is_private: (set as { is_private?: boolean | null }).is_private ?? null,
+          access_scope: set.access_scope ?? null,
           stem_count: (set as { stem_count?: number | null }).stem_count ?? null,
         }
       })
-  }, [sets.data])
+  }, [mockId, sets.data])
+  const blueprints = useMemo(() => (blueprintsQuery.data ?? []).flatMap(blueprint =>
+    blueprint.id && blueprint.code && blueprint.test_year != null && blueprint.version != null
+      ? [{ id: blueprint.id, code: blueprint.code, test_year: blueprint.test_year, version: blueprint.version }]
+      : []
+  ), [blueprintsQuery.data])
+  const blueprintCandidate = useUcatMockBlueprintCandidate({
+    mockId: mockId ?? '',
+    attachedBlueprintId: blueprintId,
+    storedCompliance: detail.data?.blueprint_compliance,
+    blueprints: blueprintsQuery.data ?? [],
+    draftSetIds,
+    setCatalog,
+    stemCatalog: stemCatalogQuery.data ?? [],
+  })
+  const displayName = (detail.data as { display_name?: string | null } | null)?.display_name ?? 'Mock'
+  const mockStatus = detail.data?.status
 
-  const setsThatWillBecomePublicCount = useMemo(() => {
-    if (isPrivate) return 0
-    return draftSetIds.filter((id) => setCatalog.find((s) => s.id === id)?.is_private).length
-  }, [draftSetIds, isPrivate, setCatalog])
+  useEffect(() => {
+    if (!open || !detail.isSuccess || detail.data) return
+    toast({
+      title: 'Mock unavailable',
+      description: 'This mock may have been deleted. It cannot be edited.',
+      variant: 'destructive',
+    })
+    onClose()
+  }, [detail.data, detail.isSuccess, onClose, open, toast])
+
+  useEffect(() => {
+    if (!open) {
+      setEditorMode('edit')
+      setShowAnswer(false)
+      setExportDialogOpen(false)
+      setCreateSetSectionId(null)
+    }
+  }, [open])
 
   function handleRequestClose() {
     if (!isDirty || window.confirm('Changes made will be lost. Close without saving?')) {
@@ -136,30 +181,28 @@ export function UcatMockEditorDialog({
         )
       : null
 
-  const headerActions =
-    mockId != null
-      ? (
-          <UcatRowActions
-            actions={[
-              ...(copyIdAction ? [copyIdAction] : []),
+  const headerActions = mockId != null ? (
+    <UcatRowActions
+      actions={[
+        ...(copyIdAction ? [copyIdAction] : []),
+        buildUcatPdfExportAction(() => setExportDialogOpen(true)),
+        {
+          label: 'Open in page',
+          href: `/ucat/mocks/${mockId}`,
+        },
+        ...(onDelete
+          ? [
               {
-                label: 'Open in page',
-                href: `/ucat/mocks/${mockId}`,
+                label: 'Delete',
+                icon: <Trash2 className="h-4 w-4" />,
+                onClick: onDelete,
+                destructive: true,
               },
-              ...(onDelete
-                ? [
-                    {
-                      label: 'Delete',
-                      icon: <Trash2 className="h-4 w-4" />,
-                      onClick: onDelete,
-                      destructive: true,
-                    },
-                  ]
-                : []),
-            ]}
-          />
-        )
-      : null
+            ]
+          : []),
+      ]}
+    />
+  ) : null
 
   return (
     <UcatDialogShell
@@ -172,55 +215,91 @@ export function UcatMockEditorDialog({
           await save()
           onClose()
         } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Failed to save mock'
-          const parsed = parseUcatVisibilityError(msg)
-          toast({
-            title: 'Failed to save',
-        description: parsed.link ? (
-          <span>
-            {parsed.textBeforeLink}{' '}
-            <Link href={parsed.link.href} className="underline font-medium">
-              {parsed.link.label}
-            </Link>
-          </span>
-        ) : (
-          msg
-        ),
-            variant: 'destructive',
-          })
+          toast(lifecycleErrorToast(error, 'Failed to save', router.push, (entityType: UcatLifecycleEntityType, entityId: string) => {
+            if (entityType === 'set' && onEditSet) {
+              onEditSet(entityId)
+              return true
+            }
+            return false
+          }))
         }
       }}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
-        headerActions={headerActions}
-        warningPills={warningPills}
-        hideCancel
-        defaultExpanded
-      >
-        {setsThatWillBecomePublicCount > 0 && (
-          <UcatVisibilityCascadeWarning type="mock" count={setsThatWillBecomePublicCount} />
-        )}
-        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+      headerControls={
+        <UcatStemEditorHeaderControls
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+        />
+      }
+      headerActions={headerActions}
+      headerBadge={mockStatus ? <UcatContentStatusBadge status={mockStatus} /> : undefined}
+      warningPills={warningPills}
+      hideCancel
+      defaultExpanded
+      mobileFullscreen
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        {editorMode === 'edit' ? (
           <UcatMockEditorContent
-        name={name}
-        isPrivate={isPrivate}
-        instructionsText={instructionsText}
-        setInstructionsText={setInstructionsText}
-        setName={setName}
-        setIsPrivate={(value) => setIsPrivate(value)}
-        draftSetIds={draftSetIds}
-        setDraftSetIds={setDraftSetIds}
-        search={search}
-        setSearch={setSearch}
-        filters={filters}
-        setFilters={setFilters}
-        filterDefinitions={setFilterDefinitions}
-        setCatalog={setCatalog}
-        setCatalogLoading={sets.isLoading}
-        sections={sections}
-        onEditSet={onEditSet}
+            name={name}
+            isPrivate={isPrivate}
+            instructionsText={instructionsText}
+            setInstructionsText={setInstructionsText}
+            setName={setName}
+            setIsPrivate={(value) => setIsPrivate(value)}
+            draftSetIds={draftSetIds}
+            setDraftSetIds={setDraftSetIds}
+            search={search}
+            setSearch={setSearch}
+            filters={filters}
+            setFilters={setFilters}
+            filterDefinitions={setFilterDefinitions}
+            setCatalog={setCatalog}
+            setCatalogLoading={sets.isLoading}
+            sections={sections}
+            onEditSet={onEditSet}
+            onCreateSet={setCreateSetSectionId}
+            blueprints={blueprints}
+            blueprintCandidate={blueprintCandidate}
+          />
+        ) : (
+          <UcatMockPreviewContent
+            setIds={draftSetIds}
+            stemCatalog={stemCatalogQuery.data ?? []}
+            showAnswer={showAnswer}
+            catalogLoading={stemCatalogQuery.isLoading}
+            setCatalog={setCatalog}
+          />
+        )}
+      </div>
+      <UcatPdfExportDialog
+        open={exportDialogOpen}
+        onClose={() => setExportDialogOpen(false)}
+        source={{ kind: 'mock', title: displayName, setIds: draftSetIds }}
       />
-        </div>
+      <UcatCreateSetDialog
+        key={createSetSectionId ? `mock-set:${createSetSectionId}` : 'mock-set:closed'}
+        open={createSetSectionId != null}
+        initialSectionId={createSetSectionId}
+        initialSetFormat="full_section"
+        initialReferenceBlueprintId={blueprintId}
+        onClose={() => setCreateSetSectionId(null)}
+        onCreated={(setId, setName) => {
+          if (!draftSetIds.includes(setId)) setDraftSetIds([...draftSetIds, setId])
+          toast({
+            title: `${setName} created`,
+            description: 'The set has been added to this mock draft.',
+          })
+        }}
+        onOpenLifecycleEntity={(entityType, entityId) => {
+          if (entityType !== 'set' || !onEditSet) return false
+          onEditSet(entityId)
+          return true
+        }}
+      />
     </UcatDialogShell>
   )
 }

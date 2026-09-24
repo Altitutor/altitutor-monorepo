@@ -1,0 +1,123 @@
+import { NextResponse } from 'next/server';
+import { requireAdminStaff } from '@/features/pay-tiers/server/requireAdminStaff';
+import {
+  getFormQuestionReportingSignature,
+  isQuestionBlock,
+  type FormBlock,
+  type Json,
+} from '@altitutor/shared';
+
+type ReportAnswer = {
+  id: string;
+  question_id: string;
+  question_label_snapshot: string;
+  question_type: string;
+  choice_value: string | null;
+  choice_label_snapshot: string | null;
+  choice_values: Json;
+  text_value: string | null;
+  number_value: number | null;
+  created_at: string;
+};
+
+type ReportResponse = {
+  form_version_id: string;
+  form_response_answers?: ReportAnswer[] | null;
+};
+
+function asFormBlocks(value: unknown): FormBlock[] {
+  return Array.isArray(value) ? (value as FormBlock[]) : [];
+}
+
+export async function GET(request: Request) {
+  const auth = await requireAdminStaff();
+  if (!auth.ok) return auth.response;
+
+  const { searchParams } = new URL(request.url);
+  const formId = searchParams.get('formId');
+  const versionId = searchParams.get('versionId');
+  if (!formId) {
+    return NextResponse.json({ error: 'formId is required' }, { status: 400 });
+  }
+
+  const admin = auth.admin;
+  const { data: form, error: formError } = await admin
+    .from('forms')
+    .select('id, name, latest_published_version_id')
+    .eq('id', formId)
+    .single();
+  if (formError || !form) {
+    return NextResponse.json({ error: formError?.message ?? 'Form not found' }, { status: 404 });
+  }
+
+  const responseQuery = admin
+      .from('form_responses')
+      .select(`
+        id,
+        form_version_id,
+        session_id,
+        respondent_type,
+        subject_type,
+        submitted_at,
+        sessions ( id, start_at, short_name, long_name ),
+        recorded_by_staff:staff!form_responses_recorded_by_staff_id_fkey ( id, first_name, last_name ),
+        respondent_student:students!form_responses_respondent_student_id_fkey ( id, first_name, last_name ),
+        respondent_staff:staff!form_responses_respondent_staff_id_fkey ( id, first_name, last_name ),
+        respondent_parent:parents!form_responses_respondent_parent_id_fkey ( id, first_name, last_name ),
+        subject_student:students!form_responses_subject_student_id_fkey ( id, first_name, last_name ),
+        subject_staff:staff!form_responses_subject_staff_id_fkey ( id, first_name, last_name ),
+        subject_parent:parents!form_responses_subject_parent_id_fkey ( id, first_name, last_name ),
+        form_response_answers ( id, question_id, question_label_snapshot, question_type, choice_value, choice_label_snapshot, choice_values, text_value, number_value, created_at )
+      `)
+      .eq('form_id', formId)
+      .is('deleted_at', null)
+      .order('submitted_at', { ascending: false });
+  const countQuery = admin
+      .from('form_responses')
+      .select('id', { count: 'exact', head: true })
+      .eq('form_id', formId)
+      .is('deleted_at', null);
+
+  if (versionId) {
+    responseQuery.eq('form_version_id', versionId);
+    countQuery.eq('form_version_id', versionId);
+  }
+
+  const [{ data: version }, { data: responses }, { count }, { data: definitionVersions }] = await Promise.all([
+    versionId
+      ? admin.from('form_versions').select('*').eq('id', versionId).eq('form_id', formId).maybeSingle()
+      : Promise.resolve({ data: null }),
+    responseQuery,
+    countQuery,
+    admin.from('form_versions').select('id, blocks').eq('form_id', formId),
+  ]);
+
+  const responseRows = (responses ?? []) as unknown as ReportResponse[];
+  const signatures = new Map<string, string>();
+  for (const definitionVersion of definitionVersions ?? []) {
+    for (const block of asFormBlocks(definitionVersion.blocks)) {
+      if (isQuestionBlock(block)) {
+        signatures.set(
+          `${definitionVersion.id}:${block.id}`,
+          getFormQuestionReportingSignature(block),
+        );
+      }
+    }
+  }
+
+  return NextResponse.json({
+    report: {
+      form,
+      version,
+      responseCount: count ?? 0,
+      responses: responses ?? [],
+      answers: responseRows.flatMap((response) =>
+        (response.form_response_answers ?? []).map((answer) => ({
+          ...answer,
+          response,
+          reporting_question_id: `${answer.question_id}:${signatures.get(`${response.form_version_id}:${answer.question_id}`) ?? answer.question_type}`,
+        }))
+      ),
+    },
+  });
+}

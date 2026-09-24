@@ -6,7 +6,6 @@ export function getStemReconciliationWarnings(
 ): string[] {
   if (!data || !stemId) return []
   const warnings: string[] = []
-  if (data.pendingGeneratedStems.some((stem) => stem.id === stemId)) warnings.push('Pending AI approval')
   if (data.stemsWithNoCategory.some((stem) => stem.id === stemId)) warnings.push('Missing category')
   const missingExplanationCount = data.questionsWithNoExplanation.filter((question) => question.stemId === stemId).length
   if (missingExplanationCount > 0) {
@@ -14,7 +13,15 @@ export function getStemReconciliationWarnings(
   }
   const missingTagCount = data.untaggedQuestions.filter((question) => question.stemId === stemId).length
   if (missingTagCount > 0) warnings.push(`${missingTagCount} untagged question${missingTagCount === 1 ? '' : 's'}`)
-  if (data.privateStemsNotInSet.some((stem) => stem.id === stemId)) warnings.push('Private stem not in set')
+  if (data.privateStemsNotInSet.some((stem) => stem.id === stemId)) warnings.push('Unused private stem')
+  if (data.stemsInMultipleSets.some((stem) => stem.id === stemId)) warnings.push('In multiple sets')
+  if (
+    data.potentialDuplicatePairs.some(
+      (pair) => pair.stemA.id === stemId || pair.stemB.id === stemId,
+    )
+  ) {
+    warnings.push('Potential duplicate')
+  }
   return warnings
 }
 

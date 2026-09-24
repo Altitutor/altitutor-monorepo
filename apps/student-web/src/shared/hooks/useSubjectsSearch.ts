@@ -4,13 +4,14 @@ import { subjectsSearchApi } from '@/shared/api/subjects-search';
 interface UseSubjectsSearchParams {
   curriculum?: string | null;
   yearLevel?: string | number | null;
+  enabled?: boolean;
 }
 
 /**
  * Fetches subjects filtered by curriculum and year level.
  * Used for trial contact form and registration (public, no auth required).
  */
-export function useSubjectsSearch({ curriculum, yearLevel }: UseSubjectsSearchParams) {
+export function useSubjectsSearch({ curriculum, yearLevel, enabled = true }: UseSubjectsSearchParams) {
   return useQuery({
     queryKey: ['subjects', 'search', curriculum ?? null, yearLevel ?? null],
     queryFn: () =>
@@ -19,6 +20,7 @@ export function useSubjectsSearch({ curriculum, yearLevel }: UseSubjectsSearchPa
         yearLevel: yearLevel ?? undefined,
         limit: 100,
       }),
+    enabled,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 }
@@ -26,6 +28,7 @@ export function useSubjectsSearch({ curriculum, yearLevel }: UseSubjectsSearchPa
 interface UseSubjectSearchWithTermParams {
   searchTerm: string;
   enabled?: boolean;
+  allowEmptySearch?: boolean;
 }
 
 /**
@@ -35,6 +38,7 @@ interface UseSubjectSearchWithTermParams {
 export function useSubjectSearchWithTerm({
   searchTerm,
   enabled = true,
+  allowEmptySearch = false,
 }: UseSubjectSearchWithTermParams) {
   return useQuery({
     queryKey: ['subjects', 'search-term', searchTerm],
@@ -43,7 +47,7 @@ export function useSubjectSearchWithTerm({
         search: searchTerm,
         limit: 100,
       }),
-    enabled: enabled && searchTerm.trim().length > 0,
+    enabled: enabled && (allowEmptySearch || searchTerm.trim().length > 0),
     staleTime: 1000 * 60 * 2,
   });
 }

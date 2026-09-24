@@ -2,10 +2,6 @@
 
 import { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -13,10 +9,11 @@ import {
 } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { useToast } from '@altitutor/ui';
-import { Loader2, Mail, MessageSquare, Copy, Check, X, ChevronDown, Paperclip } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, Copy, Check, ChevronDown, Paperclip, X } from 'lucide-react';
 import { Skeleton } from '@altitutor/ui';
 import { format } from 'date-fns';
-import { getBookingConfirmationUrl } from '@/shared/utils/invites';
+import { usePublicLink } from '@/shared/hooks/usePublicLink';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getBookingConfirmationMessageForClient,
   getSenderNameFromStaff,
@@ -31,12 +28,7 @@ import { useResponsiveButtons } from '@/features/messages/hooks/useResponsiveBut
 import { useStudentClassesForTemplate } from '@/features/messages/hooks/useTemplatePreviewData';
 import { useBookingConfirmationData } from '../hooks/useBookingConfirmationData';
 import type { Tables } from '@altitutor/shared';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface SendBookingConfirmationDialogProps {
   isOpen: boolean;
@@ -52,6 +44,7 @@ export function SendBookingConfirmationDialog({
   studentId,
 }: SendBookingConfirmationDialogProps) {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [emailSent, setEmailSent] = useState<Record<string, boolean>>({});
   const [smsSent, setSmsSent] = useState<Record<string, boolean>>({});
   const [copied, setCopied] = useState(false);
@@ -67,7 +60,6 @@ export function SendBookingConfirmationDialog({
   } | null>(null);
   const [emailAttachments, setEmailAttachments] = useState<File[]>([]);
   const [composerDraft, setComposerDraft] = useState<string>('');
-  const [expanded, setExpanded] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const emailComposerRef = useRef<HTMLDivElement>(null);
   const buttonRowRef = useRef<HTMLDivElement>(null);
@@ -80,7 +72,34 @@ export function SendBookingConfirmationDialog({
   const student = data?.student ?? null;
   const parents = useMemo(() => data?.parents ?? [], [data?.parents]);
   const session = data?.session ?? null;
-  const bookingUrl = sessionId ? getBookingConfirmationUrl(sessionId) : null;
+  const { data: bookingLink, isLoading: isLinkLoading } = usePublicLink(
+    'booking',
+    sessionId,
+    isOpen
+  );
+  const bookingUrl = bookingLink?.url ?? null;
+  const rotateLink = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/public-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'booking', id: sessionId }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || 'Failed to replace booking link');
+    },
+    onSuccess: async () => {
+      setComposerDraft('');
+      setCustomMessage('');
+      await queryClient.invalidateQueries({ queryKey: ['public-link', 'booking', sessionId] });
+      toast({ title: 'Booking link replaced', description: 'Previously sent booking links no longer work.' });
+    },
+    onError: (error) => toast({
+      title: 'Could not replace link',
+      description: error instanceof Error ? error.message : 'Please try again',
+      variant: 'destructive',
+    }),
+  });
 
   const sessionDate = session?.start_at
     ? format(new Date(session.start_at), 'EEEE, dd MMMM yyyy')
@@ -155,10 +174,6 @@ export function SendBookingConfirmationDialog({
     });
     return recs;
   }, [student, parents]);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   useEffect(() => {
     if (isOpen && isError) {
@@ -375,35 +390,16 @@ export function SendBookingConfirmationDialog({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className={cn(
-          'md:max-w-4xl h-[90vh] flex flex-col [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>Send Booking Confirmation</DialogTitle>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="flex flex-col flex-1 min-h-0 py-4 overflow-hidden">
-          {isDataLoading ? (
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={handleClose}
+      title="Send Booking Confirmation"
+      contentClassName="md:max-w-4xl"
+      bodyClassName="flex min-h-0 flex-1 flex-col overflow-hidden !py-4"
+    >
+        <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          {isDataLoading || isLinkLoading ? (
             <div className="flex flex-col gap-4 px-4">
               <Skeleton className="h-10 w-full" />
               <Skeleton className="h-32 w-full" />
@@ -439,6 +435,18 @@ export function SendBookingConfirmationDialog({
                           Copy
                         </>
                       )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="destructive"
+                      disabled={rotateLink.isPending}
+                      onClick={() => {
+                        if (window.confirm('Replace this booking link? Previously sent links will stop working.')) {
+                          rotateLink.mutate();
+                        }
+                      }}
+                    >
+                      {rotateLink.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Replace link'}
                     </Button>
                   </div>
                 </div>
@@ -670,7 +678,6 @@ export function SendBookingConfirmationDialog({
             )
           )}
         </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

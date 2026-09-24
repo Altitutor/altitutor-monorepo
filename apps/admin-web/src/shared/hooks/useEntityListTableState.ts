@@ -26,6 +26,7 @@ export function useEntityListTableState({
 
   const {
     state,
+    setSearch,
     setFilters,
     setSort,
     setGroupBy,
@@ -48,6 +49,8 @@ export function useEntityListTableState({
   );
 
   return {
+    search: state.search,
+    setSearch,
     filters: state.filters,
     setFilters,
     groupBy: state.groupBy ?? defaultGroupBy,

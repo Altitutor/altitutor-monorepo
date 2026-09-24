@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -28,6 +29,7 @@ export async function PATCH(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/topics/[id]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -50,6 +52,7 @@ export async function PATCH(
     
     if (topicError) {
       console.error('Error checking topic access:', topicError);
+      captureApiError(topicError, "/api/topics/[id]");
       return NextResponse.json(
         { error: 'Failed to verify topic access' },
         { status: 500 }
@@ -82,6 +85,7 @@ export async function PATCH(
           
           if (parentError) {
             console.error('Error checking parent topic access:', parentError);
+            captureApiError(parentError, "/api/topics/[id]");
             return NextResponse.json(
               { error: 'Failed to verify parent topic access' },
               { status: 500 }
@@ -132,6 +136,7 @@ export async function PATCH(
     
     if (error) {
       console.error('Error updating topic:', error);
+      captureApiError(error, "/api/topics/[id]");
       return NextResponse.json(
         { error: 'Failed to update topic', details: error.message, code: error.code },
         { status: 500 }
@@ -145,6 +150,7 @@ export async function PATCH(
     });
     
   } catch (error) {
+    captureApiError(error, "/api/topics/[id]");
     console.error('Error in PATCH /api/topics/[id]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

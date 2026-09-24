@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { requireStudentAdminClient } from "@/lib/ucat/skill-trainer/api-auth";
@@ -5,6 +6,9 @@ import {
   recalculateLessonProgress,
   upsertBlockProgress,
 } from "@/lib/ucat/learning/progress-service";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
 
 type RouteContext = { params: Promise<{ blockId: string }> };
 
@@ -27,6 +31,10 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
     .maybeSingle();
 
   if (blockError) {
+    captureApiError(
+      blockError,
+      "/api/ucat/learning-modules/blocks/[blockId]/progress",
+    );
     return NextResponse.json({ error: blockError.message }, { status: 500 });
   }
   if (!block) {
@@ -35,15 +43,36 @@ export async function PATCH(request: NextRequest, context: RouteContext) {
 
   try {
     await upsertBlockProgress(auth.admin, auth.studentId, blockId, body);
-    await recalculateLessonProgress(
+    const progress = await recalculateLessonProgress(
       auth.admin,
       auth.studentId,
       block.learning_module_id,
     );
+    if (progress.newlyCompleted) {
+      captureUcatLearningActivityCompletedInBackground({
+        userId: auth.userId,
+        activityType: "lesson",
+        activityId: block.learning_module_id,
+        properties: { completion_source: "lesson_block_progress" },
+      });
+      waitUntil(
+        processPendingPreparationRefreshes({
+          studentId: auth.studentId,
+          limit: 1,
+        }),
+      );
+    }
     return NextResponse.json({ ok: true });
   } catch (error) {
+    captureApiError(
+      error,
+      "/api/ucat/learning-modules/blocks/[blockId]/progress",
+    );
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Failed to update progress" },
+      {
+        error:
+          error instanceof Error ? error.message : "Failed to update progress",
+      },
       { status: 500 },
     );
   }

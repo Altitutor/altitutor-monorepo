@@ -5,6 +5,11 @@ import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { messagesKeys } from './queryKeys';
 import { ensureConversationForContact } from './queries';
+import {
+  applyOptimisticUnread,
+  markUnreadQueriesStale,
+  restoreUnreadCache,
+} from '../utils/unreadQueryCache';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -13,9 +18,13 @@ export function useSendMessage() {
   const user = useAuthStore(s => s.user);
   return useMutation({
     mutationFn: async (args: { 
-      contactId: string; 
+      contactId?: string | null;
+      conversationId?: string | null;
+      groupChatId?: string | null;
       body: string; 
       selectedSenderId: string;
+      resentFromMessageId?: string;
+      onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
       attachments?: Array<{
         storageUrl: string;
         filename: string;
@@ -33,21 +42,23 @@ export function useSendMessage() {
         .maybeSingle();
 
       // Get contact phone number
-      const { data: contact } = await supabase
-        .from('contacts')
-        .select('phone_e164')
-        .eq('id', args.contactId)
-        .maybeSingle();
+      const { data: contact } = args.contactId
+        ? await supabase
+            .from('contacts')
+            .select('phone_e164')
+            .eq('id', args.contactId)
+            .maybeSingle()
+        : { data: null };
 
-      const toNumber = contact?.phone_e164;
+      const toNumber = args.groupChatId ?? contact?.phone_e164;
       if (!toNumber) {
-        throw new Error('Contact phone number not found');
+        throw new Error('Message destination not found');
       }
 
       // Get selected sender details
       const { data: sender } = await supabase
         .from('owned_numbers')
-        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label')
+        .select('id, phone_e164, alphanumeric_sender_id, sender_type, label, provider')
         .eq('id', args.selectedSenderId)
         .maybeSingle();
 
@@ -55,8 +66,15 @@ export function useSendMessage() {
         throw new Error('Selected sender not found');
       }
 
-      // Ensure conversation exists with selected sender
-      const conversationId = await ensureConversationForContact(args.contactId, args.selectedSenderId);
+      if (args.groupChatId && sender.provider !== 'IMESSAGE') {
+        throw new Error('Group chats require an iMessage sender');
+      }
+
+      const conversationId = args.conversationId
+        ?? (args.contactId
+          ? await ensureConversationForContact(args.contactId, args.selectedSenderId)
+          : null);
+      if (!conversationId) throw new Error('Conversation not found');
 
       // Determine from value based on sender type
       const fromValue = sender.sender_type === 'ALPHANUMERIC'
@@ -79,6 +97,8 @@ export function useSendMessage() {
           created_by_staff_id: staffRow?.id || null,
           from_number_e164: sender.sender_type === 'PHONE' ? sender.phone_e164 : null, // NULL for alphanumeric
           to_number_e164: toNumber,
+          resent_from_message_id: args.resentFromMessageId ?? null,
+          ...(args.onboarding ? { onboarding_journey_id: args.onboarding.journeyId, onboarding_purpose: args.onboarding.purpose } : {}),
         })
         .select('id')
         .single();
@@ -118,12 +138,15 @@ export function useSendMessage() {
     },
     onSuccess: (result, vars) => {
       // Invalidate messages for this contact (aggregated view)
-      qc.invalidateQueries({ queryKey: messagesKeys.messagesForContactBase(vars.contactId) });
+      if (vars.contactId) {
+        qc.invalidateQueries({ queryKey: messagesKeys.messagesForContactBase(vars.contactId) });
+      }
       // Also invalidate the specific conversation's messages (for backward compatibility)
       qc.invalidateQueries({ queryKey: messagesKeys.messages(result.conversationId) });
       // Invalidate conversations list (both old and new aggregated)
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+      qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
     },
   });
 }
@@ -140,18 +163,17 @@ export function useMarkRead() {
         .select('id')
         .eq('user_id', user?.id || '')
         .maybeSingle();
-      if (!staff?.id) return;
-      
-      // Get all conversations for this contact and mark them all as read
-      const { data: conversations } = await supabase
+      if (!staff?.id) throw new Error('Staff record not found');
+
+      const { data: conversations, error: conversationsError } = await supabase
         .from('conversations')
         .select('id')
         .eq('contact_id', args.contactId)
         .in('status', ['OPEN', 'SNOOZED']);
-      
+      if (conversationsError) throw conversationsError;
+
       if (conversations && conversations.length > 0) {
-        // Mark all conversations as read
-        await Promise.all(
+        const results = await Promise.all(
           conversations.map((conv) =>
             supabase
               .from('conversation_reads')
@@ -163,12 +185,13 @@ export function useMarkRead() {
               }, { onConflict: 'conversation_id,staff_id' })
           )
         );
+        const failed = results.find((result) => result.error);
+        if (failed?.error) throw failed.error;
       }
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
-    },
+    onMutate: (args) => applyOptimisticUnread(qc, { contactId: args.contactId }, false),
+    onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
   });
 }
 
@@ -177,15 +200,69 @@ export function useMarkUnread() {
   return useMutation({
     mutationFn: async (conversationId: string) => {
       const supabase = (getSupabaseClient() as SupabaseClient<Database>);
-      await supabase
+      const { error } = await supabase
         .from('conversation_reads')
         .delete()
         .eq('conversation_id', conversationId);
+      if (error) throw error;
     },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
-      qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+    onMutate: (conversationId) => applyOptimisticUnread(qc, { conversationId }, true),
+    onError: (_error, _conversationId, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
+  });
+}
+
+export function useMarkContactUnread() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (contactId: string) => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: conversations, error } = await supabase
+        .from('conversations')
+        .select('id')
+        .eq('contact_id', contactId)
+        .in('status', ['OPEN', 'SNOOZED']);
+      if (error) throw error;
+      const conversationIds = (conversations ?? []).map((conversation) => conversation.id);
+      if (conversationIds.length === 0) return;
+      const { error: deleteError } = await supabase
+        .from('conversation_reads')
+        .delete()
+        .in('conversation_id', conversationIds);
+      if (deleteError) throw deleteError;
     },
+    onMutate: (contactId) => applyOptimisticUnread(qc, { contactId }, true),
+    onError: (_error, _contactId, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
+  });
+}
+
+export function useMarkConversationRead() {
+  const qc = useQueryClient();
+  const user = useAuthStore(s => s.user);
+  return useMutation({
+    mutationFn: async (args: { conversationId: string; lastMessageId: string }) => {
+      const supabase = getSupabaseClient() as SupabaseClient<Database>;
+      const { data: staff } = await supabase
+        .from('staff')
+        .select('id')
+        .eq('user_id', user?.id || '')
+        .maybeSingle();
+      if (!staff?.id) throw new Error('Staff record not found');
+
+      const { error } = await supabase
+        .from('conversation_reads')
+        .upsert({
+          conversation_id: args.conversationId,
+          staff_id: staff.id,
+          last_read_message_id: args.lastMessageId,
+          last_read_at: new Date().toISOString(),
+        }, { onConflict: 'conversation_id,staff_id' });
+      if (error) throw error;
+    },
+    onMutate: (args) => applyOptimisticUnread(qc, { conversationId: args.conversationId }, false),
+    onError: (_error, _args, snapshot) => restoreUnreadCache(qc, snapshot),
+    onSettled: () => markUnreadQueriesStale(qc),
   });
 }
 

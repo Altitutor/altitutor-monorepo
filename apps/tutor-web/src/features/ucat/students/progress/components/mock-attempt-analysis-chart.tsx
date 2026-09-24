@@ -30,6 +30,8 @@ type MockAttemptAnalysisChartProps = {
   /** Set names for section labels (one per set, in order) */
   sets: SetInfoForChart[]
   className?: string
+  selectedQuestionIndex?: number
+  onBarClick?: (index: number) => void
 }
 
 const RESULT_COLORS: Record<
@@ -84,6 +86,8 @@ export function MockAttemptAnalysisChart({
   setBoundaryIndices,
   sets,
   className,
+  selectedQuestionIndex,
+  onBarClick,
 }: MockAttemptAnalysisChartProps) {
   const chartData = data.map((d, i) => {
     const setIndex = getSetIndexForQuestion(i, setBoundaryIndices)
@@ -156,9 +160,6 @@ export function MockAttemptAnalysisChart({
 
   return (
     <div className={cn('relative flex min-w-0 flex-col gap-2', className)}>
-      <div className="text-sm text-muted-foreground">
-        Time taken per question
-      </div>
       <div className="absolute right-0 top-0 flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs">
         {(['correct', 'partial', 'incorrect', 'not_attempted'] as const).map(
           (r) => (
@@ -242,9 +243,20 @@ export function MockAttemptAnalysisChart({
                   isAnimationActive
                   animationDuration={600}
                   animationEasing="ease-out"
+                  onClick={(_, index) => onBarClick?.(index)}
                 >
                   {chartData.map((entry, index) => (
-                    <Cell key={index} fill={RESULT_COLORS[entry.result]} />
+                    <Cell
+                      key={index}
+                      fill={RESULT_COLORS[entry.result]}
+                      opacity={
+                        selectedQuestionIndex == null ||
+                        selectedQuestionIndex === index
+                          ? 1
+                          : 0.4
+                      }
+                      className={onBarClick ? 'cursor-pointer' : undefined}
+                    />
                   ))}
                 </Bar>
               </BarChart>

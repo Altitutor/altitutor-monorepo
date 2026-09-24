@@ -3,6 +3,8 @@ import { formatStudentDisplay } from '../../utils/bookingHelpers';
 import { formatSlotDateTime } from '../../utils/dateTimeHelpers';
 import type { Tables } from '@altitutor/shared';
 import type { AdminTrialContactFormValues } from '../AdminTrialContactForm';
+import { formatStudentParentDraftLabel } from '@/features/students/utils/studentParentDrafts';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 interface ConfirmationStepProps {
   sessionType: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
@@ -55,43 +57,39 @@ export function ConfirmationStep({
     <div className="space-y-4">
       <div>
         <h3 className="text-lg font-semibold mb-4">Booking Details</h3>
-        <div className="grid grid-cols-2 gap-x-4 gap-y-3">
+        <PropertyForm>
           {sessionType === 'TRIAL_SESSION' && trialContactData ? (
             <>
-              {/* Show all student details for trial session */}
-              <div className="text-sm font-medium text-muted-foreground">First Name:</div>
-              <div className="text-sm">{trialContactData.student_first_name}</div>
-              
-              <div className="text-sm font-medium text-muted-foreground">Last Name:</div>
-              <div className="text-sm">{trialContactData.student_last_name}</div>
-              
+              <PropertyFormRow label="First name">
+                <div className="text-sm">{trialContactData.student_first_name}</div>
+              </PropertyFormRow>
+              {trialContactData.student_last_name && (
+                <PropertyFormRow label="Last name">
+                  <div className="text-sm">{trialContactData.student_last_name}</div>
+                </PropertyFormRow>
+              )}
               {trialContactData.student_email && (
-                <>
-                  <div className="text-sm font-medium text-muted-foreground">Email:</div>
+                <PropertyFormRow label="Email">
                   <div className="text-sm">{trialContactData.student_email}</div>
-                </>
+                </PropertyFormRow>
               )}
-              
-              <div className="text-sm font-medium text-muted-foreground">Phone:</div>
-              <div className="text-sm">{trialContactData.student_phone}</div>
-              
+              {trialContactData.student_phone && (
+                <PropertyFormRow label="Phone">
+                  <div className="text-sm">{trialContactData.student_phone}</div>
+                </PropertyFormRow>
+              )}
               {trialContactData.curriculum && (
-                <>
-                  <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
+                <PropertyFormRow label="Curriculum">
                   <div className="text-sm">{trialContactData.curriculum}</div>
-                </>
+                </PropertyFormRow>
               )}
-              
               {trialContactData.year_level && (
-                <>
-                  <div className="text-sm font-medium text-muted-foreground">Year Level:</div>
+                <PropertyFormRow label="Year level">
                   <div className="text-sm">{trialContactData.year_level}</div>
-                </>
+                </PropertyFormRow>
               )}
-              
               {trialContactData.subject_ids && trialContactData.subject_ids.length > 0 && subjects && (
-                <>
-                  <div className="text-sm font-medium text-muted-foreground">Subjects:</div>
+                <PropertyFormRow label="Subjects">
                   <div className="text-sm">
                     {trialContactData.subject_ids
                       .map((id) => {
@@ -101,66 +99,51 @@ export function ConfirmationStep({
                       .filter(Boolean)
                       .join(', ')}
                   </div>
-                </>
+                </PropertyFormRow>
               )}
-              
-              {!trialContactData.skip_parent_details && (
-                <>
-                  {trialContactData.parent_first_name && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Parent First Name:</div>
-                      <div className="text-sm">{trialContactData.parent_first_name}</div>
-                    </>
-                  )}
-                  {trialContactData.parent_last_name && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Parent Last Name:</div>
-                      <div className="text-sm">{trialContactData.parent_last_name}</div>
-                    </>
-                  )}
-                  {trialContactData.parent_email && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Parent Email:</div>
-                      <div className="text-sm">{trialContactData.parent_email}</div>
-                    </>
-                  )}
-                  {trialContactData.parent_phone && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Parent Phone:</div>
-                      <div className="text-sm">{trialContactData.parent_phone}</div>
-                    </>
-                  )}
-                </>
+              {!trialContactData.skip_parent_details &&
+                (trialContactData.parents ?? []).length > 0 && (
+                <PropertyFormRow label="Parents">
+                  <div className="text-sm">
+                    {(trialContactData.parents ?? [])
+                      .map((parent) => formatStudentParentDraftLabel({
+                        existing_id: parent.existing_id,
+                        first_name: parent.first_name || '',
+                        last_name: parent.last_name || '',
+                        email: parent.email || '',
+                        phone: parent.phone ?? null,
+                      }))
+                      .join(', ')}
+                  </div>
+                </PropertyFormRow>
               )}
             </>
           ) : (
             <>
-              {/* Existing student display */}
-              <div className="text-sm font-medium text-muted-foreground">Student:</div>
-              <div className="text-sm">
-                {selectedStudentId && studentsData
-                  ? (() => {
-                      const student = studentsData.find((s) => s.id === selectedStudentId);
-                      return student ? formatStudentDisplay(student) : 'Unknown';
-                    })()
-                  : 'Unknown'}
-              </div>
-              
+              <PropertyFormRow label="Student">
+                <div className="text-sm">
+                  {selectedStudentId && studentsData
+                    ? (() => {
+                        const student = studentsData.find((s) => s.id === selectedStudentId);
+                        return student ? formatStudentDisplay(student) : 'Unknown';
+                      })()
+                    : 'Unknown'}
+                </div>
+              </PropertyFormRow>
               {selectedSubject && (
-                <>
-                  <div className="text-sm font-medium text-muted-foreground">Subject:</div>
+                <PropertyFormRow label="Subject">
                   <div className="text-sm">{selectedSubject?.long_name ?? ''}</div>
-                </>
+                </PropertyFormRow>
               )}
             </>
           )}
-          
-          <div className="text-sm font-medium text-muted-foreground">Date & Time:</div>
-          <div className="text-sm">{formatSlotDateTime(selectedSlot.startAt)}</div>
-          
-          <div className="text-sm font-medium text-muted-foreground">Duration:</div>
-          <div className="text-sm">{durationMinutes} minutes</div>
-        </div>
+          <PropertyFormRow label="Date & time">
+            <div className="text-sm">{formatSlotDateTime(selectedSlot.startAt)}</div>
+          </PropertyFormRow>
+          <PropertyFormRow label="Duration">
+            <div className="text-sm">{durationMinutes} minutes</div>
+          </PropertyFormRow>
+        </PropertyForm>
       </div>
 
       {/* Calendar View */}

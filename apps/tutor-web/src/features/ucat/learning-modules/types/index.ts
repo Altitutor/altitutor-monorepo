@@ -1,7 +1,9 @@
 import type { Json } from '@altitutor/shared'
+import type { LearningModuleIconKey } from '@/features/ucat/learning-modules/lib/learning-module-icons'
+import type { UcatAccessScope, UcatContentStatus } from '@/features/ucat/shared/types'
 
 export type UcatLearningModuleKind = 'folder' | 'lesson'
-export type UcatLearningModuleDisplayMode = 'scroll' | 'stepped'
+export type UcatLearningModuleStudyPlanPriority = 'essential' | 'recommended' | 'optional' | 'excluded'
 
 export type UcatLearningModuleBlockType =
   | 'text'
@@ -9,23 +11,33 @@ export type UcatLearningModuleBlockType =
   | 'file'
   | 'question_stem'
   | 'question'
-  | 'skill_trainer_set'
+  | 'skill_trainer'
 
 export type UcatLearningModuleRow = {
   id: string
   kind: UcatLearningModuleKind
   title: string
   description: string | null
+  icon_key: LearningModuleIconKey
+  estimated_minutes: number | null
   ucat_section_id: string | null
   parent_ucat_learning_module_id: string | null
   index: number
-  is_private: boolean
-  display_mode: UcatLearningModuleDisplayMode | null
+  status: UcatContentStatus
+  access_scope: UcatAccessScope
   section_name: string | null
   section_number: number | null
   child_count: number
   block_count: number
+  created_at: string
   updated_at: string
+  created_by: string | null
+  created_by_first_name: string | null
+  created_by_last_name: string | null
+  deleted_at: string | null
+  study_plan_priority: UcatLearningModuleStudyPlanPriority
+  study_plan_category_ids: string[]
+  study_plan_tag_ids: string[]
 }
 
 export type UcatLearningModuleBlockRow = {
@@ -38,11 +50,13 @@ export type UcatLearningModuleBlockRow = {
   question_stem_id: string | null
   question_id: string | null
   file_id: string | null
-  skill_trainer_set_id: string | null
+  skill_trainer_id: string | null
 }
 
 /** Payload sent to tutor_ucat_replace_learning_module_blocks */
 export type UcatLearningModuleBlockPayload = {
+  /** Existing block ID. Omit for a new block. */
+  id?: string
   block_type: UcatLearningModuleBlockType
   index: number
   require_completion_before_next: boolean
@@ -50,7 +64,7 @@ export type UcatLearningModuleBlockPayload = {
   question_stem_id?: string | null
   question_id?: string | null
   file_id?: string | null
-  skill_trainer_set_id?: string | null
+  skill_trainer_id?: string | null
 }
 
 export type UcatLearningModuleUpsertPayload = {
@@ -58,9 +72,13 @@ export type UcatLearningModuleUpsertPayload = {
   kind: UcatLearningModuleKind
   title: string
   description?: string | null
+  iconKey?: LearningModuleIconKey
+  estimatedMinutes?: number | null
   ucatSectionId?: string | null
   parentId?: string | null
   index?: number
-  isPrivate?: boolean
-  displayMode?: UcatLearningModuleDisplayMode
+  accessScope?: UcatAccessScope
+  studyPlanPriority?: UcatLearningModuleStudyPlanPriority
+  studyPlanCategoryIds?: string[]
+  studyPlanTagIds?: string[]
 }

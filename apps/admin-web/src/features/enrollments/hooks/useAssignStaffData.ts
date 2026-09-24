@@ -118,8 +118,8 @@ export function useAssignStaffData({
         created_at: null,
         updated_at: null,
         created_by: null,
-        session_start_date: null,
-        session_end_date: null,
+        session_start_date: '2026-01-01',
+        session_end_date: '2026-12-31',
         subject: rpcData.classSubjects?.[c.id] as Tables<'subjects'> | undefined,
         staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
           id: s.id,

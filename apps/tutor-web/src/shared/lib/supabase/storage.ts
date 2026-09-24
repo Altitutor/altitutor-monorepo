@@ -160,7 +160,9 @@ export async function listFiles(folderPath: string): Promise<Array<{ name: strin
     throw new Error(`Failed to list files: ${error.message}`);
   }
   
-  return data || [];
+  return (data ?? []).flatMap((file) =>
+    file.id ? [{ name: file.name, id: file.id }] : [],
+  );
 }
 
 /**
@@ -287,5 +289,7 @@ export async function listSessionFiles(sessionId: string): Promise<Array<{ name:
     throw new Error(`Failed to list files: ${error.message}`);
   }
   
-  return data || [];
+  return (data ?? []).flatMap((file) =>
+    file.id ? [{ name: file.name, id: file.id }] : [],
+  );
 }

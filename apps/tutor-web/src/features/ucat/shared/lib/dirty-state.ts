@@ -5,8 +5,10 @@ export function snapshotSetDetail(value: {
   name: string
   description: string | Json | null
   time: number | null
-  isPrivate: boolean
-  isStudentGenerated: boolean
+  accessScope: 'public' | 'private'
+  sectionId: string
+  setFormat?: 'full_section' | 'partial_section'
+  referenceBlueprintId?: string
   stemIds: string[]
 }) {
   return JSON.stringify({
@@ -16,8 +18,10 @@ export function snapshotSetDetail(value: {
         ? value.description
         : jsonToPlainText(value.description),
     time: value.time,
-    isPrivate: value.isPrivate,
-    isStudentGenerated: value.isStudentGenerated,
+    accessScope: value.accessScope,
+    sectionId: value.sectionId,
+    setFormat: value.setFormat ?? null,
+    referenceBlueprintId: value.referenceBlueprintId ?? null,
     stemIds: value.stemIds,
   })
 }
@@ -40,37 +44,50 @@ export function snapshotQuestionStemFormValues(values: {
   sectionId: string
   categoryId?: string | null
   stemText: Json
-  isPrivate: boolean
+  accessScope: 'public' | 'private'
+  tutorSourceNote?: string | null
+  status?: 'draft' | 'in_review' | 'published' | null
   questions: Array<{
     questionText: Json
-    questionType: string
+    responseType: string
+    answerScheme: string
     answerExplanation?: Json | null
     difficulty?: number | null
     timeBurdenSeconds?: string | null
     tagIds?: string[]
+    sourceChannel?: string | null
+    aiGenerationMetadata?: Json | null
     options: Array<{
       answerText: Json
       answerExplanation?: Json | null
-      isAnswer: boolean
+      answerKeyValue?: string | null
     }>
   }>
 }): string {
+  // React Hook Form can briefly expose a partial field-array item while it is
+  // registering/resetting nested fields. A dirty check must never crash then.
+  const questions = Array.isArray(values.questions) ? values.questions : []
   const snapshot = {
     sectionId: values.sectionId,
     categoryId: values.categoryId ?? null,
     stemText: jsonToPlainText(values.stemText),
-    isPrivate: values.isPrivate,
-    questions: values.questions.map((q) => ({
+    accessScope: values.accessScope,
+    tutorSourceNote: values.tutorSourceNote?.trim() ?? '',
+    status: values.status ?? null,
+    questions: questions.map((q) => ({
       questionText: jsonToPlainText(q.questionText),
-      questionType: q.questionType,
+      responseType: q.responseType,
+      answerScheme: q.answerScheme,
       answerExplanation: jsonToPlainText(q.answerExplanation ?? null),
       difficulty: q.difficulty ?? null,
       timeBurdenSeconds: q.timeBurdenSeconds ?? '',
       tagIds: [...(q.tagIds ?? [])].sort(),
-      options: q.options.map((opt) => ({
+      sourceChannel: q.sourceChannel ?? null,
+      aiGenerationMetadata: q.aiGenerationMetadata ?? null,
+      options: (Array.isArray(q.options) ? q.options : []).map((opt) => ({
         answerText: jsonToPlainText(opt.answerText),
         answerExplanation: jsonToPlainText(opt.answerExplanation ?? null),
-        isAnswer: opt.isAnswer,
+        answerKeyValue: opt.answerKeyValue ?? null,
       })),
     })),
   }
@@ -83,16 +100,18 @@ export function snapshotQuestionStemFormValues(values: {
  */
 export function snapshotMockDraft(value: {
   name: string | Json
-  isPrivate: boolean
+  accessScope: 'public' | 'private'
   setIds: string[]
   instructionsText: Json | null
+  blueprintId?: string | null
 }): string {
   const namePlain =
     typeof value.name === 'string' ? value.name : jsonToPlainText(value.name)
   return JSON.stringify({
     name: namePlain,
-    isPrivate: value.isPrivate,
+    accessScope: value.accessScope,
     setIds: value.setIds,
     instructionsText: jsonToPlainText(value.instructionsText),
+    blueprintId: value.blueprintId ?? null,
   })
 }

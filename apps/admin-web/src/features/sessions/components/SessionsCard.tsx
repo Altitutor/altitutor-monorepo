@@ -5,7 +5,7 @@ import { Users } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, formatDate } from '@/shared/utils/datetime';
-import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn } from '@/shared/utils';
+import { getSubjectColorHex, getIconStrokeColor, formatSessionType, cn, clickableCardInteractiveCn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -23,6 +23,8 @@ interface SessionsCardProps {
   staff: Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
   students?: Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean; sessions_students_id?: string | null }>;
   onClick?: () => void;
+  /** Override the title (e.g. session/class name in the absence reschedule picker). */
+  title?: string;
   
   // Visual states
   isSelecting?: boolean;
@@ -44,6 +46,7 @@ export function SessionsCard({
   staff = [],
   students = [],
   onClick,
+  title,
   isSelecting = false,
   isSelected = false,
   compact: forceCompact = false,
@@ -86,11 +89,12 @@ export function SessionsCard({
   // Determine if we should use compact mode overall
   const shouldUseCompact = forceCompact || !iconVisible;
   
-  const subjectDisplay = shouldUseCompact && subject 
+  const subjectDisplay = title
+    ?? (shouldUseCompact && subject 
     ? (subject?.short_name ?? subject?.long_name ?? subject?.name ?? '') 
     : subject 
-      ? (subject?.long_name ?? '') 
-      : formatSessionType(session.type);
+      ? (subject?.long_name ?? subject?.name ?? '') 
+      : formatSessionType(session.type));
   const sessionDate = session.start_at ? new Date(session.start_at) : null;
   const dateDisplay = sessionDate ? formatDate(sessionDate) : '';
   const timeRange = session.start_at && session.end_at
@@ -113,16 +117,17 @@ export function SessionsCard({
     <div
       ref={cardRef}
       className={cn(
-        'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
+        'group relative border rounded-lg transition-all h-full w-full overflow-hidden bg-card',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
         isSelecting
           ? isSelected
             ? 'bg-primary/5 border-primary'
-            : 'hover:bg-muted/50 cursor-pointer'
+            : 'cursor-pointer'
           : onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : ''
+          ? 'cursor-pointer'
+          : '',
+        (isSelecting || onClick) && !isSelected && clickableCardInteractiveCn
       )}
       style={{
         ...(subjectColorHex ? { borderColor: subjectColorHex } : {})
@@ -312,4 +317,3 @@ export function SessionsCard({
     </div>
   );
 }
-

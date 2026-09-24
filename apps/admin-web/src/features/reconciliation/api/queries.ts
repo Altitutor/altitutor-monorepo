@@ -15,6 +15,15 @@ export function useUninvoicedSessions() {
   });
 }
 
+export function useSessionBillingAdjustmentIssues() {
+  return useQuery({
+    queryKey: reconciliationKeys.sessionBillingAdjustments(),
+    queryFn: () => reconciliationApi.getSessionBillingAdjustmentIssues(),
+    staleTime: 1000 * 30,
+    gcTime: 1000 * 60 * 5,
+  });
+}
+
 /**
  * Sessions billed only on void invoices (re-invoicing may be required)
  */
@@ -60,18 +69,6 @@ export function useUnassignedClasses() {
     queryFn: () => reconciliationApi.getUnassignedClasses(),
     staleTime: 1000 * 60 * 2, // 2 minutes
     gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
- * Get failed delivery messages
- */
-export function useFailedDeliveryMessages() {
-  return useQuery({
-    queryKey: reconciliationKeys.failedDeliveryMessages(),
-    queryFn: () => reconciliationApi.getFailedDeliveryMessages(),
-    staleTime: 1000 * 60 * 1, // 1 minute (messages change frequently)
-    gcTime: 1000 * 60 * 3, // 3 minutes
   });
 }
 

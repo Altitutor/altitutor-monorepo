@@ -1,10 +1,10 @@
 import { validateGeneratedStemCandidate } from '../gates'
-import type { GeneratedStem } from '../schema'
+import type { GeneratedContentBlock, GeneratedStem } from '../schema'
 
 function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {}): GeneratedStem['questions'][number] {
   return {
     questionText: 'Which option is correct?',
-    questionType: 'multiple_choice',
+    responseType: 'multiple_choice', answerScheme: 'single_choice',
     answerExplanation:
       'A is correct because it follows directly from the stem. B, C and D are wrong because they contradict the stated facts.',
     difficultyTarget: 'medium',
@@ -13,10 +13,10 @@ function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {})
     estimatedTimeBurdenSeconds: 80,
     tagIds: [],
     options: [
-      { answerText: 'A', isAnswer: true, answerExplanation: null },
-      { answerText: 'B', isAnswer: false, answerExplanation: null },
-      { answerText: 'C', isAnswer: false, answerExplanation: null },
-      { answerText: 'D', isAnswer: false, answerExplanation: null },
+      { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+      { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+      { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+      { answerText: 'D', answerKeyValue: null, answerExplanation: null },
     ],
     ...overrides,
   }
@@ -24,7 +24,7 @@ function mcQuestion(overrides: Partial<GeneratedStem['questions'][number]> = {})
 
 function stem(overrides: Partial<GeneratedStem> = {}): GeneratedStem {
   return {
-    stemText: 'Paragraph one.\n\nParagraph two.',
+    stemText: 'The first passage paragraph.\n\nThe second passage paragraph.',
     categoryName: 'Reading Comprehension',
     difficultyTarget: 'medium',
     timeBurdenTarget: 'medium',
@@ -42,6 +42,82 @@ describe('validateGeneratedStemCandidate', () => {
     })
 
     expect(issues.filter((issue) => issue.severity === 'blocking')).toEqual([])
+  })
+
+  it('blocks VR stems with fewer than four questions', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({ questions: [mcQuestion(), mcQuestion(), mcQuestion()] }),
+      0,
+      {
+        sectionName: 'Verbal Reasoning',
+        categoryName: 'Reading Comprehension',
+      },
+    )
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'vr_question_count',
+      severity: 'blocking',
+    }))
+  })
+
+  it('accepts VR stems with more than four questions', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        questions: [mcQuestion(), mcQuestion(), mcQuestion(), mcQuestion(), mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Verbal Reasoning',
+        categoryName: 'Reading Comprehension',
+      },
+    )
+
+    expect(issues.map((issue) => issue.code)).not.toContain('vr_question_count')
+  })
+
+  it('blocks missing and out-of-catalogue question tags when a tag catalogue is available', () => {
+    const validTagId = '11111111-1111-4111-8111-111111111111'
+    const invalidTagId = '22222222-2222-4222-8222-222222222222'
+    const questions = [
+      mcQuestion({ tagIds: [] }),
+      mcQuestion({ tagIds: [invalidTagId] }),
+      mcQuestion({ tagIds: [validTagId] }),
+      mcQuestion({ tagIds: [validTagId] }),
+    ]
+    const issues = validateGeneratedStemCandidate(stem({ questions }), 0, {
+      sectionName: 'Verbal Reasoning',
+      categoryName: 'Reading Comprehension',
+      availableTagIds: [validTagId],
+    })
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'missing_question_tags',
+      questionIndex: 0,
+      severity: 'blocking',
+    }))
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'invalid_question_tag',
+      questionIndex: 1,
+      severity: 'blocking',
+    }))
+  })
+
+  it.each([
+    'Paragraph 1: The first passage paragraph.\n\nParagraph 2: The second passage paragraph.',
+    [
+      { type: 'paragraph' as const, text: 'Paragraph one. The first passage paragraph.' },
+      { type: 'paragraph' as const, text: '**Paragraph 2** The second passage paragraph.' },
+    ],
+  ])('blocks explicit paragraph labels in VR passage text', (stemText) => {
+    const issues = validateGeneratedStemCandidate(stem({ stemText }), 0, {
+      sectionName: 'Verbal Reasoning',
+      categoryName: 'Reading Comprehension',
+    })
+
+    expect(issues).toContainEqual(expect.objectContaining({
+      code: 'vr_passage_paragraph_label',
+      severity: 'blocking',
+    }))
   })
 
   it('blocks VR true false cannot tell option mismatches', () => {
@@ -62,9 +138,9 @@ describe('validateGeneratedStemCandidate', () => {
 
   it('blocks answer leakage in true false cannot tell statements', () => {
     const tfctOptions = [
-      { answerText: 'True', isAnswer: true, answerExplanation: null },
-      { answerText: 'False', isAnswer: false, answerExplanation: null },
-      { answerText: "Can't Tell", isAnswer: false, answerExplanation: null },
+      { answerText: 'True', answerKeyValue: 'correct' as const, answerExplanation: null },
+      { answerText: 'False', answerKeyValue: null, answerExplanation: null },
+      { answerText: "Can't Tell", answerKeyValue: null, answerExplanation: null },
     ]
     const issues = validateGeneratedStemCandidate(
       stem({
@@ -108,11 +184,11 @@ describe('validateGeneratedStemCandidate', () => {
         categoryName: 'Graphs and Charts',
         questions: [mcQuestion({
           options: [
-            { answerText: 'A', isAnswer: true, answerExplanation: null },
-            { answerText: 'B', isAnswer: false, answerExplanation: null },
-            { answerText: 'C', isAnswer: false, answerExplanation: null },
-            { answerText: 'D', isAnswer: false, answerExplanation: null },
-            { answerText: 'E', isAnswer: false, answerExplanation: null },
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'D', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'E', answerKeyValue: null, answerExplanation: null },
           ],
         })],
       }),
@@ -124,6 +200,30 @@ describe('validateGeneratedStemCandidate', () => {
     )
 
     expect(issues.some((issue) => issue.code === 'qr_chart_required')).toBe(true)
+  })
+
+  it('does not enforce a post-write QR category when no category was requested', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Graphs and Charts',
+        questions: [mcQuestion({
+          options: [
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'D', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'E', answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: null,
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_chart_required')).toBe(false)
   })
 
   it('accepts Venn diagrams in Decision Making answer options', () => {
@@ -145,18 +245,18 @@ describe('validateGeneratedStemCandidate', () => {
                       { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
                     ],
                     regionLabels: [
-                      { text: 4, x: 185, y: 190 },
-                      { text: 3, x: 310, y: 190 },
-                      { text: 5, x: 435, y: 190 },
+                      { text: 4, include: ['A'], exclude: ['B'] },
+                      { text: 3, include: ['A', 'B'] },
+                      { text: 5, include: ['B'], exclude: ['A'] },
                     ],
                   },
                 }],
-                isAnswer: true,
+                answerKeyValue: 'correct',
                 answerExplanation: null,
               },
-              { answerText: 'B', isAnswer: false, answerExplanation: null },
-              { answerText: 'C', isAnswer: false, answerExplanation: null },
-              { answerText: 'D', isAnswer: false, answerExplanation: null },
+              { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'D', answerKeyValue: null, answerExplanation: null },
             ],
           }),
         ],
@@ -172,6 +272,44 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_spec_required')).toBe(false)
     expect(issues.some((issue) => issue.code === 'dm_venn_numeric_regions_required')).toBe(false)
     expect(issues.some((issue) => issue.code === 'dm_venn_region_label_boundary_overlap')).toBe(false)
+  })
+
+  it('accepts qualitative Venn answer-option diagrams without invented numeric regions', () => {
+    const diagramOption = (offset: number, keyed: boolean) => ({
+      answerText: [{
+        type: 'visual' as const,
+        visualType: 'set_diagram' as const,
+        title: null,
+        altText: 'Set relationship answer option.',
+        spec: {
+          shapes: [
+            { shape: 'circle' as const, label: 'A', cx: 230 + offset, cy: 180, r: 85 },
+            { shape: 'circle' as const, label: 'B', cx: 330 - offset, cy: 180, r: 85 },
+          ],
+          regionLabels: [],
+        },
+      }],
+      answerKeyValue: keyed ? 'correct' as const : null,
+      answerExplanation: null,
+    })
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        questions: [mcQuestion({
+          options: [
+            diagramOption(0, true),
+            diagramOption(15, false),
+            diagramOption(30, false),
+            diagramOption(45, false),
+          ],
+        })],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_numeric_regions_required')).toBe(false)
+    expect(issues.some((issue) => issue.severity === 'blocking')).toBe(false)
   })
 
   it('blocks Venn diagrams without numeric region labels', () => {
@@ -242,6 +380,38 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(true)
   })
 
+  it('blocks partially labelled Venn diagrams', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          altText: 'Five shapes but only three identified sets.',
+          spec: {
+            shapes: [
+              { id: 'A', type: 'circle', label: 'Food Growing', cx: 180, cy: 180, r: 95 },
+              { id: 'B', type: 'triangle', label: 'First Aid', x: 180, y: 70, width: 180, height: 210 },
+              { id: 'C', type: 'pentagon', label: 'Bike Repair', cx: 360, cy: 190, r: 95 },
+              { id: 'D', type: 'diamond', cx: 430, cy: 210, width: 150, height: 150 },
+              { id: 'E', type: 'rect', x: 90, y: 90, width: 180, height: 160 },
+            ],
+            regionLabels: [
+              { text: 9, include: ['A'], exclude: ['B', 'C', 'D', 'E'] },
+              { text: 7, include: ['B'], exclude: ['A', 'C', 'D', 'E'] },
+              { text: 5, include: ['C'], exclude: ['A', 'B', 'D', 'E'] },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(true)
+  })
+
   it('accepts parseable Venn shape legends in region labels', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
@@ -261,9 +431,9 @@ describe('validateGeneratedStemCandidate', () => {
               { text: 'Triangle = Popcorn', x: 500, y: 112 },
               { text: 'Circle = Drink', x: 500, y: 151 },
               { text: 'Pentagon = Sweets', x: 500, y: 192 },
-              { text: 14, x: 115, y: 120 },
-              { text: 9, x: 188, y: 95 },
-              { text: 7, x: 330, y: 110 },
+              { text: 14, include: ['Popcorn'], exclude: ['Drink', 'Sweets'] },
+              { text: 9, include: ['Drink'], exclude: ['Popcorn', 'Sweets'] },
+              { text: 7, include: ['Sweets'], exclude: ['Popcorn', 'Drink'] },
             ],
           },
         }],
@@ -279,7 +449,146 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_mapping_required')).toBe(false)
   })
 
-  it('warns when Venn numeric labels are placed close to shape boundaries', () => {
+  it('blocks duplicate semantic Venn region values', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Workshop attendance',
+          altText: 'Set diagram with duplicate semantic regions.',
+          spec: {
+            shapes: [
+              { id: 'A', shape: 'circle', label: 'Art', cx: 250, cy: 180, r: 100 },
+              { id: 'B', shape: 'circle', label: 'Books', cx: 345, cy: 180, r: 100 },
+            ],
+            regionLabels: [
+              { text: 6, include: ['A'], exclude: ['B'] },
+              { text: 5, include: ['A'], exclude: ['B'] },
+              { text: 4, include: ['A', 'B'] },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_duplicate_region_expression')).toBe(true)
+  })
+
+  it('blocks repeated geometry across diagram answer options', () => {
+    const optionVisual = (title: string): GeneratedContentBlock[] => [{
+      type: 'visual' as const,
+      visualType: 'set_diagram' as const,
+      title,
+      altText: `${title} set diagram.`,
+      spec: {
+        shapes: [
+          { id: 'A', type: 'ellipse', label: 'Artists', x: 40, y: 40, width: 120, height: 100 },
+          { id: 'B', type: 'ellipse', label: 'Bakers', x: 120, y: 40, width: 120, height: 100 },
+          { id: 'C', type: 'ellipse', label: 'Cyclists', x: 200, y: 40, width: 120, height: 100 },
+        ],
+        regionLabels: [],
+      },
+    }]
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: 'Some artists are bakers and no bakers are cyclists.',
+        questions: [mcQuestion({
+          questionText: 'Which diagram **COULD** represent this?',
+          options: [
+            { answerText: optionVisual('A'), answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: optionVisual('B'), answerKeyValue: null, answerExplanation: null },
+            { answerText: optionVisual('C'), answerKeyValue: null, answerExplanation: null },
+            { answerText: optionVisual('D'), answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_duplicate_option_diagrams')).toBe(true)
+  })
+
+  it('blocks placeholder set labels when answer options use descriptive names', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          altText: 'Outreach services diagram.',
+          spec: {
+            shapes: [
+              { id: 'A', type: 'circle', label: 'A', cx: 210, cy: 190, r: 120 },
+              { id: 'B', type: 'circle', label: 'B', cx: 320, cy: 190, r: 120 },
+              { id: 'C', type: 'circle', label: 'C', cx: 265, cy: 285, r: 120 },
+            ],
+            regionLabels: [
+              { text: 8, include: ['A'], exclude: ['B', 'C'] },
+              { text: 7, include: ['B'], exclude: ['A', 'C'] },
+              { text: 5, include: ['A', 'B', 'C'] },
+            ],
+          },
+        }],
+        questions: [mcQuestion({ options: [
+          { answerText: 'Health checks', answerKeyValue: 'correct', answerExplanation: null },
+          { answerText: 'Nutrition advice', answerKeyValue: null, answerExplanation: null },
+          { answerText: 'Housing advice', answerKeyValue: null, answerExplanation: null },
+          { answerText: 'Job support', answerKeyValue: null, answerExplanation: null },
+        ] })],
+      }),
+      0,
+      { sectionName: 'Decision Making', categoryName: 'Venn Diagrams' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_placeholder_set_labels')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_venn_sparse_numeric_diagram' && issue.severity === 'warning')).toBe(true)
+  })
+
+  it('blocks coordinate-positioned Venn numeric labels without semantic region expressions', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Venn Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'set_diagram',
+          title: 'Activities',
+          altText: 'Set diagram with coordinate-only regions.',
+          spec: {
+            shapes: [
+              { shape: 'ellipse', label: 'A', cx: 260, cy: 190, rx: 120, ry: 80 },
+              { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
+            ],
+            regionLabels: [
+              { text: 4, x: 185, y: 190 },
+              { text: 3, x: 310, y: 190 },
+              { text: 5, x: 435, y: 190 },
+            ],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Venn Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_expression_required')).toBe(true)
+    expect(issues.some((issue) => issue.severity === 'blocking')).toBe(true)
+  })
+
+  it('does not warn on raw coordinate hints because semantic placement controls final Venn label positions', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
         categoryName: 'Venn Diagrams',
@@ -294,9 +603,9 @@ describe('validateGeneratedStemCandidate', () => {
               { shape: 'ellipse', label: 'B', cx: 360, cy: 190, rx: 120, ry: 80 },
             ],
             regionLabels: [
-              { text: 4, x: 220, y: 190 },
-              { text: 3, x: 380, y: 190 },
-              { text: 5, x: 400, y: 190 },
+              { text: 4, region: 'A only', x: 220, y: 190 },
+              { text: 3, region: 'A & B', x: 380, y: 190 },
+              { text: 5, region: 'B only', x: 400, y: 190 },
             ],
           },
         }],
@@ -309,13 +618,9 @@ describe('validateGeneratedStemCandidate', () => {
       }
     )
 
-    expect(
-      issues.some(
-        (issue) =>
-          issue.code === 'dm_venn_region_label_boundary_overlap' &&
-          issue.severity === 'warning'
-      )
-    ).toBe(true)
+    expect(issues.some((issue) => issue.code === 'generated_visual_spec_invalid')).toBe(false)
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_expression_required')).toBe(false)
+    expect(issues.some((issue) => issue.code === 'dm_venn_region_label_boundary_overlap')).toBe(false)
   })
 
   it('blocks legacy coloured Venn templates in Decision Making Venn diagrams', () => {
@@ -328,12 +633,12 @@ describe('validateGeneratedStemCandidate', () => {
           title: 'Activities',
           altText: 'Three overlapping circles.',
           spec: {
-            sets: [
-              { id: 'A', label: 'Art' },
-              { id: 'B', label: 'Books' },
-              { id: 'C', label: 'Chess' },
+            shapes: [],
+            regionLabels: [
+              { text: 2, region: 'A only' },
+              { text: 3, region: 'B only' },
+              { text: 8, region: 'A & B & C' },
             ],
-            regions: { aOnly: 2, bOnly: 3, cOnly: 4, abOnly: 5, acOnly: 6, bcOnly: 7, abc: 8 },
           },
         }],
         questions: [mcQuestion()],
@@ -348,19 +653,368 @@ describe('validateGeneratedStemCandidate', () => {
     expect(issues.some((issue) => issue.code === 'dm_venn_shape_spec_required')).toBe(true)
   })
 
-  it('blocks syllogisms without five explained statements', () => {
+  it('accepts Vega-Lite timetable-style visuals for QR timetable categories', () => {
     const issues = validateGeneratedStemCandidate(
       stem({
-        categoryName: 'Syllogisms',
+        categoryName: 'Timetables and Calendars',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Train times',
+          altText: 'Rail timetable.',
+          spec: {
+            data: {
+              values: [
+                { station: 'Central', train: 'A', minutes: 490, time: '08:10' },
+                { station: 'North', train: 'A', minutes: 502, time: '08:22' },
+                { station: 'Airport', train: 'A', minutes: 530, time: '08:50' },
+                { station: 'Central', train: 'B', minutes: 515, time: '08:35' },
+                { station: 'North', train: 'B', minutes: 527, time: '08:47' },
+                { station: 'Airport', train: 'B', minutes: 555, time: '09:15' },
+              ],
+            },
+            mark: 'text',
+            encoding: {
+              x: { field: 'train', type: 'nominal', axis: { title: 'Train' } },
+              y: { field: 'station', type: 'nominal', axis: { title: 'Station' } },
+              text: { field: 'time' },
+            },
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: '20 min', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '25 min', answerKeyValue: null, answerExplanation: null },
+            { answerText: '30 min', answerKeyValue: null, answerExplanation: null },
+            { answerText: '35 min', answerKeyValue: null, answerExplanation: null },
+            { answerText: '40 min', answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Timetables and Calendars',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_timetable_required')).toBe(false)
+  })
+
+  it('accepts Vega-Lite maps for QR maps and diagrams', () => {
+    const vegaIssues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Maps and Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Park walking paths',
+          altText: 'Layered route map with distances.',
+          spec: {
+            width: 520,
+            height: 260,
+            datasets: {
+              points: [
+                { id: 'gate', label: 'Gate', x: 0, y: 0 },
+                { id: 'lake', label: 'Lake', x: 2, y: 1 },
+                { id: 'hill', label: 'Hill', x: 5, y: 1.2 },
+                { id: 'lookout', label: 'Lookout', x: 6, y: -0.8 },
+              ],
+              paths: [
+                { x: 0, y: 0, order: 1, route: 'Gate-Lake', label: '360 m' },
+                { x: 2, y: 1, order: 2, route: 'Gate-Lake', label: '360 m' },
+                { x: 2, y: 1, order: 1, route: 'Lake-Hill', label: '420 m' },
+                { x: 5, y: 1.2, order: 2, route: 'Lake-Hill', label: '420 m' },
+                { x: 5, y: 1.2, order: 1, route: 'Hill-Lookout', label: '270 m' },
+                { x: 6, y: -0.8, order: 2, route: 'Hill-Lookout', label: '270 m' },
+              ],
+              labels: [
+                { text: '360 m', x: 1, y: 0.35 },
+                { text: '420 m', x: 3.5, y: 1.28 },
+                { text: '270 m', x: 5.6, y: 0.2 },
+                { text: 'Park walking paths', x: 0, y: 1.75 },
+              ],
+            },
+            layer: [
+              {
+                data: { name: 'paths' },
+                mark: { type: 'line', stroke: '#111111', strokeWidth: 2 },
+                encoding: {
+                  x: { field: 'x', type: 'quantitative', axis: null },
+                  y: { field: 'y', type: 'quantitative', axis: null },
+                  detail: { field: 'route' },
+                  order: { field: 'order' },
+                },
+              },
+              {
+                data: { name: 'points' },
+                mark: { type: 'point', filled: true, size: 95, color: '#111111' },
+                encoding: {
+                  x: { field: 'x', type: 'quantitative', axis: null },
+                  y: { field: 'y', type: 'quantitative', axis: null },
+                },
+              },
+              {
+                data: { name: 'points' },
+                mark: { type: 'text', dy: 16, fontSize: 12 },
+                encoding: {
+                  x: { field: 'x', type: 'quantitative', axis: null },
+                  y: { field: 'y', type: 'quantitative', axis: null },
+                  text: { field: 'label' },
+                },
+              },
+              {
+                data: { name: 'labels' },
+                mark: { type: 'text', fontSize: 12 },
+                encoding: {
+                  x: { field: 'x', type: 'quantitative', axis: null },
+                  y: { field: 'y', type: 'quantitative', axis: null },
+                  text: { field: 'text' },
+                },
+              },
+            ],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: '1050 m', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '720 m', answerKeyValue: null, answerExplanation: null },
+            { answerText: '680 m', answerKeyValue: null, answerExplanation: null },
+            { answerText: '620 m', answerKeyValue: null, answerExplanation: null },
+            { answerText: '600 m', answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Maps and Diagrams',
+      }
+    )
+
+    expect(vegaIssues.some((issue) => issue.code === 'qr_map_required')).toBe(false)
+    expect(vegaIssues.some((issue) => issue.code === 'qr_map_labels_missing')).toBe(false)
+  })
+
+  it('warns for QR maps without text labels', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Maps and Diagrams',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Park paths',
+          altText: 'Unlabelled path network.',
+          spec: {
+            data: {
+              values: [
+                { route: 'A', order: 1, x: 0, y: 0 },
+                { route: 'A', order: 2, x: 2, y: 0 },
+                { route: 'B', order: 1, x: 2, y: 0 },
+                { route: 'B', order: 2, x: 3, y: 1 },
+              ],
+            },
+            layer: [{
+              mark: { type: 'line' },
+              encoding: {
+                x: { field: 'x', type: 'quantitative', axis: null },
+                y: { field: 'y', type: 'quantitative', axis: null },
+                detail: { field: 'route' },
+                order: { field: 'order' },
+              },
+            }],
+          },
+        }],
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Maps and Diagrams',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_map_labels_missing')).toBe(true)
+  })
+
+  it('warns for low-information QR Vega-Lite charts without axis context', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Graphs and Charts',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Bookings',
+          altText: 'Simple chart.',
+          spec: {
+            data: { values: [
+              { day: 'Mon', bookings: 10 },
+              { day: 'Tue', bookings: 12 },
+              { day: 'Wed', bookings: 14 },
+            ] },
+            mark: 'bar',
+            encoding: {
+              x: { field: 'day', type: 'nominal' },
+              y: { field: 'bookings', type: 'quantitative' },
+            },
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: '10', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '11', answerKeyValue: null, answerExplanation: null },
+            { answerText: '12', answerKeyValue: null, answerExplanation: null },
+            { answerText: '13', answerKeyValue: null, answerExplanation: null },
+            { answerText: '14', answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Graphs and Charts',
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_chart_low_information_density')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'qr_chart_axis_context_missing')).toBe(true)
+  })
+
+  it('blocks multi-measure charts that do not identify their series', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Graphs and Charts',
+        stemText: [{
+          type: 'visual',
+          visualType: 'vega_lite_chart',
+          title: 'Volunteer hours by project',
+          altText: 'Comparison chart.',
+          spec: {
+            data: { values: [
+              { project: 'Garden', scheduled: 320, recorded: 368 },
+              { project: 'Mentoring', scheduled: 450, recorded: 414 },
+            ] },
+            layer: [
+              { mark: 'point', encoding: { x: { field: 'scheduled', type: 'quantitative' }, y: { field: 'project', type: 'nominal' } } },
+              { mark: 'point', encoding: { x: { field: 'recorded', type: 'quantitative' }, y: { field: 'project', type: 'nominal' } } },
+            ],
+          },
+        }],
+        questions: [mcQuestion({
+          options: [
+            { answerText: 'A', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: 'B', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'C', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'D', answerKeyValue: null, answerExplanation: null },
+            { answerText: 'E', answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      { sectionName: 'Quantitative Reasoning', categoryName: 'Graphs and Charts' }
+    )
+
+    expect(issues.some((issue) => issue.code === 'qr_chart_series_key_missing' && issue.severity === 'blocking')).toBe(true)
+  })
+
+  it('does not mistake generic QR vocabulary for source copying', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Text-Only Scenarios',
+        stemText: 'A regional library recorded the number of books borrowed during each month. In April, 480 books were borrowed, which was 20% more than in March.',
+        questions: [mcQuestion({
+          questionText: 'How many books were borrowed in March?',
+          options: [
+            { answerText: '360', answerKeyValue: null, answerExplanation: null },
+            { answerText: '384', answerKeyValue: null, answerExplanation: null },
+            { answerText: '400', answerKeyValue: 'correct', answerExplanation: null },
+            { answerText: '460', answerKeyValue: null, answerExplanation: null },
+            { answerText: '576', answerKeyValue: null, answerExplanation: null },
+          ],
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Text-Only Scenarios',
+        sourceComparisonSources: [{
+          id: 'hospital-table',
+          text: 'The table shows the total number of patients in each month. What percentage increase is there between the following values? Which option shows the most accurate calculation?',
+        }],
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'source_similarity')).toBe(false)
+  })
+
+  it('does not treat required Decision Making question scaffolds as copied content', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Recognising Assumptions',
+        stemText: 'A council is considering reserving a proportion of public study spaces for students during examination weeks.',
+        questions: [mcQuestion({
+          questionText: 'Select the strongest argument from the statements below.',
+        })],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Recognising Assumptions',
+        sourceComparisonSources: [{
+          id: 'different-argument-source',
+          text: 'A transport authority is considering replacing printed route maps with digital displays at suburban interchanges. Select the strongest argument from the statements below. The authority must decide whether the proposed display system gives passengers clearer journey information during disruption and delays.',
+        }],
+      }
+    )
+
+    expect(issues.some((issue) => issue.code === 'source_similarity')).toBe(false)
+  })
+
+  it('blocks near-copied sources and records the matching evidence', () => {
+    const copiedStem = 'A community shuttle charges a booking fee of $42 plus $0.68 per kilometre travelled. A journey costs $178 in total, and the booking fee is waived on Sundays.'
+    const copiedQuestion = 'What is the charge for the same 200 kilometre journey on Sunday?'
+    const copiedOptions = [
+      { answerText: '$128', answerKeyValue: null, answerExplanation: null },
+      { answerText: '$136', answerKeyValue: 'correct' as const, answerExplanation: null },
+      { answerText: '$170', answerKeyValue: null, answerExplanation: null },
+      { answerText: '$178', answerKeyValue: null, answerExplanation: null },
+      { answerText: '$220', answerKeyValue: null, answerExplanation: null },
+    ]
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Text-Only Scenarios',
+        stemText: copiedStem,
+        questions: [mcQuestion({ questionText: copiedQuestion, options: copiedOptions })],
+      }),
+      0,
+      {
+        sectionName: 'Quantitative Reasoning',
+        categoryName: 'Text-Only Scenarios',
+        sourceComparisonSources: [{
+          id: 'copied-shuttle-source',
+          text: `${copiedStem} ${copiedQuestion} ${copiedOptions.map((option) => option.answerText).join(' ')}`,
+        }],
+      }
+    )
+
+    const similarityIssue = issues.find((issue) => issue.code === 'source_similarity')
+    expect(similarityIssue?.severity).toBe('blocking')
+    expect(similarityIssue?.details).toEqual(expect.objectContaining({ sourceId: 'copied-shuttle-source' }))
+  })
+
+  it('blocks binary-placement questions without five explained statements', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
         questions: [
           {
             ...mcQuestion(),
             questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
-            questionType: 'syllogism',
+            responseType: 'drag_and_drop', answerScheme: 'decision_making_binary_placement',
             answerExplanation: null,
             options: [
-              { answerText: 'Conclusion 1', isAnswer: true, answerExplanation: 'Yes, because it follows.' },
-              { answerText: 'Conclusion 2', isAnswer: false, answerExplanation: null },
+              { answerText: 'Conclusion 1', answerKeyValue: 'yes', answerExplanation: 'Yes, because it follows.' },
+              { answerText: 'Conclusion 2', answerKeyValue: 'no', answerExplanation: null },
             ],
           },
         ],
@@ -368,12 +1022,89 @@ describe('validateGeneratedStemCandidate', () => {
       0,
       {
         sectionName: 'Decision Making',
-        categoryName: 'Syllogisms',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
       }
     )
 
-    expect(issues.some((issue) => issue.code === 'syllogism_option_count')).toBe(true)
-    expect(issues.some((issue) => issue.code === 'missing_syllogism_option_explanation')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_placement_option_count')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'missing_placement_option_explanation')).toBe(true)
+    expect(issues.some((issue) => issue.code === 'dm_category')).toBe(false)
+  })
+
+  it('accepts Interpreting Information stored as either response contract', () => {
+    const placement = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+        questions: [{
+          ...mcQuestion(),
+          questionText: "Place 'Yes' if the conclusion does follow. Place 'No' if the conclusion does not follow.",
+          responseType: 'drag_and_drop',
+          answerScheme: 'decision_making_binary_placement',
+          answerExplanation: null,
+          options: Array.from({ length: 5 }, (_, index) => ({
+            answerText: `Conclusion ${index + 1}`,
+            answerKeyValue: index % 2 === 0 ? 'yes' as const : 'no' as const,
+            answerExplanation: `Why statement ${index + 1} is Yes or No.`,
+          })),
+        }],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+      }
+    )
+    const multipleChoice = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+        questions: [mcQuestion()],
+      }),
+      0,
+      {
+        sectionName: 'Decision Making',
+        categoryName: 'Interpreting Information and Drawing Conclusions',
+      }
+    )
+
+    expect(placement.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+    expect(multipleChoice.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'dm_category',
+      'dm_response_type',
+    ]))
+  })
+
+  it('accepts Most/Least Appropriate as a single drag-and-drop question', () => {
+    const issues = validateGeneratedStemCandidate(
+      stem({
+        categoryName: 'Most/Least Appropriate',
+        questions: [{
+          ...mcQuestion(),
+          questionText: 'Place the most and least appropriate actions.',
+          responseType: 'drag_and_drop',
+          answerScheme: 'situational_judgement_most_least',
+          options: [
+            { answerText: 'Reassure the patient', answerKeyValue: 'most', answerExplanation: null },
+            { answerText: 'Escalate immediately', answerKeyValue: 'least', answerExplanation: null },
+            { answerText: 'Ignore the concern', answerKeyValue: null, answerExplanation: null },
+          ],
+        }],
+      }),
+      0,
+      {
+        sectionName: 'Situational Judgement',
+        categoryName: 'Most/Least Appropriate',
+      }
+    )
+
+    expect(issues.map((issue) => issue.code)).not.toEqual(expect.arrayContaining([
+      'sj_category',
+      'sj_response_type',
+      'sj_question_count',
+      'sj_option_count',
+    ]))
   })
 
   it('blocks logical puzzles whose explanations admit unresolved ambiguity', () => {
@@ -429,10 +1160,10 @@ describe('validateGeneratedStemCandidate', () => {
         questions: [
           mcQuestion({
             options: [
-              { answerText: 'Alice and Charles', isAnswer: true, answerExplanation: null },
-              { answerText: 'Bob and Alice', isAnswer: false, answerExplanation: null },
-              { answerText: 'Charles and Alice', isAnswer: false, answerExplanation: null },
-              { answerText: 'Bob and Charles', isAnswer: false, answerExplanation: null },
+              { answerText: 'Alice and Charles', answerKeyValue: 'correct', answerExplanation: null },
+              { answerText: 'Bob and Alice', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'Charles and Alice', answerKeyValue: null, answerExplanation: null },
+              { answerText: 'Bob and Charles', answerKeyValue: null, answerExplanation: null },
             ],
           }),
         ],

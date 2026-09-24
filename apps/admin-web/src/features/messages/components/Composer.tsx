@@ -8,7 +8,8 @@ import { replaceVariablesForParent } from '../utils/variableReplacerParent';
 import { replaceVariablesForStaff } from '../utils/variableReplacerStaff';
 import { getStudentClasses, getStaffClasses } from '../api/bulk';
 import { useCurrentStaff } from '@/shared/hooks';
-import { useAvailableSenders, useContactForTemplate } from '../api/queries';
+import { useAvailableSenders, useContactForTemplate, useLastInboundOwnedNumberId } from '../api/queries';
+import { resolveComposerSenderId } from '../utils/resolveComposerSenderId';
 import { Button } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { generateLinkTokensForStudent, generateLinkTokensForStaff, templateContainsLinkVariables } from '../utils/generateLinkTokens';
@@ -23,7 +24,13 @@ import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
 
 interface Props {
+  onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
+  onQueued?: () => void;
   contactId: string | null;
+  conversationId?: string | null;
+  groupChatId?: string | null;
+  initialSenderId?: string | null;
+  preferredSenderId?: string | null;
   onTyping?: () => void;
   onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
   draft?: string;
@@ -31,8 +38,14 @@ interface Props {
   onDraftClear?: () => void;
 }
 
-export function Composer({ 
+export function Composer({
+  onboarding,
+  onQueued,
   contactId, 
+  conversationId,
+  groupChatId,
+  initialSenderId,
+  preferredSenderId,
   onTyping, 
   onBeforeSend,
   draft,
@@ -44,7 +57,7 @@ export function Composer({
   const text = draft !== undefined ? draft : internalText;
   const setText = draft !== undefined && onDraftChange ? onDraftChange : setInternalText;
   
-  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(null);
+  const [selectedSenderId, setSelectedSenderId] = useState<string | null>(initialSenderId ?? null);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
@@ -56,6 +69,8 @@ export function Composer({
   const buttonRowRef = useRef<HTMLDivElement>(null);
   const { data: currentStaff } = useCurrentStaff();
   const { data: availableSenders } = useAvailableSenders();
+  const { data: lastInboundOwnedNumberId, isFetched: lastInboundFetched } =
+    useLastInboundOwnedNumberId(groupChatId ? null : contactId);
   const canExpand = useResponsiveButtons(buttonRowRef);
   const {
     attachments,
@@ -67,13 +82,34 @@ export function Composer({
     canAddMore,
   } = useMessageAttachments();
   
-  // Set default sender when senders load
   useEffect(() => {
-    if (availableSenders && availableSenders.length > 0 && !selectedSenderId) {
-      const defaultSender = availableSenders.find(s => s.is_default) || availableSenders[0];
-      setSelectedSenderId(defaultSender.id);
+    setSelectedSenderId(initialSenderId ?? preferredSenderId ?? null);
+  }, [contactId, groupChatId, initialSenderId, preferredSenderId]);
+
+  useEffect(() => {
+    if (preferredSenderId) {
+      setSelectedSenderId(preferredSenderId);
     }
-  }, [availableSenders, selectedSenderId]);
+  }, [preferredSenderId]);
+
+  useEffect(() => {
+    if (selectedSenderId || !availableSenders || availableSenders.length === 0) return;
+    if (!groupChatId && contactId && !lastInboundFetched) return;
+
+    const nextSenderId = resolveComposerSenderId({
+      availableSenders,
+      lastInboundOwnedNumberId: groupChatId ? null : lastInboundOwnedNumberId,
+      groupChatId,
+    });
+    if (nextSenderId) setSelectedSenderId(nextSenderId);
+  }, [
+    availableSenders,
+    contactId,
+    groupChatId,
+    lastInboundFetched,
+    lastInboundOwnedNumberId,
+    selectedSenderId,
+  ]);
 
   // Check if selected sender is iMessage
   const selectedSender = availableSenders?.find(s => s.id === selectedSenderId);
@@ -165,7 +201,7 @@ export function Composer({
     const body = text.trim();
     // Allow sending if there's text OR attachments (for iMessage, can send attachments without text)
     const hasContent = body || (isIMessageSender && hasAttachments);
-    if (!hasContent || !contactId || !selectedSenderId) return;
+    if (!hasContent || (!contactId && !conversationId) || !selectedSenderId) return;
 
     // Get successful attachments
     const successfulAttachments = getSuccessfulAttachments();
@@ -199,6 +235,9 @@ export function Composer({
       
       const result = await send.mutateAsync({
         contactId,
+        onboarding,
+        conversationId,
+        groupChatId,
         body: body || '', // Allow empty body if attachments exist
         selectedSenderId,
         attachments: successfulAttachments.map(att => ({
@@ -210,10 +249,13 @@ export function Composer({
       });
 
       // Mark conversation as read when sending a message
-      markRead.mutate({ contactId, lastMessageId: result.messageId });
+      if (contactId) {
+        markRead.mutate({ contactId, lastMessageId: result.messageId });
+      }
 
       // Clear attachments after successful send
       clearAll();
+      onQueued?.();
     } catch (e) {
       console.error(e);
       // Restore draft on error
@@ -439,7 +481,7 @@ export function Composer({
         <div className="relative">
           <textarea
             ref={textareaRef}
-            className={`w-full text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
+            className={`w-full text-base md:text-sm px-3 py-2 border rounded-md bg-background resize-none min-h-[44px] max-h-[200px] ${
               isDragging && isIMessageSender ? 'border-primary border-2' : ''
             }`}
             placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
@@ -456,7 +498,7 @@ export function Composer({
               }
             }}
             rows={1}
-            disabled={!contactId || !selectedSenderId}
+            disabled={(!contactId && !conversationId) || !selectedSenderId}
           />
           {/* SMS segment counter (bottom right of textarea) */}
           {isSMSSender && smsSegments && (
@@ -476,7 +518,7 @@ export function Composer({
             <div className="relative flex-shrink-0">
               <MessageTemplatesPicker 
                 onSelect={handleTemplateSelect}
-                disabled={send.isPending || !contactId || !selectedSenderId || isGeneratingTokens}
+                disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId || isGeneratingTokens}
                 expanded={canExpand}
               />
               {isGeneratingTokens && (
@@ -495,7 +537,7 @@ export function Composer({
               onOpenChange={setVariablesMenuOpen}
               onInsertVariable={handleInsertVariable}
               canExpand={canExpand}
-              disabled={send.isPending || !contactId || !selectedSenderId}
+              disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
             />
             
             {/* Upload button - only show for iMessage senders */}
@@ -507,7 +549,7 @@ export function Composer({
                     variant="outline"
                     size="sm"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={send.isPending || !contactId || !selectedSenderId}
+                    disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
                     className="h-10"
                   >
                     <Paperclip className="h-4 w-4 mr-2" />
@@ -519,7 +561,7 @@ export function Composer({
                     variant="outline"
                     size="icon"
                     onClick={() => fileInputRef.current?.click()}
-                    disabled={send.isPending || !contactId || !selectedSenderId}
+                    disabled={send.isPending || (!contactId && !conversationId) || !selectedSenderId}
                     className="h-10"
                     aria-label="Attach files"
                   >
@@ -529,13 +571,13 @@ export function Composer({
               </div>
             )}
             
-            {contactId && availableSenders && availableSenders.length > 0 && (
+            {(contactId || conversationId) && availableSenders && availableSenders.length > 0 && (
               <ComposerSenderSelector
-                availableSenders={availableSenders}
+                availableSenders={groupChatId ? availableSenders.filter((sender) => sender.provider === 'IMESSAGE') : availableSenders}
                 selectedSenderId={selectedSenderId}
                 onSelectSender={setSelectedSenderId}
                 canExpand={canExpand}
-                disabled={send.isPending || !contactId}
+                disabled={send.isPending || (!contactId && !conversationId)}
               />
             )}
           </div>
@@ -556,7 +598,7 @@ export function Composer({
               onClick={onSend}
               disabled={
                 send.isPending || 
-                !contactId || 
+                (!contactId && !conversationId) ||
                 !selectedSenderId || 
                 (!text.trim() && !(isIMessageSender && hasAttachments))
               }
@@ -569,5 +611,3 @@ export function Composer({
     </div>
   );
 }
-
-

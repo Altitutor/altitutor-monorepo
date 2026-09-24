@@ -1,7 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import * as Sentry from "@sentry/nextjs";
 import type { User } from "@supabase/supabase-js";
+import { useQueryClient } from "@tanstack/react-query";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 
 type AuthContextValue = {
@@ -14,6 +16,7 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -30,7 +33,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "SIGNED_OUT") {
+        queryClient.removeQueries({ queryKey: ["ucat-access"] });
+      }
       setUser(session?.user ?? null);
       setIsLoading(false);
     });
@@ -39,13 +45,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [supabase]);
+  }, [queryClient, supabase]);
+
+  useEffect(() => {
+    Sentry.setUser(user ? { id: user.id, email: user.email } : null);
+  }, [user]);
 
   const value: AuthContextValue = {
     user,
     isLoading,
     signOut: async () => {
       await supabase.auth.signOut();
+      queryClient.removeQueries({ queryKey: ["ucat-access"] });
       setUser(null);
     },
   };

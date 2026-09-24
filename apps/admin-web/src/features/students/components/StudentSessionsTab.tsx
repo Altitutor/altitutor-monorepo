@@ -10,6 +10,7 @@ import { useUndoAbsences } from '@/features/sessions/hooks/useAbsences';
 import { useRemoveStudentFromSession } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type StudentUndoTarget = {
   entityType: 'student';
@@ -43,18 +44,19 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
   const undoAbsenceMutation = useUndoAbsences();
   const removeStudentMutation = useRemoveStudentFromSession();
   const queryClient = useQueryClient();
+  const entityModals = useEntityModals();
 
   const handleOpenSession = useCallback((sessionId: string) => {
     if (onOpenSession) {
       onOpenSession(sessionId);
     } else {
-      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+      entityModals.openSession(sessionId);
     }
-  }, [onOpenSession]);
+  }, [entityModals, onOpenSession]);
 
   const handleOpenStaff = useCallback((staffId: string) => {
-    window.dispatchEvent(new CustomEvent('open-staff-modal', { detail: { id: staffId } }));
-  }, []);
+    entityModals.openStaff(staffId);
+  }, [entityModals]);
 
   const handleUndoLogAbsenceStudent = useCallback((payload: {
     studentId: string;
@@ -86,7 +88,7 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
   }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="h-full min-h-0 flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <SegmentedControl
           value={viewMode}
@@ -109,13 +111,14 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
       )}
 
       {viewMode === 'table' && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <SessionsTable
             studentId={student.id}
             onOpenSession={handleOpenSession}
             onOpenStaff={handleOpenStaff}
             hideStudentFilter={true}
             skipUrlSync={true}
+            fillHeight={true}
             attendanceView="student"
             onUndoLogAbsenceStudent={handleUndoLogAbsenceStudent}
             onRemoveStudentFromSession={handleRemoveStudentFromSession}

@@ -14,9 +14,7 @@ import { Input, Badge, Button } from '@altitutor/ui';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useGlobalSearch, flattenGlobalSearchResults } from '@/shared/hooks/useGlobalSearch';
 import { getSubjectColorStyle, cn } from '@/shared/utils';
-import { ViewStudentModal } from '@/features/students/components';
-import { ViewStaffModal } from '@/features/staff/components/modal';
-import { ViewClassModal } from '@/features/classes/components';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 import type { ClassSummary, StaffSummary, StudentSummary } from '@/shared/api/search';
 
 export function GlobalSearch() {
@@ -25,12 +23,7 @@ export function GlobalSearch() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedStaffId, setSelectedStaffId] = useState<string | null>(null);
-  const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
-  const [isStudentModalOpen, setIsStudentModalOpen] = useState(false);
-  const [isStaffModalOpen, setIsStaffModalOpen] = useState(false);
-  const [isClassModalOpen, setIsClassModalOpen] = useState(false);
+  const entityModals = useEntityModals();
 
   const debouncedSearch = useDebounce(searchQuery, 250);
 
@@ -78,14 +71,11 @@ export function GlobalSearch() {
     setSearchQuery('');
 
     if (result.type === 'student') {
-      setSelectedStudentId(result.id);
-      setIsStudentModalOpen(true);
+      entityModals.openStudent(result.id);
     } else if (result.type === 'staff') {
-      setSelectedStaffId(result.id);
-      setIsStaffModalOpen(true);
+      entityModals.openStaff(result.id);
     } else if (result.type === 'class') {
-      setSelectedClassId(result.id);
-      setIsClassModalOpen(true);
+      entityModals.openClass(result.id);
     }
   };
 
@@ -160,30 +150,27 @@ export function GlobalSearch() {
     (event: ReactMouseEvent, classId?: string | null) => {
       event.stopPropagation();
       if (!classId) return;
-      setSelectedClassId(classId);
-      setIsClassModalOpen(true);
+      entityModals.openClass(classId);
     },
-    []
+    [entityModals]
   );
 
   const handleStudentChipClick = useCallback(
     (event: ReactMouseEvent, studentId?: string | null) => {
       event.stopPropagation();
       if (!studentId) return;
-      setSelectedStudentId(studentId);
-      setIsStudentModalOpen(true);
+      entityModals.openStudent(studentId);
     },
-    []
+    [entityModals]
   );
 
   const handleStaffChipClick = useCallback(
     (event: ReactMouseEvent, staffId?: string | null) => {
       event.stopPropagation();
       if (!staffId) return;
-      setSelectedStaffId(staffId);
-      setIsStaffModalOpen(true);
+      entityModals.openStaff(staffId);
     },
-    []
+    [entityModals]
   );
 
   const renderClassPills = (classes?: ClassSummary[] | null) => {
@@ -374,43 +361,6 @@ export function GlobalSearch() {
           </div>
         )}
       </div>
-
-      {selectedStudentId && (
-        <ViewStudentModal
-          isOpen={isStudentModalOpen}
-          onClose={() => {
-            setIsStudentModalOpen(false);
-            setSelectedStudentId(null);
-          }}
-          studentId={selectedStudentId}
-          onStudentUpdated={() => {}}
-        />
-      )}
-
-      {selectedStaffId && (
-        <ViewStaffModal
-          isOpen={isStaffModalOpen}
-          onClose={() => {
-            setIsStaffModalOpen(false);
-            setSelectedStaffId(null);
-          }}
-          staffId={selectedStaffId}
-          onStaffUpdated={() => {}}
-        />
-      )}
-
-      {selectedClassId && (
-        <ViewClassModal
-          isOpen={isClassModalOpen}
-          onClose={() => {
-            setIsClassModalOpen(false);
-            setSelectedClassId(null);
-          }}
-          classId={selectedClassId}
-          onClassUpdated={() => {}}
-        />
-      )}
     </>
   );
 }
-

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useMemo, useEffect, useRef } from 'react';
-import { X, Plus, Search, ChevronDown, Calendar as CalendarIcon } from 'lucide-react';
+import { X, Plus, Search, ChevronDown } from 'lucide-react';
 import { 
   Button, 
   Input, 
@@ -19,6 +19,7 @@ import {
   Badge,
   Label,
   SearchableSelect,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { format } from 'date-fns';
 import { useToast } from '@altitutor/ui';
@@ -37,6 +38,7 @@ import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSubjectCurriculumColor, cn } from '@/shared/utils';
 import { useQuery } from '@tanstack/react-query';
+import { navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 
 interface StudentSelectorProps {
   selectedStudents: Tables<'students'>[];
@@ -639,7 +641,11 @@ export function StudentSelector({
                           key={student.id}
                           type="button"
                           onClick={() => handleAddStudentFromSearch(student)}
-                          className="w-full text-left p-3 hover:bg-accent rounded-md transition-colors"
+                          className={cn(
+                            'w-full text-left p-3 rounded-md',
+                            navItemTransitionStyles,
+                            navHoverStyles
+                          )}
                         >
                           <div className="font-medium">
                             {student.first_name} {student.last_name}
@@ -769,15 +775,10 @@ export function StudentSelector({
             </PopoverTrigger>
             <PopoverContent className="w-[300px] p-4" align="start">
               <div className="space-y-3">
-                <div className="relative">
-                  <CalendarIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    type="date"
-                    value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
-                    onChange={(e) => setSelectedDate(e.target.value ? new Date(e.target.value) : undefined)}
-                    className="pl-9"
-                  />
-                </div>
+                <SmartDatePickerField
+                  value={selectedDate ? format(selectedDate, 'yyyy-MM-dd') : ''}
+                  onChange={(value) => setSelectedDate(value ? new Date(value) : undefined)}
+                />
                 <Button
                   onClick={handleAddBySessionDate}
                   disabled={!selectedDate || isLoading}

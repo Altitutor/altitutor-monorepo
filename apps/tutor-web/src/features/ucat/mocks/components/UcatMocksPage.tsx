@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
-import { useQueries, useQueryClient } from '@tanstack/react-query'
+import { useCallback, useEffect, useMemo, useState } from 'react'
+import { usePathname, useRouter, useSearchParams } from 'next/navigation'
+import { useQueryClient } from '@tanstack/react-query'
 import type { ColumnDef } from '@tanstack/react-table'
 import type { DataTableColumnDefinition, DataTableFilterDefinition, DataTableSortOption } from '@altitutor/shared'
 import {
@@ -27,13 +27,23 @@ import {
   TablePagination,
   useToast,
 } from '@altitutor/ui'
-import { Pencil, RotateCcw, Trash2 } from 'lucide-react'
-import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { CheckCircle2, FilePenLine, ListChecks, Pencil, RotateCcw, Send, Trash2 } from 'lucide-react'
+import { useCreateUcatMock, useDeleteUcatMock, useRestoreUcatMock, useSetUcatMockStatus, useUcatMockBlueprints, useUcatMocks, useUpdateUcatMock } from '@/features/ucat/mocks/hooks/useUcatMocks'
+import { useUcatMocksTable, type MockRow } from '@/features/ucat/mocks/hooks/useUcatMocksTable'
 import { UcatAccessDenied, UcatPageHeader, UcatPageSkeleton } from '@/features/ucat/shared/components'
 import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess'
-import { applyBooleanTextFilter, applySort, useVisibleColumns } from '@/features/ucat/shared/hooks/useUcatTableState'
-import { useUcatTableUrlState } from '@/features/ucat/shared/hooks/useUcatTableUrlState'
+import { useUcatRowSelection } from '@/features/ucat/shared/hooks/useUcatRowSelection'
+import { useBackgroundBulkAction } from '@/features/ucat/shared/hooks/useBackgroundBulkAction'
+import {
+  bulkDeleteProgressToast,
+  bulkStatusProgressToast,
+  bulkUpdateProgressToast,
+  nextBulkActionToastId,
+  type BackgroundBulkToast,
+} from '@/features/ucat/shared/lib/background-bulk-action'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import { UcatPdfExportDialog, type UcatPdfExportSource } from '@/features/ucat/shared/components/UcatPdfExportDialog'
+import { buildUcatPdfExportAction } from '@/features/ucat/shared/pdf/pdf-export-action'
 import { UcatMockEditorDialog } from '@/features/ucat/mocks/components/UcatMockEditorDialog'
 import { UcatSetEditorDialog } from '@/features/ucat/sets/components/UcatSetEditorDialog'
 import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
@@ -41,21 +51,29 @@ import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { ucatMocksApi } from '@/features/ucat/mocks/api/mocks'
 import { UcatRichTextEditor } from '@/features/ucat/shared/UcatRichTextEditor'
-import type { RichTextJson } from '@/features/ucat/shared/types'
+import { getUcatContentStatusTransitionOptions, type RichTextJson, type UcatContentStatus } from '@/features/ucat/shared/types'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
-import { getMockExamStatus, getSetSectionStatus } from '@/features/ucat/shared/lib/set-section-status'
-import { SetStatusSpan } from '@/features/ucat/shared/components/SetStatusSpan'
 import { useUcatSections } from '@/features/ucat/sections/hooks/useUcatSections'
 import { cn } from '@/shared/utils'
 import { tutorBtnOutline, tutorBtnPrimary, tutorDataTableProps, tutorToolbarProps } from '@/shared/lib/tutor-visual'
+import { SegmentedControl } from '@/shared/components/segmented-control'
+import { UcatCatalogOrderEditor } from '@/features/ucat/shared/components/UcatCatalogOrderEditor'
+import {
+  belongsInMockCatalogOrder,
+  buildPublishedMockOrder,
+  unpublishedMockOrderRows,
+  type MockCatalogOrderRow,
+} from '@/features/ucat/mocks/lib/mock-catalog-order'
+import { confirmDiscardUnsavedOrder } from '@/features/ucat/shared/components/UcatOrderSaveToolbar'
+import {
+  firstUcatBulkStatusFailureError,
+  lifecycleErrorToast,
+  lifecycleStatusSuccessToast,
+  type UcatLifecycleEntityType,
+} from '@/features/ucat/shared/lifecycle-errors'
 
-type MockRow = {
-  id: string
-  name: string
-  is_private: boolean
-  set_count: number
-  updated_at: string | null
-  deleted_at: string | null
+function parseStatusTab(value: string | null): UcatContentStatus {
+  return value === 'in_review' || value === 'published' ? value : 'draft'
 }
 
 const filterDefinitions: DataTableFilterDefinition[] = [
@@ -71,7 +89,7 @@ const filterDefinitions: DataTableFilterDefinition[] = [
 
 const columnDefinitions: DataTableColumnDefinition[] = [
   { key: 'name', label: 'Name', visibleByDefault: true },
-  { key: 'visibility', label: 'Visibility', visibleByDefault: true },
+  { key: 'visibility', label: 'Visibility', visibleByDefault: false },
   { key: 'set_count', label: 'Sets', visibleByDefault: true },
   { key: 'updated_at', label: 'Updated', visibleByDefault: false },
   { key: 'actions', label: 'Actions', visibleByDefault: true },
@@ -84,104 +102,203 @@ const sortOptions: DataTableSortOption[] = [
   { key: 'updated_at', label: 'Updated' },
 ]
 
+type MockBlueprintOption = {
+  id: string | null
+  code: string | null
+  test_year: number | null
+  version: number | null
+}
+
 export function UcatMocksPage() {
   const searchParams = useSearchParams()
+  const router = useRouter()
+  const pathname = usePathname()
+  const activeStatus = parseStatusTab(searchParams.get('tab'))
+  const viewMode = searchParams.get('view') === 'order' ? 'order' : 'table'
+  const bulkStatusOptions = useMemo(() => getUcatContentStatusTransitionOptions(activeStatus), [activeStatus])
   const access = useUcatAccess()
   const mocks = useUcatMocks()
   const sectionsQuery = useUcatSections()
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const createMock = useCreateUcatMock()
+  const blueprintsQuery = useUcatMockBlueprints()
   const deleteMock = useDeleteUcatMock()
   const restoreMock = useRestoreUcatMock()
-  const tableState = useUcatTableUrlState(columnDefinitions.filter((c) => c.visibleByDefault).map((c) => c.key), {
-    syncShowDeleted: true,
-    availableColumns: columnDefinitions.map((c) => c.key),
-  })
-  const showDeleted = tableState.showDeleted ?? false
-  const setShowDeleted = tableState.setShowDeleted ?? (() => undefined)
-
+  const setStatus = useSetUcatMockStatus()
   const [openCreate, setOpenCreate] = useState(false)
   const [editingMockId, setEditingMockId] = useState<string | null>(null)
   const [editingSetId, setEditingSetId] = useState<string | null>(null)
   const [deletingMockId, setDeletingMockId] = useState<string | null>(null)
+  const [pdfExportSource, setPdfExportSource] = useState<UcatPdfExportSource | null>(null)
   const [name, setName] = useState('')
   const [isPrivate, setIsPrivate] = useState(false)
   const [instructionsText, setInstructionsText] = useState<RichTextJson | null>(null)
-  const [selectedMockIds, setSelectedMockIds] = useState<Set<string>>(new Set())
+  const [createBlueprintId, setCreateBlueprintId] = useState<string | null>(null)
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false)
   const [bulkVisibilityOpen, setBulkVisibilityOpen] = useState(false)
   const [bulkVisibilityPrivate, setBulkVisibilityPrivate] = useState<boolean | null>(null)
-  const [bulkDeletePending, setBulkDeletePending] = useState(false)
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
+  const [bulkStatus, setBulkStatus] = useState<UcatContentStatus | null>(null)
   const [singleDeletePending, setSingleDeletePending] = useState(false)
-  const selectionMode = selectedMockIds.size > 0
+  const [orderDirty, setOrderDirty] = useState(false)
   const queryClient = useQueryClient()
   const updateMockMutation = useUpdateUcatMock()
+  const { toast } = useToast()
 
   useEffect(() => {
     const editId = searchParams.get('edit')
     if (editId) setEditingMockId(editId)
   }, [searchParams])
 
-  const rows: MockRow[] = (mocks.data ?? []).map((m) => {
-    const row = m as typeof m & { set_count?: number; deleted_at?: string | null }
-    return {
-      id: m.id ?? '',
-      name: m.name ?? 'Untitled',
-      is_private: !!m.is_private,
-      set_count: row.set_count ?? 0,
-      updated_at: m.updated_at,
-      deleted_at: row.deleted_at ?? null,
-    }
+  function setViewMode(value: 'table' | 'order') {
+    if (!confirmDiscardUnsavedOrder(orderDirty)) return
+    const params = new URLSearchParams(searchParams.toString())
+    if (value === 'order') params.set('view', 'order')
+    else params.delete('view')
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+  }
+
+  const { rows, visibleColumns, tableState, showDeleted, setShowDeleted } = useUcatMocksTable({
+    data: mocks.data,
+    initialVisibleColumns: columnDefinitions.filter((column) => column.visibleByDefault).map((column) => column.key),
+    availableColumns: columnDefinitions.map((column) => column.key),
+    sections,
+    onOpenSet: setEditingSetId,
+    status: activeStatus,
   })
 
-  const filteredRows = useMemo(() => {
-    const byDeleted = showDeleted
-      ? rows.filter((row) => row.deleted_at != null)
-      : rows.filter((row) => row.deleted_at == null)
-    const search = tableState.state.search.trim().toLowerCase()
-    return byDeleted.filter((row) => {
-      const searchHit = search.length === 0 || row.name.toLowerCase().includes(search)
-      const visibilityHit = applyBooleanTextFilter(tableState.state, 'visibility', row.is_private)
-      return searchHit && visibilityHit
-    })
-  }, [rows, tableState.state, showDeleted])
-
-  const sortedRows = useMemo(
-    () =>
-      applySort(filteredRows, tableState.state.sortBy, tableState.state.sortDirection, {
-        name: (r) => r.name,
-        visibility: (r) => (r.is_private ? 'Private' : 'Public'),
-        set_count: (r) => r.set_count,
-        updated_at: (r) => r.updated_at ?? '',
-      }),
-    [filteredRows, tableState.state.sortBy, tableState.state.sortDirection]
-  )
+  function changeStatusTab(status: UcatContentStatus) {
+    const params = new URLSearchParams(searchParams.toString())
+    if (status === 'draft') params.delete('tab')
+    else params.set('tab', status)
+    const query = params.toString()
+    router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false })
+    clearSelection()
+  }
 
   const { page, pageSize } = tableState.state
-  const totalRows = sortedRows.length
+  const totalRows = rows.length
   const pageCount = Math.max(1, Math.ceil(totalRows / pageSize))
   const effectivePage = Math.min(page, pageCount)
-  const paginatedRows = sortedRows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
+  const paginatedRows = rows.slice((effectivePage - 1) * pageSize, effectivePage * pageSize)
 
-  const detailQueries = useQueries({
-    queries: paginatedRows.map((row) => ({
-      queryKey: ucatKeys.mock(row.id),
-      queryFn: () => ucatMocksApi.detail(row.id),
-      enabled: !!row.id,
-    })),
-  })
+  const {
+    selectedIds: selectedMockIds,
+    selectionMode,
+    allVisibleSelected,
+    someVisibleSelected,
+    toggleSelection: toggleMockSelection,
+    toggleSelectAllVisible,
+    clearSelection,
+  } = useUcatRowSelection(paginatedRows)
+  const { start: startBackgroundBulk, selectionIsBusy } = useBackgroundBulkAction()
+  const bulkSelectionBusy = selectionIsBusy(selectedMockIds)
 
-  const mockStatusMap = useMemo(() => {
-    const map = new Map<string, { status: 'match' | 'partial' | 'mismatch'; tooltip: string }>()
-    detailQueries.forEach((q, i) => {
-      const row = paginatedRows[i]
-      if (!row || !q.data) return
-      const sets = (q.data as { sets?: Array<{ sections?: unknown; question_count?: number | null; time_limit_seconds?: number | null }> }).sets ?? []
-      const result = getMockExamStatus(row.set_count, sets, sections, getSetSectionStatus)
-      map.set(row.id, result)
-    })
-    return map
-  }, [detailQueries, paginatedRows, sections])
+  const openLifecycleEntity = useCallback((entityType: UcatLifecycleEntityType, entityId: string) => {
+    if (entityType === 'mock') {
+      setEditingMockId(entityId)
+      return true
+    }
+    if (entityType === 'set') {
+      setEditingSetId(entityId)
+      return true
+    }
+    return false
+  }, [])
+
+  const changeMockStatus = useCallback((
+    mockId: string,
+    status: UcatContentStatus,
+    previousStatus: UcatContentStatus,
+    title: string,
+  ) => {
+    void (async () => {
+      try {
+        await setStatus.mutateAsync({ mockId, status })
+        toast(lifecycleStatusSuccessToast({
+          contentLabel: 'Mock',
+          count: 1,
+          status,
+          onUndo: () => {
+            void ucatMocksApi.bulkRestoreStatus([mockId], status, previousStatus)
+              .then(async () => {
+                await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+                await queryClient.invalidateQueries({ queryKey: ucatKeys.mock(mockId) })
+                toast({ title: 'Mock status restored' })
+              })
+              .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+          },
+        }))
+      } catch (error) {
+        toast(lifecycleErrorToast(error, title, router.push, openLifecycleEntity))
+      }
+    })()
+  }, [openLifecycleEntity, queryClient, router, setStatus, toast])
+
+  const openMockPdfExport = useCallback(async (row: MockRow) => {
+    try {
+      const detail = await ucatMocksApi.detail(row.id)
+      if (!detail) throw new Error('Mock not found')
+      const sets = (detail.sets as Array<{ id: string }> | null) ?? []
+      setPdfExportSource({
+        kind: 'mock',
+        title: row.name || 'Untitled mock',
+        setIds: sets.map((set) => set.id),
+      })
+    } catch (error) {
+      toast({
+        title: 'Could not prepare export',
+        description: error instanceof Error ? error.message : 'Failed to load this mock.',
+        variant: 'destructive',
+      })
+    }
+  }, [toast])
+
+  const actionsColumn: ColumnDef<MockRow> = useMemo(
+    () => ({
+      id: 'actions',
+      header: '',
+      cell: ({ row }) => (
+        <div className="flex justify-end" onClick={(event) => event.stopPropagation()}>
+          <UcatRowActions
+            actions={[
+              { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
+              ...(!showDeleted
+                ? [buildUcatPdfExportAction(() => void openMockPdfExport(row.original))]
+                : []),
+              ...(!showDeleted && row.original.status === 'draft'
+                ? [{ label: 'Send for review', icon: <Send className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'in_review', row.original.status, 'Cannot send for review') }]
+                : []),
+              ...(!showDeleted && row.original.status === 'in_review'
+                ? [
+                    { label: 'Publish', icon: <CheckCircle2 className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'published', row.original.status, 'Cannot publish') },
+                    { label: 'Return to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'draft', row.original.status, 'Cannot return to draft') },
+                  ]
+                : []),
+              ...(!showDeleted && row.original.status === 'published'
+                ? [
+                    { label: 'Move to review', icon: <ListChecks className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'in_review', row.original.status, 'Cannot move mock') },
+                    { label: 'Move to draft', icon: <FilePenLine className="h-4 w-4" />, onClick: () => changeMockStatus(row.original.id, 'draft', row.original.status, 'Cannot move mock') },
+                  ]
+                : []),
+              ...(showDeleted
+                ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreMock.mutate(row.original.id) }]
+                : [{ label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingMockId(row.original.id), destructive: true }]),
+            ]}
+          />
+        </div>
+      ),
+    }),
+    [changeMockStatus, openMockPdfExport, showDeleted, restoreMock],
+  )
+
+  const tableColumns = useMemo(() => {
+    if (tableState.state.visibleColumns.includes('actions')) {
+      return [...visibleColumns, actionsColumn]
+    }
+    return visibleColumns
+  }, [visibleColumns, tableState.state.visibleColumns, actionsColumn])
 
   const selectColumn: ColumnDef<MockRow> = {
     id: 'select',
@@ -193,7 +310,7 @@ export function UcatMocksPage() {
       />
     ),
     cell: ({ row }) => (
-      <div onClick={(e) => e.stopPropagation()}>
+      <div onClick={(event) => event.stopPropagation()}>
         <Checkbox
           checked={selectedMockIds.has(row.original.id)}
           onCheckedChange={() => toggleMockSelection(row.original.id)}
@@ -203,111 +320,38 @@ export function UcatMocksPage() {
     ),
   }
 
-  const allColumns: Array<{ key: string; column: ColumnDef<MockRow> }> = [
-    { key: 'name', column: { accessorKey: 'name', header: 'Name' } },
-    {
-      key: 'visibility',
-      column: {
-        accessorKey: 'is_private',
-        header: 'Visibility',
-        cell: ({ row }) => (row.original.is_private ? 'Private' : 'Public'),
-      },
-    },
-    {
-      key: 'set_count',
-      column: {
-        accessorKey: 'set_count',
-        header: 'Sets',
-        cell: ({ row }) => {
-          const r = row.original
-          const statusResult = mockStatusMap.get(r.id)
-          if (!statusResult) {
-            return <span className="text-muted-foreground">{r.set_count}</span>
-          }
-          return (
-            <SetStatusSpan status={statusResult.status} tooltip={statusResult.tooltip}>
-              {r.set_count}
-            </SetStatusSpan>
-          )
-        },
-      },
-    },
-    {
-      key: 'updated_at',
-      column: {
-        accessorKey: 'updated_at',
-        header: 'Updated',
-        cell: ({ row }) => (row.original.updated_at ? new Date(row.original.updated_at).toLocaleString() : '-'),
-      },
-    },
-    {
-      key: 'actions',
-      column: {
-        id: 'actions',
-        header: '',
-        cell: ({ row }) => (
-          <div className="flex justify-end" onClick={(e) => e.stopPropagation()}>
-            <UcatRowActions
-              actions={[
-                { label: 'Edit', icon: <Pencil className="h-4 w-4" />, onClick: () => setEditingMockId(row.original.id) },
-                ...(showDeleted
-                  ? [{ label: 'Restore', icon: <RotateCcw className="h-4 w-4" />, onClick: () => restoreMock.mutate(row.original.id) }]
-                  : [{ label: 'Delete', icon: <Trash2 className="h-4 w-4" />, onClick: () => setDeletingMockId(row.original.id), destructive: true }]),
-              ]}
-            />
-          </div>
-        ),
-      },
-    },
-  ]
-
-  const visibleColumns = useVisibleColumns(allColumns, tableState.state.visibleColumns)
-
-  function toggleMockSelection(id: string) {
-    setSelectedMockIds((prev) => {
-      const next = new Set(prev)
-      if (next.has(id)) next.delete(id)
-      else next.add(id)
-      return next
-    })
-  }
-
-  const allVisibleSelected = paginatedRows.length > 0 && paginatedRows.every((r) => selectedMockIds.has(r.id))
-  const someVisibleSelected = paginatedRows.some((r) => selectedMockIds.has(r.id))
-  function toggleSelectAllVisible() {
-    if (allVisibleSelected) {
-      setSelectedMockIds((prev) => {
-        const next = new Set(prev)
-        paginatedRows.forEach((r) => next.delete(r.id))
-        return next
-      })
-    } else {
-      setSelectedMockIds((prev) => new Set([...prev, ...paginatedRows.map((r) => r.id)]))
-    }
-  }
-
-  async function handleBulkVisibilityConfirm() {
+  function handleBulkVisibilityConfirm() {
     if (bulkVisibilityPrivate == null) return
     const ids = Array.from(selectedMockIds)
-    for (const mockId of ids) {
-      const detail = await ucatMocksApi.detail(mockId)
-      if (!detail) continue
-      const setIds = (detail.sets as Array<{ id: string }> | null)?.map((s) => s.id) ?? []
-      await updateMockMutation.mutateAsync({
-        mockId,
-        payload: {
-          name: detail.name ?? 'Untitled',
-          isPrivate: bulkVisibilityPrivate,
-          setIds,
-        },
-      })
-    }
-    setBulkVisibilityOpen(false)
-    setBulkVisibilityPrivate(null)
-    setSelectedMockIds(new Set())
+    const accessScope = bulkVisibilityPrivate ? 'private' : 'public'
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('visibility'),
+      progress: bulkUpdateProgressToast(ids.length, 'mock', 'visibility'),
+      begin: () => {
+        setBulkVisibilityOpen(false)
+        setBulkVisibilityPrivate(null)
+        clearSelection()
+      },
+      run: async () => {
+        for (const mockId of ids) {
+          const detail = await ucatMocksApi.detail(mockId)
+          if (!detail) continue
+          await updateMockMutation.mutateAsync({
+            mockId,
+            payload: {
+              authoringNote: detail.authoring_note,
+              accessScope,
+              instructionsText: detail.instructions_text,
+              blueprintId: detail.blueprint_id ?? '',
+            },
+          })
+        }
+      },
+      onSuccess: () => ({ title: ids.length === 1 ? 'Visibility updated' : `Visibility updated for ${ids.length} mocks` }),
+      onError: (error) => lifecycleErrorToast(error, 'Could not update visibility', router.push, openLifecycleEntity),
+    })
   }
-
-  const { toast } = useToast()
 
   async function invalidateMocksListQueries(mockIds: string[] = []) {
     await Promise.all([
@@ -317,9 +361,60 @@ export function UcatMocksPage() {
     ])
   }
 
-  function showMockDeleteSuccessToast(mockIds: string[]) {
+  function handleBulkStatusConfirm() {
+    if (!bulkStatus) return
+    const ids = Array.from(selectedMockIds)
+    const nextStatus = bulkStatus
+    startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('status'),
+      progress: bulkStatusProgressToast(ids.length, 'mock', nextStatus),
+      begin: () => {
+        setBulkStatusOpen(false)
+        setBulkStatus(null)
+        clearSelection()
+      },
+      run: async () => {
+        const result = await ucatMocksApi.bulkSetStatus(ids, nextStatus)
+        await invalidateMocksListQueries(ids)
+        return result
+      },
+      onSuccess: (result) => {
+        const toasts: BackgroundBulkToast[] = []
+        if (result.movedIds.length > 0) {
+          toasts.push(lifecycleStatusSuccessToast({
+            contentLabel: 'Mock',
+            count: result.movedIds.length,
+            status: nextStatus,
+            onUndo: () => {
+              void ucatMocksApi.bulkRestoreStatus(result.movedIds, nextStatus, activeStatus)
+                .then(async () => {
+                  await invalidateMocksListQueries(result.movedIds)
+                  toast({ title: result.movedIds.length === 1 ? 'Mock status restored' : 'Mock statuses restored' })
+                })
+                .catch((error) => toast(lifecycleErrorToast(error, 'Could not undo status change', router.push, openLifecycleEntity)))
+            },
+          }))
+        }
+        const failureError = firstUcatBulkStatusFailureError(result)
+        if (failureError) {
+          const count = result.failures.length
+          toasts.push(lifecycleErrorToast(
+            failureError,
+            count === 1 ? '1 mock could not be moved' : `${count} mocks could not be moved`,
+            router.push,
+            openLifecycleEntity,
+          ))
+        }
+        return toasts
+      },
+      onError: (error) => lifecycleErrorToast(error, 'Cannot move selected mocks', router.push, openLifecycleEntity),
+    })
+  }
+
+  function mockDeleteSuccessToast(mockIds: string[]) {
     const count = mockIds.length
-    toast({
+    return {
       title: count === 1 ? 'Mock deleted' : `${count} mocks deleted`,
       description: 'Tap Undo to restore.',
       duration: 10_000,
@@ -337,54 +432,61 @@ export function UcatMocksPage() {
               toast({
                 title: 'Could not undo',
                 description: err instanceof Error ? err.message : 'Failed to restore mocks.',
-                variant: 'destructive',
+                variant: 'destructive' as const,
               })
             }
           })()
         },
       },
-    })
+    }
   }
 
-  async function deleteMocksWithToast(mockIds: string[]) {
+  async function deleteMocks(mockIds: string[]) {
     if (mockIds.length === 1) {
       await deleteMock.mutateAsync(mockIds[0])
     } else {
       await ucatMocksApi.bulkRemove(mockIds)
     }
     await invalidateMocksListQueries(mockIds)
-    showMockDeleteSuccessToast(mockIds)
   }
 
-  async function handleBulkDeleteConfirm() {
+  async function deleteMocksWithToast(mockIds: string[]) {
+    await deleteMocks(mockIds)
+    toast(mockDeleteSuccessToast(mockIds))
+  }
+
+  function handleBulkDeleteConfirm() {
     const ids = Array.from(selectedMockIds)
-    setBulkDeletePending(true)
-    try {
-      await deleteMocksWithToast(ids)
-      setBulkDeleteOpen(false)
-      setSelectedMockIds(new Set())
-    } catch (err) {
-      toast({
-        title: 'Cannot delete',
-        description: err instanceof Error ? err.message : 'Failed to delete mocks.',
-        variant: 'destructive',
-      })
-      throw err
-    } finally {
-      setBulkDeletePending(false)
-    }
+    const started = startBackgroundBulk({
+      ids,
+      toastId: nextBulkActionToastId('delete'),
+      progress: bulkDeleteProgressToast(ids.length, 'mock'),
+      begin: () => {
+        setBulkDeleteOpen(false)
+        clearSelection()
+      },
+      run: () => deleteMocks(ids),
+      onSuccess: () => mockDeleteSuccessToast(ids),
+      onError: (error) => lifecycleErrorToast(error, 'Cannot delete', router.push, openLifecycleEntity),
+    })
+    if (!started) throw new Error('already in progress')
   }
 
   async function onCreate() {
-    const result = await createMock.mutateAsync({ name, isPrivate, setIds: [], instructionsText: instructionsText ?? undefined })
-    const mockName = name.trim() || 'Untitled'
+    const result = await createMock.mutateAsync({
+      authoringNote: name,
+      accessScope: isPrivate ? 'private' : 'public',
+      instructionsText: instructionsText ?? undefined,
+      blueprintId: createBlueprintId ?? '',
+    })
     setOpenCreate(false)
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
+    setCreateBlueprintId(null)
     if (result.id) setEditingMockId(result.id)
     toast({
-      title: `Mock ${mockName} created`,
+      title: 'Mock created',
       description: (
         <button
           type="button"
@@ -402,23 +504,82 @@ export function UcatMocksPage() {
     setName('')
     setIsPrivate(false)
     setInstructionsText(null)
+    setCreateBlueprintId(null)
   }
 
   if (access.isLoading || mocks.isLoading) return <UcatPageSkeleton rows={8} />
   if (!access.data) return <UcatAccessDenied />
 
+  if (viewMode === 'order') {
+    const orderRows: MockCatalogOrderRow[] = (mocks.data ?? [])
+      .filter((mock) => belongsInMockCatalogOrder({ deletedAt: mock.deleted_at }))
+      .flatMap((mock) => mock.id ? [{
+        id: mock.id,
+        displayName: mock.display_name ?? mock.name ?? mock.id,
+        authoringNote: mock.authoring_note,
+        catalogIndex: mock.catalog_index ?? null,
+        status: mock.status ?? 'draft',
+      }] : [])
+    const publishedIds = buildPublishedMockOrder(orderRows)
+    const rowById = new Map(orderRows.map((row) => [row.id, row]))
+    const publishedRows = publishedIds.flatMap((id) => {
+      const row = rowById.get(id)
+      return row ? [{
+        id: row.id,
+        displayName: row.displayName,
+        authoringNote: row.authoringNote,
+      }] : []
+    })
+    const unpublishedRows = unpublishedMockOrderRows(orderRows).map((row) => ({
+      id: row.id,
+      displayName: row.displayName,
+      authoringNote: row.authoringNote,
+    }))
+    return (
+      <div className="space-y-6 py-8 md:py-10">
+        <UcatPageHeader
+          title="UCAT Mocks"
+          description="Set the published mock display order"
+          backHref="/ucat"
+          breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
+          actions={<SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="order" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />}
+        />
+        <UcatCatalogOrderEditor
+          rows={publishedRows}
+          unpublishedRows={unpublishedRows}
+          onDirtyChange={setOrderDirty}
+          onSave={async (ids) => {
+            await ucatMocksApi.reorder(ids)
+            await queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
+            toast({ title: 'Mock order saved' })
+          }}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="space-y-6 py-8 md:py-10">
       <UcatPageHeader
         title="UCAT Mocks"
-        description="Manage full mock exams (ordered sets)"
+        description="Draft, review, and publish full mock exams"
         backHref="/ucat"
         breadcrumbs={[{ label: 'UCAT', href: '/ucat' }, { label: 'Mocks' }]}
-        actions={
-          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>
-            Add Mock
-          </Button>
-        }
+        actions={<div className="flex items-center gap-2">
+          <SegmentedControl options={[{ value: 'table', label: 'Table' }, { value: 'order', label: 'Order' }]} value="table" onValueChange={(value) => setViewMode(value === 'order' ? 'order' : 'table')} />
+          <Button className={tutorBtnPrimary} onClick={() => setOpenCreate(true)}>Add Mock</Button>
+        </div>}
+      />
+
+      <SegmentedControl
+        className="w-fit max-w-full"
+        value={activeStatus}
+        onValueChange={(value) => changeStatusTab(parseStatusTab(value))}
+        options={[
+          { value: 'draft', label: 'Draft' },
+          { value: 'in_review', label: 'In review' },
+          { value: 'published', label: 'Published' },
+        ]}
       />
 
       <DataTableToolbar
@@ -463,7 +624,7 @@ export function UcatMocksPage() {
       <div className={cn('pt-3', selectionMode && 'pb-24')}>
         <DataTable
           {...tutorDataTableProps}
-          columns={[selectColumn, ...visibleColumns]}
+          columns={[selectColumn, ...tableColumns]}
           data={paginatedRows}
           pagination="external"
           pageSizeOptions={[10, 20, 50]}
@@ -483,13 +644,13 @@ export function UcatMocksPage() {
 
       <UcatSelectionToolbar
         selectedCount={selectedMockIds.size}
-        onCancel={() => setSelectedMockIds(new Set())}
+        onCancel={clearSelection}
         onDelete={() => setBulkDeleteOpen(true)}
-        deletePending={bulkDeletePending}
+        deletePending={bulkSelectionBusy}
       >
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className={tutorBtnOutline}>
+            <Button variant="outline" size="sm" className={tutorBtnOutline} disabled={bulkSelectionBusy}>
               Visibility
             </Button>
           </DropdownMenuTrigger>
@@ -502,6 +663,29 @@ export function UcatMocksPage() {
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
+        <SearchableSelect<{ value: UcatContentStatus; label: string }>
+          items={bulkStatusOptions}
+          value={null}
+          onValueChange={(item) => {
+            if (!item) return
+            setBulkStatus(item.value)
+            setBulkStatusOpen(true)
+          }}
+          getItemId={(item) => item.value}
+          getItemLabel={(item) => item.label}
+          placeholder="Status"
+          searchPlaceholder="Search statuses..."
+          emptyMessage="No status found"
+          disabled={bulkSelectionBusy}
+          trigger={
+            <Button variant="outline" size="sm" className={tutorBtnOutline}>
+              Status
+            </Button>
+          }
+          contentWidth="180px"
+          align="start"
+          side="top"
+        />
       </UcatSelectionToolbar>
 
       <AlertDialog open={bulkVisibilityOpen} onOpenChange={setBulkVisibilityOpen}>
@@ -514,8 +698,24 @@ export function UcatMocksPage() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void handleBulkVisibilityConfirm()}>
+            <AlertDialogAction onClick={() => handleBulkVisibilityConfirm()}>
               Yes
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Move {selectedMockIds.size} mock(s) to {bulkStatus?.replace('_', ' ')}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Eligible mocks will move. Any blocked mocks will remain in their current status.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => handleBulkStatusConfirm()}>
+              Move mocks
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -526,7 +726,6 @@ export function UcatMocksPage() {
         title={`Delete ${selectedMockIds.size} mock(s)?`}
         description="The selected mocks will be hidden from students. You can restore them later from the deleted list."
         onConfirm={handleBulkDeleteConfirm}
-        isPending={bulkDeletePending}
       />
 
       <UcatDialogShell
@@ -536,13 +735,13 @@ export function UcatMocksPage() {
         subtitle="Create a new UCAT mock"
         onSave={onCreate}
         saveLabel="Create"
-        saveDisabled={createMock.isPending}
+        saveDisabled={createMock.isPending || !createBlueprintId}
         isSaving={createMock.isPending}
       >
         <div className="p-6 overflow-y-auto h-full space-y-4">
           <label className="block text-sm">
-            <span className="mb-1 block font-medium">Name</span>
-            <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <span className="mb-1 block font-medium">Tutor note</span>
+            <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Optional internal note" />
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Visibility</span>
@@ -553,9 +752,24 @@ export function UcatMocksPage() {
               ]}
               value={isPrivate ? { value: 'private', label: 'Private' } : { value: 'public', label: 'Public' }}
               onValueChange={(item) => setIsPrivate(item?.value === 'private')}
-              getItemLabel={(i) => i.label}
-              getItemId={(i) => i.value}
+              getItemLabel={(item) => item.label}
+              getItemId={(item) => item.value}
             />
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">Mock blueprint</span>
+            <SearchableSelect<MockBlueprintOption>
+              items={(blueprintsQuery.data ?? []) as MockBlueprintOption[]}
+              value={((blueprintsQuery.data ?? []) as MockBlueprintOption[]).find((blueprint) => blueprint.id === createBlueprintId) ?? null}
+              onValueChange={(blueprint) => setCreateBlueprintId(blueprint?.id ?? null)}
+              getItemLabel={(blueprint) => `${blueprint.test_year} v${blueprint.version} · ${blueprint.code}`}
+              getItemId={(blueprint) => blueprint.id ?? ''}
+              placeholder="Select a blueprint"
+              searchPlaceholder="Search blueprints..."
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              The selected immutable version supplies this mock's section totals, timings, and composition rules.
+            </p>
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">Instructions</span>
@@ -587,6 +801,13 @@ export function UcatMocksPage() {
             : undefined
         }
       />
+      {pdfExportSource ? (
+        <UcatPdfExportDialog
+          open
+          onClose={() => setPdfExportSource(null)}
+          source={pdfExportSource}
+        />
+      ) : null}
       <UcatSetEditorDialog open={!!editingSetId} setId={editingSetId} onClose={() => setEditingSetId(null)} />
       <UcatDeleteConfirmDialog
         open={!!deletingMockId}
@@ -600,12 +821,7 @@ export function UcatMocksPage() {
             await deleteMocksWithToast([deletingMockId])
             setEditingMockId((prev) => (prev === deletingMockId ? null : prev))
           } catch (err) {
-            toast({
-              title: 'Cannot delete',
-              description: err instanceof Error ? err.message : 'Failed to delete mock.',
-              variant: 'destructive',
-            })
-            throw err
+            toast(lifecycleErrorToast(err, 'Cannot delete', router.push, openLifecycleEntity))
           } finally {
             setSingleDeletePending(false)
           }

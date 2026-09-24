@@ -26,7 +26,12 @@ export function AuthPageHeader({
 }: AuthPageHeaderProps) {
   return (
     <header className="relative z-10 flex items-center justify-between px-6 py-5 sm:px-10">
-      <Link href={backHref} aria-label={backLabel} className={backButtonClassName}>
+      <Link
+        href={backHref}
+        prefetch={false}
+        aria-label={backLabel}
+        className={backButtonClassName}
+      >
         <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
         {backLabel}
       </Link>

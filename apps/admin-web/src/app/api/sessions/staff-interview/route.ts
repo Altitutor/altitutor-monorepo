@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -110,6 +111,7 @@ export async function POST(request: NextRequest) {
 
     if (sessionError || !session) {
       console.error('Failed to create staff interview session:', sessionError);
+      captureApiError(sessionError, "/api/sessions/staff-interview");
       return NextResponse.json(
         { error: sessionError?.message ?? 'Failed to create session' },
         { status: 500 }
@@ -131,6 +133,7 @@ export async function POST(request: NextRequest) {
     if (staff1Error) {
       await supabaseAdmin.from('sessions').delete().eq('id', sessionId);
       console.error('Failed to link interviewee:', staff1Error);
+      captureApiError(staff1Error, "/api/sessions/staff-interview");
       return NextResponse.json(
         { error: staff1Error.message ?? 'Failed to link interviewee' },
         { status: 500 }
@@ -151,6 +154,7 @@ export async function POST(request: NextRequest) {
       await supabaseAdmin.from('sessions_staff').delete().eq('session_id', sessionId);
       await supabaseAdmin.from('sessions').delete().eq('id', sessionId);
       console.error('Failed to link interviewer:', staff2Error);
+      captureApiError(staff2Error, "/api/sessions/staff-interview");
       return NextResponse.json(
         { error: staff2Error.message ?? 'Failed to link interviewer' },
         { status: 500 }
@@ -159,6 +163,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ session_id: sessionId });
   } catch (error) {
+    captureApiError(error, "/api/sessions/staff-interview");
     console.error('Staff interview creation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

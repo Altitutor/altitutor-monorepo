@@ -1,6 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import * as Sentry from '@sentry/nextjs';
 import { Session } from '@supabase/supabase-js';
 import { useQueryClient } from '@tanstack/react-query';
 import { useSupabaseClient } from '@/shared/lib/supabase/client';
@@ -22,6 +23,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabase = useSupabaseClient();
   const queryClient = useQueryClient();
   const { setUser, setLoading } = useAuthStore();
+
+  useEffect(() => {
+    Sentry.setUser(
+      session?.user
+        ? { id: session.user.id, email: session.user.email }
+        : null,
+    );
+  }, [session]);
 
   useEffect(() => {
     // Get initial session (already validated by middleware)
@@ -46,6 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       (_event, session) => {
         // For SIGNED_OUT events, set user to null immediately
         if (_event === 'SIGNED_OUT') {
+          queryClient.removeQueries({ queryKey: ['student'] });
           setSession(null);
           setUser(null);
           setIsLoading(false);
@@ -108,4 +118,4 @@ export function useAuth() {
   }
   
   return context;
-} 
+}

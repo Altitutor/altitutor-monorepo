@@ -34,6 +34,7 @@ export const appNavigation: NavSection[] = [
     // Top-level dashboard entry, no heading
     items: [
       { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/study-plan", label: "Study plan", icon: CalendarDays },
       {
         href: "/progress",
         label: "Progress",
@@ -52,8 +53,8 @@ export const appNavigation: NavSection[] = [
   {
     title: "PRACTICE",
     items: [
-      { href: "/practice", label: "Practice", icon: BrainCircuit },
       { href: "/skill-trainer", label: "Skill trainer", icon: Target },
+      { href: "/practice", label: "Practice questions", icon: BrainCircuit },
     ],
   },
   {

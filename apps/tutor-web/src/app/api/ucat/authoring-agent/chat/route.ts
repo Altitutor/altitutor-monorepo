@@ -1,0 +1,342 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Database } from '@altitutor/shared'
+import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { callUcatAiJson, UcatAiJsonParseError } from '@/features/ucat/shared/server/ucat-ai-client'
+
+const jsonSchema: z.ZodType<unknown> = z.lazy(() =>
+  z.union([
+    z.string(),
+    z.number(),
+    z.boolean(),
+    z.null(),
+    z.array(jsonSchema),
+    z.record(jsonSchema),
+  ])
+)
+
+const chatMessageSchema = z.object({
+  id: z.string(),
+  role: z.enum(['user', 'assistant', 'tool']),
+  content: z.string(),
+  toolCallId: z.string().optional(),
+  toolName: z.string().optional(),
+  toolCalls: z.array(z.object({
+    id: z.string(),
+    name: z.string(),
+    summary: z.string(),
+    input: z.record(jsonSchema).default({}),
+    requiresConfirmation: z.boolean().optional(),
+  })).optional(),
+  toolResult: z.object({
+    toolCallId: z.string(),
+    ok: z.boolean(),
+    message: z.string(),
+    output: jsonSchema.optional(),
+  }).optional(),
+})
+
+const requestSchema = z.object({
+  contextType: z.enum(['question_stem', 'learning_module_lesson', 'generated_review']),
+  scope: z.enum(['current_stem', 'lesson', 'review_current_stem', 'review_batch']),
+  scopeLabel: z.string(),
+  modelProfileId: z.string().nullable().optional(),
+  selectedImage: z
+    .object({
+      label: z.string(),
+      src: z.string().nullable().optional(),
+      fileId: z.string().nullable().optional(),
+      location: z.string().nullable().optional(),
+      visualType: z.string().nullable().optional(),
+      visualSpec: jsonSchema.nullable().optional(),
+      visualTitle: z.string().nullable().optional(),
+      visualAltText: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
+  snapshot: jsonSchema,
+  messages: z.array(chatMessageSchema).min(1),
+})
+
+const toolCallSchema = z.object({
+  id: z.string().optional(),
+  name: z.string(),
+  summary: z.string(),
+  input: z.record(jsonSchema).default({}),
+  requiresConfirmation: z.boolean().optional(),
+})
+
+const responseSchema = z.object({
+  status: z.enum(['tool_calls', 'final']).optional(),
+  message: z.string(),
+  toolCalls: z.array(toolCallSchema).default([]),
+})
+
+const TOOL_CATALOG: Record<string, string[]> = {
+  question_stem: [
+    'updateStemText({text})',
+    'bulkParaphraseStem({stemText, questions:[{questionIndex, questionText, answerExplanation?, options:[{optionIndex, answerText, answerExplanation?}]}]})',
+    'updateStemProperties({sectionId?, categoryId?, isPrivate?, approvalStatus?, tutorSourceNote?})',
+    'updateQuestionText({questionIndex, text})',
+    'insertQuestion({questionText, responseType, answerScheme, answerExplanation?, options:[{answerText,answerKeyValue}], tagIds?, difficulty?, timeBurdenSeconds?})',
+    'updateQuestionProperties({questionIndex, difficulty?, timeBurdenSeconds?, tagIds?})',
+    'updateQuestionTags({questionIndex, tagIds})',
+    'insertAnswerOption({questionIndex, answerText, answerKeyValue?})',
+    'updateAnswerOption({questionIndex, optionIndex, answerText?, answerExplanation?, answerKeyValue?})',
+    'markCorrectAnswer({questionIndex, optionIndex})',
+    'updateAnswerExplanation({questionIndex, text})',
+    'deleteQuestion({questionIndex}) confirmation required',
+    'deleteAnswerOption({questionIndex, optionIndex}) confirmation required',
+    'replaceImageFromPrompt({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
+    'insertImage({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
+    'replaceVisualSpec({target:"stem"|"question"|"explanation"|"answerOption", visualType, spec, altText?, title?, mode?:"replace"|"append"})',
+    'reviseSelectedImage({instructions})',
+    'previewSelectedImageConversion({visualType:"venn_diagram"|"set_diagram"|"vega_lite_chart", spec, altText?, title?})',
+  ],
+  learning_module_lesson: [
+    'updateLessonMetadata({title?, description?, sectionId?, accessScope?, iconKey?, estimatedMinutes?, studyPlanPriority?, studyPlanCategoryIds?, studyPlanTagIds?})',
+    'insertTextBlock({index, text})',
+    'updateTextBlock({blockId, text})',
+    'searchQuestionStemCandidates({query, limit?})',
+    'searchQuestionCandidates({query, limit?})',
+    'insertQuestionStemBlock({index, questionStemId})',
+    'insertQuestionBlock({index, questionId})',
+    'generateAndLinkAssessment({instructions, blockType:"question_stem"|"question", index?, sectionId?, categoryId?, tagIds?})',
+    'insertSkillTrainerBlock({index, skillTrainerId})',
+    'moveBlock({blockId, toIndex})',
+    'updateBlockGate({blockId, requireCompletionBeforeNext})',
+    'deleteBlock({blockId}) confirmation required',
+    'replaceImageFromPrompt({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
+    'insertImage({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
+    'replaceVisualSpec({target:"stem"|"question"|"explanation"|"answerOption", visualType, spec, altText?, title?, mode?:"replace"|"append"})',
+  ],
+  generated_review: [
+    'updateReviewCandidateStemText({stemId, text})',
+    'updateReviewCandidateQuestionText({stemId, questionIndex, text})',
+    'updateReviewCandidateQuestionProperties({stemId, questionIndex, difficulty?, timeBurdenSeconds?, tagIds?})',
+    'updateReviewCandidateAnswerOption({stemId, questionIndex, optionIndex, answerText?, answerExplanation?, answerKeyValue?})',
+    'updateReviewCandidateExplanation({stemId, questionIndex, text})',
+    'deleteReviewCandidate({stemId}) confirmation required',
+    'replaceImageFromPrompt({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
+    'insertImage({target:"stem"|"question"|"explanation"|"answerOption", prompt, alt?})',
+    'replaceVisualSpec({target:"stem"|"question"|"explanation"|"answerOption", visualType, spec, altText?, title?, mode?:"replace"|"append"})',
+  ],
+}
+
+function buildSystemPrompt(contextType: keyof typeof TOOL_CATALOG) {
+  return `You are Altitutor's UCAT authoring agent. Return only JSON.
+
+You edit the tutor's local unsaved draft through a tool loop. The tutor's Save/Import action is the persistence boundary.
+For each step, either call one or more tools, or return a final response. After calling tools, stop and wait for tool results in the next step.
+Prefer exactly one mutating tool call per step. This is mandatory for broad authoring requests such as writing a full learning module, generating several blocks, adding practice questions, or editing multiple explanations.
+For broad authoring requests, work incrementally: start with metadata or the first content block, wait for the tool result, inspect the updated snapshot, then continue with the next block or edit.
+Use the tool results to decide the next action. If a tool failed or was denied, adapt instead of repeating the same failed call.
+Show concise execution trace in your message. Do not reveal hidden reasoning.
+If the tutor invokes a named quick action such as paraphrase or explain answer, treat it as a direct edit request for the current selected target and use the appropriate update tool.
+For the paraphrase quick action, use bulkParaphraseStem when available. Rewrite the stem, every question, every answer option, and every existing explanation in one call while preserving the assessed skill, answer key, logic, numeric relationships, difficulty, category, tags, and time burden. Change names, places, institutions, scenarios, and identifiable proper nouns where possible for copyright safety.
+Only deletion tools require confirmation. Set requiresConfirmation=true for deleteQuestion, deleteAnswerOption, deleteBlock, and deleteReviewCandidate. Do not require confirmation for rewrites, property changes, visibility/approval draft changes, image generation, or additions.
+Call at most one deletion tool in a step so the tutor can approve it clearly.
+For requests about an existing visual, diagram, image, labels overlapping, lines overlapping, unreadable map, Venn diagram, chart, or "regenerate the image", call a visual/image tool. Do not answer by rewriting the content as prose or a markdown table.
+Prefer replaceVisualSpec for examinable UCAT charts, Venn/set diagrams, maps, labels, numbers, or relationships, because deterministic visuals keep the data auditable. Use target:"stem" unless the tutor clearly refers to a question, explanation, or answer option visual.
+If the tutor explicitly asks for a photographic/raster/generated image rather than an examinable deterministic diagram, use insertImage/replaceImageFromPrompt instead.
+When selectedImage is present, image changes must target that exact image. Use reviseSelectedImage for a generative revision and previewSelectedImageConversion for converting a legacy SVG into an editable deterministic visual. Both tools return a preview and must not change the draft until the tutor accepts it. Do not use replaceImageFromPrompt or replaceVisualSpec for a selected-image revision or conversion.
+Use simple text fields for prose; the client converts text into rich editor documents.
+If prose needs a table, a normal markdown pipe table is acceptable; the client converts it into a rich editor table.
+When adding multiple visuals to the same target, set mode:"append" after the first visual.
+For question stem editing, the snapshot may include currentQuestionIndex/currentQuestionNumber plus availableTags, availableCategories, and availableSections. Use those IDs directly when tagging or categorising. If the tutor says "this question" or does not specify a question number, target currentQuestionIndex.
+For learning modules, use updateLessonMetadata for draft lesson properties: title, description, sectionId, accessScope ("public"|"private"), iconKey, estimatedMinutes, and study-plan fields (studyPlanPriority, studyPlanCategoryIds, studyPlanTagIds). Prefer IDs and iconKey values from the snapshot (availableIcons, availableCategories, availableTags, studyPlanPriority options). studyPlanCategoryIds/studyPlanTagIds replace the full list when provided — pass [] to clear. Prefer categories/tags whose section matches the lesson sectionId. When the tutor wants practice content, first call searchQuestionStemCandidates or searchQuestionCandidates and inspect the returned top candidates. Insert with insertQuestionStemBlock/insertQuestionBlock only when you judge a candidate is pedagogically appropriate for the technique or skill being taught — do not settle for a weak keyword match. If none fit, or the tutor explicitly asks to create/generate a new stem or question, call generateAndLinkAssessment. That tool always creates a normal AI-generated question stem (stemCount 1) through the shared generation pipeline, inserts an unpublished-lesson pending placeholder block, and may move a published lesson back to draft before inserting the placeholder. For blockType:"question", the placeholder later binds to the first question on the generated stem. Prefer the lesson sectionId; pass sectionId only to override when the request clearly targets another section. Pass categoryId/tagIds when obvious from the request; otherwise omit them. Generation does not require confirmation. Do not invent catalog IDs. If an ID is needed and not present in search results or the snapshot, ask the tutor for it or generate instead of calling an insert tool.
+
+Available tools for this context:
+${TOOL_CATALOG[contextType].map((tool) => `- ${tool}`).join('\n')}
+
+Response JSON shape:
+{
+  "status": "tool_calls" | "final",
+  "message": "short user-readable summary / execution trace",
+  "toolCalls": [
+    {
+      "name": "toolName",
+      "summary": "what will change",
+      "input": {},
+      "requiresConfirmation": false
+    }
+  ]
+}
+}`
+}
+
+function encodeStreamEvent(type: string, data: unknown) {
+  return new TextEncoder().encode(`event: ${type}\ndata: ${JSON.stringify(data)}\n\n`)
+}
+
+function formatAgentError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error)
+  if (/\bterminated\b/iu.test(message)) {
+    return 'The model terminated before returning a valid tool plan. Try a smaller request, choose a stronger model, or split the task into lesson outline first and block generation second.'
+  }
+  if (/invalid JSON/iu.test(message)) {
+    return 'The model returned an invalid structured tool plan after automatic repair retries. Try sending the request again or make it slightly more specific.'
+  }
+  if (/timed out/iu.test(message)) {
+    return 'The model took too long to produce a tool plan. Try a smaller request or choose a faster model.'
+  }
+  return message || 'UCAT authoring agent failed'
+}
+
+function buildAgentUserPrompt(
+  body: z.infer<typeof requestSchema>,
+  lastUserMessage: z.infer<typeof chatMessageSchema>,
+  repairContext?: { reason: string; previousContent?: string | null }
+) {
+  const selectedImage = body.selectedImage
+    ? {
+        ...body.selectedImage,
+        ...(body.selectedImage.src?.startsWith('data:image/svg+xml')
+          ? {
+              src: 'Inline SVG (decoded markup included separately).',
+              svgMarkup: decodeInlineSvg(body.selectedImage.src),
+            }
+          : {}),
+      }
+    : null
+  return JSON.stringify({
+    currentRequest: lastUserMessage.content,
+    scope: body.scope,
+    scopeLabel: body.scopeLabel,
+    selectedImage,
+    recentMessages: body.messages.slice(-14).map((message) => ({
+      role: message.role,
+      content: message.content,
+      toolCalls: message.toolCalls?.map((toolCall) => ({
+        id: toolCall.id,
+        name: toolCall.name,
+        summary: toolCall.summary,
+        input: toolCall.input,
+        requiresConfirmation: toolCall.requiresConfirmation ?? false,
+      })),
+      toolResult: message.toolResult ?? null,
+      toolCallId: message.toolCallId ?? null,
+      toolName: message.toolName ?? null,
+    })),
+    editorSnapshot: body.snapshot,
+    ...(repairContext
+      ? {
+          repairInstruction: 'Your previous response could not be parsed as the required JSON tool plan. Return only valid JSON matching the Response JSON shape. Do not include markdown, prose outside JSON, comments, or trailing commas.',
+          previousPlanError: repairContext.reason,
+          previousInvalidResponse: repairContext.previousContent?.slice(0, 2000) ?? null,
+        }
+      : {}),
+  })
+}
+
+function decodeInlineSvg(src: string): string {
+  const comma = src.indexOf(',')
+  if (comma < 0) return ''
+  const metadata = src.slice(0, comma)
+  const payload = src.slice(comma + 1)
+  try {
+    const decoded = metadata.includes(';base64')
+      ? Buffer.from(payload, 'base64').toString('utf8')
+      : decodeURIComponent(payload)
+    return decoded.slice(0, 20_000)
+  } catch {
+    return payload.slice(0, 20_000)
+  }
+}
+
+function isPlanRepairableError(error: unknown): boolean {
+  return error instanceof UcatAiJsonParseError || error instanceof z.ZodError
+}
+
+async function runAgentStep(body: z.infer<typeof requestSchema>, access: Extract<Awaited<ReturnType<typeof requireUcatTutor>>, { ok: true }>) {
+  const lastUserMessage = [...body.messages].reverse().find((message) => message.role === 'user')
+  if (!lastUserMessage) throw new Error('No user message provided')
+
+  let parsed: z.infer<typeof responseSchema> | null = null
+  let repairContext: { reason: string; previousContent?: string | null } | undefined
+
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const raw = await callUcatAiJson({
+        client: access.userClient as unknown as SupabaseClient<Database>,
+        operation: `authoring_agent_${body.contextType}${attempt > 0 ? '_repair' : ''}`,
+        modelProfileId: body.modelProfileId ?? null,
+        tutorScoped: true,
+        systemPrompt: buildSystemPrompt(body.contextType),
+        userPrompt: buildAgentUserPrompt(body, lastUserMessage, repairContext),
+        timeoutMs: 90000,
+        maxCompletionTokens: body.contextType === 'learning_module_lesson' ? 8000 : 5000,
+        metadata: {
+          contextType: body.contextType,
+          scope: body.scope,
+          repairAttempt: attempt,
+        },
+      })
+      parsed = responseSchema.parse(raw.parsed)
+      break
+    } catch (error) {
+      if (!isPlanRepairableError(error) || attempt >= 2) throw error
+      repairContext = {
+        reason: error instanceof Error ? error.message : 'Invalid structured tool plan',
+        previousContent: error instanceof UcatAiJsonParseError ? error.content : null,
+      }
+    }
+  }
+
+  if (!parsed) throw new Error('AI authoring failed before returning a structured tool plan')
+  const toolCalls = parsed.toolCalls.slice(0, 1).map((toolCall, index) => ({
+    id: toolCall.id ?? `tool-${Date.now()}-${index}`,
+    ...toolCall,
+  }))
+  const droppedToolCount = Math.max(0, parsed.toolCalls.length - toolCalls.length)
+  return {
+    status: toolCalls.length > 0 ? 'tool_calls' as const : parsed.status ?? 'final' as const,
+    message: droppedToolCount > 0
+      ? `${parsed.message}\n\nStarting with the first edit; I’ll continue after seeing the tool result.`
+      : parsed.message,
+    toolCalls,
+  }
+}
+
+export async function POST(request: NextRequest) {
+  const access = await requireUcatTutor()
+  if (!access.ok) return access.response
+
+  try {
+    const body = requestSchema.parse(await request.json())
+    if (request.headers.get('x-ucat-agent-stream') === '1') {
+      const stream = new ReadableStream<Uint8Array>({
+        async start(controller) {
+          try {
+            controller.enqueue(encodeStreamEvent('status', { message: 'Reading the current draft...' }))
+            controller.enqueue(encodeStreamEvent('status', { message: 'Planning the next edit step...' }))
+            const response = await runAgentStep(body, access)
+            controller.enqueue(encodeStreamEvent('step', { response }))
+          } catch (error) {
+            controller.enqueue(encodeStreamEvent('error', {
+              message: formatAgentError(error),
+            }))
+          } finally {
+            controller.close()
+          }
+        },
+      })
+      return new Response(stream, {
+        headers: {
+          'Content-Type': 'text/event-stream; charset=utf-8',
+          'Cache-Control': 'no-cache, no-transform',
+          Connection: 'keep-alive',
+        },
+      })
+    }
+
+    return NextResponse.json(await runAgentStep(body, access))
+  } catch (error) {
+    console.error('UCAT authoring agent failed:', error)
+    return NextResponse.json(
+      { error: formatAgentError(error) },
+      { status: 400 },
+    )
+  }
+}

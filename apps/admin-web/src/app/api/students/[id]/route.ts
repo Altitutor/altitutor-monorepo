@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -43,7 +44,6 @@ export async function PATCH(
       'default',
       'force_free',
       'force_unlimited',
-      'force_pro',
     ] as const;
     if (
       body.ucat_online_tier_override !== undefined &&
@@ -52,9 +52,22 @@ export async function PATCH(
       return NextResponse.json(
         {
           error:
-            'Invalid ucat_online_tier_override. Must be default, force_free, force_unlimited, or force_pro.',
+            'Invalid ucat_online_tier_override. Must be default, force_free, or force_unlimited.',
         },
         { status: 400 },
+      );
+    }
+
+    const validAccountClasses = ['external', 'internal_test'] as const;
+    if (
+      body.account_class !== undefined &&
+      !validAccountClasses.includes(body.account_class)
+    ) {
+      return NextResponse.json(
+        {
+          error: 'Invalid account_class. Must be external or internal_test.',
+        },
+        { status: 400 }
       );
     }
 
@@ -108,6 +121,7 @@ export async function PATCH(
 
         if (authError) {
           console.error('Auth update error:', authError);
+          captureApiError(authError, "/api/students/[id]");
           return NextResponse.json(
             { error: `Failed to update auth user: ${authError.message}` },
             { status: 500 }
@@ -124,6 +138,7 @@ export async function PATCH(
         last_name: body.last_name,
         email: body.email ?? undefined,
         phone: body.phone,
+        birthday: body.birthday,
         status: body.status,
         curriculum: body.curriculum,
         year_level: body.year_level,
@@ -140,12 +155,16 @@ export async function PATCH(
         ...(body.ucat_online_tier_override !== undefined
           ? { ucat_online_tier_override: body.ucat_online_tier_override }
           : {}),
+        ...(body.account_class !== undefined
+          ? { account_class: body.account_class }
+          : {}),
       })
       .eq('id', studentId)
       .select()
       .single();
 
     if (updateError) {
+      captureApiError(updateError, "/api/students/[id]");
       return NextResponse.json(
         { error: `Failed to update student: ${updateError.message}` },
         { status: 500 }
@@ -163,6 +182,7 @@ export async function PATCH(
 
     return NextResponse.json({ data: updatedStudent }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/students/[id]");
     console.error('Unexpected error updating student:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
@@ -170,4 +190,3 @@ export async function PATCH(
     );
   }
 }
-

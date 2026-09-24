@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
 import { useProfile } from '@/features/profile';
-import { Loader2 } from 'lucide-react';
+import { AdminLoadingSkeleton } from '@/shared/components';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
 import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
 import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
@@ -43,11 +43,7 @@ export default function MyAccountPage() {
   }, [searchParams]);
 
   if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-dvh">
-        <Loader2 className="h-8 w-8 animate-spin" />
-      </div>
-    );
+    return <AdminLoadingSkeleton variant="card" />;
   }
 
   if (!profile) {

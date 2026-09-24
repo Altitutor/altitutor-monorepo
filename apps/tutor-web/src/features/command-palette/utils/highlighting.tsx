@@ -10,7 +10,8 @@ export function highlightText(
 ): string | React.ReactNode {
   if (!text || !query.trim()) return text;
 
-  const parts = text.split(new RegExp(`(${query})`, 'gi'));
+  const escapedQuery = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const parts = text.split(new RegExp(`(${escapedQuery})`, 'gi'));
   return parts.map((part, i) =>
     part.toLowerCase() === query.toLowerCase() ? (
       <span key={i} className="font-semibold text-brand-lightBlue">

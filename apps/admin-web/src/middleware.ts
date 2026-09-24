@@ -1,146 +1,222 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import type { Database } from '@altitutor/shared';
-import type { PostgrestError } from '@supabase/supabase-js';
+import * as Sentry from "@sentry/nextjs";
+import {
+  getClaimsWithJwtIssuedInFutureRetry,
+  headersWithVerifiedUser,
+  isUnauthenticatedSessionError,
+  type Database,
+} from "@altitutor/shared";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
-export async function middleware(req: NextRequest) {
-  const { pathname, origin } = new URL(req.url);
+const SESSION_DEADLINE_MS = 10_000;
+const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
+const RETRY_AFTER_SECONDS = 5;
 
-  if (pathname.startsWith('/auth/callback&')) {
-    const redirectUrl = new URL(req.url);
-    redirectUrl.pathname = '/auth/callback';
-    redirectUrl.search = pathname.slice('/auth/callback&'.length);
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+};
+
+function forwardRequest(request: NextRequest, userId: string | null) {
+  return NextResponse.next({
+    request: { headers: headersWithVerifiedUser(request.headers, userId) },
+  });
+}
+
+function createDeadline() {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout>;
+  const expiration = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new Error("Admin session dependency deadline exceeded"));
+    }, SESSION_DEADLINE_MS);
+  });
+  return {
+    fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
+      fetch(input, { ...init, signal: controller.signal }),
+    race<T>(operation: PromiseLike<T>) {
+      return Promise.race([Promise.resolve(operation), expiration]);
+    },
+    dispose: () => clearTimeout(timeout),
+  };
+}
+
+function field(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null) return null;
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function applyMetadata(
+  response: NextResponse,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
+function unavailable(
+  request: NextRequest,
+  startedAt: number,
+  error: unknown,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  Sentry.captureMessage("Middleware dependency unavailable", {
+    level: "error",
+    fingerprint: ["middleware-dependency-unavailable", "admin-web", "authentication"],
+    tags: {
+      app: "admin-web",
+      dependency_stage: "authentication",
+      http_status: "503",
+      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+    },
+    extra: {
+      elapsed_ms: Math.max(0, Date.now() - startedAt),
+      error_message: field(error, "message"),
+      request_method: request.method,
+      request_path: request.nextUrl.pathname,
+    },
+  });
+  return applyMetadata(
+    new NextResponse(
+      '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Temporarily unavailable</title></head><body><main><h1>Temporarily unavailable</h1><p>Admin services are taking too long to respond. Please try again in a moment.</p></main></body></html>',
+      {
+        status: 503,
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          "Retry-After": String(RETRY_AFTER_SECONDS),
+        },
+      },
+    ),
+    cookies,
+    headers,
+  );
+}
+
+function captureRecoveredClockSkew(startedAt: number) {
+  Sentry.captureMessage("Middleware JWT clock skew recovered", {
+    level: "warning",
+    fingerprint: ["middleware-jwt-clock-skew", "admin-web"],
+    tags: {
+      app: "admin-web",
+      dependency_stage: "authentication",
+      retry_outcome: "recovered",
+    },
+    extra: { elapsed_ms: Math.max(0, Date.now() - startedAt) },
+  });
+}
+
+/** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
+export async function handleAuthRequest(request: NextRequest) {
+  const startedAt = Date.now();
+  const { pathname, origin } = request.nextUrl;
+  if (request.method === "OPTIONS") return forwardRequest(request, null);
+
+  if (pathname.startsWith("/auth/callback&")) {
+    const redirectUrl = new URL(request.url);
+    redirectUrl.pathname = "/auth/callback";
+    redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
 
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
-  if (pathname.startsWith('/api')) {
-    return NextResponse.next({
-      request: req,
-    });
+  const isPublic =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/invite") ||
+    pathname.startsWith("/auth") ||
+    pathname.startsWith("/sentry-example-page");
+  if (pathname.startsWith("/api") || isPublic)
+    return forwardRequest(request, null);
+
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const cookies: CookieToSet[] = [];
+  const responseHeaders: Record<string, string> = {};
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  // Public paths that don't require authentication checks.
-  // IMPORTANT: avoid calling supabase.auth.getUser() on public paths (e.g. /login) because
-  // background/prefetch requests that arrive without cookies can cause Supabase to "clear"
-  // cookies (Set-Cookie with empty chunks), breaking the real authenticated navigation.
-  const isPublicPath =
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/invite') ||
-    pathname.startsWith('/auth');
-
-  if (isPublicPath) {
-    return NextResponse.next({
-      request: req,
-    });
-  }
-
-  let supabaseResponse = NextResponse.next({
-    request: req,
-  });
-
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const deadline = createDeadline();
+  const supabase = instrumentSupabaseClient(
+    createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
       cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            req.cookies.set(name, value);
+        getAll: () => request.cookies.getAll(),
+        setAll(updatedCookies, updatedHeaders) {
+          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach((cookie) => {
+            const index = cookies.findIndex((current) => current.name === cookie.name);
+            if (index >= 0) cookies[index] = cookie;
+            else cookies.push(cookie);
           });
-          supabaseResponse = NextResponse.next({
-            request: req,
-          });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            // IMPORTANT: do not strip maxAge/expires.
-            // Supabase uses these to correctly rotate/clear chunked auth cookies.
-            supabaseResponse.cookies.set(name, value, options);
-          });
+          Object.assign(responseHeaders, updatedHeaders);
         },
       },
       cookieOptions: {
-        name: 'admin-auth',
-        path: '/',
-        sameSite: 'lax' as const,
-        secure: process.env.NODE_ENV === 'production',
+        name: "admin-auth",
+        path: "/",
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production",
       },
-    }
+      global: { fetch: deadline.fetch },
+    }),
   );
 
-  // Determine tutor app URL based on environment
-  const tutorAppUrl = process.env.NODE_ENV === 'production' 
-    ? 'https://tutor.altitutor.com'
-    : 'http://localhost:3002';
-
-  // IMPORTANT: Use getUser() to validate and refresh auth token
-  // This validates the token with Supabase Auth server (secure)
-  // getSession() reads from cookies without validation (insecure)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  const isProtected = pathname !== '/';
-  if (!user && isProtected) {
-    const redirectResponse = NextResponse.redirect(new URL('/login', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
+  try {
+    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    try {
+      claims = await getClaimsWithJwtIssuedInFutureRetry(
+        () => deadline.race(supabase.auth.getClaims()),
+        () =>
+          deadline.race(
+            new Promise((resolve) =>
+              setTimeout(resolve, JWT_CLOCK_SKEW_RETRY_MS),
+            ),
+          ),
+        () => captureRecoveredClockSkew(startedAt),
+      );
+    } catch (error) {
+      if (isUnauthenticatedSessionError(error)) {
+        return applyMetadata(
+          NextResponse.redirect(new URL("/login", origin)),
+          cookies,
+          responseHeaders,
+        );
+      }
+      return unavailable(request, startedAt, error, cookies, responseHeaders);
+    }
+    if (isUnauthenticatedSessionError(claims.error)) {
+      return applyMetadata(NextResponse.redirect(new URL("/login", origin)), cookies, responseHeaders);
+    }
+    if (claims.error) return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
+    const userId = claims.data?.claims?.sub;
+    if (!userId) {
+      return applyMetadata(NextResponse.redirect(new URL("/login", origin)), cookies, responseHeaders);
+    }
+    if (pathname === "/") {
+      return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
+    }
+    return applyMetadata(
+      forwardRequest(request, userId),
+      cookies,
+      responseHeaders,
+    );
+  } finally {
+    deadline.dispose();
   }
-
-  if (!user) return supabaseResponse;
-
-  const { data: staff } = (await supabase
-    .from('staff')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle()) as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
-
-  const role = staff?.role;
-
-  // Only allow ADMINSTAFF - redirect TUTOR to tutor app
-  if (role === 'TUTOR') {
-    const redirectResponse = NextResponse.redirect(new URL(tutorAppUrl));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // Block non-staff users
-  if (!staff || role !== 'ADMINSTAFF') {
-    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  if (pathname === '/') {
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
-  return supabaseResponse;
 }
+
+export const middleware = handleAuthRequest;
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
   ],
 };

@@ -14,7 +14,6 @@ import {
   ATTEMPT_CHART_RESULT_COLORS,
   ATTEMPT_CHART_RESULT_LABELS,
 } from "../lib/attempt-chart-result-colors";
-import { computeQuestionAttemptResult } from "../lib/compute-question-attempt-result";
 import type { QuestionAttemptChartResult } from "../lib/compute-question-attempt-result";
 import {
   ATTEMPT_CHART_LAYOUT,
@@ -36,7 +35,7 @@ export type QuestionAttemptForChart = {
   timeSpentSeconds: number | null;
   result: QuestionAttemptChartResult;
   score?: number | null;
-  questionType?: "multiple_choice" | "syllogism" | null;
+  answerScheme?: import("@altitutor/ucat-response-contract").AnswerScheme["kind"] | null;
 };
 
 type SetAttemptAnalysisChartProps = {
@@ -51,7 +50,14 @@ type SetAttemptAnalysisChartProps = {
 const RESULT_COLORS = ATTEMPT_CHART_RESULT_COLORS;
 const RESULT_LABELS = ATTEMPT_CHART_RESULT_LABELS;
 
+const CHART_HEIGHT = 320;
+const CHART_TOP_PADDING = 24;
+const CHART_BODY_HEIGHT = CHART_HEIGHT - CHART_TOP_PADDING;
+const CHART_TOP_MARGIN = 5;
 const CHART_BOTTOM_MARGIN = getChartBottomMargin({ includeSetLabelRow: false });
+const X_AXIS_HEIGHT = 30;
+const X_AXIS_RESERVED_HEIGHT =
+  X_AXIS_HEIGHT + ATTEMPT_CHART_LAYOUT.questionNumberOffset + 2;
 
 export function SetAttemptAnalysisChart({
   data,
@@ -64,14 +70,7 @@ export function SetAttemptAnalysisChart({
   const chartData = data.map((d, i) => {
     const prevStem = data[i - 1]?.stemIndex;
     const isStemStart = d.stemIndex != null && d.stemIndex !== prevStem;
-    const result =
-      d.score != null
-        ? computeQuestionAttemptResult({
-            score: d.score,
-            questionType: d.questionType ?? null,
-            hasAttempt: d.result !== "not_attempted",
-          })
-        : d.result;
+    const result = d.result;
 
     return {
       name: String(d.questionNumber),
@@ -85,6 +84,7 @@ export function SetAttemptAnalysisChart({
   const stemRanges = computeStemRanges(chartData);
 
   const maxTime = Math.max(...chartData.map((d) => d.value), 1);
+  const yAxisMax = maxTime * 1.1;
   const chartWidth = Math.max(600, chartData.length * 24);
   const marginHorizontal = 10;
   const barWidth =
@@ -93,9 +93,12 @@ export function SetAttemptAnalysisChart({
       : 24;
   const yAxisWidth = 52;
 
-  const yAxisTicks = [0, 0.25, 0.5, 0.75, 1].map((t) =>
-    Math.round(t * maxTime * 1.1),
-  );
+  const yAxisTicks = [1, 0.75, 0.5, 0.25, 0].map((t) => t * yAxisMax);
+  const yAxisPlotHeight =
+    CHART_BODY_HEIGHT -
+    CHART_TOP_MARGIN -
+    CHART_BOTTOM_MARGIN -
+    X_AXIS_RESERVED_HEIGHT;
 
   useEffect(() => {
     const container = scrollContainerRef.current;
@@ -207,9 +210,6 @@ export function SetAttemptAnalysisChart({
 
   return (
     <div className={cn("relative flex min-w-0 flex-col gap-2", className)}>
-      <div className="text-sm text-muted-foreground">
-        Time taken per question
-      </div>
       <div className="absolute right-0 top-0 flex flex-wrap justify-end gap-x-4 gap-y-1 text-xs">
         {(["correct", "partial", "incorrect", "not_attempted"] as const).map(
           (r) => (
@@ -223,13 +223,21 @@ export function SetAttemptAnalysisChart({
           ),
         )}
       </div>
-      <div className="flex h-[320px] min-h-0 pt-6">
+      <div className="flex min-h-0 pt-6" style={{ height: CHART_HEIGHT }}>
         <div
-          className="flex shrink-0 flex-col justify-between border-r border-border bg-card pr-2 pt-1 pb-8 text-right text-xs text-muted-foreground"
-          style={{ width: yAxisWidth }}
+          className="relative shrink-0 border-r border-border bg-card pr-2 text-right text-xs text-muted-foreground"
+          style={{ width: yAxisWidth, height: CHART_BODY_HEIGHT }}
         >
-          {yAxisTicks.map((t) => (
-            <span key={t} className="tabular-nums">
+          {yAxisTicks.map((t, index) => (
+            <span
+              key={`${index}-${t}`}
+              className="absolute right-2 -translate-y-1/2 tabular-nums"
+              style={{
+                top:
+                  CHART_TOP_MARGIN +
+                  ((yAxisMax - t) / yAxisMax) * yAxisPlotHeight,
+              }}
+            >
               {formatTimeSeconds(t)}
             </span>
           ))}
@@ -245,12 +253,18 @@ export function SetAttemptAnalysisChart({
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
                 data={chartData}
-                margin={{ top: 5, right: 5, left: 5, bottom: CHART_BOTTOM_MARGIN }}
+                margin={{
+                  top: CHART_TOP_MARGIN,
+                  right: 5,
+                  left: 5,
+                  bottom: CHART_BOTTOM_MARGIN,
+                }}
                 barCategoryGap={0}
                 barGap={0}
               >
                 <XAxis
                   dataKey="name"
+                  height={X_AXIS_HEIGHT}
                   stroke="currentColor"
                   className="text-muted-foreground"
                   interval={0}
@@ -274,14 +288,14 @@ export function SetAttemptAnalysisChart({
                   }}
                 />
                 <YAxis
-                  domain={[0, maxTime * 1.1]}
+                  domain={[0, yAxisMax]}
                   width={0}
                   tick={false}
                   axisLine={false}
                 />
                 <Tooltip
                   {...ATTEMPT_CHART_TOOLTIP_PROPS}
-                  formatter={(value: number | undefined, _name, props) => {
+                  formatter={(value, _name, props) => {
                     const payload = props.payload as {
                       name: string;
                       result:
@@ -290,8 +304,10 @@ export function SetAttemptAnalysisChart({
                         | "incorrect"
                         | "not_attempted";
                     };
+                    const seconds =
+                      typeof value === "number" ? value : Number(value ?? 0);
                     return [
-                      `${formatTimeSeconds(value ?? 0)} · ${RESULT_LABELS[payload.result]}`,
+                      `${formatTimeSeconds(seconds)} · ${RESULT_LABELS[payload.result]}`,
                       `Q${payload.name}`,
                     ];
                   }}

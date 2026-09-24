@@ -1,27 +1,11 @@
-import { Suspense } from "react";
-import { SetAttemptDetailPage } from "@/features/progress";
-import { AttemptReviewPageFallback } from "@/features/progress/components/attempt-review-page-fallback";
+import { redirect } from "next/navigation";
 
 type PageProps = {
-  params: { id: string; setAttemptId: string };
+  params: Promise<{ id: string; setAttemptId: string }>;
 };
 
-export default function Page({ params }: PageProps) {
-  return (
-    <Suspense
-      fallback={
-        <AttemptReviewPageFallback
-          backHref={`/progress/mock-attempts/${params.id}`}
-          backLabel="Back to mock attempt"
-        />
-      }
-    >
-      <SetAttemptDetailPage
-        attemptId={params.setAttemptId}
-        mockAttemptId={params.id}
-        backHref={`/progress/mock-attempts/${params.id}`}
-        backLabel="Back to mock attempt"
-      />
-    </Suspense>
-  );
+/** Legacy flat set-in-mock URL — jump to the nested mock attempt page. */
+export default async function Page({ params }: PageProps) {
+  const { id } = await params;
+  redirect(`/progress/mocks/mock-attempts/${id}`);
 }

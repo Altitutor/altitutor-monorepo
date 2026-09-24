@@ -14,6 +14,7 @@ import { ProjectPriorityEntityPill } from './fields/ProjectPriorityEntityPill';
 import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
 import { cn } from '@/shared/utils';
 import { useCurrentStaff } from '@/shared/hooks';
+import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import type { ProjectWithLead, ProjectStatus, ProjectPriority } from '../types';
 import {
   getProjectStatusIcon,
@@ -26,12 +27,15 @@ import {
   PROJECT_STATUS_OPTIONS,
 } from '../utils/projectUtils';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
-const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date'] as const;
+const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 'member'] as const;
 
 export interface ProjectsListProps {
-  /** Initial filter values (e.g. dashboard: projects where current user is lead) */
+  /** Initial filter values (e.g. dashboard: projects where current user is a member) */
   defaultFilters?: Record<string, unknown[]>;
+  /** Force collapsed pill layout (e.g. dashboard cards) */
+  compact?: boolean;
   hideToolbar?: boolean;
   embedView?: {
     groupBy?: string | null;
@@ -41,17 +45,25 @@ export interface ProjectsListProps {
   };
 }
 
-export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }: ProjectsListProps = {}) {
+export function ProjectsList({
+  defaultFilters,
+  compact = false,
+  hideToolbar = false,
+  embedView,
+}: ProjectsListProps = {}) {
   const embedLocked = hideToolbar && embedView != null;
 
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy,
     setGroupBy,
     sortBy,
     sortDirection,
     handleSortChange,
+    applyQuickFilter,
   } = useEntityListTableState({
     defaultFilters: defaultFilters ?? {},
     defaultSort: embedLocked
@@ -65,7 +77,7 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
+  const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
   const displayProjects = useMemo(() => {
     if (!embedLocked || !embedView.secondarySortBy) return projects;
 
@@ -105,6 +117,17 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
   const updateProject = useUpdateProject();
   const createProject = useCreateProject();
   const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('projects');
+  const { staff: staffList } = useStaffSearch('', true);
+
+  const memberFilterOptions = useMemo(
+    () =>
+      staffList.map((staff) => ({
+        value: staff.id as unknown,
+        label: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Unnamed',
+      })),
+    [staffList]
+  );
 
   const handleAdd = useCallback(
     async (data: { name: string; description?: string } & Record<string, unknown>) => {
@@ -250,8 +273,22 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
           />
         ),
       },
+      {
+        key: 'member',
+        label: 'Member',
+        visibleByDefault: false,
+        filterOnly: true,
+        getValue: (p) => (p.members ?? []).map((member) => member.id),
+        defaultValue: [],
+        filterOptions: memberFilterOptions,
+        groupable: false,
+        sortable: false,
+        filterable: true,
+        filterSearchable: true,
+        renderPill: () => null,
+      },
     ],
-    [priorityFilterOptions, updateProject]
+    [priorityFilterOptions, memberFilterOptions, updateProject]
   );
 
   const groupByOptions = useMemo(
@@ -330,8 +367,14 @@ export function ProjectsList({ defaultFilters, hideToolbar = false, embedView }:
         isLoading={isLoading}
         noPadding={true}
         hideToolbar={hideToolbar}
+        compact={compact}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
+        searchValue={search}
+        onSearchChange={hideToolbar ? undefined : setSearch}
+        searchPlaceholder="Search projects..."
+        quickFilters={hideToolbar ? [] : quickFilters}
+        onApplyQuickFilter={hideToolbar ? undefined : (qf) => applyQuickFilter(qf, currentStaff?.id)}
         descriptionConfig={
           hideToolbar
             ? undefined

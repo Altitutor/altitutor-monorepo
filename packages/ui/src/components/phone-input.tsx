@@ -9,6 +9,7 @@ import { PhoneCountrySelect } from './phone-country-select';
 import 'react-phone-number-input/style.css';
 
 export interface PhoneInputProps {
+  id?: string;
   value?: string;
   onChange?: (value: string) => void;
   placeholder?: string;
@@ -31,6 +32,7 @@ const phoneFieldClassName = cn(
  * Defaults to Australia (+61) but allows country selection
  */
 export function PhoneInput({
+  id,
   value = '',
   onChange,
   placeholder,
@@ -77,6 +79,7 @@ export function PhoneInput({
             error && '[&_.PhoneInputInput]:border-destructive [&_.PhoneInputInput]:focus-visible:ring-destructive',
           )}
           numberInputProps={{
+            id,
             className: cn(error && 'border-destructive focus-visible:ring-destructive'),
             onKeyDown: handleNumberKeyDown,
           }}
@@ -86,11 +89,6 @@ export function PhoneInput({
         <p className="text-sm text-destructive flex items-start gap-1">
           <Info className="h-4 w-4 mt-0.5 flex-shrink-0" />
           <span>{error}</span>
-        </p>
-      )}
-      {!error && !disabled && (
-        <p className="text-xs text-muted-foreground">
-          Enter phone number with country code
         </p>
       )}
     </div>

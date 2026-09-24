@@ -1,11 +1,11 @@
 {
   "$schema": "https://turbo.build/schema.json",
+  "concurrency": "12",
   "globalDependencies": [
     "pnpm-lock.yaml",
     "pnpm-workspace.yaml",
     "package.json",
-    "turbo.json",
-    ".github/workflows/ci.yml"
+    "turbo.json"
   ],
   "tasks": {
     "dev": {
@@ -25,4 +25,3 @@
     "typecheck": { "dependsOn": ["^build"] }
   }
 }
-

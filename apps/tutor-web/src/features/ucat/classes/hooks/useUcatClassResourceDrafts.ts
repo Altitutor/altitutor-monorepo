@@ -94,11 +94,13 @@ export function useUcatClassResourceDrafts(classId: string | null) {
     []
   )
 
-  const saveAssignments = useCallback(async () => {
+  const saveAssignments = useCallback(async (attachableBySession?: DraftBySession) => {
     if (!classId || !isDirty) return
     setIsSaving(true)
     try {
-      const assignments = Object.entries(draftBySession).map(([session_id, resources]) => ({
+      // Prefer the publish-filtered draft so hidden unpublished attachments are not re-inserted.
+      const source = attachableBySession ?? draftBySession
+      const assignments = Object.entries(source).map(([session_id, resources]) => ({
         session_id,
         resources: resources.map((r, index) => ({
           resource_type: r.type,
@@ -110,7 +112,7 @@ export function useUcatClassResourceDrafts(classId: string | null) {
       queryClient.invalidateQueries({ queryKey: ucatKeys.classes() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.sets() })
       queryClient.invalidateQueries({ queryKey: ucatKeys.mocks() })
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions() })
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') })
       queryClient.invalidateQueries({ queryKey: ucatKeys.learningModules() })
     } finally {
       setIsSaving(false)

@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { availabilityApi, type GetAvailableSlotsParams } from '../api/availability';
+import { splitDateRangeIntoWindows } from '../lib/availability-range';
 
 export function useAvailableSlots(params: GetAvailableSlotsParams, enabled: boolean = true) {
   // Use individual values in query key instead of object to ensure stability
@@ -12,13 +13,14 @@ export function useAvailableSlots(params: GetAvailableSlotsParams, enabled: bool
     params.subject_id,
     params.duration_minutes,
   ];
-  
+  const isSingleWindow = splitDateRangeIntoWindows(params.start_date, params.end_date).length <= 1;
+
   return useQuery({
     queryKey: queryKey,
     queryFn: () => availabilityApi.getAvailableSlots(params),
     enabled: enabled && !!params.start_date && !!params.end_date && !!params.session_type,
     staleTime: 30 * 1000, // 30 seconds - availability changes frequently
-    refetchInterval: 60 * 1000, // Refetch every minute
+    refetchInterval: isSingleWindow ? 60 * 1000 : false,
   });
 }
 

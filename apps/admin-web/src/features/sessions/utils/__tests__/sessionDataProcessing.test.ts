@@ -92,6 +92,7 @@ describe('processSessionStudents', () => {
     active_at: null,
     registered_at: null,
     discontinued_at: null,
+    discontinued_by: null,
     curriculum: null,
     year_level: null,
     school: null,
@@ -111,18 +112,18 @@ describe('processSessionStudents', () => {
     created_by: null,
     user_id: null,
     invite_token: null,
+    registration_public_token: null,
+    legacy_registration_token: null,
     onboarding_progress: {},
     timezone: 'Australia/Adelaide',
-    ucat_target_score_s1: null,
-    ucat_target_score_s2: null,
-    ucat_target_score_s3: null,
-    ucat_test_date: null,
     ucat_onboarding_completed_at: null,
     ucat_online_tier_override: 'default',
     ucat_unlimited_trial_consumed_at: null,
     ucat_signup_completed_at: null,
     ucat_signup_step: 0,
-    ucat_test_year: null,
+    birthday: null,
+    ucat_initial_familiarity: null,
+    account_class: 'external',
   };
 
   it('should process student with planned attendance', () => {
@@ -335,7 +336,11 @@ describe('processSessionStaff', () => {
     employment_started_at: '2024-01-01T00:00:00.000Z',
     metric_overrides: {},
     profile_bio: null,
+    birthday: null,
     profile_image_file_id: null,
+    child_safe_agreement_number: null,
+    child_safe_policy_agreed_at: null,
+    onboarding_completed_at: null,
   };
 
   it('should process staff with planned attendance', () => {

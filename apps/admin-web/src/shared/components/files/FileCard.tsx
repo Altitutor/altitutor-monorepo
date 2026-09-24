@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Button } from '@altitutor/ui';
 import { Download, Loader2, Edit, MoreVertical, Trash2, Pencil } from 'lucide-react';
 import { 
@@ -12,12 +12,6 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -27,12 +21,8 @@ import {
   Label,
 } from '@altitutor/ui';
 import { getFileTypeIcon, getFileTypeLabel } from '@/shared/utils/file-type-icons';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
+import { clickableCardInteractiveCn, cn } from '@/shared/utils';
 import { getSignedUrl } from '@/shared/lib/supabase/storage';
 import { FilePreviewModal } from './FilePreviewModal';
 import type { Enums, Tables } from '@altitutor/shared';
@@ -102,11 +92,6 @@ export function FileCard({
   const [showRenameDialog, setShowRenameDialog] = useState(false);
   const [renameValue, setRenameValue] = useState('');
   const [isRenaming, setIsRenaming] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!showRenameDialog) setExpanded(false);
-  }, [showRenameDialog]);
 
   // Use junctionTableId if provided, otherwise fall back to topicFileId for backward compatibility
   const effectiveJunctionTableId = junctionTableId || topicFileId;
@@ -191,7 +176,10 @@ export function FileCard({
   return (
     <>
       <div
-        className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 cursor-pointer transition-colors"
+        className={cn(
+          'group flex cursor-pointer items-center justify-between rounded-lg border bg-card p-3 transition-all',
+          clickableCardInteractiveCn,
+        )}
         onClick={handleCardClick}
       >
         <div className="flex items-center gap-3 flex-1 min-w-0">
@@ -214,10 +202,10 @@ export function FileCard({
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
-                variant="ghost"
-                size="sm"
+                variant="outline"
+                size="icon"
                 onClick={(e) => e.stopPropagation()}
-                className="flex-shrink-0"
+                className="h-8 w-8 flex-shrink-0"
               >
                 <MoreVertical className="h-4 w-4" />
               </Button>
@@ -299,45 +287,16 @@ export function FileCard({
       </AlertDialog>
 
       {/* Rename Dialog */}
-      <Dialog open={showRenameDialog} onOpenChange={setShowRenameDialog}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Rename File</DialogTitle>
-                <DialogDescription>
-                  Enter a new name for this file.
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="rename-input">File Name</Label>
-              <Input
-                id="rename-input"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                placeholder={filename}
-                onKeyDown={(e) => {
-                  if (e.key === 'Enter' && !isRenaming) {
-                    handleRenameConfirm();
-                  }
-                  if (e.key === 'Escape') {
-                    setShowRenameDialog(false);
-                  }
-                }}
-                autoFocus
-              />
-            </div>
-          </div>
-          <DialogFooter>
+      <AdminDialogShell
+        open={showRenameDialog}
+        onClose={() => {
+          setShowRenameDialog(false);
+          setRenameValue('');
+        }}
+        title="Rename File"
+        subtitle="Enter a new name for this file."
+        footer={
+          <>
             <Button
               variant="outline"
               onClick={() => {
@@ -361,9 +320,28 @@ export function FileCard({
                 'Rename'
               )}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="space-y-2">
+          <Label htmlFor="rename-input">File Name</Label>
+          <Input
+            id="rename-input"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            placeholder={filename}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !isRenaming) {
+                handleRenameConfirm();
+              }
+              if (e.key === 'Escape') {
+                setShowRenameDialog(false);
+              }
+            }}
+            autoFocus
+          />
+        </div>
+      </AdminDialogShell>
 
       {/* File Preview Modal */}
       <FilePreviewModal

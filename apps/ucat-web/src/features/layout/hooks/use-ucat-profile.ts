@@ -10,6 +10,7 @@ export type UcatProfile = {
   firstName: string | null;
   lastName: string | null;
   email: string;
+  ucatInitialFamiliarity: string | null;
 };
 
 async function fetchUcatProfile(): Promise<UcatProfile> {

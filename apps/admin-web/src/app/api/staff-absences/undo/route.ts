@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database, Json } from '@altitutor/shared';
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     });
 
     if (error) {
+      captureApiError(error, "/api/staff-absences/undo");
       return NextResponse.json(
         { error: error.message || 'Failed to undo staff absences' },
         { status: 500 }
@@ -61,6 +63,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, data });
   } catch (error) {
+    captureApiError(error, "/api/staff-absences/undo");
     console.error('Unexpected error in undo staff absences API route:', error);
     return NextResponse.json(
       { error: 'An unexpected error occurred' },

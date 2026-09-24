@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -41,6 +42,7 @@ export async function GET() {
 
     return NextResponse.json({ progress });
   } catch (e) {
+    captureApiError(e, "/api/pay-tier");
     console.error('GET /api/pay-tier:', e);
     return NextResponse.json(
       { error: e instanceof Error ? e.message : 'Failed to load pay tier' },

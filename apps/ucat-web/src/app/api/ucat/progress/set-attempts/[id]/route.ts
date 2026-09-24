@@ -1,9 +1,33 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { extractTextFromRichJson } from "@/features/question-engine/model/rich-text";
 import type { JsonLike } from "@/features/question-engine/model/rich-text";
 import { resolveQuestionAttemptScoreAndResult } from "@/features/progress/lib/build-question-attempt-row";
-import { fetchSyllogismOptionsByQuestionId } from "@/features/progress/lib/syllogism-attempt-scoring";
+import {
+  fetchAttemptReviewQuestionMetadata,
+  type AttemptReviewQuestionTag,
+} from "@/features/progress/lib/attempt-review-question-metadata";
+import {
+  matchRemediationLearningModules,
+  questionTagIdsFromMetadata,
+  type RemediationLessonLink,
+} from "@/features/progress/lib/remediation-learning-modules";
+import { fetchRemediationCatalog } from "@/features/progress/server/remediation-learning-modules";
+import type { QuestionEngineExam } from "@/features/question-engine/model/types";
+import {
+  buildAttemptReviewExam,
+  parseAttemptContentSnapshot,
+  snapshotQuestionMetadata,
+  snapshotToQuestionItem,
+} from "@/features/progress/lib/attempt-content-snapshot";
+import { getAttemptPercentile } from "@/features/progress/server/attempt-percentile-service";
+import type { CohortPercentileResult } from "@altitutor/ucat-percentiles";
+import type { AnswerScheme } from "@altitutor/ucat-response-contract";
+import type { AttemptRecentPerformance } from "@/features/progress/lib/attempt-insights";
+import { fetchRecentAttemptPerformance } from "@/features/progress/server/attempt-insight-trend-service";
+import { getQuestionMaximumMarks } from "@/features/question-engine/lib/response-state";
+import { selectedOptionIdFromSnapshot } from "@/features/progress/lib/attempt-response-review";
 
 export type SetAttemptDetailResponse = {
   id: string;
@@ -12,8 +36,18 @@ export type SetAttemptDetailResponse = {
   scorePoints: number | null;
   totalPoints: number | null;
   scaledScore: number | null;
+  percentile: CohortPercentileResult;
+  recentPerformance: AttemptRecentPerformance;
+  timeTakenSeconds: number | null;
+  setTimeLimitSeconds: number | null;
+  examTimeLimitSeconds: number | null;
+  effectivePace: number | null;
+  timingSource: "set_default" | "study_plan" | "mock_blueprint";
+  studentSetSpeed: number | null;
+  studentExamSpeed: number | null;
   attemptedAt: string;
   completedAt: string | null;
+  exam: QuestionEngineExam;
   questionAttempts: {
     questionNumber: number;
     questionId: string;
@@ -21,40 +55,25 @@ export type SetAttemptDetailResponse = {
     stemIndex: number;
     score: number | null;
     timeSpentSeconds: number | null;
-    questionType: "multiple_choice" | "syllogism" | null;
+    averageTimeSeconds: number | null;
+    averageTimeSampleSize: number;
+    timeBurdenSeconds: number | null;
+    difficulty: number | null;
+    questionTags: AttemptReviewQuestionTag[];
+    isFlagged: boolean;
+    answerScheme: AnswerScheme["kind"] | null;
     /** 'correct' | 'partial' | 'incorrect' | 'not_attempted' */
     result: "correct" | "partial" | "incorrect" | "not_attempted";
     categoryName: string | null;
+    categoryDescription: string | null;
     questionStemCategoryId: string | null;
     /** For answers view: selected option id (multiple choice) or null */
-    questionAnswerOptionId: string | null;
-    /** For answers view: syllogism snapshot { optionId: boolean } */
-    answerSnapshot: Record<string, boolean> | null;
+    selectedOptionId: string | null;
+    /** Canonical persisted response snapshot used by answer-scheme review. */
+    answerSnapshot: unknown;
+    remediationLessons: RemediationLessonLink[];
   }[];
 };
-
-type StemWithQuestions = {
-  stem_id: string;
-  stem_text?: string;
-  questions_meta?: Array<{ id: string; index: number }>;
-};
-
-function parseAnswerSnapshot(
-  snapshot: unknown,
-): Record<string, boolean> | null {
-  if (!snapshot || typeof snapshot !== "object") return null;
-  const obj = snapshot as Record<string, unknown>;
-  if (obj.type !== "syllogism_v1" || !Array.isArray(obj.answers)) return null;
-  const answers = obj.answers as Array<{
-    question_answer_option_id: string;
-    answer: boolean;
-  }>;
-  const result: Record<string, boolean> = {};
-  for (const a of answers) {
-    result[a.question_answer_option_id] = a.answer;
-  }
-  return result;
-}
 
 export async function GET(
   _request: Request,
@@ -69,6 +88,7 @@ export async function GET(
   } = await supabase.auth.getUser();
 
   if (authError) {
+    captureApiError(authError, "/api/ucat/progress/set-attempts/[id]");
     return NextResponse.json({ error: authError.message }, { status: 500 });
   }
 
@@ -79,12 +99,13 @@ export async function GET(
   const { data: attempt, error: attemptError } = await supabase
     .from("vstudent_ucat_my_set_attempts")
     .select(
-      "id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score",
+      "id, attempted_at, completed_at, question_set_id, score_points, total_points, scaled_score, time_taken_seconds, set_time_limit_seconds, set_time_limit_at_exam_speed_seconds, effective_pace_multiplier, timing_source, student_set_speed, student_exam_speed, content_snapshot",
     )
     .eq("id", attemptId)
     .maybeSingle();
 
   if (attemptError) {
+    captureApiError(attemptError, "/api/ucat/progress/set-attempts/[id]");
     return NextResponse.json({ error: attemptError.message }, { status: 500 });
   }
 
@@ -103,145 +124,191 @@ export async function GET(
     );
   }
 
-  const { data: setDetail, error: setError } = await supabase
-    .from("vstudent_ucat_question_set_detail")
-    .select("id, name, stems")
-    .eq("id", questionSetId)
-    .maybeSingle();
+  const setSnapshot = (attempt.content_snapshot ?? {}) as {
+    name?: unknown;
+    stemIds?: string[];
+  };
+  const questionSetName =
+    setSnapshot.name != null
+      ? extractTextFromRichJson(setSnapshot.name as JsonLike) || null
+      : null;
+  const stemOrder = new Map(
+    (Array.isArray(setSnapshot.stemIds) ? setSnapshot.stemIds : []).map(
+      (stemId, index) => [stemId, index],
+    ),
+  );
 
-  if (setError) {
-    return NextResponse.json({ error: setError.message }, { status: 500 });
-  }
-
-  const stems = (setDetail?.stems ?? []) as StemWithQuestions[];
-  const stemIds = stems.map((s) => s.stem_id).filter(Boolean);
-  const orderedQuestions: { questionId: string; stemId: string }[] = [];
-  for (const stem of stems) {
-    const questions = stem.questions_meta ?? [];
-    for (const q of questions.sort((a, b) => a.index - b.index)) {
-      orderedQuestions.push({ questionId: q.id, stemId: stem.stem_id });
-    }
-  }
-
-  const stemCategoryMap = new Map<
-    string,
-    { categoryId: string; categoryName: string }
-  >();
-  if (stemIds.length > 0) {
-    const { data: stemCategories } = await supabase
-      .from("vstudent_ucat_question_stems")
-      .select("id, question_stem_category_id")
-      .in("id", stemIds);
-    const categoryIds = [
-      ...new Set(
-        (stemCategories ?? [])
-          .map((s) => s.question_stem_category_id)
-          .filter((id): id is string => !!id),
-      ),
-    ];
-    if (categoryIds.length > 0) {
-      const { data: categories } = await supabase
-        .from("vstudent_ucat_question_stem_categories")
-        .select("id, name")
-        .in("id", categoryIds);
-      const categoryByName = new Map(
-        (categories ?? []).map((c) => [c.id, c.name ?? "Unknown"]),
-      );
-      for (const s of stemCategories ?? []) {
-        const catId = s.question_stem_category_id;
-        if (catId) {
-          stemCategoryMap.set(s.id ?? "", {
-            categoryId: catId,
-            categoryName: categoryByName.get(catId) ?? "Unknown",
-          });
-        }
-      }
-    }
-  }
-
-  const { data: questionAttemptsRaw, error: qaError } = await supabase
+  const questionAttemptsResult = await supabase
     .from("vstudent_ucat_my_question_attempts")
     .select(
-      "question_id, score, time_spent_seconds, question_type, category_name, question_stem_category_id, question_answer_option_id, answer_snapshot",
+      "question_id, score, time_spent_seconds, time_burden_seconds, response_type, answer_scheme, category_name, question_stem_category_id, answer_snapshot, is_flagged, attempted_at, content_snapshot",
     )
     .eq("student_question_set_attempt_id", attemptId)
     .eq("is_submitted", true);
 
+  const { data: questionAttemptsRaw, error: qaError } = questionAttemptsResult;
+
   if (qaError) {
+    captureApiError(qaError, "/api/ucat/progress/set-attempts/[id]");
     return NextResponse.json({ error: qaError.message }, { status: 500 });
   }
 
-  const attemptsByQuestionId = new Map(
-    (questionAttemptsRaw ?? []).map((qa) => [
-      qa.question_id,
-      {
-        score: qa.score,
-        timeSpentSeconds: qa.time_spent_seconds,
-        questionType: qa.question_type as
-          | "multiple_choice"
-          | "syllogism"
-          | null,
-        categoryName: qa.category_name,
-        questionStemCategoryId: qa.question_stem_category_id,
-        questionAnswerOptionId: qa.question_answer_option_id ?? null,
-        answerSnapshot: parseAnswerSnapshot(qa.answer_snapshot),
-      },
-    ]),
+  const orderedAttempts = (questionAttemptsRaw ?? [])
+    .map((row) => ({
+      row,
+      snapshot: parseAttemptContentSnapshot(row.content_snapshot),
+    }))
+    .filter(
+      (
+        entry,
+      ): entry is typeof entry & {
+        snapshot: NonNullable<typeof entry.snapshot>;
+      } => Boolean(entry.snapshot),
+    )
+    .sort(
+      (a, b) =>
+        (stemOrder.get(a.snapshot.stem.id) ?? Number.MAX_SAFE_INTEGER) -
+          (stemOrder.get(b.snapshot.stem.id) ?? Number.MAX_SAFE_INTEGER) ||
+        a.snapshot.question.index - b.snapshot.question.index ||
+        (a.row.attempted_at ?? "").localeCompare(b.row.attempted_at ?? ""),
+    );
+  const questionIds = orderedAttempts.map(
+    ({ snapshot }) => snapshot.question.id,
   );
-
-  const syllogismOptionsByQuestionId = await fetchSyllogismOptionsByQuestionId(
-    supabase,
-    stemIds,
+  const [questionMetadata, remediationCatalog] = await Promise.all([
+    fetchAttemptReviewQuestionMetadata(supabase, questionIds),
+    fetchRemediationCatalog(supabase),
+  ]);
+  const attemptsByQuestionId = new Map(
+    (questionAttemptsRaw ?? []).map((qa) => {
+      const snapshot = parseAttemptContentSnapshot(qa.content_snapshot);
+      return [
+        snapshot?.question.id ?? qa.question_id,
+        {
+          score: qa.score,
+          timeSpentSeconds: qa.time_spent_seconds,
+          timeBurdenSeconds: qa.time_burden_seconds,
+          answerScheme: qa.answer_scheme,
+          categoryName: qa.category_name,
+          questionStemCategoryId: qa.question_stem_category_id,
+          selectedOptionId: selectedOptionIdFromSnapshot(qa.answer_snapshot),
+          answerSnapshot: qa.answer_snapshot,
+          isFlagged: qa.is_flagged ?? false,
+          snapshot,
+        },
+      ] as const;
+    }),
   );
 
   let currentStemId: string | null = null;
   let stemIndex = 0;
-  const questionAttempts = orderedQuestions.map(
-    ({ questionId, stemId }, index) => {
-      if (stemId !== currentStemId) {
-        currentStemId = stemId;
-        stemIndex += 1;
-      }
-      const attemptData = attemptsByQuestionId.get(questionId);
-      const stemCategory = stemCategoryMap.get(stemId);
-      const questionNumber = index + 1;
-      const { score, result } = resolveQuestionAttemptScoreAndResult({
-        questionId,
-        attemptData,
-        syllogismOptionsByQuestionId,
-      });
-      const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
-      const questionType = attemptData?.questionType ?? null;
+  const questionAttempts = orderedAttempts.map(({ snapshot }, index) => {
+    const questionId = snapshot.question.id;
+    const stemId = snapshot.stem.id;
+    if (stemId !== currentStemId) {
+      currentStemId = stemId;
+      stemIndex += 1;
+    }
+    const attemptData = attemptsByQuestionId.get(questionId);
+    const snapshotMetadata = snapshotQuestionMetadata(snapshot);
+    const questionNumber = index + 1;
+    const { score, result } = resolveQuestionAttemptScoreAndResult({
+      attemptData,
+      maximumPoints: getQuestionMaximumMarks(
+        snapshotToQuestionItem(
+          snapshot,
+          index,
+          attempt.question_set_id ?? "review",
+        ),
+      ),
+    });
+    const timeSpentSeconds = attemptData?.timeSpentSeconds ?? null;
+    const metadata = questionMetadata.get(questionId);
+    const timeBurdenSeconds =
+      attemptData?.timeBurdenSeconds ??
+      snapshotMetadata.timeBurdenSeconds ??
+      metadata?.timeBurdenSeconds ??
+      null;
+    const answerScheme =
+      attemptData?.answerScheme ?? snapshot.question.answerScheme;
 
-      const categoryName =
-        attemptData?.categoryName ?? stemCategory?.categoryName ?? null;
-      const questionStemCategoryId =
-        attemptData?.questionStemCategoryId ?? stemCategory?.categoryId ?? null;
+    const categoryName =
+      attemptData?.categoryName ?? snapshotMetadata.categoryName;
+    const questionStemCategoryId =
+      attemptData?.questionStemCategoryId ??
+      snapshotMetadata.questionStemCategoryId;
+    const categoryDescription = snapshotMetadata.categoryDescription;
 
-      const questionAnswerOptionId =
-        attemptData?.questionAnswerOptionId ?? null;
-      const answerSnapshot = attemptData?.answerSnapshot ?? null;
+    const selectedOptionId = attemptData?.selectedOptionId ?? null;
+    const answerSnapshot = attemptData?.answerSnapshot ?? null;
+    const questionTags =
+      snapshotMetadata.questionTags.length > 0
+        ? snapshotMetadata.questionTags
+        : (metadata?.questionTags ?? []);
 
-      return {
-        questionNumber,
-        questionId,
-        stemIndex,
-        score,
-        timeSpentSeconds,
-        questionType,
-        result,
-        categoryName,
-        questionStemCategoryId,
-        questionAnswerOptionId,
-        answerSnapshot,
-      };
-    },
-  );
+    return {
+      questionNumber,
+      questionId,
+      stemIndex,
+      score,
+      timeSpentSeconds,
+      averageTimeSeconds: metadata?.averageTimeSeconds ?? null,
+      averageTimeSampleSize: metadata?.averageTimeSampleSize ?? 0,
+      timeBurdenSeconds,
+      difficulty: snapshotMetadata.difficulty ?? metadata?.difficulty ?? null,
+      questionTags,
+      isFlagged: attemptData?.isFlagged ?? false,
+      answerScheme,
+      result,
+      categoryName,
+      categoryDescription,
+      questionStemCategoryId,
+      selectedOptionId,
+      answerSnapshot,
+      remediationLessons: matchRemediationLearningModules(
+        {
+          result,
+          questionTagIds: questionTagIdsFromMetadata(questionTags),
+          stemCategoryId: questionStemCategoryId,
+          sectionId: snapshot.stem.sectionId ?? null,
+        },
+        remediationCatalog,
+      ),
+    };
+  });
 
-  const questionSetName =
-    setDetail?.name != null
-      ? extractTextFromRichJson(setDetail.name as JsonLike) || null
-      : null;
+  const timeTakenSeconds = attempt.time_taken_seconds ?? null;
+  const setTimeLimitSeconds = attempt.set_time_limit_seconds ?? null;
+  const timeLimitExamSeconds =
+    attempt.set_time_limit_at_exam_speed_seconds ?? null;
+
+  let studentSetSpeed = attempt.student_set_speed ?? null;
+  let studentExamSpeed = attempt.student_exam_speed ?? null;
+  if (timeTakenSeconds != null && timeTakenSeconds > 0) {
+    if (
+      studentSetSpeed == null &&
+      setTimeLimitSeconds != null &&
+      setTimeLimitSeconds > 0
+    ) {
+      studentSetSpeed = setTimeLimitSeconds / timeTakenSeconds;
+    }
+    if (
+      studentExamSpeed == null &&
+      timeLimitExamSeconds != null &&
+      timeLimitExamSeconds > 0
+    ) {
+      studentExamSpeed = timeLimitExamSeconds / timeTakenSeconds;
+    }
+  }
+
+  const [percentile, recentPerformance] = await Promise.all([
+    getAttemptPercentile("set", attemptId),
+    fetchRecentAttemptPerformance(supabase, {
+      source: "set",
+      attemptId,
+      attemptedAt: attempt.attempted_at ?? "",
+    }),
+  ]);
 
   const response: SetAttemptDetailResponse = {
     id: attempt.id ?? "",
@@ -250,8 +317,27 @@ export async function GET(
     scorePoints: attempt.score_points,
     totalPoints: attempt.total_points,
     scaledScore: attempt.scaled_score,
+    percentile,
+    recentPerformance,
+    timeTakenSeconds,
+    setTimeLimitSeconds,
+    examTimeLimitSeconds: timeLimitExamSeconds,
+    effectivePace: attempt.effective_pace_multiplier,
+    timingSource:
+      attempt.timing_source as SetAttemptDetailResponse["timingSource"],
+    studentSetSpeed,
+    studentExamSpeed,
     attemptedAt: attempt.attempted_at ?? "",
     completedAt: attempt.completed_at,
+    exam: buildAttemptReviewExam({
+      sourceType: "set",
+      sourceId: questionSetId,
+      title: questionSetName ?? "Set attempt",
+      snapshots: orderedAttempts.map(({ snapshot }) => ({
+        snapshot,
+        questionSetId,
+      })),
+    }),
     questionAttempts,
   };
 

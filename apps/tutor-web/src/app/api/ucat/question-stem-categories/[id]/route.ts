@@ -5,6 +5,7 @@ import {
   assertCategoryParentValid,
   cascadeCategorySection,
 } from '@/features/ucat/shared/server/taxonomy-mutations'
+import type { TablesUpdate } from '@altitutor/shared'
 
 function toRichText(text?: string) {
   return {
@@ -79,7 +80,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       }
     }
 
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: TablesUpdate<'question_stem_categories'> = {
       updated_by: staffId,
     }
 

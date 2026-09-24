@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Loader2,
+  X,
   Home,
   CheckSquare,
   AlertTriangle,
@@ -18,8 +19,9 @@ import {
   Beaker,
   Newspaper,
   FolderKanban,
+  Monitor,
 } from 'lucide-react';
-import { Input, SearchFromDropdown } from '@altitutor/ui';
+import { Button, Input, SearchFromDropdown } from '@altitutor/ui';
 import { focusCommandPaletteInput } from '@altitutor/shared';
 import { getEffectiveEntityFilters } from '../utils/entitySearchTypes';
 import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
@@ -60,7 +62,8 @@ const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Projects', href: '/projects', icon: FolderKanban },
   { title: 'Reconciliation', href: '/reconciliation', icon: AlertTriangle },
   { title: 'Messages', href: '/messages', icon: MessageCircle },
-  { title: 'Students', href: '/students', icon: GraduationCap },
+  { title: 'In-person Students', href: '/students', icon: GraduationCap },
+  { title: 'Online Students', href: '/online-students', icon: Monitor },
   { title: 'Parents', href: '/parents', icon: UserRound },
   { title: 'Staff', href: '/staff', icon: Users },
   { title: 'Classes', href: '/classes', icon: Calendar },
@@ -160,7 +163,13 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
     setSearchQuery('');
     setSelectedIndex(0);
     setSelectedFilters(ALL_COMMAND_PALETTE_FILTER_TYPES);
-    focusCommandPaletteInput(inputRef.current);
+    const isMobileSheet = window.matchMedia('(max-width: 767px)').matches;
+    // Wait for the mobile slide-up so iOS does not treat the input as
+    // keyboard-obscured and pan the page off-screen.
+    focusCommandPaletteInput(
+      inputRef.current,
+      isMobileSheet ? { delaysMs: [350] } : undefined,
+    );
   }, [isOpen]);
 
   // Handle item selection
@@ -258,7 +267,17 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <div className="flex shrink-0 border-b px-3 py-2">
+      <div className="flex shrink-0 items-center gap-2 border-b px-3 py-2">
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={onClose}
+          className="shrink-0 md:hidden"
+          aria-label="Close"
+        >
+          <X className="h-4 w-4" />
+        </Button>
         <div className="flex h-10 min-w-0 flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
           <SearchFromDropdown
             options={COMMAND_PALETTE_FILTER_OPTIONS.map((filter) => ({
@@ -278,7 +297,6 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             type="search"
             inputMode="search"
             enterKeyHint="search"
-            autoFocus
             autoComplete="off"
             autoCorrect="off"
             spellCheck={false}
@@ -321,7 +339,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         ))}
       </div>
 
-      <div className="flex shrink-0 items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground">
+      <div className="hidden shrink-0 items-center justify-between border-t px-4 py-2 text-xs text-muted-foreground md:flex">
         <span>Navigate with ↑↓ or Tab, select with Enter</span>
         <span>Press Esc to close</span>
       </div>

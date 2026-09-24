@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import {
   Button,
@@ -8,19 +9,22 @@ import {
   DropdownMenuContent,
   DropdownMenuLabel,
   DropdownMenuTrigger,
-  Input,
   SegmentedControl,
+  SmartDatePickerField,
 } from '@altitutor/ui';
 import { Calendar, ChevronDown } from 'lucide-react';
 import { useReportsContext } from '../context/ReportsContext';
+import { useLastAdminMeetingDate } from '../hooks/useLastAdminMeetingDate';
 import {
   REPORTS_SECTION_KEYS,
   REPORTS_SECTION_LABELS,
   REPORTS_CHART_CONFIG,
+  getReportsDatePresets,
 } from './ReportsDateRangeCard';
 import type { OperationsSubsection, SchedulingSubsection } from './ReportsDateRangeCard';
 
 const TODAY = new Date().toISOString().slice(0, 10);
+const CURRENT_YEAR = new Date().getFullYear();
 
 function ReportsTabs() {
   const pathname = usePathname();
@@ -48,6 +52,11 @@ function ReportsTabs() {
 
 function ReportsFilters() {
   const pathname = usePathname();
+  const { data: lastAdminMeetingDate } = useLastAdminMeetingDate();
+  const reportDatePresets = useMemo(
+    () => getReportsDatePresets(new Date(), lastAdminMeetingDate),
+    [lastAdminMeetingDate]
+  );
   const {
     startDate,
     endDate,
@@ -57,6 +66,7 @@ function ReportsFilters() {
     handleOperationsChartToggle,
     handleSchedulingChartToggle,
     handleFinancialChartToggle,
+    handleCommunicationsChartToggle,
   } = useReportsContext();
 
   const OPERATIONS_SUBSECTION_LABELS: Record<OperationsSubsection, string> = {
@@ -66,6 +76,7 @@ function ReportsFilters() {
   };
 
   const SCHEDULING_SUBSECTION_LABELS: Record<SchedulingSubsection, string> = {
+    sessions: 'Sessions',
     students: 'Students',
     staff: 'Staff',
     classes: 'Classes',
@@ -75,26 +86,28 @@ function ReportsFilters() {
     ? 'scheduling'
     : pathname?.includes('/financial')
       ? 'financial'
-      : 'operations';
+      : pathname?.includes('/communications')
+        ? 'communications'
+        : 'operations';
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="flex items-center gap-2">
-        <Input
-          id="reports-start-date"
-          type="date"
+        <SmartDatePickerField
           value={startDate}
-          onChange={(e) => setStartDate(e.target.value)}
-          max={TODAY}
+          onChange={(value) => setStartDate(value ?? '')}
+          maxDate={TODAY}
+          anchorYear={CURRENT_YEAR}
+          presets={reportDatePresets}
           className="h-9 w-[140px]"
         />
         <span className="text-muted-foreground text-sm">to</span>
-        <Input
-          id="reports-end-date"
-          type="date"
+        <SmartDatePickerField
           value={endDate}
-          onChange={(e) => setEndDate(e.target.value)}
-          max={TODAY}
+          onChange={(value) => setEndDate(value ?? '')}
+          maxDate={TODAY}
+          anchorYear={CURRENT_YEAR}
+          presets={reportDatePresets}
           className="h-9 w-[140px]"
         />
       </div>
@@ -196,6 +209,28 @@ function ReportsFilters() {
                   }
                 >
                   {REPORTS_CHART_CONFIG.financial[chartKey]}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </>
+          )}
+          {section === 'communications' && (
+            <>
+              <DropdownMenuLabel className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                {REPORTS_SECTION_LABELS.communications}
+              </DropdownMenuLabel>
+              {(
+                Object.keys(REPORTS_CHART_CONFIG.communications) as Array<
+                  keyof typeof REPORTS_CHART_CONFIG.communications
+                >
+              ).map((chartKey) => (
+                <DropdownMenuCheckboxItem
+                  key={chartKey}
+                  checked={visibleCharts.communications[chartKey]}
+                  onCheckedChange={(checked) =>
+                    handleCommunicationsChartToggle(chartKey, checked === true)
+                  }
+                >
+                  {REPORTS_CHART_CONFIG.communications[chartKey]}
                 </DropdownMenuCheckboxItem>
               ))}
             </>

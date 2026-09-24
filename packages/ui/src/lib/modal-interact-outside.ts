@@ -5,6 +5,73 @@ import {
   scheduleNativeDateTimePickerCooldown,
   shouldPreventDialogDismissOnInteractOutside,
 } from './native-datetime-input';
+import { isPanelResizeActive } from './panel-resize-guard';
+
+const PORTALED_OVERLAY_SELECTOR = [
+  '[data-radix-popper-content-wrapper]',
+  '[data-radix-popover-content]',
+  '[data-radix-select-content]',
+  '[data-radix-dropdown-menu-content]',
+  '[data-radix-context-menu-content]',
+  '[data-radix-menu-content]',
+].join(', ');
+
+const TOAST_SELECTOR = [
+  '[data-toast-container]',
+  '[data-sonner-toaster]',
+  '[data-sonner-toast]',
+].join(', ');
+
+const RESIZE_SEPARATOR_SELECTOR = '[data-separator], [data-resize-handle-active]';
+
+/** Returns true when `element` sits inside a modal dialog or sheet. */
+export function isInsideModal(element: HTMLElement | null | undefined): boolean {
+  if (!element) return false;
+  return Boolean(element.closest('[role="dialog"]'));
+}
+
+/** Radix popovers/menus/selects portaled to document.body while a modal is open. */
+export function isPortaledOverlayTarget(target: Event['target']): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(PORTALED_OVERLAY_SELECTOR));
+}
+
+/** Sonner toasts are portaled above dialogs and should remain interactive. */
+export function isToastTarget(target: Event['target']): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  if (!(target instanceof HTMLElement)) return false;
+  return Boolean(target.closest(TOAST_SELECTOR));
+}
+
+function eventPathIncludesSelector(event: Event, selector: string): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  const path = typeof event.composedPath === 'function' ? event.composedPath() : [];
+  return path.some((target) => target instanceof HTMLElement && Boolean(target.closest(selector)));
+}
+
+function targetMatchesSelector(target: EventTarget | null, selector: string): boolean {
+  if (typeof HTMLElement === 'undefined') return false;
+  return target instanceof HTMLElement && Boolean(target.closest(selector));
+}
+
+function eventOrOriginalEventIncludesSelector(event: Event, selector: string): boolean {
+  if (targetMatchesSelector(event.target, selector) || eventPathIncludesSelector(event, selector)) {
+    return true;
+  }
+
+  const originalEvent = (event as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent;
+  if (!originalEvent) return false;
+
+  return (
+    targetMatchesSelector(originalEvent.target, selector) ||
+    eventPathIncludesSelector(originalEvent, selector)
+  );
+}
+
+export function isToastInteraction(event: Event): boolean {
+  return eventOrOriginalEventIncludesSelector(event, TOAST_SELECTOR);
+}
 
 /** Shared handler for Radix Dialog / Sheet / AlertDialog outside interactions. */
 export function handleModalInteractOutside(
@@ -16,8 +83,23 @@ export function handleModalInteractOutside(
     return;
   }
 
-  const target = event.target as HTMLElement | null;
-  if (target?.closest('[data-toast-container]')) {
+  if (isPortaledOverlayTarget(event.target)) {
+    event.preventDefault();
+    return;
+  }
+
+  if (isToastInteraction(event)) {
+    event.preventDefault();
+    return;
+  }
+
+  // react-resizable-panels prevents the native pointerdown while it captures
+  // the drag. Radix can consequently report that same gesture as an outside
+  // interaction even though it began on a separator inside the modal.
+  if (
+    eventOrOriginalEventIncludesSelector(event, RESIZE_SEPARATOR_SELECTOR) ||
+    isPanelResizeActive()
+  ) {
     event.preventDefault();
     return;
   }

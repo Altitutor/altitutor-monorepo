@@ -14,6 +14,7 @@ import {
   TablePagination,
 } from '@altitutor/ui';
 import { FileText } from 'lucide-react';
+import { formatTutorSessionSubjectLabel } from '@/features/sessions/utils/sessionSubjectLabel';
 import { useUnloggedSessions } from '../hooks';
 import {
   tutorBtnPrimary,
@@ -29,7 +30,9 @@ export type UnloggedSessionsTableSectionProps = {
   onLogSession: (sessionId: string) => void;
 };
 
-function subjectAndClassLabel(session: {
+function subjectLabel(session: {
+  short_name?: string | null;
+  session_type?: string | null;
   class?: {
     level?: string | null;
     subject?: {
@@ -39,13 +42,14 @@ function subjectAndClassLabel(session: {
     };
   } | null;
 }): string {
-  const subject = session.class?.subject;
-  const parts: string[] = [];
-  if (subject?.curriculum) parts.push(String(subject.curriculum));
-  if (subject?.year_level != null) parts.push(`Year ${subject.year_level}`);
-  if (subject?.name) parts.push(subject.name);
-  if (session.class?.level) parts.push(session.class.level);
-  return parts.length > 0 ? parts.join(' ') : '—';
+  return formatTutorSessionSubjectLabel({
+    short_name: session.short_name,
+    session_type: session.session_type,
+    subject_curriculum: session.class?.subject?.curriculum,
+    subject_year_level: session.class?.subject?.year_level,
+    subject_name: session.class?.subject?.name,
+    class_level: session.class?.level,
+  });
 }
 
 export function UnloggedSessionsTableSection({
@@ -149,8 +153,8 @@ export function UnloggedSessionsTableSection({
                             ? format(start, 'HH:mm')
                             : '—'}
                       </TableCell>
-                      <TableCell className="max-w-md truncate" title={subjectAndClassLabel(session)}>
-                        {subjectAndClassLabel(session)}
+                      <TableCell className="max-w-md truncate" title={subjectLabel(session)}>
+                        {subjectLabel(session)}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button

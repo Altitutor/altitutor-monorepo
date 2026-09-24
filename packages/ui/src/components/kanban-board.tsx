@@ -2,27 +2,33 @@
 
 import * as React from 'react';
 import {
+  type CollisionDetection,
   DndContext,
+  DragCancelEvent,
   DragEndEvent,
   DragOverlay,
+  DragOverEvent,
   DragStartEvent,
   PointerSensor,
   useSensor,
   useSensors,
   closestCorners,
+  pointerWithin,
   useDroppable,
 } from '@dnd-kit/core';
 import {
+  type AnimateLayoutChanges,
   SortableContext,
   verticalListSortingStrategy,
   useSortable,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
+import { useVirtualizer } from '@tanstack/react-virtual';
 import { Button } from './button';
+import { Input } from './input';
 import {
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuCheckboxItem,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
@@ -36,6 +42,7 @@ import { SearchableSelectInline } from './searchable-select-inline';
 import { DateRangeFilter } from './date-range-filter';
 import { ToolbarActiveBadge } from './toolbar-active-badge';
 import { cn } from '../lib/cn';
+import { useRemountPersistentState } from '../hooks/use-remount-persistent-state';
 import {
   LayoutGrid,
   ArrowUpDown,
@@ -45,8 +52,9 @@ import {
   Plus,
   X,
   Layers,
+  Search,
 } from 'lucide-react';
-import { EntityListPillColumn, EntityListStatusColumn, QuickFilter } from './entity-list';
+import { EntityListPillColumn, EntityListStatusColumn, QuickFilter, selectedFilterMatchesValue } from './entity-list';
 
 // ---------------------------------------------------------------------------
 // Types
@@ -58,6 +66,7 @@ export interface KanbanColumnDef<TItem, TValue = unknown> {
   getValue: (item: TItem) => TValue;
   options: { value: TValue; label: string; icon?: React.ComponentType<{ className?: string }> }[];
   onValueChange: (item: TItem, value: TValue) => void;
+  filterable?: boolean;
 }
 
 export interface KanbanBoardProps<TItem> {
@@ -96,6 +105,10 @@ export interface KanbanBoardProps<TItem> {
 
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
+
+  searchValue?: string;
+  onSearchChange?: (value: string) => void;
+  searchPlaceholder?: string;
 
   onAdd?: (columnValue: unknown) => void;
   addButtonLabel?: string;
@@ -142,6 +155,23 @@ function getPropValue<TItem>(
 
 type FilterOption = { value: unknown; label: string };
 
+const animateSettlingLayoutChanges: AnimateLayoutChanges = () => true;
+
+const kanbanCollisionDetection: CollisionDetection = (args) => {
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    const cardCollisions = pointerCollisions.filter(
+      (collision) => !String(collision.id).startsWith('column-')
+    );
+    return cardCollisions.length > 0 ? cardCollisions : pointerCollisions;
+  }
+
+  return closestCorners(args);
+};
+
+/** Columns larger than this mount only the visible slice plus overscan. */
+export const KANBAN_COLUMN_VIRTUALIZE_AFTER = 32;
+
 // ---------------------------------------------------------------------------
 // Main Component
 // ---------------------------------------------------------------------------
@@ -156,9 +186,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     renderCard,
     statusColumn,
     rightPills,
-    groupByOptions = [],
     groupBy: controlledGroupBy,
-    onGroupByChange,
     getGroupLabel,
     sortByOptions = [],
     sortBy: controlledSortBy,
@@ -167,31 +195,66 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     filters: controlledFilters,
     onFiltersChange,
     hideEmptyColumns: controlledHideEmptyColumns,
-    onHideEmptyColumnsChange,
     visiblePillKeys: controlledVisiblePills,
     onVisiblePillKeysChange,
     quickFilters = [],
     onApplyQuickFilter,
+    searchValue,
+    onSearchChange,
+    searchPlaceholder = 'Search...',
     onAdd,
     addButtonLabel = 'Add',
     isLoading = false,
     emptyMessage = 'No items',
   } = props;
 
-  const [internalGroupBy, setInternalGroupBy] = React.useState<string | null>(null);
+  const [internalGroupBy] = React.useState<string | null>(null);
   const [internalSortBy, setInternalSortBy] = React.useState<string>('name');
   const [internalSortDirection, setInternalSortDirection] = React.useState<'asc' | 'desc'>('asc');
   const [internalFilters, setInternalFilters] = React.useState<Record<string, unknown[]>>({});
-  const [internalHideEmptyColumns, setInternalHideEmptyColumns] = React.useState(false);
+  const [internalHideEmptyColumns] = React.useState(false);
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
-    rightPills.filter((p) => p.visibleByDefault !== false).map((p) => p.key)
+    rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
   );
   const [activeDragItem, setActiveDragItem] = React.useState<TItem | null>(null);
-  const [groupByOpen, setGroupByOpen] = React.useState(false);
+  const [dragPreview, setDragPreview] = React.useState<{
+    itemId: string;
+    sourceColumnValue: unknown;
+    columnValue: unknown;
+    index: number;
+    dropped: boolean;
+  } | null>(null);
+  const [settlingColumn, setSettlingColumn] = React.useState<{ value: unknown } | null>(null);
+  const settlingTimeoutRef = React.useRef<number | null>(null);
+  const [columnSelectOpen, setColumnSelectOpen] = React.useState(false);
   const [sortOpen, setSortOpen] = React.useState(false);
+  const filterPersistenceKey = `kanban-board:filters:${typeof window === 'undefined' ? '' : window.location.pathname}`;
+  const [filterOpen, setFilterOpen] = useRemountPersistentState(filterPersistenceKey, false);
+  const [sortSearchValue, setSortSearchValue] = React.useState('');
+  const [localSearchValue, setLocalSearchValue] = React.useState(searchValue ?? '');
+  const sortSearchInputRef = React.useRef<HTMLInputElement>(null);
+
+  React.useEffect(() => {
+    setLocalSearchValue(searchValue ?? '');
+  }, [searchValue]);
+
+  React.useEffect(() => {
+    if (!onSearchChange) return;
+    const timeout = window.setTimeout(() => {
+      if (localSearchValue !== (searchValue ?? '')) {
+        onSearchChange(localSearchValue);
+      }
+    }, 300);
+
+    return () => window.clearTimeout(timeout);
+  }, [localSearchValue, onSearchChange, searchValue]);
+
+  React.useEffect(() => {
+    if (!sortOpen) return;
+    requestAnimationFrame(() => sortSearchInputRef.current?.focus());
+  }, [sortOpen]);
 
   const groupBy = controlledGroupBy ?? internalGroupBy;
-  const setGroupBy = onGroupByChange ?? setInternalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
   const setSortBy = onSortChange
     ? (k: string, d: 'asc' | 'desc') => onSortChange(k, d)
@@ -203,12 +266,18 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   const filters = controlledFilters ?? internalFilters;
   const setFilters = onFiltersChange ?? setInternalFilters;
   const hideEmptyColumns = controlledHideEmptyColumns ?? internalHideEmptyColumns;
-  const setHideEmptyColumns = onHideEmptyColumnsChange ?? setInternalHideEmptyColumns;
   const visiblePillKeys = controlledVisiblePills ?? internalVisiblePills;
   const setVisiblePillKeys = onVisiblePillKeysChange ?? setInternalVisiblePills;
+  const cardVisiblePillKeys = React.useMemo(() => {
+    const hiddenKeys = new Set([activeColumnKey, groupBy].filter(Boolean) as string[]);
+    return visiblePillKeys.filter((key) => !hiddenKeys.has(key));
+  }, [activeColumnKey, groupBy, visiblePillKeys]);
 
   const activeColumnDef = columnDefs.find(c => c.key === activeColumnKey) || columnDefs[0];
   const visibleSortByOptions = sortByOptions.filter((o) => o.key !== groupBy);
+  const filteredSortByOptions = visibleSortByOptions.filter((option) =>
+    option.label.toLowerCase().includes(sortSearchValue.trim().toLowerCase())
+  );
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -237,29 +306,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           if (!selected?.length) continue;
           
           const value = getPropValue(item, columnKey, rightPills, statusColumn, columnDefs);
-          const match = selected.some((v) => {
-            if (v === value) return true;
-
-            // Handle date range objects from quick filters
-            if (typeof v === 'object' && v !== null && 'type' in v && (v as { type?: string }).type === 'date_range') {
-              const dr = v as { start?: string; end?: string; operator?: 'gte' | 'lte' };
-              const itemDateStr = typeof value === 'string' ? value : null;
-              if (!itemDateStr) return false;
-              const itemTime = new Date(itemDateStr).getTime();
-              if (isNaN(itemTime)) return false;
-              
-              if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
-              if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
-              if (dr.start && dr.end) {
-                return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
-              }
-              if (dr.start) return itemTime >= new Date(dr.start).getTime();
-              if (dr.end) return itemTime <= new Date(dr.end).getTime();
-              return false;
-            }
-
-            return typeof v === 'object' && typeof value === 'object' && JSON.stringify(v) === JSON.stringify(value);
-          });
+          const match = selectedFilterMatchesValue(selected, value);
           if (!match) return false;
         }
         return true;
@@ -291,138 +338,261 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     return sorted;
   }, [filteredItems, sortBy, sortDirection, rightPills, statusColumn, columnDefs]);
 
+  React.useEffect(() => {
+    if (!dragPreview?.dropped) return;
+
+    const item = items.find((candidate) => getItemId(candidate) === dragPreview.itemId);
+    if (!item) {
+      setDragPreview(null);
+      return;
+    }
+    if (
+      String(activeColumnDef.getValue(item)) !== String(dragPreview.columnValue)
+    ) {
+      return;
+    }
+
+    const frame = requestAnimationFrame(() => {
+      setSettlingColumn({ value: dragPreview.columnValue });
+      setDragPreview((current) =>
+        current?.dropped && current.itemId === dragPreview.itemId ? null : current
+      );
+      if (settlingTimeoutRef.current !== null) {
+        window.clearTimeout(settlingTimeoutRef.current);
+      }
+      settlingTimeoutRef.current = window.setTimeout(() => {
+        setSettlingColumn(null);
+        settlingTimeoutRef.current = null;
+      }, 250);
+    });
+
+    return () => cancelAnimationFrame(frame);
+  }, [activeColumnDef, dragPreview, getItemId, items]);
+
+  React.useEffect(
+    () => () => {
+      if (settlingTimeoutRef.current !== null) {
+        window.clearTimeout(settlingTimeoutRef.current);
+      }
+    },
+    []
+  );
+
   const handleDragStart = (event: DragStartEvent) => {
+    if (settlingTimeoutRef.current !== null) {
+      window.clearTimeout(settlingTimeoutRef.current);
+      settlingTimeoutRef.current = null;
+    }
+    setSettlingColumn(null);
+    setDragPreview(null);
     const item = items.find((t) => getItemId(t) === event.active.id);
     if (item) {
       setActiveDragItem(item);
     }
   };
 
-  const handleDragEnd = (event: DragEndEvent) => {
-    setActiveDragItem(null);
-    const { active, over } = event;
-    if (!over) return;
-
-    const itemId = active.id as string;
-    let newColumnValue: unknown;
-
-    // Check if over a column or over another card
-    const overId = String(over.id);
+  const getColumnValueForOverId = (overId: string): unknown => {
     if (overId.startsWith('column-')) {
       const valueStr = overId.replace('column-', '');
-      // Find the option with this value
-      const option = activeColumnDef.options.find(opt => String(opt.value) === valueStr);
-      if (option) newColumnValue = option.value;
-    } else {
-      // Over another card, find that card's column value
-      const targetItem = items.find(t => getItemId(t) === overId);
-      if (targetItem) {
-        newColumnValue = activeColumnDef.getValue(targetItem);
+      return activeColumnDef.options.find((option) => String(option.value) === valueStr)?.value;
+    }
+
+    const targetItem = items.find((item) => getItemId(item) === overId);
+    return targetItem ? activeColumnDef.getValue(targetItem) : undefined;
+  };
+
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) {
+      setDragPreview(null);
+      return;
+    }
+
+    const itemId = String(active.id);
+    const item = items.find((candidate) => getItemId(candidate) === itemId);
+    if (!item) return;
+
+    const overId = String(over.id);
+    if (overId === itemId && dragPreview?.itemId === itemId) return;
+
+    const sourceColumnValue = activeColumnDef.getValue(item);
+    const targetColumnValue = getColumnValueForOverId(overId);
+
+    if (
+      targetColumnValue === undefined ||
+      String(sourceColumnValue) === String(targetColumnValue)
+    ) {
+      setDragPreview(null);
+      return;
+    }
+
+    const targetItems = sortedItems.filter(
+      (candidate) =>
+        getItemId(candidate) !== itemId &&
+        String(activeColumnDef.getValue(candidate)) === String(targetColumnValue)
+    );
+    let index = targetItems.length;
+
+    if (!overId.startsWith('column-') && overId !== itemId) {
+      const overIndex = targetItems.findIndex((candidate) => getItemId(candidate) === overId);
+      if (overIndex !== -1) {
+        const activatorEvent = event.activatorEvent;
+        const pointerY =
+          'clientY' in activatorEvent && typeof activatorEvent.clientY === 'number'
+            ? activatorEvent.clientY + event.delta.y
+            : null;
+        const translatedRect = active.rect.current.translated;
+        const isBelowOverItem =
+          pointerY !== null
+            ? pointerY > over.rect.top + over.rect.height / 2
+            : translatedRect !== null &&
+              translatedRect.top > over.rect.top + over.rect.height / 2;
+        index = overIndex + (isBelowOverItem ? 1 : 0);
       }
     }
 
-    if (newColumnValue === undefined) return;
+    setDragPreview((current) => {
+      if (
+        current?.itemId === itemId &&
+        String(current.columnValue) === String(targetColumnValue) &&
+        current.index === index &&
+        !current.dropped
+      ) {
+        return current;
+      }
+      return {
+        itemId,
+        sourceColumnValue,
+        columnValue: targetColumnValue,
+        index,
+        dropped: false,
+      };
+    });
+  };
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    setActiveDragItem(null);
+    const preview = dragPreview;
+    const { active, over } = event;
+    if (!over) {
+      setDragPreview(null);
+      return;
+    }
+
+    const itemId = active.id as string;
+    const overId = String(over.id);
+    const newColumnValue =
+      overId === itemId && preview
+        ? preview.columnValue
+        : getColumnValueForOverId(overId);
+
+    if (newColumnValue === undefined) {
+      setDragPreview(null);
+      return;
+    }
 
     const item = items.find((t) => getItemId(t) === itemId);
-    if (!item || activeColumnDef.getValue(item) === newColumnValue) return;
+    if (!item || activeColumnDef.getValue(item) === newColumnValue) {
+      setDragPreview(null);
+      return;
+    }
+
+    setDragPreview((current) =>
+      current &&
+      current.itemId === itemId &&
+      String(current.columnValue) === String(newColumnValue)
+        ? { ...current, dropped: true }
+        : current
+    );
 
     activeColumnDef.onValueChange(item, newColumnValue);
+  };
+
+  const handleDragCancel = (_event: DragCancelEvent) => {
+    setActiveDragItem(null);
+    setDragPreview(null);
   };
 
   return (
     <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
       {/* Toolbar */}
-      <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center justify-center gap-2 overflow-hidden p-2 sm:justify-start">
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
-              <LayoutGrid className="h-4 w-4 md:mr-2" />
-              <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View options</span>
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-[200px]">
-            <DropdownMenuLabel>Display</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={hideEmptyColumns}
-              onCheckedChange={setHideEmptyColumns}
-            >
-              Hide empty columns
-            </DropdownMenuCheckboxItem>
+      <div className="flex w-full min-w-0 flex-shrink-0 flex-wrap items-center gap-2 overflow-hidden border-b p-2">
+        {onSearchChange ? (
+          <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
+            <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <Search className="h-3.5 w-3.5" />
+            </span>
+            <Input
+              placeholder={searchPlaceholder}
+              value={localSearchValue}
+              onChange={(event) => setLocalSearchValue(event.target.value)}
+              className="h-full min-w-0 flex-1 border-0 bg-transparent px-2 shadow-none focus-visible:ring-0 focus-visible:ring-offset-0"
+            />
+            {localSearchValue ? (
+              <button
+                type="button"
+                onClick={() => setLocalSearchValue('')}
+                className="shrink-0 text-muted-foreground hover:text-foreground"
+                aria-label="Clear search"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        ) : null}
 
-            {columnDefs.length > 1 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Columns</DropdownMenuLabel>
-                <div className="px-2 pb-2">
-                  <SearchableSelectInline<KanbanColumnDef<TItem>>
-                    items={columnDefs}
-                    value={activeColumnDef}
-                    onValueChange={(col) => col && onActiveColumnKeyChange?.(col.key)}
-                    getItemId={(c) => c.key}
-                    getItemLabel={(c) => c.label}
-                    searchPlaceholder="Search columns..."
-                    emptyMessage="No columns found"
-                  />
-                </div>
-              </>
-            )}
+        <div className="ml-auto flex shrink-0 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
+                <LayoutGrid className="h-4 w-4 md:mr-2" />
+                <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-[200px] p-0">
+              <DropdownMenuLabel className="px-2 py-1.5">Show pills</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
+                items={rightPills.filter((p) => p.filterOnly !== true)}
+                value={rightPills.filter((p) => p.filterOnly !== true && visiblePillKeys.includes(p.key))}
+                onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
+                getItemId={(p) => p.key}
+                getItemLabel={(p) => p.label}
+                searchPlaceholder="Search pills..."
+                emptyMessage="No pills found"
+                multiSelect
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
 
-            {rightPills.length > 0 && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Show pills</DropdownMenuLabel>
-                <div className="px-2 pb-2">
-                  <SearchableSelectInline<EntityListPillColumn<TItem, unknown>>
-                    items={rightPills}
-                    value={rightPills.filter((p) => visiblePillKeys.includes(p.key))}
-                    onValueChange={(cols) => setVisiblePillKeys(cols.map((c) => c.key))}
-                    getItemId={(p) => p.key}
-                    getItemLabel={(p) => p.label}
-                    searchPlaceholder="Search columns..."
-                    emptyMessage="No columns found"
-                    multiSelect
-                  />
-                </div>
-              </>
-            )}
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        {groupByOptions.length > 0 && (
-          <div className="relative flex items-center">
-            <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
+          {columnDefs.length > 1 && (
+            <div className="relative flex items-center">
+              <DropdownMenu open={columnSelectOpen} onOpenChange={setColumnSelectOpen}>
               <DropdownMenuTrigger asChild>
                 <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
                   <Layers className="h-4 w-4 md:mr-2" />
-                  <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
-                    Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
-                  </span>
+                  <span className="hidden md:inline">Group by {activeColumnDef.label}</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
                 <DropdownMenuLabel className="px-2 py-1.5">Group by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <SearchableSelectInline<{ key: string; label: string }>
-                  items={groupByOptions}
-                  value={groupBy ? groupByOptions.find((o) => o.key === groupBy) ?? null : null}
-                  onValueChange={(opt) => {
-                    setGroupBy(opt?.key ?? null);
-                    setGroupByOpen(false);
+                <SearchableSelectInline<KanbanColumnDef<TItem>>
+                  items={columnDefs}
+                  value={activeColumnDef}
+                  onValueChange={(col) => {
+                    if (col) {
+                      onActiveColumnKeyChange?.(col.key);
+                      setColumnSelectOpen(false);
+                    }
                   }}
-                  getItemId={(o) => o.key}
-                  getItemLabel={(o) => o.label}
+                  getItemId={(c) => c.key}
+                  getItemLabel={(c) => c.label}
                   searchPlaceholder="Search..."
                   emptyMessage="No options found"
-                  allowClear
-                  clearLabel="None"
                 />
               </DropdownMenuContent>
             </DropdownMenu>
-            {groupBy ? (
-              <ToolbarActiveBadge onClear={() => setGroupBy(null)} ariaLabel="Clear group by">
-                1
-              </ToolbarActiveBadge>
-            ) : null}
           </div>
         )}
 
@@ -437,9 +607,18 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                   </span>
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[220px]">
+              <DropdownMenuContent align="end" className="w-[240px]">
                 <DropdownMenuLabel>Sort by</DropdownMenuLabel>
-                <DropdownMenuSeparator />
+                <div className="flex items-center border-b px-3">
+                  <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
+                  <Input
+                    ref={sortSearchInputRef}
+                    value={sortSearchValue}
+                    onChange={(event) => setSortSearchValue(event.target.value)}
+                    placeholder="Search sort options..."
+                    className="flex h-11 w-full rounded-md border-0 bg-transparent px-0 py-3 text-sm shadow-none outline-none placeholder:text-muted-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
+                  />
+                </div>
                 <DropdownMenuItem
                   onSelect={() => {
                     setSortBy('name', 'asc');
@@ -448,7 +627,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                 >
                   None (by name)
                 </DropdownMenuItem>
-                {visibleSortByOptions.map((option) => {
+                {filteredSortByOptions.map((option) => {
                   const selected = sortBy === option.key;
                   return (
                     <DropdownMenuItem
@@ -514,7 +693,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         )}
 
         <div className="relative flex items-center">
-          <DropdownMenu>
+          <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" size="sm" className="size-9 p-0 md:h-10 md:w-auto md:px-3">
                 <Filter className="h-4 w-4 md:mr-2" />
@@ -669,6 +848,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     }
 
                     columnDefs.forEach((col: KanbanColumnDef<TItem>) => {
+                      if (col.filterable === false) return;
                       if (renderedKeys.has(col.key)) return;
                       renderedKeys.add(col.key);
                       const options: FilterOption[] = col.options.map((o) => ({
@@ -724,7 +904,10 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                           const fromVal = dr?.start ?? '';
                           const toVal = dr?.end ?? '';
                           filterElements.push(
-                            <DropdownMenuSub key={p.key}>
+                            <DropdownMenuSub
+                              key={p.key}
+                              persistOpenOnRemountKey={`${filterPersistenceKey}:date:${p.key}`}
+                            >
                               <DropdownMenuSubTrigger>{p.label}</DropdownMenuSubTrigger>
                               <DropdownMenuSubContent className="w-[260px] p-0">
                                 <DateRangeFilter
@@ -845,6 +1028,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             ) : null}
           </div>
         </div>
+      </div>
 
       {/* Board */}
       <div className="flex-1 min-h-0 relative">
@@ -856,18 +1040,43 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
         
         <DndContext
           sensors={sensors}
-          collisionDetection={closestCorners}
+          collisionDetection={kanbanCollisionDetection}
           onDragStart={handleDragStart}
+          onDragOver={handleDragOver}
           onDragEnd={handleDragEnd}
+          onDragCancel={handleDragCancel}
         >
           <div className="h-full w-full overflow-x-auto overflow-y-hidden">
             <div className="flex h-full px-6 pb-0 pt-2 gap-4 min-w-max">
               {activeColumnDef.options.map((option: { value: unknown; label: string }) => {
-                const columnItems = sortedItems.filter(
+                const persistedColumnItems = sortedItems.filter(
                   (item) => String(activeColumnDef.getValue(item)) === String(option.value)
                 );
+                let columnItems = persistedColumnItems;
+
+                const previewItem = dragPreview
+                  ? items.find((item) => getItemId(item) === dragPreview.itemId)
+                  : null;
+
+                if (dragPreview && previewItem) {
+                  const isSourceColumn =
+                    String(dragPreview.sourceColumnValue) === String(option.value);
+                  const isTargetColumn =
+                    String(dragPreview.columnValue) === String(option.value);
+
+                  if (isSourceColumn) {
+                    columnItems = columnItems.filter(
+                      (item) => getItemId(item) !== dragPreview.itemId
+                    );
+                  } else if (isTargetColumn) {
+                    columnItems = columnItems.filter(
+                      (item) => getItemId(item) !== dragPreview.itemId
+                    );
+                    columnItems.splice(dragPreview.index, 0, previewItem);
+                  }
+                }
                 
-                if (hideEmptyColumns && columnItems.length === 0) return null;
+                if (hideEmptyColumns && persistedColumnItems.length === 0) return null;
 
                 return (
                   <KanbanColumn
@@ -882,20 +1091,24 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     groupBy={groupBy}
                     getGroupLabel={getGroupLabel}
                     statusColumn={statusColumn}
-                    rightPills={rightPills.filter(p => visiblePillKeys.includes(p.key))}
+                    rightPills={rightPills.filter(p => cardVisiblePillKeys.includes(p.key))}
                     columnDefs={columnDefs}
-                    visiblePillKeys={visiblePillKeys}
+                    visiblePillKeys={cardVisiblePillKeys}
                     emptyMessage={emptyMessage}
+                    animateLayoutChanges={
+                      settlingColumn !== null &&
+                      String(settlingColumn.value) === String(option.value)
+                    }
                   />
                 );
               })}
             </div>
           </div>
 
-          <DragOverlay>
+          <DragOverlay dropAnimation={null}>
             {activeDragItem ? (
               <div className="opacity-50 rotate-3 scale-105 pointer-events-none">
-                {renderCard(activeDragItem, visiblePillKeys)}
+                {renderCard(activeDragItem, cardVisiblePillKeys)}
               </div>
             ) : null}
           </DragOverlay>
@@ -924,6 +1137,7 @@ interface KanbanColumnProps<TItem> {
   columnDefs: KanbanColumnDef<TItem, unknown>[];
   visiblePillKeys: string[];
   emptyMessage: string;
+  animateLayoutChanges: boolean;
 }
 
 function KanbanColumn<TItem>({
@@ -941,8 +1155,21 @@ function KanbanColumn<TItem>({
   columnDefs,
   visiblePillKeys,
   emptyMessage,
+  animateLayoutChanges,
 }: KanbanColumnProps<TItem>) {
   const { setNodeRef, isOver } = useDroppable({ id });
+  const viewportRef = React.useRef<HTMLDivElement | null>(null);
+  const [viewportHeight, setViewportHeight] = React.useState(0);
+
+  React.useLayoutEffect(() => {
+    const element = viewportRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return undefined;
+    const update = () => setViewportHeight(element.clientHeight);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const grouped = React.useMemo(() => {
     if (!groupBy) {
@@ -963,6 +1190,42 @@ function KanbanColumn<TItem>({
     }));
   }, [items, groupBy, rightPills, statusColumn, columnDefs, getGroupLabel]);
 
+  const ungroupedItems = grouped.length === 1 && grouped[0].key === null ? grouped[0].items : null;
+  const virtualize =
+    ungroupedItems != null
+    && viewportHeight > 0
+    && ungroupedItems.length > KANBAN_COLUMN_VIRTUALIZE_AFTER;
+  const windowedItems =
+    ungroupedItems != null
+    && viewportHeight === 0
+    && ungroupedItems.length > KANBAN_COLUMN_VIRTUALIZE_AFTER
+      ? ungroupedItems.slice(0, KANBAN_COLUMN_VIRTUALIZE_AFTER)
+      : ungroupedItems;
+
+  const virtualizer = useVirtualizer({
+    count: virtualize && ungroupedItems ? ungroupedItems.length : 0,
+    getScrollElement: () => viewportRef.current,
+    estimateSize: () => 108,
+    overscan: 8,
+    getItemKey: (index) => (ungroupedItems ? getItemId(ungroupedItems[index]) : index),
+  });
+
+  const renderedUngroupedItems = virtualize && ungroupedItems
+    ? virtualizer.getVirtualItems().map((row) => ({
+        item: ungroupedItems[row.index],
+        start: row.start,
+        key: row.key,
+        measureRef: virtualizer.measureElement,
+        index: row.index,
+      }))
+    : (windowedItems ?? []).map((item, index) => ({
+        item,
+        start: null as number | null,
+        key: getItemId(item),
+        measureRef: undefined as ((node: Element | null) => void) | undefined,
+        index,
+      }));
+
   return (
     <div
       ref={setNodeRef}
@@ -979,42 +1242,79 @@ function KanbanColumn<TItem>({
           </span>
         </div>
         {onAdd && (
-          <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onAdd} title={addButtonLabel}>
+          <Button type="button" variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={onAdd} title={addButtonLabel}>
             <Plus className="h-4 w-4" />
           </Button>
         )}
       </div>
 
-      <ScrollArea className="flex-1">
-        <div className="p-2 pt-0 space-y-4">
-          {grouped.map((group: { key: string | null; label: string | null; items: TItem[] }) => (
-            <div key={group.key ?? 'all'} className="space-y-2">
-              {group.label && (
-                <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
-                  {group.label}
+      <ScrollArea className="flex-1" viewportRef={viewportRef}>
+        {ungroupedItems ? (
+          <SortableContext items={ungroupedItems.map(getItemId)} strategy={verticalListSortingStrategy}>
+            <div
+              className="p-2 pt-0"
+              style={virtualize ? { height: virtualizer.getTotalSize(), position: 'relative' } : undefined}
+            >
+              {renderedUngroupedItems.map((row) => (
+                <div
+                  key={String(row.key)}
+                  data-index={row.index}
+                  ref={row.measureRef}
+                  className={virtualize ? 'absolute left-0 right-0 px-0 pb-2' : 'pb-2'}
+                  style={
+                    virtualize && row.start != null
+                      ? { transform: `translateY(${row.start}px)` }
+                      : undefined
+                  }
+                >
+                  <SortableCard
+                    item={row.item}
+                    getItemId={getItemId}
+                    renderCard={renderCard}
+                    visiblePillKeys={visiblePillKeys}
+                    animateLayoutChanges={animateLayoutChanges}
+                  />
+                </div>
+              ))}
+              {items.length === 0 && (
+                <div className="py-8 text-center text-xs text-muted-foreground">
+                  {emptyMessage}
                 </div>
               )}
-              <SortableContext items={group.items.map(getItemId)} strategy={verticalListSortingStrategy}>
-                <div className="space-y-2">
-                  {group.items.map((item: TItem) => (
-                    <SortableCard
-                      key={getItemId(item)}
-                      item={item}
-                      getItemId={getItemId}
-                      renderCard={renderCard}
-                      visiblePillKeys={visiblePillKeys}
-                    />
-                  ))}
-                </div>
-              </SortableContext>
             </div>
-          ))}
-          {items.length === 0 && (
-            <div className="py-8 text-center text-xs text-muted-foreground">
-              {emptyMessage}
-            </div>
-          )}
-        </div>
+          </SortableContext>
+        ) : (
+          <div className="p-2 pt-0 space-y-4">
+            {grouped.map((group: { key: string | null; label: string | null; items: TItem[] }) => (
+              <div key={group.key ?? 'all'} className="space-y-2">
+                {group.label && (
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider px-1">
+                    {group.label}
+                  </div>
+                )}
+                <SortableContext items={group.items.map(getItemId)} strategy={verticalListSortingStrategy}>
+                  <div className="space-y-2">
+                    {group.items.map((item: TItem) => (
+                      <SortableCard
+                        key={getItemId(item)}
+                        item={item}
+                        getItemId={getItemId}
+                        renderCard={renderCard}
+                        visiblePillKeys={visiblePillKeys}
+                        animateLayoutChanges={animateLayoutChanges}
+                      />
+                    ))}
+                  </div>
+                </SortableContext>
+              </div>
+            ))}
+            {items.length === 0 && (
+              <div className="py-8 text-center text-xs text-muted-foreground">
+                {emptyMessage}
+              </div>
+            )}
+          </div>
+        )}
       </ScrollArea>
     </div>
   );
@@ -1029,9 +1329,16 @@ interface SortableCardProps<TItem> {
   getItemId: (item: TItem) => string;
   renderCard: (item: TItem, visiblePillKeys: string[]) => React.ReactNode;
   visiblePillKeys: string[];
+  animateLayoutChanges: boolean;
 }
 
-function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: SortableCardProps<TItem>) {
+function SortableCard<TItem>({
+  item,
+  getItemId,
+  renderCard,
+  visiblePillKeys,
+  animateLayoutChanges,
+}: SortableCardProps<TItem>) {
   const id = getItemId(item);
   const {
     attributes,
@@ -1040,7 +1347,12 @@ function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: S
     transform,
     transition,
     isDragging,
-  } = useSortable({ id });
+  } = useSortable({
+    id,
+    animateLayoutChanges: animateLayoutChanges
+      ? animateSettlingLayoutChanges
+      : undefined,
+  });
 
   const style = {
     transform: CSS.Translate.toString(transform),
@@ -1052,7 +1364,7 @@ function SortableCard<TItem>({ item, getItemId, renderCard, visiblePillKeys }: S
       ref={setNodeRef}
       style={style}
       className={cn(
-        'group relative rounded-[var(--radius)] transition-shadow hover:shadow-md',
+        'group relative rounded-[var(--radius)] transition-colors hover:bg-muted/40',
         isDragging && 'opacity-30'
       )}
       {...attributes}

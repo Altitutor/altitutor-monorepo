@@ -1,3 +1,4 @@
+import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
@@ -24,7 +25,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .select('id')
     .eq('id', params.id)
     .maybeSingle();
-  if (accessError) return NextResponse.json({ error: accessError.message }, { status: 500 });
+  if (accessError) return captureApiErrorResponse(accessError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: accessError.message }, { status: 500 }));
   if (!accessibleCard) return NextResponse.json({ error: 'flashcard_review_card_not_accessible' }, { status: 404 });
 
   const adminClient = getServerSupabaseAdmin();
@@ -34,7 +35,7 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .eq('student_id', studentId)
     .eq('review_card_id', params.id)
     .maybeSingle();
-  if (stateError) return NextResponse.json({ error: stateError.message }, { status: 500 });
+  if (stateError) return captureApiErrorResponse(stateError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: stateError.message }, { status: 500 }));
 
   const now = new Date();
   const result = scheduler.next(toFsrsCard(existingState as ReviewStateRow | null, now), now, ratingMap[rating]);
@@ -63,14 +64,14 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     .select('id')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: error.message }, { status: 500 }));
 
   const { data: updatedCard, error: cardError } = await userClient
     .from('vstudent_flashcard_review_cards')
     .select('*')
     .eq('id', params.id)
     .single();
-  if (cardError) return NextResponse.json({ error: cardError.message }, { status: 500 });
+  if (cardError) return captureApiErrorResponse(cardError, "/api/flashcards/review-cards/[id]/rate", NextResponse.json({ error: cardError.message }, { status: 500 }));
 
   const row = updatedCard as FlashcardReviewCard;
   return NextResponse.json({

@@ -13,3 +13,12 @@ export function useSessionDurationMinutes(
   });
 }
 
+export function useMinAdvanceBookingDays(options?: { enabled?: boolean }) {
+  return useQuery({
+    queryKey: ['booking-settings', 'min_advance_booking_days'],
+    queryFn: () => bookingSettingsApi.getMinAdvanceBookingDays(),
+    staleTime: 5 * 60 * 1000,
+    enabled: options?.enabled !== false,
+  });
+}
+

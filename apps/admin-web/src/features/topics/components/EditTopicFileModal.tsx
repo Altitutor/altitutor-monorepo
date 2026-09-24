@@ -1,13 +1,6 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { Checkbox } from '@altitutor/ui';
@@ -25,12 +18,7 @@ import {
   AlertDialogTitle,
 } from '@altitutor/ui';
 import { useSubjects } from '@/features/subjects/hooks/useSubjectsQuery';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 import { 
   useTopicsBySubject, 
   useUpdateTopicFile, 
@@ -75,11 +63,6 @@ export function EditTopicFileModal({
   const [selectedSolutionLinkId, setSelectedSolutionLinkId] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const { toast } = useToast();
   const { data: subjects = [] } = useSubjects();
@@ -175,24 +158,42 @@ export function EditTopicFileModal({
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent
-        className={cn(
-          'sm:max-w-[500px]',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex-1 min-w-0">
-              <DialogTitle>Edit File</DialogTitle>
+    <>
+      <AdminDialogShell
+        open={isOpen}
+        onClose={onClose}
+        title="Edit File"
+        contentClassName="sm:max-w-[500px]"
+        footer={
+          <div className="flex w-full items-center justify-between">
+            <Button
+              variant="destructive"
+              onClick={() => setShowDeleteDialog(true)}
+              disabled={isSubmitting || deleteTopicFile.isPending}
+            >
+              {deleteTopicFile.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Trash2 className="h-4 w-4 mr-2" />
+              )}
+              Delete
+            </Button>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={onClose} disabled={isSubmitting || deleteTopicFile.isPending}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting || !selectedTopicId || !selectedType || (isSolutions && !selectedSolutionLinkId) || deleteTopicFile.isPending}
+              >
+                {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                Save Changes
+              </Button>
             </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
           </div>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
+        }
+      >
+        <div className="space-y-4">
           {/* Current Subject (Read-only) */}
           <div className="space-y-2">
             <Label>Subject</Label>
@@ -274,34 +275,7 @@ export function EditTopicFileModal({
             </div>
           )}
         </div>
-
-        <DialogFooter className="flex justify-between">
-          <Button
-            variant="destructive"
-            onClick={() => setShowDeleteDialog(true)}
-            disabled={isSubmitting || deleteTopicFile.isPending}
-          >
-            {deleteTopicFile.isPending ? (
-              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-            ) : (
-              <Trash2 className="h-4 w-4 mr-2" />
-            )}
-            Delete
-          </Button>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={onClose} disabled={isSubmitting || deleteTopicFile.isPending}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={isSubmitting || !selectedTopicId || !selectedType || (isSolutions && !selectedSolutionLinkId) || deleteTopicFile.isPending}
-            >
-              {isSubmitting && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Save Changes
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
+      </AdminDialogShell>
       <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
         <AlertDialogContent>
           <AlertDialogHeader>
@@ -324,6 +298,6 @@ export function EditTopicFileModal({
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-    </Dialog>
+    </>
   );
 }

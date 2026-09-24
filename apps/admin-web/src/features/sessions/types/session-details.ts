@@ -59,7 +59,7 @@ export interface SessionDetailsTutorLogTopic {
  */
 export interface SessionDetailsTutorLog {
   id: string;
-  created_by?: string;
+  created_by?: string | null;
   created_by_staff?: {
     id?: string;
     first_name: string;

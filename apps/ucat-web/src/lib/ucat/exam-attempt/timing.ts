@@ -10,7 +10,8 @@ export function getCurrentSegmentTimeLimitSeconds(
 ): number | null {
   if (exam.sourceType === "set" && exam.setModeTiming) {
     const t = exam.setModeTiming;
-    if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0) return null;
+    if (t.setTimeLimitSeconds == null || t.setTimeLimitSeconds <= 0)
+      return null;
     if (state.phase === "instructions") return t.instructionsTimeLimitSeconds;
     if (state.phase === "question" || state.phase === "review") {
       return t.setTimeLimitSeconds;
@@ -28,6 +29,15 @@ export function getCurrentSegmentTimeLimitSeconds(
     }
     const seg = getCurrentMockSegment(exam, state);
     return seg?.timeLimitSeconds ?? null;
+  }
+
+  if (
+    (exam.sourceType === "questions" || exam.sourceType === "questionStem") &&
+    state.phase === "question" &&
+    exam.practiceSessionTimeLimitSeconds != null &&
+    exam.practiceSessionTimeLimitSeconds > 0
+  ) {
+    return exam.practiceSessionTimeLimitSeconds;
   }
 
   if (
@@ -132,4 +142,20 @@ export function computeSegmentEndsAt(
 ): string | null {
   if (timeLimitSeconds == null || timeLimitSeconds <= 0) return null;
   return new Date(now + timeLimitSeconds * 1000).toISOString();
+}
+
+export function resolveSyncedSegmentEndsAt(input: {
+  exam: QuestionEngineExam | null;
+  state: QuestionEngineState;
+  persistedEndsAt: string | null;
+  startSegment: boolean;
+  now?: number;
+}): string | null {
+  const authoritativeLimit = input.exam
+    ? getCurrentSegmentTimeLimitSeconds(input.exam, input.state)
+    : null;
+  if (input.startSegment) {
+    return computeSegmentEndsAt(authoritativeLimit, input.now);
+  }
+  return authoritativeLimit == null ? null : input.persistedEndsAt;
 }

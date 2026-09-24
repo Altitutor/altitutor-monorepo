@@ -1,38 +1,16 @@
 import type { Json } from '@altitutor/shared'
-import { plainTextToProseMirrorWithLineBreaks } from '@/features/ucat/shared/lib/rich-text'
 import type { GeneratedContentBlock } from '@/features/ucat/questions/lib/ai-generation/schema'
-
-function textNode(text: string): Json {
-  return { type: 'text', text }
-}
-
-function inlineTextNodes(text: string): Json[] {
-  const nodes: Json[] = []
-  const pattern = /\*\*([^*\n]+)\*\*/gu
-  let cursor = 0
-  for (const match of text.matchAll(pattern)) {
-    const index = match.index ?? 0
-    if (index > cursor) nodes.push(textNode(text.slice(cursor, index)))
-    if (match[1]) {
-      nodes.push({ type: 'text', text: match[1], marks: [{ type: 'bold' }] })
-    }
-    cursor = index + match[0].length
-  }
-  if (cursor < text.length) nodes.push(textNode(text.slice(cursor)))
-  return nodes.length > 0 ? nodes : [textNode(text)]
-}
+import {
+  aiInlineTextNodes,
+  aiTextToProseMirror,
+} from '@/features/ucat/shared/lib/rich-text'
 
 function paragraph(text: string): Json {
   const trimmed = text.trim()
   return {
     type: 'paragraph',
-    content: trimmed ? inlineTextNodes(trimmed) : [],
+    content: trimmed ? aiInlineTextNodes(trimmed) : [],
   }
-}
-
-function markedTextToProseMirror(text: string): Json {
-  const paragraphs = text.split(/\r?\n/u).map(paragraph)
-  return { type: 'doc', content: paragraphs.length > 0 ? paragraphs : [paragraph('')] }
 }
 
 function tableCell(text: string, header = false): Json {
@@ -69,27 +47,19 @@ function listNode(block: Extract<GeneratedContentBlock, { type: 'list' }>): Json
   }
 }
 
-function numberArray(value: unknown): number[] {
-  if (!Array.isArray(value)) return []
-  return value.map((item) => (typeof item === 'number' && Number.isFinite(item) ? item : Number(item))).filter(Number.isFinite)
-}
-
-function stringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map((item) => String(item ?? '')).filter((item) => item.trim().length > 0)
-}
-
 function svgDataUri(svg: string): string {
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }
 
-function chartPalette(spec: Record<string, unknown>): string[] {
-  const style = spec.style && typeof spec.style === 'object' ? spec.style as Record<string, unknown> : {}
-  const name = String(style.palette ?? '')
-  if (name === 'teal_amber') return ['#0f766e', '#d97706', '#7c3aed', '#dc2626']
-  if (name === 'indigo_rose') return ['#4f46e5', '#e11d48', '#059669', '#ca8a04']
-  if (name === 'slate_green') return ['#475569', '#16a34a', '#2563eb', '#c2410c']
-  return ['#2563eb', '#dc2626', '#16a34a', '#ca8a04']
+function imageNode(block: Extract<GeneratedContentBlock, { type: 'image' }>): Json {
+  return {
+    type: 'image',
+    attrs: {
+      src: block.src,
+      alt: block.altText ?? '',
+      fileId: block.fileId ?? null,
+    },
+  }
 }
 
 function chartTitleLines(title: string | null | undefined, maxChars = 62): string[] {
@@ -117,176 +87,6 @@ function renderSvgTitle(title: string | null | undefined, x: number, y: number, 
   ).join('')
 }
 
-type ChartSeries = { name: string; values: number[]; points?: Array<{ x: number; y: number; label?: string }> }
-
-function chartSeries(spec: Record<string, unknown>): ChartSeries[] {
-  if (!Array.isArray(spec.series)) return []
-  return spec.series.map((raw, index) => {
-    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-    const points = Array.isArray(record.points)
-      ? record.points.map((point) => {
-          const pointRecord = point && typeof point === 'object' ? point as Record<string, unknown> : {}
-          return {
-            x: Number(pointRecord.x ?? 0),
-            y: Number(pointRecord.y ?? 0),
-            label: typeof pointRecord.label === 'string' ? pointRecord.label : undefined,
-          }
-        }).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-      : undefined
-    return {
-      name: String(record.name ?? `Series ${index + 1}`),
-      values: numberArray(record.values),
-      points,
-    }
-  }).filter((item) => item.values.length > 0 || (item.points?.length ?? 0) > 0)
-}
-
-function renderChartLegend(series: Array<{ name: string }>, palette: string[], y = 74): string {
-  return series.map((item, index) => {
-    const x = 42 + (index % 3) * 210
-    const rowY = y + Math.floor(index / 3) * 24
-    return `<rect x="${x}" y="${rowY - 12}" width="14" height="14" fill="${palette[index % palette.length]}"/><text x="${x + 20}" y="${rowY}" font-size="15" font-family="Arial, sans-serif">${escapeXml(item.name)}</text>`
-  }).join('')
-}
-
-function renderBarChart(
-  spec: Record<string, unknown>,
-  title: string | null | undefined,
-  mode: 'grouped' | 'stacked' = 'grouped'
-): string {
-  const labels = stringArray(spec.labels)
-  const values = numberArray(spec.values)
-  const series = chartSeries(spec)
-  const width = 720
-  const height = 460
-  const chartBottom = 360
-  const chartTop = 120
-  const palette = chartPalette(spec)
-  const stackTotals = labels.map((_, labelIndex) =>
-    series.reduce((sum, item) => sum + Math.max(0, item.values[labelIndex] ?? 0), 0)
-  )
-  const allValues = mode === 'stacked' && series.length > 0
-    ? stackTotals
-    : series.length > 0 ? series.flatMap((item) => item.values) : values
-  const max = Math.max(...allValues, 1)
-  const groupWidth = labels.length > 0 ? 500 / labels.length : 40
-  const bars = labels.map((label, labelIndex) => {
-    const entries = series.length > 0
-      ? series.map((item, seriesIndex) => ({ value: item.values[labelIndex] ?? 0, color: palette[seriesIndex % palette.length] }))
-      : [{ value: values[labelIndex] ?? 0, color: palette[0] }]
-    const barWidth = Math.max(8, mode === 'stacked' ? groupWidth * 0.46 : (groupWidth - 12) / entries.length)
-    let stackedOffset = 0
-    const rendered = entries.map((entry, entryIndex) => {
-      const barHeight = Math.max(1, (Math.max(0, entry.value) / max) * (chartBottom - chartTop - 16))
-      const x = 110 + labelIndex * groupWidth + (mode === 'stacked' ? (groupWidth - barWidth) / 2 : entryIndex * barWidth)
-      const y = chartBottom - stackedOffset - barHeight
-      if (mode === 'stacked') stackedOffset += barHeight
-      const valueLabel = mode === 'stacked'
-        ? ''
-        : `<text x="${x + barWidth / 2}" y="${y - 8}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif">${entry.value}</text>`
-      return `<rect x="${x}" y="${y}" width="${Math.max(8, barWidth - 3)}" height="${barHeight}" fill="${entry.color}" stroke="#fff" stroke-width="1"/>${valueLabel}`
-    }).join('')
-    const totalLabel = mode === 'stacked' && entries.length > 1
-      ? `<text x="${110 + labelIndex * groupWidth + groupWidth / 2}" y="${chartBottom - stackedOffset - 8}" text-anchor="middle" font-size="14" font-family="Arial, sans-serif">${entries.reduce((sum, entry) => sum + entry.value, 0)}</text>`
-      : ''
-    const labelX = 110 + labelIndex * groupWidth + groupWidth / 2
-    const rotate = labels.length > 6 || label.length > 12
-    const labelNode = rotate
-      ? `<text x="${labelX}" y="386" font-size="13" text-anchor="end" font-family="Arial, sans-serif" transform="rotate(-35 ${labelX} 386)">${escapeXml(label)}</text>`
-      : `<text x="${labelX}" y="392" font-size="15" text-anchor="middle" font-family="Arial, sans-serif">${escapeXml(label)}</text>`
-    return `<g>${rendered}${totalLabel}${labelNode}</g>`
-  }).join('')
-  const legend = renderChartLegend(series, palette)
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="white"/>${renderSvgTitle(title ?? (mode === 'stacked' ? 'Stacked bar chart' : 'Bar chart'), 40, 34)}${legend}<line x1="90" y1="${chartBottom}" x2="640" y2="${chartBottom}" stroke="#111" stroke-width="2"/><line x1="90" y1="${chartTop}" x2="90" y2="${chartBottom}" stroke="#111" stroke-width="2"/>${bars}</svg>`
-}
-
-function renderLineChart(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const labels = stringArray(spec.labels)
-  const values = numberArray(spec.values)
-  const series = chartSeries(spec)
-  const width = 720
-  const height = 420
-  const palette = chartPalette(spec)
-  const lineSeries = series.length > 0 ? series : [{ name: String(spec.name ?? 'Value'), values }]
-  const allValues = lineSeries.flatMap((item) => item.values)
-  const max = Math.max(...allValues, 1)
-  const min = Math.min(...allValues, 0)
-  const span = Math.max(1, max - min)
-  const renderSeries = lineSeries.map((item, seriesIndex) => {
-    const points = item.values.map((value, index) => {
-      const x = 100 + (labels.length <= 1 ? 0 : (index / (labels.length - 1)) * 520)
-      const y = 340 - ((value - min) / span) * 220
-      return { x, y, value, label: labels[index] ?? String(index + 1) }
-    })
-    const polyline = points.map((point) => `${point.x},${point.y}`).join(' ')
-    const dots = points
-      .map(
-        (point) =>
-          `<circle cx="${point.x}" cy="${point.y}" r="4" fill="${palette[seriesIndex % palette.length]}"/><text x="${point.x - 10}" y="${point.y - 12}" font-size="13" font-family="Arial, sans-serif">${point.value}</text>`
-      )
-      .join('')
-    return `<polyline points="${polyline}" fill="none" stroke="${palette[seriesIndex % palette.length]}" stroke-width="4"/>${dots}`
-  }).join('')
-  const xLabels = labels.map((label, index) => {
-    const x = 100 + (labels.length <= 1 ? 0 : (index / (labels.length - 1)) * 520)
-    return `<text x="${x - 12}" y="374" font-size="14" font-family="Arial, sans-serif">${escapeXml(label)}</text>`
-  }).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="white"/>${renderSvgTitle(title ?? 'Line chart', 40, 34)}${renderChartLegend(lineSeries, palette)}<line x1="80" y1="340" x2="660" y2="340" stroke="#111" stroke-width="2"/><line x1="80" y1="95" x2="80" y2="340" stroke="#111" stroke-width="2"/>${renderSeries}${xLabels}</svg>`
-}
-
-function renderScatterPlot(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const rawPoints = Array.isArray(spec.points) ? spec.points : []
-  const points = rawPoints.map((raw) => {
-    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-    return { x: Number(record.x ?? 0), y: Number(record.y ?? 0), label: String(record.label ?? '') }
-  }).filter((point) => Number.isFinite(point.x) && Number.isFinite(point.y))
-  const width = 720
-  const height = 420
-  const xs = points.map((point) => point.x)
-  const ys = points.map((point) => point.y)
-  const minX = Math.min(...xs, 0)
-  const maxX = Math.max(...xs, 1)
-  const minY = Math.min(...ys, 0)
-  const maxY = Math.max(...ys, 1)
-  const sx = (value: number) => 100 + ((value - minX) / Math.max(1, maxX - minX)) * 520
-  const sy = (value: number) => 340 - ((value - minY) / Math.max(1, maxY - minY)) * 220
-  const dots = points.map((point) => {
-    const x = sx(point.x)
-    const y = sy(point.y)
-    const label = point.label ? `<text x="${x + 8}" y="${y - 8}" font-size="12" font-family="Arial, sans-serif">${escapeXml(point.label)}</text>` : ''
-    return `<circle cx="${x}" cy="${y}" r="5" fill="#111"/>${label}`
-  }).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><rect width="100%" height="100%" fill="white"/>${renderSvgTitle(title ?? 'Scatter plot', 40, 34)}<line x1="80" y1="340" x2="660" y2="340" stroke="#111" stroke-width="2"/><line x1="80" y1="95" x2="80" y2="340" stroke="#111" stroke-width="2"/><text x="80" y="370" font-size="13" font-family="Arial, sans-serif">${minX}</text><text x="635" y="370" font-size="13" font-family="Arial, sans-serif">${maxX}</text><text x="42" y="344" font-size="13" font-family="Arial, sans-serif">${minY}</text><text x="42" y="102" font-size="13" font-family="Arial, sans-serif">${maxY}</text>${dots}</svg>`
-}
-
-function renderPieChart(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const labels = stringArray(spec.labels)
-  const values = numberArray(spec.values)
-  const palette = chartPalette(spec)
-  const total = values.reduce((sum, value) => sum + Math.max(0, value), 0) || 1
-  let cursor = -Math.PI / 2
-  const cx = 260
-  const cy = 245
-  const radius = 120
-  const slices = values.map((value, index) => {
-    const angle = (Math.max(0, value) / total) * Math.PI * 2
-    const start = cursor
-    const end = cursor + angle
-    cursor = end
-    const x1 = cx + Math.cos(start) * radius
-    const y1 = cy + Math.sin(start) * radius
-    const x2 = cx + Math.cos(end) * radius
-    const y2 = cy + Math.sin(end) * radius
-    const large = angle > Math.PI ? 1 : 0
-    return `<path d="M ${cx} ${cy} L ${x1} ${y1} A ${radius} ${radius} 0 ${large} 1 ${x2} ${y2} Z" fill="${palette[index % palette.length]}" stroke="#fff" stroke-width="2"/>`
-  }).join('')
-  const legend = labels.map((label, index) => {
-    const y = 132 + index * 26
-    return `<rect x="460" y="${y - 13}" width="14" height="14" fill="${palette[index % palette.length]}"/><text x="482" y="${y}" font-size="15" font-family="Arial, sans-serif">${escapeXml(label)} (${values[index] ?? 0})</text>`
-  }).join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="460" viewBox="0 0 720 460"><rect width="100%" height="100%" fill="white"/>${renderSvgTitle(title ?? 'Pie chart', 40, 34)}${slices}${legend}</svg>`
-}
-
 function renderSetShape(shape: Record<string, unknown>, index: number): string {
   const type = setShapeType(shape)
   const stroke = String(shape.stroke ?? '#111')
@@ -295,102 +95,308 @@ function renderSetShape(shape: Record<string, unknown>, index: number): string {
   if (type === 'circle') {
     return `<circle cx="${Number(shape.cx ?? 180 + index * 90)}" cy="${Number(shape.cy ?? 190)}" r="${Number(shape.r ?? 95)}" ${common}/>`
   }
-  if (type === 'rect') {
+  if (type === 'rect' && finiteNumber(shape.rotation, 0) === 0) {
     return `<rect x="${Number(shape.x ?? 120 + index * 70)}" y="${Number(shape.y ?? 115)}" width="${Number(shape.width ?? 170)}" height="${Number(shape.height ?? 160)}" ${common}/>`
   }
-  if (type === 'triangle') {
-    const x = Number(shape.x ?? 160 + index * 80)
-    const y = Number(shape.y ?? 80)
-    const w = Number(shape.width ?? 210)
-    const h = Number(shape.height ?? 220)
-    return `<polygon points="${x + w / 2},${y} ${x},${y + h} ${x + w},${y + h}" ${common}/>`
-  }
-  if (type === 'diamond') {
-    const cx = Number(shape.cx ?? 260 + index * 60)
-    const cy = Number(shape.cy ?? 190)
-    const w = Number(shape.width ?? 170)
-    const h = Number(shape.height ?? 170)
-    return `<polygon points="${cx},${cy - h / 2} ${cx + w / 2},${cy} ${cx},${cy + h / 2} ${cx - w / 2},${cy}" ${common}/>`
-  }
-  if (type === 'pentagon' || type === 'hexagon') {
-    const cx = Number(shape.cx ?? 250 + index * 70)
-    const cy = Number(shape.cy ?? 190)
-    const radius = Number(shape.r ?? shape.radius ?? 95)
-    const sides = type === 'pentagon' ? 5 : 6
-    const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
-    const points = Array.from({ length: sides }, (_, pointIndex) => {
-      const angle = rotation + (pointIndex / sides) * Math.PI * 2
-      return `${cx + Math.cos(angle) * radius},${cy + Math.sin(angle) * radius}`
-    }).join(' ')
-    return `<polygon points="${points}" ${common}/>`
+  if (type !== 'ellipse') {
+    const points = polygonPoints(shape, index).map((point) => `${point.x},${point.y}`).join(' ')
+    if (points) return `<polygon points="${points}" ${common}/>`
   }
   return `<ellipse cx="${Number(shape.cx ?? 210 + index * 95)}" cy="${Number(shape.cy ?? 190)}" rx="${Number(shape.rx ?? 120)}" ry="${Number(shape.ry ?? 82)}" ${common}/>`
 }
 
 type SvgPoint = { x: number; y: number }
 type SvgLabelBox = SvgPoint & { width: number; height: number; fontSize: number; text: string }
+type SvgBounds = { minX: number; minY: number; maxX: number; maxY: number }
 
 function finiteNumber(value: unknown, fallback: number): number {
   const number = typeof value === 'number' ? value : Number(value)
   return Number.isFinite(number) ? number : fallback
 }
 
+function canonicalSetShapeGeometry(shape: Record<string, unknown>): Record<string, unknown> {
+  const type = setShapeType(shape)
+  const hasBox = [shape.x, shape.y, shape.width, shape.height].every((value) => Number.isFinite(Number(value)))
+  if (!hasBox || (type !== 'ellipse' && type !== 'circle')) return shape
+
+  const x = finiteNumber(shape.x, 0)
+  const y = finiteNumber(shape.y, 0)
+  const width = finiteNumber(shape.width, 0)
+  const height = finiteNumber(shape.height, 0)
+  if (width <= 0 || height <= 0) return shape
+
+  if (type === 'ellipse') {
+    return {
+      ...shape,
+      cx: shape.cx ?? x + width / 2,
+      cy: shape.cy ?? y + height / 2,
+      rx: shape.rx ?? width / 2,
+      ry: shape.ry ?? height / 2,
+    }
+  }
+
+  return {
+    ...shape,
+    cx: shape.cx ?? x + width / 2,
+    cy: shape.cy ?? y + height / 2,
+    r: shape.r ?? Math.min(width, height) / 2,
+  }
+}
+
 function setShapeType(shape: Record<string, unknown>): string {
-  const type = String(shape.shape ?? shape.type ?? 'ellipse')
-  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(type)
+  const rawType = String(shape.shape ?? shape.type ?? 'ellipse')
+  const type = rawType === 'rectangle' || rawType === 'rounded_rectangle'
+    ? 'rect'
+    : rawType === 'oval'
+      ? 'ellipse'
+      : rawType === 'plus' || rawType === 'cruciform'
+        ? 'cross'
+        : rawType
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon', 'cross', 'polygon'].includes(type)
     ? type
     : 'ellipse'
 }
 
+function setShapeId(shape: Record<string, unknown>, index: number): string {
+  return String(shape.id ?? shape.label ?? `set${index + 1}`).trim()
+}
+
+function rotatePolygonPoints(points: SvgPoint[], degrees: number): SvgPoint[] {
+  if (points.length === 0 || !Number.isFinite(degrees) || degrees === 0) return points
+  const bounds = boundsFromPoints(points)
+  if (!bounds) return points
+  const center = { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+  const radians = degrees * Math.PI / 180
+  return points.map((point) => {
+    const dx = point.x - center.x
+    const dy = point.y - center.y
+    return {
+      x: center.x + dx * Math.cos(radians) - dy * Math.sin(radians),
+      y: center.y + dx * Math.sin(radians) + dy * Math.cos(radians),
+    }
+  })
+}
+
+function explicitPolygonPoints(value: unknown): SvgPoint[] {
+  if (!Array.isArray(value)) return []
+  return value.flatMap((raw) => {
+    if (Array.isArray(raw) && raw.length >= 2) {
+      const x = Number(raw[0])
+      const y = Number(raw[1])
+      return Number.isFinite(x) && Number.isFinite(y) ? [{ x, y }] : []
+    }
+    if (raw && typeof raw === 'object') {
+      const point = raw as Record<string, unknown>
+      const x = Number(point.x)
+      const y = Number(point.y)
+      return Number.isFinite(x) && Number.isFinite(y) ? [{ x, y }] : []
+    }
+    return []
+  })
+}
+
 function polygonPoints(shape: Record<string, unknown>, index: number): SvgPoint[] {
   const type = setShapeType(shape)
-  if (type === 'triangle') {
+  let points = explicitPolygonPoints(shape.points)
+  if (points.length === 0 && type === 'triangle') {
     const x = finiteNumber(shape.x, 160 + index * 80)
     const y = finiteNumber(shape.y, 80)
     const width = finiteNumber(shape.width, 210)
     const height = finiteNumber(shape.height, 220)
-    return [
+    points = [
       { x: x + width / 2, y },
       { x, y: y + height },
       { x: x + width, y: y + height },
     ]
   }
-  if (type === 'rect') {
+  if (points.length === 0 && type === 'rect') {
     const x = finiteNumber(shape.x, 120 + index * 70)
     const y = finiteNumber(shape.y, 115)
     const width = finiteNumber(shape.width, 170)
     const height = finiteNumber(shape.height, 160)
-    return [
+    points = [
       { x, y },
       { x: x + width, y },
       { x: x + width, y: y + height },
       { x, y: y + height },
     ]
   }
-  if (type === 'diamond') {
+  if (points.length === 0 && type === 'diamond') {
     const cx = finiteNumber(shape.cx, 260 + index * 60)
     const cy = finiteNumber(shape.cy, 190)
     const width = finiteNumber(shape.width, 170)
     const height = finiteNumber(shape.height, 170)
-    return [
+    points = [
       { x: cx, y: cy - height / 2 },
       { x: cx + width / 2, y: cy },
       { x: cx, y: cy + height / 2 },
       { x: cx - width / 2, y: cy },
     ]
   }
-  if (type === 'pentagon' || type === 'hexagon') {
+  if (points.length === 0 && (type === 'pentagon' || type === 'hexagon')) {
     const cx = finiteNumber(shape.cx, 250 + index * 70)
     const cy = finiteNumber(shape.cy, 190)
     const radius = finiteNumber(shape.r ?? shape.radius, 95)
     const sides = type === 'pentagon' ? 5 : 6
-    const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
-    return Array.from({ length: sides }, (_, pointIndex) => {
-      const angle = rotation + (pointIndex / sides) * Math.PI * 2
+    const baseRotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
+    points = Array.from({ length: sides }, (_, pointIndex) => {
+      const angle = baseRotation + (pointIndex / sides) * Math.PI * 2
       return { x: cx + Math.cos(angle) * radius, y: cy + Math.sin(angle) * radius }
     })
   }
-  return []
+  if (points.length === 0 && type === 'cross') {
+    const x = finiteNumber(shape.x, 140 + index * 55)
+    const y = finiteNumber(shape.y, 90 + index * 25)
+    const width = finiteNumber(shape.width, 220)
+    const height = finiteNumber(shape.height, 220)
+    const armWidth = Math.min(width, Math.max(20, finiteNumber(shape.armWidth, width * 0.36)))
+    const armHeight = Math.min(height, Math.max(20, finiteNumber(shape.armHeight, height * 0.36)))
+    const leftArm = x + (width - armWidth) / 2
+    const rightArm = leftArm + armWidth
+    const topArm = y + (height - armHeight) / 2
+    const bottomArm = topArm + armHeight
+    points = [
+      { x: leftArm, y }, { x: rightArm, y }, { x: rightArm, y: topArm },
+      { x: x + width, y: topArm }, { x: x + width, y: bottomArm }, { x: rightArm, y: bottomArm },
+      { x: rightArm, y: y + height }, { x: leftArm, y: y + height }, { x: leftArm, y: bottomArm },
+      { x, y: bottomArm }, { x, y: topArm }, { x: leftArm, y: topArm },
+    ]
+  }
+  return rotatePolygonPoints(points, finiteNumber(shape.rotation, 0))
+}
+
+function boundsFromPoints(points: SvgPoint[]): SvgBounds | null {
+  if (points.length === 0) return null
+  return points.reduce<SvgBounds>((bounds, point) => ({
+    minX: Math.min(bounds.minX, point.x),
+    minY: Math.min(bounds.minY, point.y),
+    maxX: Math.max(bounds.maxX, point.x),
+    maxY: Math.max(bounds.maxY, point.y),
+  }), {
+    minX: points[0]?.x ?? 0,
+    minY: points[0]?.y ?? 0,
+    maxX: points[0]?.x ?? 0,
+    maxY: points[0]?.y ?? 0,
+  })
+}
+
+function mergeBounds(bounds: Array<SvgBounds | null>): SvgBounds | null {
+  const present = bounds.filter((item): item is SvgBounds => Boolean(item))
+  if (present.length === 0) return null
+  return present.reduce<SvgBounds>((merged, item) => ({
+    minX: Math.min(merged.minX, item.minX),
+    minY: Math.min(merged.minY, item.minY),
+    maxX: Math.max(merged.maxX, item.maxX),
+    maxY: Math.max(merged.maxY, item.maxY),
+  }), present[0] as SvgBounds)
+}
+
+function setShapeBounds(shape: Record<string, unknown>, index: number): SvgBounds | null {
+  const type = setShapeType(shape)
+  if (type === 'circle') {
+    const cx = finiteNumber(shape.cx, 180 + index * 90)
+    const cy = finiteNumber(shape.cy, 190)
+    const radius = finiteNumber(shape.r, 95)
+    return { minX: cx - radius, minY: cy - radius, maxX: cx + radius, maxY: cy + radius }
+  }
+  if (type === 'ellipse') {
+    const cx = finiteNumber(shape.cx, 210 + index * 95)
+    const cy = finiteNumber(shape.cy, 190)
+    const rx = finiteNumber(shape.rx, 120)
+    const ry = finiteNumber(shape.ry, 82)
+    return { minX: cx - rx, minY: cy - ry, maxX: cx + rx, maxY: cy + ry }
+  }
+  return boundsFromPoints(polygonPoints(shape, index))
+}
+
+function transformNumericRecordCoordinates(record: Record<string, unknown>, transform: (point: SvgPoint) => SvgPoint): Record<string, unknown> {
+  const next = { ...record }
+  if (Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))) {
+    const point = transform({ x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) })
+    next.x = point.x
+    next.y = point.y
+  }
+  return next
+}
+
+function transformSetShape(shape: Record<string, unknown>, index: number, scale: number, transform: (point: SvgPoint) => SvgPoint): Record<string, unknown> {
+  const next = { ...shape }
+  const type = setShapeType(shape)
+  const suppliedPoints = explicitPolygonPoints(shape.points)
+  if (type === 'circle' || type === 'ellipse' || type === 'diamond' || type === 'pentagon' || type === 'hexagon') {
+    const defaultCenter = type === 'ellipse'
+      ? { x: 210 + index * 95, y: 190 }
+      : type === 'diamond'
+        ? { x: 260 + index * 60, y: 190 }
+        : { x: 250 + index * 70, y: 190 }
+    const point = transform({
+      x: finiteNumber(shape.cx, defaultCenter.x),
+      y: finiteNumber(shape.cy, defaultCenter.y),
+    })
+    next.cx = point.x
+    next.cy = point.y
+  }
+  if (type === 'rect' || type === 'triangle' || type === 'cross') {
+    const point = transform({
+      x: finiteNumber(shape.x, type === 'rect' ? 120 + index * 70 : type === 'cross' ? 140 + index * 55 : 160 + index * 80),
+      y: finiteNumber(shape.y, type === 'rect' ? 115 : type === 'cross' ? 90 + index * 25 : 80),
+    })
+    next.x = point.x
+    next.y = point.y
+  }
+  if (suppliedPoints.length >= 3) {
+    next.points = suppliedPoints.map((point) => transform(point))
+  }
+  if (Number.isFinite(Number(shape.labelX)) && Number.isFinite(Number(shape.labelY))) {
+    const point = transform({ x: finiteNumber(shape.labelX, 320), y: finiteNumber(shape.labelY, 80) })
+    next.labelX = point.x
+    next.labelY = point.y
+  }
+  if (type === 'circle') next.r = finiteNumber(shape.r, 95) * scale
+  if (type === 'ellipse') {
+    next.rx = finiteNumber(shape.rx, 120) * scale
+    next.ry = finiteNumber(shape.ry, 82) * scale
+  }
+  if (type === 'rect' || type === 'triangle' || type === 'diamond' || type === 'cross') {
+    next.width = finiteNumber(shape.width, type === 'triangle' || type === 'cross' ? 220 : 170) * scale
+    next.height = finiteNumber(shape.height, type === 'triangle' || type === 'cross' ? 220 : type === 'rect' ? 160 : 170) * scale
+    if (type === 'cross') {
+      if (shape.armWidth != null) next.armWidth = finiteNumber(shape.armWidth, 80) * scale
+      if (shape.armHeight != null) next.armHeight = finiteNumber(shape.armHeight, 80) * scale
+    }
+  }
+  if (type === 'pentagon' || type === 'hexagon') next.r = finiteNumber(shape.r ?? shape.radius, 95) * scale
+  return next
+}
+
+function normalizeSetDiagramGeometry(
+  shapes: Array<Record<string, unknown>>,
+  values: unknown[]
+): { shapes: Array<Record<string, unknown>>; values: unknown[] } {
+  const bounds = mergeBounds(shapes.map((shape, index) => setShapeBounds(shape, index)))
+  if (!bounds) return { shapes, values }
+
+  const target = { minX: 42, minY: 58, maxX: 520, maxY: 352 }
+  const sourceWidth = Math.max(1, bounds.maxX - bounds.minX)
+  const sourceHeight = Math.max(1, bounds.maxY - bounds.minY)
+  const targetWidth = target.maxX - target.minX
+  const targetHeight = target.maxY - target.minY
+  const scale = Math.min(targetWidth / sourceWidth, targetHeight / sourceHeight)
+  const scaledWidth = sourceWidth * scale
+  const scaledHeight = sourceHeight * scale
+  const offsetX = target.minX + (targetWidth - scaledWidth) / 2
+  const offsetY = target.minY + (targetHeight - scaledHeight) / 2
+  const transform = (point: SvgPoint): SvgPoint => ({
+    x: offsetX + (point.x - bounds.minX) * scale,
+    y: offsetY + (point.y - bounds.minY) * scale,
+  })
+
+  return {
+    shapes: shapes.map((shape, index) => transformSetShape(shape, index, scale, transform)),
+    values: values.map((raw) => raw && typeof raw === 'object'
+      ? transformNumericRecordCoordinates(raw as Record<string, unknown>, transform)
+      : raw),
+  }
 }
 
 function distanceToSegment(point: SvgPoint, a: SvgPoint, b: SvgPoint): number {
@@ -402,12 +408,16 @@ function distanceToSegment(point: SvgPoint, a: SvgPoint, b: SvgPoint): number {
 }
 
 function pointNearSetBoundary(point: SvgPoint, shape: Record<string, unknown>, index: number, tolerance = 34): boolean {
+  return distanceToSetBoundary(point, shape, index) < tolerance
+}
+
+function distanceToSetBoundary(point: SvgPoint, shape: Record<string, unknown>, index: number): number {
   const type = setShapeType(shape)
   if (type === 'circle') {
     const cx = finiteNumber(shape.cx, 180 + index * 90)
     const cy = finiteNumber(shape.cy, 190)
     const radius = finiteNumber(shape.r, 95)
-    return Math.abs(Math.hypot(point.x - cx, point.y - cy) - radius) < tolerance
+    return Math.abs(Math.hypot(point.x - cx, point.y - cy) - radius)
   }
   if (type === 'ellipse') {
     const cx = finiteNumber(shape.cx, 210 + index * 95)
@@ -415,10 +425,246 @@ function pointNearSetBoundary(point: SvgPoint, shape: Record<string, unknown>, i
     const rx = finiteNumber(shape.rx, 120)
     const ry = finiteNumber(shape.ry, 82)
     const value = Math.sqrt(((point.x - cx) / rx) ** 2 + ((point.y - cy) / ry) ** 2)
-    return Math.abs(value - 1) < tolerance / Math.max(rx, ry)
+    return Math.abs(value - 1) * Math.min(rx, ry)
+  }
+  if (type === 'rect') {
+    const x = finiteNumber(shape.x, 120 + index * 70)
+    const y = finiteNumber(shape.y, 115)
+    const width = finiteNumber(shape.width, 170)
+    const height = finiteNumber(shape.height, 160)
+    if (point.x < x || point.x > x + width || point.y < y || point.y > y + height) {
+      const dx = Math.max(x - point.x, 0, point.x - (x + width))
+      const dy = Math.max(y - point.y, 0, point.y - (y + height))
+      return Math.hypot(dx, dy)
+    }
+    return Math.min(point.x - x, x + width - point.x, point.y - y, y + height - point.y)
   }
   const points = polygonPoints(shape, index)
-  return points.some((a, pointIndex) => distanceToSegment(point, a, points[(pointIndex + 1) % points.length] ?? a) < tolerance)
+  if (points.length === 0) return Number.POSITIVE_INFINITY
+  return Math.min(...points.map((a, pointIndex) => distanceToSegment(point, a, points[(pointIndex + 1) % points.length] ?? a)))
+}
+
+function pointInsideSetShape(point: SvgPoint, shape: Record<string, unknown>, index: number): boolean {
+  const type = setShapeType(shape)
+  if (type === 'circle') {
+    const cx = finiteNumber(shape.cx, 180 + index * 90)
+    const cy = finiteNumber(shape.cy, 190)
+    const radius = finiteNumber(shape.r, 95)
+    return Math.hypot(point.x - cx, point.y - cy) <= radius
+  }
+  if (type === 'ellipse') {
+    const cx = finiteNumber(shape.cx, 210 + index * 95)
+    const cy = finiteNumber(shape.cy, 190)
+    const rx = finiteNumber(shape.rx, 120)
+    const ry = finiteNumber(shape.ry, 82)
+    return ((point.x - cx) / rx) ** 2 + ((point.y - cy) / ry) ** 2 <= 1
+  }
+  if (type === 'rect') {
+    const x = finiteNumber(shape.x, 120 + index * 70)
+    const y = finiteNumber(shape.y, 115)
+    const width = finiteNumber(shape.width, 170)
+    const height = finiteNumber(shape.height, 160)
+    return point.x >= x && point.x <= x + width && point.y >= y && point.y <= y + height
+  }
+  const points = polygonPoints(shape, index)
+  let inside = false
+  for (let pointIndex = 0, previousIndex = points.length - 1; pointIndex < points.length; previousIndex = pointIndex, pointIndex += 1) {
+    const a = points[pointIndex]
+    const b = points[previousIndex]
+    if (!a || !b) continue
+    const intersects = ((a.y > point.y) !== (b.y > point.y)) &&
+      point.x < ((b.x - a.x) * (point.y - a.y)) / ((b.y - a.y) || 1) + a.x
+    if (intersects) inside = !inside
+  }
+  return inside
+}
+
+function stringSet(value: unknown): Set<string> {
+  if (!Array.isArray(value)) return new Set()
+  return new Set(value.map((item) => String(item ?? '').trim().toLowerCase()).filter(Boolean))
+}
+
+function parseSetRegionExpression(value: unknown): { include: Set<string>; exclude: Set<string> } {
+  const include = new Set<string>()
+  const exclude = new Set<string>()
+  const text = String(value ?? '').trim()
+  if (!text) return { include, exclude }
+  const normalized = text
+    .replace(/\bonly\b/giu, '')
+    .replace(/\boutside\b/giu, 'outside')
+    .replace(/[∩&+,]/gu, ' ')
+    .replace(/\s+/gu, ' ')
+    .trim()
+  if (normalized.toLowerCase() === 'outside') return { include, exclude: new Set(['*']) }
+  const tokens = normalized.split(/\s+/u)
+  let negateNext = false
+  for (const rawToken of tokens) {
+    const token = rawToken.trim()
+    if (!token) continue
+    if (/^(?:not|no|without|exclude|¬|!|not_)$/iu.test(token)) {
+      negateNext = true
+      continue
+    }
+    const cleaned = token.replace(/^(?:not_|!|¬)/iu, '').trim().toLowerCase()
+    if (!cleaned) continue
+    if (negateNext || cleaned !== token.toLowerCase()) exclude.add(cleaned)
+    else include.add(cleaned)
+    negateNext = false
+  }
+  return { include, exclude }
+}
+
+function regionExpressionForLabel(record: Record<string, unknown>): { include: Set<string>; exclude: Set<string> } {
+  const include = stringSet(record.include)
+  const exclude = stringSet(record.exclude)
+  const parsed = parseSetRegionExpression(record.region)
+  parsed.include.forEach((item) => include.add(item))
+  parsed.exclude.forEach((item) => exclude.add(item))
+  return { include, exclude }
+}
+
+function hasSetRegionExpression(record: Record<string, unknown>): boolean {
+  const { include, exclude } = regionExpressionForLabel(record)
+  return include.size > 0 || exclude.size > 0
+}
+
+function regionMatchesPoint(
+  point: SvgPoint,
+  shapeRecords: Array<{ raw: Record<string, unknown>; index: number; id: string }>,
+  include: Set<string>,
+  exclude: Set<string>
+): boolean {
+  for (const shape of shapeRecords) {
+    const id = shape.id.toLowerCase()
+    const label = String(shape.raw.label ?? '').trim().toLowerCase()
+    const inside = pointInsideSetShape(point, shape.raw, shape.index)
+    const included = include.has(id) || (label && include.has(label))
+    const excluded = exclude.has(id) || (label && exclude.has(label)) || exclude.has('*')
+    if (included && !inside) return false
+    if (excluded && inside) return false
+  }
+  return true
+}
+
+function placementForSetRegion(
+  record: Record<string, unknown>,
+  shapes: unknown[],
+  fallback: SvgPoint,
+  placed: SvgLabelBox[] = [],
+  text = '',
+  requestedFontSize = 18
+): { point: SvgPoint; fontSize: number } | null {
+  const fontSizes = Array.from(
+    new Set([requestedFontSize, 17, 16, 15, 14, 13, 12, 11, 10].filter((size) => Number.isFinite(size) && size >= 10))
+  ).sort((a, b) => b - a)
+  for (const fontSize of fontSizes) {
+    const point = pointForSetRegionAtFontSize(record, shapes, fallback, placed, text, fontSize, 4, true) ??
+      pointForSetRegionAtFontSize(record, shapes, fallback, placed, text, fontSize, 0, true) ??
+      pointForSetRegionAtFontSize(record, shapes, fallback, placed, text, fontSize, 0, false)
+    if (point) return { point, fontSize }
+  }
+  return null
+}
+
+function pointForSetRegionAtFontSize(
+  record: Record<string, unknown>,
+  shapes: unknown[],
+  fallback: SvgPoint,
+  placed: SvgLabelBox[] = [],
+  text = '',
+  fontSize = 18,
+  minAnchorClearance = 4,
+  avoidPlacedLabels = true
+): SvgPoint | null {
+  const { include, exclude } = regionExpressionForLabel(record)
+  if (include.size === 0 && exclude.size === 0) return fallback
+  const shapeRecords = setShapeRecords(shapes).map((shape) => ({
+    ...shape,
+    id: setShapeId(shape.raw, shape.index),
+  }))
+  if (shapeRecords.length === 0) return fallback
+  applyOnlyRegionExclusions(record, shapeRecords, include, exclude)
+  let best: { point: SvgPoint; score: number } | null = null
+  const candidates: SvgPoint[] = [
+    fallback,
+    ...candidatePoints(fallback),
+  ]
+  for (let y = 58; y <= 384; y += 4) {
+    for (let x = 36; x <= 684; x += 4) {
+      candidates.push({ x, y })
+    }
+  }
+  for (const point of candidates) {
+    const box = labelBox(point, text, fontSize)
+    const outOfBounds = box.x - box.width / 2 < 24 || box.x + box.width / 2 > 696 || box.y - box.fontSize < 44 || box.y > 412
+    if (outOfBounds) continue
+    if (!labelAnchorFitsSetRegion(point, shapeRecords, include, exclude, minAnchorClearance)) continue
+    if (avoidPlacedLabels && placed.some((item) => labelsOverlap(box, item))) continue
+    const boundaryClearance = Math.min(...shapeRecords.map((shape) => distanceToSetBoundary(point, shape.raw, shape.index)))
+    const includedCenters = shapeRecords
+      .filter((shape) => include.has(shape.id.toLowerCase()) || include.has(String(shape.raw.label ?? '').trim().toLowerCase()))
+      .map((shape) => shapeCenter(shape.raw, shape.index))
+    const centerScore = includedCenters.length > 0
+      ? includedCenters.reduce((sum, center) => sum + Math.hypot(point.x - center.x, point.y - center.y), 0) / includedCenters.length
+      : Math.hypot(point.x - 360, point.y - 215)
+    const labelClearance = placed.length > 0
+      ? Math.min(...placed.map((item) => Math.hypot(point.x - item.x, point.y - item.y)))
+      : 120
+    const score = centerScore + Math.hypot(point.x - fallback.x, point.y - fallback.y) * 0.06 - labelClearance * 0.2 - boundaryClearance * 2
+    if (!best || score < best.score) best = { point, score }
+  }
+  return best?.point ?? null
+}
+
+function applyOnlyRegionExclusions(
+  record: Record<string, unknown>,
+  shapeRecords: Array<{ raw: Record<string, unknown>; index: number; id: string }>,
+  include: Set<string>,
+  exclude: Set<string>
+) {
+  const regionText = String(record.region ?? '').toLowerCase()
+  if (!/\bonly\b/u.test(regionText) || include.size === 0) return
+  for (const shape of shapeRecords) {
+    const id = shape.id.toLowerCase()
+    const label = String(shape.raw.label ?? '').trim().toLowerCase()
+    const included = include.has(id) || (label && include.has(label))
+    if (included) continue
+    exclude.add(id)
+    if (label) exclude.add(label)
+  }
+}
+
+function labelAnchorFitsSetRegion(
+  point: SvgPoint,
+  shapeRecords: Array<{ raw: Record<string, unknown>; index: number; id: string }>,
+  include: Set<string>,
+  exclude: Set<string>,
+  minClearance: number
+): boolean {
+  if (!regionMatchesPoint(point, shapeRecords, include, exclude)) return false
+  return shapeRecords.every((shape) => distanceToSetBoundary(point, shape.raw, shape.index) >= minClearance)
+}
+
+function semanticSetLabelPlacement(
+  record: Record<string, unknown>,
+  shapes: unknown[],
+  fallbackPoint: SvgPoint,
+  placed: SvgLabelBox[],
+  text: string,
+  fontSize: number
+): { point: SvgPoint; fontSize: number } | null {
+  const shapeRecords = setShapeRecords(shapes).map((shape) => ({
+    ...shape,
+    id: setShapeId(shape.raw, shape.index),
+  }))
+  const { include, exclude } = regionExpressionForLabel(record)
+  applyOnlyRegionExclusions(record, shapeRecords, include, exclude)
+  const fallbackBox = labelBox(fallbackPoint, text, fontSize)
+  const fallbackIsClear =
+    labelAnchorFitsSetRegion(fallbackPoint, shapeRecords, include, exclude, 10) &&
+    !placed.some((item) => labelsOverlap(fallbackBox, item))
+  if (fallbackIsClear) return { point: fallbackPoint, fontSize }
+  return placementForSetRegion(record, shapes, fallbackPoint, placed, text, fontSize)
 }
 
 function labelWidth(text: string, fontSize: number): number {
@@ -443,6 +689,10 @@ function labelBoundaryProbePoints(box: SvgLabelBox): SvgPoint[] {
     { x: box.x, y: box.y - box.fontSize / 2 },
     { x: box.x - halfWidth, y: box.y - box.fontSize / 2 },
     { x: box.x + halfWidth, y: box.y - box.fontSize / 2 },
+    { x: box.x - halfWidth, y: top },
+    { x: box.x + halfWidth, y: top },
+    { x: box.x - halfWidth, y: bottom },
+    { x: box.x + halfWidth, y: bottom },
     { x: box.x, y: top },
     { x: box.x, y: bottom },
   ]
@@ -456,14 +706,40 @@ function setShapeRecords(shapes: unknown[]): Array<{ raw: Record<string, unknown
 
 function candidatePoints(origin: SvgPoint): SvgPoint[] {
   const candidates: SvgPoint[] = [origin]
-  const radii = [20, 32, 46, 62, 80, 104]
-  const angles = [-Math.PI / 2, 0, Math.PI / 2, Math.PI, -Math.PI / 4, Math.PI / 4, 3 * Math.PI / 4, -3 * Math.PI / 4]
+  const radii = [18, 30, 44, 62, 84, 112, 145]
+  const angles = Array.from({ length: 16 }, (_, index) => (index / 16) * Math.PI * 2)
   for (const radius of radii) {
     for (const angle of angles) {
       candidates.push({ x: origin.x + Math.cos(angle) * radius, y: origin.y + Math.sin(angle) * radius })
     }
   }
   return candidates
+}
+
+function shapeCenter(shape: Record<string, unknown>, index: number): SvgPoint {
+  const type = setShapeType(shape)
+  if (type === 'circle') return { x: finiteNumber(shape.cx, 180 + index * 90), y: finiteNumber(shape.cy, 190) }
+  if (type === 'ellipse') return { x: finiteNumber(shape.cx, 210 + index * 95), y: finiteNumber(shape.cy, 190) }
+  if (type === 'rect') {
+    return {
+      x: finiteNumber(shape.x, 120 + index * 70) + finiteNumber(shape.width, 170) / 2,
+      y: finiteNumber(shape.y, 115) + finiteNumber(shape.height, 160) / 2,
+    }
+  }
+  if (type === 'triangle') {
+    return {
+      x: finiteNumber(shape.x, 160 + index * 80) + finiteNumber(shape.width, 210) / 2,
+      y: finiteNumber(shape.y, 80) + finiteNumber(shape.height, 220) * 0.62,
+    }
+  }
+  if (type === 'cross' || type === 'polygon') {
+    const bounds = boundsFromPoints(polygonPoints(shape, index))
+    if (bounds) return { x: (bounds.minX + bounds.maxX) / 2, y: (bounds.minY + bounds.maxY) / 2 }
+  }
+  return {
+    x: finiteNumber(shape.cx, 250 + index * 70),
+    y: finiteNumber(shape.cy, 190),
+  }
 }
 
 function placeSetLabel(
@@ -533,6 +809,10 @@ function defaultShapeLabelOrigin(shape: Record<string, unknown>, index: number):
     const height = finiteNumber(shape.height, 170)
     return { x: cx, y: cy - height / 2 - 12 }
   }
+  if (type === 'cross' || type === 'polygon') {
+    const bounds = boundsFromPoints(polygonPoints(shape, index))
+    if (bounds) return { x: (bounds.minX + bounds.maxX) / 2, y: bounds.minY - 12 }
+  }
   const cx = finiteNumber(shape.cx, 250 + index * 70)
   const cy = finiteNumber(shape.cy, 190)
   const radius = finiteNumber(shape.r ?? shape.radius, 95)
@@ -548,7 +828,7 @@ function renderSetNameLabels(
     const text = String(record.label ?? '')
     const fontSize = 15
     const box = placeSetLabel(defaultShapeLabelOrigin(record, index), text, fontSize, shapes, placed, {
-      avoidBoundaries: false,
+      avoidBoundaries: true,
       maxX: 560,
       minY: 34,
     })
@@ -566,6 +846,8 @@ function renderLegendSwatch(shape: Record<string, unknown>, index: number, x: nu
   if (type === 'rect') return `<rect x="${x + 3}" y="${y - 16}" width="24" height="20" ${common}/>`
   if (type === 'triangle') return `<polygon points="${x + 15},${y - 18} ${x + 2},${y + 5} ${x + 28},${y + 5}" ${common}/>`
   if (type === 'diamond') return `<polygon points="${x + 15},${y - 19} ${x + 30},${y - 5} ${x + 15},${y + 9} ${x},${y - 5}" ${common}/>`
+  if (type === 'cross') return `<path d="M${x + 10} ${y - 18}h10v8h8v10h-8v8h-10v-8h-8v-10h8z" ${common}/>`
+  if (type === 'polygon') return `<polygon points="${x + 3},${y + 4} ${x + 7},${y - 16} ${x + 25},${y - 19} ${x + 30},${y - 2} ${x + 18},${y + 9}" ${common}/>`
   const sides = type === 'pentagon' ? 5 : 6
   const rotation = type === 'pentagon' ? -Math.PI / 2 : Math.PI / 6
   const points = Array.from({ length: sides }, (_, pointIndex) => {
@@ -575,13 +857,36 @@ function renderLegendSwatch(shape: Record<string, unknown>, index: number, x: nu
   return `<polygon points="${points}" ${common}/>`
 }
 
+export function wrapSetLegendText(value: unknown, maxCharacters = 14): string[] {
+  const words = String(value ?? '').trim().split(/\s+/u).filter(Boolean)
+  if (words.length === 0) return ['']
+  const lines: string[] = []
+  let current = ''
+  for (const word of words) {
+    const next = current ? `${current} ${word}` : word
+    if (current && next.length > maxCharacters) {
+      lines.push(current)
+      current = word
+    } else {
+      current = next
+    }
+  }
+  if (current) lines.push(current)
+  return lines
+}
+
 function renderSetLegend(labelledShapes: Array<{ record: Record<string, unknown>; index: number }>): string {
-  return labelledShapes.map(({ record, index }, legendIndex) => {
-    const column = legendIndex % 2
-    const row = Math.floor(legendIndex / 2)
-    const x = 92 + column * 300
-    const y = 454 + row * 34
-    return `${renderLegendSwatch(record, index, x, y)}<text x="${x + 42}" y="${y}" font-size="16" font-family="Arial, sans-serif">${escapeXml(String(record.label))}</text>`
+  let nextY = 78
+  return labelledShapes.map(({ record, index }) => {
+    const x = 560
+    const y = nextY
+    const lines = wrapSetLegendText(record.label)
+    const firstLineY = y - ((lines.length - 1) * 9)
+    const text = lines.map((line, lineIndex) =>
+      `<tspan x="${x + 50}" y="${firstLineY + lineIndex * 18}">${escapeXml(line)}</tspan>`
+    ).join('')
+    nextY += Math.max(62, lines.length * 18 + 26)
+    return `${renderLegendSwatch(record, index, x, y)}<text font-size="15" font-family="Arial, sans-serif">${text}</text>`
   }).join('')
 }
 
@@ -589,14 +894,15 @@ function legendShapeType(value: string): string | null {
   const normalized = value.trim().toLowerCase()
   if (normalized === 'rectangle') return 'rect'
   if (normalized === 'oval') return 'ellipse'
-  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon'].includes(normalized)
+  if (normalized === 'plus' || normalized === 'cruciform') return 'cross'
+  return ['circle', 'ellipse', 'rect', 'triangle', 'diamond', 'pentagon', 'hexagon', 'cross', 'polygon'].includes(normalized)
     ? normalized
     : null
 }
 
 function parseRegionLegendText(value: unknown): { shape: string; label: string } | null {
   const text = String(value ?? '').trim()
-  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon)\s*=\s*(.+)$/iu)
+  const match = text.match(/^(circle|ellipse|oval|rect|rectangle|triangle|diamond|pentagon|hexagon|cross|plus|cruciform|polygon)\s*=\s*(.+)$/iu)
   if (!match?.[1] || !match[2]) return null
   const shape = legendShapeType(match[1])
   const label = match[2].trim()
@@ -612,7 +918,7 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
   values: unknown[]
 } {
   const normalizedShapes = shapes
-    .map((raw) => raw && typeof raw === 'object' ? { ...(raw as Record<string, unknown>) } : null)
+    .map((raw) => raw && typeof raw === 'object' ? canonicalSetShapeGeometry({ ...(raw as Record<string, unknown>) }) : null)
     .filter((shape): shape is Record<string, unknown> => Boolean(shape))
   const numericValues: unknown[] = []
   const legendEntries: Array<{ shape: string; label: string }> = []
@@ -634,10 +940,48 @@ function normalizeSetDiagramInputs(shapes: unknown[], values: unknown[]): {
     if (candidates.length === 1 && !candidates[0]?.label) candidates[0].label = entry.label
   }
 
-  return { shapes: normalizedShapes, values: numericValues }
+  return normalizeSetDiagramGeometry(normalizedShapes, numericValues)
 }
 
-function renderSetDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
+export function normalizeSetDiagramSpecForEditing(spec: Record<string, unknown>): Record<string, unknown> {
+  const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
+  const rawValues = Array.isArray(spec.regionLabels)
+    ? spec.regionLabels
+    : Array.isArray(spec.labels)
+      ? spec.labels
+      : Array.isArray(spec.regions)
+        ? spec.regions
+        : []
+  const { shapes, values } = normalizeSetDiagramInputs(rawShapes, rawValues)
+  const placedLabels: SvgLabelBox[] = []
+  const editableValues = values.map((raw) => {
+    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const text = String(record.text ?? record.value ?? '')
+    const fontSize = finiteNumber(record.fontSize, 18)
+    const fallback = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    const explicit = Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))
+    const placement = record.manualPosition === true && explicit
+      ? { point: fallback, fontSize }
+      : hasSetRegionExpression(record)
+        ? semanticSetLabelPlacement(record, shapes, fallback, placedLabels, text, fontSize)
+        : { point: fallback, fontSize }
+    const point = placement?.point ?? fallback
+    placedLabels.push(labelBox(point, text, placement?.fontSize ?? fontSize))
+    return {
+      ...record,
+      x: point.x,
+      y: point.y,
+      fontSize: placement?.fontSize ?? fontSize,
+    }
+  })
+  return {
+    ...spec,
+    shapes,
+    regionLabels: editableValues,
+  }
+}
+
+export function renderSetDiagramSvg(spec: Record<string, unknown>, title: string | null | undefined): string {
   const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
   const rawValues = Array.isArray(spec.regionLabels)
     ? spec.regionLabels
@@ -655,89 +999,54 @@ function renderSetDiagram(spec: Record<string, unknown>, title: string | null | 
   const hasDuplicateLegendShape = labelledShapes.some(({ record }) => (shapeTypeCounts.get(setShapeType(record)) ?? 0) > 1)
   const useLegend = labelledShapes.length > 0 && !hasDuplicateLegendShape
   const shapeNodes = shapes
-    .map((raw, index) => renderSetShape(raw, index))
+    .map((raw, index) => `<g data-visual-kind="shape" data-visual-index="${index}">${renderSetShape(raw, index)}</g>`)
     .join('')
   const placedLabels: SvgLabelBox[] = []
   const shapeLabelNodes = useLegend ? '' : renderSetNameLabels(labelledShapes, shapes, placedLabels)
   const legend = useLegend ? renderSetLegend(labelledShapes) : ''
-  const labelNodes = values.map((raw) => {
+  const labelNodes = values.map((raw, labelIndex) => {
     const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
     const text = String(record.text ?? record.value ?? '')
     const fontSize = Number(record.fontSize ?? 18)
-    const box = placeSetLabel(
-      { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) },
-      text,
-      fontSize,
-      shapes,
-      placedLabels,
-      { avoidBoundaries: /\d/u.test(text), maxX: useLegend ? 540 : 665, minY: 46 }
-    )
+    const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    const hasSemanticRegion = hasSetRegionExpression(record)
+    const hasExplicitPoint = Number.isFinite(Number(record.x)) && Number.isFinite(Number(record.y))
+    const manualPosition = record.manualPosition === true && hasExplicitPoint
+    const placement = manualPosition
+      ? { point: fallbackPoint, fontSize }
+      : hasSemanticRegion
+      ? semanticSetLabelPlacement(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+      : hasExplicitPoint
+      ? { point: fallbackPoint, fontSize }
+      : { point: fallbackPoint, fontSize }
+    if (!placement) {
+      throw new Error(`No safe label position found for set region "${String(record.region ?? text)}".`)
+    }
+    const box = hasSemanticRegion || hasExplicitPoint
+      ? labelBox(placement.point, text, placement.fontSize)
+      : placeSetLabel(
+          placement.point,
+          text,
+          placement.fontSize,
+          shapes,
+          placedLabels,
+          {
+            avoidBoundaries: /\d/u.test(text),
+            maxX: useLegend ? 540 : 665,
+            minY: 46,
+          }
+        )
     placedLabels.push(box)
-    const paddingX = 5
-    const width = Math.max(18, box.width + paddingX * 2)
-    const height = fontSize + 8
-    const rect = `<rect x="${box.x - width / 2}" y="${box.y - fontSize}" width="${width}" height="${height}" rx="3" fill="white" fill-opacity="0.9"/>`
-    const label = `<text x="${box.x}" y="${box.y}" font-size="${fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}">${escapeXml(text)}</text>`
-    return `${rect}${label}`
+    const numericHalo = /\d/u.test(text) ? ' paint-order="stroke" stroke="white" stroke-width="4" stroke-linejoin="round"' : ''
+    const label = `<text x="${box.x}" y="${box.y}" font-size="${placement.fontSize}" font-family="Arial, sans-serif" text-anchor="middle" font-weight="${record.bold ? 700 : 500}"${numericHalo}>${escapeXml(text)}</text>`
+    return `<g data-visual-kind="label" data-visual-index="${labelIndex}">${label}</g>`
   }).join('')
-  const height = useLegend ? 520 : 430
+  const height = 430
   return `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="${height}" viewBox="0 0 720 ${height}"><rect width="100%" height="100%" fill="white"/>${title ? renderSvgTitle(title, 40, 34) : ''}<g transform="translate(0 ${title ? 34 : 0})">${shapeNodes}${shapeLabelNodes}${labelNodes}</g>${legend}</svg>`
 }
 
 function renderVennDiagram(spec: Record<string, unknown>, title: string | null | undefined): string {
-  if (Array.isArray(spec.shapes)) return renderSetDiagram(spec, title)
-  const sets = Array.isArray(spec.sets) ? spec.sets : []
-  const regions = spec.regions && typeof spec.regions === 'object'
-    ? spec.regions as Record<string, unknown>
-    : null
-  if (sets.length === 3 && regions) {
-    const labels = sets.map((raw, index) => {
-      const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
-      return escapeXml(String(record.label ?? record.id ?? String.fromCharCode(65 + index)))
-    })
-    const region = (key: string) => escapeXml(String(regions[key] ?? ''))
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="420" viewBox="0 0 640 420"><rect width="100%" height="100%" fill="white"/><text x="32" y="34" font-size="20" font-family="Arial">${escapeXml(title ?? 'Venn diagram')}</text><circle cx="260" cy="180" r="120" fill="none" stroke="#111" stroke-width="2.5"/><circle cx="380" cy="180" r="120" fill="none" stroke="#111" stroke-width="2.5"/><circle cx="320" cy="275" r="120" fill="none" stroke="#111" stroke-width="2.5"/><line x1="500" y1="94" x2="530" y2="94" stroke="#111" stroke-width="2"/><text x="540" y="100" font-size="15" font-family="Arial">${labels[0]}</text><line x1="500" y1="124" x2="530" y2="124" stroke="#111" stroke-width="2"/><text x="540" y="130" font-size="15" font-family="Arial">${labels[1]}</text><line x1="500" y1="154" x2="530" y2="154" stroke="#111" stroke-width="2"/><text x="540" y="160" font-size="15" font-family="Arial">${labels[2]}</text><text x="205" y="165" font-size="18">${region('aOnly')}</text><text x="420" y="165" font-size="18">${region('bOnly')}</text><text x="310" y="340" font-size="18">${region('cOnly')}</text><text x="315" y="115" font-size="18">${region('abOnly')}</text><text x="250" y="255" font-size="18">${region('acOnly')}</text><text x="380" y="255" font-size="18">${region('bcOnly')}</text><text x="315" y="205" font-size="18">${region('abc')}</text><text x="550" y="365" font-size="16">${region('outside')}</text></svg>`
-  }
-  const leftLabel = String(spec.leftLabel ?? 'A')
-  const rightLabel = String(spec.rightLabel ?? 'B')
-  const intersectionLabel = String(spec.intersectionLabel ?? '')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="560" height="340" viewBox="0 0 560 340"><rect width="100%" height="100%" fill="white"/><text x="32" y="34" font-size="20">${escapeXml(title ?? 'Venn diagram')}</text><circle cx="230" cy="180" r="105" fill="none" stroke="#111" stroke-width="2.5"/><circle cx="330" cy="180" r="105" fill="none" stroke="#111" stroke-width="2.5"/><text x="160" y="180" font-size="18">${escapeXml(leftLabel)}</text><text x="375" y="180" font-size="18">${escapeXml(rightLabel)}</text><text x="265" y="180" font-size="18">${escapeXml(intersectionLabel)}</text></svg>`
-}
-
-function renderSchematicMap(spec: Record<string, unknown>, title: string | null | undefined): string {
-  const points = Array.isArray(spec.points) ? spec.points : []
-  const lines = Array.isArray(spec.lines) ? spec.lines : []
-  const pointMap = new Map<string, { x: number; y: number; label: string }>()
-  points.forEach((raw, index) => {
-    const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-    const id = String(record.id ?? index)
-    pointMap.set(id, {
-      x: Number(record.x ?? 80 + index * 90),
-      y: Number(record.y ?? 160),
-      label: String(record.label ?? id),
-    })
-  })
-  const svgLines = lines
-    .map((raw) => {
-      const record = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {}
-      const from = pointMap.get(String(record.from ?? ''))
-      const to = pointMap.get(String(record.to ?? ''))
-      if (!from || !to) return ''
-      const label = String(record.label ?? '')
-      const lx = (from.x + to.x) / 2
-      const ly = (from.y + to.y) / 2 - 8
-      return `<line x1="${from.x}" y1="${from.y}" x2="${to.x}" y2="${to.y}" stroke="#111" stroke-width="3"/><text x="${lx}" y="${ly}" font-size="13">${escapeXml(label)}</text>`
-    })
-    .join('')
-  const svgPoints = Array.from(pointMap.values())
-    .map((point) => {
-      const edgeLabel = point.x <= 100
-      const x = edgeLabel ? 20 : point.x + 10
-      const y = edgeLabel ? point.y + 52 : point.y - 10
-      return `<circle cx="${point.x}" cy="${point.y}" r="8" fill="#2563eb"/><text x="${x}" y="${y}" text-anchor="start" font-size="14">${escapeXml(point.label)}</text>`
-    })
-    .join('')
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="640" height="360" viewBox="0 0 640 360"><rect width="100%" height="100%" fill="white"/><text x="32" y="34" font-size="20">${escapeXml(title ?? 'Schematic map')}</text>${svgLines}${svgPoints}</svg>`
+  return renderSetDiagramSvg(spec, title)
 }
 
 function escapeXml(value: string): string {
@@ -749,31 +1058,136 @@ function escapeXml(value: string): string {
     .replace(/'/g, '&apos;')
 }
 
-function visualNode(block: Extract<GeneratedContentBlock, { type: 'visual' }>): Json {
+export function generatedVisualBlockToImageNode(block: Extract<GeneratedContentBlock, { type: 'visual' }>): Json {
   let svg: string
-  if (block.visualType === 'bar_chart' || block.visualType === 'histogram') {
-    svg = renderBarChart(block.spec, block.title)
-  } else if (block.visualType === 'stacked_bar_chart') {
-    svg = renderBarChart(block.spec, block.title, 'stacked')
-  } else if (block.visualType === 'line_chart') {
-    svg = renderLineChart(block.spec, block.title)
-  } else if (block.visualType === 'scatter_plot') {
-    svg = renderScatterPlot(block.spec, block.title)
-  } else if (block.visualType === 'pie_chart') {
-    svg = renderPieChart(block.spec, block.title)
-  } else if (block.visualType === 'venn_diagram' || block.visualType === 'set_diagram') {
-    svg = renderVennDiagram(block.spec, block.title)
+  if (block.visualType === 'vega_lite_chart') {
+    throw new Error('vega_lite_chart visuals must be rendered on the server.')
   } else {
-    svg = renderSchematicMap(block.spec, block.title)
+    svg = renderVennDiagram(block.spec, block.title)
   }
 
+  return generatedVisualImageNode(block, svgDataUri(svg))
+}
+
+export function generatedVisualImageNode(
+  block: Extract<GeneratedContentBlock, { type: 'visual' }>,
+  src: string,
+): Json {
   return {
     type: 'image',
     attrs: {
-      src: svgDataUri(svg),
-      alt: '',
+      src,
+      alt: block.altText,
+      visualType: block.visualType,
+      visualSpec: block.spec as unknown as Json,
+      visualTitle: block.title ?? null,
+      visualAltText: block.altText,
+      visualVersion: 1,
     },
   }
+}
+
+export async function generatedVisualBlockToImageNodeAsync(block: Extract<GeneratedContentBlock, { type: 'visual' }>): Promise<Json> {
+  return generatedVisualBlockToImageNode(block)
+}
+
+export function getGeneratedVisualSpecIssue(block: Extract<GeneratedContentBlock, { type: 'visual' }>): string | null {
+  const spec = block.spec
+  if (!spec || typeof spec !== 'object' || Array.isArray(spec)) return 'Visual spec must be an object.'
+
+  if (block.visualType === 'vega_lite_chart') {
+    if (!hasInlineVegaData(spec)) return 'vega_lite_chart needs inline data.values or datasets.'
+    if (hasExternalVegaReference(spec)) return 'vega_lite_chart must not reference external urls.'
+  }
+
+  if (block.visualType === 'venn_diagram' || block.visualType === 'set_diagram') {
+    const regions = spec.regions && typeof spec.regions === 'object' && !Array.isArray(spec.regions)
+      ? Object.values(spec.regions).filter((value) => String(value ?? '').trim().length > 0)
+      : []
+    const regionLabels = Array.isArray(spec.regionLabels) ? spec.regionLabels : []
+    const shapes = Array.isArray(spec.shapes) ? spec.shapes : []
+    if (regions.length === 0 && regionLabels.length === 0 && shapes.length === 0) {
+      return `${block.visualType} needs labelled regions, regionLabels, or shapes.`
+    }
+    const placementIssue = getSetDiagramPlacementIssue(spec)
+    if (placementIssue) return placementIssue
+  }
+
+  return null
+}
+
+export function getSetDiagramManualPlacementWarnings(spec: Record<string, unknown>): string[] {
+  const normalized = normalizeSetDiagramSpecForEditing(spec)
+  const shapes = Array.isArray(normalized.shapes)
+    ? normalized.shapes.filter((shape): shape is Record<string, unknown> => Boolean(shape) && typeof shape === 'object' && !Array.isArray(shape))
+    : []
+  const labels = Array.isArray(normalized.regionLabels) ? normalized.regionLabels : []
+  const shapeRecords = shapes.map((raw, index) => ({ raw, index, id: setShapeId(raw, index) }))
+
+  return labels.flatMap((raw, index) => {
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return []
+    const record = raw as Record<string, unknown>
+    if (!hasSetRegionExpression(record)) return []
+    if (!Number.isFinite(Number(record.x)) || !Number.isFinite(Number(record.y))) return []
+    const { include, exclude } = regionExpressionForLabel(record)
+    const point = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    if (regionMatchesPoint(point, shapeRecords, include, exclude)) return []
+    const text = String(record.text ?? record.value ?? `Label ${index + 1}`)
+    return [`“${text}” is outside its declared set region.`]
+  })
+}
+
+function hasInlineVegaData(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasInlineVegaData)
+  if (!value || typeof value !== 'object') return false
+  const record = value as Record<string, unknown>
+  if (record.data && typeof record.data === 'object' && !Array.isArray(record.data)) {
+    const data = record.data as Record<string, unknown>
+    if (Array.isArray(data.values) && data.values.length > 0) return true
+  }
+  if (record.datasets && typeof record.datasets === 'object' && !Array.isArray(record.datasets)) {
+    if (Object.values(record.datasets).some((dataset) => Array.isArray(dataset) && dataset.length > 0)) return true
+  }
+  return Object.values(record).some(hasInlineVegaData)
+}
+
+function hasExternalVegaReference(value: unknown): boolean {
+  if (Array.isArray(value)) return value.some(hasExternalVegaReference)
+  if (!value || typeof value !== 'object') return false
+  return Object.entries(value as Record<string, unknown>).some(([key, child]) => {
+    if (['url', 'href', 'src'].includes(key.toLowerCase()) && typeof child === 'string' && child.trim()) return true
+    return hasExternalVegaReference(child)
+  })
+}
+
+function getSetDiagramPlacementIssue(spec: Record<string, unknown>): string | null {
+  const rawShapes = Array.isArray(spec.shapes) ? spec.shapes : []
+  const rawValues = Array.isArray(spec.regionLabels)
+    ? spec.regionLabels
+    : Array.isArray(spec.labels)
+      ? spec.labels
+      : Array.isArray(spec.regions)
+        ? spec.regions
+        : []
+  const { shapes, values } = normalizeSetDiagramInputs(rawShapes, rawValues)
+  if (shapes.length < 2) {
+    return 'Generated set diagrams need at least two sets.'
+  }
+  const placedLabels: SvgLabelBox[] = []
+  for (const raw of values) {
+    const record = raw && typeof raw === 'object' ? raw as Record<string, unknown> : {}
+    const text = String(record.text ?? record.value ?? '')
+    if (!/\d/u.test(text)) continue
+    const fontSize = Number(record.fontSize ?? 18)
+    const fallbackPoint = { x: finiteNumber(record.x, 320), y: finiteNumber(record.y, 220) }
+    if (!hasSetRegionExpression(record)) {
+      return `Set diagram numeric label "${text}" needs a semantic set-region expression.`
+    }
+    const placement = semanticSetLabelPlacement(record, shapes, fallbackPoint, placedLabels, text, fontSize)
+    if (!placement) return `Set diagram numeric label "${text}" cannot be placed safely inside its semantic region.`
+    placedLabels.push(labelBox(placement.point, text, placement.fontSize))
+  }
+  return null
 }
 
 export function generatedBlocksToProseMirror(blocks: GeneratedContentBlock[]): Json {
@@ -785,17 +1199,35 @@ export function generatedBlocksToProseMirror(blocks: GeneratedContentBlock[]): J
       if (block.caption) content.push(paragraph(block.caption))
       content.push(tableNode(block))
     }
-    if (block.type === 'visual') {
-      content.push(visualNode(block))
-    }
+    if (block.type === 'visual') content.push(generatedVisualBlockToImageNode(block))
+    if (block.type === 'image') content.push(imageNode(block))
   }
   return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }
 }
 
 export function generatedContentToProseMirror(value: string | GeneratedContentBlock[]): Json {
-  if (typeof value === 'string' && value.includes('**')) return markedTextToProseMirror(value)
-  if (typeof value === 'string') return plainTextToProseMirrorWithLineBreaks(value)
+  if (typeof value === 'string') return aiTextToProseMirror(value)
   return generatedBlocksToProseMirror(value)
+}
+
+export async function generatedBlocksToProseMirrorAsync(blocks: GeneratedContentBlock[]): Promise<Json> {
+  const content: Json[] = []
+  for (const block of blocks) {
+    if (block.type === 'paragraph') content.push(paragraph(block.text))
+    if (block.type === 'list') content.push(listNode(block))
+    if (block.type === 'table') {
+      if (block.caption) content.push(paragraph(block.caption))
+      content.push(tableNode(block))
+    }
+    if (block.type === 'visual') content.push(await generatedVisualBlockToImageNodeAsync(block))
+    if (block.type === 'image') content.push(imageNode(block))
+  }
+  return { type: 'doc', content: content.length > 0 ? content : [paragraph('')] }
+}
+
+export async function generatedContentToProseMirrorAsync(value: string | GeneratedContentBlock[]): Promise<Json> {
+  if (typeof value === 'string') return aiTextToProseMirror(value)
+  return generatedBlocksToProseMirrorAsync(value)
 }
 
 export function generatedContentToPlainText(value: string | GeneratedContentBlock[]): string {
@@ -805,6 +1237,7 @@ export function generatedContentToPlainText(value: string | GeneratedContentBloc
       if (block.type === 'paragraph') return block.text.replace(/\*\*([^*\n]+)\*\*/gu, '$1')
       if (block.type === 'list') return block.items.map((item) => `- ${item}`).join('\n')
       if (block.type === 'table') return [block.caption, block.columns.join('\t'), ...block.rows.map((row) => row.join('\t'))].filter(Boolean).join('\n')
+      if (block.type === 'image') return block.altText ?? ''
       return [block.title, block.altText].filter(Boolean).join('\n')
     })
     .join('\n')

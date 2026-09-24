@@ -8,6 +8,7 @@ import { ArrowRight, X } from 'lucide-react';
 import { WeekViewCalendar } from '../WeekViewCalendar';
 import { SessionsCard } from '../SessionsCard';
 import type { Tables } from '@altitutor/shared';
+import { getSessionCardDisplayName } from '../../utils/session-helpers';
 
 interface SessionDecision {
   sessionId: string;
@@ -18,7 +19,14 @@ interface SessionDecision {
 interface AbsenceBulkActionSelectorProps {
   sessions: StudentSession[];
   studentId: string;
-  onDecisionsChange: (decisions: Array<{ sessionId: string; action: AbsenceAction; targetSessionId?: string; targetSession?: RescheduleSession }>) => void;
+  onDecisionsChange: (
+    decisions: Array<{
+      sessionId: string;
+      action: AbsenceAction;
+      targetSessionId?: string;
+      targetSession?: RescheduleSession;
+    }>,
+  ) => void;
   onBack: () => void;
   onConfirm: () => void;
   canProceed: boolean;
@@ -48,7 +56,7 @@ export function AbsenceBulkActionSelector({
 
   // Track which session is currently showing reschedule options
   const [activeRescheduleSessionId, setActiveRescheduleSessionId] = useState<string | null>(null);
-  
+
   // Week view state for reschedule session selection (Monday-based)
   const [rescheduleWeekStart, setRescheduleWeekStart] = useState<Date>(() => {
     const today = new Date();
@@ -72,24 +80,24 @@ export function AbsenceBulkActionSelector({
 
   // Get reschedule sessions for the active session
   const activeSession = sessions.find((s) => s.id === activeRescheduleSessionId);
-  
+
   // Calculate dynamic dateRangeDays based on the week being viewed
   // This ensures we fetch sessions for the week the user is viewing
   const dynamicDateRangeDays = useMemo(() => {
     if (!activeSession?.start_at) return 7; // Default fallback
-    
+
     const originalSessionDate = new Date(activeSession.start_at);
     const currentWeekStartDate = new Date(rescheduleWeekStart);
-    
+
     // Calculate the distance in days between original session and current week start
     const daysDiff = Math.abs(
-      Math.floor((currentWeekStartDate.getTime() - originalSessionDate.getTime()) / (1000 * 60 * 60 * 24))
+      Math.floor((currentWeekStartDate.getTime() - originalSessionDate.getTime()) / (1000 * 60 * 60 * 24)),
     );
-    
+
     // Add buffer: distance + 7 days buffer on each side to ensure we capture the full week
     return Math.max(7, daysDiff + 7);
   }, [activeSession?.start_at, rescheduleWeekStart]);
-  
+
   const { data: rescheduleSessions, isLoading: loadingRescheduleSessions } = useAvailableRescheduleSessions(
     activeRescheduleSessionId && activeSession
       ? {
@@ -97,7 +105,7 @@ export function AbsenceBulkActionSelector({
           studentId,
           dateRangeDays: dynamicDateRangeDays,
         }
-      : null
+      : null,
   );
 
   // Store rescheduled sessions map
@@ -111,7 +119,7 @@ export function AbsenceBulkActionSelector({
         action: null,
         targetSessionId: null,
       };
-      
+
       if (action === 'reschedule') {
         newMap.set(sessionId, {
           ...decision,
@@ -177,7 +185,7 @@ export function AbsenceBulkActionSelector({
     if (targetSession) {
       setRescheduledSessionsMap((prev) => new Map(prev).set(targetSessionId, targetSession));
     }
-    
+
     setDecisions((prev) => {
       const newMap = new Map(prev);
       const decision = newMap.get(sessionId);
@@ -213,9 +221,7 @@ export function AbsenceBulkActionSelector({
     const decision = decisions.get(session.id);
     const isRescheduleActive = activeRescheduleSessionId === session.id;
     const selectedTargetSessionId = decision?.targetSessionId || null;
-    const selectedTargetSession = selectedTargetSessionId 
-      ? rescheduledSessionsMap.get(selectedTargetSessionId) 
-      : null;
+    const selectedTargetSession = selectedTargetSessionId ? rescheduledSessionsMap.get(selectedTargetSessionId) : null;
 
     // Convert to Tables<'sessions'> for SessionsCard
     const sessionForCard: Tables<'sessions'> = {
@@ -227,23 +233,29 @@ export function AbsenceBulkActionSelector({
       billing_type: null,
       status: 'SCHEDULED',
       subject_id: session.class?.subject_id || null,
+      short_name: session.short_name,
+      long_name: session.long_name,
       created_at: null,
       updated_at: null,
     } as Tables<'sessions'>;
 
     // Convert reschedule session to Tables<'sessions'> if selected
-    const rescheduleSessionForCard: Tables<'sessions'> | null = selectedTargetSession ? {
-      id: selectedTargetSession.id,
-      start_at: selectedTargetSession.start_at,
-      end_at: selectedTargetSession.end_at,
-      class_id: selectedTargetSession.class_id,
-      type: selectedTargetSession.type,
-      billing_type: null,
-      status: 'SCHEDULED',
-      subject_id: selectedTargetSession.class?.subject_id || null,
-      created_at: null,
-      updated_at: null,
-    } as Tables<'sessions'> : null;
+    const rescheduleSessionForCard: Tables<'sessions'> | null = selectedTargetSession
+      ? ({
+          id: selectedTargetSession.id,
+          start_at: selectedTargetSession.start_at,
+          end_at: selectedTargetSession.end_at,
+          class_id: selectedTargetSession.class_id,
+          type: selectedTargetSession.type,
+          billing_type: null,
+          status: 'SCHEDULED',
+          subject_id: selectedTargetSession.class?.subject_id || null,
+          short_name: selectedTargetSession.short_name,
+          long_name: selectedTargetSession.long_name,
+          created_at: null,
+          updated_at: null,
+        } as Tables<'sessions'>)
+      : null;
 
     return (
       <div key={session.id} className="space-y-4">
@@ -258,6 +270,7 @@ export function AbsenceBulkActionSelector({
               staff={[]}
               students={[]}
               compact={false}
+              title={getSessionCardDisplayName(session, false)}
             />
           </div>
 
@@ -278,6 +291,7 @@ export function AbsenceBulkActionSelector({
                   staff={[]}
                   students={[]}
                   compact={false}
+                  title={getSessionCardDisplayName(selectedTargetSession, false)}
                 />
                 <Button
                   variant="ghost"
@@ -378,4 +392,3 @@ export function AbsenceBulkActionSelector({
     </div>
   );
 }
-

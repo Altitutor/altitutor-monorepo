@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import {
+  Button,
   KanbanBoard,
+  SearchableSelect,
   type KanbanColumnDef,
   type EntityListPillColumn,
   type EntityListStatusColumn,
@@ -17,7 +19,7 @@ import { useProjects } from '@/features/projects/api/queries';
 import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
 
-const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id'] as const;
+const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id', 'unlinked'] as const;
 import { TaskCard } from './TaskCard';
 import { EditTaskDialog } from './EditTaskDialog';
 import { CreateTaskDialog } from './CreateTaskDialog';
@@ -35,6 +37,7 @@ import {
   TaskAssigneeEntityPill,
   TaskPriorityEntityPill,
   TaskEstimateEntityPill,
+  TaskLinkEntityPill,
   TaskIssueEntityPill,
   TaskProjectEntityPill,
 } from './fields/TaskEntityPills';
@@ -49,13 +52,17 @@ interface TasksBoardProps {
     search?: string;
   };
   projectId?: string;
+  issueId?: string;
   onCreateTask?: (status: TaskStatus) => void;
+  showLinkPill?: boolean;
 }
 
-export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardProps) {
+export function TasksBoard({ filters: initialFilters, projectId, issueId, showLinkPill = true }: TasksBoardProps) {
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
@@ -95,8 +102,9 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
 
   const { data: tasks = [], isLoading } = useTasks({
     ...filters,
+    ...(issueId ? { issue_id: [issueId as unknown] } : {}),
     ...(projectId ? { project_id: [projectId as unknown] } : {}),
-    search: initialFilters?.search,
+    search: search || initialFilters?.search,
   } as TaskFilters);
 
   const updateTask = useUpdateTask();
@@ -170,11 +178,39 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       groupable: true,
       sortable: true,
       filterable: true,
-      renderPill: (item, _onChange, collapsed) => (
-        <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-          {getStatusLabel((item.status ?? 'backlog') as TaskStatus)}
-        </span>
-      ),
+      renderPill: (item, onChange, collapsed) => {
+        const status = (item.status ?? 'backlog') as TaskStatus;
+        const StatusIcon = getStatusIcon(status);
+        const iconColor = getStatusIconColor(status);
+        const selectedItem = TASK_STATUS_OPTIONS.find((option) => option.value === status) ?? TASK_STATUS_OPTIONS[0];
+
+        return (
+          <SearchableSelect<(typeof TASK_STATUS_OPTIONS)[number]>
+            items={TASK_STATUS_OPTIONS}
+            value={selectedItem}
+            onValueChange={(option) => {
+              const nextStatus = (option?.value ?? 'backlog') as TaskStatus;
+              handleUpdate(item, { status: nextStatus });
+              onChange(nextStatus);
+            }}
+            getItemLabel={(option) => option.label}
+            getItemId={(option) => option.value}
+            trigger={
+              <Button
+                type="button"
+                variant="outline"
+                className={cn(
+                  'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
+                  collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+                )}
+              >
+                <StatusIcon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
+                {!collapsed && <span className="truncate">{getStatusLabel(status)}</span>}
+              </Button>
+            }
+          />
+        );
+      },
     },
     {
       key: 'due_date',
@@ -224,6 +260,23 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         />
       ),
     },
+    ...(showLinkPill ? [{
+      key: 'link_entity',
+      label: 'Link',
+      visibleByDefault: true,
+      getValue: (t: TaskWithAssignee) => t.issue_id ?? t.project_id ?? null,
+      defaultValue: null,
+      groupable: false,
+      sortable: false,
+      filterable: false,
+      renderPill: (item: TaskWithAssignee, _onChange: (value: unknown) => void, collapsed?: boolean) => (
+        <TaskLinkEntityPill
+          issue={item.issue ?? null}
+          project={item.project ?? null}
+          collapsed={collapsed}
+        />
+      ),
+    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
     {
       key: 'estimate',
       label: 'Estimate',
@@ -279,7 +332,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     {
       key: 'issue_id',
       label: 'Issue',
-      visibleByDefault: true,
+      visibleByDefault: false,
       getValue: (t) => t.issue_id ?? null,
       defaultValue: null,
       filterOptions: issueFilterOptions,
@@ -302,7 +355,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
     {
       key: 'project_id',
       label: 'Project',
-      visibleByDefault: true,
+      visibleByDefault: false,
       getValue: (t) => t.project_id ?? null,
       defaultValue: null,
       filterOptions: projectFilterOptions,
@@ -322,7 +375,20 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         />
       ),
     },
-  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate]);
+    {
+      key: 'unlinked',
+      label: 'Link',
+      visibleByDefault: false,
+      filterOnly: true,
+      getValue: (t: TaskWithAssignee) => (t.issue_id || t.project_id ? 'linked' : 'none'),
+      defaultValue: null,
+      filterOptions: [{ value: 'none' as unknown, label: 'Not linked to an issue or project' }],
+      groupable: false,
+      sortable: false,
+      filterable: true,
+      renderPill: () => null,
+    },
+  ], [staffList, assigneeFilterOptions, issueFilterOptions, projectFilterOptions, issues, projects, handleUpdate, showLinkPill]);
 
   const columnDefs: KanbanColumnDef<TaskWithAssignee, unknown>[] = useMemo(() => [
     {
@@ -377,12 +443,30 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
       defaults.assignedTo = columnValue === '__null__' ? null : (columnValue as string);
     }
 
+    if (issueId) defaults.issueId = issueId;
     if (projectId) defaults.projectId = projectId;
 
     setCreateDefaultStatus(defaults.status);
     setCreateDefaultValues(defaults);
     setIsCreateDialogOpen(true);
-  }, [activeColumnKey, projectId]);
+  }, [activeColumnKey, issueId, projectId]);
+
+  const handleOpenTask = useCallback((taskId: string) => {
+    setSelectedTaskId(taskId);
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const renderCard = useCallback(
+    (t: TaskWithAssignee, visiblePillKeys: string[]) => (
+      <TaskCard
+        task={t}
+        visiblePillKeys={visiblePillKeys}
+        rightPills={rightPills}
+        onOpen={handleOpenTask}
+      />
+    ),
+    [rightPills, handleOpenTask]
+  );
 
   const getGroupLabel = useCallback((columnKey: string, valueKey: string) => {
     if (columnKey === 'assignee') {
@@ -428,16 +512,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(t, visiblePillKeys) => (
-          <TaskCard
-            task={t}
-            visiblePillKeys={visiblePillKeys}
-            onClick={() => {
-              setSelectedTaskId(t.id);
-              setIsEditDialogOpen(true);
-            }}
-          />
-        )}
+        renderCard={renderCard}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
@@ -447,6 +522,9 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         onSortChange={handleSortChange}
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search tasks..."
         quickFilters={quickFilters}
         onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={getGroupLabel}
@@ -471,6 +549,7 @@ export function TasksBoard({ filters: initialFilters, projectId }: TasksBoardPro
         onClose={() => setIsCreateDialogOpen(false)}
         defaultStatus={createDefaultStatus}
         defaultValues={createDefaultValues}
+        issue={issueId ? issues.find((i) => i.id === issueId) || null : null}
         project={projectId ? projects.find((p) => p.id === projectId) || null : null}
       />
     </>

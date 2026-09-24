@@ -12,6 +12,8 @@ import {
   DragOverEvent,
   DragStartEvent,
   useDroppable,
+  pointerWithin,
+  type CollisionDetection,
 } from '@dnd-kit/core';
 import {
   arrayMove,
@@ -24,6 +26,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { GripVertical } from 'lucide-react';
 import type { Tables, Enums } from '@altitutor/shared';
 import { getFileTypeIcon, getFileTypeLabel } from '@/shared/utils/file-type-icons';
+import { getTopicFileDisplayRows } from '../utils/fileDisplay';
 
 export type TopicFileWithFile = Tables<'topics_files'> & { file: Tables<'files'> };
 
@@ -75,6 +78,39 @@ function SortableSolutionItem({ solution }: SortableSolutionItemProps) {
         <p className="text-xs text-muted-foreground truncate" title={solution.file.filename}>
           {solution.file.filename}
         </p>
+      </div>
+    </div>
+  );
+}
+
+function UnlinkedSolutionRow({ solution }: { solution: TopicFileWithFile }) {
+  const {
+    setNodeRef,
+    isOver,
+  } = useDroppable({
+    id: `parent-drop-${solution.id}`,
+    data: {
+      type: 'parent-drop',
+      solutionFileId: solution.id,
+    },
+  });
+
+  return (
+    <div className="flex gap-2 items-stretch">
+      <div
+        ref={setNodeRef}
+        className={`w-1/2 p-2 border-2 border-dashed rounded-lg transition-colors min-w-0 ${
+          isOver
+            ? 'border-primary bg-primary/10'
+            : 'border-muted-foreground/30 bg-muted/20'
+        }`}
+      >
+        <div className="flex items-center justify-center h-full text-xs text-muted-foreground min-h-[60px]">
+          Drop file here
+        </div>
+      </div>
+      <div className="w-1/2 p-2 border-2 border-dashed rounded-lg border-muted bg-muted/50 min-w-0">
+        <SortableSolutionItem solution={solution} />
       </div>
     </div>
   );
@@ -189,10 +225,12 @@ function FileTypeSection({ type, files, allFiles: _allFiles, onSolutionLink, onS
 
   const Icon = getFileTypeIcon(type);
   const typeLabel = getFileTypeLabel(type);
-  
-  // Filter out ALL solution files from the left column (they're only shown in drop zones)
-  const nonSolutionFiles = files.filter(f => !f.is_solutions);
-  const solutionFiles = files.filter(f => f.is_solutions);
+  const rows = getTopicFileDisplayRows(files);
+  const sortableIds = rows.flatMap((row) =>
+    row.kind === 'paired'
+      ? [row.file.id, ...(row.solution ? [row.solution.id] : [])]
+      : [row.solution.id]
+  );
 
   return (
     <div className="space-y-3">
@@ -200,7 +238,7 @@ function FileTypeSection({ type, files, allFiles: _allFiles, onSolutionLink, onS
         <Icon className="h-5 w-5" />
         <h4 className="font-semibold">{typeLabel}</h4>
         <span className="text-sm text-muted-foreground">
-          ({nonSolutionFiles.length} file{nonSolutionFiles.length !== 1 ? 's' : ''})
+          ({rows.length} file{rows.length !== 1 ? 's' : ''})
         </span>
       </div>
       
@@ -210,28 +248,28 @@ function FileTypeSection({ type, files, allFiles: _allFiles, onSolutionLink, onS
           isOver ? 'bg-primary/10' : 'bg-muted/30'
         }`}
       >
-        {nonSolutionFiles.length > 0 ? (
+        {rows.length > 0 ? (
           <SortableContext
-            items={[
-              ...nonSolutionFiles.map(f => f.id),
-              ...solutionFiles.filter(s => s.is_solutions_of_id).map(s => s.id),
-            ]}
+            items={sortableIds}
             strategy={verticalListSortingStrategy}
           >
             <div className="space-y-2">
-              {nonSolutionFiles.map((file) => {
-                // Get solution file linked to this file
-                const linkedSolution = solutionFiles.find(s => s.is_solutions_of_id === file.id);
-                return (
+              {rows.map((row) =>
+                row.kind === 'paired' ? (
                   <SortableFileItem
-                    key={file.id}
-                    file={file}
+                    key={row.file.id}
+                    file={row.file}
                     onSolutionLink={onSolutionLink}
                     onSolutionUnlink={onSolutionUnlink}
-                    linkedSolution={linkedSolution}
+                    linkedSolution={row.solution ?? undefined}
                   />
-                );
-              })}
+                ) : (
+                  <UnlinkedSolutionRow
+                    key={row.solution.id}
+                    solution={row.solution}
+                  />
+                )
+              )}
             </div>
           </SortableContext>
         ) : (
@@ -254,6 +292,28 @@ const RESOURCE_TYPES: Enums<'resource_type'>[] = [
   'REVISION_SHEET',
   'CHEAT_SHEET',
 ];
+
+const fileSlotCollisionDetection: CollisionDetection = (args) => {
+  const preferLinkSlots = (
+    collisions: ReturnType<typeof pointerWithin>
+  ) => {
+    const slot = collisions.find((collision) => {
+      const container = args.droppableContainers.find(
+        (droppable) => droppable.id === collision.id
+      );
+      const type = container?.data.current?.type;
+      return type === 'parent-drop' || type === 'solution-drop';
+    });
+    return slot ? [slot] : collisions;
+  };
+
+  const pointerCollisions = pointerWithin(args);
+  if (pointerCollisions.length > 0) {
+    return preferLinkSlots(pointerCollisions);
+  }
+
+  return preferLinkSlots(closestCenter(args));
+};
 
 export function DraggableFilesList({
   files,
@@ -313,6 +373,28 @@ export function DraggableFilesList({
     if (!activeFile) return;
 
     const overData = over.data.current;
+
+    // Non-solution dropped onto an unlinked solution's empty parent slot
+    if (overData?.type === 'parent-drop' && !activeFile.is_solutions) {
+      const solutionFileId = overData.solutionFileId as string;
+      onSolutionLink(solutionFileId, activeFile.id);
+      setLocalFiles((prev) =>
+        prev.map((file) => {
+          if (file.id === solutionFileId) {
+            return {
+              ...file,
+              is_solutions_of_id: activeFile.id,
+              type: activeFile.type,
+            };
+          }
+          if (file.is_solutions && file.is_solutions_of_id === activeFile.id) {
+            return { ...file, is_solutions_of_id: null };
+          }
+          return file;
+        })
+      );
+      return;
+    }
     
     // Handle solution being dragged
     if (activeFile.is_solutions) {
@@ -517,7 +599,7 @@ export function DraggableFilesList({
   return (
     <DndContext
       sensors={sensors}
-      collisionDetection={closestCenter}
+      collisionDetection={fileSlotCollisionDetection}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragEnd={handleDragEnd}

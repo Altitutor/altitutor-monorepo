@@ -7,9 +7,9 @@ import { z } from 'zod';
 // Replicate the schema from TrialContactForm.tsx for testing
 const trialContactSchema = z.object({
   student_first_name: z.string().min(1, 'First name is required').max(100),
-  student_last_name: z.string().min(1, 'Last name is required').max(100),
+  student_last_name: z.string().max(100).optional().or(z.literal('')),
   student_email: z.string().email('Invalid email address'),
-  student_phone: z.string().min(1, 'Phone number is required'),
+  student_phone: z.string().optional().or(z.literal('')),
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY'], {
     required_error: 'Please select a curriculum',
   }),
@@ -81,6 +81,16 @@ describe('TrialContactForm Schema', () => {
       // eslint-disable-next-line @typescript-eslint/no-unused-vars
       const { student_first_name: _student_first_name, ...data } = validData;
       expect(() => trialContactSchema.parse(data)).toThrow();
+    });
+
+    it('should allow missing student last name and phone', () => {
+      expect(() =>
+        trialContactSchema.parse({
+          ...validData,
+          student_last_name: '',
+          student_phone: '',
+        })
+      ).not.toThrow();
     });
 
     it('should reject missing student email', () => {

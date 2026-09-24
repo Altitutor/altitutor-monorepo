@@ -1,7 +1,8 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { hasClozeMarker } from '@altitutor/shared';
+import { validateFlashcardContent, type Flashcard } from '@altitutor/shared';
 import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from './_lib';
 
 async function assertTopicAccess(topicId: string) {
@@ -23,8 +24,14 @@ export async function GET(request: NextRequest) {
     .eq('topic_id', topicId)
     .order('index', { ascending: true });
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json({ data: data ?? [] });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards", NextResponse.json({ error: error.message }, { status: 500 }));
+  const rows = (data ?? []) as unknown as Flashcard[];
+  const enriched = await Promise.all(rows.map(async (row) => {
+    if (!row.image_storage_path) return row;
+    const { data: signed } = await userClient.storage.from('flashcard-images').createSignedUrl(row.image_storage_path, 3600);
+    return { ...row, image_url: signed?.signedUrl ?? null };
+  }));
+  return NextResponse.json({ data: enriched });
 }
 
 export async function POST(request: NextRequest) {
@@ -35,8 +42,19 @@ export async function POST(request: NextRequest) {
   if (!(await assertTopicAccess(body.topic_id))) {
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
   }
-  if (!hasClozeMarker(body.cloze_text ?? '')) {
-    return NextResponse.json({ error: 'Flashcard text must contain a cloze marker' }, { status: 400 });
+  const cardType = body.card_type ?? 'text_cloze';
+  const contentError = validateFlashcardContent({
+    cardType,
+    clozeText: body.cloze_text,
+    imageFileId: body.image_file_id,
+    occlusionData: body.occlusion_data,
+  });
+  if (contentError) return NextResponse.json({ error: contentError }, { status: 400 });
+  if (cardType === 'image_occlusion') {
+    const { data: imageFile } = await supabaseAdmin.from('files').select('id,bucket,storage_path,deleted_at').eq('id', body.image_file_id).maybeSingle();
+    if (!imageFile || imageFile.deleted_at || imageFile.bucket !== 'flashcard-images' || !imageFile.storage_path?.startsWith(`${body.topic_id}/`)) {
+      return NextResponse.json({ error: 'Source image is not accessible for this topic' }, { status: 400 });
+    }
   }
 
   const { data: siblings } = await supabaseAdmin
@@ -52,14 +70,18 @@ export async function POST(request: NextRequest) {
     .from('flashcards')
     .insert({
       topic_id: body.topic_id,
-      cloze_text: body.cloze_text,
+      card_type: cardType,
+      cloze_text: cardType === 'text_cloze' ? body.cloze_text : null,
       extra: body.extra || null,
+      image_file_id: cardType === 'image_occlusion' ? body.image_file_id : null,
+      image_alt_text: cardType === 'image_occlusion' ? body.image_alt_text || null : null,
+      occlusion_data: cardType === 'image_occlusion' ? body.occlusion_data : null,
       index: nextIndex,
     })
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards", NextResponse.json({ error: error.message }, { status: 500 }));
 
   if (body.index !== undefined) {
     try {
@@ -69,6 +91,7 @@ export async function POST(request: NextRequest) {
         insertIdAtIndex((siblings ?? []).map((card) => card.id), data.id, requestedIndex),
       );
     } catch (orderError) {
+      captureApiError(orderError, "/api/flashcards");
       const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -79,7 +102,7 @@ export async function POST(request: NextRequest) {
       .eq('id', data.id)
       .single();
 
-    if (reorderFetchError) return NextResponse.json({ error: reorderFetchError.message }, { status: 500 });
+    if (reorderFetchError) return captureApiErrorResponse(reorderFetchError, "/api/flashcards", NextResponse.json({ error: reorderFetchError.message }, { status: 500 }));
     return NextResponse.json({ data: reordered });
   }
 

@@ -1,6 +1,8 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
+import type { Database } from "@altitutor/shared";
 import {
   getSupportedIanaTimeZones,
   isSupportedIanaTimeZone,
@@ -38,7 +40,7 @@ export async function GET() {
 
   const { data: student, error: studentError } = await supabaseAdmin
     .from("students")
-    .select("id, timezone, first_name, last_name, email")
+    .select("id, timezone, first_name, last_name, email, ucat_initial_familiarity")
     .eq("user_id", user.id)
     .maybeSingle();
 
@@ -57,7 +59,10 @@ export async function GET() {
   }
 
   const timezone = student.timezone ?? "Australia/Adelaide";
-  const timezoneOptions = mergeTimeZoneIntoOptions(timezone, getSupportedIanaTimeZones());
+  const timezoneOptions = mergeTimeZoneIntoOptions(
+    timezone,
+    getSupportedIanaTimeZones(),
+  );
 
   return NextResponse.json({
     timezone,
@@ -65,12 +70,13 @@ export async function GET() {
     firstName: student.first_name,
     lastName: student.last_name,
     email: user.email ?? student.email ?? "",
+    ucatInitialFamiliarity: student.ucat_initial_familiarity,
   });
 }
 
 /**
  * PATCH /api/ucat/profile
- * Updates timezone and/or first and last name for the current student.
+ * Updates timezone, name, and/or synchronizes a confirmed Auth email.
  */
 export async function PATCH(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -99,6 +105,7 @@ export async function PATCH(request: NextRequest) {
     timezone?: string;
     firstName?: string;
     lastName?: string;
+    syncEmailFromAuth?: boolean;
   };
 
   const timezoneRaw = body.timezone?.trim();
@@ -108,10 +115,21 @@ export async function PATCH(request: NextRequest) {
   const hasFirst = Boolean(firstNameRaw);
   const hasLast = Boolean(lastNameRaw);
   const hasAnyName = hasFirst || hasLast;
+  const syncEmailFromAuth = body.syncEmailFromAuth === true;
 
-  if (!hasTimezone && !hasAnyName) {
+  if (!hasTimezone && !hasAnyName && !syncEmailFromAuth) {
     return NextResponse.json(
-      { error: "Provide timezone and/or first and last name to update" },
+      {
+        error:
+          "Provide timezone, first and last name, and/or an authenticated email to update",
+      },
+      { status: 400 },
+    );
+  }
+
+  if (syncEmailFromAuth && !user.email?.trim()) {
+    return NextResponse.json(
+      { error: "Authenticated account has no email to sync" },
       { status: 400 },
     );
   }
@@ -156,7 +174,7 @@ export async function PATCH(request: NextRequest) {
     );
   }
 
-  const updates: Record<string, string> = {
+  const updates: Database["public"]["Tables"]["students"]["Update"] = {
     updated_at: new Date().toISOString(),
   };
   if (hasTimezone && timezoneRaw) {
@@ -166,6 +184,9 @@ export async function PATCH(request: NextRequest) {
     updates.first_name = firstNameRaw;
     updates.last_name = lastNameRaw;
   }
+  if (syncEmailFromAuth && user.email) {
+    updates.email = user.email.trim().toLowerCase();
+  }
 
   const { error: updateError } = await supabaseAdmin
     .from("students")
@@ -173,6 +194,7 @@ export async function PATCH(request: NextRequest) {
     .eq("id", student.id);
 
   if (updateError) {
+    captureApiError(updateError, "/api/ucat/profile");
     return NextResponse.json({ error: updateError.message }, { status: 500 });
   }
 
@@ -181,6 +203,7 @@ export async function PATCH(request: NextRequest) {
       data: { first_name: firstNameRaw, last_name: lastNameRaw },
     });
     if (metaError) {
+      captureApiError(metaError, "/api/ucat/profile");
       return NextResponse.json(
         { error: metaError.message ?? "Failed to sync name to session" },
         { status: 500 },
@@ -193,5 +216,6 @@ export async function PATCH(request: NextRequest) {
     ...(hasAnyName && firstNameRaw && lastNameRaw
       ? { firstName: firstNameRaw, lastName: lastNameRaw }
       : {}),
+    ...(syncEmailFromAuth && user.email ? { email: user.email } : {}),
   });
 }

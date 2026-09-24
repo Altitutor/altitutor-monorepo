@@ -19,6 +19,7 @@ import {
   Checkbox,
 } from '@altitutor/ui'
 import { ReconciliationTable } from './ReconciliationTable'
+import { getQuestionIssueDefinition } from '../lib/question-issue-definitions'
 import { UcatSelectionToolbar } from '@/features/ucat/shared/selection-toolbar'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 import type { StemWithNoCategory } from '../api/reconciliation'
@@ -42,6 +43,7 @@ import { bulkImportSectionFromUcatName } from '@/features/ucat/questions/compone
 import { inferBulkImportCategoryIdForParsedStem } from '@/features/ucat/questions/components/bulk-import/bulkImportMetadataInference'
 import type { ParsedStem } from '@/features/ucat/questions/lib/parsers/core'
 
+const ISSUE = getQuestionIssueDefinition('missing-category')
 const TRUNCATE_LEN = 80
 
 function truncate(text: string, max: number): string {
@@ -72,8 +74,10 @@ function toParsedStem(item: StemWithNoCategory): ParsedStem {
 
 export function StemsWithNoCategoryTable({
   onOpenStemDialog,
+  showCountBadge = true,
 }: {
   onOpenStemDialog?: (stemId: string) => void
+  showCountBadge?: boolean
 }) {
   const { toast } = useToast()
   const queryClient = useQueryClient()
@@ -86,6 +90,7 @@ export function StemsWithNoCategoryTable({
   const [bulkCategoryOpen, setBulkCategoryOpen] = useState(false)
   const [bulkCategoryId, setBulkCategoryId] = useState<string | null>(null)
   const [bulkCategoryPending, setBulkCategoryPending] = useState(false)
+  const [autoAllPending, setAutoAllPending] = useState(false)
   const [searchScopes, setSearchScopes] = useState(['stem_text', 'questions', 'section_id'])
   const [queueOpen, setQueueOpen] = useState(false)
 
@@ -223,6 +228,86 @@ export function StemsWithNoCategoryTable({
     [categoriesQuery.data, handleSetCategory, toast]
   )
 
+  const handleAutoSetAllCategories = useCallback(async () => {
+    const stems = data?.stemsWithNoCategory ?? []
+    const stemIdsByCategory = new Map<string, string[]>()
+    let skippedCount = 0
+
+    for (const stem of stems) {
+      const section = bulkImportSectionFromUcatName(stem.sectionName)
+      const categoryId = section
+        ? inferBulkImportCategoryIdForParsedStem({
+            stem: toParsedStem(stem),
+            section,
+            sectionId: stem.sectionId,
+            categories: categoriesQuery.data ?? [],
+          })
+        : null
+      if (!categoryId) {
+        skippedCount += 1
+        continue
+      }
+      const stemIds = stemIdsByCategory.get(categoryId)
+      if (stemIds) stemIds.push(stem.id)
+      else stemIdsByCategory.set(categoryId, [stem.id])
+    }
+
+    const inferredCount = stems.length - skippedCount
+    if (inferredCount === 0) {
+      toast({
+        title: 'Could not infer categories',
+        description: 'No matching categories were found for the uncategorized stems.',
+        variant: 'destructive',
+      })
+      return
+    }
+
+    setAutoAllPending(true)
+    try {
+      const categoryGroups = Array.from(stemIdsByCategory)
+      const results = await Promise.all(
+        categoryGroups.map(async ([categoryId, stemIds]) => {
+          try {
+            await ucatQuestionsApi.bulkUpdateMetadata(stemIds, { categoryId })
+            return { updatedCount: stemIds.length, failedCount: 0 }
+          } catch {
+            let updatedCount = 0
+            let failedCount = 0
+            const concurrency = 5
+            for (let index = 0; index < stemIds.length; index += concurrency) {
+              const batch = stemIds.slice(index, index + concurrency)
+              const fallbackResults = await Promise.allSettled(
+                batch.map((stemId) =>
+                  ucatQuestionsApi.bulkUpdateMetadata([stemId], { categoryId }),
+                ),
+              )
+              fallbackResults.forEach((result) => {
+                if (result.status === 'fulfilled') updatedCount += 1
+                else failedCount += 1
+              })
+            }
+            return { updatedCount, failedCount }
+          }
+        }),
+      )
+      const updatedCount = results.reduce((count, result) => count + result.updatedCount, 0)
+      const failedCount = results.reduce((count, result) => count + result.failedCount, 0)
+
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
+        queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
+      ])
+      toast({
+        title: failedCount === 0 ? 'Categories added' : 'Some categories could not be saved',
+        description: `${updatedCount} categorized, ${skippedCount} had no parser match, and ${failedCount} failed to save.`,
+        variant: failedCount === 0 ? 'default' : 'destructive',
+      })
+    } finally {
+      setAutoAllPending(false)
+    }
+  }, [categoriesQuery.data, data?.stemsWithNoCategory, queryClient, toast])
+
   const toggleStemSelection = useCallback((id: string) => {
     setSelectedStemIds((prev) => {
       const next = new Set(prev)
@@ -316,16 +401,33 @@ export function StemsWithNoCategoryTable({
   return (
     <>
       <ReconciliationTable<StemWithNoCategory>
-        title="Question stems with no category"
+        title={ISSUE.title}
+        description={ISSUE.description}
+        showCountBadge={showCountBadge}
         items={filteredStems}
         isLoading={isLoading}
         columnDefinitions={columnDefinitions}
         visibleColumnKeys={tableState.state.visibleColumns}
         toolbar={toolbar}
         headerActions={
-          <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
-            Begin reconciling
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className={tutorBtnOutline}
+              onClick={() => void handleAutoSetAllCategories()}
+              disabled={
+                autoAllPending ||
+                categoriesQuery.isLoading ||
+                (data?.stemsWithNoCategory.length ?? 0) === 0
+              }
+            >
+              {autoAllPending ? 'Auto-setting…' : 'Auto-set all categories'}
+            </Button>
+            <Button size="sm" className={tutorBtnPrimary} onClick={() => setQueueOpen(true)} disabled={queueEntries.length === 0}>
+              Begin reconciling
+            </Button>
+          </div>
         }
         selection={{
           getItemId: (s) => s.id,

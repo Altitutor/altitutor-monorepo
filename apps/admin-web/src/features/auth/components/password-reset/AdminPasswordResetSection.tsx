@@ -3,11 +3,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
   Input,
   Label,
   SearchableSelect,
@@ -17,6 +12,7 @@ import { Check, Copy, Loader2, MessageSquare, Send, ShieldCheck } from 'lucide-r
 import { Composer } from '@/features/messages/components/Composer';
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { getContactIdByRelatedId } from '@/features/messages/api/queries';
+import { AdminDialogShell } from '@/shared/components';
 
 type ResetUserType = 'student' | 'tutor' | 'admin';
 type ResetAction = 'send-email' | 'send-text' | 'copy-link' | 'manual-reset';
@@ -292,66 +288,72 @@ export function AdminPasswordResetSection({
         </p>
       )}
 
-      <Dialog open={manualDialogOpen} onOpenChange={setManualDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Manually reset password</DialogTitle>
-            <DialogDescription>
-              Set a new password for {displayName}. This applies immediately.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3">
-            <div className="space-y-2">
-              <Label htmlFor="manual-password">New password</Label>
-              <Input
-                id="manual-password"
-                type="password"
-                value={manualPassword}
-                onChange={(event) => setManualPassword(event.target.value)}
-                placeholder="Enter a new password"
-              />
-            </div>
-            <div className="flex justify-end gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setManualDialogOpen(false)}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="button"
-                disabled={isRunning || manualPassword.length < 6}
-                onClick={async () => {
-                  try {
-                    setIsRunning(true);
-                    await manualReset();
-                  } catch (error) {
-                    toast({
-                      title: 'Password reset failed',
-                      description: error instanceof Error ? error.message : 'Please try again.',
-                      variant: 'destructive',
-                    });
-                  } finally {
-                    setIsRunning(false);
-                  }
-                }}
-              >
-                {isRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Reset password
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminDialogShell
+        open={manualDialogOpen}
+        onClose={() => {
+          setManualDialogOpen(false);
+          setManualPassword('');
+        }}
+        title="Manually reset password"
+        subtitle={`Set a new password for ${displayName}. This applies immediately.`}
+        contentClassName="md:max-w-md"
+        footer={(
+          <>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setManualDialogOpen(false);
+                setManualPassword('');
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              disabled={isRunning || manualPassword.length < 6}
+              onClick={async () => {
+                try {
+                  setIsRunning(true);
+                  await manualReset();
+                } catch (error) {
+                  toast({
+                    title: 'Password reset failed',
+                    description: error instanceof Error ? error.message : 'Please try again.',
+                    variant: 'destructive',
+                  });
+                } finally {
+                  setIsRunning(false);
+                }
+              }}
+            >
+              {isRunning && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Reset password
+            </Button>
+          </>
+        )}
+      >
+        <div className="space-y-2">
+          <Label htmlFor="manual-password">New password</Label>
+          <Input
+            id="manual-password"
+            type="password"
+            value={manualPassword}
+            onChange={(event) => setManualPassword(event.target.value)}
+            placeholder="Enter a new password"
+          />
+        </div>
+      </AdminDialogShell>
 
-      <Dialog open={textDialogOpen} onOpenChange={setTextDialogOpen}>
-        <DialogContent className="flex h-[80dvh] max-w-3xl flex-col p-0">
-          <DialogHeader className="border-b px-6 py-4">
-            <DialogTitle>Send reset text</DialogTitle>
-            <DialogDescription>
-              Review the reset message before sending.
-            </DialogDescription>
+      <AdminDialogShell
+        open={textDialogOpen}
+        onClose={() => setTextDialogOpen(false)}
+        title="Send reset text"
+        subtitle="Review the reset message before sending."
+        fillHeight
+        contentClassName="md:max-w-3xl"
+        headerExtra={(
+          <div className="px-6 pb-4">
             <SearchableSelect<ResetRecipient>
               items={phoneRecipients}
               value={selectedRecipient}
@@ -362,7 +364,7 @@ export function AdminPasswordResetSection({
               placeholder="Choose recipient..."
               searchPlaceholder="Search recipients..."
               emptyMessage="No phone recipients found."
-              triggerClassName="mt-2 w-full justify-between"
+              triggerClassName="w-full justify-between"
               renderItem={(item, isSelected) => (
                 <div className="flex w-full items-center gap-2">
                   <Check className={`h-4 w-4 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
@@ -373,29 +375,31 @@ export function AdminPasswordResetSection({
                 </div>
               )}
             />
-          </DialogHeader>
-          {contactId ? (
-            <>
-              <div className="min-h-0 flex-1 overflow-hidden">
-                <MessageThread contactId={contactId} />
-              </div>
-              <div className="border-t">
-                <Composer
-                  contactId={contactId}
-                  draft={draft}
-                  onDraftChange={setDraft}
-                  onDraftClear={() => setDraft('')}
-                  onBeforeSend={async () => null}
-                />
-              </div>
-            </>
-          ) : (
-            <div className="flex flex-1 items-center justify-center px-6 text-sm text-muted-foreground">
-              {selectedRecipient ? 'No messaging contact found for this recipient.' : 'Choose a recipient.'}
+          </div>
+        )}
+        bodyClassName="flex min-h-0 flex-1 flex-col p-0 overflow-hidden"
+      >
+        {contactId ? (
+          <>
+            <div className="min-h-0 flex-1 overflow-hidden">
+              <MessageThread contactId={contactId} />
             </div>
-          )}
-        </DialogContent>
-      </Dialog>
+            <div className="shrink-0 border-t">
+              <Composer
+                contactId={contactId}
+                draft={draft}
+                onDraftChange={setDraft}
+                onDraftClear={() => setDraft('')}
+                onBeforeSend={async () => null}
+              />
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 items-center justify-center px-6 text-sm text-muted-foreground">
+            {selectedRecipient ? 'No messaging contact found for this recipient.' : 'Choose a recipient.'}
+          </div>
+        )}
+      </AdminDialogShell>
     </div>
   );
 }

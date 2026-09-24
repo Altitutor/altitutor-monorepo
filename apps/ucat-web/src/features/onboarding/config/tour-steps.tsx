@@ -1,318 +1,1155 @@
-import type { Tour } from "nextstepjs";
+import React from "react";
+import type { Step, Tour } from "nextstepjs";
+import {
+  ArrowLeft,
+  ArrowRight,
+  BookOpen,
+  BrainCircuit,
+  CalendarDays,
+  Calculator,
+  Flag,
+  Keyboard,
+  ListChecks,
+  NotebookText,
+  Navigation,
+  Settings,
+  Target,
+  TrendingUp,
+} from "lucide-react";
+import { QuestionEngineShortcutTourContent } from "@/features/question-engine/components/question-engine-shortcut-tour-content";
+import {
+  UCAT_ATTEMPT_REVIEW_TOUR,
+  UCAT_DASHBOARD_TOUR,
+  UCAT_LEARN_TOUR,
+  UCAT_MOCKS_TOUR,
+  UCAT_PRACTICE_TOUR,
+  UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+  UCAT_SETS_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
+  UCAT_STUDY_PLAN_TOUR,
+} from "@/features/onboarding/config/tour-catalog";
 
-/**
- * Fixed full-viewport mount for nextstepjs when highlighting `position: fixed`
- * sidebar items. Without this, the default body portal scrolls with the page
- * while the sidebar stays pinned, so the spotlight drifts.
- *
- * @see https://nextstepjs.com/docs/nextjs/tour-steps — `viewportID`
- */
+export {
+  getAutoStartTourForPathname,
+  UCAT_ATTEMPT_REVIEW_TOUR,
+  UCAT_DASHBOARD_TOUR,
+  UCAT_LEARN_TOUR,
+  UCAT_MOCKS_TOUR,
+  UCAT_PRACTICE_TOUR,
+  UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+  UCAT_SECTION_PROGRESS_TOUR,
+  UCAT_SETS_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
+  UCAT_STUDY_PLAN_TOUR,
+} from "@/features/onboarding/config/tour-catalog";
+
 export const UCAT_NEXTSTEP_FIXED_VIEWPORT_ID = "ucat-nextstep-fixed-viewport";
+export const UCAT_NEXTSTEP_DIM_ONLY_TARGET = "tutorial-dim-only";
+export const UCAT_NEXTSTEP_DIM_ONLY_SELECTOR = `[data-tour='${UCAT_NEXTSTEP_DIM_ONLY_TARGET}']`;
 
-/** Tour identifiers — keep stable; bump versions in `storage.ts` to re-show. */
-export const UCAT_ONBOARDING_TOUR = "ucat-welcome";
-export const UCAT_PRACTICE_TOUR = "ucat-practice-intro";
-export const UCAT_PROGRESS_TOUR = "ucat-progress-intro";
+const iconClassName = "h-5 w-5";
+const fixedViewport = { viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID } as const;
+const standardStep = {
+  showControls: true,
+  showSkip: true,
+  blockKeyboardControl: true,
+  pointerPadding: 8,
+  pointerRadius: 12,
+} as const;
 
-const welcomeTour: Tour = {
-  tour: UCAT_ONBOARDING_TOUR,
+export interface ContextualTourStep extends Step {
+  /** Skip this step when its target is not rendered for the current student. */
+  optional?: boolean;
+  /** A real control the student must activate before the tutorial advances. */
+  interactionSelector?: string;
+  /** Advance from a real control without running its product action. */
+  preventInteractionDefault?: boolean;
+  /** Wait for an opened surface to finish animating before measuring its step. */
+  interactionAdvanceDelayMs?: number;
+  /** A real control that returns to the previous tutorial step. */
+  backInteractionSelector?: string;
+  /** Wait for a closing surface to finish animating before measuring its step. */
+  backInteractionAdvanceDelayMs?: number;
+  /** A containing element to keep visible while spotlighting a narrower target. */
+  scrollSelector?: string;
+  /** Reset the app page scrollport before measuring this step. */
+  scrollMode?: "page-start";
+  /** Hide Back when the previous tour step belongs to another page. */
+  hideBack?: boolean;
+  /** Complete immediately after the required interaction, even with fallbacks after it. */
+  completeOnInteraction?: boolean;
+}
+
+interface ContextualTour extends Omit<Tour, "steps"> {
+  steps: ContextualTourStep[];
+}
+
+const dashboardTour: ContextualTour = {
+  tour: UCAT_DASHBOARD_TOUR,
   steps: [
     {
-      icon: <>👋</>,
-      title: "Welcome to UCAT prep",
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Welcome to Altitutor UCAT",
       content: (
         <p>
-          Let&apos;s take a quick tour so you know where everything lives. You
-          can replay it any time from Settings.
+          This quick tour shows you where to study, practice, and track your
+          progress. You can replay any tutorial later from Settings.
         </p>
       ),
-      selector: "#ucat-onboarding-welcome",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      // Logo is flush to the top of the sidebar: plain `right` vertically
-      // centres the card and clips above the viewport. Do **not** use
-      // `right-top` / `right-bottom` here — nextstepjs `checkSideCutOff` treats
-      // any side string containing "top" or "bottom" as a vertical hint and
-      // can replace `right-top` with `right-bottom` when y < 256px, which
-      // inverts arrow placement (arrow ends up on the wrong edge of the
-      // card). `bottom` places the card *below* the logo with the arrow on the
-      // top edge of the card pointing up — stable and matches the docs.
+      selector: "[data-tour='dashboard-welcome-heading']",
+      scrollMode: "page-start",
       side: "bottom",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 14,
+      ...standardStep,
     },
     {
-      icon: <>🏠</>,
-      title: "Dashboard",
+      icon: <Navigation className={iconClassName} />,
+      title: "Navigate the app",
       content: (
         <p>
-          Your home base — quick stats, your next session, and shortcuts to
-          every tool.
+          Use the navigation to move between learning, practice, full sets,
+          mocks, your Study plan, and progress.
         </p>
       ),
-      selector: "[data-tour='nav-dashboard']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      selector: "[data-tour='app-navigation']",
       side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
     },
     {
-      icon: <>📈</>,
-      title: "Progress",
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Your predicted score",
       content: (
         <p>
-          Section-by-section accuracy, every question attempt, and every mock —
-          all in one place.
+          Your predicted score trajectory will appear here once you have
+          completed enough questions.
         </p>
       ),
-      selector: "[data-tour='nav-progress']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      selector: "#tour-dashboard-predicted-score",
+      side: "bottom",
+      ...standardStep,
     },
     {
-      icon: <>📚</>,
-      title: "Learn",
+      icon: <ListChecks className={iconClassName} />,
+      title: "Your activation checklist",
       content: (
         <p>
-          Study notes and worked examples covering the theory behind each UCAT
-          section.
+          These first milestones help you set a goal, choose a Study plan, learn
+          the question interface, try a real question, and invite a friend.
         </p>
       ),
-      selector: "[data-tour='nav-learn']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
-    },
-    {
-      icon: <>🧠</>,
-      title: "Practice",
-      content: (
-        <p>
-          Drill individual questions — timed or untimed — and build the stamina
-          UCAT day demands.
-        </p>
-      ),
-      selector: "[data-tour='nav-practice']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
-    },
-    {
-      icon: <>🗂️</>,
-      title: "Sets",
-      content: (
-        <p>
-          Curated question sets by section, plus a generator if you want a
-          custom mix.
-        </p>
-      ),
-      selector: "[data-tour='nav-sets']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      side: "right",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
-    },
-    {
-      icon: <>📝</>,
-      title: "Mocks",
-      content: (
-        <p>
-          Full-length, exam-style mocks. Recommended once you&apos;re
-          comfortable in Practice.
-        </p>
-      ),
-      selector: "[data-tour='nav-mocks']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      // Near the bottom of the viewport: `right-bottom` is flipped to
-      // `right-top` by nextstepjs when the target sits low, which misplaces the
-      // arrow. `top` keeps the card above the row with the arrow on the bottom
-      // edge of the card pointing down.
+      selector: "[data-tour='dashboard-activation-card']",
       side: "top",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
+      optional: true,
     },
     {
-      icon: <>⚙️</>,
-      title: "Settings",
+      icon: <CalendarDays className={iconClassName} />,
+      title: "This week",
       content: (
         <p>
-          Manage your timezone and preferences. You can replay any tour from
-          here at any time.
+          When you use a Study plan, this card shows how much of the current
+          week you have completed and what remains.
         </p>
       ),
-      selector: "[data-tour='nav-settings']",
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
+      selector: "[data-tour='dashboard-week-card']",
       side: "top",
-      showControls: true,
-      showSkip: false,
-      pointerPadding: 4,
-      pointerRadius: 10,
+      ...standardStep,
+      optional: true,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Your membership",
+      content: (
+        <p>
+          This card shows your practice streak and the question, set, and mock
+          quotas included with your free membership.
+        </p>
+      ),
+      selector:
+        "[data-tour='dashboard-membership-card']:has([data-tour-membership-tier='free'])",
+      side: "top",
+      ...standardStep,
+      optional: true,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Your membership",
+      content: (
+        <p>
+          This card shows your practice streak and the discount your membership
+          earns towards Altitutor tutoring.
+        </p>
+      ),
+      selector:
+        "[data-tour='dashboard-membership-card']:has([data-tour-membership-tier='paid'])",
+      side: "top",
+      ...standardStep,
+      optional: true,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Recent results",
+      content: (
+        <p>
+          Return to your latest completed attempts to review answers,
+          explanations, and timing.
+        </p>
+      ),
+      selector: "[data-tour='dashboard-recent-attempts-card']",
+      side: "top",
+      ...standardStep,
+      optional: true,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Open your Study guidance",
+      content: (
+        <div className="space-y-2">
+          <p>
+            The orb keeps your recommended next activity close by. You can
+            return to it throughout your study.
+          </p>
+          <p className="font-medium">
+            Click the Study orb in the bottom right of the screen to continue.
+          </p>
+        </div>
+      ),
+      selector: "[data-tour='study-guidance-orb']",
+      interactionSelector: "[data-tour='study-guidance-orb']",
+      interactionAdvanceDelayMs: 300,
+      ...fixedViewport,
+      side: "top",
+      ...standardStep,
+      showControls: false,
+      optional: true,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Your best next action appears here. Select it when you are ready, or
+          finish this tutorial and come back another time.
+        </p>
+      ),
+      selector: "[data-dashboard-guidance-panel]",
+      interactionSelector: "[data-dashboard-guidance-action]",
+      backInteractionSelector: "[data-dashboard-guidance-collapse]",
+      backInteractionAdvanceDelayMs: 300,
+      ...fixedViewport,
+      side: "left",
+      ...standardStep,
+      optional: true,
+      completeOnInteraction: true,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Study guidance is hidden, so your best next action appears here
+          instead. Select it when you are ready, or finish this tutorial and
+          come back another time.
+        </p>
+      ),
+      selector: "[data-dashboard-guidance-fallback]",
+      interactionSelector: "[data-dashboard-guidance-action]",
+      side: "left",
+      ...standardStep,
+      optional: true,
     },
   ],
 };
 
-const practiceTour: Tour = {
-  tour: UCAT_PRACTICE_TOUR,
+const studyPlanTour: ContextualTour = {
+  tour: UCAT_STUDY_PLAN_TOUR,
   steps: [
     {
-      icon: <>🧠</>,
-      title: "Practice your way",
+      icon: <CalendarDays className={iconClassName} />,
+      title: "Your Study plan calendar",
       content: (
         <p>
-          Practice lets you drill questions stem-by-stem with instant feedback.
-          A quick tour of the controls 👇
+          Your plan schedules tasks based on your predicted score and weaknesses
+          to get you ready for your UCAT test by your test date.
         </p>
       ),
-      selector: "#tour-practice-header",
+      selector: "#tour-study-plan-calendar",
+      interactionSelector: "[data-tour-task-day]",
       side: "bottom",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 12,
+      ...standardStep,
     },
     {
-      icon: <>🎯</>,
-      title: "Pick your filters",
+      icon: <ListChecks className={iconClassName} />,
+      title: "Study tasks",
       content: (
         <p>
-          Choose a UCAT section, narrow by topic, and set your time controls.
-          You can also filter by past performance to retry weak spots.
+          Tasks for the selected day appear here. Select a task to start the
+          activity. On a rest day, you can choose extra study instead.
         </p>
       ),
-      selector: "#tour-practice-filters",
+      selector: "[data-tour='study-plan-task']",
+      interactionSelector: "[data-tour-study-plan-task-action]",
+      completeOnInteraction: true,
+      scrollSelector: "[data-tour-study-plan-selected-day]",
       side: "top",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 12,
-    },
-    {
-      icon: <>🚀</>,
-      title: "Hit start",
-      content: (
-        <p>
-          When the preview looks right, start a session. Your attempts are
-          saved automatically and show up in Progress.
-        </p>
-      ),
-      selector: "[data-tour='practice-start']",
-      side: "top",
-      showControls: true,
-      showSkip: false,
-      pointerPadding: 8,
-      pointerRadius: 12,
+      ...standardStep,
     },
   ],
 };
 
-const progressTour: Tour = {
+const progressTour: ContextualTour = {
   tour: UCAT_PROGRESS_TOUR,
   steps: [
     {
-      icon: <>📊</>,
-      title: "Your Progress hub",
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Your predicted score",
       content: (
         <p>
-          Everything you&apos;ve attempted is summarised here — by section, by
-          attempt, and over time.
+          This graph shows your overall predicted score and percentile once
+          you&apos;ve done enough questions. Your score should improve over time
+          as you practice more.
         </p>
       ),
-      selector: "#tour-progress-header",
+      selector: "#tour-progress-predicted-score",
       side: "bottom",
-      showControls: true,
-      showSkip: true,
-      pointerPadding: 8,
-      pointerRadius: 12,
+      ...standardStep,
     },
     {
-      icon: <>🔭</>,
-      title: "Switch the lens",
+      icon: <CalendarDays className={iconClassName} />,
+      title: "Your activity",
+      content: (
+        <p>See which days you have studied on and your practice consistency.</p>
+      ),
+      selector: "#tour-progress-activity",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Questions completed",
       content: (
         <p>
-          Use the mode selector to filter by time frame or by attempt type
-          (practice / set / mock). The cards below react to your choice.
+          Track the total number of questions you have completed in each
+          section.
         </p>
       ),
-      selector: "#tour-progress-mode",
-      /**
-       * The mode toolbar is `position: fixed` at the bottom of the viewport.
-       * Without `viewportID`, the overlay portals into the document body —
-       * its origin then shifts with page scroll, so the spotlight drifts away
-       * from the fixed toolbar. Anchoring to the fixed overlay container keeps
-       * the spotlight pinned to the toolbar exactly (same trick we use for the
-       * sidebar steps).
-       */
-      viewportID: UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-      /** Toolbar is fixed at the bottom — place the card above it (not below the fold). */
+      selector: "#tour-progress-questions-completed",
       side: "top",
-      showControls: true,
-      showSkip: false,
-      pointerPadding: 8,
-      pointerRadius: 12,
+      ...standardStep,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Score by section",
+      content: (
+        <p>
+          Your predicted and target section scores appear here once they are
+          available. Select View on a section to continue into its detailed
+          progress.
+        </p>
+      ),
+      selector: "#tour-progress-sections",
+      interactionSelector: "[data-tour='progress-section-link'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Predicted section score",
+      content: (
+        <p>
+          Your estimated score for this section appears here, with its score
+          projection once you have enough realistic timed practice.
+        </p>
+      ),
+      selector: "#tour-section-predicted-score",
+      hideBack: true,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Section statistics",
+      content: (
+        <p>
+          These three cards summarise accuracy, completed questions, and timing
+          for this section.
+        </p>
+      ),
+      selector: "#tour-section-stats",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Practice sessions",
+      content: (
+        <p>
+          Review your practice history. Change the graph metric to compare the
+          same measure in the selected table column.
+        </p>
+      ),
+      selector: "#tour-section-practice-attempts",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Set attempts",
+      content: (
+        <p>
+          Review completed sets and change the graph or table metric to compare
+          different results.
+        </p>
+      ),
+      selector: "#tour-section-set-attempts",
+      side: "top",
+      ...standardStep,
     },
   ],
 };
 
-/** Flat list passed to `<NextStep>`. */
-export const ucatOnboardingTours: Tour[] = [
-  welcomeTour,
-  practiceTour,
-  progressTour,
+const learnTour: ContextualTour = {
+  tour: UCAT_LEARN_TOUR,
+  steps: [
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Learning modules",
+      content: (
+        <p>
+          Learning modules teach UCAT concepts, techniques, and worked examples
+          before you apply them in practice.
+        </p>
+      ),
+      selector: "#tour-learn-page",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Choose an area",
+      content: (
+        <p>
+          Select general for introductory modules, or any section to browse its
+          learning modules.
+        </p>
+      ),
+      selector: "[data-tour='learn-options']",
+      interactionSelector: "[data-tour='learn-area-link'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Choose a learning module",
+      content: (
+        <p>
+          The learning modules for your chosen area appear here. Select one to
+          start learning, or finish this tutorial and come back later.
+        </p>
+      ),
+      selector: "[data-tour='learning-modules']",
+      hideBack: true,
+      side: "top",
+      ...standardStep,
+    },
+  ],
+};
+
+const skillTrainerTour: ContextualTour = {
+  tour: UCAT_SKILL_TRAINER_TOUR,
+  steps: [
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Practice one skill at a time",
+      content: (
+        <p>
+          Trainers are short, timed drills that target a specific UCAT skill -
+          for example, speed reading or mental maths.
+        </p>
+      ),
+      selector: "#tour-skill-trainer-page",
+      scrollMode: "page-start",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Choose a trainer",
+      content: <p>Select a trainer to see how it works before you begin.</p>,
+      selector: "[data-tour='skill-trainer-options']",
+      interactionSelector: "[data-tour='skill-trainer-option'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "See how it works",
+      content: (
+        <p>
+          Each trainer includes a quick interactive tutorial so you can learn
+          the rules and controls before starting.
+        </p>
+      ),
+      selector: "[data-tour='skill-trainer-tutorial']",
+      scrollMode: "page-start",
+      hideBack: true,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Select Start skill trainer when you are ready, or finish this tutorial
+          and come back another time.
+        </p>
+      ),
+      selector: "[data-tour='skill-trainer-start']",
+      side: "top",
+      ...standardStep,
+    },
+  ],
+};
+
+const practiceTour: ContextualTour = {
+  tour: UCAT_PRACTICE_TOUR,
+  steps: [
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Practice questions",
+      content: (
+        <p>
+          Practice questions allow you to do a targeted, filtered set of
+          questions. You can choose a specific question type to practice, or do
+          a full section.
+        </p>
+      ),
+      // Compact header target — highlighting the full filters panel (tall /
+      // often taller than the viewport) makes nextstepjs loop scrollIntoView
+      // and jitter the page via OnboardingScrollRepaint.
+      selector: "#tour-practice-header",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <BrainCircuit className={iconClassName} />,
+      title: "Begin setting up practice",
+      content: (
+        <p>
+          Select a section and optionally specific categories, then press next
+          to select filters and begin practicing.
+        </p>
+      ),
+      selector: "[data-tour='practice-setup']",
+      side: "top",
+      ...standardStep,
+    },
+  ],
+};
+
+const setsTour: ContextualTour = {
+  tour: UCAT_SETS_TOUR,
+  steps: [
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Question sets",
+      content: (
+        <p>
+          A set is a single, full-length UCAT section. They can be done timed or
+          untimed.
+        </p>
+      ),
+      selector: "#tour-sets-page",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Choose a section",
+      content: <p>Select a UCAT section to browse its available sets.</p>,
+      selector: "[data-tour='sets-options']",
+      interactionSelector: "[data-tour='sets-section-link'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Choose a set",
+      content: (
+        <p>
+          Select any set to review its timing, question count, and structure.
+        </p>
+      ),
+      selector: "[data-tour='set-options']",
+      interactionSelector: "[data-tour='set-option'] a",
+      hideBack: true,
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Review the set structure",
+      content: (
+        <p>
+          Check the section, number of questions, timing mode, and time limit
+          before beginning.
+        </p>
+      ),
+      selector: "[data-tour='set-structure']",
+      scrollMode: "page-start",
+      hideBack: true,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Select Launch set when you are ready, or finish this tutorial and come
+          back another time.
+        </p>
+      ),
+      selector: "[data-tour='set-start']",
+      side: "top",
+      ...standardStep,
+    },
+  ],
+};
+
+const mocksTour: ContextualTour = {
+  tour: UCAT_MOCKS_TOUR,
+  steps: [
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Choose a mock exam",
+      content: (
+        <p>
+          Mocks reproduce a full UCAT exam. In each mock, you will complete each
+          of the 4 sections back to back under timed conditions.
+        </p>
+      ),
+      selector: "#tour-mocks-page",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Choose a mock",
+      content: <p>Select a mock to review its structure before you begin.</p>,
+      selector: "[data-tour='mock-options']",
+      interactionSelector: "[data-tour='mock-option'] a",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Review the mock structure",
+      content: (
+        <p>
+          Check the four sections, question count, and total exam timing before
+          beginning.
+        </p>
+      ),
+      selector: "[data-tour='mock-structure']",
+      scrollMode: "page-start",
+      hideBack: true,
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <NotebookText className={iconClassName} />,
+      title: "Start when you are ready",
+      content: (
+        <p>
+          Select Launch mock when you are ready, or finish this tutorial and
+          come back another time.
+        </p>
+      ),
+      selector: "[data-tour='mock-start']",
+      side: "top",
+      ...standardStep,
+    },
+  ],
+};
+
+const questionEngineAltitutorControlSteps: ContextualTourStep[] = [
+  {
+    icon: <ListChecks className={iconClassName} />,
+    title: "Open the Altitutor menu",
+    content: (
+      <div className="space-y-2">
+        <p>
+          The Menu contains Altitutor-specific attempt tools. The official
+          UCAT-style controls remain in the question area.
+        </p>
+        <p className="font-medium">Select Menu to open it.</p>
+      </div>
+    ),
+    selector: "[data-tour='question-engine-menu']",
+    interactionSelector: "[data-tour='question-engine-menu']",
+    interactionAdvanceDelayMs: 300,
+    ...fixedViewport,
+    side: "bottom",
+    ...standardStep,
+    showControls: false,
+  },
+  {
+    icon: <Settings className={iconClassName} />,
+    title: "Explore the Altitutor controls",
+    content: (
+      <div className="space-y-2">
+        <p>
+          Try Lag mode, move the toolbar, or select Report bug and Exit to learn
+          what each control does. Nothing can end this tutorial from here.
+        </p>
+        <p className="font-medium">
+          Select Next when you are ready to continue.
+        </p>
+      </div>
+    ),
+    selector: "[data-tour='question-engine-settings']",
+    ...fixedViewport,
+    side: "left",
+    ...standardStep,
+  },
 ];
 
-/** All known tour IDs (for bulk reset / iteration). */
+const questionEngineControlsTour: Tour = {
+  tour: UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  steps: [
+    ...questionEngineAltitutorControlSteps,
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "You are ready",
+      content: (
+        <p>
+          Those are Altitutor&apos;s additional controls. The remaining question
+          interface follows the official UCAT format.
+        </p>
+      ),
+      selector: UCAT_NEXTSTEP_DIM_ONLY_SELECTOR,
+      ...fixedViewport,
+      ...standardStep,
+      pointerPadding: 0,
+      pointerRadius: 0,
+      disableInteraction: true,
+    },
+  ],
+};
+
+const questionEngineTour: Tour = {
+  tour: UCAT_QUESTION_ENGINE_TOUR,
+  steps: [
+    ...questionEngineAltitutorControlSteps,
+    {
+      icon: <Calculator className={iconClassName} />,
+      title: "Open the calculator",
+      content: (
+        <div className="space-y-2">
+          <p>Open the calculator from the toolbar or press Alt+C.</p>
+          <p className="font-medium">Select Calculator to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-calculator']",
+      side: "bottom",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Calculator className={iconClassName} />,
+      title: "Try the calculator",
+      content: (
+        <div className="space-y-2">
+          <p>
+            Use the calculator buttons or keyboard. It stays fixed in place
+            during this tutorial.
+          </p>
+          <div className="grid grid-cols-2 gap-x-3 gap-y-1 rounded-md bg-muted p-2 text-xs">
+            <span>
+              <kbd className="font-mono font-semibold">0–9</kbd> → 0–9
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">.</kbd> → decimal
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">+</kbd> → +
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">-</kbd> → −
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">*</kbd> → ×
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">/</kbd> → ÷
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">X</kbd> → √
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">%</kbd> → %
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">Enter / =</kbd> → =
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">C</kbd> → MRC
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">P</kbd> → M+
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">M</kbd> → M−
+            </span>
+            <span>
+              <kbd className="font-mono font-semibold">Backspace</kbd> → ON/C
+            </span>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Use the on-screen buttons for +/−. Calculations are left-to-right
+            (no BODMAS).
+          </p>
+          <p className="font-medium">Close the calculator to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-calculator-panel']",
+      side: "left",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Flag className={iconClassName} />,
+      title: "Flag questions to revisit",
+      content: (
+        <div className="space-y-2">
+          <p>
+            Flag a question when you want to return to it from the navigator or
+            review screen. Press Alt+F to toggle the flag.
+          </p>
+          <p className="font-medium">Select Flag for Review to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-flag']",
+      side: "bottom",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Read the question stem",
+      content: (
+        <p>
+          In Verbal Reasoning, the passage stays in the left column while you
+          move through the questions linked to it.
+        </p>
+      ),
+      selector: "[data-tour='question-engine-stem']",
+      side: "right",
+      ...standardStep,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Answer the question",
+      content: (
+        <div className="space-y-2">
+          <p>
+            The active question and its answer options appear in the right
+            column. Select an option with the mouse or its letter key.
+          </p>
+          <p className="font-medium">Select any answer to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-question']",
+      side: "left",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <ArrowRight className={iconClassName} />,
+      title: "Go to the next question",
+      content: (
+        <div className="space-y-2">
+          <p>Use Next or press Alt+N to move forward one question.</p>
+          <p className="font-medium">Select Next to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-next']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <ArrowLeft className={iconClassName} />,
+      title: "Go to the previous question",
+      content: (
+        <div className="space-y-2">
+          <p>Use Previous or press Alt+P to move back one question.</p>
+          <p className="font-medium">Select Previous to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-previous']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Open the navigator",
+      content: (
+        <div className="space-y-2">
+          <p>The navigator shows which questions are incomplete or flagged.</p>
+          <p className="font-medium">Select Navigator to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-navigator']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Use the navigator",
+      content: (
+        <div className="space-y-2">
+          <p>Double-click a question to go directly to that question.</p>
+          <p className="font-medium">
+            Double-click a question or select Close to continue.
+          </p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-navigator-panel']",
+      side: "bottom",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Keyboard className={iconClassName} />,
+      title: "Keyboard shortcuts",
+      content: <QuestionEngineShortcutTourContent />,
+      selector: UCAT_NEXTSTEP_DIM_ONLY_SELECTOR,
+      ...fixedViewport,
+      ...standardStep,
+      pointerPadding: 0,
+      pointerRadius: 0,
+      disableInteraction: true,
+      showSkip: false,
+    },
+    {
+      icon: <ListChecks className={iconClassName} />,
+      title: "Open the review screen",
+      content: (
+        <div className="space-y-2">
+          <p>
+            Review appears when you reach the last question. Select it to check
+            incomplete and flagged questions before finishing an exam.
+          </p>
+          <p className="font-medium">Select Review to continue.</p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-next']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+    },
+    {
+      icon: <Flag className={iconClassName} />,
+      title: "Finish the tutorial",
+      content: (
+        <div className="space-y-2">
+          <p>
+            In a real attempt, this control finishes the practice session or
+            exam.
+          </p>
+          <p className="font-medium">
+            Select Finish tutorial to complete the tutorial.
+          </p>
+        </div>
+      ),
+      selector: "[data-tour='question-engine-finish-tutorial']",
+      side: "top",
+      ...standardStep,
+      showControls: false,
+      showSkip: false,
+    },
+  ],
+};
+
+const attemptReviewTour: ContextualTour = {
+  tour: UCAT_ATTEMPT_REVIEW_TOUR,
+  steps: [
+    {
+      icon: <Target className={iconClassName} />,
+      title: "Score",
+      content: (
+        <p>
+          This card summarises the result, including scaled score or points
+          where available.
+        </p>
+      ),
+      selector: "#tour-attempt-score",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Timing",
+      content: (
+        <p>
+          Compare time taken and pace with the available set, mock, or practice
+          timing.
+        </p>
+      ),
+      selector: "#tour-attempt-timing",
+      side: "bottom",
+      ...standardStep,
+    },
+    {
+      icon: <Navigation className={iconClassName} />,
+      title: "Question navigator",
+      content: (
+        <p>
+          Select a question to move directly to it. Switch between the simple
+          navigator and timing graph to inspect the attempt from either view.
+        </p>
+      ),
+      selector: "#tour-attempt-navigator",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <BookOpen className={iconClassName} />,
+      title: "Question reviewer",
+      content: (
+        <p>
+          Review the original question, your answer, and the correct answer. Use
+          Previous and Next to move through the attempt, and rate the question
+          if its content needs attention.
+        </p>
+      ),
+      selector: "#tour-attempt-reviewer",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <Flag className={iconClassName} />,
+      title: "Answer explanation",
+      content: (
+        <p>
+          Read the explanation for the selected question. Use the upvote or
+          downvote controls if the explanation needs attention.
+        </p>
+      ),
+      selector: "#tour-attempt-explanation",
+      side: "top",
+      ...standardStep,
+    },
+    {
+      icon: <TrendingUp className={iconClassName} />,
+      title: "Question timing and difficulty",
+      content: (
+        <p>
+          Compare your time with the available benchmark, check the difficulty,
+          and inspect the question properties used to describe this item.
+        </p>
+      ),
+      selector: "#tour-attempt-question-properties",
+      side: "top",
+      ...standardStep,
+      optional: true,
+    },
+  ],
+};
+
+export const ucatOnboardingTours: Tour[] = [
+  dashboardTour,
+  studyPlanTour,
+  progressTour,
+  learnTour,
+  skillTrainerTour,
+  practiceTour,
+  setsTour,
+  mocksTour,
+  questionEngineControlsTour,
+  questionEngineTour,
+  attemptReviewTour,
+];
+
 export const ALL_UCAT_TOUR_IDS = [
-  UCAT_ONBOARDING_TOUR,
-  UCAT_PRACTICE_TOUR,
+  UCAT_DASHBOARD_TOUR,
+  UCAT_STUDY_PLAN_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_LEARN_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
+  UCAT_PRACTICE_TOUR,
+  UCAT_SETS_TOUR,
+  UCAT_MOCKS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+  UCAT_ATTEMPT_REVIEW_TOUR,
 ] as const;
 
-/** Manual replay from Settings: reset this tour, go to `href`, then start the tour. */
 export const UCAT_TOUR_REPLAY_OPTIONS = [
+  { tourId: UCAT_DASHBOARD_TOUR, label: "Dashboard", href: "/dashboard" },
   {
-    tourId: UCAT_ONBOARDING_TOUR,
-    label: "App tour",
-    href: "/dashboard",
+    tourId: UCAT_STUDY_PLAN_TOUR,
+    label: "Study plan",
+    href: "/study-plan",
+  },
+  { tourId: UCAT_PROGRESS_TOUR, label: "Progress", href: "/progress" },
+  { tourId: UCAT_LEARN_TOUR, label: "Learn", href: "/learn" },
+  {
+    tourId: UCAT_SKILL_TRAINER_TOUR,
+    label: "Skill trainer",
+    href: "/skill-trainer",
   },
   {
     tourId: UCAT_PRACTICE_TOUR,
-    label: "Practice",
+    label: "Practice questions",
     href: "/practice",
   },
   {
-    tourId: UCAT_PROGRESS_TOUR,
-    label: "Progress",
-    href: "/progress",
+    tourId: UCAT_SETS_TOUR,
+    label: "Sets",
+    href: "/sets",
+  },
+  { tourId: UCAT_MOCKS_TOUR, label: "Mocks", href: "/mocks" },
+  {
+    tourId: UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+    label: "Altitutor question controls",
+    href: "/exam/controls-tutorial?replay=1&returnTo=%2Fsettings%2Fapp",
+  },
+  {
+    tourId: UCAT_QUESTION_ENGINE_TOUR,
+    label: "Full question interface",
+    href: "/exam/tutorial?replay=1&returnTo=%2Fsettings%2Fapp",
   },
 ] as const;
 
-/**
- * Pathname → tour mapping for auto-start on first visit.
- * Add an entry here when introducing a new feature tour.
- */
-const PATHNAME_TO_TOUR: Record<string, string> = {
-  "/dashboard": UCAT_ONBOARDING_TOUR,
-  "/practice": UCAT_PRACTICE_TOUR,
-  "/progress": UCAT_PROGRESS_TOUR,
-};
+export function getTourStep(
+  tourId: string | null,
+  stepIndex: number,
+): ContextualTourStep | null {
+  if (!tourId) return null;
+  const tour = ucatOnboardingTours.find(
+    (candidate) => candidate.tour === tourId,
+  );
+  return (tour?.steps[stepIndex] as ContextualTourStep | undefined) ?? null;
+}
 
-export function getTourForPathname(pathname: string): string | null {
-  return PATHNAME_TO_TOUR[pathname] ?? null;
+export function getFirstSelectorForTour(tourId: string): string | null {
+  return (
+    ucatOnboardingTours.find((tour) => tour.tour === tourId)?.steps[0]
+      ?.selector ?? null
+  );
 }

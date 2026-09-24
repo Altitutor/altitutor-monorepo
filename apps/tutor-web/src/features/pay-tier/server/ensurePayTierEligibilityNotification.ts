@@ -67,6 +67,7 @@ export async function ensurePayTierEligibilityNotification(
   const { error: insertError } = await admin.from('notifications').insert({
     staff_id: staffId,
     notification_type: PAY_TIER_ELIGIBLE_NOTIFICATION_TYPE,
+    app_scope: 'staff_web',
     title,
     body,
     action_url: actionUrl,

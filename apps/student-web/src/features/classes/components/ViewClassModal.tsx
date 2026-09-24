@@ -32,6 +32,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
   const { data: sessions, isLoading: isLoadingSessions } = useClassSessions(classId);
 
   const isOpen = classId !== null;
+  const isHomeworkHelp = classDetails?.session_type === 'HOMEWORK_HELP';
 
   return (
     <Sheet open={isOpen} onOpenChange={(open) => !open && onClose()}>
@@ -41,7 +42,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
         ) : classDetails ? (
           <>
             <SheetHeader>
-              <SheetTitle>Class Details</SheetTitle>
+              <SheetTitle>{isHomeworkHelp ? 'Homework Help Details' : 'Class Details'}</SheetTitle>
             </SheetHeader>
 
             <SegmentedTabPanel
@@ -49,12 +50,21 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
               onValueChange={(value) => setActiveTab(value as 'details' | 'sessions')}
               className="mt-6"
               options={[
-                { value: 'details', label: 'Class Details' },
+                { value: 'details', label: isHomeworkHelp ? 'Details' : 'Class Details' },
                 { value: 'sessions', label: 'Sessions' },
               ]}
             >
               <SegmentedTabPanelContent when="details" activeTab={activeTab} className="mt-4 space-y-4">
-                {/* Subject Information */}
+                {isHomeworkHelp ? (
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="text-lg">Homework Help</CardTitle>
+                      <CardDescription>
+                        Free, subject-independent drop-in support for active in-person students.
+                      </CardDescription>
+                    </CardHeader>
+                  </Card>
+                ) : (
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-lg">Subject</CardTitle>
@@ -79,6 +89,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     )}
                   </CardContent>
                 </Card>
+                )}
 
                 {/* Schedule Information */}
                 <Card>
@@ -89,16 +100,17 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                     <div className="flex items-center gap-2 text-sm">
                       <Calendar className="h-4 w-4 text-muted-foreground" />
                       <span className="font-medium">
-                        {classDetails.day_of_week !== null ? getDayShortName(classDetails.day_of_week) : '-'}
+                        {classDetails.schedule_weekdays?.length
+                          ? classDetails.schedule_weekdays.map(getDayShortName).join(', ')
+                          : classDetails.day_of_week !== null ? getDayShortName(classDetails.day_of_week) : '-'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2 text-sm">
                       <Clock className="h-4 w-4 text-muted-foreground" />
                       <span>
-                        {classDetails.start_time && classDetails.end_time
+                        {classDetails.schedule_summary_long || (classDetails.start_time && classDetails.end_time
                           ? `${formatTime(classDetails.start_time)} - ${formatTime(classDetails.end_time)}`
-                          : '-'
-                        }
+                          : '-')}
                       </span>
                     </div>
                     {classDetails.room && (
@@ -111,7 +123,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
                 </Card>
 
                 {/* Students in Class */}
-                {classDetails.students && 
+                {!isHomeworkHelp && classDetails.students &&
                  Array.isArray(classDetails.students) && 
                  classDetails.students.length > 0 && (
                   <Card>
@@ -183,7 +195,7 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
               <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="mt-4">
                 <Card>
                   <CardHeader>
-                    <CardTitle className="text-lg">Class Sessions</CardTitle>
+                    <CardTitle className="text-lg">{isHomeworkHelp ? 'Homework Help Sessions' : 'Class Sessions'}</CardTitle>
                     <CardDescription>
                       {sessions?.length || 0} session{sessions?.length !== 1 ? 's' : ''}
                     </CardDescription>
@@ -248,4 +260,3 @@ export function ViewClassModal({ classId, onClose }: ViewClassModalProps) {
     </Sheet>
   );
 }
-

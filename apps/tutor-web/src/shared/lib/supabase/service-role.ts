@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 /**
  * Get Supabase client with service role privileges
@@ -22,11 +23,10 @@ export function getServiceRoleClient() {
     );
   }
 
-  return createClient<Database>(supabaseUrl, supabaseServiceRole, {
+  return instrumentSupabaseClient(createClient<Database>(supabaseUrl, supabaseServiceRole, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
     },
-  });
+  }));
 }
-

@@ -1,28 +1,16 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
-import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check, X } from 'lucide-react';
+import { Loader2, Mail, MessageSquare, CheckCircle2, Copy, Check } from 'lucide-react';
 import { getInviteUrlForStudent } from '@/shared/utils/invites';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   useRegistrationInviteData,
   registrationInviteDataKeys,
 } from '../hooks/useRegistrationInviteData';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface SendRegistrationInviteDialogProps {
   isOpen: boolean;
@@ -42,11 +30,6 @@ export function SendRegistrationInviteDialog({
   const [emailSent, setEmailSent] = useState(false);
   const [smsSent, setSmsSent] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const { data, isLoading, isError } = useRegistrationInviteData(
     studentId,
@@ -89,6 +72,38 @@ export function SendRegistrationInviteDialog({
   });
 
   const isGenerating = generateTokenMutation.isPending;
+  const replaceLinkMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch('/api/public-links', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ purpose: 'registration', id: studentId }),
+      });
+      const result = (await response.json()) as { token?: string; url?: string; error?: string };
+      if (!response.ok || !result.token || !result.url) {
+        throw new Error(result.error || 'Failed to replace registration link');
+      }
+      return result;
+    },
+    onSuccess: (result) => {
+      setEmailSent(false);
+      setSmsSent(false);
+      queryClient.setQueryData(
+        registrationInviteDataKeys.detail(studentId),
+        (prev: { student: unknown; parents: unknown } | undefined) =>
+          prev ? { ...prev, token: result.token, inviteUrl: result.url } : prev
+      );
+      toast({
+        title: 'Registration link replaced',
+        description: 'Previously sent registration links no longer work.',
+      });
+    },
+    onError: (error) => toast({
+      title: 'Could not replace link',
+      description: error instanceof Error ? error.message : 'Please try again',
+      variant: 'destructive',
+    }),
+  });
 
   // Auto-generate token when modal opens and no existing token
   useEffect(() => {
@@ -229,37 +244,19 @@ export function SendRegistrationInviteDialog({
   const hasRecipients = recipients.length > 0 || (student && (student.email || student.phone));
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className={cn(
-          'sm:max-w-[600px] [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader>
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>Send Registration Link</DialogTitle>
-                <DialogDescription>
-                  Send a registration link to {student?.first_name} {student?.last_name}'s parent(s) to complete account setup
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </div>
-        </DialogHeader>
-
-        <div className="space-y-4 py-4">
+    <AdminDialogShell
+      open={isOpen}
+      onClose={handleClose}
+      title="Send Registration Link"
+      subtitle={`Send a registration link to ${student?.first_name} ${student?.last_name}'s parent(s) to complete account setup`}
+      contentClassName="sm:max-w-[600px]"
+      footer={
+        <Button variant="outline" onClick={handleClose}>
+          Close
+        </Button>
+      }
+    >
+        <div className="space-y-4">
           {/* Invite URL Display */}
           {isGenerating ? (
             <div className="flex items-center justify-center py-4">
@@ -294,6 +291,18 @@ export function SendRegistrationInviteDialog({
                       Copy
                     </>
                   )}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="destructive"
+                  disabled={replaceLinkMutation.isPending}
+                  onClick={() => {
+                    if (window.confirm('Replace this registration link? Previously sent links will stop working.')) {
+                      replaceLinkMutation.mutate();
+                    }
+                  }}
+                >
+                  {replaceLinkMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Replace link'}
                 </Button>
               </div>
             </div>
@@ -457,13 +466,6 @@ export function SendRegistrationInviteDialog({
             </>
           )}
         </div>
-
-        <div className="flex justify-end gap-2">
-          <Button variant="outline" onClick={handleClose}>
-            Close
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+    </AdminDialogShell>
   );
 }

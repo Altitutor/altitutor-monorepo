@@ -1,11 +1,22 @@
-import { useState, useMemo, useCallback, useEffect } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
+import type { Tables, TablesUpdate, ClassWithExpandedSubject } from "@altitutor/shared";
 import { Button } from "@altitutor/ui";
-import { ScrollArea } from "@altitutor/ui";
 import { SegmentedControl } from "@altitutor/ui";
 import { Badge } from "@altitutor/ui";
+import { Separator } from "@altitutor/ui";
+import { Input, Label, Switch } from "@altitutor/ui";
 import { useToast } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@altitutor/ui";
 import { Loader2, Plus, Pencil, X, UserCheck } from "lucide-react";
 import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
@@ -14,9 +25,20 @@ import { ClassCard } from '@/shared/components/ClassCard';
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
-import { useStudentWithSubjects, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
+import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import { getSubjectColorStyle } from '@/shared/utils';
+import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentDetail,
+} from '@/shared/lib/query-invalidation';
+import {
+  currentEnrolledClassIds,
+  groupStudentClassesBySubject,
+} from '@/features/students/utils/classEnrollments';
 type ViewMode = 'table' | 'calendar';
 
 interface ClassesTabProps {
@@ -42,31 +64,21 @@ export function ClassesTab({
   
   const [viewMode, setViewMode] = useState<ViewMode>('table');
   const [isEditMode, setIsEditMode] = useState(false);
-  
-  // Responsive: detect when container is too small for full cards
-  // Use window width instead of container ref for more reliable detection
-  const [useCompactCards, setUseCompactCards] = useState(false);
-  
-  useEffect(() => {
-    const checkSize = () => {
-      // Use window innerWidth for more reliable mobile detection
-      // Account for padding (p-6 = 24px each side = 48px total) and subject pill (~80-100px)
-      // So if window is < 640px, the card area will be < ~500px
-      const windowWidth = window.innerWidth;
-      const shouldUseCompact = windowWidth < 640;
-      setUseCompactCards(shouldUseCompact);
-    };
-    
-    // Check initially
-    checkSize();
-    
-    // Listen to window resize
-    window.addEventListener('resize', checkSize);
-    
-    return () => {
-      window.removeEventListener('resize', checkSize);
-    };
-  }, []);
+  const [showPreviousEnrollments, setShowPreviousEnrollments] = useState(false);
+  const [inPersonDetails, setInPersonDetails] = useState<TablesUpdate<'students'>>({
+    school: student.school,
+    curriculum: student.curriculum,
+    year_level: student.year_level,
+    availability_monday: student.availability_monday,
+    availability_tuesday: student.availability_tuesday,
+    availability_wednesday: student.availability_wednesday,
+    availability_thursday: student.availability_thursday,
+    availability_friday: student.availability_friday,
+    availability_saturday_am: student.availability_saturday_am,
+    availability_saturday_pm: student.availability_saturday_pm,
+    availability_sunday_am: student.availability_sunday_am,
+    availability_sunday_pm: student.availability_sunday_pm,
+  });
   
   // Modal state for class viewing
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
@@ -75,16 +87,25 @@ export function ClassesTab({
   // Modal states for enrollment workflows
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isEnrollModalSubjectId, setIsEnrollModalSubjectId] = useState<string | null>(null);
+  const [pendingSameSubjectEnroll, setPendingSameSubjectEnroll] = useState<{
+    subjectId: string;
+    subjectName: string;
+  } | null>(null);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
+  const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
   
-  // Prepare data for timetable view
-  const timetableClasses = classes.map(c => c.class);
+  // Prepare data for timetable view (current enrollments only)
+  const currentClasses = useMemo(
+    () => classes.filter((classData) => !classData.isPreviousEnrollment),
+    [classes]
+  );
+  const timetableClasses = currentClasses.map(c => c.class);
   const timetableSubjects: Record<string, Tables<'subjects'>> = {};
   const timetableStaff: Record<string, Tables<'staff'>[]> = {};
   const timetableStudents: Record<string, Tables<'students'>[]> = {};
-  classes.forEach(c => {
+  currentClasses.forEach(c => {
     if (c.subject) {
       timetableSubjects[c.class.id] = c.subject;
     }
@@ -92,45 +113,10 @@ export function ClassesTab({
     timetableStudents[c.class.id] = c.students || [];
   });
 
-  // Group classes by subject
-  const classesBySubject = useMemo(() => {
-    const grouped: Record<string, StudentClass[]> = {};
-    const classesWithoutMatchingSubject: StudentClass[] = [];
-    const studentSubjectIds = new Set(studentSubjects.map(s => s.id));
-    
-    // Add all student subjects (even if they have no classes)
-    studentSubjects.forEach(subject => {
-      grouped[subject.id] = [];
-    });
-    
-    // Group classes by subject
-    classes.forEach(classData => {
-      if (classData.subject) {
-        const subjectId = classData.subject.id;
-        // Check if student has this subject
-        if (studentSubjectIds.has(subjectId)) {
-          // Student has this subject - add to grouped
-          if (!grouped[subjectId]) {
-            grouped[subjectId] = [];
-          }
-          grouped[subjectId].push(classData);
-        } else {
-          // Student doesn't have this subject - add to bottom section
-          classesWithoutMatchingSubject.push(classData);
-        }
-      } else {
-        // Class has no subject - add to bottom section
-        classesWithoutMatchingSubject.push(classData);
-      }
-    });
-    
-    // Add classes without matching subjects at the end
-    if (classesWithoutMatchingSubject.length > 0) {
-      grouped['__no_subject__'] = classesWithoutMatchingSubject;
-    }
-    
-    return grouped;
-  }, [classes, studentSubjects]);
+  const classesBySubject = useMemo(
+    () => groupStudentClassesBySubject(classes, studentSubjects, showPreviousEnrollments),
+    [classes, studentSubjects, showPreviousEnrollments]
+  );
 
   // Modal handlers
   const handleClassClick = (classId: string) => {
@@ -143,8 +129,36 @@ export function ClassesTab({
     setIsEnrollModalOpen(true);
   };
 
+  const handleAddClassClick = (subjectId: string, existingClassCount: number, subjectName: string) => {
+    if (student.status !== 'ACTIVE') {
+      toast({
+        title: 'Cannot Enroll',
+        description: 'Student must be active to be enrolled in classes',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    if (existingClassCount > 0) {
+      setPendingSameSubjectEnroll({ subjectId, subjectName });
+      return;
+    }
+
+    openEnrollModal(subjectId);
+  };
+
+  const handleSameSubjectEnrollProceed = () => {
+    if (!pendingSameSubjectEnroll) return;
+    openEnrollModal(pendingSameSubjectEnroll.subjectId);
+    setPendingSameSubjectEnroll(null);
+  };
+
+  const findClass = (classId: string) =>
+    classes.find((candidate) => candidate.class.id === classId && !candidate.isPreviousEnrollment)
+    ?? classes.find((candidate) => candidate.class.id === classId);
+
   const openChangeClassModal = (classId: string) => {
-    const cls = classes.find(c => c.class.id === classId);
+    const cls = findClass(classId);
     if (cls) {
       setSelectedClass(cls);
       setIsChangeClassModalOpen(true);
@@ -152,10 +166,18 @@ export function ClassesTab({
   };
 
   const openUnenrollModal = (classId: string) => {
-    const cls = classes.find(c => c.class.id === classId);
+    const cls = findClass(classId);
     if (cls) {
       setSelectedClass(cls);
       setIsUnenrollModalOpen(true);
+    }
+  };
+
+  const openUnenrollmentLink = (classId: string) => {
+    const cls = findClass(classId);
+    if (cls) {
+      setSelectedClass(cls);
+      setIsUnenrollmentLinkOpen(true);
     }
   };
 
@@ -168,10 +190,7 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      // Invalidate queries to trigger refetch
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -198,9 +217,7 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.changeClass(params);
-      // Invalidate queries to trigger refetch
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -227,9 +244,7 @@ export function ClassesTab({
   }) => {
     try {
       await classesApi.unenrollStudentWithReason(params);
-      // Invalidate queries to trigger refetch
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-      await queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -269,7 +284,7 @@ export function ClassesTab({
   const handleAddSubject = async (subject: Tables<'subjects'>) => {
     try {
       await studentsApi.assignSubjectToStudent(student.id, subject.id);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -287,9 +302,9 @@ export function ClassesTab({
 
   // Handle removing a subject
   const handleRemoveSubject = async (subjectId: string) => {
-    // Check if student is enrolled in any classes for this subject
-    const subjectClasses = classesBySubject[subjectId] || [];
-    if (subjectClasses.length > 0) {
+    // Check if student is enrolled in any current classes for this subject
+    const subjectClasses = classesBySubject.find((group) => group.subjectId === subjectId)?.classes || [];
+    if (subjectClasses.some((classData) => !classData.isPreviousEnrollment)) {
       toast({
         title: 'Cannot Remove Subject',
         description: 'Cannot remove subject because the student is enrolled in classes for this subject. Please unenroll from all classes first.',
@@ -300,7 +315,7 @@ export function ClassesTab({
 
     try {
       await studentsApi.removeSubjectFromStudent(student.id, subjectId);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -321,7 +336,7 @@ export function ClassesTab({
     try {
       setIsReEnrolling(true);
       await studentsApi.reEnrollStudent(student.id);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
+      await invalidateStudentDetail(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
@@ -339,6 +354,41 @@ export function ClassesTab({
     }
   };
 
+  const handleCancelEdit = () => {
+    setInPersonDetails({
+      school: student.school,
+      curriculum: student.curriculum,
+      year_level: student.year_level,
+      availability_monday: student.availability_monday,
+      availability_tuesday: student.availability_tuesday,
+      availability_wednesday: student.availability_wednesday,
+      availability_thursday: student.availability_thursday,
+      availability_friday: student.availability_friday,
+      availability_saturday_am: student.availability_saturday_am,
+      availability_saturday_pm: student.availability_saturday_pm,
+      availability_sunday_am: student.availability_sunday_am,
+      availability_sunday_pm: student.availability_sunday_pm,
+    });
+    setIsEditMode(false);
+  };
+
+  const handleSave = async () => {
+    try {
+      await studentsApi.updateStudent(student.id, inPersonDetails);
+      await invalidateStudentDetail(queryClient, student.id);
+      onStudentUpdated?.();
+      setIsEditMode(false);
+      toast({ title: 'Success', description: 'In-person details updated successfully.' });
+    } catch (error) {
+      console.error('Failed to update in-person details:', error);
+      toast({
+        title: 'Update failed',
+        description: 'There was an error updating the in-person details. Please try again.',
+        variant: 'destructive',
+      });
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="flex-1 flex justify-center items-center">
@@ -352,7 +402,7 @@ export function ClassesTab({
       <div className="flex-1 flex justify-center items-center">
         <div className="text-center">
           <p className="text-red-500 mb-2">Failed to load classes</p>
-          <Button variant="outline" onClick={() => queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] })}>
+          <Button variant="outline" onClick={() => void invalidateStudentClassSurfaces(queryClient, student.id)}>
             Try Again
           </Button>
         </div>
@@ -364,104 +414,138 @@ export function ClassesTab({
     return null;
   }
 
+  const renderClassCard = (classData: StudentClass) => {
+    const isPrevious = Boolean(classData.isPreviousEnrollment);
+    return (
+      <ClassCard
+        key={classData.enrollment?.id ?? classData.class.id}
+        class={classData.class}
+        subject={classData.subject}
+        staff={classData.staff}
+        students={classData.students}
+        enrollment={classData.enrollment}
+        greyedOut={isPrevious}
+        onClick={() => handleClassClick(classData.class.id)}
+        onChangeClass={isPrevious ? undefined : () => openChangeClassModal(classData.class.id)}
+        onUnenroll={isPrevious ? undefined : () => openUnenrollModal(classData.class.id)}
+        onSendUnenrollmentLink={isPrevious ? undefined : () => openUnenrollmentLink(classData.class.id)}
+        hideActions={isPrevious}
+      />
+    );
+  };
+
   return (
     <>
-      <div className="flex-1 h-full flex flex-col">
+      <div className="flex-1 h-full min-h-0 flex flex-col">
+        <div className="flex-1 min-h-0 overflow-y-auto p-6">
+        <div className="space-y-5 mb-6">
+          <div>
+            <div className="flex items-center justify-between gap-2 mb-3">
+              <h3 className="text-base font-medium">Details</h3>
+              {!isEditMode && (
+                <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+                  <Pencil className="h-4 w-4 mr-2" />
+                  Edit
+                </Button>
+              )}
+            </div>
+            <PropertyForm>
+              <PropertyFormRow label="School" htmlFor={isEditMode ? 'in-person-school' : undefined}>
+                {isEditMode ? (
+                  <Input id="in-person-school" value={inPersonDetails.school ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, school: event.target.value || null }))} />
+                ) : <div>{student.school || '—'}</div>}
+              </PropertyFormRow>
+              <PropertyFormRow label="Curriculum" htmlFor={isEditMode ? 'in-person-curriculum' : undefined}>
+                {isEditMode ? (
+                  <select id="in-person-curriculum" className="h-10 rounded-md border border-input bg-background px-3" value={inPersonDetails.curriculum ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, curriculum: (event.target.value || null) as Tables<'students'>['curriculum'] }))}>
+                    <option value="">Not set</option>
+                    {['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE'].map((value) => <option key={value} value={value}>{value}</option>)}
+                  </select>
+                ) : <div>{student.curriculum || '—'}</div>}
+              </PropertyFormRow>
+              <PropertyFormRow label="Year level" htmlFor={isEditMode ? 'in-person-year-level' : undefined}>
+                {isEditMode ? (
+                  <Input id="in-person-year-level" type="number" min={1} max={13} value={inPersonDetails.year_level ?? ''} onChange={(event) => setInPersonDetails((current) => ({ ...current, year_level: event.target.value ? Number(event.target.value) : null }))} />
+                ) : <div>{student.year_level ? `Year ${student.year_level}` : '—'}</div>}
+              </PropertyFormRow>
+            </PropertyForm>
+          </div>
+          <Separator />
+          <div>
+            <h3 className="text-lg font-semibold mb-4">Availability</h3>
+            <AvailabilityFields
+              isEditing={isEditMode}
+              getValue={(key) => Boolean(
+                isEditMode
+                  ? inPersonDetails[key as keyof TablesUpdate<'students'>]
+                  : student[key as keyof Tables<'students'>]
+              )}
+              onCheckedChange={(key: AvailabilitySlotKey, checked) => {
+                setInPersonDetails((current) => ({ ...current, [key]: checked }));
+              }}
+            />
+          </div>
+          <Separator />
+        </div>
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
           <h3 className="text-base font-medium">Classes</h3>
-          
-          {!isEditMode ? (
+          <div className="flex items-center gap-3">
             <div className="flex items-center gap-2">
-              {/* View Mode Selector */}
-              <SegmentedControl
-                value={viewMode}
-                onValueChange={(v) => setViewMode(v as ViewMode)}
-                options={[
-                  { value: 'table', label: 'Table' },
-                  { value: 'calendar', label: 'Calendar' },
-                ]}
+              <Switch
+                id="show-previous-enrollments"
+                checked={showPreviousEnrollments}
+                onCheckedChange={setShowPreviousEnrollments}
               />
-              
-              <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
-                <Pencil className="h-4 w-4 mr-2" />
-                Edit
-              </Button>
+              <Label htmlFor="show-previous-enrollments" className="text-sm font-normal whitespace-nowrap">
+                Show previous enrollments
+              </Label>
             </div>
-          ) : (
-            <div className="flex items-center gap-2">
-              <SubjectSearchPopover
-                selectedSubjects={studentSubjects}
-                onSelectSubject={handleAddSubject}
-                trigger={
-                  <Button variant="outline" size="sm" className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" />
-                    <span>Add Subject</span>
-                  </Button>
-                }
-              />
-            </div>
-          )}
+            <SegmentedControl
+              value={viewMode}
+              onValueChange={(v) => setViewMode(v as ViewMode)}
+              options={[
+                { value: 'table', label: 'Table' },
+                { value: 'calendar', label: 'Calendar' },
+              ]}
+            />
+          </div>
         </div>
 
-        {/* Content Area - Takes remaining space and scrolls */}
-        <div className="flex-1 min-h-0 overflow-hidden">
-          {viewMode === 'table' ? (
-            <ScrollArea className="h-full">
-              <div className="space-y-4">
-                {Object.entries(classesBySubject)
-                  .sort(([a], [b]) => {
-                    // Put __no_subject__ entries at the end
-                    if (a === '__no_subject__') return 1;
-                    if (b === '__no_subject__') return -1;
-                    return 0;
-                  })
-                  .map(([subjectId, subjectClasses]) => {
-                  // Handle classes without subjects (shown at bottom)
-                  if (subjectId === '__no_subject__') {
+        {viewMode === 'table' ? (
+              <div className="space-y-4 pb-6">
+                {classesBySubject.map((group) => {
+                  if (group.subjectId === '__no_subject__') {
                     return (
-                      <div key={subjectId} className="space-y-2">
-                        {subjectClasses.map(classData => (
-                          <ClassCard
-                            key={classData.class.id}
-                            class={classData.class}
-                            subject={classData.subject}
-                            staff={classData.staff}
-                            students={classData.students}
-                            onClick={() => handleClassClick(classData.class.id)}
-                            onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
-                            onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
-                            hideActions={!isEditMode}
-                            compact={useCompactCards}
-                          />
-                        ))}
+                      <div key={group.subjectId} className="space-y-2">
+                        {group.classes.map(renderClassCard)}
                       </div>
                     );
                   }
-                  
-                  const subject = studentSubjects.find(s => s.id === subjectId);
+
+                  const subject = group.subject;
                   if (!subject) return null;
-                  
-                  const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
+
+                  const shortName = subject.short_name ?? subject.long_name ?? subject.name ?? '';
                   const { style, textColorClass } = getSubjectColorStyle(subject);
                   const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
-                  
+                  const currentClassCount = group.classes.filter((classData) => !classData.isPreviousEnrollment).length;
+
                   return (
-                    <div key={subjectId} className="flex items-start gap-4">
-                      {/* Subject Pill */}
+                    <div key={group.subjectId} className="flex items-start gap-4">
                       <div className="flex-shrink-0 pt-2">
                         <Badge
                           className={defaultClass || `${textColorClass} flex items-center gap-1 pr-1`}
                           style={style.backgroundColor ? style : undefined}
                         >
                           <span>{shortName}</span>
-                          {isEditMode && (
+                          {isEditMode && group.isAssignedSubject && (
                             <button
                               type="button"
                               className="ml-1 rounded-full hover:bg-black/20 p-0.5 flex items-center justify-center"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                handleRemoveSubject(subjectId);
+                                void handleRemoveSubject(group.subjectId);
                               }}
                               title="Remove subject"
                             >
@@ -470,46 +554,28 @@ export function ClassesTab({
                           )}
                         </Badge>
                       </div>
-                      
-                      {/* Class Cards - Show all classes for this subject stacked */}
-                      <div className="flex-1 space-y-2">
-                        {subjectClasses.length > 0 ? (
-                          subjectClasses.map(classData => (
-                            <ClassCard
-                              key={classData.class.id}
-                              class={classData.class}
-                              subject={classData.subject}
-                              staff={classData.staff}
-                              students={classData.students}
-                              onClick={() => handleClassClick(classData.class.id)}
-                              onChangeClass={isEditMode ? () => openChangeClassModal(classData.class.id) : undefined}
-                              onUnenroll={isEditMode ? () => openUnenrollModal(classData.class.id) : undefined}
-                              hideActions={!isEditMode}
-                              compact={useCompactCards}
-                            />
-                          ))
-                        ) : (
+
+                      <div className="flex-1 space-y-2 min-w-0">
+                        {group.classes.map(renderClassCard)}
+                        {group.isAssignedSubject && (
                           <div
                             className={`border-2 border-dashed rounded-lg p-4 flex items-center justify-center transition-colors ${
-                              student.status === 'ACTIVE' 
-                                ? 'hover:border-primary/50 cursor-pointer' 
+                              student.status === 'ACTIVE'
+                                ? 'hover:border-primary/50 cursor-pointer'
                                 : 'opacity-50 cursor-not-allowed'
                             }`}
                             onClick={() => {
-                              if (student.status === 'ACTIVE') {
-                                openEnrollModal(subjectId);
-                              } else {
-                                toast({
-                                  title: 'Cannot Enroll',
-                                  description: 'Student must be active to be enrolled in classes',
-                                  variant: 'destructive',
-                                });
-                              }
+                              handleAddClassClick(
+                                group.subjectId,
+                                currentClassCount,
+                                subject.long_name ?? subject.short_name ?? subject.name ?? 'this subject'
+                              );
                             }}
                           >
-                            <Button 
-                              variant="ghost" 
-                              size="sm" 
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
                               className="flex items-center gap-2"
                               disabled={student.status !== 'ACTIVE'}
                             >
@@ -522,14 +588,31 @@ export function ClassesTab({
                     </div>
                   );
                 })}
-                
-                {Object.keys(classesBySubject).length === 0 && (
+
+                <div className="flex items-start gap-4">
+                  <div className="flex-shrink-0 pt-2">
+                    <SubjectSearchPopover
+                      selectedSubjects={studentSubjects}
+                      onSelectSubject={handleAddSubject}
+                      trigger={
+                        <button
+                          type="button"
+                          className="inline-flex items-center gap-1 rounded-full border-2 border-dashed border-muted-foreground/40 bg-transparent px-2.5 py-0.5 text-xs font-semibold text-muted-foreground hover:border-primary/50 hover:text-foreground"
+                        >
+                          <Plus className="h-3 w-3" />
+                          Add subject
+                        </button>
+                      }
+                    />
+                  </div>
+                </div>
+
+                {studentSubjects.length === 0 && classesBySubject.length === 0 && (
                   <div className="text-center py-8 text-muted-foreground">
                     <p>No subjects assigned. Add a subject to get started.</p>
                   </div>
                 )}
-                
-                {/* Actions Section - Only show in edit mode */}
+
                 {isEditMode && student.status === 'DISCONTINUED' && (
                   <div className="mt-8 pt-6 border-t">
                     <h4 className="text-sm font-medium mb-4">Actions</h4>
@@ -556,9 +639,8 @@ export function ClassesTab({
                   </div>
                 )}
               </div>
-            </ScrollArea>
           ) : (
-            <div className="h-full overflow-hidden">
+            <div className="h-[min(70dvh,640px)] min-h-[360px]">
               <CalendarView
                 classes={timetableClasses}
                 classSubjects={timetableSubjects}
@@ -571,13 +653,17 @@ export function ClassesTab({
           )}
         </div>
 
-        {/* Edit Mode Footer - Sticky at bottom */}
         {isEditMode && (
-          <div className="border-t pt-4 mt-4 flex-shrink-0 bg-background">
-            <div className="flex justify-end">
-              <Button variant="default" onClick={() => setIsEditMode(false)}>
-                Save
-              </Button>
+          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+            <div className="flex w-full justify-end">
+              <div className="flex space-x-2">
+                <Button variant="outline" type="button" onClick={handleCancelEdit}>
+                  Cancel
+                </Button>
+                <Button variant="default" onClick={() => void handleSave()}>
+                  Save
+                </Button>
+              </div>
             </div>
           </div>
         )}
@@ -592,9 +678,7 @@ export function ClassesTab({
               setSelectedClassId(null);
             }}
             onClassUpdated={() => {
-              // Refresh student classes when class is updated
-              queryClient.invalidateQueries({ queryKey: ['students', student.id, 'classes'] });
-              queryClient.invalidateQueries({ queryKey: ['students', student.id, 'allClasses'] });
+              void invalidateStudentClassSurfaces(queryClient, student.id);
             }}
           />
         )}
@@ -610,7 +694,7 @@ export function ClassesTab({
         context="student"
         student={student}
         studentSubjects={studentSubjects}
-        enrolledClassIds={classes.map(c => c.class.id)}
+        enrolledClassIds={currentEnrolledClassIds(classes)}
         onFetchClasses={isEnrollModalSubjectId ? () => fetchClassesForSubject(isEnrollModalSubjectId) : undefined}
         subjectId={isEnrollModalSubjectId || undefined}
         onEnroll={handleEnroll}
@@ -651,6 +735,44 @@ export function ClassesTab({
           currentStaffId={currentStaff.id}
         />
       )}
+
+      {selectedClass && (
+        <StudentExitRequestDialog
+          open={isUnenrollmentLinkOpen}
+          onOpenChange={(next) => {
+            setIsUnenrollmentLinkOpen(next);
+            if (!next) setSelectedClass(null);
+          }}
+          studentId={student.id}
+          studentName={[student.first_name, student.last_name].filter(Boolean).join(' ')}
+          studentPhone={student.phone}
+          workflowKey="student_unenrolment"
+          classId={selectedClass.class.id}
+          onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
+        />
+      )}
+
+      <AlertDialog
+        open={pendingSameSubjectEnroll !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingSameSubjectEnroll(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Student Already Enrolled</AlertDialogTitle>
+            <AlertDialogDescription>
+              This student is already enrolled in a class for {pendingSameSubjectEnroll?.subjectName}. Do you want to proceed?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleSameSubjectEnrollProceed}>
+              Proceed
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

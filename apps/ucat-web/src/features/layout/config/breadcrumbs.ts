@@ -3,19 +3,22 @@ import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
 /** Maps path segments to display labels for breadcrumbs. */
 export const SEGMENT_LABELS: Record<string, string> = {
   dashboard: "Dashboard",
+  "study-plan": "Study plan",
   progress: "Progress",
   sets: "Sets",
   sections: "Sections",
   mocks: "Mocks",
   learn: "Learn",
   sessions: "Sessions",
-  practice: "Practice",
+  practice: "Practice questions",
   settings: "Settings",
   app: "App settings",
   profile: "My profile",
+  communications: "Communications",
+  plan: "Plan",
   subscription: "Subscription",
+  referrals: "Referrals",
   "skill-trainer": "Skill trainer",
-  "set-generator": "Set Generator",
   "set-attempts": "Set attempt",
   "mock-attempts": "Mock attempt",
   "practice-sessions": "Practice session",
@@ -30,6 +33,16 @@ const DYNAMIC_SEGMENT_LABELS: Record<string, string> = {
   "set-attempts": "Set attempt",
   "mock-attempts": "Mock attempt",
   "practice-sessions": "Practice session",
+  results: "Attempt",
+};
+
+const SKILL_TRAINER_SLUG_LABELS: Record<string, string> = {
+  "find-word": "Find the word",
+  "find-concept": "Find the concept",
+  "quick-syllogism": "Quick syllogisms",
+  "mental-maths": "Mental maths",
+  "numpad-speed": "Numpad speed",
+  "calculator-maths": "Calculator maths speed",
 };
 
 const UUID_REGEX =
@@ -40,8 +53,8 @@ function isDynamicSegment(segment: string): boolean {
 }
 
 /**
- * Paths that have actual pages. Intermediate segments (e.g. /progress/mocks,
- * /progress/mock-attempts/[id]/sets) are not valid - linking to them would 404.
+ * Paths that have actual pages. Intermediate segments (e.g. /progress/mocks/mock-attempts,
+ * /progress/sections/[n]/set-attempts) are not valid - linking to them would 404.
  */
 function isValidPagePath(path: string): boolean {
   if (!path || path === "/") return false;
@@ -51,6 +64,7 @@ function isValidPagePath(path: string): boolean {
     case 1:
       return [
         "dashboard",
+        "study-plan",
         "progress",
         "learn",
         "sessions",
@@ -63,15 +77,22 @@ function isValidPagePath(path: string): boolean {
     case 2:
       return (
         (segments[0] === "settings" &&
-          ["app", "profile", "subscription", "study-planner"].includes(
-            segments[1],
-          )) ||
+          [
+            "app",
+            "profile",
+            "subscription",
+            "plan",
+            "study-plan",
+            "communications",
+          ].includes(segments[1])) ||
         (segments[0] === "progress" && segments[1] === "mocks") ||
+        (segments[0] === "learn" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sessions" && isDynamicSegment(segments[1])) ||
         (segments[0] === "sets" && isDynamicSegment(segments[1])) ||
-        (segments[0] === "sets" && segments[1] === "set-generator") ||
         (segments[0] === "mocks" && isDynamicSegment(segments[1])) ||
-        (segments[0] === "skill-trainer" && segments[1] !== "play")
+        (segments[0] === "skill-trainer" && segments[1] !== "play") ||
+        (segments[0] === "practice" &&
+          (segments[1] === "session" || segments[1] === "stem"))
       );
     case 3:
       return (
@@ -86,12 +107,22 @@ function isValidPagePath(path: string): boolean {
         (segments[0] === "sets" &&
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2])) ||
-        (segments[0] === "sets" &&
-          segments[1] === "set-generator" &&
+        (segments[0] === "learn" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2])) ||
+        (segments[0] === "settings" &&
+          segments[1] === "plan" &&
+          (segments[2] === "subscription" || segments[2] === "referrals")) ||
+        (segments[0] === "practice" &&
+          segments[1] === "stem" &&
           isDynamicSegment(segments[2]))
       );
     case 4:
       return (
+        (segments[0] === "skill-trainer" &&
+          Boolean(SKILL_TRAINER_SLUG_LABELS[segments[1]]) &&
+          segments[2] === "results" &&
+          isDynamicSegment(segments[3])) ||
         (segments[0] === "sessions" &&
           isDynamicSegment(segments[1]) &&
           segments[2] === "sets" &&
@@ -104,23 +135,22 @@ function isValidPagePath(path: string): boolean {
           segments[1] === "sections" &&
           /^[1-4]$/.test(segments[2]) &&
           isDynamicSegment(segments[3])) ||
+        (segments[0] === "learn" &&
+          segments[1] === "sections" &&
+          /^[1-4]$/.test(segments[2]) &&
+          isDynamicSegment(segments[3])) ||
         (segments[0] === "progress" &&
           segments[1] === "mocks" &&
-          segments[2] === "sections" &&
-          /^[1-4]$/.test(segments[3]))
+          segments[2] === "mock-attempts" &&
+          isDynamicSegment(segments[3]))
       );
     case 5:
       return (
-        (segments[0] === "progress" &&
-          segments[1] === "mock-attempts" &&
-          isDynamicSegment(segments[2]) &&
-          segments[3] === "sets" &&
-          isDynamicSegment(segments[4])) ||
-        (segments[0] === "progress" &&
-          segments[1] === "sections" &&
-          /^[1-4]$/.test(segments[2]) &&
-          segments[3] === "set-attempts" &&
-          isDynamicSegment(segments[4]))
+        segments[0] === "progress" &&
+        segments[1] === "sections" &&
+        /^[1-4]$/.test(segments[2]) &&
+        segments[3] === "set-attempts" &&
+        isDynamicSegment(segments[4])
       );
     default:
       return false;
@@ -148,6 +178,7 @@ export type BreadcrumbItem = {
 
 /**
  * Builds breadcrumb items from a pathname.
+ * Omits intermediate URL segments that are not real pages (e.g. "sections", "set-attempts").
  * Returns empty array for exam routes (question engine).
  */
 export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
@@ -165,29 +196,49 @@ export function getBreadcrumbItems(pathname: string): BreadcrumbItem[] {
     const segment = segments[i];
     href += `/${segment}`;
 
+    const isLastSegment = i === segments.length - 1;
+    const hasOwnPage = isValidPagePath(href);
+    if (!hasOwnPage && !isLastSegment) {
+      continue;
+    }
+
     let label =
       SEGMENT_LABELS[segment] ??
       (isDynamicSegment(segment)
         ? (DYNAMIC_SEGMENT_LABELS[segments[i - 1]] ?? "Detail")
         : segment);
 
+    if (segments[0] === "skill-trainer" && i === 1) {
+      label = SKILL_TRAINER_SLUG_LABELS[segment] ?? label;
+    }
+
     // For /sets/sections/[1-4] or /progress/sections/[1-4], show section name (e.g. "Verbal Reasoning") instead of "Section"
     if (segments[1] === "sections" && i === 2 && /^[1-4]$/.test(segment)) {
       label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
     }
 
-    // For /progress/mocks/sections/[1-4], show section name on the section number segment
+    // For /sets/sections/[1-4]/[setId], show "Set" instead of "Detail"
     if (
-      segments[0] === "progress" &&
-      segments[1] === "mocks" &&
-      segments[2] === "sections" &&
-      i === 3 &&
-      /^[1-4]$/.test(segment)
+      segments[0] === "sets" &&
+      segments[1] === "sections" &&
+      i >= 3 &&
+      /^[1-4]$/.test(segments[2]) &&
+      isDynamicSegment(segment)
     ) {
-      label = SECTION_NUMBER_TO_NAME[parseInt(segment, 10)] ?? label;
+      label = "Set";
     }
 
-    const effectiveHref = getEffectiveHref(href);
+    if (
+      segments[0] === "learn" &&
+      segments[1] === "sections" &&
+      i >= 3 &&
+      /^[1-4]$/.test(segments[2]) &&
+      isDynamicSegment(segment)
+    ) {
+      label = "Learning module";
+    }
+
+    const effectiveHref = hasOwnPage ? href : getEffectiveHref(href);
 
     items.push({ href, label, effectiveHref });
   }

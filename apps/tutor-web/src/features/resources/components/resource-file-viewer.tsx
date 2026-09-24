@@ -2,18 +2,8 @@
 
 import { useMemo } from 'react';
 import { parseExternalVideoEmbed } from '@altitutor/shared';
-
-/**
- * Append PDF viewer hash params that hide the toolbar (and therefore
- * the download button) on browsers that honour them (Chrome / Edge /
- * Safari built-in PDF viewers). Fully removing only the download button
- * isn't possible across all browsers without bundling pdf.js, so we
- * hide the whole toolbar.
- */
-function withPdfViewerParams(url: string): string {
-  const separator = url.includes('#') ? '&' : '#';
-  return `${url}${separator}toolbar=0&navpanes=0`;
-}
+import { isPdfResource } from '../lib/file-actions';
+import { ResourcePdfPages } from './resource-pdf-pages';
 
 export function ResourceFileViewer({
   filename,
@@ -21,14 +11,16 @@ export function ResourceFileViewer({
   resourceType,
   externalUrl,
   signedUrl,
+  frameClassName,
 }: {
   filename: string;
   mimetype: string | null;
   resourceType: string;
   externalUrl: string | null;
   signedUrl: string | null;
+  frameClassName?: string;
 }) {
-  const isPdf = useMemo(() => (mimetype ?? '').includes('pdf'), [mimetype]);
+  const isPdf = isPdfResource({ mimetype, filename });
   const isImage = useMemo(() => (mimetype ?? '').startsWith('image/'), [mimetype]);
 
   const videoEmbed = useMemo(() => {
@@ -37,11 +29,6 @@ export function ResourceFileViewer({
     }
     return parseExternalVideoEmbed(externalUrl);
   }, [resourceType, externalUrl]);
-
-  const pdfSrc = useMemo(
-    () => (signedUrl && isPdf ? withPdfViewerParams(signedUrl) : null),
-    [signedUrl, isPdf],
-  );
 
   if (videoEmbed) {
     return (
@@ -70,8 +57,14 @@ export function ResourceFileViewer({
     return <p className="text-sm text-muted-foreground">File preview unavailable.</p>;
   }
 
-  if (isPdf && pdfSrc) {
-    return <iframe src={pdfSrc} title={filename} className="h-[80dvh] w-full rounded-md border" />;
+  if (isPdf) {
+    return (
+      <ResourcePdfPages
+        url={signedUrl}
+        filename={filename}
+        className={['h-[80dvh] w-full', frameClassName].filter(Boolean).join(' ')}
+      />
+    );
   }
 
   if (isImage) {

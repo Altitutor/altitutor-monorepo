@@ -2,7 +2,7 @@ import type { Json } from '@altitutor/shared'
 import { proseMirrorToPlainText, tokenizedPlainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
-  isSyllogismManualEntryPlaceholder,
+  isPlacementManualEntryPlaceholder,
   SYLLOGISM_IMAGE_PLACEHOLDER_LINES,
 } from '@/features/ucat/questions/lib/parsers/decisionMaking'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
@@ -18,7 +18,7 @@ export type SyllogismManualEntryTarget = {
 }
 
 function optionNeedsManualEntry(answerText: Json): boolean {
-  return isSyllogismManualEntryPlaceholder(proseMirrorToPlainText(answerText))
+  return isPlacementManualEntryPlaceholder(proseMirrorToPlainText(answerText))
 }
 
 export function collectSyllogismManualEntryTargets(
@@ -28,7 +28,7 @@ export function collectSyllogismManualEntryTargets(
 
   stems.forEach((stem, stemIndex) => {
     stem.values.questions.forEach((question, questionIndex) => {
-      if (question.questionType !== 'syllogism') return
+      if (question.answerScheme !== 'decision_making_binary_placement') return
       const options = question.options ?? []
       const needsManual =
         options.length !== 5 || options.some((option) => optionNeedsManualEntry(option.answerText))
@@ -74,14 +74,14 @@ export function applySyllogismManualEntryTargets(
   return stems.map((stem) => {
     const questions = stem.values.questions.map((question, questionIndex) => {
       const target = targetsByStemQuestion.get(`${stem.id}:${questionIndex}`)
-      if (!target || question.questionType !== 'syllogism') return question
+      if (!target || question.answerScheme !== 'decision_making_binary_placement') return question
 
       return {
         ...question,
         options: target.statements.map((statement) => ({
           answerText: tokenizedPlainTextToProseMirror(statement.trim()) as Json,
           answerExplanation: null,
-          isAnswer: false,
+          answerKeyValue: 'no' as const,
         })),
       }
     })

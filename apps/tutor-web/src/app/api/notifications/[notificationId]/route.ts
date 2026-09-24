@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -15,6 +16,7 @@ export async function PATCH(
   { params }: { params: { notificationId: string } }
 ) {
   try {
+    const body = (await request.json().catch(() => ({}))) as { dismiss?: boolean };
     // Get the authenticated user's supabase client
     const userClient = createClient();
     
@@ -23,6 +25,7 @@ export async function PATCH(
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/notifications/[notificationId]");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -41,6 +44,7 @@ export async function PATCH(
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/notifications/[notificationId]");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -57,6 +61,7 @@ export async function PATCH(
     
     if (noteError) {
       console.error('Error checking notification:', noteError);
+      captureApiError(noteError, "/api/notifications/[notificationId]");
       return NextResponse.json(
         { error: 'Failed to verify notification' },
         { status: 500 }
@@ -82,23 +87,51 @@ export async function PATCH(
     // Use service role client to update the notification
     const serviceClient = getServiceRoleClient();
     
+    const now = new Date().toISOString();
     const { error } = await serviceClient
       .from('notifications')
-      .update({ read_at: new Date().toISOString() })
+      .update(
+        body.dismiss
+          ? {
+              dismissed_at: now,
+              updated_at: now,
+            }
+          : { read_at: now, updated_at: now },
+      )
       .eq('id', params.notificationId)
       .eq('staff_id', tutorId);
-    
+
     if (error) {
       console.error('Error updating notification:', error);
+      captureApiError(error, "/api/notifications/[notificationId]");
       return NextResponse.json(
-        { error: 'Failed to mark notification as read' },
+        { error: body.dismiss ? 'Failed to dismiss notification' : 'Failed to mark notification as read' },
         { status: 500 }
       );
+    }
+
+    if (body.dismiss) {
+      const { error: readError } = await serviceClient
+        .from('notifications')
+        .update({ read_at: now, updated_at: now })
+        .eq('id', params.notificationId)
+        .eq('staff_id', tutorId)
+        .is('read_at', null);
+
+      if (readError) {
+        console.error('Error marking dismissed notification as read:', readError);
+        captureApiError(readError, "/api/notifications/[notificationId]");
+        return NextResponse.json(
+          { error: 'Failed to dismiss notification' },
+          { status: 500 }
+        );
+      }
     }
     
     return NextResponse.json({ success: true });
     
   } catch (error) {
+    captureApiError(error, "/api/notifications/[notificationId]");
     console.error('Error in PATCH /api/notifications/[notificationId]:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

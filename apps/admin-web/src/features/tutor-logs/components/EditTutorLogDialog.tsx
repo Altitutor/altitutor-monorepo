@@ -1,20 +1,12 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Label } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
 import { Separator } from '@altitutor/ui';
 import { SegmentedControl, SegmentedTabPanelContent } from '@altitutor/ui';
-import { Loader2, X } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useTutorLog, useUpdateTutorLog } from '../hooks/useTutorLogsQuery';
 import { staffApi } from '@/features/staff/api/staff';
 import { sessionsApi } from '@/features/sessions/api/sessions';
@@ -26,12 +18,7 @@ import { Step5TopicStudents } from './steps/Step5TopicStudents';
 import { Step6Files } from './steps/Step6Files';
 import { Step7FileStudents } from './steps/Step7FileStudents';
 import { getAttendedStudentIds } from '../utils/logSessionHelpers';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 interface EditTutorLogDialogProps {
   isOpen: boolean;
@@ -51,14 +38,9 @@ export function EditTutorLogDialog({
   const [staffList, setStaffList] = useState<Array<{ id: string; first_name: string; last_name: string }>>([]);
   const [isStaffLoaded, setIsStaffLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<string>('attendance');
-  const [createdBy, setCreatedBy] = useState<string>('');
+  const [loggedForStaffId, setLoggedForStaffId] = useState<string>('');
   const [formData, setFormData] = useState<Partial<TutorLogFormData>>({});
   const [isFormDataReady, setIsFormDataReady] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   // Load staff list
   useEffect(() => {
@@ -85,14 +67,14 @@ export function EditTutorLogDialog({
   // Initialize all form data when both tutor log and staff list are loaded
   useEffect(() => {
     if (isOpen && tutorLog && isStaffLoaded) {
-      setCreatedBy(tutorLog.created_by || '');
+      setLoggedForStaffId(tutorLog.logged_for_staff_id || '');
 
       setFormData({
         sessionId: tutorLog.session_id,
         staffAttendance: (tutorLog.staffAttendance ?? []).map((sa) => ({
           staffId: sa.staff_id,
           attended: sa.attended === true,
-          type: (sa.type || 'SECONDARY_TUTOR') as 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR',
+          type: (sa.type || 'SECONDARY_TUTOR') as TutorLogFormData['staffAttendance'][number]['type'],
         })),
         studentAttendance: (tutorLog.studentAttendance ?? []).map((sa) => ({
           studentId: sa.student_id,
@@ -116,7 +98,7 @@ export function EditTutorLogDialog({
 
       setIsFormDataReady(true);
     } else if (!isOpen) {
-      setCreatedBy('');
+      setLoggedForStaffId('');
       setFormData({});
       setIsFormDataReady(false);
     }
@@ -150,6 +132,22 @@ export function EditTutorLogDialog({
     [tutorLog?.session_id]
   );
 
+  const handleRemoveStaffFromSession = useCallback(
+    async (staffId: string) => {
+      if (!tutorLog?.session_id) return;
+      await sessionsApi.removeStaffFromSession(tutorLog.session_id, staffId);
+    },
+    [tutorLog?.session_id]
+  );
+
+  const handleRemoveStudentFromSession = useCallback(
+    async (studentId: string) => {
+      if (!tutorLog?.session_id) return;
+      await sessionsApi.removeStudentFromSession(tutorLog.session_id, studentId);
+    },
+    [tutorLog?.session_id]
+  );
+
   const isClassSessionType = tutorLog?.session?.type === 'CLASS';
 
   useEffect(() => {
@@ -159,7 +157,7 @@ export function EditTutorLogDialog({
   }, [isClassSessionType, activeTab]);
 
   const handleSubmit = async () => {
-    if (!tutorLog || !formData.sessionId || !createdBy) return;
+    if (!tutorLog || !formData.sessionId || !loggedForStaffId) return;
 
     try {
       await updateMutation.mutateAsync({
@@ -173,7 +171,7 @@ export function EditTutorLogDialog({
           topicFiles: formData.topicFiles || [],
           notes: formData.notes ?? [],
         },
-        createdBy,
+        loggedForStaffId,
       });
 
       onTutorLogUpdated?.();
@@ -184,7 +182,7 @@ export function EditTutorLogDialog({
   };
 
   const handleClose = () => {
-    setCreatedBy('');
+    setLoggedForStaffId('');
     setFormData({});
     setActiveTab('attendance');
     setIsFormDataReady(false);
@@ -195,59 +193,33 @@ export function EditTutorLogDialog({
 
   if (isLoadingTutorLog || !isStaffLoaded) {
     return (
-      <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
-        <DialogContent
-          className={cn(
-            'w-full md:max-w-2xl',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit Tutor Log</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Loading tutor log and staff list.
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminDialogShell
+        fillHeight
+        open={isOpen}
+        onClose={handleClose}
+        title="Edit Tutor Log"
+        subtitle="Loading tutor log and staff list."
+      >
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      </AdminDialogShell>
     );
   }
 
   if (!tutorLog) {
     return (
-      <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
-        <DialogContent
-          className={cn(
-            'w-full md:max-w-2xl',
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit Tutor Log</DialogTitle>
-                <DialogDescription className="sr-only">
-                  Tutor log could not be loaded.
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-          <div className="text-center py-12">
-            <p className="text-muted-foreground">Tutor log not found</p>
-          </div>
-        </DialogContent>
-      </Dialog>
+      <AdminDialogShell
+        fillHeight
+        open={isOpen}
+        onClose={handleClose}
+        title="Edit Tutor Log"
+        subtitle="Tutor log could not be loaded."
+      >
+        <div className="text-center py-12">
+          <p className="text-muted-foreground">Tutor log not found</p>
+        </div>
+      </AdminDialogShell>
     );
   }
 
@@ -255,76 +227,79 @@ export function EditTutorLogDialog({
   const isClassSession = tutorLog.session?.type === 'CLASS';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => { if (!open) handleClose(); }}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={handleClose}
-                className="shrink-0"
-              >
-                <X className="h-4 w-4" />
-              </Button>
-              <div className="flex-1">
-                <DialogTitle>Edit Tutor Log</DialogTitle>
-                <DialogDescription className="sr-only">
-                  {isClassSession
-                    ? 'Edit attendance, topics, and files for this tutor log.'
-                    : 'Edit attendance for this tutor log.'}
-                </DialogDescription>
-              </div>
-            </div>
-            <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-          </div>
-        </DialogHeader>
-
-        <div className="flex flex-col h-full min-h-0">
-          <div className="flex-shrink-0 border-b bg-background">
-            <div className="px-6 pb-4">
-              <SegmentedControl
-                fullWidth
-                value={activeTab}
-                onValueChange={setActiveTab}
-                options={[
-                  { value: 'attendance', label: 'Attendance' },
-                  ...(isClassSession
-                    ? [
-                        { value: 'topics', label: 'Topics' },
-                        { value: 'files', label: 'Files' },
-                      ]
-                    : []),
-                ]}
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 min-h-0 relative">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={handleClose}
+      title="Edit Tutor Log"
+      subtitle={
+        isClassSession
+          ? 'Edit attendance, topics, and files for this tutor log.'
+          : 'Edit attendance for this tutor log.'
+      }
+      contentClassName="md:max-w-4xl"
+      bodyClassName="flex min-h-0 flex-1 flex-col p-0"
+      headerExtra={
+        <div className="border-b bg-background px-6 pb-4">
+          <SegmentedControl
+            fullWidth
+            value={activeTab}
+            onValueChange={setActiveTab}
+            options={[
+              { value: 'attendance', label: 'Attendance' },
+              ...(isClassSession
+                ? [
+                    { value: 'topics', label: 'Topics' },
+                    { value: 'files', label: 'Files' },
+                  ]
+                : []),
+            ]}
+          />
+        </div>
+      }
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={handleClose}
+            disabled={isLoading}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={handleSubmit}
+            disabled={isLoading || !loggedForStaffId}
+          >
+            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            Save Changes
+          </Button>
+        </>
+      }
+    >
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="relative min-h-0 flex-1">
             <SegmentedTabPanelContent when="attendance" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6 space-y-8">
                 <section className="space-y-3">
-                  <h3 className="text-sm font-semibold text-foreground">Created by</h3>
+                  <h3 className="text-sm font-semibold text-foreground">Logged for</h3>
                   <div className="space-y-2 max-w-md">
                     <Label>Staff member</Label>
                     <SearchableSelect<{ id: string; first_name: string; last_name: string }>
                       items={staffList}
-                      value={staffList.find((s) => s.id === createdBy) ?? null}
-                      onValueChange={(item) => item && setCreatedBy(item.id)}
+                      value={staffList.find((s) => s.id === loggedForStaffId) ?? null}
+                      onValueChange={(item) => item && setLoggedForStaffId(item.id)}
                       getItemLabel={(s) => `${s.first_name} ${s.last_name}`}
                       getItemId={(s) => s.id}
                       placeholder="Select staff member"
                       triggerClassName="w-full min-w-0 max-w-full"
                     />
-                    {!createdBy && (
-                      <p className="text-sm text-destructive">Created by is required</p>
+                    <p className="text-xs text-muted-foreground">
+                      Operational attribution for the assigned staff member; the original submitter is retained separately.
+                    </p>
+                    {!loggedForStaffId && (
+                      <p className="text-sm text-destructive">Logged for is required</p>
                     )}
                   </div>
                 </section>
@@ -336,10 +311,18 @@ export function EditTutorLogDialog({
                   {sessionId && isFormDataReady && (
                     <Step2StaffAttendance
                       sessionId={sessionId}
-                      currentStaffId={createdBy}
+                      currentStaffId={loggedForStaffId}
                       staffAttendance={formData.staffAttendance || []}
                       onUpdate={(staffAttendance) => updateFormData({ staffAttendance })}
                       onAddStaffToSession={handleAddStaffToSession}
+                      onRemoveStaffFromSession={async (staffId) => {
+                        await handleRemoveStaffFromSession(staffId);
+                        updateFormData({
+                          staffAttendance: (formData.staffAttendance || []).filter(
+                            (a) => a.staffId !== staffId
+                          ),
+                        });
+                      }}
                       addStaffVariant="search"
                     />
                   )}
@@ -365,6 +348,14 @@ export function EditTutorLogDialog({
                       }
                       addStudentVariant="search"
                       onAddStudentToSession={handleAddStudentToSession}
+                      onRemoveStudentFromSession={async (studentId) => {
+                        await handleRemoveStudentFromSession(studentId);
+                        updateFormData({
+                          studentAttendance: (formData.studentAttendance || []).filter(
+                            (a) => a.studentId !== studentId
+                          ),
+                        });
+                      }}
                       onAddParentToSession={handleAddParentToSession}
                       section="students"
                     />
@@ -443,28 +434,8 @@ export function EditTutorLogDialog({
                 </SegmentedTabPanelContent>
               </>
             ) : null}
-          </div>
         </div>
-
-        <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleClose}
-            disabled={isLoading}
-          >
-            Cancel
-          </Button>
-          <Button
-            type="button"
-            onClick={handleSubmit}
-            disabled={isLoading || !createdBy}
-          >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-            Save Changes
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
+    </AdminDialogShell>
   );
 }

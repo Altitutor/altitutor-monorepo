@@ -44,7 +44,7 @@ export function ClassesTable() {
   if (!classes || classes.length === 0) {
     return (
       <div className="text-center py-8 text-muted-foreground">
-        You are not enrolled in any classes yet.
+        You do not have any classes yet.
       </div>
     );
   }
@@ -55,6 +55,9 @@ export function ClassesTable() {
     return (
       c.subject_name?.toLowerCase().includes(searchLower) ||
       c.room?.toLowerCase().includes(searchLower) ||
+      c.short_name?.toLowerCase().includes(searchLower) ||
+      c.long_name?.toLowerCase().includes(searchLower) ||
+      c.schedule_summary_long?.toLowerCase().includes(searchLower) ||
       (c.day_of_week !== null && DAYS[c.day_of_week - 1]?.toLowerCase().includes(searchLower))
     );
   });
@@ -87,21 +90,24 @@ export function ClassesTable() {
             if (classItem.class_level) {
               subjectParts.push(classItem.class_level);
             }
-            const subjectDisplay = subjectParts.join(' ') || '-';
+            const subjectDisplay = classItem.session_type === 'HOMEWORK_HELP'
+              ? 'Homework Help'
+              : subjectParts.join(' ') || '-';
 
             return (
               <TableRow
-                key={classItem.enrollment_id || ''}
+                key={classItem.class_id || ''}
                 className={studentTableBodyRow}
               >
                 <TableCell className="font-medium">
-                  {classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
+                  {classItem.schedule_weekdays?.length
+                    ? classItem.schedule_weekdays.map(getDayShortName).join(', ')
+                    : classItem.day_of_week !== null ? getDayShortName(classItem.day_of_week) : '-'}
                 </TableCell>
                 <TableCell>
-                  {classItem.start_time && classItem.end_time 
+                  {classItem.schedule_summary_short || (classItem.start_time && classItem.end_time
                     ? `${formatTime(classItem.start_time)} - ${formatTime(classItem.end_time)}`
-                    : '-'
-                  }
+                    : '-')}
                 </TableCell>
                 <TableCell>
                   {(() => {

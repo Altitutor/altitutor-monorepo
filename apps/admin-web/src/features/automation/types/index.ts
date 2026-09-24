@@ -26,6 +26,7 @@ export type ConditionOperator =
   | 'not_contains' 
   | 'greater_than' 
   | 'less_than'
+  | 'in'
   | 'field_changed'      // Field was changed (any change)
   | 'changed_from'       // Field changed from specific value
   | 'changed_to'         // Field changed to specific value
@@ -34,9 +35,21 @@ export type ConditionOperator =
 export interface AutomationCondition {
   field: string;
   operator: ConditionOperator;
-  value?: string | number | boolean;  // For: equals, not_equals, contains, not_contains, greater_than, less_than, changed_from, changed_to
+  value?: string | number | boolean | Array<string | number | boolean>;
   old_value?: string | number | boolean;  // For: changed_from_to
   new_value?: string | number | boolean;  // For: changed_from_to
+}
+
+export interface AutomationConditionGroup {
+  all?: AutomationConditionExpression[];
+  any?: AutomationConditionExpression[];
+}
+
+export type AutomationConditionExpression = AutomationCondition | AutomationConditionGroup;
+export type AutomationTriggerKind = 'EVENT' | 'RELATIVE_TIME';
+export interface RelativeTimeTriggerConfig {
+  anchor: 'session.start_at';
+  offset_minutes: number;
 }
 
 export type ActionType = 'SEND_MESSAGE' | 'CREATE_TASK' | 'CREATE_NOTIFICATION';
@@ -52,6 +65,7 @@ export type NotificationRecipientType =
   | 'session_all'
   | 'all_admin_staff'
   | 'all_staff'
+  | 'all_ucat_students'
   | 'admin_staff_on_day'
   | 'tutor_log_staff';
 
@@ -63,7 +77,8 @@ export type MessageRecipientType =
   | 'session_students_and_parents'
   | 'student_and_parents'
   | 'tutor_log_students'
-  | 'tutor_log_students_and_parents';
+  | 'tutor_log_students_and_parents'
+  | 'tutor_log_attendees';
 
 export interface SendMessageActionConfig {
   message_content: string;
@@ -89,6 +104,7 @@ export interface CreateTaskActionConfig {
 
 export interface CreateNotificationActionConfig {
   notification_type: string;
+  app_scope?: 'student_web' | 'ucat_web' | 'staff_web';
   title: string;
   body?: string;
   action_url?: string;
@@ -129,7 +145,10 @@ export type ActivityEntityType =
   | 'sessions_students'
   | 'sessions_staff'
   | 'sessions_files'
-  | 'parents_students';
+  | 'parents_students'
+  | 'admin_shifts'
+  | 'issues'
+  | 'projects'
+  | 'form_responses';
 
-export type ActivityEventType = 'CREATED' | 'UPDATED' | 'DELETED' | 'FIELD_CHANGED';
-
+export type DomainEventName = string;

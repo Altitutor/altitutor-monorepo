@@ -62,6 +62,7 @@ export function buildStaffSessionItemsForTutorLog(roster: SessionForLogging['sta
   return roster.map((s) => ({
     id: s.sessions_staff_id ?? undefined,
     staff_id: s.id,
+    type: s.session_staff_type ?? null,
     staff: asStaffRow(s),
     planned_absence: s.planned_absence,
     was_trial: s.session_was_trial ?? false,

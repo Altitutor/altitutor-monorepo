@@ -29,6 +29,13 @@ function separatorPlaceholderExample(separator: AnswerFieldSeparator): string {
   return `Paste your table here… (e.g. 1${sep}B${sep}Explanation for Q1…, one row per line)`
 }
 
+function answerPlaceholder(inputFormat: AnswerParsingOptions['inputFormat'], separator: AnswerFieldSeparator): string {
+  if (inputFormat === 'numbered_list') {
+    return 'Paste numbered answers here… (e.g. 1. B, one answer per line)'
+  }
+  return separatorPlaceholderExample(separator)
+}
+
 export function Step2PasteAnswers({
   value,
   onChange,
@@ -38,6 +45,7 @@ export function Step2PasteAnswers({
   answerParsingOptions,
 }: Step2PasteAnswersProps) {
   const isSplit = layout === 'split'
+  const inputFormat = answerParsingOptions?.inputFormat ?? 'table'
   const fieldSeparator = answerParsingOptions?.fieldSeparator ?? 'tab'
   const pasteTableBehavior = answerParsingOptions?.pasteTableBehavior ?? 'keep'
   const answerParseHighlight: UcatParseHighlightConfig = useMemo(
@@ -60,7 +68,7 @@ export function Step2PasteAnswers({
         <UcatRichTextEditor
           value={value}
           onChange={onChange}
-          placeholder={separatorPlaceholderExample(fieldSeparator)}
+          placeholder={answerPlaceholder(inputFormat, fieldSeparator)}
           minHeight={isSplit ? '200px' : '280px'}
           stemId={null}
           enableImages

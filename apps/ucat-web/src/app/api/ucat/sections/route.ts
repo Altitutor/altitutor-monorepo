@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 
@@ -29,6 +30,7 @@ export async function GET() {
     .order("section_number");
 
   if (error) {
+    captureApiError(error, "/api/ucat/sections");
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 

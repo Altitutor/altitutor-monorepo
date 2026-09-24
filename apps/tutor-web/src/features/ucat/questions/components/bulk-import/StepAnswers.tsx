@@ -19,19 +19,27 @@ import { buildQuestionAnswerPreviews } from '@/features/ucat/questions/component
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import type {
   AnswerFieldSeparator,
+  AnswerInputFormat,
   AnswerParseOptions,
 } from '@/features/ucat/questions/lib/parseAnswersTable'
 import type { PasteTableBehavior } from '@/features/ucat/questions/components/bulk-import/Step2PasteDocument'
 
 export type AnswerParsingOptions = {
+  inputFormat: AnswerInputFormat
   fieldSeparator: AnswerFieldSeparator
   pasteTableBehavior: PasteTableBehavior
 }
 
 export const DEFAULT_ANSWER_PARSING_OPTIONS: AnswerParsingOptions = {
+  inputFormat: 'table',
   fieldSeparator: 'tab',
   pasteTableBehavior: 'keep',
 }
+
+const ANSWER_INPUT_FORMAT_OPTIONS: { value: AnswerInputFormat; label: string }[] = [
+  { value: 'table', label: 'Table with explanations' },
+  { value: 'numbered_list', label: 'Numbered list (answers only)' },
+]
 
 const ANSWER_FIELD_SEPARATOR_OPTIONS: { value: AnswerFieldSeparator; label: string }[] = [
   { value: 'tab', label: 'Tab' },
@@ -49,7 +57,10 @@ const ANSWER_PASTE_TABLE_BEHAVIOR_OPTIONS: { value: PasteTableBehavior; label: s
 export function answerParsingOptionsToParseOptions(
   options: AnswerParsingOptions
 ): AnswerParseOptions {
-  return { fieldSeparator: options.fieldSeparator }
+  return {
+    fieldSeparator: options.fieldSeparator,
+    inputFormat: options.inputFormat,
+  }
 }
 
 type StepAnswersProps = {
@@ -87,6 +98,16 @@ export function StepAnswers({
       ),
     [stems, bulkAnswersJson, isDecisionMakingSection, parseOptions]
   )
+  const allQuestionsAreOptionalMostLeast = useMemo(
+    () =>
+      stems.length > 0 &&
+      stems.every((stem) =>
+        stem.values.questions.every(
+          (question) => question.answerScheme === 'situational_judgement_most_least'
+        )
+      ),
+    [stems]
+  )
 
   const toggleQuestionExpanded = useCallback((key: string) => {
     setExpandedQuestionKeys((prev) => {
@@ -103,7 +124,9 @@ export function StepAnswers({
         <div>
           <h2 className="text-base font-semibold">Paste answers</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Paste one answers document for all questions. Explanations are required for every question.
+            {allQuestionsAreOptionalMostLeast
+              ? 'Optional: paste Most/Least keys as MLN, MNL, or words in action order. Leave blank to import all actions unkeyed.'
+              : 'Paste one answers document for all questions. Explanations are required for every question.'}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
@@ -125,6 +148,29 @@ export function StepAnswers({
               className="w-72 max-w-[min(18rem,92vw)] p-2"
               align="end"
             >
+              <DropdownMenuLabel className="px-0 text-xs">Answer format</DropdownMenuLabel>
+              <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
+                Choose a table when explanations are included, or a numbered list for answer letters only.
+              </p>
+              <SearchableSelect<{ value: AnswerInputFormat; label: string }>
+                items={ANSWER_INPUT_FORMAT_OPTIONS}
+                value={
+                  ANSWER_INPUT_FORMAT_OPTIONS.find(
+                    (o) => o.value === answerParsingOptions.inputFormat
+                  ) ?? ANSWER_INPUT_FORMAT_OPTIONS[0]!
+                }
+                onValueChange={(item) =>
+                  item &&
+                  onAnswerParsingOptionsChange({
+                    ...answerParsingOptions,
+                    inputFormat: item.value,
+                  })
+                }
+                getItemLabel={(item) => item.label}
+                getItemId={(item) => item.value}
+                fullWidth
+                triggerClassName="mb-3 w-full"
+              />
               <DropdownMenuLabel className="px-0 text-xs">Field separator</DropdownMenuLabel>
               <p className="mb-2 text-[11px] leading-snug text-muted-foreground">
                 Character between question number, answer option, and explanation columns.
@@ -145,6 +191,7 @@ export function StepAnswers({
                 }
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => item.value}
+                fullWidth
                 triggerClassName="w-full"
               />
               <DropdownMenuLabel className="mt-3 px-0 text-xs">Table paste handling</DropdownMenuLabel>
@@ -167,6 +214,7 @@ export function StepAnswers({
                 }
                 getItemLabel={(item) => item.label}
                 getItemId={(item) => item.value}
+                fullWidth
                 triggerClassName="w-full"
               />
             </DropdownMenuContent>

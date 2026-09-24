@@ -17,7 +17,7 @@ type UcatTutorStemPreviewExamChromeProps = {
   /** 0-based index of the question shown in the preview body. */
   currentQuestionIndex: number
   onQuestionIndexChange: (index: number) => void
-  /** When false, hides the in-chrome Navigator button and overlay (stem editor uses right-column nav). */
+  /** When false, hides the in-chrome Navigator button and overlay (question tabs above the editor are primary navigation). */
   showNavigator?: boolean
   children: React.ReactNode
 }

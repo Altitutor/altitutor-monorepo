@@ -55,8 +55,7 @@ export function IssuePill({ entityType, entityId, enabled = true, className, tru
               className={cn(
                 'cursor-pointer transition-colors flex items-center gap-1.5 max-w-[180px] min-w-0',
                 truncateWithTitle && 'overflow-hidden',
-                'hover:bg-accent hover:text-accent-foreground',
-                'dark:hover:bg-accent/80 dark:hover:border-accent-foreground/20'
+                'hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white'
               )}
               onClick={() => handleIssueClick(issue.id)}
             >

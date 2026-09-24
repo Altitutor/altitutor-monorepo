@@ -24,7 +24,7 @@ ON CONFLICT (id) DO NOTHING;
 -- STUDENTS
 -- ========================
 -- Note: notes column was removed from students table in migration 20251021000010_communications_schema.sql
--- Status values: 'ACTIVE', 'INACTIVE', 'TRIAL', 'DISCONTINUED' (changed from 'CURRENT' to 'ACTIVE')
+-- In-person status values: 'ACTIVE', 'TRIAL', 'DISCONTINUED'; NULL means online-only.
 INSERT INTO public.students (id, first_name, last_name, email, phone, status, user_id)
 VALUES
   ('10000000-0000-0000-0000-000000000001', 'Alice', 'Williams', 'alice.williams@student.test', '+61410000001', 'ACTIVE', NULL),
@@ -33,7 +33,7 @@ VALUES
   ('10000000-0000-0000-0000-000000000004', 'Diana', 'Garcia', 'diana.garcia@student.test', '+61410000004', 'ACTIVE', NULL),
   ('10000000-0000-0000-0000-000000000005', 'Edward', 'Lee', 'edward.lee@student.test', '+61410000005', 'TRIAL', NULL),
   ('10000000-0000-0000-0000-000000000006', 'Fiona', 'Harris', 'fiona.harris@student.test', '+61410000006', 'ACTIVE', NULL),
-  ('10000000-0000-0000-0000-000000000007', 'George', 'Clark', 'george.clark@student.test', '+61410000007', 'INACTIVE', NULL),
+  ('10000000-0000-0000-0000-000000000007', 'George', 'Clark', 'george.clark@student.test', '+61410000007', 'DISCONTINUED', NULL),
   ('10000000-0000-0000-0000-000000000008', 'Hannah', 'Lewis', 'hannah.lewis@student.test', '+61410000008', 'ACTIVE', NULL),
   ('10000000-0000-0000-0000-000000000009', 'Isaac', 'Walker', 'isaac.walker@student.test', '+61410000009', 'ACTIVE', NULL),
   ('10000000-0000-0000-0000-000000000010', 'Julia', 'Hall', 'julia.hall@student.test', '+61410000010', 'ACTIVE', NULL)
@@ -53,4 +53,3 @@ ON CONFLICT (id) DO NOTHING;
 -- Chemistry Year 12 SACE
 -- Physics Year 12 SACE
 -- English General Year 12 SACE
-

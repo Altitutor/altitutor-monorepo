@@ -16,7 +16,7 @@ export type StemSplitOptions = {
 }
 
 export const DEFAULT_STEM_SPLIT_OPTIONS: StemSplitOptions = {
-  mode: 'line_breaks',
+  mode: 'keyword',
   lineBreakThreshold: 2,
   keywordPrefix: 'Prompt',
   stemNumberIndicator: 'dot',
@@ -50,6 +50,18 @@ function escapeRegex(text: string): string {
 function buildKeywordMarkerRegex(prefix: string): RegExp {
   const escaped = escapeRegex(prefix.trim())
   return new RegExp(`^\\s*${escaped}\\s+(\\d+)\\b[\\s:.\\-]*(.*)$`, 'i')
+}
+
+function buildFollowingKeywordMarkerRegex(prefix: string): RegExp {
+  const escaped = escapeRegex(prefix.trim())
+  return new RegExp(`^\\s*${escaped}\\s+\\d+\\b(?:\\s*(?:-|–|—|to)\\s*\\d+\\b)?[\\s:.\\-]*$`, 'i')
+}
+
+function parseKeywordSequence(value: string): string[] {
+  return value
+    .split(/\r?\n/u)
+    .map((part) => part.trim())
+    .filter((part) => part.length > 0)
 }
 
 function buildStemNumberMarkerRegex(indicator: StemNumberIndicator): RegExp {
@@ -152,17 +164,28 @@ function splitByLineBreaks(
 
   if (blocks.length === 0 && lines.some((l) => l.trim().length > 0)) {
     blocks.push(lines.filter((l) => l.trim().length > 0))
-    warnings.push('Only 1 stem detected. Adjust line-break threshold or split mode if you expected more.')
+    warnings.push(
+      'Only 1 stem detected. Adjust line-break threshold or split mode if you expected more.'
+    )
   } else if (!hasSplit && blocks.length === 1) {
-    warnings.push('Only 1 stem detected. Adjust line-break threshold or split mode if you expected more.')
+    warnings.push(
+      'Only 1 stem detected. Adjust line-break threshold or split mode if you expected more.'
+    )
   }
 
-  return { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans }
+  return {
+    blocks,
+    splitLineIndices,
+    warnings,
+    discardedLineIndices,
+    discardedLineSpans,
+  }
 }
 
 function splitByMarkers(
   lines: string[],
-  isMarker: (line: string) => MarkerParseResult
+  isMarker: (line: string) => MarkerParseResult,
+  followingMarkerRegexes: RegExp[] = []
 ): {
   blocks: string[][]
   splitLineIndices: number[]
@@ -178,6 +201,7 @@ function splitByMarkers(
   let current: string[] = []
   let hasSeenFirstMarker = false
   let firstMarkerIndex = -1
+  let nextFollowingMarkerIndex = followingMarkerRegexes.length
 
   const flush = (allowPreMarker = false): void => {
     const text = current.join('\n').trim()
@@ -201,8 +225,17 @@ function splitByMarkers(
       splitLineIndices.push(i)
       recordMarkerDiscard(i, line, marker, discardedLineIndices, discardedLineSpans)
       if (marker.remainder.length > 0) current.push(marker.remainder)
+      nextFollowingMarkerIndex = 0
       continue
     }
+
+    const followingMarker = followingMarkerRegexes[nextFollowingMarkerIndex]
+    if (hasSeenFirstMarker && followingMarker?.test(line.trim())) {
+      discardedLineIndices.push(i)
+      nextFollowingMarkerIndex += 1
+      continue
+    }
+    nextFollowingMarkerIndex = followingMarkerRegexes.length
     if (hasSeenFirstMarker) current.push(line)
   }
   flush(true)
@@ -232,13 +265,17 @@ function splitByMarkers(
     warnings.push(`${firstMarkerIndex} line(s) before the first marker were ignored.`)
   }
 
-  return { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans }
+  return {
+    blocks,
+    splitLineIndices,
+    warnings,
+    discardedLineIndices,
+    discardedLineSpans,
+  }
 }
 
 function blocksToStemTexts(blocks: string[][]): string[] {
-  return blocks
-    .map((block) => block.join('\n').trim())
-    .filter((text) => text.length > 0)
+  return blocks.map((block) => block.join('\n').trim()).filter((text) => text.length > 0)
 }
 
 export function splitStemDocumentLines(
@@ -278,7 +315,8 @@ export function splitStemDocumentLines(
     }
   }
 
-  const prefix = resolved.keywordPrefix.trim()
+  const keywordSequence = parseKeywordSequence(resolved.keywordPrefix)
+  const prefix = keywordSequence[0] ?? ''
   if (prefix.length === 0) {
     return {
       stems: [],
@@ -289,14 +327,51 @@ export function splitStemDocumentLines(
   }
 
   const keywordRe = buildKeywordMarkerRegex(prefix)
+  const followingMarkerRegexes = keywordSequence
+    .slice(1)
+    .map((followingPrefix) => buildFollowingKeywordMarkerRegex(followingPrefix))
   const { blocks, splitLineIndices, warnings, discardedLineIndices, discardedLineSpans } =
-    splitByMarkers(lines, (line) => parseMarkerLine(line, keywordRe))
+    splitByMarkers(lines, (line) => parseMarkerLine(line, keywordRe), followingMarkerRegexes)
   return {
     stems: blocksToStemTexts(blocks),
     warnings,
     splitLineIndices,
     discardedLineIndices,
     discardedLineSpans,
+  }
+}
+
+function plainTextBlockToDoc(text: string): Json {
+  const content = text
+    .split('\n')
+    .map((line) =>
+      line.length > 0
+        ? { type: 'paragraph', content: [{ type: 'text', text: line }] }
+        : { type: 'paragraph' }
+    )
+  return { type: 'doc', content }
+}
+
+export type SplitQuestionDocumentResult = SplitStemDocumentResult & {
+  documents: Json[]
+}
+
+/**
+ * Split a combined questions paste using the stem split settings while first expanding
+ * nested question tables into parser-friendly logical lines.
+ */
+export function splitQuestionDocumentFromDoc(
+  doc: Json | null | undefined,
+  options: StemSplitOptions
+): SplitQuestionDocumentResult {
+  const lines = collectLogicalLinesFromDoc(doc, {
+    detectNestedQuestionTables: true,
+    preserveBlankLines: true,
+  })
+  const result = splitStemDocumentLines(lines, options)
+  return {
+    ...result,
+    documents: result.stems.map(plainTextBlockToDoc),
   }
 }
 

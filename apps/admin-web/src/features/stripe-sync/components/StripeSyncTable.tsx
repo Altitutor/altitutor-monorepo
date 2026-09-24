@@ -1,27 +1,11 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@altitutor/ui';
-import { Input } from '@altitutor/ui';
+import { useState, useEffect } from 'react';
 import { Badge } from '@altitutor/ui';
-import { SearchableSelect } from '@altitutor/ui';
-import { Search } from 'lucide-react';
 import { SkeletonTable } from '@altitutor/ui';
 import type { StudentWithStripe } from '../api/stripe-sync';
 import { StudentStripeSyncModal } from './StudentStripeSyncModal';
-
-const STRIPE_FILTER_OPTIONS: { value: 'all' | 'present' | 'absent'; label: string }[] = [
-  { value: 'all', label: 'All Students' },
-  { value: 'present', label: 'Has Stripe Customer' },
-  { value: 'absent', label: 'No Stripe Customer' },
-];
+import { SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 interface StripeSyncTableProps {
   students: StudentWithStripe[];
@@ -37,8 +21,6 @@ export function StripeSyncTable({
   onRefresh,
   initialStudentId,
 }: StripeSyncTableProps) {
-  const [searchTerm, setSearchTerm] = useState('');
-  const [stripeFilter, setStripeFilter] = useState<'all' | 'present' | 'absent'>('all');
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
@@ -53,30 +35,6 @@ export function StripeSyncTable({
       }
     }
   }, [initialStudentId, isLoading, students]);
-
-  // Filter students
-  const filteredStudents = useMemo(() => {
-    let filtered = students || [];
-
-    // Apply search filter
-    if (searchTerm) {
-      const searchLower = searchTerm.toLowerCase();
-      filtered = filtered.filter(
-        (student) =>
-          student.student_name.toLowerCase().includes(searchLower) ||
-          student.student_email?.toLowerCase().includes(searchLower)
-      );
-    }
-
-    // Apply Stripe customer ID filter
-    if (stripeFilter === 'present') {
-      filtered = filtered.filter((student) => student.stripe_customer_id !== null);
-    } else if (stripeFilter === 'absent') {
-      filtered = filtered.filter((student) => student.stripe_customer_id === null);
-    }
-
-    return filtered;
-  }, [students, searchTerm, stripeFilter]);
 
   const handleRowClick = (studentId: string) => {
     setSelectedStudentId(studentId);
@@ -95,28 +53,6 @@ export function StripeSyncTable({
   if (isLoading && students.length === 0) {
     return (
       <div className="space-y-4">
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              className="pl-8"
-              value=""
-              disabled
-            />
-          </div>
-          
-          <SearchableSelect<{ value: 'all' | 'present' | 'absent'; label: string }>
-            items={STRIPE_FILTER_OPTIONS}
-            value={null}
-            onValueChange={() => {}}
-            getItemLabel={(i) => i.label}
-            getItemId={(i) => i.value}
-            placeholder="Filter by Stripe customer"
-            disabled
-          />
-        </div>
-        
         <SkeletonTable rows={8} columns={4} />
         
         <div className="text-sm text-muted-foreground">
@@ -126,95 +62,88 @@ export function StripeSyncTable({
     );
   }
 
+  const columns: SettingsDataTableColumn<StudentWithStripe>[] = [
+    {
+      key: 'student_name',
+      label: 'Student Name',
+      render: (student) => <span className="font-medium">{student.student_name}</span>,
+      sortValue: (student) => student.student_name,
+      searchValue: (student) => student.student_name,
+    },
+    {
+      key: 'student_email',
+      label: 'Student Email',
+      render: (student) => student.student_email ?? '-',
+      sortValue: (student) => student.student_email ?? '',
+      searchValue: (student) => student.student_email ?? '',
+    },
+    {
+      key: 'payment_methods',
+      label: 'DB Payment Methods',
+      render: (student) =>
+        student.db_payment_methods.length === 0 ? (
+          <span className="text-muted-foreground text-sm">None</span>
+        ) : (
+          <div className="space-y-1">
+            {student.db_payment_methods.map((pm) => (
+              <div key={pm.id} className="text-sm">
+                **** {pm.card_last4}
+                {pm.is_default && (
+                  <Badge variant="default" className="ml-2 text-xs">Default</Badge>
+                )}
+              </div>
+            ))}
+          </div>
+        ),
+      sortValue: (student) => student.db_payment_methods.length,
+      searchValue: (student) => student.db_payment_methods.map((pm) => pm.card_last4).join(' '),
+    },
+    {
+      key: 'stripe_customer',
+      label: 'Stripe Customer ID',
+      render: (student) =>
+        student.stripe_customer_id ? (
+          <code className="text-xs bg-muted px-2 py-1 rounded">
+            {student.stripe_customer_id}
+          </code>
+        ) : (
+          <Badge variant="secondary">Not linked</Badge>
+        ),
+      sortValue: (student) => student.stripe_customer_id ?? '',
+      filterValue: (student) => student.stripe_customer_id ? 'present' : 'absent',
+      searchValue: (student) => student.stripe_customer_id ?? '',
+    },
+  ];
+
   return (
     <>
-      <div className="space-y-4">
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-2">
-          <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-2 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <Input
-              placeholder="Search by name or email..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-8"
-            />
-          </div>
-          
-          <SearchableSelect<{ value: 'all' | 'present' | 'absent'; label: string }>
-            items={STRIPE_FILTER_OPTIONS}
-            value={STRIPE_FILTER_OPTIONS.find((i) => i.value === stripeFilter) ?? null}
-            onValueChange={(item) => item && setStripeFilter(item.value)}
-            getItemLabel={(i) => i.label}
-            getItemId={(i) => i.value}
-            placeholder="Filter by Stripe customer"
-            triggerClassName="w-[200px]"
-          />
-        </div>
-
-        {/* Table */}
-        <div className="border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Student Name</TableHead>
-                <TableHead>Student Email</TableHead>
-                <TableHead>DB Payment Methods</TableHead>
-                <TableHead>Stripe Customer ID</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredStudents.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} className="text-center text-muted-foreground py-8">
-                    No students found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                filteredStudents.map((student) => (
-                  <TableRow
-                    key={student.student_id}
-                    className="cursor-pointer hover:bg-muted/50"
-                    onClick={() => handleRowClick(student.student_id)}
-                  >
-                    <TableCell className="font-medium">
-                      {student.student_name}
-                    </TableCell>
-                    <TableCell>
-                      {student.student_email ?? '-'}
-                    </TableCell>
-                    <TableCell>
-                      {student.db_payment_methods.length === 0 ? (
-                        <span className="text-muted-foreground text-sm">None</span>
-                      ) : (
-                        <div className="space-y-1">
-                          {student.db_payment_methods.map((pm) => (
-                            <div key={pm.id} className="text-sm">
-                              •••• {pm.card_last4}
-                              {pm.is_default && (
-                                <Badge variant="default" className="ml-2 text-xs">Default</Badge>
-                              )}
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {student.stripe_customer_id ? (
-                        <code className="text-xs bg-muted px-2 py-1 rounded">
-                          {student.stripe_customer_id}
-                        </code>
-                      ) : (
-                        <Badge variant="secondary">Not linked</Badge>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </div>
-      </div>
+      <SettingsDataTable
+        data={students}
+        columns={columns}
+        getRowId={(student) => student.student_id}
+        emptyMessage="No students found"
+        searchPlaceholder="Search by name or email..."
+        filterKeys={['stripe_customer']}
+        filterDefinitions={[
+          {
+            key: 'stripe_customer',
+            label: 'Stripe Customer',
+            options: [
+              { label: 'Has Stripe Customer', value: 'present' },
+              { label: 'No Stripe Customer', value: 'absent' },
+            ],
+          },
+        ]}
+        defaultSort={{ field: 'student_name', direction: 'asc' }}
+        isLoading={isLoading}
+        getActions={(student) => [
+          {
+            id: 'view',
+            label: 'View',
+            onSelect: () => handleRowClick(student.student_id),
+          },
+        ]}
+      />
 
       {selectedStudentId && (
         <StudentStripeSyncModal
@@ -231,4 +160,3 @@ export function StripeSyncTable({
     </>
   );
 }
-

@@ -1,19 +1,12 @@
 'use client';
 
-import { useState, useCallback } from 'react';
-import { ActivityFeed } from '../ActivityFeed';
-import { ActivityNoteComposer } from '../ActivityNoteComposer';
-import { useParentActivity } from '../../hooks';
-import { useCreateNote, notesKeys } from '@/shared/hooks/useNotes';
-import { useCurrentStaff } from '@/shared/hooks';
+import { useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
+import { ActivityTabLayout } from '../ActivityTabLayout';
+import { useParentActivity, useFormResponseDialog } from '../../hooks';
+import { useEntityActivityNoteComposer } from '../../hooks/useEntityActivityNoteComposer';
 import { activityKeys } from '../../hooks';
-import type { JSONContent } from '@tiptap/core';
-
-const EMPTY_DOC: JSONContent = {
-  type: 'doc',
-  content: [{ type: 'paragraph', content: [] }],
-};
+import { FormResponseDialog } from '@/features/feedback/components/FormResponseDialog';
 
 interface ParentActivityTabProps {
   parentId: string;
@@ -21,41 +14,39 @@ interface ParentActivityTabProps {
 }
 
 export function ParentActivityTab({ parentId, isOpen = true }: ParentActivityTabProps) {
-  const { data, isLoading, error } = useParentActivity(parentId, isOpen);
-  const { data: currentStaff } = useCurrentStaff();
-  const createNoteMutation = useCreateNote();
   const queryClient = useQueryClient();
-  const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useParentActivity(parentId, isOpen);
+  const { selectedResponse, openFormResponse, closeFormResponse } = useFormResponseDialog();
+  const composerProps = useEntityActivityNoteComposer({
+    targetType: 'parent',
+    targetId: parentId,
+    activityQueryKey: activityKeys.parent(parentId),
+  });
 
-  const handleSubmit = useCallback(async () => {
-    if (!currentStaff?.id) return;
-
-    try {
-      await createNoteMutation.mutateAsync({
-        targetType: 'parent',
-        targetId: parentId,
-        note: newNoteContent,
-        staffId: currentStaff.id,
-      });
-      setNewNoteContent(EMPTY_DOC);
-      queryClient.invalidateQueries({ queryKey: notesKeys.forTarget('parent', parentId) });
-      queryClient.invalidateQueries({ queryKey: activityKeys.parent(parentId) });
-    } catch {
-      // Error handled silently - user can retry
-    }
-  }, [newNoteContent, currentStaff?.id, parentId, createNoteMutation, queryClient]);
+  const invalidateActivity = useCallback(() => {
+    queryClient.invalidateQueries({ queryKey: activityKeys.parent(parentId) });
+  }, [queryClient, parentId]);
 
   return (
-    <div className="h-full space-y-6">
-      <ActivityNoteComposer
-        content={newNoteContent}
-        onChange={setNewNoteContent}
-        onSubmit={handleSubmit}
-        isSubmitting={createNoteMutation.isPending}
-        canPost={Boolean(currentStaff)}
-      />
-
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
-    </div>
+    <ActivityTabLayout
+      showComposer
+      composerProps={composerProps}
+      data={data}
+      isLoading={isLoading}
+      error={error}
+      hasNextPage={hasNextPage}
+      isFetchingNextPage={isFetchingNextPage}
+      onLoadMore={fetchNextPage}
+      onOpenFormResponse={openFormResponse}
+      footer={(
+        <FormResponseDialog
+          response={selectedResponse}
+          onClose={closeFormResponse}
+          onUpdated={invalidateActivity}
+          onDeleted={invalidateActivity}
+        />
+      )}
+    />
   );
 }

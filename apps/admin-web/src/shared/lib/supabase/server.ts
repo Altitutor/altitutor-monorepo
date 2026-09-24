@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 // Environment variable validation - only check at runtime, not during build
 function validateEnvVars() {
@@ -26,7 +27,7 @@ function validateEnvVars() {
  */
 export function getServerSupabaseClient() {
   validateEnvVars();
-  return createClient<Database>(
+  return instrumentSupabaseClient(createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -36,7 +37,7 @@ export function getServerSupabaseClient() {
         detectSessionInUrl: false,
       },
     }
-  );
+  ));
 }
 
 /**
@@ -54,7 +55,7 @@ export function getServerSupabaseAdmin() {
   // Skip validation during build phase
   if (process.env.NEXT_PHASE === 'phase-production-build') {
     // Return a dummy client during build to avoid errors
-    return createClient<Database>(
+    return instrumentSupabaseClient(createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
       serviceRoleKey || 'placeholder-key',
       {
@@ -63,7 +64,7 @@ export function getServerSupabaseAdmin() {
           persistSession: false,
         },
       }
-    );
+    ));
   }
   
   if (!serviceRoleKey) {
@@ -72,7 +73,7 @@ export function getServerSupabaseAdmin() {
 
   validateEnvVars();
 
-  return createClient<Database>(
+  return instrumentSupabaseClient(createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     serviceRoleKey,
     {
@@ -81,6 +82,5 @@ export function getServerSupabaseAdmin() {
         persistSession: false,
       },
     }
-  );
+  ));
 }
-

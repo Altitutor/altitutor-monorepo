@@ -1,9 +1,5 @@
 import { formatPayTierRequirementLabel } from './labels';
-import {
-  getMetricValue,
-  resolveSessionCountMetricKey,
-  sessionMetricKey,
-} from './metric-keys';
+import { getMetricValue, parseResourceMetricKey, resolveSessionCountMetricKey, sessionMetricKey } from './metric-keys';
 import {
   isTenureRequirementKind,
   isTimeBasedRequirementKind,
@@ -15,6 +11,7 @@ import {
 import type {
   RequirementParams,
   RequirementProgress,
+  ResourceCountRequirementParams,
   SessionCountRequirementParams,
   StaffPayTierRequirement,
   StaffPayTierRequirementKind,
@@ -37,6 +34,10 @@ export function evaluateRequirement(
         ? timeSincePromotionMetricKeyForUnit(unit)
         : tenureMetricKeyForUnit(unit);
     current = getMetricValue(metrics, metricKey);
+  } else if (requirement.requirement_kind === 'RESOURCE_COUNT') {
+    const p = params as ResourceCountRequirementParams;
+    required = p.min ?? 0;
+    current = sumResourceCountMetrics(metrics, p);
   } else {
     const p = params as SessionCountRequirementParams;
     required = p.min ?? 0;
@@ -62,10 +63,22 @@ export function evaluateRequirement(
   };
 }
 
-function sumSessionCountMetrics(
-  metrics: Record<string, number>,
-  params: SessionCountRequirementParams
-): number {
+function sumResourceCountMetrics(metrics: Record<string, number>, params: ResourceCountRequirementParams): number {
+  const resourceTypes = params.resource_types ?? [];
+  const subjectIds = params.subject_ids ?? [];
+
+  return Object.keys(metrics).reduce((sum, key) => {
+    const parsed = parseResourceMetricKey(key);
+    if (!parsed) return sum;
+    if (resourceTypes.length > 0 && !resourceTypes.includes(parsed.resourceType)) return sum;
+    if (subjectIds.length > 0 && (!parsed.subjectId || !subjectIds.includes(parsed.subjectId))) {
+      return sum;
+    }
+    return sum + getMetricValue(metrics, key);
+  }, 0);
+}
+
+function sumSessionCountMetrics(metrics: Record<string, number>, params: SessionCountRequirementParams): number {
   const types = params.session_types ?? [];
   const attendance = params.attendance_types ?? [];
 
@@ -74,9 +87,7 @@ function sumSessionCountMetrics(
   }
 
   return types.reduce(
-    (sum, t) =>
-      sum +
-      attendance.reduce((inner, a) => inner + getMetricValue(metrics, sessionMetricKey(t, a)), 0),
+    (sum, t) => sum + attendance.reduce((inner, a) => inner + getMetricValue(metrics, sessionMetricKey(t, a)), 0),
     0
   );
 }
@@ -116,10 +127,7 @@ export function getHighestEligiblePromotionTier(
   return tier;
 }
 
-export function getPromotionTierOptions(
-  fromTierNumber: number,
-  highestEligibleTier: number
-): number[] {
+export function getPromotionTierOptions(fromTierNumber: number, highestEligibleTier: number): number[] {
   if (highestEligibleTier <= fromTierNumber) return [];
   const options: number[] = [];
   for (let t = fromTierNumber + 1; t <= highestEligibleTier; t += 1) {
@@ -142,13 +150,21 @@ export function validateApprovedPromotionTier(
   return null;
 }
 
-export function parseRequirementParams(
-  kind: StaffPayTierRequirementKind,
-  raw: unknown
-): RequirementParams {
+export function parseRequirementParams(kind: StaffPayTierRequirementKind, raw: unknown): RequirementParams {
   const p = (raw && typeof raw === 'object' ? raw : {}) as Record<string, unknown>;
   if (isTimeBasedRequirementKind(kind)) {
     return parseTimeRequirementParams(raw);
+  }
+  if (kind === 'RESOURCE_COUNT') {
+    return {
+      min: Number(p.min ?? 0),
+      resource_types: Array.isArray(p.resource_types)
+        ? p.resource_types.filter((x): x is string => typeof x === 'string')
+        : undefined,
+      subject_ids: Array.isArray(p.subject_ids)
+        ? p.subject_ids.filter((x): x is string => typeof x === 'string')
+        : undefined,
+    };
   }
   return {
     min: Number(p.min ?? 0),

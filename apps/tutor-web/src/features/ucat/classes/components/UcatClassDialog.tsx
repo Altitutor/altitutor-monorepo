@@ -1,7 +1,7 @@
-'use client'
+'use client';
 
-import { useEffect, useMemo, useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useEffect, useMemo, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import {
   DndContext,
   PointerSensor,
@@ -12,54 +12,88 @@ import {
   closestCenter,
   type DragEndEvent,
   type DragStartEvent,
-} from '@dnd-kit/core'
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable'
-import { CSS } from '@dnd-kit/utilities'
-import { Button, ListToolbar } from '@altitutor/ui'
+} from '@dnd-kit/core';
+import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import {
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from '@/shared/components/segmented-tab-panel'
-import { tutorToolbarProps } from '@/shared/lib/tutor-visual'
-import { GripVertical, Trash2 } from 'lucide-react'
-import { format } from 'date-fns'
-import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
-import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions'
-import { UcatRowActions } from '@/features/ucat/shared/row-actions'
-import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions'
-import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets'
-import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks'
-import { useUcatLearningModules } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules'
-import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
-import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
+  AccountClassBadge,
+  Button,
+  ListToolbar,
+  SegmentedControl,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  useToast,
+} from '@altitutor/ui';
+import { SegmentedTabPanel, SegmentedTabPanelContent } from '@/shared/components/segmented-tab-panel';
+import { tutorTableBodyRow, tutorTableHeaderRow, tutorTableShell, tutorToolbarProps } from '@/shared/lib/tutor-visual';
+import { Eye, GripVertical, Trash2 } from 'lucide-react';
+import { format } from 'date-fns';
+import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell';
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId';
+import { buildCopyIdRowAction } from '@/features/ucat/shared/lib/copy-id-actions';
+import { UcatRowActions } from '@/features/ucat/shared/row-actions';
+import { useUcatClassSessions } from '@/features/ucat/classes/hooks/useUcatClassSessions';
+import { useUcatSets } from '@/features/ucat/sets/hooks/useUcatSets';
+import { useUcatMocks } from '@/features/ucat/mocks/hooks/useUcatMocks';
+import { useUcatLearningModules } from '@/features/ucat/learning-modules/hooks/useUcatLearningModules';
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions';
+import { ucatKeys } from '@/features/ucat/shared/lib/query-keys';
 import {
   applyBooleanTextFilter,
   applyCoreStringFilter,
   applyRangeFilter,
-  applySingleSelectFilter,
   applySort,
-} from '@/features/ucat/shared/hooks/useUcatTableState'
-import type { DataTableFilterDefinition, Json } from '@altitutor/shared'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import type { UcatSessionWithResources } from '@/features/ucat/classes/api/classes'
+} from '@/features/ucat/shared/hooks/useUcatTableState';
+import type { DataTableColumnDefinition, DataTableFilterDefinition, Json } from '@altitutor/shared';
+import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text';
+import type { UcatSessionWithResources } from '@/features/ucat/classes/api/classes';
 import {
   type DraftResource,
   useUcatClassResourceDrafts,
-} from '@/features/ucat/classes/hooks/useUcatClassResourceDrafts'
+} from '@/features/ucat/classes/hooks/useUcatClassResourceDrafts';
+import { useUcatClassStudentIds, useUcatStudentProgressSummary } from '@/features/ucat/students/hooks/useUcatStudents';
+import { UcatPredictedScoreCell } from '@/features/ucat/students/components/UcatPredictedScoreCell';
 
 /** Stable empty array so useEffect([open, sessions]) does not re-run when query is disabled (data undefined). */
-const EMPTY_SESSIONS: UcatSessionWithResources[] = []
+const EMPTY_SESSIONS: UcatSessionWithResources[] = [];
+
+const STUDENT_DEFAULT_VISIBLE_COLUMNS = ['student_name', 'predicted_score', 'delivery_mode', 'online_tier'];
+
+const STUDENT_COLUMN_DEFINITIONS: DataTableColumnDefinition[] = [
+  { key: 'student_name', label: 'Student', visibleByDefault: true },
+  {
+    key: 'total_questions',
+    label: 'Question attempts',
+    visibleByDefault: false,
+  },
+  {
+    key: 'total_sets_attempted',
+    label: 'Set attempts',
+    visibleByDefault: false,
+  },
+  {
+    key: 'total_mocks_attempted',
+    label: 'Mock attempts',
+    visibleByDefault: false,
+  },
+  { key: 'predicted_score', label: 'Predicted score', visibleByDefault: true },
+  { key: 'delivery_mode', label: 'Delivery', visibleByDefault: true },
+  { key: 'online_tier', label: 'Online plan', visibleByDefault: true },
+];
 
 function sessionTitle(startAt: string | null): string {
-  if (!startAt) return '—'
-  const d = new Date(startAt)
-  return format(d, 'EEE, d MMM')
+  if (!startAt) return '—';
+  const d = new Date(startAt);
+  return format(d, 'EEE, d MMM');
 }
 
 function sectionSubtitle(section_index: number, section_name: string): string {
-  if (section_name) return `${section_index}. ${section_name}`
-  return ''
+  if (section_name) return `${section_index}. ${section_name}`;
+  return '';
 }
 
 function DroppableSessionWithDraft({
@@ -71,16 +105,23 @@ function DroppableSessionWithDraft({
   lessonLookup,
   onRemove,
 }: {
-  session: UcatSessionWithResources
-  draftResources: DraftResource[]
-  setLookup: (id: string) => { name: string; section_index: number; section_name: string; question_count: number } | null
-  mockLookup: (id: string) => { name: string; set_count: number } | null
-  stemLookup: (id: string) => { name: string; question_count: number } | null
-  lessonLookup: (id: string) => { name: string; block_count: number } | null
-  onRemove: (sessionId: string, draftId: string) => void
+  session: UcatSessionWithResources;
+  draftResources: DraftResource[];
+  setLookup: (id: string) => {
+    name: string;
+    section_index: number;
+    section_name: string;
+    question_count: number;
+  } | null;
+  mockLookup: (id: string) => { name: string; set_count: number } | null;
+  stemLookup: (id: string) => { name: string; question_count: number } | null;
+  lessonLookup: (id: string) => { name: string; block_count: number } | null;
+  onRemove: (sessionId: string, draftId: string) => void;
 }) {
-  const { setNodeRef, isOver } = useDroppable({ id: `session-${session.session_id}` })
-  const sortableIds = draftResources.map((r) => `res-${r.draftId}`)
+  const { setNodeRef, isOver } = useDroppable({
+    id: `session-${session.session_id}`,
+  });
+  const sortableIds = draftResources.map((r) => `res-${r.draftId}`);
 
   return (
     <div
@@ -104,7 +145,7 @@ function DroppableSessionWithDraft({
         </div>
       </SortableContext>
     </div>
-  )
+  );
 }
 
 function DraftResourceRow({
@@ -115,22 +156,27 @@ function DraftResourceRow({
   lessonLookup,
   onRemove,
 }: {
-  resource: DraftResource
-  setLookup: (id: string) => { name: string; section_index: number; section_name: string; question_count: number } | null
-  mockLookup: (id: string) => { name: string; set_count: number } | null
-  stemLookup: (id: string) => { name: string; question_count: number } | null
-  lessonLookup: (id: string) => { name: string; block_count: number } | null
-  onRemove: () => void
+  resource: DraftResource;
+  setLookup: (id: string) => {
+    name: string;
+    section_index: number;
+    section_name: string;
+    question_count: number;
+  } | null;
+  mockLookup: (id: string) => { name: string; set_count: number } | null;
+  stemLookup: (id: string) => { name: string; question_count: number } | null;
+  lessonLookup: (id: string) => { name: string; block_count: number } | null;
+  onRemove: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: `res-${resource.draftId}`,
-  })
-  const style = { transform: CSS.Transform.toString(transform), transition }
+  });
+  const style = { transform: CSS.Transform.toString(transform), transition };
 
-  const setInfo = resource.type === 'set' ? setLookup(resource.resource_id) : null
-  const mockInfo = resource.type === 'mock' ? mockLookup(resource.resource_id) : null
-  const stemInfo = resource.type === 'stem' ? stemLookup(resource.resource_id) : null
-  const lessonInfo = resource.type === 'lesson' ? lessonLookup(resource.resource_id) : null
+  const setInfo = resource.type === 'set' ? setLookup(resource.resource_id) : null;
+  const mockInfo = resource.type === 'mock' ? mockLookup(resource.resource_id) : null;
+  const stemInfo = resource.type === 'stem' ? stemLookup(resource.resource_id) : null;
+  const lessonInfo = resource.type === 'lesson' ? lessonLookup(resource.resource_id) : null;
 
   return (
     <div
@@ -145,9 +191,7 @@ function DraftResourceRow({
         {resource.type === 'set' && setInfo ? (
           <>
             <div>{setInfo.name}</div>
-            <div className="text-muted-foreground">
-              {sectionSubtitle(setInfo.section_index, setInfo.section_name)}
-            </div>
+            <div className="text-muted-foreground">{sectionSubtitle(setInfo.section_index, setInfo.section_name)}</div>
           </>
         ) : resource.type === 'mock' && mockInfo ? (
           <div>{mockInfo.name}</div>
@@ -172,7 +216,7 @@ function DraftResourceRow({
         <Trash2 className="h-3.5 w-3.5 text-muted-foreground" />
       </Button>
     </div>
-  )
+  );
 }
 
 function DraggableSetItem({
@@ -182,18 +226,18 @@ function DraggableSetItem({
   sectionName,
   questionCount,
 }: {
-  id: string
-  name: string
-  sectionIndex: number
-  sectionName: string
-  questionCount: number
+  id: string;
+  name: string;
+  sectionIndex: number;
+  sectionName: string;
+  questionCount: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `set-${id}`,
     data: { type: 'set', setId: id },
-  })
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
-  const subtitle = sectionSubtitle(sectionIndex, sectionName)
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
+  const subtitle = sectionSubtitle(sectionIndex, sectionName);
   return (
     <div
       ref={setNodeRef}
@@ -209,15 +253,15 @@ function DraggableSetItem({
       </div>
       <span className="shrink-0 text-muted-foreground">{questionCount} q</span>
     </div>
-  )
+  );
 }
 
 function DraggableMockItem({ id, name, setCount }: { id: string; name: string; setCount: number }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `mock-${id}`,
     data: { type: 'mock', mockId: id },
-  })
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
     <div
       ref={setNodeRef}
@@ -230,15 +274,15 @@ function DraggableMockItem({ id, name, setCount }: { id: string; name: string; s
       <div className="min-w-0 flex-1">{name}</div>
       <span className="shrink-0 text-muted-foreground">{setCount} sets</span>
     </div>
-  )
+  );
 }
 
 function DraggableLessonItem({ id, name, blockCount }: { id: string; name: string; blockCount: number }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `lesson-${id}`,
     data: { type: 'lesson', lessonId: id },
-  })
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
     <div
       ref={setNodeRef}
@@ -251,15 +295,15 @@ function DraggableLessonItem({ id, name, blockCount }: { id: string; name: strin
       <div className="min-w-0 flex-1">{name}</div>
       <span className="shrink-0 text-muted-foreground">{blockCount} blocks</span>
     </div>
-  )
+  );
 }
 
 function DraggableStemItem({ id, name, questionCount }: { id: string; name: string; questionCount: number }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: `stem-${id}`,
     data: { type: 'stem', stemId: id },
-  })
-  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  });
+  const style = transform ? { transform: CSS.Translate.toString(transform) } : undefined;
   return (
     <div
       ref={setNodeRef}
@@ -272,7 +316,7 @@ function DraggableStemItem({ id, name, questionCount }: { id: string; name: stri
       <div className="min-w-0 flex-1">{name}</div>
       <span className="shrink-0 text-muted-foreground">{questionCount} q</span>
     </div>
-  )
+  );
 }
 
 export function UcatClassDialog({
@@ -281,61 +325,79 @@ export function UcatClassDialog({
   onClose,
   onSaved,
 }: {
-  open: boolean
-  classId: string | null
-  onClose: () => void
-  onSaved?: () => void
+  open: boolean;
+  classId: string | null;
+  onClose: () => void;
+  onSaved?: () => void;
 }) {
-  const { data: sessionsData, isLoading: sessionsLoading } = useUcatClassSessions(open ? classId : null)
-  const sessions = sessionsData ?? EMPTY_SESSIONS
-  const { data: setsList = [] } = useUcatSets()
-  const { data: mocksList = [] } = useUcatMocks()
+  const { toast } = useToast();
+  const [dialogTab, setDialogTab] = useState<'sessions' | 'students'>('sessions');
+  const { data: sessionsData, isLoading: sessionsLoading } = useUcatClassSessions(open ? classId : null);
+  const sessions = sessionsData ?? EMPTY_SESSIONS;
+  const classStudentIds = useUcatClassStudentIds(open ? classId : null);
+  const studentProgress = useUcatStudentProgressSummary();
+  const { data: setsList = [] } = useUcatSets();
+  const { data: mocksList = [] } = useUcatMocks();
   const { data: stemsList = [] } = useQuery({
-    queryKey: ucatKeys.questions(),
+    queryKey: ucatKeys.questions('all'),
     queryFn: () => ucatQuestionsApi.list(),
     enabled: open,
-  })
-  const { data: lessonsList = [] } = useUcatLearningModules({ kind: 'lesson', enabled: open })
-  const { copyId } = useUcatCopyId()
+  });
+  const { data: lessonsList = [] } = useUcatLearningModules({
+    kind: 'lesson',
+    enabled: open,
+  });
+  const { copyId } = useUcatCopyId();
 
   // Only use non-deleted sets/mocks when assigning resources to sessions
   const activeSetsList = useMemo(
     () =>
-      (setsList as Array<{ deleted_at?: string | null }>).filter(
-        (row) => row.deleted_at == null
-      ),
+      (
+        setsList as Array<{
+          deleted_at?: string | null;
+          status?: string | null;
+        }>
+      ).filter((row) => row.deleted_at == null && row.status === 'published'),
     [setsList]
-  )
+  );
   const activeMocksList = useMemo(
     () =>
-      (mocksList as Array<{ deleted_at?: string | null }>).filter(
-        (row) => row.deleted_at == null
-      ),
+      (
+        mocksList as Array<{
+          deleted_at?: string | null;
+          status?: string | null;
+        }>
+      ).filter((row) => row.deleted_at == null && row.status === 'published'),
     [mocksList]
-  )
+  );
   const activeStemsList = useMemo(
     () =>
-      (stemsList as Array<{ deleted_at?: string | null }>).filter(
-        (row) => row.deleted_at == null
-      ),
+      (
+        stemsList as Array<{
+          deleted_at?: string | null;
+          status?: string | null;
+        }>
+      ).filter((row) => row.deleted_at == null && row.status === 'published'),
     [stemsList]
-  )
+  );
 
-  const [searchSessions, setSearchSessions] = useState('')
-  const [searchSets, setSearchSets] = useState('')
-  const [searchMocks, setSearchMocks] = useState('')
-  const [searchStems, setSearchStems] = useState('')
-  const [searchLessons, setSearchLessons] = useState('')
-  const [resourceTab, setResourceTab] = useState<'sets' | 'mocks' | 'stems' | 'lessons'>('sets')
+  const [searchSessions, setSearchSessions] = useState('');
+  const [searchSets, setSearchSets] = useState('');
+  const [searchMocks, setSearchMocks] = useState('');
+  const [searchStems, setSearchStems] = useState('');
+  const [searchLessons, setSearchLessons] = useState('');
+  const [searchStudents, setSearchStudents] = useState('');
+  const [studentVisibleColumns, setStudentVisibleColumns] = useState<string[]>(STUDENT_DEFAULT_VISIBLE_COLUMNS);
+  const [resourceTab, setResourceTab] = useState<'sets' | 'mocks' | 'stems' | 'lessons'>('sets');
   const [filtersSessions, setFiltersSessions] = useState<Record<string, unknown[]>>(() => ({
     from: [format(new Date(), 'yyyy-MM-dd')],
-  }))
-  const [sortSessionBy, setSortSessionBy] = useState<string | null>('start_at')
-  const [sortSessionDirection, setSortSessionDirection] = useState<'asc' | 'desc'>('asc')
-  const [filtersSets, setFiltersSets] = useState<Record<string, unknown[]>>({})
-  const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>({})
-  const [filtersStems, setFiltersStems] = useState<Record<string, unknown[]>>({})
-  const [, setActiveId] = useState<string | null>(null)
+  }));
+  const [sortSessionBy, setSortSessionBy] = useState<string | null>('start_at');
+  const [sortSessionDirection, setSortSessionDirection] = useState<'asc' | 'desc'>('asc');
+  const [filtersSets, setFiltersSets] = useState<Record<string, unknown[]>>({});
+  const [filtersMocks, setFiltersMocks] = useState<Record<string, unknown[]>>({});
+  const [filtersStems, setFiltersStems] = useState<Record<string, unknown[]>>({});
+  const [, setActiveId] = useState<string | null>(null);
   const {
     draftBySession,
     isDirty,
@@ -346,7 +408,7 @@ export function UcatClassDialog({
     moveResourceByDraftIds,
     appendResourceToSession,
     saveAssignments,
-  } = useUcatClassResourceDrafts(classId)
+  } = useUcatClassResourceDrafts(classId);
 
   const sessionFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
@@ -354,19 +416,11 @@ export function UcatClassDialog({
       { key: 'to', label: 'To date', type: 'date' },
     ],
     []
-  )
-  const sessionSortOptions = useMemo(() => [{ key: 'start_at', label: 'Date' }], [])
+  );
+  const sessionSortOptions = useMemo(() => [{ key: 'start_at', label: 'Date' }], []);
 
   const setFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
-      {
-        key: 'is_student_generated',
-        label: 'Origin',
-        options: [
-          { label: 'Staff', value: 'staff' },
-          { label: 'Student', value: 'student' },
-        ],
-      },
       {
         key: 'visibility',
         label: 'Visibility',
@@ -381,6 +435,7 @@ export function UcatClassDialog({
         type: 'number-range',
         minKey: 'time_limit_min',
         maxKey: 'time_limit_max',
+        nullOptionLabel: 'Untimed',
       },
       {
         key: 'stem_count',
@@ -398,7 +453,7 @@ export function UcatClassDialog({
       },
     ],
     []
-  )
+  );
 
   const mockFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
@@ -412,7 +467,7 @@ export function UcatClassDialog({
       },
     ],
     []
-  )
+  );
 
   const stemFilterDefinitions: DataTableFilterDefinition[] = useMemo(
     () => [
@@ -426,72 +481,103 @@ export function UcatClassDialog({
       },
     ],
     []
-  )
+  );
+
+  useEffect(() => {
+    if (open) {
+      setDialogTab('sessions');
+      setStudentVisibleColumns(STUDENT_DEFAULT_VISIBLE_COLUMNS);
+    }
+  }, [open, classId]);
 
   useEffect(() => {
     if (open && sessions.length > 0) {
-      initializeFromSessions(sessions)
+      initializeFromSessions(sessions);
     } else if (!open) {
-      reset()
+      reset();
     }
-  }, [open, sessions, initializeFromSessions, reset])
+  }, [open, sessions, initializeFromSessions, reset]);
 
   const setLookup = useMemo(() => {
-    const map = new Map<string, { name: string; section_index: number; section_name: string; question_count: number }>()
-    for (const row of activeSetsList as Array<{
-      id: string | null
-      name: unknown
-      sections: unknown
-      question_count: number | null
-    }>) {
-      if (!row.id) continue
-      const name = proseMirrorToPlainText(row.name as Json | undefined)
-      let section_index = 1
-      let section_name = ''
-      if (Array.isArray(row.sections) && row.sections[0] && typeof row.sections[0] === 'object') {
-        const first = row.sections[0] as { section_number?: number; name?: Json }
-        section_index = typeof first.section_number === 'number' ? first.section_number : 1
-        section_name = proseMirrorToPlainText(first.name)
+    const map = new Map<
+      string,
+      {
+        name: string;
+        section_index: number;
+        section_name: string;
+        question_count: number;
       }
-      map.set(row.id, { name, section_index, section_name, question_count: row.question_count ?? 0 })
+    >();
+    for (const row of activeSetsList as Array<{
+      id: string | null;
+      name: unknown;
+      sections: unknown;
+      question_count: number | null;
+    }>) {
+      if (!row.id) continue;
+      const name = proseMirrorToPlainText(row.name as Json | undefined);
+      let section_index = 1;
+      let section_name = '';
+      if (Array.isArray(row.sections) && row.sections[0] && typeof row.sections[0] === 'object') {
+        const first = row.sections[0] as {
+          section_number?: number;
+          name?: Json;
+        };
+        section_index = typeof first.section_number === 'number' ? first.section_number : 1;
+        section_name = proseMirrorToPlainText(first.name);
+      }
+      map.set(row.id, {
+        name,
+        section_index,
+        section_name,
+        question_count: row.question_count ?? 0,
+      });
     }
-    return (id: string) => map.get(id) ?? null
-  }, [activeSetsList])
+    return (id: string) => map.get(id) ?? null;
+  }, [activeSetsList]);
 
   const mockLookup = useMemo(() => {
-    const map = new Map<string, { name: string; set_count: number }>()
-    for (const row of activeMocksList as Array<{ id: string | null; name: string | null; set_count?: number }>) {
-      if (row.id) map.set(row.id, { name: row.name ?? 'Untitled', set_count: row.set_count ?? 0 })
+    const map = new Map<string, { name: string; set_count: number }>();
+    for (const row of activeMocksList as Array<{
+      id: string | null;
+      name: string | null;
+      set_count?: number;
+    }>) {
+      if (row.id)
+        map.set(row.id, {
+          name: row.name ?? 'Untitled',
+          set_count: row.set_count ?? 0,
+        });
     }
-    return (id: string) => map.get(id) ?? null
-  }, [activeMocksList])
+    return (id: string) => map.get(id) ?? null;
+  }, [activeMocksList]);
 
   const lessonLookup = useMemo(() => {
-    const map = new Map<string, { name: string; block_count: number }>()
+    const map = new Map<string, { name: string; block_count: number }>();
     for (const row of lessonsList) {
-      map.set(row.id, { name: row.title, block_count: row.block_count })
+      map.set(row.id, { name: row.title, block_count: row.block_count });
     }
-    return (id: string) => map.get(id) ?? null
-  }, [lessonsList])
+    return (id: string) => map.get(id) ?? null;
+  }, [lessonsList]);
 
   const stemLookup = useMemo(() => {
-    const map = new Map<string, { name: string; question_count: number }>()
+    const map = new Map<string, { name: string; question_count: number }>();
     for (const row of activeStemsList as Array<{
-      id: string | null
-      stem_text: unknown
-      question_count: number | null
+      id: string | null;
+      stem_text: unknown;
+      question_count: number | null;
     }>) {
-      if (!row.id) continue
-      const raw = proseMirrorToPlainText(row.stem_text as Json | undefined).trim() || 'Question stem'
-      const name = raw.length > 60 ? `${raw.slice(0, 57)}…` : raw
-      map.set(row.id, { name, question_count: row.question_count ?? 0 })
+      if (!row.id) continue;
+      const raw = proseMirrorToPlainText(row.stem_text as Json | undefined).trim() || 'Question stem';
+      const name = raw.length > 60 ? `${raw.slice(0, 57)}…` : raw;
+      map.set(row.id, { name, question_count: row.question_count ?? 0 });
     }
-    return (id: string) => map.get(id) ?? null
-  }, [activeStemsList])
+    return (id: string) => map.get(id) ?? null;
+  }, [activeStemsList]);
 
   /** Session list (left): only show resources that reference non-deleted sets/mocks/stems. */
   const visibleDraftBySession = useMemo(() => {
-    const out: Record<string, DraftResource[]> = {}
+    const out: Record<string, DraftResource[]> = {};
     for (const [sessionId, resources] of Object.entries(draftBySession)) {
       out[sessionId] = resources.filter(
         (r) =>
@@ -499,30 +585,28 @@ export function UcatClassDialog({
           (r.type === 'mock' && mockLookup(r.resource_id) !== null) ||
           (r.type === 'stem' && stemLookup(r.resource_id) !== null) ||
           (r.type === 'lesson' && lessonLookup(r.resource_id) !== null)
-      )
+      );
     }
-    return out
-  }, [draftBySession, setLookup, mockLookup, stemLookup, lessonLookup])
+    return out;
+  }, [draftBySession, setLookup, mockLookup, stemLookup, lessonLookup]);
 
   const filteredSessions = useMemo(() => {
-    let list = sessions
-    const fromVal = (filtersSessions.from as string[])?.[0]
-    const toVal = (filtersSessions.to as string[])?.[0]
+    let list = sessions;
+    const fromVal = (filtersSessions.from as string[])?.[0];
+    const toVal = (filtersSessions.to as string[])?.[0];
     if (fromVal || toVal) {
       list = list.filter((s) => {
-        const d = s.start_at ? s.start_at.slice(0, 10) : ''
-        if (fromVal && d < fromVal) return false
-        if (toVal && d > toVal) return false
-        return true
-      })
+        const d = s.start_at ? s.start_at.slice(0, 10) : '';
+        if (fromVal && d < fromVal) return false;
+        if (toVal && d > toVal) return false;
+        return true;
+      });
     }
     if (searchSessions.trim()) {
-      list = list.filter((s) =>
-        applyCoreStringFilter(sessionTitle(s.start_at), searchSessions)
-      )
+      list = list.filter((s) => applyCoreStringFilter(sessionTitle(s.start_at), searchSessions));
     }
-    return list
-  }, [sessions, filtersSessions, searchSessions])
+    return list;
+  }, [sessions, filtersSessions, searchSessions]);
 
   const sortedSessions = useMemo(
     () =>
@@ -530,71 +614,88 @@ export function UcatClassDialog({
         start_at: (s) => s.start_at ?? '',
       }),
     [filteredSessions, sortSessionBy, sortSessionDirection]
-  )
+  );
 
   const setsTableState = useMemo(
-    () => ({ search: searchSets, filters: filtersSets, sortBy: null, sortDirection: 'desc' as const, groupBy: null, page: 1, pageSize: 20, visibleColumns: [] }),
+    () => ({
+      search: searchSets,
+      filters: filtersSets,
+      sortBy: null,
+      sortDirection: 'desc' as const,
+      groupBy: null,
+      page: 1,
+      pageSize: 20,
+      visibleColumns: [],
+    }),
     [searchSets, filtersSets]
-  )
+  );
 
   const filteredSets = useMemo(() => {
     const list = activeSetsList as Array<{
-      id: string | null
-      name: unknown
-      sections: unknown
-      question_count: number | null
-      time_limit_seconds: number | null
-      is_private: boolean | null
-      is_student_generated: boolean | null
-      stem_count?: number
-    }>
+      id: string | null;
+      name: unknown;
+      sections: unknown;
+      question_count: number | null;
+      time_limit_seconds: number | null;
+      access_scope: 'public' | 'private' | null;
+      stem_count?: number;
+    }>;
     return list.filter((row) => {
-      const name = proseMirrorToPlainText(row.name as Json | undefined)
+      const name = proseMirrorToPlainText(row.name as Json | undefined);
       const sectionName = Array.isArray(row.sections)
         ? proseMirrorToPlainText((row.sections[0] as { name?: Json })?.name)
-        : ''
+        : '';
       const searchHit =
-        !searchSets.trim() ||
-        applyCoreStringFilter(name, searchSets) ||
-        applyCoreStringFilter(sectionName, searchSets)
-      const visibilityHit = applyBooleanTextFilter(setsTableState, 'visibility', !!row.is_private)
-      const originValue = row.is_student_generated ? 'student' : 'staff'
-      const originHit = applySingleSelectFilter(setsTableState, 'is_student_generated', originValue)
+        !searchSets.trim() || applyCoreStringFilter(name, searchSets) || applyCoreStringFilter(sectionName, searchSets);
+      const visibilityHit = applyBooleanTextFilter(setsTableState, 'visibility', row.access_scope === 'private');
       const timeLimitHit = applyRangeFilter(
         setsTableState,
         'time_limit_min',
         'time_limit_max',
-        row.time_limit_seconds ?? null
-      )
-      const stemCountHit = applyRangeFilter(
-        setsTableState,
-        'stem_count_min',
-        'stem_count_max',
-        row.stem_count ?? null
-      )
+        row.time_limit_seconds ?? null,
+        {
+          nullFilterKey: 'time_limit',
+          treatNonPositiveAsNull: true,
+        }
+      );
+      const stemCountHit = applyRangeFilter(setsTableState, 'stem_count_min', 'stem_count_max', row.stem_count ?? null);
       const questionCountHit = applyRangeFilter(
         setsTableState,
         'question_count_min',
         'question_count_max',
         row.question_count ?? null
-      )
-      return searchHit && visibilityHit && originHit && timeLimitHit && stemCountHit && questionCountHit
-    })
-  }, [activeSetsList, searchSets, setsTableState])
+      );
+      return searchHit && visibilityHit && timeLimitHit && stemCountHit && questionCountHit;
+    });
+  }, [activeSetsList, searchSets, setsTableState]);
 
   const mocksTableState = useMemo(
-    () => ({ search: searchMocks, filters: filtersMocks, sortBy: null, sortDirection: 'desc' as const, groupBy: null, page: 1, pageSize: 20, visibleColumns: [] }),
+    () => ({
+      search: searchMocks,
+      filters: filtersMocks,
+      sortBy: null,
+      sortDirection: 'desc' as const,
+      groupBy: null,
+      page: 1,
+      pageSize: 20,
+      visibleColumns: [],
+    }),
     [searchMocks, filtersMocks]
-  )
+  );
 
   const filteredMocks = useMemo(() => {
-    const list = activeMocksList as Array<{ id: string | null; name: string | null; set_count?: number; is_private?: boolean | null }>
+    const list = activeMocksList as Array<{
+      id: string | null;
+      name: string | null;
+      set_count?: number;
+      access_scope?: 'public' | 'private' | null;
+    }>;
     return list.filter((row) => {
-      const searchHit = !searchMocks.trim() || applyCoreStringFilter(row.name ?? '', searchMocks)
-      const visibilityHit = applyBooleanTextFilter(mocksTableState, 'visibility', !!row.is_private)
-      return searchHit && visibilityHit
-    })
-  }, [activeMocksList, searchMocks, mocksTableState])
+      const searchHit = !searchMocks.trim() || applyCoreStringFilter(row.name ?? '', searchMocks);
+      const visibilityHit = applyBooleanTextFilter(mocksTableState, 'visibility', row.access_scope === 'private');
+      return searchHit && visibilityHit;
+    });
+  }, [activeMocksList, searchMocks, mocksTableState]);
 
   const stemsTableState = useMemo(
     () => ({
@@ -608,45 +709,53 @@ export function UcatClassDialog({
       visibleColumns: [],
     }),
     [searchStems, filtersStems]
-  )
+  );
 
   const filteredStems = useMemo(() => {
     const list = activeStemsList as Array<{
-      id: string | null
-      stem_text: unknown
-      section_name?: string | null
-      question_count: number | null
-      is_private?: boolean | null
-    }>
+      id: string | null;
+      stem_text: unknown;
+      section_name?: string | null;
+      question_count: number | null;
+      access_scope?: 'public' | 'private' | null;
+    }>;
     return list.filter((row) => {
-      const plain = proseMirrorToPlainText(row.stem_text as Json | undefined)
+      const plain = proseMirrorToPlainText(row.stem_text as Json | undefined);
       const searchHit =
         !searchStems.trim() ||
         applyCoreStringFilter(plain, searchStems) ||
-        applyCoreStringFilter(row.section_name ?? '', searchStems)
-      const visibilityHit = applyBooleanTextFilter(stemsTableState, 'visibility', !!row.is_private)
-      return searchHit && visibilityHit
-    })
-  }, [activeStemsList, searchStems, stemsTableState])
+        applyCoreStringFilter(row.section_name ?? '', searchStems);
+      const visibilityHit = applyBooleanTextFilter(stemsTableState, 'visibility', row.access_scope === 'private');
+      return searchHit && visibilityHit;
+    });
+  }, [activeStemsList, searchStems, stemsTableState]);
 
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }))
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 8 } }));
 
-  const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id))
+  const classStudents = useMemo(() => {
+    const allowedIds = new Set(classStudentIds.data ?? []);
+    const query = searchStudents.trim().toLowerCase();
+    return (studentProgress.data?.students ?? []).filter(
+      (student) => allowedIds.has(student.student_id) && (!query || student.student_name.toLowerCase().includes(query))
+    );
+  }, [classStudentIds.data, searchStudents, studentProgress.data?.students]);
+
+  const handleDragStart = (event: DragStartEvent) => setActiveId(String(event.active.id));
 
   const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event
-    setActiveId(null)
-    if (!over) return
+    const { active, over } = event;
+    setActiveId(null);
+    if (!over) return;
 
-    const activeStr = String(active.id)
-    const overStr = String(over.id)
+    const activeStr = String(active.id);
+    const overStr = String(over.id);
 
     if (activeStr.startsWith('res-')) {
-      if (!overStr.startsWith('res-')) return
-      const activeDraftId = activeStr.replace('res-', '')
-      const overDraftId = overStr.replace('res-', '')
-      moveResourceByDraftIds(activeDraftId, overDraftId)
-      return
+      if (!overStr.startsWith('res-')) return;
+      const activeDraftId = activeStr.replace('res-', '');
+      const overDraftId = overStr.replace('res-', '');
+      moveResourceByDraftIds(activeDraftId, overDraftId);
+      return;
     }
 
     if (
@@ -656,35 +765,44 @@ export function UcatClassDialog({
         activeStr.startsWith('lesson-')) &&
       overStr.startsWith('session-')
     ) {
-      const sessionId = overStr.replace('session-', '')
+      const sessionId = overStr.replace('session-', '');
       const type = activeStr.startsWith('set-')
         ? 'set'
         : activeStr.startsWith('mock-')
           ? 'mock'
           : activeStr.startsWith('lesson-')
             ? 'lesson'
-            : 'stem'
+            : 'stem';
       const resource_id = activeStr.startsWith('set-')
         ? activeStr.replace('set-', '')
         : activeStr.startsWith('mock-')
           ? activeStr.replace('mock-', '')
           : activeStr.startsWith('lesson-')
             ? activeStr.replace('lesson-', '')
-            : activeStr.replace('stem-', '')
-      appendResourceToSession(sessionId, type, resource_id)
+            : activeStr.replace('stem-', '');
+      appendResourceToSession(sessionId, type, resource_id);
     }
-  }
+  };
 
   const handleRemove = (sessionId: string, draftId: string) => {
-    removeResource(sessionId, draftId)
-  }
+    removeResource(sessionId, draftId);
+  };
 
   const handleSave = async () => {
-    await saveAssignments()
-    if (!isDirty) return
-    onSaved?.()
-    onClose()
-  }
+    if (!isDirty) return;
+    try {
+      // Save only attachable (published) resources — matches what the UI shows.
+      await saveAssignments(visibleDraftBySession);
+      onSaved?.();
+      onClose();
+    } catch (error) {
+      toast({
+        title: 'Could not save session resources',
+        description: error instanceof Error ? error.message : 'Failed to save session resources',
+        variant: 'destructive',
+      });
+    }
+  };
 
   const copyIdAction =
     classId != null
@@ -701,191 +819,314 @@ export function UcatClassDialog({
               description: `${session.resources.length} resource${session.resources.length === 1 ? '' : 's'}`,
             })),
           ],
-          copyId,
+          copyId
         )
-      : null
+      : null;
 
-  const headerActions =
-    classId != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null
+  const headerActions = classId != null && copyIdAction != null ? <UcatRowActions actions={[copyIdAction]} /> : null;
 
   return (
     <UcatDialogShell
       open={open}
       onClose={onClose}
-      title="Edit class sessions"
-      subtitle="Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list. Save when done."
+      title="Class details"
+      subtitle={
+        dialogTab === 'sessions'
+          ? 'Assign sets, mocks, stems, and lessons to sessions. Reorder or remove with the list.'
+          : 'View the UCAT students enrolled in this class and open their progress.'
+      }
       onSave={handleSave}
       saveDisabled={!isDirty || isSaving}
       isSaving={isSaving}
+      headerControls={
+        <SegmentedControl
+          value={dialogTab}
+          onValueChange={setDialogTab}
+          options={[
+            { value: 'sessions', label: 'Sessions' },
+            { value: 'students', label: 'Students' },
+          ]}
+          aria-label="Class detail view"
+          fullWidth={false}
+        />
+      }
       headerActions={headerActions}
     >
-      <DndContext
-        sensors={sensors}
-        collisionDetection={closestCenter}
-        onDragStart={handleDragStart}
-        onDragEnd={handleDragEnd}
-      >
-        <div className="h-full flex">
-          <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
-            <h2 className="font-semibold">Sessions</h2>
-            <ListToolbar
-              search={searchSessions}
-              onSearchChange={setSearchSessions}
-              {...tutorToolbarProps}
-              searchPlaceholder="Search sessions"
-              filterDefinitions={sessionFilterDefinitions}
-              filters={filtersSessions}
-              onFiltersChange={setFiltersSessions}
-              sortOptions={sessionSortOptions}
-              sortBy={sortSessionBy}
-              sortDirection={sortSessionDirection}
-              onSortChange={(field, direction) => {
-                setSortSessionBy(field)
-                setSortSessionDirection(direction)
-              }}
-            />
-            {sessionsLoading ? (
-              <p className="text-sm text-muted-foreground">Loading sessions...</p>
-            ) : sortedSessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No sessions match your filters.</p>
-            ) : (
-              <div className="space-y-3">
-                {sortedSessions.map((session) => (
-                  <DroppableSessionWithDraft
-                    key={session.session_id}
-                    session={session}
-                    draftResources={visibleDraftBySession[session.session_id] ?? []}
-                    setLookup={setLookup}
-                    mockLookup={mockLookup}
-                    stemLookup={stemLookup}
-                    lessonLookup={lessonLookup}
-                    onRemove={handleRemove}
-                  />
-                ))}
-              </div>
-            )}
-          </section>
-
-          <aside className="w-96 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
-            <SegmentedTabPanel
-              value={resourceTab}
-              onValueChange={(value) =>
-                setResourceTab(value as 'sets' | 'mocks' | 'stems' | 'lessons')
-              }
-              options={[
-                { value: 'sets', label: 'Sets' },
-                { value: 'mocks', label: 'Mocks' },
-                { value: 'stems', label: 'Stems' },
-                { value: 'lessons', label: 'Lessons' },
-              ]}
-            >
-              <SegmentedTabPanelContent when="sets" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
-                <ListToolbar
-                  search={searchSets}
-                  onSearchChange={setSearchSets}
-                  {...tutorToolbarProps}
-                  searchPlaceholder="Filter sets"
-                  filterDefinitions={setFilterDefinitions}
-                  filters={filtersSets}
-                  onFiltersChange={setFiltersSets}
-                />
-                <div className="space-y-1.5 max-h-96 overflow-auto">
-                  {filteredSets.map((row) => {
-                    const id = row.id ?? ''
-                    const name = proseMirrorToPlainText(row.name as Json | undefined)
-                    let sectionIndex = 1
-                    let sectionName = ''
-                    if (Array.isArray(row.sections) && row.sections[0] && typeof row.sections[0] === 'object') {
-                      const first = row.sections[0] as { section_number?: number; name?: Json }
-                      sectionIndex = typeof first.section_number === 'number' ? first.section_number : 1
-                      sectionName = proseMirrorToPlainText(first.name)
-                    }
-                    return (
-                      <DraggableSetItem
-                        key={id}
-                        id={id}
-                        name={name}
-                        sectionIndex={sectionIndex}
-                        sectionName={sectionName}
-                        questionCount={row.question_count ?? 0}
-                      />
-                    )
-                  })}
-                </div>
-              </SegmentedTabPanelContent>
-              <SegmentedTabPanelContent when="mocks" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
-                <ListToolbar
-                  search={searchMocks}
-                  onSearchChange={setSearchMocks}
-                  {...tutorToolbarProps}
-                  searchPlaceholder="Filter mocks"
-                  filterDefinitions={mockFilterDefinitions}
-                  filters={filtersMocks}
-                  onFiltersChange={setFiltersMocks}
-                />
-                <div className="space-y-1.5 max-h-96 overflow-auto">
-                  {filteredMocks.map((row) => (
-                    <DraggableMockItem
-                      key={row.id ?? ''}
-                      id={row.id ?? ''}
-                      name={row.name ?? 'Untitled'}
-                      setCount={row.set_count ?? 0}
+      {dialogTab === 'sessions' ? (
+        <DndContext
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragStart={handleDragStart}
+          onDragEnd={handleDragEnd}
+        >
+          <div className="h-full flex">
+            <section className="flex-1 min-w-0 overflow-y-auto border-r p-6 space-y-3">
+              <h2 className="font-semibold">Sessions</h2>
+              <ListToolbar
+                search={searchSessions}
+                onSearchChange={setSearchSessions}
+                {...tutorToolbarProps}
+                searchPlaceholder="Search sessions"
+                filterDefinitions={sessionFilterDefinitions}
+                filters={filtersSessions}
+                onFiltersChange={setFiltersSessions}
+                sortOptions={sessionSortOptions}
+                sortBy={sortSessionBy}
+                sortDirection={sortSessionDirection}
+                onSortChange={(field, direction) => {
+                  setSortSessionBy(field);
+                  setSortSessionDirection(direction);
+                }}
+              />
+              {sessionsLoading ? (
+                <p className="text-sm text-muted-foreground">Loading sessions...</p>
+              ) : sortedSessions.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No sessions match your filters.</p>
+              ) : (
+                <div className="space-y-3">
+                  {sortedSessions.map((session) => (
+                    <DroppableSessionWithDraft
+                      key={session.session_id}
+                      session={session}
+                      draftResources={visibleDraftBySession[session.session_id] ?? []}
+                      setLookup={setLookup}
+                      mockLookup={mockLookup}
+                      stemLookup={stemLookup}
+                      lessonLookup={lessonLookup}
+                      onRemove={handleRemove}
                     />
                   ))}
                 </div>
-              </SegmentedTabPanelContent>
-              <SegmentedTabPanelContent when="stems" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
-                <ListToolbar
-                  search={searchStems}
-                  onSearchChange={setSearchStems}
-                  {...tutorToolbarProps}
-                  searchPlaceholder="Filter stems"
-                  filterDefinitions={stemFilterDefinitions}
-                  filters={filtersStems}
-                  onFiltersChange={setFiltersStems}
-                />
-                <div className="space-y-1.5 max-h-96 overflow-auto">
-                  {filteredStems.map((row) => {
-                    const id = row.id ?? ''
-                    const info = stemLookup(id)
-                    return (
-                      <DraggableStemItem
-                        key={id}
-                        id={id}
-                        name={info?.name ?? 'Question stem'}
-                        questionCount={row.question_count ?? 0}
-                      />
-                    )
-                  })}
-                </div>
-              </SegmentedTabPanelContent>
-              <SegmentedTabPanelContent when="lessons" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
-                <ListToolbar
-                  search={searchLessons}
-                  onSearchChange={setSearchLessons}
-                  {...tutorToolbarProps}
-                  searchPlaceholder="Filter lessons"
-                />
-                <div className="space-y-1.5 max-h-96 overflow-auto">
-                  {lessonsList
-                    .filter((row) => {
-                      if (!searchLessons.trim()) return true
-                      return applyCoreStringFilter(row.title, searchLessons)
-                    })
-                    .map((row) => (
-                      <DraggableLessonItem
-                        key={row.id}
-                        id={row.id}
-                        name={row.title}
-                        blockCount={row.block_count}
+              )}
+            </section>
+
+            <aside className="w-96 flex-shrink-0 overflow-y-auto border-l p-6 space-y-3">
+              <SegmentedTabPanel
+                value={resourceTab}
+                onValueChange={(value) => setResourceTab(value as 'sets' | 'mocks' | 'stems' | 'lessons')}
+                options={[
+                  { value: 'sets', label: 'Sets' },
+                  { value: 'mocks', label: 'Mocks' },
+                  { value: 'stems', label: 'Stems' },
+                  { value: 'lessons', label: 'Lessons' },
+                ]}
+              >
+                <SegmentedTabPanelContent when="sets" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
+                  <ListToolbar
+                    search={searchSets}
+                    onSearchChange={setSearchSets}
+                    {...tutorToolbarProps}
+                    searchPlaceholder="Filter sets"
+                    filterDefinitions={setFilterDefinitions}
+                    filters={filtersSets}
+                    onFiltersChange={setFiltersSets}
+                  />
+                  <div className="space-y-1.5 max-h-96 overflow-auto">
+                    {filteredSets.map((row) => {
+                      const id = row.id ?? '';
+                      const name = proseMirrorToPlainText(row.name as Json | undefined);
+                      let sectionIndex = 1;
+                      let sectionName = '';
+                      if (Array.isArray(row.sections) && row.sections[0] && typeof row.sections[0] === 'object') {
+                        const first = row.sections[0] as {
+                          section_number?: number;
+                          name?: Json;
+                        };
+                        sectionIndex = typeof first.section_number === 'number' ? first.section_number : 1;
+                        sectionName = proseMirrorToPlainText(first.name);
+                      }
+                      return (
+                        <DraggableSetItem
+                          key={id}
+                          id={id}
+                          name={name}
+                          sectionIndex={sectionIndex}
+                          sectionName={sectionName}
+                          questionCount={row.question_count ?? 0}
+                        />
+                      );
+                    })}
+                  </div>
+                </SegmentedTabPanelContent>
+                <SegmentedTabPanelContent when="mocks" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
+                  <ListToolbar
+                    search={searchMocks}
+                    onSearchChange={setSearchMocks}
+                    {...tutorToolbarProps}
+                    searchPlaceholder="Filter mocks"
+                    filterDefinitions={mockFilterDefinitions}
+                    filters={filtersMocks}
+                    onFiltersChange={setFiltersMocks}
+                  />
+                  <div className="space-y-1.5 max-h-96 overflow-auto">
+                    {filteredMocks.map((row) => (
+                      <DraggableMockItem
+                        key={row.id ?? ''}
+                        id={row.id ?? ''}
+                        name={row.name ?? 'Untitled'}
+                        setCount={row.set_count ?? 0}
                       />
                     ))}
-                </div>
-              </SegmentedTabPanelContent>
-            </SegmentedTabPanel>
-          </aside>
-        </div>
-      </DndContext>
+                  </div>
+                </SegmentedTabPanelContent>
+                <SegmentedTabPanelContent when="stems" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
+                  <ListToolbar
+                    search={searchStems}
+                    onSearchChange={setSearchStems}
+                    {...tutorToolbarProps}
+                    searchPlaceholder="Filter stems"
+                    filterDefinitions={stemFilterDefinitions}
+                    filters={filtersStems}
+                    onFiltersChange={setFiltersStems}
+                  />
+                  <div className="space-y-1.5 max-h-96 overflow-auto">
+                    {filteredStems.map((row) => {
+                      const id = row.id ?? '';
+                      const info = stemLookup(id);
+                      return (
+                        <DraggableStemItem
+                          key={id}
+                          id={id}
+                          name={info?.name ?? 'Question stem'}
+                          questionCount={row.question_count ?? 0}
+                        />
+                      );
+                    })}
+                  </div>
+                </SegmentedTabPanelContent>
+                <SegmentedTabPanelContent when="lessons" activeTab={resourceTab} className="m-0 mt-3 space-y-2 pt-4">
+                  <ListToolbar
+                    search={searchLessons}
+                    onSearchChange={setSearchLessons}
+                    {...tutorToolbarProps}
+                    searchPlaceholder="Filter lessons"
+                  />
+                  <div className="space-y-1.5 max-h-96 overflow-auto">
+                    {lessonsList
+                      .filter((row) => row.status === 'published')
+                      .filter((row) => {
+                        if (!searchLessons.trim()) return true;
+                        return applyCoreStringFilter(row.title, searchLessons);
+                      })
+                      .map((row) => (
+                        <DraggableLessonItem key={row.id} id={row.id} name={row.title} blockCount={row.block_count} />
+                      ))}
+                  </div>
+                </SegmentedTabPanelContent>
+              </SegmentedTabPanel>
+            </aside>
+          </div>
+        </DndContext>
+      ) : (
+        <section className="h-full overflow-y-auto p-6">
+          <div className="space-y-4">
+            <div>
+              <h2 className="font-semibold">Students</h2>
+              <p className="text-sm text-muted-foreground">
+                {classStudentIds.data?.length ?? 0} enrolled student
+                {(classStudentIds.data?.length ?? 0) === 1 ? '' : 's'}
+              </p>
+            </div>
+            <ListToolbar
+              search={searchStudents}
+              onSearchChange={setSearchStudents}
+              columnDefinitions={STUDENT_COLUMN_DEFINITIONS}
+              visibleColumns={studentVisibleColumns}
+              defaultVisibleColumns={STUDENT_DEFAULT_VISIBLE_COLUMNS}
+              onVisibleColumnsChange={setStudentVisibleColumns}
+              {...tutorToolbarProps}
+              searchPlaceholder="Search class students"
+            />
+            <div className={tutorTableShell}>
+              <Table>
+                <TableHeader className="[&_tr]:border-b-0">
+                  <TableRow className={tutorTableHeaderRow}>
+                    {studentVisibleColumns.includes('student_name') ? <TableHead>Student</TableHead> : null}
+                    {studentVisibleColumns.includes('total_questions') ? (
+                      <TableHead>Question attempts</TableHead>
+                    ) : null}
+                    {studentVisibleColumns.includes('total_sets_attempted') ? (
+                      <TableHead>Set attempts</TableHead>
+                    ) : null}
+                    {studentVisibleColumns.includes('total_mocks_attempted') ? (
+                      <TableHead>Mock attempts</TableHead>
+                    ) : null}
+                    {studentVisibleColumns.includes('predicted_score') ? <TableHead>Predicted score</TableHead> : null}
+                    {studentVisibleColumns.includes('delivery_mode') ? <TableHead>Delivery</TableHead> : null}
+                    {studentVisibleColumns.includes('online_tier') ? <TableHead>Online plan</TableHead> : null}
+                    <TableHead className="w-16" />
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {classStudentIds.isLoading || studentProgress.isLoading ? (
+                    <TableRow className={tutorTableBodyRow}>
+                      <TableCell
+                        colSpan={studentVisibleColumns.length + 1}
+                        className="py-10 text-center text-muted-foreground"
+                      >
+                        Loading students...
+                      </TableCell>
+                    </TableRow>
+                  ) : classStudents.length === 0 ? (
+                    <TableRow className={tutorTableBodyRow}>
+                      <TableCell
+                        colSpan={studentVisibleColumns.length + 1}
+                        className="py-10 text-center text-muted-foreground"
+                      >
+                        {searchStudents ? 'No students match your search.' : 'No students are enrolled in this class.'}
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    classStudents.map((student) => (
+                      <TableRow key={student.student_id} className={tutorTableBodyRow}>
+                        {studentVisibleColumns.includes('student_name') ? (
+                          <TableCell>
+                            <div className="flex flex-wrap items-center gap-2 font-medium">
+                              <span>{student.student_name}</span>
+                              <AccountClassBadge accountClass={student.account_class} />
+                            </div>
+                          </TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('total_questions') ? (
+                          <TableCell className="tabular-nums">{student.total_questions}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('total_sets_attempted') ? (
+                          <TableCell className="tabular-nums">{student.total_sets_attempted}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('total_mocks_attempted') ? (
+                          <TableCell className="tabular-nums">{student.total_mocks_attempted}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('predicted_score') ? (
+                          <TableCell>
+                            <UcatPredictedScoreCell student={student} sections={studentProgress.data?.sections ?? []} />
+                          </TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('delivery_mode') ? (
+                          <TableCell>{student.delivery_mode === 'in_person' ? 'In person' : 'Online'}</TableCell>
+                        ) : null}
+                        {studentVisibleColumns.includes('online_tier') ? (
+                          <TableCell>{student.online_tier === 'unlimited' ? 'Unlimited' : 'Free'}</TableCell>
+                        ) : null}
+                        <TableCell className="text-right">
+                          <UcatRowActions
+                            actions={[
+                              {
+                                label: 'View progress',
+                                icon: <Eye className="h-4 w-4" />,
+                                href: `/ucat/students/${student.student_id}`,
+                              },
+                            ]}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </div>
+          </div>
+        </section>
+      )}
     </UcatDialogShell>
-  )
+  );
 }

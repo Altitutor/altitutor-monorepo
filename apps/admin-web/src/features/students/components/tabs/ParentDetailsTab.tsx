@@ -12,6 +12,7 @@ import { Loader2, Pencil, X, Copy, Check } from 'lucide-react';
 import { useStudentSubjectsForIds } from '../../hooks/useStudentSubjectsForIds';
 import { useCopyToClipboard } from '@/shared/hooks/useCopyToClipboard';
 import { PhoneInput } from '@altitutor/ui';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 export interface ParentDetailsFormData {
   firstName: string;
@@ -83,45 +84,39 @@ export function ParentDetailsTab({
     return (
       <div className="flex-1 overflow-y-auto">
         <form id="parent-edit-form" onSubmit={handleSubmit} className="space-y-6">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="firstName">First Name *</Label>
+          <PropertyForm>
+            <PropertyFormRow label="First Name *" htmlFor="parent-first-name">
               <Input
-                id="firstName"
+                id="parent-first-name"
                 value={formData.firstName}
                 onChange={(e) => handleInputChange('firstName', e.target.value)}
                 required
               />
-            </div>
-            <div>
-              <Label htmlFor="lastName">Last Name *</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Last Name *" htmlFor="parent-last-name">
               <Input
-                id="lastName"
+                id="parent-last-name"
                 value={formData.lastName}
                 onChange={(e) => handleInputChange('lastName', e.target.value)}
                 required
               />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Email" htmlFor="parent-email">
               <Input
-                id="email"
+                id="parent-email"
                 type="email"
                 value={formData.email || ''}
                 onChange={(e) => handleInputChange('email', e.target.value)}
               />
-            </div>
-            <div>
-              <Label htmlFor="phone">Phone</Label>
+            </PropertyFormRow>
+            <PropertyFormRow label="Phone" htmlFor="parent-phone">
               <PhoneInput
+                id="parent-phone"
                 value={formData.phone || ''}
                 onChange={(value) => handleInputChange('phone', value)}
               />
-            </div>
-          </div>
+            </PropertyFormRow>
+          </PropertyForm>
 
           <Separator className="my-6" />
 
@@ -178,55 +173,52 @@ export function ParentDetailsTab({
         )}
       </div>
 
-      <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-        <div className="text-sm font-medium">First Name:</div>
-        <div>
+      <PropertyForm>
+        <PropertyFormRow label="First name">
           <TruncatedText text={parent.first_name || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Last Name:</div>
-        <div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Last name">
           <TruncatedText text={parent.last_name || '-'} />
-        </div>
-        
-        <div className="text-sm font-medium">Email:</div>
-        <div className="flex items-center gap-2">
-          <TruncatedText text={parent.email || '-'} className="flex-1 min-w-0" />
-          {parent.email && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => copy(parent.email!, 'email')}
-            >
-              {copiedField === 'email' ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
-            </Button>
-          )}
-        </div>
-        
-        <div className="text-sm font-medium">Phone:</div>
-        <div className="flex items-center gap-2">
-          <TruncatedText text={parent.phone || '-'} className="flex-1 min-w-0" />
-          {parent.phone && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6 flex-shrink-0"
-              onClick={() => copy(parent.phone!, 'phone')}
-            >
-              {copiedField === 'phone' ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
-            </Button>
-          )}
-        </div>
-      </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Email">
+          <div className="flex items-center gap-2">
+            <TruncatedText text={parent.email || '-'} className="flex-1 min-w-0" />
+            {parent.email && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => copy(parent.email!, 'email')}
+              >
+                {copiedField === 'email' ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+          </div>
+        </PropertyFormRow>
+        <PropertyFormRow label="Phone">
+          <div className="flex items-center gap-2">
+            <TruncatedText text={parent.phone || '-'} className="flex-1 min-w-0" />
+            {parent.phone && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-6 w-6 flex-shrink-0"
+                onClick={() => copy(parent.phone!, 'phone')}
+              >
+                {copiedField === 'phone' ? (
+                  <Check className="h-3 w-3" />
+                ) : (
+                  <Copy className="h-3 w-3" />
+                )}
+              </Button>
+            )}
+          </div>
+        </PropertyFormRow>
+      </PropertyForm>
 
       <Separator className="my-6" />
 
@@ -255,4 +247,3 @@ export function ParentDetailsTab({
     </div>
   );
 }
-

@@ -12,6 +12,7 @@ import {
 import { useProfile } from '@/features/profile';
 import { ChevronLeft } from 'lucide-react';
 import { DetailsTab } from '@/features/profile/components/tabs/DetailsTab';
+import { PublicProfileTab } from '@/features/profile/components/tabs/PublicProfileTab';
 import { AvailabilityTab } from '@/features/profile/components/tabs/AvailabilityTab';
 import { AccountTab } from '@/features/profile/components/tabs/AccountTab';
 import { TutorPageContainer } from '@/shared/components/layouts';
@@ -20,7 +21,7 @@ import {
   SegmentedTabPanelContent,
 } from '@/shared/components/segmented-tab-panel';
 
-const VALID_TABS = ['details', 'availability', 'account'] as const;
+const VALID_TABS = ['details', 'public-profile', 'availability', 'account'] as const;
 type TabValue = (typeof VALID_TABS)[number];
 
 export default function SettingsProfilePage() {
@@ -88,12 +89,17 @@ export default function SettingsProfilePage() {
         className="w-full"
         options={[
           { value: 'details', label: 'Details' },
+          { value: 'public-profile', label: 'Public profile' },
           { value: 'availability', label: 'Availability' },
           { value: 'account', label: 'Account' },
         ]}
       >
         <SegmentedTabPanelContent when="details" activeTab={activeTab} className="mt-6">
           <DetailsTab profile={profile} />
+        </SegmentedTabPanelContent>
+
+        <SegmentedTabPanelContent when="public-profile" activeTab={activeTab} className="mt-6">
+          <PublicProfileTab profile={profile} />
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="availability" activeTab={activeTab} className="mt-6">

@@ -6,7 +6,10 @@ import {
   buttonVariants,
   type ButtonProps as UiButtonProps,
 } from "@altitutor/ui";
-import { UCAT_ACCENT_FILL_RISE } from "@/lib/ucat-surface-motion";
+import {
+  UCAT_ACCENT_FILL_RISE,
+  UCAT_CONTROL_PRESS,
+} from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
 type FilledVariant = "default" | "destructive" | "secondary";
@@ -42,6 +45,9 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
         ref={ref}
         variant={variant}
         className={cn(
+          /* Covers `asChild` Links (global press CSS only targets real buttons)
+           * and restores transform in the transition (UI base uses transition-colors). */
+          UCAT_CONTROL_PRESS,
           filled && UCAT_ACCENT_FILL_RISE,
           filled && FILLED_HOVER_RESET[resolvedVariant],
           className,

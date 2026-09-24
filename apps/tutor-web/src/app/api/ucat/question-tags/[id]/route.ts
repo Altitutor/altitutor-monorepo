@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role'
 import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
 import { assertTagParentValid } from '@/features/ucat/shared/server/taxonomy-mutations'
+import type { TablesUpdate } from '@altitutor/shared'
 
 function toRichText(text?: string) {
   return {
@@ -73,7 +74,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       resolvedSection = null
     }
 
-    const updatePayload: Record<string, unknown> = {
+    const updatePayload: TablesUpdate<'question_tags'> = {
       updated_by: staffId,
     }
 

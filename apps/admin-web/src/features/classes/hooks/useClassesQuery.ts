@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { classesApi } from '../api/classes';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { ClassScheduleProposal } from '../types/schedule';
 
 // Query Keys
 export const classesKeys = {
@@ -11,10 +12,36 @@ export const classesKeys = {
   details: () => [...classesKeys.all, 'detail'] as const,
   detail: (id: string) => [...classesKeys.details(), id] as const,
   detailFull: (id: string) => [...classesKeys.detail(id), 'details'] as const,
+  schedule: (id: string) => [...classesKeys.detail(id), 'schedule'] as const,
+  deleteImpact: (id: string) => [...classesKeys.detail(id), 'delete-impact'] as const,
   withDetails: () => [...classesKeys.all, 'withDetails'] as const,
   withStudents: () => [...classesKeys.all, 'withStudents'] as const,
   forStaffWithDetails: (staffId: string) => [...classesKeys.all, 'forStaffWithDetails', staffId] as const,
 };
+
+export function useClassSchedule(classId: string, enabled = true) {
+  return useQuery({
+    queryKey: classesKeys.schedule(classId),
+    queryFn: () => classesApi.getLatestSchedule(classId),
+    enabled: enabled && !!classId,
+  });
+}
+
+export function useClassScheduleTimeline(classId: string, enabled = true) {
+  return useQuery({
+    queryKey: [...classesKeys.schedule(classId), 'timeline'],
+    queryFn: () => classesApi.getScheduleTimeline(classId),
+    enabled: enabled && !!classId,
+  });
+}
+
+export function useClassDeleteImpact(classId: string | undefined, enabled = true) {
+  return useQuery({
+    queryKey: classesKeys.deleteImpact(classId ?? ''),
+    queryFn: () => classesApi.getDeleteImpact(classId!),
+    enabled: enabled && !!classId,
+  });
+}
 
 // For table display - minimal data
 export interface UseClassesListParams {
@@ -141,7 +168,7 @@ export function useClass(classId: string) {
   });
 }
 
-// Active classes count (ACTIVE status)
+// Active classes count (ACTIVE status with at least one current enrollment)
 export function useActiveClassesCount() {
   return useQuery({
     queryKey: [...classesKeys.all, 'activeCount'],
@@ -151,7 +178,7 @@ export function useActiveClassesCount() {
   });
 }
 
-// Current class enrollments count (unenrolled_at is null or in the future)
+// Current enrollments in non-finished classes (active/full, session_end_date not past)
 export function useCurrentEnrollmentsCount() {
   return useQuery({
     queryKey: [...classesKeys.all, 'currentEnrollmentsCount'],
@@ -170,6 +197,30 @@ export function useCreateClass() {
     onSuccess: () => {
       // Invalidate ONLY entity's minimal list
       queryClient.invalidateQueries({ queryKey: ['classes', 'minimal'] });
+    },
+  });
+}
+
+export function usePreviewClassSchedule() {
+  return useMutation({ mutationFn: classesApi.previewSchedule });
+}
+
+export function useApplyClassSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({
+      proposal,
+      expectedProposalHash,
+    }: {
+      proposal: ClassScheduleProposal;
+      expectedProposalHash: string;
+    }) => classesApi.applySchedule(proposal, expectedProposalHash),
+    onSuccess: (_, { proposal }) => {
+      queryClient.invalidateQueries({ queryKey: ['classes', 'minimal'] });
+      queryClient.invalidateQueries({ queryKey: classesKeys.detail(proposal.class_id) });
+      queryClient.invalidateQueries({ queryKey: classesKeys.schedule(proposal.class_id) });
+      queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });
 }

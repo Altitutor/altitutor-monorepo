@@ -1,11 +1,12 @@
 'use client';
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Button, Label } from '@altitutor/ui';
+import { Button, Label } from '@altitutor/ui';
 import { loadStripe, StripeElementsOptions, type Stripe } from '@stripe/stripe-js';
 import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { Loader2, CreditCard } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
+import { AdminDialogShell } from '@/shared/components';
 import { paymentMethodsApi } from '../api/payment-methods';
 import { getErrorMessage } from '@/shared/utils';
 
@@ -27,13 +28,13 @@ interface AddPaymentMethodModalProps {
   onSuccess?: () => void;
 }
 
-function PaymentForm({ 
-  onSuccess, 
-  onCancel, 
-  clientSecret, 
-  studentId: _studentId 
-}: { 
-  onSuccess: () => void; 
+function PaymentForm({
+  onSuccess,
+  onCancel,
+  clientSecret,
+  studentId: _studentId,
+}: {
+  onSuccess: () => void;
   onCancel: () => void;
   clientSecret: string;
   studentId: string;
@@ -45,7 +46,7 @@ function PaymentForm({
   const { toast } = useToast();
 
   // Detect dark mode dynamically
-  const isDarkMode = typeof window !== 'undefined' && 
+  const isDarkMode = typeof window !== 'undefined' &&
     document.documentElement.classList.contains('dark');
 
   const elementOptions = {
@@ -100,7 +101,7 @@ function PaymentForm({
           title: 'Success',
           description: 'Payment method added successfully',
         });
-        
+
         onSuccess();
       }
     } catch (err: unknown) {
@@ -110,73 +111,83 @@ function PaymentForm({
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="space-y-2">
-        <Label htmlFor="cardNumber">Card Number</Label>
-        <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
-          <CardNumberElement 
-            id="cardNumber"
-            options={elementOptions}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4">
+    <AdminDialogShell
+      open
+      onClose={onCancel}
+      title="Add Payment Method"
+      subtitle="Add a new card for this student. Card information is securely processed by Stripe."
+      contentClassName="md:max-w-[500px]"
+      footer={
+        <>
+          <Button
+            type="button"
+            variant="outline"
+            onClick={onCancel}
+            disabled={isProcessing}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="submit"
+            form="add-payment-method-form"
+            disabled={isProcessing || !stripe || !elements}
+          >
+            {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isProcessing ? 'Adding...' : 'Add Payment Method'}
+          </Button>
+        </>
+      }
+    >
+      <form id="add-payment-method-form" onSubmit={handleSubmit} className="space-y-4">
         <div className="space-y-2">
-          <Label htmlFor="cardExpiry">Expiry Date</Label>
+          <Label htmlFor="cardNumber">Card Number</Label>
           <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
-            <CardExpiryElement 
-              id="cardExpiry"
+            <CardNumberElement
+              id="cardNumber"
               options={elementOptions}
             />
           </div>
         </div>
 
-        <div className="space-y-2">
-          <Label htmlFor="cardCvc">CVC</Label>
-          <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
-            <CardCvcElement 
-              id="cardCvc"
-              options={elementOptions}
-            />
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="cardExpiry">Expiry Date</Label>
+            <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
+              <CardExpiryElement
+                id="cardExpiry"
+                options={elementOptions}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="cardCvc">CVC</Label>
+            <div className="border rounded-md p-3 bg-white dark:bg-gray-800">
+              <CardCvcElement
+                id="cardCvc"
+                options={elementOptions}
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {error && (
-        <div className="text-sm text-destructive">
-          {error}
-        </div>
-      )}
-
-      <DialogFooter>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={onCancel}
-          disabled={isProcessing}
-        >
-          Cancel
-        </Button>
-        <Button
-          type="submit"
-          disabled={isProcessing || !stripe || !elements}
-        >
-          {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {isProcessing ? 'Adding...' : 'Add Payment Method'}
-        </Button>
-      </DialogFooter>
-    </form>
+        {error && (
+          <div className="text-sm text-destructive">
+            {error}
+          </div>
+        )}
+      </form>
+    </AdminDialogShell>
   );
 }
 
-export function AddPaymentMethodModal({ 
-  isOpen, 
-  onClose, 
-  studentId, 
+export function AddPaymentMethodModal({
+  isOpen,
+  onClose,
+  studentId,
   studentEmail,
   studentName,
-  onSuccess 
+  onSuccess,
 }: AddPaymentMethodModalProps) {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -214,7 +225,7 @@ export function AddPaymentMethodModal({
           onClose();
         });
     }
-    
+
     // Reset state when modal closes
     if (!isOpen && clientSecret) {
       setClientSecret(null);
@@ -239,37 +250,38 @@ export function AddPaymentMethodModal({
     },
   }), [clientSecret]);
 
+  if (!isOpen) {
+    return null;
+  }
+
+  if (isLoading) {
+    return (
+      <AdminDialogShell
+        open
+        onClose={handleCancel}
+        title="Add Payment Method"
+        subtitle="Add a new card for this student. Card information is securely processed by Stripe."
+        contentClassName="md:max-w-[500px]"
+      >
+        <div className="flex justify-center items-center py-8">
+          <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
+        </div>
+      </AdminDialogShell>
+    );
+  }
+
+  if (!clientSecret) {
+    return null;
+  }
+
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleCancel()}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <CreditCard className="h-5 w-5" />
-            Add Payment Method
-          </DialogTitle>
-          <DialogDescription>
-            Add a new card for this student. Card information is securely processed by Stripe.
-          </DialogDescription>
-        </DialogHeader>
-
-        {isLoading && (
-          <div className="flex justify-center items-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-brand-500" />
-          </div>
-        )}
-
-        {!isLoading && clientSecret && (
-          <Elements stripe={getStripePromise()} options={elementsOptions}>
-            <PaymentForm 
-              onSuccess={handleSuccess} 
-              onCancel={handleCancel}
-              clientSecret={clientSecret}
-              studentId={studentId}
-            />
-          </Elements>
-        )}
-      </DialogContent>
-    </Dialog>
+    <Elements stripe={getStripePromise()} options={elementsOptions}>
+      <PaymentForm
+        onSuccess={handleSuccess}
+        onCancel={handleCancel}
+        clientSecret={clientSecret}
+        studentId={studentId}
+      />
+    </Elements>
   );
 }
-

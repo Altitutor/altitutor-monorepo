@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { SubscribePage } from "@/features/subscription";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -28,20 +29,8 @@ export default async function Page() {
   }
 
   return (
-    <Suspense fallback={<SubscribePageSkeleton />}>
+    <Suspense fallback={<AppPageSkeleton />}>
       <SubscribePage />
     </Suspense>
-  );
-}
-
-function SubscribePageSkeleton() {
-  return (
-    <div className="space-y-6 animate-pulse">
-      <div className="space-y-2">
-        <div className="h-9 w-56 rounded bg-muted" />
-        <div className="h-4 max-w-xl rounded bg-muted" />
-      </div>
-      <div className="h-40 rounded-lg border border-border bg-muted/50" />
-    </div>
   );
 }

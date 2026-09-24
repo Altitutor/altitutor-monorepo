@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import Stripe from 'stripe';
@@ -71,6 +72,7 @@ export async function GET(
       auto_retry_active: stripeInvoice.next_payment_attempt !== null,
     });
   } catch (error) {
+    captureApiError(error, "/api/invoices/[id]/stripe-details");
     console.error('[api/invoices/stripe-details] Error:', error);
     return NextResponse.json(
       { error: getErrorMessage(error) },

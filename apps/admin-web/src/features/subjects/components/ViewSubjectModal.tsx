@@ -51,6 +51,7 @@ import { useRouter } from "next/navigation";
 import { Separator } from "@altitutor/ui";
 import { X } from "lucide-react";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { PropertyForm, PropertyFormRow } from "@/shared/components/PropertyForm";
 import { useSubjectActions } from "../hooks";
 import { SubjectImageField } from "./SubjectImageField";
 import { cn } from "@/shared/utils";
@@ -262,46 +263,46 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         if (!isOpen) onClose();
       }}>
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <div className="flex-1 overflow-y-auto p-6">
-            <SheetHeader className="mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onClose}
-                    className="shrink-0"
+          <SheetHeader className="flex-shrink-0 border-b bg-card px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <SheetTitle className="text-xl">
+                    {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
+                  </SheetTitle>
+                  <SheetDescription
+                    className={cn(
+                      !loading && subject
+                        ? 'text-lg font-medium text-foreground'
+                        : 'sr-only'
+                    )}
                   >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <SheetTitle className="text-xl">
-                      {loading ? 'Subject' : isEditing ? 'Edit Subject' : 'Subject'}
-                    </SheetTitle>
-                    <SheetDescription
-                      className={cn(
-                        !loading && subject
-                          ? 'text-lg font-medium text-foreground'
-                          : 'sr-only'
-                      )}
-                    >
-                      {loading
-                        ? 'Loading subject details.'
-                        : subject?.name ?? 'Subject details'}
-                    </SheetDescription>
-                  </div>
+                    {loading
+                      ? 'Loading subject details.'
+                      : subject?.name ?? 'Subject details'}
+                  </SheetDescription>
                 </div>
-                {subjectId && !isEditing && (
-                  <ActionsMenu
-                    type="subject"
-                    entityId={subjectId}
-                    copyTagDisplayText={subject?.short_name || subject?.name || subjectId}
-                    {...subjectActions}
-                  />
-                )}
               </div>
-            </SheetHeader>
+              {subjectId && !isEditing && (
+                <ActionsMenu
+                  type="subject"
+                  entityId={subjectId}
+                  copyTagDisplayText={subject?.short_name || subject?.name || subjectId}
+                  {...subjectActions}
+                />
+              )}
+            </div>
+          </SheetHeader>
 
+          <div className="flex-1 overflow-y-auto p-6">
             {loading ? (
               <div className="flex justify-center items-center py-12">
                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -516,42 +517,42 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
               </Form>
             ) : (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div className="text-sm font-medium">Name:</div>
-                  <div>{subject.name}</div>
-                  
-                  <div className="text-sm font-medium">Year Level:</div>
-                  <div>{subject.year_level || '-'}</div>
-                  
-                  <div className="text-sm font-medium">Curriculum:</div>
-                  <div>
-                    {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
-                  </div>
-                  
-                  <div className="text-sm font-medium">Discipline:</div>
-                  <div>
-                    {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
-                  </div>
-                  
-                  <div className="text-sm font-medium">Level:</div>
-                  <div>{subject.level || '-'}</div>
-                  
-                  <div className="text-sm font-medium">Color:</div>
-                  <div className="flex items-center gap-2">
-                    {subject.color ? (
-                      <>
-                        <div
-                          className="w-6 h-6 rounded border border-gray-300"
-                          style={{ backgroundColor: subject.color }}
-                        />
-                        <span className="text-sm">{subject.color}</span>
-                      </>
-                    ) : (
-                      '-'
-                    )}
-                  </div>
-                  
-                </div>
+                <PropertyForm>
+                  <PropertyFormRow label="Name">
+                    <div>{subject.name}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Year level">
+                    <div>{subject.year_level || '-'}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Curriculum">
+                    <div>
+                      {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
+                    </div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Discipline">
+                    <div>
+                      {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
+                    </div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Level">
+                    <div>{subject.level || '-'}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Color">
+                    <div className="flex items-center gap-2">
+                      {subject.color ? (
+                        <>
+                          <div
+                            className="w-6 h-6 rounded border border-gray-300"
+                            style={{ backgroundColor: subject.color }}
+                          />
+                          <span className="text-sm">{subject.color}</span>
+                        </>
+                      ) : (
+                        '-'
+                      )}
+                    </div>
+                  </PropertyFormRow>
+                </PropertyForm>
                 
                 <Separator className="my-4" />
                 
@@ -579,7 +580,7 @@ export function ViewSubjectModal({ isOpen, onClose, subjectId, onSubjectUpdated 
         
           {/* Action buttons at the bottom - sticky footer */}
         {!loading && subject && isEditing && (
-          <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
+          <SheetFooter className="sticky bottom-0 left-0 right-0 p-6 border-t bg-card mt-auto shrink-0">
             <div className="flex w-full justify-between">
               <Button 
                 variant="destructive" 

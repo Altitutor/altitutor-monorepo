@@ -1,12 +1,8 @@
 'use client';
 
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState } from 'react';
 import { SessionsTable } from '@/features/sessions';
 import { SessionsCalendarView } from '@/features/sessions';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewTopicModal, FilePreviewModal } from '@/features/topics';
 import {
   SegmentedControl,
   DropdownMenu,
@@ -21,55 +17,15 @@ import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   const [view, setView] = useAdminPageViewParam(['table', 'calendar'] as const, 'calendar');
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
-  const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
-  const [activeStaffId, setActiveStaffId] = useState<string | null>(null);
-  const [activeTopicId, setActiveTopicId] = useState<string | null>(null);
-  const [activeFileId, setActiveFileId] = useState<string | null>(null);
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);
-
-  // Listen for events fired from SessionModal to open student/staff/topic/file modals
-  useEffect(() => {
-    const onOpenStudent = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveStudentId(detail.id);
-    };
-    const onOpenStaff = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveStaffId(detail.id);
-    };
-    const onOpenTopic = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveTopicId(detail.id);
-    };
-    const onOpenFile = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveFileId(detail.id);
-    };
-    
-    const studentListener = onOpenStudent as EventListener;
-    const staffListener = onOpenStaff as EventListener;
-    const topicListener = onOpenTopic as EventListener;
-    const fileListener = onOpenFile as EventListener;
-
-    window.addEventListener('open-student-modal', studentListener);
-    window.addEventListener('open-staff-modal', staffListener);
-    window.addEventListener('open-topic-modal', topicListener);
-    window.addEventListener('open-file-preview', fileListener);
-
-    return () => {
-      window.removeEventListener('open-student-modal', studentListener);
-      window.removeEventListener('open-staff-modal', staffListener);
-      window.removeEventListener('open-topic-modal', topicListener);
-      window.removeEventListener('open-file-preview', fileListener);
-    };
-  }, []);
 
   return (
     <div className="p-6 space-y-4">
@@ -147,51 +103,18 @@ export default function SessionsPage() {
       <Suspense>
         {view === 'table' ? (
           <SessionsTable 
-            onOpenSession={(id) => setActiveSessionId(id as string)}
-            onOpenStudent={(id) => setActiveStudentId(id as string)}
-            onOpenStaff={(id) => setActiveStaffId(id as string)}
+            onOpenSession={(id) => entityModals.openSession(id as string)}
+            onOpenStudent={(id) => entityModals.openStudent(id as string)}
+            onOpenStaff={(id) => entityModals.openStaff(id as string)}
           />
         ) : (
           <SessionsCalendarView
-            onOpenSession={(id) => setActiveSessionId(id as string)}
+            onOpenSession={(id) => entityModals.openSession(id as string)}
             initialDate={search.get('date') ?? undefined}
             initialViewMode={(search.get('calendarMode') as 'day' | 'week' | null) ?? undefined}
           />
         )}
       </Suspense>
-
-      <SessionModal
-        isOpen={!!activeSessionId}
-        sessionId={activeSessionId}
-        onClose={() => setActiveSessionId(null)}
-      />
-
-      <ViewStudentModal
-        isOpen={!!activeStudentId}
-        studentId={activeStudentId}
-        onClose={() => setActiveStudentId(null)}
-        onStudentUpdated={() => {}}
-      />
-
-      <ViewStaffModal
-        isOpen={!!activeStaffId}
-        staffId={activeStaffId}
-        onClose={() => setActiveStaffId(null)}
-        onStaffUpdated={() => {}}
-      />
-
-      <ViewTopicModal
-        isOpen={!!activeTopicId}
-        topicId={activeTopicId}
-        onClose={() => setActiveTopicId(null)}
-        onTopicUpdated={() => {}}
-      />
-
-      <FilePreviewModal
-        isOpen={!!activeFileId}
-        fileId={activeFileId}
-        onClose={() => setActiveFileId(null)}
-      />
 
       {bookingSessionType === 'STAFF_INTERVIEW' ? (
         <StaffInterviewBookSessionModal

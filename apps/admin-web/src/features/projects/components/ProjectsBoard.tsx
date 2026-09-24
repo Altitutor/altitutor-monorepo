@@ -2,7 +2,9 @@
 
 import { useState, useMemo, useCallback } from 'react';
 import {
+  Button,
   KanbanBoard,
+  SearchableSelect,
   type KanbanColumnDef,
   type EntityListPillColumn,
   type EntityListStatusColumn,
@@ -23,22 +25,28 @@ import {
   PROJECT_STATUS_OPTIONS,
   PRIORITY_OPTIONS,
 } from '../utils/projectUtils';
-import { formatShortDate } from '@/shared/utils/datetime';
 import { getUserInitials } from '@/shared/utils';
 import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { ProjectPriorityEntityPill } from './fields/ProjectPriorityEntityPill';
+import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
 
-const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date'] as const;
+const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 'member'] as const;
 
 export function ProjectsBoard() {
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy: activeColumnKey,
     setGroupBy: setActiveColumnKey,
     sortBy,
     sortDirection,
     handleSortChange,
+    applyQuickFilter,
   } = useEntityListTableState({
     defaultSort: { field: 'name', direction: 'asc' },
     defaultGroupBy: 'status',
@@ -53,7 +61,10 @@ export function ProjectsBoard() {
     useState<ProjectPriority | null>(null);
   const [createDefaultLeadId, setCreateDefaultLeadId] = useState<string | null>(null);
 
-  const { data: projects = [], isLoading } = useProjects(filters as import('../types').ProjectFilters);
+  const { data: currentStaff } = useCurrentStaff();
+  const { data: quickFilters = [] } = useQuickFilters('projects');
+
+  const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
   const updateProject = useUpdateProject();
 
   const handleUpdate = useCallback(
@@ -97,19 +108,20 @@ export function ProjectsBoard() {
       options: PRIORITY_OPTIONS,
       onValueChange: (p, v) => handleUpdate(p, { priority: v as number }),
     },
-    {
-      key: 'project_lead',
-      label: 'Project lead',
-      getValue: (p) => p.project_lead_id ?? '__null__',
-      options: [
-        { value: '__null__', label: 'No lead' },
-        ...staffList.map((s) => ({
-          value: s.id,
-          label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
-        })),
-      ],
-      onValueChange: (p, v) => handleUpdate(p, { project_lead_id: v === '__null__' ? null : (v as string) }),
-    },
+      {
+        key: 'project_lead',
+        label: 'Project lead',
+        getValue: (p) => p.project_lead_id ?? '__null__',
+        options: [
+          { value: '__null__', label: 'No lead' },
+          ...staffList.map((s) => ({
+            value: s.id,
+            label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed',
+          })),
+        ],
+        onValueChange: (p, v) => handleUpdate(p, { project_lead_id: v === '__null__' ? null : (v as string) }),
+        filterable: false,
+      },
   ], [handleUpdate, staffList]);
   const assigneeFilterOptions = useMemo(
     () => staffList.map((s) => ({ value: s.id as unknown, label: `${s.first_name || ''} ${s.last_name || ''}`.trim() || 'Unnamed' })),
@@ -128,11 +140,39 @@ export function ProjectsBoard() {
         groupable: true,
         sortable: true,
         filterable: true,
-        renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {getProjectStatusLabel((item.status ?? 'backlog') as ProjectStatus)}
-          </span>
-        ),
+        renderPill: (item, onChange, collapsed) => {
+          const status = (item.status ?? 'backlog') as ProjectStatus;
+          const StatusIcon = getProjectStatusIcon(status);
+          const iconColor = getProjectStatusIconColor(status);
+          const selectedItem = PROJECT_STATUS_OPTIONS.find((option) => option.value === status) ?? PROJECT_STATUS_OPTIONS[0];
+
+          return (
+            <SearchableSelect<(typeof PROJECT_STATUS_OPTIONS)[number]>
+              items={PROJECT_STATUS_OPTIONS}
+              value={selectedItem}
+              onValueChange={(option) => {
+                const nextStatus = (option?.value ?? 'backlog') as ProjectStatus;
+                handleUpdate(item, { status: nextStatus });
+                onChange(nextStatus);
+              }}
+              getItemLabel={(option) => option.label}
+              getItemId={(option) => option.value}
+              trigger={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
+                    collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+                  )}
+                >
+                  <StatusIcon className={cn('h-3 w-3 flex-shrink-0', iconColor)} />
+                  {!collapsed && <span className="truncate">{getProjectStatusLabel(status)}</span>}
+                </Button>
+              }
+            />
+          );
+        },
       },
       {
         key: 'start_date',
@@ -149,10 +189,16 @@ export function ProjectsBoard() {
           const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
           return aTime - bTime;
         },
-        renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {item.start_date ? formatShortDate(item.start_date) : 'No start date'}
-          </span>
+        renderPill: (item, onChange, collapsed) => (
+          <ProjectDueDateEntityPill
+            targetDate={item.start_date ?? null}
+            collapsed={collapsed}
+            onChange={(nextDate) => {
+              const nextStartDate = nextDate ? new Date(nextDate).toISOString() : null;
+              handleUpdate(item, { start_date: nextStartDate });
+              onChange(nextStartDate);
+            }}
+          />
         ),
       },
       {
@@ -170,10 +216,16 @@ export function ProjectsBoard() {
           const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
           return aTime - bTime;
         },
-        renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {item.target_date ? formatShortDate(item.target_date) : 'No due date'}
-          </span>
+        renderPill: (item, onChange, collapsed) => (
+          <ProjectDueDateEntityPill
+            targetDate={item.target_date ?? null}
+            collapsed={collapsed}
+            onChange={(nextDate) => {
+              const nextTargetDate = nextDate ? new Date(nextDate).toISOString() : null;
+              handleUpdate(item, { target_date: nextTargetDate });
+              onChange(nextTargetDate);
+            }}
+          />
         ),
       },
       {
@@ -190,14 +242,17 @@ export function ProjectsBoard() {
           const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
           return aTime - bTime;
         },
-        renderPill: (item, _onChange, collapsed) => {
-          const hasStart = !!item.start_date;
-          const hasTarget = !!item.target_date;
-          const display = hasStart && hasTarget
-            ? `${formatShortDate(item.start_date)} → ${formatShortDate(item.target_date)}`
-            : formatProjectDate(item.target_date ?? item.start_date) || 'No dates';
-          return <span className={cn('text-xs', collapsed && 'truncate max-w-[100px]')}>{display}</span>;
-        },
+        renderPill: (item, onChange, collapsed) => (
+          <ProjectDueDateEntityPill
+            targetDate={item.target_date ?? item.start_date ?? null}
+            collapsed={collapsed}
+            onChange={(nextDate) => {
+              const nextTargetDate = nextDate ? new Date(nextDate).toISOString() : null;
+              handleUpdate(item, { target_date: nextTargetDate });
+              onChange(nextTargetDate);
+            }}
+          />
+        ),
       },
       {
         key: 'priority',
@@ -215,10 +270,15 @@ export function ProjectsBoard() {
         groupable: true,
         sortable: true,
         filterable: true,
-        renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {getProjectPriorityLabel((item.priority ?? 0) as import('../types').ProjectPriority)}
-          </span>
+        renderPill: (item, onChange, collapsed) => (
+          <ProjectPriorityEntityPill
+            priority={(item.priority ?? 0) as ProjectPriority}
+            collapsed={collapsed}
+            onChange={(nextPriority) => {
+              handleUpdate(item, { priority: nextPriority });
+              onChange(nextPriority);
+            }}
+          />
         ),
       },
       {
@@ -230,24 +290,72 @@ export function ProjectsBoard() {
         filterOptions: assigneeFilterOptions,
         groupable: true,
         sortable: false,
-        filterable: true,
+        filterable: false,
         filterSearchable: true,
-        renderPill: (item, _onChange, collapsed) => {
+        renderPill: (item, onChange, collapsed) => {
           const lead = item.project_lead;
           const name = lead ? `${lead.first_name ?? ''} ${lead.last_name ?? ''}`.trim() || 'Unnamed' : 'No lead';
           const initials = lead ? getUserInitials(lead.first_name, lead.last_name) : '?';
+          const selectedItem = item.project_lead_id
+            ? staffList.find((staff) => staff.id === item.project_lead_id) ?? null
+            : null;
           return (
-            <span className={cn('inline-flex items-center gap-1.5 text-xs', collapsed && 'truncate max-w-[80px]')}>
-              <span className="w-4 h-4 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-[10px] font-medium shrink-0">
-                {initials}
-              </span>
-              {!collapsed && name}
-            </span>
+            <SearchableSelect<(typeof staffList)[number]>
+              items={staffList}
+              value={selectedItem}
+              onValueChange={(staff) => {
+                const nextLeadId = staff?.id ?? null;
+                handleUpdate(item, { project_lead_id: nextLeadId });
+                onChange(nextLeadId);
+              }}
+              getItemLabel={(staff) => `${staff.first_name ?? ''} ${staff.last_name ?? ''}`.trim() || 'Unnamed'}
+              getItemId={(staff) => staff.id}
+              searchPlaceholder="Search staff..."
+              emptyMessage="No staff found"
+              allowClear
+              clearLabel="No lead"
+              trigger={
+                <Button
+                  type="button"
+                  variant="outline"
+                  className={cn(
+                    'h-8 border rounded-full bg-background group gap-1.5 hover:bg-brand-lightBlue/10 dark:hover:bg-brand-dark-card/70 dark:hover:text-white',
+                    collapsed ? 'px-2 w-auto' : 'px-3 text-xs w-auto'
+                  )}
+                >
+                  <span className={cn(
+                    'w-4 h-4 rounded-full bg-muted flex items-center justify-center text-[10px] font-medium shrink-0',
+                    lead ? 'text-foreground' : 'text-muted-foreground opacity-40 group-hover:opacity-100'
+                  )}>
+                    {initials}
+                  </span>
+                  {!collapsed && (
+                    <span className={cn('truncate', !lead && 'text-muted-foreground opacity-40 group-hover:opacity-100')}>
+                      {name}
+                    </span>
+                  )}
+                </Button>
+              }
+            />
           );
         },
       },
+      {
+        key: 'member',
+        label: 'Member',
+        visibleByDefault: false,
+        filterOnly: true,
+        getValue: (p) => (p.members ?? []).map((member) => member.id),
+        defaultValue: [],
+        filterOptions: assigneeFilterOptions,
+        groupable: false,
+        sortable: false,
+        filterable: true,
+        filterSearchable: true,
+        renderPill: () => null,
+      },
     ],
-    [assigneeFilterOptions]
+    [assigneeFilterOptions, handleUpdate, staffList]
   );
 
   const groupByOptions = useMemo(
@@ -300,6 +408,23 @@ export function ProjectsBoard() {
     onStatusChange: (project, value) => handleUpdate(project, { status: value as ProjectStatus }),
   };
 
+  const handleOpenProject = useCallback((projectId: string) => {
+    setSelectedProjectId(projectId);
+    setIsEditDialogOpen(true);
+  }, []);
+
+  const renderCard = useCallback(
+    (p: ProjectWithLead, visiblePillKeys: string[]) => (
+      <ProjectCard
+        project={p}
+        visiblePillKeys={visiblePillKeys}
+        rightPills={rightPills}
+        onOpen={handleOpenProject}
+      />
+    ),
+    [rightPills, handleOpenProject]
+  );
+
   return (
     <>
       <KanbanBoard<ProjectWithLead>
@@ -308,16 +433,7 @@ export function ProjectsBoard() {
         columnDefs={columnDefs}
         activeColumnKey={activeColumnKey ?? 'status'}
         onActiveColumnKeyChange={setActiveColumnKey}
-        renderCard={(p, visiblePillKeys) => (
-          <ProjectCard
-            project={p}
-            visiblePillKeys={visiblePillKeys}
-            onClick={() => {
-              setSelectedProjectId(p.id);
-              setIsEditDialogOpen(true);
-            }}
-          />
-        )}
+        renderCard={renderCard}
         statusColumn={statusColumn}
         rightPills={rightPills}
         groupByOptions={groupByOptions}
@@ -358,6 +474,11 @@ export function ProjectsBoard() {
         emptyMessage="No projects found"
         filters={filters}
         onFiltersChange={setFilters}
+        searchValue={search}
+        onSearchChange={setSearch}
+        searchPlaceholder="Search projects..."
+        quickFilters={quickFilters}
+        onApplyQuickFilter={(qf) => applyQuickFilter(qf, currentStaff?.id)}
       />
 
       {selectedProjectId && (

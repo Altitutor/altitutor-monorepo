@@ -63,25 +63,37 @@ function buildFolderNodes(
     label: document.title || 'Untitled',
     href: `/documentation/${document.id}`,
     active: document.id === selectedDocumentId,
+    kind: 'document',
   });
 
-  const toFolderItem = (folder: FolderNode): ResourceSidebarItem => ({
-    key: folder.id,
-    label: folder.name,
-    children: [
+  const toFolderItem = (folder: FolderNode): ResourceSidebarItem | null => {
+    const children = [
       ...folder.children
         .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-        .map(toFolderItem),
+        .map(toFolderItem)
+        .filter((child): child is ResourceSidebarItem => child !== null),
       ...folder.documents
         .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
         .map(toDocumentItem),
-    ],
-  });
+    ];
+
+    if (children.length === 0) {
+      return null;
+    }
+
+    return {
+      key: folder.id,
+      label: folder.name,
+      kind: 'folder',
+      children,
+    };
+  };
 
   return [
     ...rootFolders
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }))
-      .map(toFolderItem),
+      .map(toFolderItem)
+      .filter((item): item is ResourceSidebarItem => item !== null),
     ...rootDocuments
       .sort((a, b) => a.title.localeCompare(b.title, undefined, { sensitivity: 'base' }))
       .map(toDocumentItem),

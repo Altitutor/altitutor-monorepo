@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import type { ReactNode } from "react";
 import { MagneticButton } from "@/features/landing/components/marketing/magnetic-button";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -21,6 +22,7 @@ type PlanPickerCtaProps = {
   children: ReactNode;
   disabled?: boolean;
   isCurrentPlan?: boolean;
+  currentPlanActionable?: boolean;
   isDowngrade?: boolean;
   onClick?: () => void;
   className?: string;
@@ -32,14 +34,17 @@ export function PlanPickerCta({
   children,
   disabled,
   isCurrentPlan = false,
+  currentPlanActionable = false,
   isDowngrade = false,
   onClick,
   className,
   surfaceTheme = "marketing",
 }: PlanPickerCtaProps) {
+  const currentPlanDisabled = isCurrentPlan && !currentPlanActionable;
+
   return (
     <MagneticButton
-      disabled={disabled || isCurrentPlan}
+      disabled={disabled || currentPlanDisabled}
       className={cn(
         "mt-10 w-full px-6 py-4 text-base font-semibold tracking-wide",
         isCurrentPlan
@@ -55,7 +60,7 @@ export function PlanPickerCta({
         typo.headingSans,
         className,
       )}
-      onClick={isCurrentPlan ? undefined : onClick}
+      onClick={currentPlanDisabled ? undefined : onClick}
     >
       {children}
     </MagneticButton>

@@ -9,6 +9,7 @@ export interface StudentProfileUpdate {
   last_name?: string;
   email?: string;
   phone?: string;
+  birthday?: string | null;
   school?: string;
   curriculum?: string;
   year_level?: number;

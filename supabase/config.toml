@@ -51,11 +51,13 @@ max_client_conn = 100
 schema_paths = []
 
 [db.seed]
-# If enabled, seeds the database after migrations during a db reset.
+# If enabled, seeds the database after migrations on `supabase start` and `db reset`.
 enabled = true
-# Specifies an ordered list of seed files to load during db reset.
-# Supports glob patterns relative to supabase directory: "./seeds/*.sql"
-sql_paths = ["./seed/*/*.sql"]
+# Automatic seed only. `seed/manual` is for Dashboard paste, not CI or reset.
+# UCAT study-plan fixtures live in `seed/test-ucat` and are applied by
+# `supabase/scripts/apply-ucat-test-seed.sh` when database contracts or UCAT
+# browser journeys run.
+sql_paths = ["./seed/test/*.sql", "./seed/production/*.sql"]
 
 [realtime]
 enabled = true
@@ -107,7 +109,7 @@ enabled = true
 # in emails.
 site_url = "http://localhost:3000"
 # A list of *exact* URLs that auth providers are permitted to redirect to post authentication.
-additional_redirect_urls = []
+additional_redirect_urls = ["http://localhost:3004/auth/callback", "http://127.0.0.1:3014/auth/callback"]
 # How long tokens are valid for, in seconds. Defaults to 3600 (1 hour), maximum 604,800 (1 week).
 jwt_expiry = 3600
 # If disabled, the refresh token will never expire.
@@ -120,7 +122,7 @@ enable_signup = true
 # Allow/disallow anonymous sign-ins to your project.
 enable_anonymous_sign_ins = false
 # Allow/disallow testing manual linking of accounts
-enable_manual_linking = false
+enable_manual_linking = true
 # Passwords shorter than this value will be rejected as weak. Minimum 6, recommended 8 or more.
 minimum_password_length = 6
 # Passwords that do not meet the following requirements will be rejected as weak. Supported values
@@ -172,32 +174,32 @@ host = "smtp.resend.com"
 port = 587
 user = "resend"
 pass = "env(RESEND_API_KEY)"
-admin_email = "noreply@altitutor.com"
+admin_email = "admin@altitutor.com"
 sender_name = "Altitutor"
 
 # Email templates with modern design
 [auth.email.template.confirmation]
-subject = "Confirm Your Signup - Altitutor"
+subject = "Your Altitutor signup code"
 content_path = "./supabase/templates-rendered/confirmation.html"
 
 [auth.email.template.invite]
-subject = "You Have Been Invited to Altitutor"
+subject = "You have been invited to Altitutor"
 content_path = "./supabase/templates-rendered/invite.html"
 
 [auth.email.template.magic_link]
-subject = "Your Magic Link - Altitutor"
+subject = "Your Altitutor sign-in code"
 content_path = "./supabase/templates-rendered/magic_link.html"
 
 [auth.email.template.recovery]
-subject = "Reset Your Password - Altitutor"
+subject = "Reset your Altitutor password"
 content_path = "./supabase/templates-rendered/recovery.html"
 
 [auth.email.template.email_change]
-subject = "Confirm Email Change - Altitutor"
+subject = "Confirm your Altitutor email change"
 content_path = "./supabase/templates-rendered/email_change.html"
 
 [auth.email.template.reauthentication]
-subject = "Confirm Your Identity - Altitutor"
+subject = "Your Altitutor verification code"
 content_path = "./supabase/templates-rendered/reauthentication.html"
 
 [auth.sms]
@@ -273,6 +275,13 @@ url = ""
 # If enabled, the nonce check will be skipped. Required for local sign in with Google auth.
 skip_nonce_check = false
 
+[auth.external.google]
+enabled = false
+client_id = ""
+# Set this in the environment before enabling the provider locally.
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_SECRET)"
+skip_nonce_check = false
+
 # Use Firebase Auth as a third-party provider alongside Supabase Auth.
 [auth.third_party.firebase]
 enabled = false
@@ -317,6 +326,30 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.stripe-webhooks]
+verify_jwt = false
+
+[functions.imessage-inbound]
+verify_jwt = false
+
+[functions.imessage-connector]
+verify_jwt = false
+
+[functions.print-connector]
+verify_jwt = false
+
+[functions.imessage-control]
+verify_jwt = true
+
+[functions.ucat-lifecycle-emails]
+verify_jwt = false
+
+[functions.ucat-resend-contact-sync]
+verify_jwt = false
+
+[functions.ucat-transactional-email-dispatch]
+verify_jwt = false
+
+[functions.resend-webhooks]
 verify_jwt = false
 
 [analytics]

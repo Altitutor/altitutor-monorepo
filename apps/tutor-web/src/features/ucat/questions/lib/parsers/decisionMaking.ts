@@ -1,6 +1,5 @@
 import type { Json } from '@altitutor/shared'
 import {
-  tokenizedPlainTextToProseMirror,
   tokenizedPlainTextToProseMirrorWithLineBreaks,
 } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
@@ -11,8 +10,12 @@ import {
   parseFromLines,
   type ParserConfig,
 } from '@/features/ucat/questions/lib/parsers/core'
+import {
+  inferDecisionMakingCategory,
+  inferResponseContract,
+} from '@/features/ucat/questions/lib/parsers/responseClassification'
 
-/** Same shape as core ParsedOption; used when we attach questionType. */
+/** Same shape as core ParsedOption with a canonical response contract. */
 export type ParsedDecisionMakingOption = {
   label: string
   text: string
@@ -21,7 +24,8 @@ export type ParsedDecisionMakingOption = {
 export type ParsedDecisionMakingQuestion = {
   number: number | null
   text: string
-  questionType: 'syllogism' | 'multiple_choice'
+  responseType: 'multiple_choice' | 'drag_and_drop'
+  answerScheme: 'single_choice' | 'decision_making_binary_placement'
   options: ParsedDecisionMakingOption[]
 }
 
@@ -48,7 +52,7 @@ function normaliseForSyllogismDetection(text: string): string {
  * True if normalised question text indicates a syllogism (e.g. "Place 'Yes' if the conclusion does follow").
  * Decision Making analogue of VR's getVerbalReasoningStemCategoryName.
  */
-export function isSyllogismQuestionText(questionText: string): boolean {
+export function isPlacementQuestionText(questionText: string): boolean {
   const n = normaliseForSyllogismDetection(questionText)
   if (!n) return false
   const hasYes = n.includes('yes')
@@ -98,17 +102,17 @@ export const SYLLOGISM_IMAGE_PLACEHOLDER_LINES = [
   '[Syllogism image statement 5 pending OCR]',
 ] as const
 
-export function isSyllogismManualEntryPlaceholder(text: string): boolean {
+export function isPlacementManualEntryPlaceholder(text: string): boolean {
   const trimmed = text.trim()
   return SYLLOGISM_IMAGE_PLACEHOLDER_LINES.some((placeholder) => placeholder === trimmed)
 }
 
-export function questionNeedsSyllogismManualEntry(
-  question: Pick<ParsedDecisionMakingQuestion, 'questionType' | 'options'>
+export function questionNeedsPlacementManualEntry(
+  question: Pick<ParsedDecisionMakingQuestion, 'answerScheme' | 'options'>
 ): boolean {
-  if (question.questionType !== 'syllogism') return false
+  if (question.answerScheme !== 'decision_making_binary_placement') return false
   if (question.options.length !== 5) return true
-  return question.options.some((option) => isSyllogismManualEntryPlaceholder(option.text))
+  return question.options.some((option) => isPlacementManualEntryPlaceholder(option.text))
 }
 
 function stripQuestionNumber(line: string, config: Partial<ParserConfig>): string {
@@ -127,7 +131,7 @@ function isSyllogismImageTokenForPreviousQuestion(
   if (!IMAGE_TOKEN_RE.test(line)) return false
   const previous = previousNonBlankLine(lines, index)
   if (!previous) return false
-  return isSyllogismQuestionText(stripQuestionNumber(previous, config))
+  return isPlacementQuestionText(stripQuestionNumber(previous, config))
 }
 
 function isQuestionNumberLine(line: string, config: Partial<ParserConfig>): boolean {
@@ -171,14 +175,14 @@ function findItemStemOptionStart(lines: string[], config: Partial<ParserConfig>)
   for (let i = 1; i < lines.length; i += 1) {
     if (
       IMAGE_TOKEN_RE.test((lines[i] ?? '').trim()) &&
-      isSyllogismQuestionText(lines[findLastNonBlankIndex(lines, i)] ?? '')
+      isPlacementQuestionText(lines[findLastNonBlankIndex(lines, i)] ?? '')
     ) {
       return i
     }
   }
 
   for (let i = 0; i < lines.length; i += 1) {
-    if (!isSyllogismQuestionText(lines[i] ?? '')) continue
+    if (!isPlacementQuestionText(lines[i] ?? '')) continue
     const trailingNonBlank = lines.slice(i + 1).filter((line) => line.trim().length > 0)
     if (trailingNonBlank.length >= 5) return i + 1
   }
@@ -277,7 +281,7 @@ export function normalizeDecisionMakingSyllogismLines(
     }
 
     const trimmed = line.trim()
-    if (!isSyllogismQuestionText(trimmed)) {
+    if (!isPlacementQuestionText(trimmed)) {
       normalized.push(line)
       return
     }
@@ -315,9 +319,12 @@ function parseDecisionMakingFromLines(
     questions: stem.questions.map((q) => ({
       number: q.number,
       text: q.text,
-      questionType: isSyllogismQuestionText(q.text)
-        ? ('syllogism' as const)
+      responseType: isPlacementQuestionText(q.text)
+        ? ('drag_and_drop' as const)
         : ('multiple_choice' as const),
+      answerScheme: isPlacementQuestionText(q.text)
+        ? ('decision_making_binary_placement' as const)
+        : ('single_choice' as const),
       options: q.options.map((opt) => ({ label: opt.label, text: opt.text })),
     })),
   }))
@@ -340,11 +347,12 @@ export function parseDecisionMakingPlainText(
 }
 
 function toRichText(text: string): Json {
-  return tokenizedPlainTextToProseMirror(text) as Json
+  return tokenizedPlainTextToProseMirrorWithLineBreaks(text) as Json
 }
 
 export type DecisionMakingCategoryName =
   | 'Syllogisms'
+  | 'Interpreting Information and Drawing Conclusions'
   | 'Recognising Assumptions'
   | 'Venn Diagrams'
   | 'Probabilistic and Statistical Reasoning'
@@ -395,27 +403,33 @@ function stemHasProbabilisticSignals(stem: ParsedDecisionMakingStem): boolean {
 
 /**
  * Get Decision Making category name from stem content.
- * Rules applied in order: Syllogisms, Recognising Assumptions, Venn Diagrams,
- * Probabilistic and Statistical Reasoning, Logical Puzzles.
+ * Yes/No conclusion tasks resolve to Syllogisms or Interpreting Information
+ * and Drawing Conclusions (visual → Interpreting Information; strong quantified
+ * premises → Syllogisms; otherwise Interpreting Information). Other rules:
+ * Recognising Assumptions, Venn Diagrams, Probabilistic and Statistical
+ * Reasoning, then Logical Puzzles.
  */
 export function getDecisionMakingStemCategoryName(
   stem: ParsedDecisionMakingStem
-): DecisionMakingCategoryName {
+): DecisionMakingCategoryName | null {
   const stemLower = stem.stemText.toLowerCase()
   const hasDiagramInStem = stemLower.includes('diagram')
 
   const containsImage = (text: string): boolean => text.includes('[[IMG:')
 
   const stemHasImage = containsImage(stem.stemText)
+  const trustedCategoryName = /^\s*interpreting information and drawing conclusions\b/iu.test(stem.stemText)
+    ? 'Interpreting Information and Drawing Conclusions' as const
+    : /^\s*syllogisms?\b/iu.test(stem.stemText)
+      ? 'Syllogisms' as const
+      : null
+  if (trustedCategoryName) return trustedCategoryName
 
   for (const q of stem.questions) {
     const qLower = q.text.toLowerCase()
     const questionHasImage = containsImage(q.text)
     const anyOptionHasImage = q.options.some((opt) => containsImage(opt.text))
 
-    if (q.questionType === 'syllogism') {
-      return 'Syllogisms'
-    }
     if (qLower.includes('argument')) {
       return 'Recognising Assumptions'
     }
@@ -425,6 +439,15 @@ export function getDecisionMakingStemCategoryName(
     ) {
       return 'Venn Diagrams'
     }
+  }
+
+  for (const question of stem.questions) {
+    const category = inferDecisionMakingCategory({
+      stemText: stem.stemText,
+      directive: question.text,
+    })
+    if (category.conflicts.length > 0) return null
+    if (category.value) return category.value
   }
 
   if (stemHasProbabilisticSignals(stem)) {
@@ -438,18 +461,466 @@ export type DecisionMakingToFormOptions = {
   sectionId: string
   categoryId?: string | null
   getCategoryIdForStem?: (stem: ParsedDecisionMakingStem) => string | null
-  isPrivate?: boolean
+  getTagIdsForQuestion?: (args: {
+    stem: ParsedDecisionMakingStem
+    question: ParsedDecisionMakingQuestion
+  }) => string[]
+  accessScope?: 'public' | 'private'
+}
+
+function normalizedText(text: string): string {
+  return text.toLowerCase().replace(/\s+/g, ' ').trim()
+}
+
+function hasAny(text: string, patterns: readonly RegExp[]): boolean {
+  return patterns.some((pattern) => pattern.test(text))
+}
+
+type DecisionMakingTagRule = {
+  path: string[]
+  patterns?: readonly RegExp[]
+  matches?: (args: {
+    text: string
+    stemText: string
+    questionText: string
+    optionText: string
+    question: ParsedDecisionMakingQuestion
+  }) => boolean
+}
+
+function hasSetReasoningContext(text: string): boolean {
+  return /\b(?:venn|diagram|set|sets|groups|categories|region|overlap|intersection|union)\b/.test(text)
+}
+
+const DM_TAG_RULES: DecisionMakingTagRule[] = [
+  {
+    path: ['Deductive logic', 'Quantifiers: all / some / none'],
+    patterns: [
+      /\b(?:all|some|none|no|not all|every|each)\b/,
+      /\bat least one\b/,
+      /\bthe rest\b/,
+    ],
+    matches: ({ question }) => question.answerScheme === 'decision_making_binary_placement',
+  },
+  {
+    path: ['Deductive logic', 'Conditional reasoning'],
+    patterns: [
+      /\bif\b/,
+      /\bonly if\b/,
+      /\bthen\b/,
+      /\beither\b.*\bor\b/,
+      /\bunless\b/,
+      /\bprovided that\b/,
+    ],
+  },
+  {
+    path: ['Deductive logic', 'Negation and complements'],
+    patterns: [
+      /\bnot\b/,
+      /\bno\b/,
+      /\bnone\b/,
+      /\bneither\b/,
+      /\bexcept\b/,
+      /\bdoes not\b/,
+      /\bdid not\b/,
+      /\bcannot\b/,
+    ],
+  },
+  {
+    path: ['Deductive logic', 'Must be true / necessarily follows'],
+    patterns: [
+      /\bmust be true\b/,
+      /\bnecessarily\b/,
+      /\bdoes follow\b/,
+      /\bconclusion follows?\b/,
+      /\bwhich (?:one )?must\b/,
+    ],
+  },
+  {
+    path: ['Deductive logic', 'Cannot be concluded'],
+    patterns: [
+      /\bcannot be concluded\b/,
+      /\bcannot conclude\b/,
+      /\bdoes not follow\b/,
+      /\bnot necessarily\b/,
+      /\bnot enough information\b/,
+    ],
+  },
+
+  {
+    path: ['Rule-based problem solving', 'Ordering and ranking'],
+    patterns: [
+      /\border(?:ed|ing)?\b/,
+      /\brank(?:ed|ing)?\b/,
+      /\bbefore\b/,
+      /\bafter\b/,
+      /\bfirst\b/,
+      /\blast\b/,
+      /\bearlier\b/,
+      /\blater\b/,
+      /\bhigher\b/,
+      /\blower\b/,
+      /\boldest\b/,
+      /\byoungest\b/,
+      /\bgreater than\b/,
+      /\bless than\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Matching and assignment'],
+    patterns: [
+      /\bmatch(?:ed|ing)?\b/,
+      /\bassign(?:ed|ment)?\b/,
+      /\bbelongs? to\b/,
+      /\bpaired with\b/,
+      /\bkey\b/,
+      /\bbox\b/,
+      /\bowner\b/,
+      /\bwhich person\b/,
+      /\beach (?:person|student|friend|doctor|member)\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Seating or spatial arrangement'],
+    patterns: [
+      /\bseat(?:ed|ing)?\b/,
+      /\bsit(?:s|ting)?\b/,
+      /\brow\b/,
+      /\btable\b/,
+      /\bleft\b/,
+      /\bright\b/,
+      /\bfront\b/,
+      /\bback\b/,
+      /\bopposite\b/,
+      /\badjacent\b/,
+      /\bposition\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Scheduling and selection'],
+    patterns: [
+      /\bschedul(?:e|ed|ing)\b/,
+      /\btimetable\b/,
+      /\bday\b/,
+      /\bdate\b/,
+      /\bmonth\b/,
+      /\bappointment\b/,
+      /\bselect(?:ed|ion)?\b/,
+      /\bchosen\b/,
+      /\bchoose\b/,
+      /\bteam\b/,
+    ],
+  },
+  {
+    path: ['Rule-based problem solving', 'Multi-constraint deduction'],
+    patterns: [
+      /\bfollowing (?:facts|statements|rules|conditions)\b/,
+      /\bconditions?\b/,
+      /\brules?\b/,
+      /\bconstraints?\b/,
+      /\bmust\b/,
+      /\bcan only\b/,
+      /\bpossible\b/,
+      /\bnot possible\b/,
+    ],
+  },
+
+  {
+    path: ['Set and Venn reasoning', 'Diagram selection'],
+    patterns: [
+      /\bdiagram\b/,
+      /\bvenn\b/,
+      /\bbest represents?\b/,
+      /\brepresents? the relationship\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Region counting'],
+    patterns: [
+      /\bhow many\b/,
+      /\bnumber of\b/,
+      /\bregion\b/,
+      /\blabel(?:led|ed)?\b/,
+      /\barea\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Intersections and unions'],
+    patterns: [
+      /\bboth\b/,
+      /\band\b.*\b(?:or|both)\b/,
+      /\beither\b.*\bor\b/,
+      /\boverlap\b/,
+      /\bintersect(?:ion|s)?\b/,
+      /\bunion\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Only / neither / complements'],
+    patterns: [
+      /\bonly\b/,
+      /\bneither\b/,
+      /\bnot\b/,
+      /\bdid not\b/,
+      /\bnone\b/,
+      /\boutside\b/,
+      /\bcomplement\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+  {
+    path: ['Set and Venn reasoning', 'Three-plus sets'],
+    patterns: [
+      /\bthree\b.*\b(?:sets|groups|categories)\b/,
+      /\bfour\b.*\b(?:sets|groups|categories)\b/,
+      /\b3\b.*\b(?:sets|groups|categories)\b/,
+      /\b4\b.*\b(?:sets|groups|categories)\b/,
+    ],
+    matches: ({ text }) => hasSetReasoningContext(text),
+  },
+
+  {
+    path: ['Probability and data reasoning', 'Basic probability'],
+    patterns: [
+      /\bprobabilit(?:y|ies)\b/,
+      /\bchance\b/,
+      /\bodds\b/,
+      /\blikelihood\b/,
+      /\brandom(?:ly)?\b/,
+      /\bfair (?:coin|dice|die)\b/,
+      /\bgreater than chance\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Conditional probability'],
+    patterns: [
+      /\bgiven that\b/,
+      /\bprovided that\b/,
+      /\bof those\b/,
+      /\bamong those\b/,
+      /\bfrom those\b/,
+      /\bconsidering only\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Without replacement / combinations'],
+    patterns: [
+      /\bwithout replacement\b/,
+      /\bwithout replacing\b/,
+      /\breplaces? his original\b/,
+      /\bcombination\b/,
+      /\bpermutation\b/,
+      /\bblind-?guess(?:ed|ing)?\b/,
+      /\bselects? \d+\b/,
+      /\bchoose \d+\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Expected value or risk comparison'],
+    patterns: [
+      /\bexpected\b/,
+      /\baverage\b/,
+      /\brisk\b/,
+      /\bbest choice\b/,
+      /\bbetter option\b/,
+      /\bmost amount\b/,
+      /\bshould\b.*\b(?:accept|choose|take)\b/,
+      /\bcost\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Table interpretation'],
+    patterns: [
+      /\btable\b/,
+      /\bchart\b/,
+      /\bdata\b/,
+      /\bgraph\b/,
+      /\battendance\b/,
+      /\bappointments?\b/,
+    ],
+  },
+  {
+    path: ['Probability and data reasoning', 'Fraction / percentage comparison'],
+    patterns: [
+      /\d+\s*%/,
+      /\bpercent(?:age)?\b/,
+      /\bfraction\b/,
+      /\bratio\b/,
+      /\bproportion\b/,
+      /\bgreater than\b/,
+      /\bless than\b/,
+      /\bmore likely\b/,
+      /\bless likely\b/,
+    ],
+  },
+
+  {
+    path: ['Argument evaluation', 'Strongest argument'],
+    patterns: [
+      /\bstrongest argument\b/,
+      /\bbest argument\b/,
+      /\bmost convincing\b/,
+      /\bargument\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Causal assumption'],
+    patterns: [
+      /\breduce\b/,
+      /\bincrease\b/,
+      /\bcause\b/,
+      /\blead to\b/,
+      /\bresult in\b/,
+      /\bencourage\b/,
+      /\bprevent\b/,
+      /\bimprove\b/,
+      /\bpromote\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Relevance and scope'],
+    patterns: [
+      /\brelevant\b/,
+      /\bdirectly\b/,
+      /\bscope\b/,
+      /\baddresses?\b/,
+      /\btopic\b/,
+      /\bissue\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Evidence strength'],
+    patterns: [
+      /\bevidence\b/,
+      /\bstudy\b/,
+      /\bresearch\b/,
+      /\bdata\b/,
+      /\bshows?\b/,
+      /\bproves?\b/,
+      /\bsupports?\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Practical feasibility'],
+    patterns: [
+      /\bpractical\b/,
+      /\bfeasible\b/,
+      /\bimplement(?:ed|ation)?\b/,
+      /\bresources?\b/,
+      /\bcost\b/,
+      /\bafford\b/,
+      /\bavailable\b/,
+    ],
+  },
+  {
+    path: ['Argument evaluation', 'Policy or public benefit'],
+    patterns: [
+      /\bgovernment\b/,
+      /\bpolicy\b/,
+      /\bpublic\b/,
+      /\btax\b/,
+      /\blegalis(?:e|ing|ation)\b/,
+      /\bfine(?:d|s)?\b/,
+      /\bunemployment\b/,
+      /\bsafety\b/,
+      /\bhealth\b/,
+      /\bsociety\b/,
+    ],
+  },
+
+  {
+    path: ['Decision wording traps', 'Considering only stated factors'],
+    patterns: [
+      /\bconsidering only\b/,
+      /\bonly the (?:information|factors|data)\b/,
+      /\bbased only on\b/,
+    ],
+  },
+  {
+    path: ['Decision wording traps', 'Yes/no sufficiency'],
+    patterns: [
+      /\bcan (?:it|this) be concluded\b/,
+      /\bshould\b/,
+      /\byes\b.*\bno\b/,
+      /\byes\/no\b/,
+      /\bplace ['"]?yes['"]?\b/,
+      /\bplace ['"]?no['"]?\b/,
+    ],
+  },
+  {
+    path: ['Decision wording traps', 'False statement'],
+    patterns: [
+      /\bfalse statement\b/,
+      /\bwhich statement is false\b/,
+      /\bnot true\b/,
+      /\bincorrect\b/,
+    ],
+  },
+  {
+    path: ['Decision wording traps', 'Greater than / less than comparison'],
+    patterns: [
+      /\bgreater than\b/,
+      /\bless than\b/,
+      /\bmore than\b/,
+      /\bfewer than\b/,
+      /\bhigher than\b/,
+      /\blower than\b/,
+      /\bmore likely\b/,
+      /\bless likely\b/,
+    ],
+  },
+]
+
+export function getDecisionMakingTagPathsForQuestion(args: {
+  stem: ParsedDecisionMakingStem
+  question: ParsedDecisionMakingQuestion
+}): string[][] {
+  const optionText = args.question.options.map((opt) => opt.text).join(' ')
+  const stemText = normalizedText(args.stem.stemText)
+  const questionText = normalizedText(args.question.text)
+  const normalizedOptionText = normalizedText(optionText)
+  const text = normalizedText(`${args.stem.stemText} ${args.question.text} ${optionText}`)
+  const matched = DM_TAG_RULES.filter((rule) => {
+    const patternMatches = rule.patterns ? hasAny(text, rule.patterns) : false
+    const predicateMatches = rule.matches?.({
+      text,
+      stemText,
+      questionText,
+      optionText: normalizedOptionText,
+      question: args.question,
+    }) ?? false
+    if (rule.patterns && rule.matches) return patternMatches && predicateMatches
+    return patternMatches || predicateMatches
+  }).map((rule) => rule.path)
+
+  return matched.filter(
+    (path) =>
+      !matched.some(
+        (other) =>
+          other.length > path.length &&
+          path.every((part, index) => other[index] === part)
+      )
+  )
 }
 
 /**
  * Map parsed Decision Making stems to UcatQuestionStemFormValues.
- * Each question gets questionType from isSyllogismQuestionText.
+ * Each question gets a canonical response contract from structural evidence.
  */
 export function mapParsedDecisionMakingToFormValues(
   stems: ParsedDecisionMakingStem[],
   options: DecisionMakingToFormOptions
 ): UcatQuestionStemFormValues[] {
-  const { sectionId, categoryId = null, getCategoryIdForStem, isPrivate = false } = options
+  const {
+    sectionId,
+    categoryId = null,
+    getCategoryIdForStem,
+    getTagIdsForQuestion,
+    accessScope = 'public',
+  } = options
 
   return stems
     .filter(
@@ -460,20 +931,28 @@ export function mapParsedDecisionMakingToFormValues(
         )
     )
     .map((stem) => {
-      const questions = stem.questions.map((q) => ({
+      const questions = stem.questions.map((q) => {
+        const inference = inferResponseContract({
+          directive: q.text,
+          targetCount: q.options.length,
+          optionTexts: q.options.map((option) => option.text),
+        })
+        const responseType = inference.responseType.value ?? 'multiple_choice'
+        const answerScheme = inference.answerScheme.value ?? 'single_choice'
+        return {
         questionText: toRichText(q.text),
-        questionType: q.questionType,
-        syllogismAnswerPattern: null,
+        responseType,
+        answerScheme,
         answerExplanation: null,
         difficulty: null,
         timeBurdenSeconds: '',
-        tagIds: [],
+        tagIds: getTagIdsForQuestion?.({ stem, question: q }) ?? [],
         options: q.options.map((opt) => ({
           answerText: toRichText(opt.text),
           answerExplanation: null,
-          isAnswer: false,
+          answerKeyValue: null,
         })),
-      }))
+      }})
       const resolvedCategoryId =
         getCategoryIdForStem != null ? getCategoryIdForStem(stem) : categoryId
 
@@ -481,7 +960,7 @@ export function mapParsedDecisionMakingToFormValues(
         sectionId,
         categoryId: resolvedCategoryId ?? null,
         stemText: tokenizedPlainTextToProseMirrorWithLineBreaks(stem.stemText) as Json,
-        isPrivate,
+        accessScope,
         questions,
       }
     })

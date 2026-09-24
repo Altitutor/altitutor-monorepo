@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Table,
   TableBody,
@@ -11,22 +11,11 @@ import {
   Input,
   Button,
   SearchableSelect,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
   Label,
 } from '@altitutor/ui';
 import { Edit2 } from 'lucide-react';
 import { pricingApi, type BillingPricingRow } from '../api/pricing';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 const CURRENCY_OPTIONS = [
   { value: 'AUD', label: 'AUD' },
@@ -43,11 +32,6 @@ export function PricingTable({ pricing, onUpdate }: PricingTableProps) {
   const [hourlyRateCents, setHourlyRateCents] = useState<number>(0);
   const [currency, setCurrency] = useState<string>('AUD');
   const [saving, setSaving] = useState(false);
-  const [expanded, setExpanded] = useState(false);
-
-  useEffect(() => {
-    if (!editingPricing) setExpanded(false);
-  }, [editingPricing]);
 
   const handleEdit = (pricingRow: BillingPricingRow) => {
     setEditingPricing(pricingRow);
@@ -107,60 +91,49 @@ export function PricingTable({ pricing, onUpdate }: PricingTableProps) {
         </Table>
       </div>
 
-      <Dialog open={!!editingPricing} onOpenChange={() => setEditingPricing(null)}>
-        <DialogContent
-          className={cn(
-            EXPANDABLE_DIALOG_TRANSITION,
-            expanded && EXPANDED_DIALOG_CONTENT_CLASS
-          )}
-        >
-          <DialogHeader>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <DialogTitle>Edit Pricing</DialogTitle>
-                <DialogDescription>
-                  Update the hourly rate for {editingPricing?.billing_type}
-                </DialogDescription>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-            </div>
-          </DialogHeader>
-          <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="hourly-rate">Hourly Rate (AUD)</Label>
-              <Input
-                id="hourly-rate"
-                type="number"
-                step="0.01"
-                value={(hourlyRateCents / 100).toFixed(2)}
-                onChange={(e) =>
-                  setHourlyRateCents(Math.round(Number(e.target.value) * 100))
-                }
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="currency">Currency</Label>
-              <SearchableSelect<(typeof CURRENCY_OPTIONS)[number]>
-                items={[...CURRENCY_OPTIONS]}
-                value={CURRENCY_OPTIONS.find((c) => c.value === currency) ?? CURRENCY_OPTIONS[0]}
-                onValueChange={(item) => setCurrency(item?.value ?? 'AUD')}
-                getItemLabel={(o) => o.label}
-                getItemId={(o) => o.value}
-                placeholder="Select currency"
-              />
-            </div>
-          </div>
-          <DialogFooter>
+      <AdminDialogShell
+        open={!!editingPricing}
+        onClose={() => setEditingPricing(null)}
+        title="Edit Pricing"
+        subtitle={`Update the hourly rate for ${editingPricing?.billing_type}`}
+        footer={
+          <>
             <Button variant="outline" onClick={() => setEditingPricing(null)}>
               Cancel
             </Button>
             <Button onClick={handleSave} disabled={saving}>
               {saving ? 'Saving...' : 'Save Changes'}
             </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="hourly-rate">Hourly Rate (AUD)</Label>
+            <Input
+              id="hourly-rate"
+              type="number"
+              step="0.01"
+              value={(hourlyRateCents / 100).toFixed(2)}
+              onChange={(e) =>
+                setHourlyRateCents(Math.round(Number(e.target.value) * 100))
+              }
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="currency">Currency</Label>
+            <SearchableSelect<(typeof CURRENCY_OPTIONS)[number]>
+              items={[...CURRENCY_OPTIONS]}
+              value={CURRENCY_OPTIONS.find((c) => c.value === currency) ?? CURRENCY_OPTIONS[0]}
+              onValueChange={(item) => setCurrency(item?.value ?? 'AUD')}
+              getItemLabel={(o) => o.label}
+              getItemId={(o) => o.value}
+              placeholder="Select currency"
+            />
+          </div>
+        </div>
+      </AdminDialogShell>
     </>
   );
 }

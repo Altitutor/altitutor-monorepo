@@ -1,27 +1,44 @@
 "use client";
 
-import Link from "next/link";
-import { useId, useMemo } from "react";
+import { useEffect, useId, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { UcatPageHeader } from "@/features/layout";
+import { AppPageSkeleton } from "@/features/layout/components/app-page-skeleton";
 import { UcatTableRowActionLink } from "@/features/progress/components/ucat-table-row-action-link";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
+import { quotaPayloadFromUsage } from "@/features/ucat-access/lib/quota-payload-from-usage";
+import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
+import { useExamAttemptLaunchPreflight } from "@/features/exam-attempts/hooks/use-exam-attempt-launch-preflight";
+import { useBeginExamRoute } from "@/features/exam-attempts/hooks/use-begin-exam-route";
+import {
+  buildQuestionEngineTutorialHref,
+  useQuestionEngineTutorialGate,
+} from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
 import {
   extractTextFromRichJson,
   type JsonLike,
 } from "@/features/question-engine/model/rich-text";
 import type { SetAttemptRow } from "@/features/sets/api/sets-api";
-import { useSetAttempts, useSets } from "@/features/sets";
+import { useSet, useSetAttempts, useSetQuestionCount } from "@/features/sets";
 import {
   UCAT_NATIVE_TABLE_BODY_ROW,
   UCAT_NATIVE_TABLE_HEADER_ROW,
   UCAT_PRIMARY_ACTION_BUTTON,
-  UCAT_SURFACE_CARD,
-  UCAT_SURFACE_MOTION,
   UCAT_TABLE_HEADER_CLASSNAME,
   UCAT_TABLE_SHELL,
+  ucatClickableCardClassName,
 } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
+import { formatExamDurationSeconds } from "@/lib/format-exam-duration";
 import type { SessionResourceEntryContext } from "@/features/sessions/lib/session-resource-entry-context";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { getQuestionEngineExam } from "@/features/question-engine/api/question-engine-api";
+
+const RECENT_ATTEMPTS_LIMIT = 5;
 
 type SetDetailPageProps = {
   setId: string;
@@ -47,6 +64,13 @@ function buildSetDetailBreadcrumbOverrides(
   return o;
 }
 
+function formatSetAttemptScore(attempt: SetAttemptRow): string {
+  if (attempt.scorePoints != null && attempt.totalPoints != null) {
+    return `${attempt.scorePoints} / ${attempt.totalPoints}`;
+  }
+  return "—";
+}
+
 export function SetDetailPage({
   setId,
   sectionNumber,
@@ -54,14 +78,36 @@ export function SetDetailPage({
   backLabel: backLabelProp,
   sessionEntryContext,
 }: SetDetailPageProps) {
-  const { data: sets, isLoading, error } = useSets();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const queryClient = useQueryClient();
+  const { openQuotaLimit } = useQuotaLimitDialog();
+  const { data: quota } = useQuotaUsage();
+  const { active: activeExamAttempt } = useActiveExamAttempt();
+  const {
+    isLoading: questionEngineTourLoading,
+    isBlocked: questionEngineTourBlocked,
+    tutorialKind: questionEngineTutorialKind,
+  } = useQuestionEngineTutorialGate();
+  const { data: set, isLoading, error } = useSet(setId);
   const { data: attempts = [] } = useSetAttempts(setId);
+  const { data: questionCount } = useSetQuestionCount(setId);
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const attemptsHeadingId = useId();
+  const [showAllAttempts, setShowAllAttempts] = useState(false);
 
-  const set = useMemo(
-    () => (sets ?? []).find((item) => item.id === setId),
-    [sets, setId],
-  );
+  const setQuota = quota?.areas.find((area) => area.area === "sets") ?? null;
+  const examHref = "/exam";
+
+  useEffect(() => {
+    if (!set) return;
+    router.prefetch(examHref);
+    void queryClient.prefetchQuery({
+      queryKey: ["question-engine", "set", setId, null],
+      queryFn: () => getQuestionEngineExam({ mode: "set", setId }),
+      staleTime: 10 * 60 * 1000,
+    });
+  }, [examHref, queryClient, router, set, setId]);
 
   const backHref =
     backHrefProp ??
@@ -77,32 +123,58 @@ export function SetDetailPage({
       : sectionNumber != null
         ? "Back to section"
         : "Back to all sets");
+  const studyPlanTaskId = searchParams.get("studyPlanTaskId");
+  const launchSet = useBeginExamRoute({
+    kind: "set",
+    resourceId: setId,
+    title:
+      set?.display_name ||
+      (set && extractTextFromRichJson(set.name as JsonLike)) ||
+      "Question set",
+    exitHref: backHref,
+    studyPlanTaskId,
+  });
+  const launchPreflight = useExamAttemptLaunchPreflight({
+    kind: "set",
+    resourceId: setId,
+    studyPlanTaskId,
+    onLaunch: launchSet,
+  });
   const breadcrumbLeafSegmentIndex =
-    sessionEntryContext != null
-      ? 3
-      : backHrefProp != null
-        ? 2
-        : sectionNumber != null
-          ? 3
-          : 1;
+    sessionEntryContext != null || sectionNumber != null ? 2 : 1;
+
+  const handleLaunchSet = () => {
+    if (questionEngineTourLoading) return;
+    if (questionEngineTourBlocked) {
+      router.push(
+        buildQuestionEngineTutorialHref(
+          `${window.location.pathname}${window.location.search}`,
+          questionEngineTutorialKind,
+        ),
+      );
+      return;
+    }
+    const canResumeCurrentAttempt =
+      activeExamAttempt?.kind === "set" &&
+      activeExamAttempt.resourceId === setId;
+    if (
+      sessionEntryContext == null &&
+      !canResumeCurrentAttempt &&
+      (setQuota?.disabled || setQuota?.atLimit)
+    ) {
+      openQuotaLimit(quotaPayloadFromUsage(setQuota), {
+        dismissAction: {
+          label: "Dismiss",
+          variant: "dismiss",
+        },
+      });
+      return;
+    }
+    launchPreflight.requestLaunch();
+  };
 
   if (isLoading) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Set"
-          description="Practice question set details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Set",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">Loading set...</p>
-      </div>
-    );
+    return <AppPageSkeleton variant="detail" />;
   }
 
   if (error) {
@@ -122,25 +194,6 @@ export function SetDetailPage({
         <p className="text-sm text-red-600 dark:text-red-400">
           {error instanceof Error ? error.message : "Failed to load set"}
         </p>
-      </div>
-    );
-  }
-
-  if (!sets || sets.length === 0) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Set"
-          description="Practice question set details."
-          backHref={backHref}
-          backLabel={backLabel}
-          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-            sessionEntryContext,
-            breadcrumbLeafSegmentIndex,
-            "Set",
-          )}
-        />
-        <p className="text-sm text-muted-foreground">No sets available.</p>
       </div>
     );
   }
@@ -165,94 +218,85 @@ export function SetDetailPage({
   }
 
   const title =
+    set.display_name ||
     extractTextFromRichJson(set.name as JsonLike) ||
     extractTextFromRichJson(set.description as JsonLike) ||
     "Question set";
 
   const description = extractTextFromRichJson(set.description as JsonLike);
 
-  const timeLabel =
-    set.time_limit_seconds != null
-      ? set.time_limit_seconds === 0
-        ? "Untimed"
-        : `${Math.round(set.time_limit_seconds / 60)} minute${set.time_limit_seconds / 60 === 1 ? "" : "s"}`
-      : null;
-
-  const createdAt =
-    set.created_at != null
-      ? new Date(set.created_at).toLocaleString(undefined, {
-          dateStyle: "medium",
-        })
-      : null;
-
-  const updatedAt =
-    set.updated_at != null
-      ? new Date(set.updated_at).toLocaleString(undefined, {
-          dateStyle: "medium",
-        })
-      : null;
+  const infoRows: Array<[string, string]> = [
+    ["Time limit", formatExamDurationSeconds(set.time_limit_seconds)],
+    ["Questions", questionCount != null ? String(questionCount) : "—"],
+  ];
 
   const setAttemptHref = (attemptId: string) =>
     sectionNumber != null
       ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
       : `/progress/set-attempts/${attemptId}`;
 
-  return (
-    <div className="space-y-6">
-      <UcatPageHeader
-        title={title}
-        description={description ?? "Review this practice set before starting."}
-        backHref={backHref}
-        backLabel={backLabel}
-        breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
-          sessionEntryContext,
-          breadcrumbLeafSegmentIndex,
-          title,
-        )}
-      />
+  const visibleAttempts = showAllAttempts
+    ? attempts
+    : attempts.slice(0, RECENT_ATTEMPTS_LIMIT);
+  const hasMoreAttempts = attempts.length > RECENT_ATTEMPTS_LIMIT;
 
-      <section
-        className={cn(
-          "space-y-2 rounded-ucatShell p-4 text-card-foreground",
-          UCAT_SURFACE_CARD,
-          UCAT_SURFACE_MOTION,
-        )}
+  return (
+    <motion.div
+      className="space-y-6"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div variants={itemVariants}>
+        <UcatPageHeader
+          title={title}
+          description={
+            description ?? "Review this practice set before starting."
+          }
+          backHref={backHref}
+          backLabel={backLabel}
+          breadcrumbOverrides={buildSetDetailBreadcrumbOverrides(
+            sessionEntryContext,
+            breadcrumbLeafSegmentIndex,
+            title,
+          )}
+        />
+      </motion.div>
+
+      <motion.section
+        data-tour="set-structure"
+        variants={itemVariants}
+        className={ucatClickableCardClassName({
+          interactive: false,
+          className: "gap-0",
+        })}
       >
-        <dl className="grid gap-3 text-sm sm:grid-cols-2">
-          <div>
-            <dt className="font-medium text-muted-foreground">Time limit</dt>
-            <dd>{timeLabel ?? "No time limit specified"}</dd>
+        {infoRows.map(([label, value]) => (
+          <div
+            key={label}
+            className="flex w-full items-center justify-between gap-6 py-3 first:pt-0 last:pb-0"
+          >
+            <span className="text-sm text-muted-foreground">{label}</span>
+            <span className="text-right text-sm font-medium">{value}</span>
           </div>
-          <div>
-            <dt className="font-medium text-muted-foreground">Type</dt>
-            <dd>
-              {set.is_student_generated
-                ? "Generated from your performance"
-                : "Standard UCAT practice set"}
-            </dd>
-          </div>
-          {createdAt ? (
-            <div>
-              <dt className="font-medium text-muted-foreground">Created</dt>
-              <dd>{createdAt}</dd>
-            </div>
-          ) : null}
-          {updatedAt ? (
-            <div>
-              <dt className="font-medium text-muted-foreground">
-                Last updated
-              </dt>
-              <dd>{updatedAt}</dd>
-            </div>
-          ) : null}
-        </dl>
-      </section>
+        ))}
+      </motion.section>
+
+      <motion.div
+        variants={itemVariants}
+        className="mt-4 flex min-h-10 items-center justify-end"
+      >
+        <Button
+          data-tour="set-start"
+          className={UCAT_PRIMARY_ACTION_BUTTON}
+          onClick={handleLaunchSet}
+        >
+          Launch set
+        </Button>
+      </motion.div>
 
       {attempts.length > 0 ? (
-        <section
-          aria-labelledby={attemptsHeadingId}
-          className="space-y-4"
-        >
+        <section aria-labelledby={attemptsHeadingId} className="space-y-4">
           <h2
             id={attemptsHeadingId}
             className="flex items-center gap-2 text-2xl font-semibold tracking-tight"
@@ -261,62 +305,83 @@ export function SetDetailPage({
           </h2>
           <div className={UCAT_TABLE_SHELL}>
             <div className="overflow-x-auto">
-            <table className="w-full min-w-[420px] caption-bottom text-sm">
-              <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
-                <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
-                  <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
-                    Date
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Score
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Scaled
-                  </th>
-                  <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {attempts.map((a: SetAttemptRow) => (
-                  <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
-                    <td className="p-4 align-middle">
-                      {new Date(a.attemptedAt).toLocaleString(undefined, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      {a.scorePoints != null && a.totalPoints != null
-                        ? `${a.scorePoints} / ${a.totalPoints}`
-                        : "—"}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      {a.scaledScore != null ? a.scaledScore : "—"}
-                    </td>
-                    <td className="p-4 align-middle text-right">
-                      <UcatTableRowActionLink
-                        href={setAttemptHref(a.id)}
-                        label="View attempt"
-                      />
-                    </td>
+              <table className="w-full min-w-[420px] caption-bottom text-sm">
+                <thead className={UCAT_TABLE_HEADER_CLASSNAME}>
+                  <tr className={UCAT_NATIVE_TABLE_HEADER_ROW}>
+                    <th className="h-12 px-4 text-left align-middle font-medium text-muted-foreground">
+                      Date
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Pace
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Score
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Scaled
+                    </th>
+                    <th className="h-12 px-4 text-right align-middle font-medium text-muted-foreground">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {visibleAttempts.map((a: SetAttemptRow) => (
+                    <tr key={a.id} className={UCAT_NATIVE_TABLE_BODY_ROW}>
+                      <td className="p-4 align-middle">
+                        {new Date(a.attemptedAt).toLocaleString(undefined, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        })}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        {a.effectivePace != null
+                          ? `${Number(a.effectivePace.toFixed(2))}×`
+                          : "—"}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        {formatSetAttemptScore(a)}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        {a.scaledScore != null ? a.scaledScore : "—"}
+                      </td>
+                      <td className="p-4 align-middle text-right">
+                        <UcatTableRowActionLink
+                          href={setAttemptHref(a.id)}
+                          label="View attempt"
+                        />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </div>
+          {hasMoreAttempts ? (
+            <Button
+              type="button"
+              variant="ghost"
+              className="px-0 text-sm font-medium text-muted-foreground hover:text-foreground"
+              onClick={() => setShowAllAttempts((prev) => !prev)}
+            >
+              {showAllAttempts
+                ? "Show fewer attempts"
+                : `Show all ${attempts.length} attempts`}
+            </Button>
+          ) : null}
         </section>
       ) : null}
 
-      <div className="flex justify-end">
-        <Button asChild className={UCAT_PRIMARY_ACTION_BUTTON}>
-          <Link href={`/exam/sets?id=${encodeURIComponent(set.id)}`}>
-            Launch set
-          </Link>
-        </Button>
-      </div>
-    </div>
+      <ExamAttemptConflictDialog
+        open={launchPreflight.conflictActive != null}
+        active={launchPreflight.conflictActive}
+        pendingLabel="this question set"
+        isDiscarding={launchPreflight.isDiscarding}
+        onDiscardAndContinue={() =>
+          void launchPreflight.discardConflictAndLaunch()
+        }
+        onCancel={launchPreflight.cancelConflict}
+      />
+    </motion.div>
   );
 }

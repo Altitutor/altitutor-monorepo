@@ -1,6 +1,3 @@
-// Components
-export * from './components';
-
 // Hooks
 export * from './hooks';
 
@@ -8,4 +5,4 @@ export * from './hooks';
 export * from './api';
 
 // Types
-export type * from './types'; 
+export type * from './types';

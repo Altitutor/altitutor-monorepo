@@ -48,7 +48,7 @@ describe('getInvoiceStatusBadge', () => {
     const { getByText } = render(
       getInvoiceStatusBadge({ status: 'paid', paid_at: '2024-01-15T00:00:00Z' })
     );
-    expect(getByText(/Paid \(15\/01\/2024\)/)).toBeInTheDocument();
+    expect(getByText('Paid (15 Jan)')).toBeInTheDocument();
   });
 
   it('should return "Refunded (date)" when refunded_at present', () => {
@@ -59,8 +59,8 @@ describe('getInvoiceStatusBadge', () => {
         refunded_at: '2024-01-20T00:00:00Z',
       })
     );
-    expect(getByText(/Paid \(15\/01\/2024\)/)).toBeInTheDocument();
-    expect(getByText(/Refunded \(20\/01\/2024\)/)).toBeInTheDocument();
+    expect(getByText('Paid (15 Jan)')).toBeInTheDocument();
+    expect(getByText('Refunded (20 Jan)')).toBeInTheDocument();
   });
 
   it('should return "Credited (date)" when credited_at present', () => {
@@ -71,7 +71,7 @@ describe('getInvoiceStatusBadge', () => {
         credited_at: '2024-01-18T00:00:00Z',
       })
     );
-    expect(getByText(/Credited \(18\/01\/2024\)/)).toBeInTheDocument();
+    expect(getByText('Credited (18 Jan)')).toBeInTheDocument();
   });
 
   it('should return correct badge for "draft" status', () => {

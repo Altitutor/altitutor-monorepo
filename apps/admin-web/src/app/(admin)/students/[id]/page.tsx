@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
+import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
-import { Loader2, ArrowLeft } from "lucide-react";
+import { ArrowLeft, Loader2 } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -21,7 +22,7 @@ import {
   AlertDialogTitle,
 } from "@altitutor/ui";
 import { SendStudentInviteDialog } from '@/features/students/components/SendStudentInviteDialog';
-import { useStudentDetails, studentsKeys } from '@/features/students/hooks/useStudentsQuery';
+import { useStudentDetails } from '@/features/students/hooks/useStudentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { 
   DetailsTab,
@@ -30,12 +31,9 @@ import {
 } from '@/features/students/components/tabs';
 import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
-import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
-import { ViewParentModal } from '@/features/students/components/ViewParentModal';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -46,20 +44,30 @@ import {
   useStudentActions,
 } from '@/features/students/hooks';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
-import { studentsApi } from '@/features/students/api/students';
 import { classesApi } from '@/shared/api';
 import { useStudentClasses } from '@/features/students/hooks/useStudentClasses';
+import { currentEnrolledClassIds } from '@/features/students/utils/classEnrollments';
 import { useToast } from '@altitutor/ui';
 import type { ClassWithExpandedSubject } from '@altitutor/shared';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { DiscontinueStudentConfirmDialog } from '@/features/students/components/DiscontinueStudentConfirmDialog';
+import { ReEnrollStudentConfirmDialog } from '@/features/students/components/ReEnrollStudentConfirmDialog';
+import { studentsApi } from '@/features/students/api';
+import { AdminLoadingSkeleton } from '@/shared/components';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentDetail,
+} from '@/shared/lib/query-invalidation';
 
 export default function StudentDetailPage({ params }: { params: { id: string } }) {
-  const { id } = params;
+  const id = useCanonicalStudentId(params.id) ?? "";
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(id, !!id);
@@ -78,7 +86,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const mutations = useStudentMutations({
     studentId: id,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
+      void invalidateStudentDetail(queryClient, id);
       editFlow.reset();
     },
   });
@@ -100,10 +108,12 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   // UI state
   const [activeTab, setActiveTab] = useState('details');
-  const [activeSessionId, setActiveSessionId] = useState<string | null>(null);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+  const [isDiscontinuationLinkOpen, setIsDiscontinuationLinkOpen] = useState(false);
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
+  const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -136,59 +146,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   };
 
   const handleStudentUpdated = () => {
-    queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(id) });
-  };
-
-  // Handle discontinue student. Returns true on success, false otherwise.
-  const handleDiscontinue = async (): Promise<boolean> => {
-    if (!student || !currentStaff) return false;
-
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return false;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
-      handleStudentUpdated();
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    } finally {
-      setIsDiscontinuing(false);
-    }
+    void invalidateStudentDetail(queryClient, id);
   };
 
   // Handle enrollment
@@ -200,8 +158,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(id) });
-      await queryClient.invalidateQueries({ queryKey: ['students', id, 'classes'] });
+      await invalidateStudentClassSurfaces(queryClient, id);
       setIsEnrollModalOpen(false);
       handleStudentUpdated();
       toast({
@@ -248,6 +205,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
+    onBookTrialSession: modals.openBookTrialSession,
     onBookDraftingSession: modals.openBookDraftingSession,
     onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
@@ -262,32 +220,14 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             ],
           })
       : undefined,
+    onSendDiscontinuationLink: () => setIsDiscontinuationLinkOpen(true),
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
+    onReEnroll: () => setIsReEnrollDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });
 
-  // Listen for session modal events
-  useEffect(() => {
-    const onOpenSession = (e: Event) => {
-      const detail = (e as CustomEvent).detail as { id: string };
-      if (detail?.id) setActiveSessionId(detail.id);
-    };
-    
-    window.addEventListener('open-session-modal', onOpenSession as EventListener);
-    
-    return () => {
-      window.removeEventListener('open-session-modal', onOpenSession as EventListener);
-    };
-  }, []);
-
   if (loadingStudent) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!student) {
@@ -360,11 +300,11 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
             studentSubjects={editFlow.isEditing ? editFlow.tempStudentSubjects : studentSubjects}
             loadingSubjects={false}
             onRemoveSubject={undefined}
-            onViewSubject={modals.openSubjectModal}
+            onViewSubject={entityModals.openSubject}
             addSubjectButton={undefined}
             parents={editFlow.isEditing ? editFlow.tempStudentParents : parents}
             onViewParent={(parentId) => {
-              modals.openParentModal(parentId, 'messages');
+              entityModals.openParent(parentId, { defaultTab: 'messages' });
             }}
             onRemoveParent={editFlow.isEditing ? editFlow.removeParent : undefined}
             addParentButton={
@@ -430,25 +370,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 
-      {/* Parent Modal */}
-      <ViewParentModal
-        isOpen={modals.parentModalOpen}
-        onClose={modals.closeParentModal}
-        parentId={modals.selectedParentId}
-        onParentUpdated={handleStudentUpdated}
-        defaultTab={modals.parentModalDefaultTab}
-      />
-      
-      {/* Subject Modal */}
-      {modals.selectedSubjectId && (
-        <ViewSubjectModal
-          isOpen={modals.subjectModalOpen}
-          onClose={modals.closeSubjectModal}
-          subjectId={modals.selectedSubjectId}
-          onSubjectUpdated={handleStudentUpdated}
-        />
-      )}
-
       {/* Log Absence Dialog */}
       {currentStaff && (
         <LogAbsenceDialog
@@ -461,6 +382,17 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       )}
 
       {/* Book Drafting Session Modal */}
+      <BookSessionModal
+        isOpen={modals.isBookTrialSessionModalOpen}
+        onClose={modals.closeBookTrialSession}
+        sessionType="TRIAL_SESSION"
+        initialStudentId={id}
+        onBookingCreated={() => {
+          modals.closeBookTrialSession();
+          handleStudentUpdated();
+        }}
+      />
+
       <BookSessionModal
         isOpen={modals.isBookDraftingSessionModalOpen}
         onClose={modals.closeBookDraftingSession}
@@ -526,13 +458,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
         </AlertDialog>
       )}
 
-      {/* Session Modal */}
-      <SessionModal
-        isOpen={!!activeSessionId}
-        sessionId={activeSessionId}
-        onClose={() => setActiveSessionId(null)}
-      />
-
       {/* Enroll Student Modal */}
       {student && currentStaff && (
         <EnrollStudentModal
@@ -541,21 +466,87 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           context="student"
           student={student}
           studentSubjects={studentSubjects}
-          enrolledClassIds={studentClasses.map(c => c.class.id)}
+          enrolledClassIds={currentEnrolledClassIds(studentClasses)}
           onFetchClasses={fetchClassesForEnrollment}
           onEnroll={handleEnroll}
           currentStaffId={currentStaff.id}
         />
       )}
 
-      {/* Discontinue Confirmation Dialog */}
+      {/* Send Discontinuation Link Dialog */}
+      {student && (
+        <StudentExitRequestDialog
+          open={isDiscontinuationLinkOpen}
+          onOpenChange={setIsDiscontinuationLinkOpen}
+          studentId={student.id}
+          studentName={`${student.first_name} ${student.last_name}`}
+          studentPhone={student.phone}
+          workflowKey="student_discontinuation"
+          onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
+        />
+      )}
+
       {student && (
         <DiscontinueStudentConfirmDialog
           isOpen={isDiscontinueDialogOpen}
           onOpenChange={setIsDiscontinueDialogOpen}
           studentName={`${student.first_name} ${student.last_name}`}
-          onConfirm={handleDiscontinue}
           isDiscontinuing={isDiscontinuing}
+          onConfirm={async () => {
+            if (!currentStaff) return false;
+
+            try {
+              setIsDiscontinuing(true);
+              const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
+              if (!result.success) throw new Error(result.error);
+              await invalidateStudentDetail(queryClient, student.id);
+              toast({
+                title: 'Success',
+                description: 'Student discontinued successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Discontinue failed',
+                description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsDiscontinuing(false);
+            }
+          }}
+        />
+      )}
+
+      {/* Re-enroll Confirmation Dialog */}
+      {student && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={isReEnrollDialogOpen}
+          onOpenChange={setIsReEnrollDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(student.id);
+              await invalidateStudentDetail(queryClient, student.id);
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
     </div>

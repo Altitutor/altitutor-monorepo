@@ -15,22 +15,26 @@ export type UcatSkillTrainerConfigRow = {
   id: string;
   skill_trainer_id: string;
   time_limit_seconds: number;
-  wrong_cooldown_seconds: number;
   points_correct: number;
   points_wrong: number;
   streak_enabled: boolean;
   streak_multiplier_steps: Json;
+  speed_bonus_enabled: boolean;
+  speed_bonus_max_points: number;
+  speed_bonus_window_seconds: number;
 };
 
 export type SkillTrainerConfigUpdate = Partial<
   Pick<
     UcatSkillTrainerConfigRow,
     | 'time_limit_seconds'
-    | 'wrong_cooldown_seconds'
     | 'points_correct'
     | 'points_wrong'
     | 'streak_enabled'
     | 'streak_multiplier_steps'
+    | 'speed_bonus_enabled'
+    | 'speed_bonus_max_points'
+    | 'speed_bonus_window_seconds'
   >
 > & { is_enabled?: boolean };
 

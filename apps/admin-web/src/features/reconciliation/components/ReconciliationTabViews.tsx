@@ -9,18 +9,17 @@ import {
   UnloggedSessionsTable,
   UnassignedClassesTable,
   UnassignedTasksTable,
-  FailedDeliveryMessagesTable,
   UnreadMessagesTable,
   MessagesToFollowUpTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
   TrialStudentsNotSignedUpTable,
   ProjectsWithoutLeadTable,
+  SessionBillingAdjustmentsTable,
 } from './ReconciliationTable';
 import {
   useReconciliationFinancialData,
   useReconciliationSchedulingData,
-  useReconciliationCommunicationData,
   useReconciliationOperationsData,
 } from '../hooks';
 import { useFamilyCheckInsData } from '../api/queries';
@@ -44,16 +43,6 @@ function SchedulingTabSkeleton() {
       <SkeletonTable rows={3} columns={5} />
       <SkeletonTable rows={3} columns={4} />
       <SkeletonTable rows={3} columns={4} />
-    </div>
-  );
-}
-
-function CommunicationTabSkeleton() {
-  return (
-    <div className="space-y-6 mt-6" aria-busy="true">
-      <SkeletonTable rows={3} columns={5} />
-      <SkeletonTable rows={3} columns={2} />
-      <SkeletonTable rows={3} columns={2} />
     </div>
   );
 }
@@ -97,6 +86,10 @@ export function ReconciliationFinancialTab() {
 
   return (
     <div className="space-y-6 mt-6">
+      <SessionBillingAdjustmentsTable
+        items={data.sessionBillingAdjustments.data ?? []}
+        isLoading={data.sessionBillingAdjustments.isLoading}
+      />
       <UninvoicedSessionsTable
         items={data.uninvoicedSessions.data ?? []}
         isLoading={data.uninvoicedSessions.isLoading}
@@ -105,10 +98,7 @@ export function ReconciliationFinancialTab() {
         items={data.voidInvoiceSessions.data ?? []}
         isLoading={data.voidInvoiceSessions.isLoading}
       />
-      <UnpaidInvoicesTable
-        items={data.unpaidInvoices.data ?? []}
-        isLoading={data.unpaidInvoices.isLoading}
-      />
+      <UnpaidInvoicesTable items={data.unpaidInvoices.data ?? []} isLoading={data.unpaidInvoices.isLoading} />
       <StudentsWithoutPaymentMethodTable
         items={data.studentsWithoutPaymentMethod.data ?? []}
         isLoading={data.studentsWithoutPaymentMethod.isLoading}
@@ -137,14 +127,8 @@ export function ReconciliationSchedulingTab() {
 
   return (
     <div className="space-y-6 mt-6">
-      <UnloggedSessionsTable
-        items={data.unloggedSessions.data ?? []}
-        isLoading={data.unloggedSessions.isLoading}
-      />
-      <UnassignedClassesTable
-        items={data.unassignedClasses.data ?? []}
-        isLoading={data.unassignedClasses.isLoading}
-      />
+      <UnloggedSessionsTable items={data.unloggedSessions.data ?? []} isLoading={data.unloggedSessions.isLoading} />
+      <UnassignedClassesTable items={data.unassignedClasses.data ?? []} isLoading={data.unassignedClasses.isLoading} />
       <StudentsWithoutClassesTable
         items={data.studentsWithoutClasses.data ?? []}
         isLoading={data.studentsWithoutClasses.isLoading}
@@ -158,29 +142,8 @@ export function ReconciliationSchedulingTab() {
 }
 
 export function ReconciliationCommunicationTab() {
-  const data = useReconciliationCommunicationData();
-
-  if (data.isLoading) {
-    return <CommunicationTabSkeleton />;
-  }
-
-  if (data.hasError) {
-    return (
-      <div className="mt-6 rounded-md border border-destructive bg-destructive/10 p-4">
-        <div className="flex items-center gap-2 text-destructive">
-          <AlertCircle className="h-5 w-5" />
-          <p>Error loading communication reconciliation data. Please try again.</p>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6 mt-6">
-      <FailedDeliveryMessagesTable
-        items={data.failedDeliveryMessages.data ?? []}
-        isLoading={data.failedDeliveryMessages.isLoading}
-      />
       <UnreadMessagesTable />
       <MessagesToFollowUpTable />
     </div>
@@ -207,10 +170,7 @@ export function ReconciliationOperationsTab() {
 
   return (
     <div className="space-y-6 mt-6">
-      <UnassignedTasksTable
-        items={data.unassignedTasks.data ?? []}
-        isLoading={data.unassignedTasks.isLoading}
-      />
+      <UnassignedTasksTable items={data.unassignedTasks.data ?? []} isLoading={data.unassignedTasks.isLoading} />
       <ProjectsWithoutLeadTable
         items={data.projectsWithNoLead.data ?? []}
         isLoading={data.projectsWithNoLead.isLoading}

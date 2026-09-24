@@ -11,6 +11,7 @@ export { StaffCard } from './StaffCard';
 
 // Logout confirmation modal
 export { LogoutConfirmationModal } from './logout-confirmation-modal';
+export { TutorDialogShell } from './tutor-dialog-shell';
 
 export {
   SegmentedControl,

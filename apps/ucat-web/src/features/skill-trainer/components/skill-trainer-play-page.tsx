@@ -1,7 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { RotateCcw } from "lucide-react";
 import {
   CalculatorMathsTrainer,
   FindConceptTrainer,
@@ -9,13 +11,22 @@ import {
   MentalMathsTrainer,
   NumpadTrainer,
   QuickSyllogismTrainer,
+  Skeleton,
 } from "@altitutor/ui";
-import { isUcatSkillTrainerKey, trainerKeyToSlug } from "@altitutor/shared";
+import { Button } from "@/components/ui/button";
+import { trainerKeyToSlug } from "@altitutor/shared";
+import {
+  extractSkillTrainerPlainText,
+  findFindWordKeywordOccurrences,
+} from "@altitutor/shared";
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import { useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
 import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
-import type { SkillTrainerAttemptState } from "@/features/skill-trainer/types/attempt";
+import type {
+  SkillTrainerAttemptState,
+  SubmitActionPayload,
+} from "@/features/skill-trainer/types/attempt";
 import {
   asCalculatorMathsContent,
   asFindConceptContent,
@@ -24,30 +35,69 @@ import {
   asNumpadSpeedContent,
   asQuickSyllogismContent,
 } from "@/features/skill-trainer/lib/content-guards";
-import { useCooldownActive } from "@/features/skill-trainer/hooks/use-cooldown-active";
 import { useLeaveGuard } from "@/features/skill-trainer/hooks/use-leave-guard";
 import { createCalculatorEngine } from "@/features/skill-trainer/lib/calculator-engine";
-import { CooldownOverlay } from "@/features/skill-trainer/components/cooldown-overlay";
-import { SkillTrainerCompleteScreen } from "@/features/skill-trainer/components/skill-trainer-complete-screen";
+import { applyNumpadKey } from "@/features/skill-trainer/lib/numpad-input";
 import { SkillTrainerScoreBar } from "@/features/skill-trainer/components/skill-trainer-score-bar";
+import {
+  expireLocalSkillTrainerSession,
+  submitLocalSkillTrainerAction,
+} from "@/features/skill-trainer/lib/local-session";
+import { ScoreBarFeedback } from "@/features/skill-trainer/components/score-bar-feedback";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 
-const LEAVE_MESSAGE =
-  "Leave this skill trainer? Your timed run will keep going in the background.";
+function SkillTrainerThemedRichContent({
+  json,
+  plainText,
+  className,
+}: {
+  json?: Record<string, unknown> | null;
+  plainText: string;
+  className?: string;
+}) {
+  return (
+    <RichContentBlock
+      json={json}
+      plainText={plainText}
+      className={className}
+      textTone="theme"
+    />
+  );
+}
 
-function useAttemptTimer(state: SkillTrainerAttemptState | null, onExpire: () => void) {
+function getAttemptRemainingSeconds(state: SkillTrainerAttemptState): number {
+  const endsAtMs = Date.parse(state.attempt.ends_at);
+  if (Number.isNaN(endsAtMs)) return state.remainingSeconds;
+  return Math.max(0, Math.ceil((endsAtMs - Date.now()) / 1000));
+}
+
+function useAttemptTimer(
+  state: SkillTrainerAttemptState | null,
+  onExpire: () => void,
+) {
   const [remaining, setRemaining] = useState(state?.remainingSeconds ?? 0);
+  const expiredRef = useRef(false);
 
   useEffect(() => {
     if (!state) return;
-    setRemaining(state.remainingSeconds);
-    if (state.isCompleted) return;
+    expiredRef.current = false;
+    setRemaining(
+      state.isCompleted
+        ? state.remainingSeconds
+        : getAttemptRemainingSeconds(state),
+    );
+    if (state.isCompleted) {
+      expiredRef.current = true;
+      return;
+    }
 
     const interval = window.setInterval(() => {
-      setRemaining((prev) => {
-        const next = Math.max(0, prev - 1);
-        if (next === 0) onExpire();
-        return next;
-      });
+      const next = getAttemptRemainingSeconds(state);
+      setRemaining(next);
+      if (next === 0 && !expiredRef.current) {
+        expiredRef.current = true;
+        onExpire();
+      }
     }, 1000);
 
     return () => window.clearInterval(interval);
@@ -56,62 +106,382 @@ function useAttemptTimer(state: SkillTrainerAttemptState | null, onExpire: () =>
   return remaining;
 }
 
-function useActionFeedback() {
-  const [feedback, setFeedback] = useState<"correct" | "incorrect" | null>(null);
+type ActionFeedback = "correct" | "incorrect";
+type FeedbackOrigin = { id: number; x: number; y: number };
+type FeedbackOriginInput = { x: number; y: number };
 
-  const trackResult = useCallback((state: SkillTrainerAttemptState, prev: SkillTrainerAttemptState) => {
-    const delta = state.attempt.score - prev.attempt.score;
-    if (delta > 0) {
-      setFeedback("correct");
-    } else if (delta < 0) {
-      setFeedback("incorrect");
+function useActionFeedback() {
+  const [feedback, setFeedback] = useState<ActionFeedback | null>(null);
+  const [feedbackOrigin, setFeedbackOrigin] = useState<FeedbackOrigin | null>(
+    null,
+  );
+  const [scoreDelta, setScoreDelta] = useState<{
+    id: number;
+    value: number;
+  } | null>(null);
+  const clearFeedbackTimeoutRef = useRef<number | null>(null);
+  const clearScoreDeltaTimeoutRef = useRef<number | null>(null);
+  const feedbackOriginIdRef = useRef(0);
+  const scoreDeltaIdRef = useRef(0);
+
+  const showFeedback = useCallback(
+    (
+      nextFeedback: ActionFeedback,
+      origin?: { x: number; y: number } | null,
+    ) => {
+      if (clearFeedbackTimeoutRef.current != null) {
+        window.clearTimeout(clearFeedbackTimeoutRef.current);
+      }
+      feedbackOriginIdRef.current += 1;
+      setFeedback(nextFeedback);
+      setFeedbackOrigin({
+        id: feedbackOriginIdRef.current,
+        x: origin?.x ?? Math.round(window.innerWidth / 2),
+        y: origin?.y ?? Math.round(window.innerHeight * 0.42),
+      });
+      clearFeedbackTimeoutRef.current = window.setTimeout(() => {
+        setFeedback(null);
+        setFeedbackOrigin(null);
+        clearFeedbackTimeoutRef.current = null;
+      }, 600);
+    },
+    [],
+  );
+
+  const showScoreDelta = useCallback((value: number) => {
+    if (value === 0) return;
+    if (clearScoreDeltaTimeoutRef.current != null) {
+      window.clearTimeout(clearScoreDeltaTimeoutRef.current);
     }
-    window.setTimeout(() => setFeedback(null), 600);
+    scoreDeltaIdRef.current += 1;
+    setScoreDelta({ id: scoreDeltaIdRef.current, value });
+    clearScoreDeltaTimeoutRef.current = window.setTimeout(() => {
+      setScoreDelta(null);
+      clearScoreDeltaTimeoutRef.current = null;
+    }, 900);
   }, []);
 
-  return { feedback, trackResult };
+  const trackResult = useCallback(
+    (
+      state: SkillTrainerAttemptState,
+      prev: SkillTrainerAttemptState,
+      fallbackKind?: ActionFeedback | null,
+      origin?: { x: number; y: number } | null,
+    ) => {
+      const delta = state.attempt.score - prev.attempt.score;
+      if (delta !== 0) {
+        showScoreDelta(delta);
+        if (!fallbackKind) {
+          showFeedback(delta > 0 ? "correct" : "incorrect", origin);
+        }
+      } else if (fallbackKind) {
+        showFeedback(fallbackKind, origin);
+      }
+    },
+    [showFeedback, showScoreDelta],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (clearFeedbackTimeoutRef.current != null) {
+        window.clearTimeout(clearFeedbackTimeoutRef.current);
+      }
+      if (clearScoreDeltaTimeoutRef.current != null) {
+        window.clearTimeout(clearScoreDeltaTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  return { feedback, feedbackOrigin, scoreDelta, showFeedback, trackResult };
+}
+
+function getLocalActionFeedback(
+  trainerKey: UcatSkillTrainerKey,
+  state: SkillTrainerAttemptState,
+  payload: SubmitActionPayload,
+): ActionFeedback | null {
+  switch (trainerKey) {
+    case "find_word": {
+      if (payload.type !== "place_word") return null;
+      const content = asFindWordContent(state.currentItem?.content);
+      const keyword = content?.keywords.find(
+        (k) => k.id === payload.keyword_id,
+      );
+      if (!content || !keyword) return "incorrect";
+      const plain = extractSkillTrainerPlainText(content.passage, {
+        blockSeparator: "\n",
+      });
+      const validTarget = findFindWordKeywordOccurrences(plain, keyword).some(
+        (occurrence) =>
+          payload.character_index >= occurrence.start &&
+          payload.character_index < occurrence.end,
+      );
+      return validTarget ? "correct" : "incorrect";
+    }
+    case "find_concept": {
+      const content = asFindConceptContent(state.currentItem?.content);
+      if (!content) return null;
+      const foundIndexes =
+        state.attempt.progress?.type === "find_concept"
+          ? state.attempt.progress.found_occurrence_indexes
+          : [];
+      if (payload.type === "click_occurrence") {
+        const valid =
+          payload.occurrence_index >= 0 &&
+          payload.occurrence_index < (content.occurrences ?? []).length &&
+          !foundIndexes.includes(payload.occurrence_index);
+        return valid ? "correct" : "incorrect";
+      }
+      if (payload.type === "skip_concept") {
+        return "incorrect";
+      }
+      return null;
+    }
+    case "quick_syllogism": {
+      if (payload.type !== "syllogism_answer") return null;
+      const content = asQuickSyllogismContent(state.currentItem?.content);
+      if (!content) return null;
+      return payload.answer === content.answer ? "correct" : "incorrect";
+    }
+    case "mental_maths": {
+      if (payload.type !== "numeric_answer") return null;
+      const content = asMentalMathsContent(state.currentItem?.content);
+      if (!content) return null;
+      return Math.abs(payload.answer - content.answer) < 0.001
+        ? "correct"
+        : "incorrect";
+    }
+    case "numpad_speed": {
+      if (payload.type !== "numpad_sequence") return null;
+      const content = asNumpadSpeedContent(state.currentItem?.content);
+      if (!content) return null;
+      const expected = content.button_sequence.filter((btn) => btn !== "=");
+      const submitted = payload.sequence.filter((btn) => btn !== "=");
+      const correct =
+        submitted.length === expected.length &&
+        submitted.every((btn, index) => btn === expected[index]);
+      return correct ? "correct" : "incorrect";
+    }
+    case "calculator_maths": {
+      if (payload.type !== "numeric_answer") return null;
+      const content = asCalculatorMathsContent(state.currentItem?.content);
+      if (!content) return null;
+      return Math.abs(payload.answer - content.answer) < 0.001
+        ? "correct"
+        : "incorrect";
+    }
+  }
+}
+
+function isItemCompletingAction(
+  trainerKey: UcatSkillTrainerKey,
+  state: SkillTrainerAttemptState,
+  payload: SubmitActionPayload,
+): boolean {
+  switch (trainerKey) {
+    case "find_word": {
+      if (payload.type !== "place_word") return false;
+      const content = asFindWordContent(state.currentItem?.content);
+      if (!content) return false;
+      const keyword = content.keywords.find((k) => k.id === payload.keyword_id);
+      if (!keyword) return false;
+      const plain = extractSkillTrainerPlainText(content.passage, {
+        blockSeparator: "\n",
+      });
+      const validTarget = findFindWordKeywordOccurrences(plain, keyword).some(
+        (occurrence) =>
+          payload.character_index >= occurrence.start &&
+          payload.character_index < occurrence.end,
+      );
+      if (!validTarget) return false;
+      const placedIds =
+        state.attempt.progress?.type === "find_word"
+          ? state.attempt.progress.placed_keyword_ids
+          : [];
+      const nextPlacedIds = new Set([...placedIds, payload.keyword_id]);
+      return nextPlacedIds.size >= content.keywords.length;
+    }
+    case "find_concept": {
+      if (payload.type === "skip_concept") return true;
+      if (payload.type !== "click_occurrence") return false;
+      const content = asFindConceptContent(state.currentItem?.content);
+      if (!content) return false;
+      const foundIndexes =
+        state.attempt.progress?.type === "find_concept"
+          ? state.attempt.progress.found_occurrence_indexes
+          : [];
+      const occurrences = content.occurrences ?? [];
+      const valid =
+        payload.occurrence_index >= 0 &&
+        payload.occurrence_index < occurrences.length &&
+        !foundIndexes.includes(payload.occurrence_index);
+      if (!valid) return false;
+      return (
+        new Set([...foundIndexes, payload.occurrence_index]).size >=
+        occurrences.length
+      );
+    }
+    case "quick_syllogism": {
+      if (payload.type !== "syllogism_answer") return false;
+      return Boolean(asQuickSyllogismContent(state.currentItem?.content));
+    }
+    case "mental_maths":
+      return payload.type === "numeric_answer";
+    case "numpad_speed": {
+      if (payload.type !== "numpad_sequence") return false;
+      const content = asNumpadSpeedContent(state.currentItem?.content);
+      if (!content) return false;
+      const expected = content.button_sequence.filter((btn) => btn !== "=");
+      const submitted = payload.sequence.filter((btn) => btn !== "=");
+      return submitted.length > 0 || expected.length === 0;
+    }
+    case "calculator_maths":
+      return payload.type === "numeric_answer";
+  }
+}
+
+function advanceToPrefetchedItem(
+  state: SkillTrainerAttemptState,
+): SkillTrainerAttemptState | null {
+  if (!state.nextItem) return null;
+  return {
+    ...state,
+    attempt: {
+      ...state.attempt,
+      current_item_index: state.attempt.current_item_index + 1,
+      progress: null,
+    },
+    currentItem: state.nextItem,
+    nextItem: null,
+  };
 }
 
 export function SkillTrainerPlayPage({
   trainerKey,
-  attemptId,
+  studyPlanTaskId = null,
   embedded = false,
+  initialState,
+  localItems,
   onComplete,
+  onRestart,
 }: {
   trainerKey: UcatSkillTrainerKey;
-  attemptId: string;
+  studyPlanTaskId?: string | null;
   /** In-lesson embed: skip shell chrome and call onComplete when finished. */
   embedded?: boolean;
+  initialState?: SkillTrainerAttemptState;
+  localItems?: Array<{ id: string; content: Record<string, unknown> }>;
   onComplete?: () => void;
+  onRestart?: () => void;
 }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const slug = trainerKeyToSlug(trainerKey);
-  const [state, setState] = useState<SkillTrainerAttemptState | null>(null);
-  const [loading, setLoading] = useState(true);
+  const effectiveInitialState = initialState ?? null;
+  const [state, setState] = useState<SkillTrainerAttemptState | null>(
+    effectiveInitialState,
+  );
+  const [loading, setLoading] = useState(effectiveInitialState == null);
   const [actionError, setActionError] = useState<string | null>(null);
   const [numericInput, setNumericInput] = useState("");
   const [numpadInput, setNumpadInput] = useState<string[]>([]);
   const [calcEngine] = useState(() => createCalculatorEngine());
   const [calcDisplay, setCalcDisplay] = useState("0");
-  const [selectedKeywordId, setSelectedKeywordId] = useState<string | null>(null);
-  const [draggingKeywordId, setDraggingKeywordId] = useState<string | null>(null);
+  const [selectedKeywordId, setSelectedKeywordId] = useState<string | null>(
+    null,
+  );
+  const [draggingKeywordId, setDraggingKeywordId] = useState<string | null>(
+    null,
+  );
   const [answerFocus, setAnswerFocus] = useState(false);
+  const [actionInFlight, setActionInFlight] = useState(false);
+  const [optimisticAdvanced, setOptimisticAdvanced] = useState(false);
+  const actionInFlightRef = useRef(false);
+  const expiryWaitTimeoutRef = useRef<number | null>(null);
+  const initialStartPromiseRef =
+    useRef<Promise<SkillTrainerAttemptState> | null>(null);
+  const stateRef = useRef<SkillTrainerAttemptState | null>(
+    effectiveInitialState,
+  );
+  const completionNotifiedRef = useRef<string | null>(null);
   const numpadInputRef = useRef<string[]>([]);
+  const lastInteractionPointRef = useRef<{ x: number; y: number } | null>(null);
   const sidebarOverride = useSidebarOverride();
-  const { feedback, trackResult } = useActionFeedback();
+  const { reportActivityCompletion, setActivityComplete } =
+    useStudyPlanCompanion();
+  const { feedback, feedbackOrigin, scoreDelta, showFeedback, trackResult } =
+    useActionFeedback();
+  const localItemsById = useMemo(
+    () => new Map((localItems ?? []).map((item) => [item.id, item])),
+    [localItems],
+  );
+  const localMode = initialState != null;
   const inProgress = Boolean(state && !state.isCompleted && !embedded);
-  const { allowLeave } = useLeaveGuard(inProgress, LEAVE_MESSAGE);
+  const { confirmDiscard } = useLeaveGuard(inProgress, state?.attempt.id);
+
+  const applyState = useCallback((next: SkillTrainerAttemptState | null) => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
+
+  useEffect(() => {
+    if (embedded) return;
+    setActivityComplete(Boolean(state?.isCompleted));
+    return () => setActivityComplete(false);
+  }, [embedded, setActivityComplete, state?.isCompleted]);
+
+  useEffect(() => {
+    stateRef.current = state;
+  }, [state]);
+
+  const rememberInteractionPoint = useCallback(
+    (event: { clientX: number; clientY: number }) => {
+      if (event.clientX === 0 && event.clientY === 0) return;
+      lastInteractionPointRef.current = {
+        x: Math.round(event.clientX),
+        y: Math.round(event.clientY),
+      };
+    },
+    [],
+  );
 
   const refresh = useCallback(async () => {
-    const next = await skillTrainerApi.getAttempt(attemptId);
-    setState(next);
+    if (localMode) {
+      if (initialState) {
+        setState((current) => {
+          const next = current ?? initialState;
+          stateRef.current = next;
+          return next;
+        });
+      }
+      return initialState;
+    }
+    const currentAttemptId = stateRef.current?.attempt.id;
+    let next: SkillTrainerAttemptState;
+    if (currentAttemptId) {
+      next = await skillTrainerApi.getAttempt(currentAttemptId);
+    } else {
+      initialStartPromiseRef.current ??=
+        skillTrainerApi.startAttempt(trainerKey, studyPlanTaskId);
+      try {
+        next = await initialStartPromiseRef.current;
+      } catch (error) {
+        initialStartPromiseRef.current = null;
+        throw error;
+      }
+    }
+    applyState(next);
     return next;
-  }, [attemptId]);
+  }, [applyState, initialState, localMode, studyPlanTaskId, trainerKey]);
 
   useEffect(() => {
     void (async () => {
       try {
         await refresh();
+      } catch (error) {
+        setActionError(
+          error instanceof Error ? error.message : "Could not start trainer",
+        );
       } finally {
         setLoading(false);
       }
@@ -119,37 +489,192 @@ export function SkillTrainerPlayPage({
   }, [refresh]);
 
   const onExpire = useCallback(() => {
-    void refresh();
-  }, [refresh]);
+    if (localMode) {
+      setState((current) => {
+        const next =
+          current && !current.isCompleted
+            ? expireLocalSkillTrainerSession(current)
+            : current;
+        stateRef.current = next;
+        return next;
+      });
+      return;
+    }
+    const refreshWhenActionSettles = () => {
+      if (actionInFlightRef.current) {
+        expiryWaitTimeoutRef.current = window.setTimeout(
+          refreshWhenActionSettles,
+          100,
+        );
+        return;
+      }
+      expiryWaitTimeoutRef.current = null;
+      void refresh();
+    };
+    refreshWhenActionSettles();
+  }, [localMode, refresh]);
+
+  useEffect(() => {
+    return () => {
+      if (expiryWaitTimeoutRef.current != null) {
+        window.clearTimeout(expiryWaitTimeoutRef.current);
+      }
+    };
+  }, []);
 
   const remaining = useAttemptTimer(state, onExpire);
 
-  const cooldownUntil =
-    state?.attempt.progress && "cooldown_until" in state.attempt.progress
-      ? state.attempt.progress.cooldown_until
-      : null;
-  const cooldownActive = useCooldownActive(cooldownUntil);
+  const resetActionInputs = useCallback(
+    (options: { keepSelectedKeyword?: boolean } = {}) => {
+      setNumericInput("");
+      setNumpadInput([]);
+      numpadInputRef.current = [];
+      if (!options.keepSelectedKeyword) {
+        setSelectedKeywordId(null);
+      }
+      calcEngine.reset();
+      setCalcDisplay("0");
+    },
+    [calcEngine],
+  );
 
   const submit = useCallback(
-    async (payload: Parameters<typeof skillTrainerApi.submitAction>[1]) => {
-      if (!state) return;
+    async (payload: SubmitActionPayload, origin?: FeedbackOriginInput) => {
+      const currentState = stateRef.current;
+      if (
+        !currentState ||
+        currentState.isCompleted ||
+        actionInFlightRef.current
+      )
+        return;
+      actionInFlightRef.current = true;
+      setActionInFlight(true);
+      setOptimisticAdvanced(false);
       setActionError(null);
-      const prev = state;
+      const prev = currentState;
+      const localFeedback = getLocalActionFeedback(
+        trainerKey,
+        currentState,
+        payload,
+      );
+      const keepSelectedKeyword =
+        trainerKey === "find_word" &&
+        payload.type === "place_word" &&
+        localFeedback === "incorrect";
+      const actionOrigin = origin ?? lastInteractionPointRef.current;
+      resetActionInputs({ keepSelectedKeyword });
+      if (localFeedback) {
+        showFeedback(localFeedback, actionOrigin);
+      }
+      const optimisticProgressNext =
+        !localMode && localFeedback === "correct"
+          ? (() => {
+              if (trainerKey === "find_word" && payload.type === "place_word") {
+                const placed =
+                  currentState.attempt.progress?.type === "find_word"
+                    ? currentState.attempt.progress.placed_keyword_ids
+                    : [];
+                return {
+                  ...currentState,
+                  attempt: {
+                    ...currentState.attempt,
+                    progress: {
+                      type: "find_word" as const,
+                      placed_keyword_ids: [
+                        ...new Set([...placed, payload.keyword_id]),
+                      ],
+                    },
+                  },
+                };
+              }
+              if (
+                trainerKey !== "find_concept" ||
+                payload.type !== "click_occurrence"
+              ) {
+                return null;
+              }
+              const found =
+                currentState.attempt.progress?.type === "find_concept"
+                  ? currentState.attempt.progress.found_occurrence_indexes
+                  : [];
+              return {
+                ...currentState,
+                attempt: {
+                  ...currentState.attempt,
+                  progress: {
+                    type: "find_concept" as const,
+                    found_occurrence_indexes: [
+                      ...new Set([...found, payload.occurrence_index]),
+                    ],
+                  },
+                },
+              };
+            })()
+          : null;
+      const optimisticNext =
+        !localMode &&
+        isItemCompletingAction(trainerKey, currentState, payload) &&
+        currentState.nextItem
+          ? advanceToPrefetchedItem(currentState)
+          : null;
+      if (optimisticNext) {
+        applyState(optimisticNext);
+        setOptimisticAdvanced(true);
+      } else if (optimisticProgressNext) {
+        applyState(optimisticProgressNext);
+      }
       try {
-        const next = await skillTrainerApi.submitAction(attemptId, payload);
-        trackResult(next, prev);
-        setState(next);
-        setNumericInput("");
-        setNumpadInput([]);
-        setSelectedKeywordId(null);
-        calcEngine.reset();
-        setCalcDisplay("0");
+        if (localMode) {
+          const next = submitLocalSkillTrainerAction(
+            prev,
+            trainerKey,
+            payload,
+            localItemsById,
+            { completeOnQueueEnd: false },
+          );
+          trackResult(next, prev, localFeedback, actionOrigin);
+          applyState(next);
+          return;
+        }
+        const attemptId = currentState.attempt.id;
+        const next = await skillTrainerApi.submitAction(
+          attemptId,
+          payload,
+          prev.attempt.version,
+        );
+        trackResult(next, prev, localFeedback, actionOrigin);
+        applyState(next);
         if (next.isCompleted) return;
       } catch (err) {
+        if ((err as { stale?: boolean }).stale) {
+          const canonical = await skillTrainerApi.getAttempt(
+            currentState.attempt.id,
+          );
+          applyState(canonical);
+          setActionError(
+            "This attempt changed in another tab. Your latest state has been restored.",
+          );
+          return;
+        }
+        if (optimisticNext || optimisticProgressNext) {
+          applyState(prev);
+        }
         setActionError(err instanceof Error ? err.message : "Action failed");
+      } finally {
+        actionInFlightRef.current = false;
+        setActionInFlight(false);
+        setOptimisticAdvanced(false);
       }
     },
-    [attemptId, calcEngine, state, trackResult],
+    [
+      applyState,
+      localItemsById,
+      localMode,
+      resetActionInputs,
+      showFeedback,
+      trackResult,
+      trainerKey,
+    ],
   );
 
   const handleCalcKey = useCallback(
@@ -166,14 +691,10 @@ export function SkillTrainerPlayPage({
   const syllogismContent = asQuickSyllogismContent(state?.currentItem?.content);
   const mentalMathsContent = asMentalMathsContent(state?.currentItem?.content);
   const numpadContent = asNumpadSpeedContent(state?.currentItem?.content);
-  const calculatorMathsContent = asCalculatorMathsContent(state?.currentItem?.content);
-  const activeTrainerKey =
-    state?.attempt.config_snapshot.trainer_key ??
-    (state?.attempt.trainer_key && isUcatSkillTrainerKey(state.attempt.trainer_key)
-      ? state.attempt.trainer_key
-      : null);
-  const trainerMismatch =
-    activeTrainerKey != null && activeTrainerKey !== trainerKey;
+  const calculatorMathsContent = asCalculatorMathsContent(
+    state?.currentItem?.content,
+  );
+  const completedAttemptId = state?.isCompleted ? state.attempt.id : null;
   const hasRenderableContent =
     (trainerKey === "find_word" && Boolean(findWordContent)) ||
     (trainerKey === "find_concept" && Boolean(findConceptContent)) ||
@@ -203,55 +724,97 @@ export function SkillTrainerPlayPage({
   }, [sidebarOverride, state?.isCompleted, embedded]);
 
   useEffect(() => {
-    if (state?.isCompleted) {
-      void refresh();
-      if (embedded) {
+    if (completedAttemptId) {
+      if (completionNotifiedRef.current === completedAttemptId) return;
+      completionNotifiedRef.current = completedAttemptId;
+      if (!embedded) {
+        reportActivityCompletion({
+          title: "Skill trainer complete",
+          detail: `${state?.attempt.score ?? 0} points scored`,
+        });
+      }
+      if (!localMode) {
+        void queryClient.invalidateQueries({ queryKey: ["ucat-study-plan"] });
+        void queryClient.invalidateQueries({
+          queryKey: ["skill-trainers", "leaderboard", trainerKey],
+        });
+      }
+      if (embedded || localMode) {
         onComplete?.();
+      } else {
+        router.replace(`/skill-trainer/${slug}/results/${completedAttemptId}`);
       }
     }
-  }, [state?.isCompleted, refresh, embedded, onComplete]);
+  }, [
+    completedAttemptId,
+    embedded,
+    localMode,
+    onComplete,
+    queryClient,
+    reportActivityCompletion,
+    router,
+    slug,
+    state?.attempt.score,
+    trainerKey,
+  ]);
 
   useEffect(() => {
-    if (!state || !trainerMismatch || embedded || !activeTrainerKey) return;
-    router.replace(
-      `/skill-trainer/${trainerKeyToSlug(activeTrainerKey)}/play?attemptId=${attemptId}`,
-    );
-  }, [activeTrainerKey, attemptId, embedded, router, state, trainerMismatch]);
-
-  useEffect(() => {
-    setAnswerFocus(false);
+    setAnswerFocus(trainerKey === "calculator_maths");
     setNumericInput("");
     setNumpadInput([]);
     numpadInputRef.current = [];
     setSelectedKeywordId(null);
     calcEngine.reset();
     setCalcDisplay("0");
-  }, [currentItemId, calcEngine]);
+  }, [currentItemId, calcEngine, trainerKey]);
 
-  const submitNumpadSequence = useCallback(() => {
-    void submit({ type: "numpad_sequence", sequence: [...numpadInputRef.current] });
-  }, [submit]);
+  const submitNumpadSequenceFromOrigin = useCallback(
+    (origin?: FeedbackOriginInput) => {
+      void submit(
+        { type: "numpad_sequence", sequence: [...numpadInputRef.current] },
+        origin,
+      );
+    },
+    [submit],
+  );
 
   const appendNumpadKey = useCallback((key: string) => {
     setNumpadInput((prev) => {
-      const next = [...prev, key];
+      const next = applyNumpadKey(prev, key);
       numpadInputRef.current = next;
       return next;
     });
   }, []);
 
-  const handleExit = useCallback(() => {
-    if (!window.confirm(LEAVE_MESSAGE)) return;
-    allowLeave();
-    router.push(`/skill-trainer/${slug}`);
-  }, [allowLeave, router, slug]);
+  const handleExit = useCallback(async () => {
+    setActionError(null);
+    try {
+      if (await confirmDiscard()) {
+        router.push(`/skill-trainer/${slug}`);
+      }
+    } catch (error) {
+      setActionError(
+        error instanceof Error ? error.message : "Failed to discard attempt",
+      );
+    }
+  }, [confirmDiscard, router, slug]);
 
-  if (loading) return <p className="text-sm text-muted-foreground">Loading…</p>;
-  if (!state) return <p className="text-sm text-destructive">Attempt not found.</p>;
-  if (trainerMismatch) {
+  if (loading) {
     return (
-      <p className="text-sm text-muted-foreground">
-        Loading the active trainer…
+      <div
+        className="space-y-4"
+        aria-busy="true"
+        aria-label="Loading skill trainer"
+      >
+        <Skeleton className="h-8 w-52" />
+        <Skeleton className="h-[30rem] w-full rounded-xl" />
+      </div>
+    );
+  }
+  if (!state) {
+    return (
+      <p className="text-sm text-destructive">
+        {actionError ?? "Could not start skill trainer."}
       </p>
     );
   }
@@ -259,153 +822,191 @@ export function SkillTrainerPlayPage({
   if (state.isCompleted) {
     if (embedded) {
       return (
-        <div className="space-y-3 p-4 text-center">
-          <p className="text-lg font-semibold">Skill trainer complete</p>
-          <p className="text-sm text-muted-foreground">
-            Final score: {state.attempt.score}
-          </p>
+        <div className="flex min-h-[488px] flex-col gap-4">
+          <SkillTrainerScoreBar
+            remaining={0}
+            score={state.attempt.score}
+            streak={state.attempt.streak_count}
+            streakEnabled={state.attempt.config_snapshot.streak_enabled}
+            scoreDelta={null}
+          />
+          <div className="flex flex-1 flex-col items-center justify-center gap-4 text-center">
+            <div className="space-y-2">
+              <p className="text-xl font-semibold">Skill trainer complete</p>
+              <p className="text-4xl font-bold tabular-nums">
+                {state.attempt.score}
+              </p>
+              <p className="text-sm text-muted-foreground">Final score</p>
+            </div>
+            {onRestart ? (
+              <Button type="button" className="gap-2" onClick={onRestart}>
+                <RotateCcw className="h-4 w-4" aria-hidden />
+                Restart
+              </Button>
+            ) : null}
+          </div>
         </div>
       );
     }
     return (
-      <SkillTrainerCompleteScreen
-        trainerKey={trainerKey}
-        finalScore={state.attempt.score}
-        onLeave={allowLeave}
-      />
+      <div className="space-y-4" aria-busy="true" aria-label="Loading results">
+        <Skeleton className="h-32 w-full rounded-xl" />
+        <Skeleton className="h-64 w-full rounded-xl" />
+      </div>
     );
   }
 
   const score = state.attempt.score;
   const streak = state.attempt.streak_count;
-  const disabled = cooldownActive;
+  const disabled = actionInFlight && !optimisticAdvanced;
 
   return (
-    <div className="space-y-4">
-      {cooldownActive && cooldownUntil ? (
-        <CooldownOverlay
-          until={cooldownUntil}
-          durationSeconds={state.attempt.config_snapshot.wrong_cooldown_seconds}
-        />
-      ) : null}
-
-      <SkillTrainerScoreBar
-        remaining={remaining}
-        score={score}
-        streak={streak}
-        streakEnabled={state.attempt.config_snapshot.streak_enabled}
-        feedback={feedback}
-        onExit={handleExit}
-      />
-
-      {actionError ? <p className="text-sm text-destructive">{actionError}</p> : null}
-
-      {!hasRenderableContent ? (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
-          This trainer item could not be loaded. Exit and start a new trainer run.
+    <>
+      <ScoreBarFeedback feedback={feedback} origin={feedbackOrigin} />
+      <div
+        className="space-y-4"
+        onPointerDownCapture={rememberInteractionPoint}
+        onDropCapture={rememberInteractionPoint}
+      >
+        <div id="tour-skill-trainer-score">
+          <SkillTrainerScoreBar
+            remaining={remaining}
+            score={score}
+            streak={streak}
+            streakEnabled={state.attempt.config_snapshot.streak_enabled}
+            scoreDelta={scoreDelta}
+            onExit={embedded ? undefined : () => void handleExit()}
+          />
         </div>
-      ) : null}
 
-      {trainerKey === "find_word" && findWordContent ? (
-        <FindWordTrainer
-          content={findWordContent}
-          placedIds={
-            state.attempt.progress?.type === "find_word"
-              ? state.attempt.progress.placed_keyword_ids
-              : []
-          }
-          selectedKeywordId={selectedKeywordId}
-          draggingKeywordId={draggingKeywordId}
-          onSelectKeyword={setSelectedKeywordId}
-          onDragKeyword={setDraggingKeywordId}
-          disabled={disabled}
-          onPlace={(keywordId, sentenceIndex) =>
-            void submit({ type: "place_word", keyword_id: keywordId, sentence_index: sentenceIndex })
-          }
-        />
-      ) : null}
+        {actionError ? (
+          <p className="text-sm text-destructive">{actionError}</p>
+        ) : null}
 
-      {trainerKey === "find_concept" && findConceptContent ? (
-        <FindConceptTrainer
-          content={findConceptContent}
-          foundIndexes={
-            state.attempt.progress?.type === "find_concept"
-              ? state.attempt.progress.found_occurrence_indexes
-              : []
-          }
-          disabled={disabled}
-          onClickOccurrence={(index) =>
-            void submit({ type: "click_occurrence", occurrence_index: index })
-          }
-          onSubmit={() => void submit({ type: "submit_concept" })}
-        />
-      ) : null}
+        {!hasRenderableContent ? (
+          <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm text-destructive">
+            This trainer item could not be loaded. Exit and start a new trainer
+            run.
+          </div>
+        ) : null}
 
-      {trainerKey === "quick_syllogism" && syllogismContent ? (
-        <QuickSyllogismTrainer
-          content={syllogismContent}
-          disabled={disabled}
-          onAnswer={(answer) => void submit({ type: "syllogism_answer", answer })}
-        />
-      ) : null}
+        <div id="tour-skill-trainer-workspace">
+          {trainerKey === "find_word" && findWordContent ? (
+            <FindWordTrainer
+              content={findWordContent}
+              shuffleKey={currentItemId ?? undefined}
+              placedIds={
+                state.attempt.progress?.type === "find_word"
+                  ? state.attempt.progress.placed_keyword_ids
+                  : []
+              }
+              selectedKeywordId={selectedKeywordId}
+              draggingKeywordId={draggingKeywordId}
+              onSelectKeyword={setSelectedKeywordId}
+              onDragKeyword={setDraggingKeywordId}
+              disabled={disabled && trainerKey !== "find_word"}
+              onPlace={(keywordId, characterIndex) =>
+                void submit({
+                  type: "place_word",
+                  keyword_id: keywordId,
+                  character_index: characterIndex,
+                })
+              }
+            />
+          ) : null}
 
-      {trainerKey === "mental_maths" && mentalMathsContent ? (
-        <MentalMathsTrainer
-          content={mentalMathsContent}
-          value={numericInput}
-          inputKey={currentItemId ?? "mental"}
-          onChange={setNumericInput}
-          disabled={disabled}
-          onSubmit={() => {
-            const n = Number(numericInput);
-            if (Number.isNaN(n) || numericInput.trim() === "") return;
-            void submit({ type: "numeric_answer", answer: n });
-          }}
-        />
-      ) : null}
+          {trainerKey === "find_concept" && findConceptContent ? (
+            <FindConceptTrainer
+              content={findConceptContent}
+              foundIndexes={
+                state.attempt.progress?.type === "find_concept"
+                  ? state.attempt.progress.found_occurrence_indexes
+                  : []
+              }
+              disabled={disabled}
+              onClickOccurrence={(index) =>
+                void submit({
+                  type: "click_occurrence",
+                  occurrence_index: index,
+                })
+              }
+              onSkip={() => void submit({ type: "skip_concept" })}
+            />
+          ) : null}
 
-      {trainerKey === "numpad_speed" && numpadContent ? (
-        <NumpadTrainer
-          content={numpadContent}
-          sequence={numpadInput}
-          onCalcKey={(key) => {
-            if (key === "=") {
-              submitNumpadSequence();
-              return;
-            }
-            appendNumpadKey(key);
-          }}
-          onRemoveKey={(index) => {
-            setNumpadInput((prev) => {
-              const next = prev.filter((_, i) => i !== index);
-              numpadInputRef.current = next;
-              return next;
-            });
-          }}
-          onSubmit={submitNumpadSequence}
-          disabled={disabled}
-        />
-      ) : null}
+          {trainerKey === "quick_syllogism" && syllogismContent ? (
+            <QuickSyllogismTrainer
+              content={syllogismContent}
+              disabled={disabled}
+              onAnswer={(answer) =>
+                void submit({ type: "syllogism_answer", answer })
+              }
+            />
+          ) : null}
 
-      {trainerKey === "calculator_maths" && calculatorMathsContent ? (
-        <CalculatorMathsTrainer
-          content={calculatorMathsContent}
-          value={numericInput}
-          calcDisplay={calcDisplay}
-          answerFocused={answerFocus}
-          onAnswerFocus={() => setAnswerFocus(true)}
-          onCalcFocus={() => setAnswerFocus(false)}
-          onChange={setNumericInput}
-          onCalcKey={handleCalcKey}
-          disabled={disabled}
-          onSubmit={() => {
-            const n = Number(numericInput);
-            if (Number.isNaN(n) || numericInput.trim() === "") return;
-            void submit({ type: "numeric_answer", answer: n });
-          }}
-          RichContent={RichContentBlock}
-        />
-      ) : null}
-    </div>
+          {trainerKey === "mental_maths" && mentalMathsContent ? (
+            <MentalMathsTrainer
+              content={mentalMathsContent}
+              value={numericInput}
+              inputKey={currentItemId ?? "mental"}
+              onChange={setNumericInput}
+              disabled={disabled}
+              onSubmit={(origin) => {
+                const n = Number(numericInput);
+                if (Number.isNaN(n) || numericInput.trim() === "") return;
+                void submit({ type: "numeric_answer", answer: n }, origin);
+              }}
+            />
+          ) : null}
+
+          {trainerKey === "numpad_speed" && numpadContent ? (
+            <NumpadTrainer
+              content={numpadContent}
+              sequence={numpadInput}
+              onCalcKey={(key) => {
+                if (key === "=") {
+                  submitNumpadSequenceFromOrigin();
+                  return;
+                }
+                if (key === "ON/C") {
+                  appendNumpadKey(key);
+                  return;
+                }
+                appendNumpadKey(key);
+              }}
+              onRemoveKey={(index) => {
+                setNumpadInput((prev) => {
+                  const next = prev.filter((_, i) => i !== index);
+                  numpadInputRef.current = next;
+                  return next;
+                });
+              }}
+              onSubmit={submitNumpadSequenceFromOrigin}
+              disabled={disabled}
+            />
+          ) : null}
+
+          {trainerKey === "calculator_maths" && calculatorMathsContent ? (
+            <CalculatorMathsTrainer
+              content={calculatorMathsContent}
+              value={numericInput}
+              calcDisplay={calcDisplay}
+              answerFocused={answerFocus}
+              onAnswerFocus={() => setAnswerFocus(true)}
+              onCalcFocus={() => setAnswerFocus(false)}
+              onChange={setNumericInput}
+              onCalcKey={handleCalcKey}
+              disabled={disabled}
+              onSubmit={(origin) => {
+                const n = Number(numericInput);
+                if (Number.isNaN(n) || numericInput.trim() === "") return;
+                void submit({ type: "numeric_answer", answer: n }, origin);
+              }}
+              RichContent={SkillTrainerThemedRichContent}
+            />
+          ) : null}
+        </div>
+      </div>
+    </>
   );
 }

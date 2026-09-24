@@ -9,6 +9,7 @@ export default function LoginPage() {
   const searchParams = useSearchParams();
   const resetSuccess = searchParams.get('reset') === 'success';
   const error = searchParams.get('error');
+  const message = searchParams.get('message');
 
   return (
     <LoginPageLayout>
@@ -24,6 +25,11 @@ export default function LoginPage() {
         {error && (
           <Alert variant="destructive">
             <AlertDescription>{decodeURIComponent(error)}</AlertDescription>
+          </Alert>
+        )}
+        {message && (
+          <Alert>
+            <AlertDescription>{message}</AlertDescription>
           </Alert>
         )}
         <LoginForm />

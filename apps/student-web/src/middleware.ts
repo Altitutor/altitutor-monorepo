@@ -1,169 +1,229 @@
-import { NextResponse } from 'next/server';
-import type { NextRequest } from 'next/server';
-import { createServerClient } from '@supabase/ssr';
-import type { Database } from '@altitutor/shared';
-import type { PostgrestError } from '@supabase/supabase-js';
+import * as Sentry from "@sentry/nextjs";
+import {
+  getClaimsWithJwtIssuedInFutureRetry,
+  headersWithVerifiedUser,
+  isUnauthenticatedSessionError,
+  type Database,
+} from "@altitutor/shared";
+import { createServerClient } from "@supabase/ssr";
+import { NextResponse, type NextRequest } from "next/server";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
+import { getMarketingLandingUrl } from "@/shared/lib/marketing-home-url";
 
-export async function middleware(req: NextRequest) {
-  const { pathname, origin } = new URL(req.url);
+const SESSION_DEADLINE_MS = 10_000;
+const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
+const RETRY_AFTER_SECONDS = 5;
 
-  if (pathname.startsWith('/auth/callback&')) {
-    const redirectUrl = new URL(req.url);
-    redirectUrl.pathname = '/auth/callback';
-    redirectUrl.search = pathname.slice('/auth/callback&'.length);
+type CookieToSet = {
+  name: string;
+  value: string;
+  options?: Parameters<NextResponse["cookies"]["set"]>[2];
+};
+
+function forwardRequest(request: NextRequest, userId: string | null) {
+  return NextResponse.next({
+    request: { headers: headersWithVerifiedUser(request.headers, userId) },
+  });
+}
+
+function createDeadline() {
+  const controller = new AbortController();
+  let timeout: ReturnType<typeof setTimeout>;
+  const expiration = new Promise<never>((_resolve, reject) => {
+    timeout = setTimeout(() => {
+      controller.abort();
+      reject(new Error("Student session dependency deadline exceeded"));
+    }, SESSION_DEADLINE_MS);
+  });
+  return {
+    fetch: (input: RequestInfo | URL, init: RequestInit = {}) =>
+      fetch(input, { ...init, signal: controller.signal }),
+    race<T>(operation: PromiseLike<T>) {
+      return Promise.race([Promise.resolve(operation), expiration]);
+    },
+    dispose: () => clearTimeout(timeout),
+  };
+}
+
+function field(error: unknown, key: string) {
+  if (typeof error !== "object" || error === null) return null;
+  const value = (error as Record<string, unknown>)[key];
+  return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
+  cookies.forEach(({ name, value, options }) => response.cookies.set(name, value, options));
+  Object.entries(headers).forEach(([name, value]) => response.headers.set(name, value));
+  response.headers.set("Cache-Control", "private, no-store");
+  return response;
+}
+
+function unavailable(
+  request: NextRequest,
+  startedAt: number,
+  error: unknown,
+  cookies: CookieToSet[],
+  headers: Record<string, string>,
+) {
+  Sentry.captureMessage("Middleware dependency unavailable", {
+    level: "error",
+    fingerprint: ["middleware-dependency-unavailable", "student-web", "authentication"],
+    tags: {
+      app: "student-web",
+      dependency_stage: "authentication",
+      http_status: "503",
+      supabase_error_code: field(error, "code") ?? field(error, "name") ?? "unknown",
+    },
+    extra: {
+      elapsed_ms: Math.max(0, Date.now() - startedAt),
+      error_message: field(error, "message"),
+      request_method: request.method,
+      request_path: request.nextUrl.pathname,
+    },
+  });
+  return applyMetadata(
+    new NextResponse("Student portal services are temporarily unavailable. Please retry.", {
+      status: 503,
+      headers: { "Retry-After": String(RETRY_AFTER_SECONDS) },
+    }),
+    cookies,
+    headers,
+  );
+}
+
+function captureRecoveredClockSkew(startedAt: number) {
+  Sentry.captureMessage("Middleware JWT clock skew recovered", {
+    level: "warning",
+    fingerprint: ["middleware-jwt-clock-skew", "student-web"],
+    tags: {
+      app: "student-web",
+      dependency_stage: "authentication",
+      retry_outcome: "recovered",
+    },
+    extra: { elapsed_ms: Math.max(0, Date.now() - startedAt) },
+  });
+}
+
+/** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
+export async function handleAuthRequest(request: NextRequest) {
+  const startedAt = Date.now();
+  const { pathname, search, origin, host } = request.nextUrl;
+  const marketingLandingUrl = getMarketingLandingUrl(host);
+  if (request.method === "OPTIONS") return forwardRequest(request, null);
+
+  if (pathname.startsWith("/auth/callback&")) {
+    const redirectUrl = new URL(request.url);
+    redirectUrl.pathname = "/auth/callback";
+    redirectUrl.search = pathname.slice("/auth/callback&".length);
     return NextResponse.redirect(redirectUrl);
   }
 
-  const isPublicPath =
-    pathname === '/' ||
-    pathname.startsWith('/login') ||
-    pathname.startsWith('/forgot-password') ||
-    pathname.startsWith('/reset-password') ||
-    pathname.startsWith('/invite/') ||
-    pathname.startsWith('/register/') ||
-    pathname.startsWith('/auth/') ||
-    pathname.startsWith('/booking/trial-session') ||
-    pathname.startsWith('/booking-success');
+  const isPublic =
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/forgot-password") ||
+    pathname.startsWith("/reset-password") ||
+    pathname.startsWith("/invite/") ||
+    pathname.startsWith("/register/") ||
+    pathname.startsWith("/r/") ||
+    pathname.startsWith("/b/") ||
+    pathname.startsWith("/auth/") ||
+    pathname.startsWith("/form/") ||
+    pathname.startsWith("/booking/trial-session") ||
+    pathname.startsWith("/booking-success") ||
+    pathname.startsWith("/sentry-example-page");
+  if (pathname.startsWith("/api") || isPublic)
+    return forwardRequest(request, null);
 
-  if (isPublicPath) {
-    return NextResponse.next({
-      request: req,
-    });
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  const cookies: CookieToSet[] = [];
+  const responseHeaders: Record<string, string> = {};
+  if (!supabaseUrl || !supabaseAnonKey) {
+    return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }
 
-  let supabaseResponse = NextResponse.next({
-    request: req,
-  });
-
-  const supabase = createServerClient<Database>(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
+  const deadline = createDeadline();
+  const supabase = instrumentSupabaseClient(
+    createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
       cookies: {
-        getAll() {
-          return req.cookies.getAll();
-        },
-        setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => {
-            req.cookies.set(name, value);
+        getAll: () => request.cookies.getAll(),
+        setAll(updatedCookies, updatedHeaders) {
+          updatedCookies.forEach(({ name, value }) => request.cookies.set(name, value));
+          updatedCookies.forEach((cookie) => {
+            const index = cookies.findIndex((current) => current.name === cookie.name);
+            if (index >= 0) cookies[index] = cookie;
+            else cookies.push(cookie);
           });
-          supabaseResponse = NextResponse.next({
-            request: req,
-          });
-          cookiesToSet.forEach(({ name, value, options }) => {
-            supabaseResponse.cookies.set(name, value, options);
-          });
+          Object.assign(responseHeaders, updatedHeaders);
         },
       },
-      cookieOptions: {
-        name: 'student-auth',
-      },
-    }
+      cookieOptions: { name: "student-auth" },
+      global: { fetch: deadline.fetch },
+    }),
   );
 
-  // For API routes, we just refresh the token but don't redirect
-  // The API route itself will handle auth checks
-  if (pathname.startsWith('/api')) {
-    return supabaseResponse;
-  }
-
-  // IMPORTANT: Use getUser() to validate and refresh auth token
-  // This validates the token with Supabase Auth server (secure)
-  // getSession() reads from cookies without validation (insecure)
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  // Determine portal URLs based on environment
-  const adminPortalUrl = process.env.NEXT_PUBLIC_ADMIN_PORTAL_URL || 'http://localhost:3000';
-  const tutorPortalUrl = process.env.NEXT_PUBLIC_TUTOR_PORTAL_URL || 'http://localhost:3002';
-
-  // If no user and trying to access protected route, redirect to login
-  if (!user) {
-    const redirectResponse = NextResponse.redirect(new URL('/login', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // Check if user is a student using vstudent_profile view
-  // This view is accessible to students (unlike the students table which has RLS blocking direct access)
-  // The view automatically filters to the current user's record via current_student_id() function
-  // Type assertion needed because view may not be in generated types
-  const { data: student, error: studentError } = await (supabase as unknown as {
-    from: (table: string) => {
-      select: (columns: string) => {
-        maybeSingle: () => Promise<{ data: { id: string } | null; error: PostgrestError | null }>;
-      };
-    };
-  })
-    .from('vstudent_profile')
-    .select('id')
-    .maybeSingle();
-
-  if (studentError) {
-    // Error fetching student - continue with flow
-  }
-
-  // Check if user is staff (should not be on student portal)
-  const { data: staff, error: staffError } = await supabase
-    .from('staff')
-    .select('role')
-    .eq('user_id', user.id)
-    .maybeSingle() as { data: { role: 'ADMINSTAFF' | 'TUTOR' } | null; error: PostgrestError | null };
-
-  if (staffError) {
-    // Error fetching staff - continue with flow
-  }
-
-  // If user is staff, redirect them to appropriate portal
-  if (staff) {
-    const role = staff.role;
-    if (role === 'ADMINSTAFF') {
-      const redirectResponse = NextResponse.redirect(new URL('/admin/dashboard', adminPortalUrl));
-      // Copy cookies from supabaseResponse to redirectResponse
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
-      });
-      return redirectResponse;
-    } else if (role === 'TUTOR') {
-      const redirectResponse = NextResponse.redirect(new URL('/dashboard', tutorPortalUrl));
-      // Copy cookies from supabaseResponse to redirectResponse
-      supabaseResponse.cookies.getAll().forEach((cookie) => {
-        redirectResponse.cookies.set(cookie.name, cookie.value);
-      });
-      return redirectResponse;
+  try {
+    let claims: Awaited<ReturnType<typeof supabase.auth.getClaims>>;
+    try {
+      claims = await getClaimsWithJwtIssuedInFutureRetry(
+        () => deadline.race(supabase.auth.getClaims()),
+        () =>
+          deadline.race(
+            new Promise((resolve) =>
+              setTimeout(resolve, JWT_CLOCK_SKEW_RETRY_MS),
+            ),
+          ),
+        () => captureRecoveredClockSkew(startedAt),
+      );
+    } catch (error) {
+      if (isUnauthenticatedSessionError(error)) {
+        if (pathname === "/") {
+          return applyMetadata(
+            NextResponse.redirect(marketingLandingUrl),
+            cookies,
+            responseHeaders,
+          );
+        }
+        const loginUrl = new URL("/login", origin);
+        loginUrl.searchParams.set("next", `${pathname}${search}`);
+        return applyMetadata(
+          NextResponse.redirect(loginUrl),
+          cookies,
+          responseHeaders,
+        );
+      }
+      return unavailable(request, startedAt, error, cookies, responseHeaders);
     }
+    const missingSession = isUnauthenticatedSessionError(claims.error);
+    if (claims.error && !missingSession) {
+      return unavailable(request, startedAt, claims.error, cookies, responseHeaders);
+    }
+    const userId = claims.data?.claims?.sub;
+    if (missingSession || !userId) {
+      if (pathname === "/") {
+        return applyMetadata(NextResponse.redirect(marketingLandingUrl), cookies, responseHeaders);
+      }
+      const loginUrl = new URL("/login", origin);
+      loginUrl.searchParams.set("next", `${pathname}${search}`);
+      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
+    }
+    if (pathname === "/") {
+      return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
+    }
+    return applyMetadata(
+      forwardRequest(request, userId),
+      cookies,
+      responseHeaders,
+    );
+  } finally {
+    deadline.dispose();
   }
-
-  // If user is not a student, block access
-  if (!student) {
-    const redirectResponse = NextResponse.redirect(new URL('/login?error=access_denied', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // Redirect root path to dashboard
-  if (pathname === '/') {
-    const redirectResponse = NextResponse.redirect(new URL('/dashboard', origin));
-    // Copy cookies from supabaseResponse to redirectResponse
-    supabaseResponse.cookies.getAll().forEach((cookie) => {
-      redirectResponse.cookies.set(cookie.name, cookie.value);
-    });
-    return redirectResponse;
-  }
-
-  // IMPORTANT: Return the supabaseResponse object to preserve cookie updates
-  return supabaseResponse;
 }
+
+export const middleware = handleAuthRequest;
 
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)',
+    "/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|\\.well-known/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|css|js|map|txt|xml|json|woff|woff2)$).*)",
   ],
 };

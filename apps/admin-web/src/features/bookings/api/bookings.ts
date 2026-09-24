@@ -1,6 +1,7 @@
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { linkStudentParents } from '@/features/students/api/linkStudentParents';
 
 export interface CreateBookingInput {
   session_type: 'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW';
@@ -14,8 +15,8 @@ export interface CreateBookingInput {
   // Trial session student/parent details (only used when creating new trial session)
   trial_student_data?: {
     student_first_name: string;
-    student_last_name: string;
-    student_phone: string;
+    student_last_name?: string;
+    student_phone?: string;
     student_email?: string;
     curriculum?: string;
     year_level?: number;
@@ -27,6 +28,13 @@ export interface CreateBookingInput {
     parent_last_name?: string;
     parent_email?: string;
     parent_phone?: string;
+    existing_parent_ids?: string[];
+    additional_new_parents?: Array<{
+      first_name: string;
+      last_name: string;
+      email?: string;
+      phone?: string | null;
+    }>;
   };
 }
 
@@ -70,8 +78,8 @@ export const bookingsApi = {
     if (input.session_type === 'TRIAL_SESSION' && input.trial_student_data && !input.student_id) {
       const { data, error } = await supabase.rpc('create_admin_trial_booking', {
         p_student_first_name: input.trial_student_data.student_first_name,
-        p_student_last_name: input.trial_student_data.student_last_name,
-        p_student_phone: input.trial_student_data.student_phone,
+        p_student_last_name: input.trial_student_data.student_last_name || '',
+        p_student_phone: input.trial_student_data.student_phone || '',
         p_start_at: input.start_at,
         p_end_at: input.end_at,
         p_created_by: user.id,
@@ -92,8 +100,18 @@ export const bookingsApi = {
       }
       if (!data) throw new Error('Failed to create trial booking: no data returned');
       
-      // The function returns JSONB with session_id
-      const result = data as { session_id: string };
+      // The function returns JSONB with session_id (and student_id)
+      const result = data as { session_id: string; student_id?: string };
+      const remainingExistingIds = input.trial_parent_data?.existing_parent_ids ?? [];
+      const additionalNewParents = input.trial_parent_data?.additional_new_parents ?? [];
+      if (result.student_id && (remainingExistingIds.length > 0 || additionalNewParents.length > 0)) {
+        await linkStudentParents({
+          studentId: result.student_id,
+          existingParentIds: remainingExistingIds,
+          newParents: additionalNewParents,
+          sessionId: result.session_id,
+        });
+      }
       return result.session_id;
     }
 

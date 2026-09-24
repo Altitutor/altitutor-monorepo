@@ -51,24 +51,24 @@ jest.mock('../StaffSelector', () => ({
   ),
 }));
 
-jest.mock('../AdminTrialContactForm', () => ({
-  AdminTrialContactForm: ({
-    onSubmit,
-    onFormReady,
-    onValidityChange,
+jest.mock('../steps/TrialStudentSelectionStep', () => ({
+  TrialStudentSelectionStep: ({
+    students,
+    selectedStudentId,
+    isCreatingStudent,
   }: {
-    onSubmit: (data: { firstName: string; lastName: string }) => void;
-    onFormReady: (form: { requestSubmit: () => void }) => void;
-    onValidityChange: (valid: boolean) => void;
+    students: Array<{ id: string; first_name: string | null; last_name: string | null }> | undefined;
+    selectedStudentId: string | null;
+    isCreatingStudent: boolean;
   }) => (
-    <div data-testid="trial-contact-form">
-      <button onClick={() => {
-        onFormReady({ requestSubmit: jest.fn() });
-        onValidityChange(true);
-        onSubmit({ firstName: 'New', lastName: 'Student' });
-      }}>
-        Submit Form
-      </button>
+    <div data-testid="trial-student-selection-step">
+      <div>{isCreatingStudent ? 'Creating Student' : 'Selecting Student'}</div>
+      {students?.map((s: { id: string; first_name: string | null; last_name: string | null }) => (
+        <button key={s.id}>
+          {s.first_name} {s.last_name}
+        </button>
+      ))}
+      {selectedStudentId && <div>Selected: {selectedStudentId}</div>}
     </div>
   ),
 }));
@@ -133,6 +133,7 @@ const createMockHookReturn = (overrides = {}) => ({
   selectedSubjectId: '',
   selectedSlot: null,
   selectedStaffId: '',
+  isCreatingTrialStudent: false,
   trialContactData: null,
   trialContactFormRef: null,
   trialFormValid: false,
@@ -166,6 +167,9 @@ const createMockHookReturn = (overrides = {}) => ({
   setSelectedStudentId: jest.fn(),
   setSelectedSubjectId: jest.fn(),
   setSelectedStaffId: jest.fn(),
+  handleStartCreatingTrialStudent: jest.fn(),
+  handleCancelCreatingTrialStudent: jest.fn(),
+  handleSelectExistingTrialStudent: jest.fn(),
   setTrialContactFormRef: jest.fn(),
   setTrialFormValid: jest.fn(),
   handleSlotSelect: jest.fn(),
@@ -308,16 +312,19 @@ describe('BookSessionModal', () => {
     it('should render trial contact form for TRIAL_SESSION', () => {
       mockUseBookSessionFlow.mockReturnValue(createMockHookReturn({
         currentStepId: 'trial-contact',
-        currentStepData: { id: 'trial-contact', title: 'Student Details' },
+        currentStepData: { id: 'trial-contact', title: 'Select or Create Student' },
         steps: [
-          { id: 'trial-contact', title: 'Student Details' },
+          { id: 'trial-contact', title: 'Select or Create Student' },
           { id: 'time', title: 'Select Time' },
+        ],
+        studentsData: [
+          { id: 'student-1', first_name: 'Existing', last_name: 'Student' },
         ],
       }));
 
       renderWithProviders(<BookSessionModal {...defaultProps} sessionType="TRIAL_SESSION" />);
 
-      expect(screen.getByTestId('trial-contact-form')).toBeInTheDocument();
+      expect(screen.getByTestId('trial-student-selection-step')).toBeInTheDocument();
     });
 
     it('should render subject selection step', () => {

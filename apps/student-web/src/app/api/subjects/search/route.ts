@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -40,6 +41,7 @@ export async function GET(request: NextRequest) {
 
     if (rpcError) {
       console.error('Error searching subjects:', rpcError);
+      captureApiError(rpcError, "/api/subjects/search");
       return NextResponse.json(
         { error: 'Failed to search subjects' },
         { status: 500 }
@@ -68,6 +70,7 @@ export async function GET(request: NextRequest) {
       total: rpcData?.total ?? 0,
     });
   } catch (error) {
+    captureApiError(error, "/api/subjects/search");
     console.error('Error in GET /api/subjects/search:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

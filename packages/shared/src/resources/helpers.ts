@@ -154,25 +154,44 @@ export function formatResourceTypeLabel(type: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Filename shown in resource lists — last extension stripped, e.g. `notes.pdf` → `notes`. */
+export function displayResourceFilename(filename: string): string {
+  const lastDot = filename.lastIndexOf('.');
+  if (lastDot <= 0) return filename;
+  return filename.slice(0, lastDot);
+}
+
+/** `{file code} · {filename without extension}` for resource cards and sidebars. */
+export function formatResourceFileLabel(file: Pick<ResourceFile, 'code' | 'filename'>): string {
+  return `${file.code} · ${displayResourceFilename(file.filename)}`;
+}
+
+function primaryFilesOfType(file: ResourceFile, topicFiles: ResourceFile[]): ResourceFile[] {
+  return topicFiles
+    .filter((f) => f.type === file.type && !f.isSolutions)
+    .sort((a, b) => a.index - b.index || a.code.localeCompare(b.code));
+}
+
 /**
  * Builds the canonical file title used on the file detail page.
  *
  * Format: `{file code} {topic name} {file type} {index?}`
  * The trailing index is only appended when the topic has more than
- * one file of the same type (so a single Test stays "Test", but
- * three Tests become "Test 1", "Test 2", "Test 3").
+ * one primary file of the same type (so a single Test stays "Test", but
+ * three Tests become "Test 1", "Test 2", "Test 3"). A linked solutions
+ * file uses its primary's position and does not count as a second file.
  */
 export function buildResourceFileTitle(
   file: ResourceFile,
   topicName: string | null,
   topicFiles: ResourceFile[],
 ): string {
-  const sameType = topicFiles
-    .filter((f) => f.type === file.type)
-    .sort((a, b) => a.index - b.index || a.code.localeCompare(b.code));
-  const positionInType = sameType.findIndex((f) => f.id === file.id) + 1;
+  const primaries = primaryFilesOfType(file, topicFiles);
+  const targetId = file.isSolutions && file.isSolutionsOfId ? file.isSolutionsOfId : file.id;
+  const positionInType = primaries.findIndex((f) => f.id === targetId) + 1;
   const typeLabelText = formatResourceTypeLabel(file.type);
-  const typeWithIndex = sameType.length > 1 ? `${typeLabelText} ${positionInType}` : typeLabelText;
+  const typeWithIndex =
+    primaries.length > 1 && positionInType > 0 ? `${typeLabelText} ${positionInType}` : typeLabelText;
 
   return [file.code, topicName ?? '', typeWithIndex]
     .map((part) => part.trim())

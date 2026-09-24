@@ -4,10 +4,6 @@ import { useEffect, useState, type MouseEvent, type ReactNode } from 'react'
 import type { Editor } from '@tiptap/react'
 import {
   Bold,
-  BetweenHorizontalEnd,
-  BetweenHorizontalStart,
-  BetweenVerticalEnd,
-  BetweenVerticalStart,
   Code,
   Code2,
   Heading1,
@@ -25,7 +21,83 @@ import {
   Undo,
 } from 'lucide-react'
 import { cn } from '../lib/cn'
+import {
+  navActiveStyles,
+  navHoverStyles,
+  navItemTransitionStyles,
+} from '../lib/styles'
 import { Button } from './button'
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from './tooltip'
+
+/** Lucide-style icons: a column/row block + plus on the insert side (clearer than Between*). */
+function TableIconBase({
+  className,
+  children,
+}: {
+  className?: string
+  children: ReactNode
+}) {
+  return (
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      className={className}
+      aria-hidden
+    >
+      {children}
+    </svg>
+  )
+}
+
+function InsertColumnBeforeIcon({ className }: { className?: string }) {
+  return (
+    <TableIconBase className={className}>
+      <rect x="14" y="3" width="7" height="18" rx="1" />
+      <path d="M8 12H2" />
+      <path d="M5 9v6" />
+    </TableIconBase>
+  )
+}
+
+function InsertColumnAfterIcon({ className }: { className?: string }) {
+  return (
+    <TableIconBase className={className}>
+      <rect x="3" y="3" width="7" height="18" rx="1" />
+      <path d="M16 12h6" />
+      <path d="M19 9v6" />
+    </TableIconBase>
+  )
+}
+
+function InsertRowBeforeIcon({ className }: { className?: string }) {
+  return (
+    <TableIconBase className={className}>
+      <rect x="3" y="14" width="18" height="7" rx="1" />
+      <path d="M12 8V2" />
+      <path d="M9 5h6" />
+    </TableIconBase>
+  )
+}
+
+function InsertRowAfterIcon({ className }: { className?: string }) {
+  return (
+    <TableIconBase className={className}>
+      <rect x="3" y="3" width="18" height="7" rx="1" />
+      <path d="M12 16v6" />
+      <path d="M9 19h6" />
+    </TableIconBase>
+  )
+}
 
 export interface RichTextEditorBottomToolbarProps {
   editor: Editor | null
@@ -43,8 +115,11 @@ function isCursorInTable(editor: Editor): boolean {
   )
 }
 
-const toolbarIconButtonClass =
-  'h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current'
+const toolbarIconButtonClass = cn(
+  'h-8 w-8 p-0',
+  navItemTransitionStyles,
+  navHoverStyles,
+)
 
 /** Scrolls horizontally on narrow viewports; centers row when it fits. */
 export const RICH_TEXT_BOTTOM_TOOLBAR_OUTER_CLASS =
@@ -61,6 +136,45 @@ function handleToolbarMouseDown(event: MouseEvent) {
   event.preventDefault()
 }
 
+function ToolbarIconButton({
+  label,
+  onClick,
+  disabled,
+  active,
+  children,
+}: {
+  label: string
+  onClick: () => void
+  disabled?: boolean
+  active?: boolean
+  children: ReactNode
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        {/* Span keeps tooltips working when the button is disabled */}
+        <span className="inline-flex">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={onClick}
+            disabled={disabled}
+            aria-label={label}
+            className={cn(
+              toolbarIconButtonClass,
+              active && navActiveStyles,
+            )}
+          >
+            {children}
+          </Button>
+        </span>
+      </TooltipTrigger>
+      <TooltipContent side="top">{label}</TooltipContent>
+    </Tooltip>
+  )
+}
+
 function ToolbarFrame({
   className,
   innerClassName,
@@ -73,15 +187,17 @@ function ToolbarFrame({
   children: ReactNode
 }) {
   return (
-    <div
-      className={className}
-      data-rich-text-toolbar
-      onMouseDown={handleToolbarMouseDown}
-    >
-      <div className={innerClassName}>
-        <div className={rowClassName}>{children}</div>
+    <TooltipProvider delayDuration={300}>
+      <div
+        className={className}
+        data-rich-text-toolbar
+        onMouseDown={handleToolbarMouseDown}
+      >
+        <div className={innerClassName}>
+          <div className={rowClassName}>{children}</div>
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   )
 }
 
@@ -144,75 +260,51 @@ export function RichTextEditorBottomToolbar({
         innerClassName={chrome.inner}
         rowClassName={cn('inline-flex min-w-full flex-nowrap items-center gap-1', chrome.row)}
       >
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+        <ToolbarIconButton
+          label="Add column before"
           onClick={() => editor.chain().focus().addColumnBefore().run()}
           disabled={!editor.can().addColumnBefore()}
-          className={toolbarIconButtonClass}
-          title="Add column before"
         >
-          <BetweenHorizontalStart className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+          <InsertColumnBeforeIcon className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Add column after"
           onClick={() => editor.chain().focus().addColumnAfter().run()}
           disabled={!editor.can().addColumnAfter()}
-          className={toolbarIconButtonClass}
-          title="Add column after"
         >
-          <BetweenHorizontalEnd className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+          <InsertColumnAfterIcon className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Delete column"
           onClick={() => editor.chain().focus().deleteColumn().run()}
           disabled={!editor.can().deleteColumn()}
-          className={toolbarIconButtonClass}
-          title="Delete column"
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </ToolbarIconButton>
 
         <div className="mx-1 h-6 w-px bg-border" />
 
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+        <ToolbarIconButton
+          label="Add row before"
           onClick={() => editor.chain().focus().addRowBefore().run()}
           disabled={!editor.can().addRowBefore()}
-          className={toolbarIconButtonClass}
-          title="Add row before"
         >
-          <BetweenVerticalStart className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+          <InsertRowBeforeIcon className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Add row after"
           onClick={() => editor.chain().focus().addRowAfter().run()}
           disabled={!editor.can().addRowAfter()}
-          className={toolbarIconButtonClass}
-          title="Add row after"
         >
-          <BetweenVerticalEnd className="h-4 w-4" />
-        </Button>
-        <Button
-          type="button"
-          variant="ghost"
-          size="sm"
+          <InsertRowAfterIcon className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Delete row"
           onClick={() => editor.chain().focus().deleteRow().run()}
           disabled={!editor.can().deleteRow()}
-          className={toolbarIconButtonClass}
-          title="Delete row"
         >
           <Trash2 className="h-4 w-4" />
-        </Button>
+        </ToolbarIconButton>
       </ToolbarFrame>
     )
   }
@@ -224,58 +316,34 @@ export function RichTextEditorBottomToolbar({
         innerClassName={chrome.inner}
         rowClassName={cn('inline-flex min-w-full flex-nowrap items-center gap-1', chrome.row)}
       >
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleBold().run()}
-              className={cn(
-                'h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current',
-                editor.isActive('bold') && 'bg-accent',
-              )}
-              title="Bold"
-            >
-              <Bold className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleItalic().run()}
-              className={cn(
-                'h-8 w-8 p-0 hover:bg-transparent',
-                editor.isActive('italic') && 'bg-accent',
-              )}
-              title="Italic"
-            >
-              <Italic className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleStrike().run()}
-              className={cn(
-                'h-8 w-8 p-0 hover:bg-transparent',
-                editor.isActive('strike') && 'bg-accent',
-              )}
-              title="Strikethrough"
-            >
-              <Strikethrough className="h-4 w-4" />
-            </Button>
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              onClick={() => editor.chain().focus().toggleCode().run()}
-              className={cn(
-                'h-8 w-8 p-0 hover:bg-transparent',
-                editor.isActive('code') && 'bg-accent',
-              )}
-              title="Inline Code"
-            >
-              <Code className="h-4 w-4" />
-            </Button>
+        <ToolbarIconButton
+          label="Bold"
+          onClick={() => editor.chain().focus().toggleBold().run()}
+          active={editor.isActive('bold')}
+        >
+          <Bold className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Italic"
+          onClick={() => editor.chain().focus().toggleItalic().run()}
+          active={editor.isActive('italic')}
+        >
+          <Italic className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Strikethrough"
+          onClick={() => editor.chain().focus().toggleStrike().run()}
+          active={editor.isActive('strike')}
+        >
+          <Strikethrough className="h-4 w-4" />
+        </ToolbarIconButton>
+        <ToolbarIconButton
+          label="Inline Code"
+          onClick={() => editor.chain().focus().toggleCode().run()}
+          active={editor.isActive('code')}
+        >
+          <Code className="h-4 w-4" />
+        </ToolbarIconButton>
       </ToolbarFrame>
     )
   }
@@ -286,153 +354,93 @@ export function RichTextEditorBottomToolbar({
       innerClassName={chrome.inner}
       rowClassName={cn('inline-flex min-w-full flex-nowrap items-center gap-1', chrome.row)}
     >
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current',
-              editor.isActive('heading', { level: 1 }) && 'bg-accent',
-            )}
-            title="Heading 1"
-          >
-            <Heading1 className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('heading', { level: 2 }) && 'bg-accent',
-            )}
-            title="Heading 2"
-          >
-            <Heading2 className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('heading', { level: 3 }) && 'bg-accent',
-            )}
-            title="Heading 3"
-          >
-            <Heading3 className="h-4 w-4" />
-          </Button>
+      <ToolbarIconButton
+        label="Heading 1"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()}
+        active={editor.isActive('heading', { level: 1 })}
+      >
+        <Heading1 className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Heading 2"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}
+        active={editor.isActive('heading', { level: 2 })}
+      >
+        <Heading2 className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Heading 3"
+        onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}
+        active={editor.isActive('heading', { level: 3 })}
+      >
+        <Heading3 className="h-4 w-4" />
+      </ToolbarIconButton>
 
-          <div className="mx-1 h-6 w-px bg-border" />
+      <div className="mx-1 h-6 w-px bg-border" />
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleBulletList().run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('bulletList') && 'bg-accent',
-            )}
-            title="Bullet List"
-          >
-            <List className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleOrderedList().run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('orderedList') && 'bg-accent',
-            )}
-            title="Numbered List"
-          >
-            <ListOrdered className="h-4 w-4" />
-          </Button>
+      <ToolbarIconButton
+        label="Bullet List"
+        onClick={() => editor.chain().focus().toggleBulletList().run()}
+        active={editor.isActive('bulletList')}
+      >
+        <List className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Numbered List"
+        onClick={() => editor.chain().focus().toggleOrderedList().run()}
+        active={editor.isActive('orderedList')}
+      >
+        <ListOrdered className="h-4 w-4" />
+      </ToolbarIconButton>
 
-          <div className="mx-1 h-6 w-px bg-border" />
+      <div className="mx-1 h-6 w-px bg-border" />
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleBlockquote().run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('blockquote') && 'bg-accent',
-            )}
-            title="Quote"
-          >
-            <Quote className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().toggleCodeBlock().run()}
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('codeBlock') && 'bg-accent',
-            )}
-            title="Code Block"
-          >
-            <Code2 className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().setHorizontalRule().run()}
-            className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-            title="Horizontal Rule"
-          >
-            <Minus className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() =>
-              editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
-            }
-            className={cn(
-              'h-8 w-8 p-0 hover:bg-transparent',
-              editor.isActive('table') && 'bg-accent',
-            )}
-            title="Insert Table"
-          >
-            <Table className="h-4 w-4" />
-          </Button>
+      <ToolbarIconButton
+        label="Quote"
+        onClick={() => editor.chain().focus().toggleBlockquote().run()}
+        active={editor.isActive('blockquote')}
+      >
+        <Quote className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Code Block"
+        onClick={() => editor.chain().focus().toggleCodeBlock().run()}
+        active={editor.isActive('codeBlock')}
+      >
+        <Code2 className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Horizontal Rule"
+        onClick={() => editor.chain().focus().setHorizontalRule().run()}
+      >
+        <Minus className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Insert Table"
+        onClick={() =>
+          editor.chain().focus().insertTable({ rows: 3, cols: 3, withHeaderRow: true }).run()
+        }
+        active={editor.isActive('table')}
+      >
+        <Table className="h-4 w-4" />
+      </ToolbarIconButton>
 
-          <div className="mx-1 h-6 w-px bg-border" />
+      <div className="mx-1 h-6 w-px bg-border" />
 
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().undo().run()}
-            disabled={!editor.can().undo()}
-            className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-            title="Undo"
-          >
-            <Undo className="h-4 w-4" />
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            size="sm"
-            onClick={() => editor.chain().focus().redo().run()}
-            disabled={!editor.can().redo()}
-            className="h-8 w-8 p-0 hover:bg-transparent hover:text-current dark:hover:text-current"
-            title="Redo"
-          >
-            <Redo className="h-4 w-4" />
-          </Button>
+      <ToolbarIconButton
+        label="Undo"
+        onClick={() => editor.chain().focus().undo().run()}
+        disabled={!editor.can().undo()}
+      >
+        <Undo className="h-4 w-4" />
+      </ToolbarIconButton>
+      <ToolbarIconButton
+        label="Redo"
+        onClick={() => editor.chain().focus().redo().run()}
+        disabled={!editor.can().redo()}
+      >
+        <Redo className="h-4 w-4" />
+      </ToolbarIconButton>
     </ToolbarFrame>
   )
 }

@@ -189,6 +189,43 @@ get_env_value() {
     return 1
 }
 
+# Ensure an environment file has a high-entropy secret without ever printing
+# the value. Existing non-empty values are preserved so rerunning deployment
+# cannot rotate a live integration accidentally.
+ensure_env_secret() {
+    local env_file=$1
+    local key=$2
+    local existing_value=""
+
+    existing_value=$(get_env_value "$env_file" "$key" || true)
+    if [ -n "$existing_value" ]; then
+        return 0
+    fi
+
+    check_command "openssl" "Install OpenSSL before generating $key" || return 1
+
+    local generated_value
+    local temp_file
+    generated_value=$(openssl rand -hex 32)
+    temp_file=$(mktemp) || return 1
+    chmod 600 "$temp_file"
+
+    awk -v target_key="$key" -v generated_value="$generated_value" '
+        BEGIN { replaced = 0 }
+        index($0, target_key "=") == 1 {
+            print target_key "=" generated_value
+            replaced = 1
+            next
+        }
+        { print }
+        END {
+            if (!replaced) print target_key "=" generated_value
+        }
+    ' "$env_file" > "$temp_file"
+    mv "$temp_file" "$env_file"
+    chmod 600 "$env_file"
+    echo -e "${GREEN}✓ Generated missing $key in $(basename "$env_file")${NC}"
+}
 
 
 

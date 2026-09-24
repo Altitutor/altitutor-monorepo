@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import type {
+  PlacementSnapshot,
   QuestionEngineExam,
   QuestionEngineState,
   ReviewFilter,
@@ -22,10 +23,94 @@ import {
   isLastQuestionOfUnit,
 } from "@/features/question-engine/lib/practice";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
+import { snapshotQuestionResponse } from "@/features/question-engine/lib/response-state";
+
+export type NeedMoreStemsResult =
+  | { status: "loaded"; stems: QuestionStemWithQuestions[] }
+  | { status: "exhausted" }
+  | { status: "quotaReached" }
+  | { status: "error" };
 
 export type OnNeedMoreStems = (
   excludeStemIds: string[],
-) => Promise<QuestionStemWithQuestions[] | null>;
+) => Promise<NeedMoreStemsResult>;
+
+export function applyNeedMoreStemsResult(
+  current: QuestionEngineState,
+  result: NeedMoreStemsResult,
+  options?: {
+    sourceType?: QuestionEngineExam["sourceType"];
+    timePerQuestionSeconds?: number | null;
+    now?: number;
+    reviewAtEnd?: boolean;
+  },
+): QuestionEngineState {
+  if (current.phase !== "loadingMore") return current;
+
+  if (result.status === "loaded" && result.stems.length > 0) {
+    return {
+      ...current,
+      phase: "question",
+      currentIndex: current.loadingMoreTargetIndex!,
+      viewingQuestionIndex: null,
+      loadingMoreTargetIndex: undefined,
+      loadingMoreExcludeStemIds: undefined,
+      practiceAnswerUnitStartIndex: undefined,
+      practiceAnswerUnitEndIndex: undefined,
+      timerStartedAt:
+        options?.sourceType === "questionStem" &&
+        options.timePerQuestionSeconds != null &&
+        options.timePerQuestionSeconds > 0
+          ? (options.now ?? Date.now())
+          : current.timerStartedAt,
+    };
+  }
+
+  if (result.status === "error" && options?.reviewAtEnd) {
+    return {
+      ...current,
+      phase: "question",
+      currentIndex: Math.max(current.loadingMoreTargetIndex! - 1, 0),
+      viewingQuestionIndex: null,
+      loadingMoreTargetIndex: undefined,
+      loadingMoreExcludeStemIds: undefined,
+    };
+  }
+
+  if (result.status === "quotaReached" || result.status === "error") {
+    if (options?.reviewAtEnd) {
+      return {
+        ...current,
+        phase: "practiceComplete",
+        currentIndex: Math.max(current.loadingMoreTargetIndex! - 1, 0),
+        viewingQuestionIndex: null,
+        loadingMoreTargetIndex: undefined,
+        loadingMoreExcludeStemIds: undefined,
+      };
+    }
+    const answerIndex =
+      current.practiceAnswerUnitEndIndex ??
+      Math.max(current.loadingMoreTargetIndex! - 1, 0);
+    return {
+      ...current,
+      phase: "practiceAnswer",
+      currentIndex: answerIndex,
+      viewingQuestionIndex: answerIndex,
+      loadingMoreTargetIndex: undefined,
+      loadingMoreExcludeStemIds: undefined,
+    };
+  }
+
+  return {
+    ...current,
+    phase: "practiceComplete",
+    viewingQuestionIndex: null,
+    practiceAnswerUnitStartIndex: undefined,
+    practiceAnswerUnitEndIndex: undefined,
+    loadingMoreTargetIndex: undefined,
+    loadingMoreExcludeStemIds: undefined,
+  };
+}
 
 const initialState: QuestionEngineState = {
   phase: "intro",
@@ -38,7 +123,8 @@ const initialState: QuestionEngineState = {
   visitedQuestionIds: [],
   flaggedIds: [],
   selectedAnswers: {},
-  syllogismSnapshots: {},
+  placementSnapshots: {},
+  responseSnapshots: {},
   showNavigator: false,
   showCalculator: false,
   showEndExamDialog: false,
@@ -49,15 +135,19 @@ const initialState: QuestionEngineState = {
   showReviewInstructionsDialog: false,
   showEndReviewDialog: false,
   viewingQuestionIndex: null,
-  showExitResultsDialog: false,
 };
 
 export function useQuestionEngineState(
   exam: QuestionEngineExam | undefined,
-  options?: { practice?: boolean; onNeedMoreStems?: OnNeedMoreStems },
+  options?: {
+    practice?: boolean;
+    reviewAtEnd?: boolean;
+    onNeedMoreStems?: OnNeedMoreStems;
+  },
 ) {
   const practice = options?.practice ?? false;
   const onNeedMoreStems = options?.onNeedMoreStems;
+  const reviewAtEnd = options?.reviewAtEnd ?? false;
   const mode = exam?.sourceType;
   const isPracticeMode =
     practice && (mode === "questions" || mode === "questionStem");
@@ -83,32 +173,15 @@ export function useQuestionEngineState(
 
     void (async () => {
       const excludeIds = state.loadingMoreExcludeStemIds ?? [];
-      const newStems = await onNeedMoreStems(excludeIds);
+      const result = await onNeedMoreStems(excludeIds);
       loadingMoreFiredRef.current = null;
-      setState((current) => {
-        if (current.phase !== "loadingMore") return current;
-        if (newStems?.length) {
-          return {
-            ...current,
-            phase: "question" as const,
-            currentIndex: current.loadingMoreTargetIndex!,
-            loadingMoreTargetIndex: undefined,
-            loadingMoreExcludeStemIds: undefined,
-            timerStartedAt:
-              exam?.sourceType === "questionStem" &&
-              exam?.timePerQuestionSeconds != null &&
-              exam.timePerQuestionSeconds > 0
-                ? Date.now()
-                : current.timerStartedAt,
-          };
-        }
-        return {
-          ...current,
-          phase: "practiceComplete" as const,
-          loadingMoreTargetIndex: undefined,
-          loadingMoreExcludeStemIds: undefined,
-        };
-      });
+      setState((current) =>
+        applyNeedMoreStemsResult(current, result, {
+          sourceType: exam?.sourceType,
+          timePerQuestionSeconds: exam?.timePerQuestionSeconds,
+          reviewAtEnd,
+        }),
+      );
     })();
   }, [
     state.phase,
@@ -117,6 +190,7 @@ export function useQuestionEngineState(
     onNeedMoreStems,
     exam?.sourceType,
     exam?.timePerQuestionSeconds,
+    reviewAtEnd,
     setState,
   ]);
 
@@ -180,7 +254,7 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     if (
       exam?.sourceType === "mock" &&
@@ -204,7 +278,7 @@ export function useQuestionEngineState(
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
     questions,
     exam?.sourceType,
     exam?.mockSetSummaries,
@@ -280,7 +354,7 @@ export function useQuestionEngineState(
           question,
           state.visitedQuestionIds,
           state.selectedAnswers,
-          state.syllogismSnapshots,
+          state.placementSnapshots,
         ) as ReviewQuestionStatus,
         flagged: state.flaggedIds.includes(question.id),
       };
@@ -292,7 +366,7 @@ export function useQuestionEngineState(
     state.visitedQuestionIds,
     state.selectedAnswers,
     state.flaggedIds,
-    state.syllogismSnapshots,
+    state.placementSnapshots,
     exam?.sourceType,
     exam?.mockSetSummaries,
   ]);
@@ -436,6 +510,23 @@ export function useQuestionEngineState(
         exam?.sourceType !== "mock" &&
         state.currentIndex >= Math.max(questions.length - 1, 0)
       ) {
+        if (onNeedMoreStems && exam?.sourceType === "questionStem") {
+          const seenStemIds = [
+            ...new Set(
+              questions
+                .map((question) => question.stemId)
+                .filter((id): id is string => id != null),
+            ),
+          ];
+          setState((current) => ({
+            ...current,
+            phase: "loadingMore",
+            loadingMoreTargetIndex: current.currentIndex + 1,
+            loadingMoreExcludeStemIds: seenStemIds,
+            showNavigator: false,
+          }));
+          return;
+        }
         goToReview();
         return;
       }
@@ -460,10 +551,8 @@ export function useQuestionEngineState(
             setState((current) => ({
               ...current,
               phase: "loadingMore",
-              currentIndex: nextQuestionIndex,
-              viewingQuestionIndex: null,
-              practiceAnswerUnitStartIndex: undefined,
-              practiceAnswerUnitEndIndex: undefined,
+              currentIndex: unitEnd,
+              viewingQuestionIndex: unitEnd,
               loadingMoreTargetIndex: nextQuestionIndex,
               loadingMoreExcludeStemIds: seenStemIds,
             }));
@@ -492,7 +581,11 @@ export function useQuestionEngineState(
               exam?.sourceType === "questionStem"
                 ? exam?.timePerQuestionSeconds
                 : null;
-            if (timePerQuestion != null && timePerQuestion > 0) {
+            if (
+              timePerQuestion != null &&
+              timePerQuestion > 0 &&
+              (exam?.practiceSessionTimeLimitSeconds ?? 0) <= 0
+            ) {
               next.timerStartedAt = Date.now();
             }
             return next;
@@ -525,7 +618,11 @@ export function useQuestionEngineState(
           exam?.sourceType === "questionStem"
             ? exam?.timePerQuestionSeconds
             : null;
-        if (timePerQuestion != null && timePerQuestion > 0) {
+        if (
+          timePerQuestion != null &&
+          timePerQuestion > 0 &&
+          (exam?.practiceSessionTimeLimitSeconds ?? 0) <= 0
+        ) {
           // In questionStem mode, only reset timer when moving to a new stem.
           // Within the same stem, keep the countdown running.
           const currentStemId = questions[current.currentIndex]?.stemId;
@@ -586,7 +683,7 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     if (
       exam?.sourceType === "mock" &&
@@ -622,7 +719,7 @@ export function useQuestionEngineState(
       state.visitedQuestionIds,
       state.selectedAnswers,
       state.flaggedIds,
-      state.syllogismSnapshots,
+      state.placementSnapshots,
     );
     const pos = indices.indexOf(globalIndex);
     const reviewFilterIndex = pos >= 0 ? pos : 0;
@@ -660,18 +757,34 @@ export function useQuestionEngineState(
         ...current.selectedAnswers,
         [currentQuestion.id]: optionId,
       },
+      responseSnapshots: {
+        ...(current.responseSnapshots ?? {}),
+        [currentQuestion.id]: snapshotQuestionResponse(
+          currentQuestion,
+          optionId,
+          current.placementSnapshots?.[currentQuestion.id],
+        ),
+      },
     }));
   }
 
-  function setSyllogismSnapshot(
+  function setPlacementSnapshot(
     questionId: string,
-    snapshot: Record<string, boolean>,
+    snapshot: PlacementSnapshot,
   ) {
     setState((current) => ({
       ...current,
-      syllogismSnapshots: {
-        ...(current.syllogismSnapshots ?? {}),
+      placementSnapshots: {
+        ...(current.placementSnapshots ?? {}),
         [questionId]: snapshot,
+      },
+      responseSnapshots: {
+        ...(current.responseSnapshots ?? {}),
+        [questionId]: snapshotQuestionResponse(
+          questions.find((question) => question.id === questionId)!,
+          current.selectedAnswers[questionId],
+          snapshot,
+        ),
       },
     }));
   }
@@ -695,7 +808,7 @@ export function useQuestionEngineState(
     toggleFlagCurrent,
     toggleFlagById,
     setAnswer,
-    setSyllogismSnapshot,
+    setPlacementSnapshot,
     goToReviewScreen,
     startReviewFilter,
     goToReviewQuestionByGlobalIndex,

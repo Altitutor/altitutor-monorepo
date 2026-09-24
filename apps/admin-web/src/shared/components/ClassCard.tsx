@@ -4,12 +4,12 @@ import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSub, DropdownMenuSubContent, DropdownMenuSubTrigger, DropdownMenuTrigger } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import type { ClassEnrollmentWithAudit } from '@altitutor/shared';
-import { formatTime, getDayOfWeek, formatDate } from '@/shared/utils/datetime';
-import { getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
+import { formatTime, getDayOfWeek, formatEnrollmentPeriod } from '@/shared/utils/datetime';
+import { clickableCardInteractiveCn, getSubjectColorHex, getIconStrokeColor, cn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -31,6 +31,8 @@ interface ClassCardProps {
   enrollment?: ClassEnrollmentWithAudit;
   onChangeClass?: () => void;
   onUnenroll?: () => void;
+  onSendUnenrollmentLink?: () => void;
+  onUnassign?: () => void;
   
   // Visual states
   isSelecting?: boolean;
@@ -38,6 +40,7 @@ interface ClassCardProps {
   compact?: boolean; // Compact mode for calendar views
   isCalendarView?: boolean; // If true, subtitle shows only room (no date/time)
   hideActions?: boolean; // If true, hide the action menu button
+  greyedOut?: boolean; // Previous / inactive enrollment
   // Smart sizing props
   cardHeight?: number; // Height in pixels
   cardWidth?: number; // Width in pixels
@@ -52,11 +55,14 @@ export function ClassCard({
   enrollment,
   onChangeClass,
   onUnenroll,
+  onSendUnenrollmentLink,
+  onUnassign,
   isSelecting = false,
   isSelected = false,
   compact: forceCompact = false,
   isCalendarView = false,
   hideActions = false,
+  greyedOut = false,
   cardHeight,
   cardWidth
 }: ClassCardProps) {
@@ -67,39 +73,44 @@ export function ClassCard({
   const actualWidth = cardSize.width > 0 ? cardSize.width : (cardWidth ?? Infinity);
   const actualHeight = cardSize.height > 0 ? cardSize.height : (cardHeight ?? Infinity);
   
+  const preferExpanded = !isCalendarView && !forceCompact;
   // Progressive responsive breakpoints with hysteresis to prevent flickering:
   // Use different thresholds for showing vs hiding (add buffer to prevent oscillation)
   // 1. Icon disappears first: width < 210px OR height < 65px (higher threshold to hide)
   //    Icon appears: width >= 200px AND height >= 60px (lower threshold to show)
-  const showIcon = !forceCompact && actualWidth >= 200 && actualHeight >= 60;
+  const showIcon = preferExpanded || (!forceCompact && actualWidth >= 200 && actualHeight >= 60);
   // Use state to prevent flickering - once hidden, require more space to show again
   const [iconVisible, setIconVisible] = useState(showIcon);
   useEffect(() => {
+    if (preferExpanded) {
+      setIconVisible(true);
+      return;
+    }
     if (showIcon && actualWidth >= 210 && actualHeight >= 65) {
       setIconVisible(true);
     } else if (!showIcon || actualWidth < 200 || actualHeight < 60) {
       setIconVisible(false);
     }
-  }, [showIcon, actualWidth, actualHeight]);
+  }, [preferExpanded, showIcon, actualWidth, actualHeight]);
   
   // 2. Labels removed - never show "Tutor:" or "Student:" labels
   
   // 3. Subtitle always shown but truncated (never disappears)
   
-  // 4. Names truncate to initials: width < 150px OR too many people
-  const showFullNames = !forceCompact && actualWidth >= 150 && students.length <= 4 && staff.length <= 3;
+  // 4. Names truncate to initials in calendar cells; card view wraps full names
+  const showFullNames = preferExpanded || (!forceCompact && actualWidth >= 150 && students.length <= 4 && staff.length <= 3);
   
-  // Determine if we should use compact mode overall
-  const shouldUseCompact = forceCompact || !iconVisible;
+  // List/card view prefers the expanded layout so names can wrap.
+  // Calendar view still sizes itself from the measured cell.
+  const shouldUseCompact = !preferExpanded && (forceCompact || !iconVisible);
   const subjectDisplay = shouldUseCompact && subject 
     ? (subject?.short_name ?? subject?.long_name ?? subject?.name ?? '') 
     : subject 
       ? (subject?.long_name ?? '') 
       : '-';
-  const day = getDayOfWeek(classData.day_of_week);
-  const timeRange = `${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
+  const schedule = classData.schedule_summary_short || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll);
+  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll || onSendUnenrollmentLink || onUnassign);
   
   // Get subject color for the card (border and icon only)
   const subjectColorHex = getSubjectColorHex(subject);
@@ -116,16 +127,19 @@ export function ClassCard({
   return (
     <div
       className={cn(
-        'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
+        'relative border rounded-lg transition-colors w-full bg-card',
+        isCalendarView ? 'h-full overflow-hidden' : 'h-auto',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
+        greyedOut && 'bg-muted/40 opacity-60',
         isSelecting
           ? isSelected
             ? 'bg-primary/10 border-primary border-2'
-            : 'hover:bg-muted/50 cursor-pointer'
+            : 'cursor-pointer'
           : onClick
-          ? 'hover:bg-muted/50 cursor-pointer'
-          : ''
+            ? 'cursor-pointer'
+            : '',
+        (isSelecting || onClick) && !isSelected && clickableCardInteractiveCn,
       )}
       style={{
         ...(subjectColorHex ? { borderColor: subjectColorHex } : {})
@@ -150,7 +164,7 @@ export function ClassCard({
           </div>
         )}
         
-        <div className="flex-1 min-w-0 overflow-hidden">
+        <div className={cn('flex-1 min-w-0', isCalendarView && 'overflow-hidden')}>
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-2">
@@ -184,7 +198,7 @@ export function ClassCard({
                   classData.room ? `Room: ${classData.room}` : ''
                 ) : (
                   <>
-                    {day} {timeRange}
+                    {schedule}
                     {classData.room && ` • Room: ${classData.room}`}
                   </>
                 )}
@@ -212,12 +226,21 @@ export function ClassCard({
                       Change Class
                     </DropdownMenuItem>
                   )}
-                  {onUnenroll && (
+                  {(onUnenroll || onSendUnenrollmentLink) && (
+                    <DropdownMenuSub>
+                      <DropdownMenuSubTrigger onClick={(event) => event.stopPropagation()}>Unenroll Student</DropdownMenuSubTrigger>
+                      <DropdownMenuSubContent>
+                        {onUnenroll ? <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onUnenroll(); }}>Unenroll manually</DropdownMenuItem> : null}
+                        {onSendUnenrollmentLink ? <DropdownMenuItem onClick={(event) => { event.stopPropagation(); onSendUnenrollmentLink(); }}>Send student unenrolment link</DropdownMenuItem> : null}
+                      </DropdownMenuSubContent>
+                    </DropdownMenuSub>
+                  )}
+                  {onUnassign && (
                     <DropdownMenuItem onClick={(e) => {
                       e.stopPropagation();
-                      onUnenroll();
+                      onUnassign();
                     }}>
-                      Unenroll Student
+                      Unassign from class
                     </DropdownMenuItem>
                   )}
                 </DropdownMenuContent>
@@ -316,9 +339,9 @@ export function ClassCard({
           {/* Enrollment Info */}
           {enrollment && (
             <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
-              <Calendar className="h-3 w-3" />
+              <Calendar className="h-3 w-3 shrink-0" />
               <span>
-                Enrolled: {formatDate(new Date(enrollment.enrolled_at))}
+                {formatEnrollmentPeriod(enrollment.enrolled_at, enrollment.unenrolled_at)}
               </span>
               {isFutureEnrollment && (
                 <Badge variant="secondary" className="text-xs bg-blue-100 text-blue-800">
@@ -333,4 +356,3 @@ export function ClassCard({
     </div>
   );
 }
-

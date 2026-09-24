@@ -2,8 +2,9 @@ import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
-export async function getSupabaseServerClient(): Promise<
+export async function getSupabaseServerClient(globalFetch?: typeof fetch): Promise<
   SupabaseClient<Database>
 > {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -11,7 +12,7 @@ export async function getSupabaseServerClient(): Promise<
 
   // Skip validation during Next.js production build (CI) so prerender can complete
   if (process.env.NEXT_PHASE === "phase-production-build") {
-    return createServerClient<Database>(
+    return instrumentSupabaseClient(createServerClient<Database>(
       supabaseUrl || "https://placeholder.supabase.co",
       supabaseAnonKey || "placeholder-key",
       {
@@ -23,7 +24,7 @@ export async function getSupabaseServerClient(): Promise<
           name: "student-auth",
         },
       },
-    ) as unknown as SupabaseClient<Database>;
+    ) as unknown as SupabaseClient<Database>);
   }
 
   if (!supabaseUrl || !supabaseAnonKey) {
@@ -34,19 +35,27 @@ export async function getSupabaseServerClient(): Promise<
 
   const cookieStore = await cookies();
 
-  return createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
+  return instrumentSupabaseClient(createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return cookieStore.getAll();
       },
       setAll(cookiesToSet) {
-        cookiesToSet.forEach(({ name, value, options }) => {
-          cookieStore.set(name, value, options);
-        });
+        // Server Components cannot always mutate cookies; middleware refreshes
+        // the session. Without this guard, getUser() can fail open as !user and
+        // trigger soft redirects that loop with middleware.
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // Ignore — session refresh is handled in middleware.
+        }
       },
     },
     cookieOptions: {
       name: "student-auth",
     },
-  }) as unknown as SupabaseClient<Database>;
+    ...(globalFetch ? { global: { fetch: globalFetch } } : {}),
+  }) as unknown as SupabaseClient<Database>);
 }

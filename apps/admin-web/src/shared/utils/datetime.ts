@@ -90,6 +90,16 @@ export function formatTimeHHMM(timeString: string | null | undefined): string {
 }
 
 /**
+ * Combine a calendar date with a class time that may be HH:mm or HH:mm:ss.
+ * Always returns `YYYY-MM-DDTHH:mm:ss`, never `THH:mm:ss:00`.
+ */
+export function combineLocalDateAndTime(dateStr: string, time: string): string {
+  const hhmm = formatTimeHHMM(time);
+  if (!dateStr || !hhmm) return '';
+  return `${dateStr}T${hhmm}:00`;
+}
+
+/**
  * Convert a date string (YYYY-MM-DD) to UTC timestamp for start of day
  * Interprets the date as local timezone and converts to UTC
  * Example: "2024-01-15" -> "2024-01-14T13:30:00.000Z" (if in GMT+10:30)
@@ -159,7 +169,10 @@ export function formatActivityTimestamp(dateString: string | Date): string {
  */
 export function getAdelaideTimeComponents(isoString: string): { hours: number; minutes: number } {
   const date = new Date(isoString);
-  
+  if (isNaN(date.getTime())) {
+    return { hours: 0, minutes: 0 };
+  }
+
   // Use Intl.DateTimeFormat to get Adelaide timezone components
   const formatter = new Intl.DateTimeFormat('en', {
     timeZone: 'Australia/Adelaide',
@@ -191,6 +204,16 @@ const PILL_MONTHS = [
   'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
 ] as const;
 
+const SHORT_WEEKDAYS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+
+/** Compact calendar-date label, e.g. "Thu 3 Sep". */
+export function formatCompactDate(value: string | Date | null | undefined): string | null {
+  if (!value) return null;
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (isNaN(date.getTime())) return null;
+  return `${SHORT_WEEKDAYS[date.getUTCDay()]} ${date.getUTCDate()} ${PILL_MONTHS[date.getUTCMonth()]}`;
+}
+
 /** Normalise ISO or YYYY-MM-DD for date inputs. */
 export function toDateInputValue(value: string | null | undefined): string {
   if (!value) return '';
@@ -205,4 +228,31 @@ export function formatPillDisplayDate(value: string | null | undefined): string 
   const d = new Date(value);
   if (isNaN(d.getTime())) return null;
   return `${d.getUTCDate()} ${PILL_MONTHS[d.getUTCMonth()]}`;
+}
+
+/** Adelaide calendar day as "d MMM", e.g. "3 Sep". */
+export function formatDayMonth(date: Date | string | null | undefined): string {
+  if (!date) return '';
+  const dateObj = typeof date === 'string' ? new Date(date) : date;
+  if (isNaN(dateObj.getTime())) return '';
+  const parts = new Intl.DateTimeFormat('en-AU', {
+    timeZone: 'Australia/Adelaide',
+    day: 'numeric',
+    month: 'numeric',
+  }).formatToParts(dateObj);
+  const day = parts.find((part) => part.type === 'day')?.value;
+  const month = Number(parts.find((part) => part.type === 'month')?.value);
+  if (!day || !month) return '';
+  return `${day} ${PILL_MONTHS[month - 1]}`;
+}
+
+/** Enrollment period as "3 Sep" or "3 Sep – 12 Dec". */
+export function formatEnrollmentPeriod(
+  enrolledAt: Date | string | null | undefined,
+  unenrolledAt?: Date | string | null
+): string {
+  const start = formatDayMonth(enrolledAt);
+  if (!start) return '';
+  const end = formatDayMonth(unenrolledAt);
+  return end ? `${start} – ${end}` : start;
 }

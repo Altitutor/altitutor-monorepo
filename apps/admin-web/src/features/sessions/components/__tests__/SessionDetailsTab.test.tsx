@@ -78,6 +78,7 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
       onOpenSession={jest.fn()}
       onOpenStudent={jest.fn()}
       onOpenStaff={jest.fn()}
+      onOpenParent={jest.fn()}
       onOpenClass={jest.fn()}
       onMessageStudent={jest.fn()}
       onMessageStaff={jest.fn()}
@@ -482,5 +483,32 @@ describe('SessionDetailsTab', () => {
 
     expect(screen.getByText('Pat Parent')).toBeInTheDocument();
     expect(screen.getByText('Attended')).toBeInTheDocument();
+  });
+
+  it('opens parent modal when parent name is clicked', async () => {
+    const user = userEvent.setup();
+    const onOpenParent = jest.fn();
+    renderComponent({
+      session: {
+        id: 'session-1',
+        type: 'TRIAL_SESSION',
+        start_at: '2026-01-01T00:00:00.000Z',
+        end_at: '2026-01-01T01:00:00.000Z',
+        class_id: null,
+        admin_shift_id: null,
+      } as SessionDetailsSession,
+      studentsData: [],
+      staffData: [],
+      parentsData: [
+        {
+          parent: { id: 'p1', first_name: 'Pat', last_name: 'Parent' } as Tables<'parents'>,
+          sessionsParentsId: 'sp-1',
+        },
+      ],
+      onOpenParent,
+    });
+
+    await user.click(screen.getByRole('button', { name: 'Pat Parent' }));
+    expect(onOpenParent).toHaveBeenCalledWith('p1');
   });
 });

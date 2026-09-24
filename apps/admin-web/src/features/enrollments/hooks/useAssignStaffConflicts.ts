@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
+import { getProjectedClassScheduleRows } from '@altitutor/shared';
 import type { Tables, ClassWithExpandedSubject, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { checkTimeOverlap } from '@/shared/utils/enrollment';
@@ -74,6 +75,7 @@ export function useAssignStaffConflicts({
                 day_of_week,
                 start_time,
                 end_time,
+                schedule_rows,
                 subject:subjects(*)
               )
             `)
@@ -92,7 +94,7 @@ export function useAssignStaffConflicts({
             if (!selectedClass) continue;
 
             // Check for time overlap with existing classes
-            const conflictingEnrollment = (staffClasses || []).find((sc: { class?: { id: string; day_of_week: number; start_time: string; end_time: string } | null }) => {
+            const conflictingEnrollment = (staffClasses || []).find((sc) => {
               const existingClass = sc.class;
               if (!existingClass) return false;
               return checkTimeOverlap(selectedClass, existingClass);
@@ -111,12 +113,15 @@ export function useAssignStaffConflicts({
             }
 
             // Check for unavailability on that day
-            const dayOfWeek = selectedClass.day_of_week;
-            const availabilityField = getAvailabilityField(dayOfWeek, selectedClass.start_time);
-            if (availabilityField && !staff[availabilityField]) {
+            const projectedRows = getProjectedClassScheduleRows(selectedClass.schedule_rows);
+            const unavailableRow = (projectedRows.length > 0 ? projectedRows : [selectedClass]).find((row) => {
+              const availabilityField = getAvailabilityField(row.day_of_week, row.start_time);
+              return availabilityField !== null && !staff[availabilityField];
+            });
+            if (unavailableRow) {
               unavailabilityMap.set(classId, {
                 staffName: `${staff.first_name} ${staff.last_name}`,
-                dayOfWeek,
+                dayOfWeek: unavailableRow.day_of_week,
               });
             }
           }
@@ -142,7 +147,8 @@ export function useAssignStaffConflicts({
                   id,
                   day_of_week,
                   start_time,
-                  end_time
+                  end_time,
+                  schedule_rows
                 )
               `)
               .eq('staff_id', staffId)
@@ -152,7 +158,7 @@ export function useAssignStaffConflicts({
             if (cancelled) return;
 
             // Check for time overlap
-            const conflictingEnrollment = (staffClasses || []).find((sc: { class?: { id: string; day_of_week: number; start_time: string; end_time: string } | null }) => {
+            const conflictingEnrollment = (staffClasses || []).find((sc) => {
               const existingClass = sc.class;
               if (!existingClass) return false;
               return checkTimeOverlap(classData, existingClass);
@@ -169,12 +175,15 @@ export function useAssignStaffConflicts({
             }
 
             // Check for unavailability on that day
-            const dayOfWeek = classData.day_of_week;
-            const availabilityField = getAvailabilityField(dayOfWeek, classData.start_time);
-            if (availabilityField && !selectedStaff[availabilityField]) {
+            const projectedRows = getProjectedClassScheduleRows(classData.schedule_rows);
+            const unavailableRow = (projectedRows.length > 0 ? projectedRows : [classData]).find((row) => {
+              const availabilityField = getAvailabilityField(row.day_of_week, row.start_time);
+              return availabilityField !== null && !selectedStaff[availabilityField];
+            });
+            if (unavailableRow) {
               unavailabilityMap.set(staffId, {
                 staffName: `${selectedStaff.first_name} ${selectedStaff.last_name}`,
-                dayOfWeek,
+                dayOfWeek: unavailableRow.day_of_week,
               });
             }
           }
@@ -237,4 +246,3 @@ function getAvailabilityField(dayOfWeek: number, startTime?: string): keyof Tabl
     default: return null;
   }
 }
-

@@ -6,6 +6,7 @@ export * from './api/billing-settings';
 export * from './api/billing-preferences';
 export * from './hooks/useBillingPreferences';
 export * from './hooks/useBillingPricing';
+export * from './hooks/useSubjectPricingOverrides';
 export * from './components/AddPaymentMethodModal';
 export * from './components/ViewInvoiceModal';
 export * from './components/CreditNoteDialog';

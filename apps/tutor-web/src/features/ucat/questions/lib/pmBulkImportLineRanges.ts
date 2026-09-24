@@ -18,6 +18,7 @@ import {
   isQuestionTableWithNestedOptions,
   nodeToText,
 } from '@/features/ucat/questions/lib/parsers/core'
+import { stripBulkImportFormatTokens } from '@/features/ucat/shared/lib/bulk-import-inline-format'
 
 type RSt = {
   lines: string[]
@@ -52,6 +53,12 @@ export function inner(n: Node, pBefore: number): { from: number; to: number } {
   return { from: pBefore + 1, to: pBefore + n.nodeSize - 1 }
 }
 
+/** Convert the walker's first-inside position to the range covering the whole node. */
+function whole(n: Node, pBefore: number): { from: number; to: number } {
+  const from = Math.max(0, pBefore - 1)
+  return { from, to: from + n.nodeSize }
+}
+
 /**
  * Ranges for each logical import line, or `null` if the PM walk could not
  * match the same lines (then skip in-editor question highlights).
@@ -60,7 +67,7 @@ export function collectQuestionLineTextRanges(
   root: Node,
   section: BulkImportParseSection,
   options?: { questionsOnly?: boolean; parsingOptions?: Partial<ParserConfig> }
-): { from: number; to: number }[] | null {
+): ({ from: number; to: number } | null)[] | null {
   if (root.type.name !== 'doc' || !root.isBlock) {
     return null
   }
@@ -100,11 +107,67 @@ export function collectQuestionLineTextRanges(
     st.ranges = transformed.map((item) => item.range)
   }
 
-  if (st.lines.length !== expect.length) return null
+  if (!questionsOnly && section === 'decision_making') {
+    const transformed = transformDecisionMakingSyllogismRanges(
+      st.lines.map((line, index) => ({ line, range: st.ranges[index]! })),
+      options?.parsingOptions ?? {}
+    )
+    st.lines = transformed.map((item) => item.line)
+    st.ranges = transformed.map((item) => item.range)
+  }
+
+  const actualItems = st.lines.map((line, index) => ({ line, range: st.ranges[index]! }))
+  if (st.lines.length !== expect.length) return alignQuestionLineRanges(expect, actualItems)
   for (let i = 0; i < expect.length; i += 1) {
-    if (st.lines[i] !== expect[i]) return null
+    // Logical collectors emit [[B:]]/[[I:]] tokens; the PM walker uses plain textContent.
+    // Compare format-stripped so fully bold/italic lines still get highlight ranges.
+    if (normalizedLine(st.lines[i] ?? '') !== normalizedLine(expect[i] ?? '')) {
+      return alignQuestionLineRanges(expect, actualItems)
+    }
   }
   return st.ranges
+}
+
+function normalizedLine(s: string): string {
+  return stripBulkImportFormatTokens(s).replace(/\s+/g, ' ').trim()
+}
+
+function lineRangeMatchesExpected(expected: string, actual: string): boolean {
+  const e = normalizedLine(expected)
+  const a = normalizedLine(actual)
+  if (e === a) return true
+  if (!e || !a) return false
+  return a.startsWith(`${e} `) || e.startsWith(`${a} `)
+}
+
+function alignQuestionLineRanges(
+  expected: string[],
+  actualItems: LineRange[]
+): ({ from: number; to: number } | null)[] | null {
+  const aligned: ({ from: number; to: number } | null)[] = []
+  let actualIndex = 0
+  let matched = 0
+
+  for (const expectedLine of expected) {
+    let found = -1
+    const scanEnd = Math.min(actualItems.length, actualIndex + 8)
+    for (let i = actualIndex; i < scanEnd; i += 1) {
+      if (lineRangeMatchesExpected(expectedLine, actualItems[i]?.line ?? '')) {
+        found = i
+        break
+      }
+    }
+
+    if (found >= 0) {
+      aligned.push(actualItems[found]?.range ?? null)
+      actualIndex = found + 1
+      matched += 1
+    } else {
+      aligned.push(null)
+    }
+  }
+
+  return matched > 0 ? aligned : null
 }
 
 function isDmQuestionNumberLine(line: string, config: Partial<ParserConfig>): boolean {
@@ -144,11 +207,32 @@ function isDmSyllogismQuestionText(line: string): boolean {
   )
 }
 
+function stripDmQuestionNumber(line: string, config: Partial<ParserConfig>): string {
+  const split = splitDmQuestionNumberLine(line, config)
+  return split?.inlineText.trim() ?? line.trim()
+}
+
 function findLastNonBlankItemIndex(items: LineRange[], endExclusive: number): number {
   for (let i = endExclusive - 1; i >= 0; i -= 1) {
     if ((items[i]?.line ?? '').trim().length > 0) return i
   }
   return -1
+}
+
+function previousNonBlankItemLine(items: LineRange[], index: number): string | null {
+  const previousIndex = findLastNonBlankItemIndex(items, index)
+  return previousIndex >= 0 ? items[previousIndex]?.line ?? null : null
+}
+
+function hasDmSyllogismOptionEvidenceAfter(items: LineRange[], index: number): boolean {
+  const nonBlank: string[] = []
+  for (let i = index + 1; i < items.length && nonBlank.length < 5; i += 1) {
+    const line = items[i]?.line.trim() ?? ''
+    if (line.length === 0) continue
+    if (/^\s*\[\[IMG:[^\]]+\]\]\s*$/.test(line)) return true
+    nonBlank.push(line)
+  }
+  return nonBlank.length >= 5
 }
 
 function findDmItemStemOptionStart(items: LineRange[], config: Partial<ParserConfig>): number {
@@ -228,6 +312,55 @@ function transformDecisionMakingItemStemRanges(
   return result
 }
 
+function transformDecisionMakingSyllogismRanges(
+  items: LineRange[],
+  config: Partial<ParserConfig>
+): LineRange[] {
+  const questionIndicator = config.questionIndicator ?? 'dot'
+  const separator = questionIndicator === 'paren' ? ')' : '.'
+  let nextQuestionNumber = 1
+  const result: LineRange[] = []
+
+  for (let i = 0; i < items.length; i += 1) {
+    const item = items[i]!
+    const marker = isDmQuestionNumberLine(item.line, config)
+      ? splitDmQuestionNumberLine(item.line, config)
+      : null
+
+    if (marker) {
+      const existingNumber = Number.parseInt(marker.numberText, 10)
+      if (!Number.isNaN(existingNumber)) {
+        nextQuestionNumber = existingNumber + 1
+      }
+      result.push(item)
+      continue
+    }
+
+    const trimmed = item.line.trim()
+    if (
+      !isDmSyllogismQuestionText(trimmed) ||
+      !hasDmSyllogismOptionEvidenceAfter(items, i)
+    ) {
+      result.push(item)
+      continue
+    }
+
+    const previous = previousNonBlankItemLine(items, i)
+    if (previous && isDmQuestionNumberLine(previous, config)) {
+      result.push(item)
+      continue
+    }
+
+    result.push({
+      line: `${nextQuestionNumber}${separator} ${stripDmQuestionNumber(trimmed, config)}`,
+      range: item.range,
+    })
+    nextQuestionNumber += 1
+  }
+
+  return result
+}
+
 function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
   const t = n.type.name
   const j = n.toJSON() as PMNode
@@ -235,7 +368,7 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (!isBlank(nodeToText(j).trim() ?? '')) {
       st.lines.push((st.prefixForNextLine ?? '') + (nodeToText(j).trim() as string))
-      st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+      st.ranges.push(whole(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
@@ -267,7 +400,7 @@ function walkVrDmSj(n: Node, pBefore: number, st: RSt): void {
             st.lines.push(optionLines[oi] ?? '')
             const ntr = nestedT.table.child(oi)
             const pTr = beforeChild(nestedT.table, pNt, oi)
-            st.ranges.push({ from: pTr, to: pTr + ntr.nodeSize })
+            st.ranges.push(whole(ntr, pTr))
           }
         } else {
           const c1b = rowPm.child(1)
@@ -450,7 +583,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
   if (t === 'image') {
     if (nodeToText(j).trim().length > 0) {
       st.lines.push((st.prefixForNextLine ?? '') + nodeToText(j).trim())
-      st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+      st.ranges.push(whole(n, pBefore))
       st.prefixForNextLine = undefined
     }
     return
@@ -484,7 +617,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
             st.lines.push(optionLines[oi] ?? '')
             const ntr = nest.table.child(oi)
             const pTr = beforeChild(nest.table, pNt, oi)
-            st.ranges.push({ from: pTr, to: pTr + ntr.nodeSize })
+            st.ranges.push(whole(ntr, pTr))
           }
         } else {
           for (const o of optionLines) {
@@ -514,9 +647,9 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
         if (i < n.childCount) {
           const tr = n.child(i)
           const pR = beforeChild(n, pBefore, i)
-          st.ranges.push({ from: pR, to: pR + tr.nodeSize })
+          st.ranges.push(whole(tr, pR))
         } else {
-          st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+          st.ranges.push(whole(n, pBefore))
         }
       }
       return
@@ -525,7 +658,7 @@ function walkQrNode(n: Node, pBefore: number, st: RSt): void {
     qrTableN += 1
     const id = `t${qrTableN}`
     st.lines.push((st.prefixForNextLine ?? '') + `[[TABLE:${id}]]`)
-    st.ranges.push({ from: pBefore, to: pBefore + n.nodeSize })
+    st.ranges.push(whole(n, pBefore))
     st.prefixForNextLine = undefined
     return
   }

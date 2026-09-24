@@ -22,17 +22,19 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
 import { classesApi } from "@/features/classes/api";
-import { useClassDetails, classesKeys, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
+import { useClassDetails, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useUpdateClass } from '@/features/classes/hooks/useClassesQuery';
-import type { TablesUpdate } from '@altitutor/shared';
-import { ClassInfoTab, ClassInfoFormData } from '@/features/classes/components/modal/tabs/ClassInfoTab';
-import { ClassStudentsTab } from '@/features/classes/components/modal/tabs/ClassStudentsTab';
-import { ClassStaffTab } from '@/features/classes/components/modal/tabs/ClassStaffTab';
+import { ClassInfoTab } from '@/features/classes/components/modal/tabs/ClassInfoTab';
+import { ClassPeopleTab } from '@/features/classes/components/modal/tabs/ClassPeopleTab';
 import { ClassSessionsTab } from '@/features/classes/components/modal/tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
+import { AdminLoadingSkeleton } from '@/shared/components';
+import {
+  invalidateClassDetail,
+  invalidateClassSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 export default function ClassDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
@@ -44,7 +46,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   const { data: allSubjects = [] } = useSubjects();
   const { data: allStudentsData = [] } = useStudents();
   const { data: allStaffData = [] } = useStaff();
-  const updateClassMutation = useUpdateClass();
   const deleteClassMutation = useDeleteClass();
   
   const classData = classDetails?.class || null;
@@ -58,48 +59,12 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
-  const handleClassUpdate = async (data: ClassInfoFormData) => {
-    if (!classData) return;
-    
-    try {
-      const updateData: TablesUpdate<'classes'> = {
-        level: data.level,
-        day_of_week: data.dayOfWeek,
-        start_time: data.startTime,
-        end_time: data.endTime,
-        status: data.status,
-        subject_id: data.subjectId || null,
-        room: data.room || null,
-        session_start_date: data.sessionStartDate || null,
-        session_end_date: data.sessionEndDate || null,
-      };
-      await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
-      
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      
-      setIsEditing(false);
-      
-      toast({
-        title: 'Class updated',
-        description: 'Class has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update class:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the class. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   const handleAssignStaff = async (staffId: string) => {
     if (!classData) return;
     
     try {
       await classesApi.assignStaff(classData.id, staffId);
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       toast({
         title: 'Success',
         description: 'Staff assigned successfully.',
@@ -119,8 +84,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
     
     try {
       await classesApi.unassignStaff(classData.id, staffId);
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       toast({
         title: 'Success',
         description: 'Staff removed successfully.',
@@ -160,7 +124,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   };
 
   const handleClassUpdated = () => {
-    queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(id) });
+    void invalidateClassDetail(queryClient, id);
   };
 
   // Centralized action handlers
@@ -173,13 +137,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   });
 
   if (isLoading) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (!classData) {
@@ -232,8 +190,6 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
         className="space-y-6"
         options={[
           { value: 'details', label: 'Details' },
-          { value: 'students', label: 'Students' },
-          { value: 'staff', label: 'Staff' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'activity', label: 'Activity' },
         ]}
@@ -247,51 +203,26 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
             isLoading={isLoading}
             onEdit={() => setIsEditing(true)}
             onCancelEdit={() => setIsEditing(false)}
-            onSubmit={handleClassUpdate}
+            onSaved={() => {
+              setIsEditing(false);
+              void invalidateClassSurfaces(queryClient, classData.id);
+              toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
+            }}
           />
-          {isEditing && (
-            <div className="flex justify-end gap-2 pt-4 border-t">
-              <Button variant="outline" onClick={() => setIsEditing(false)} disabled={isLoading}>
-                Cancel
-              </Button>
-              <Button 
-                disabled={isLoading}
-                onClick={() => {
-                  const form = document.getElementById('class-edit-form') as HTMLFormElement;
-                  if (form) {
-                    form.requestSubmit();
-                  }
-                }}
-              >
-                {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Changes
-              </Button>
-            </div>
-          )}
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="students" activeTab={activeTab} className="space-y-6">
-          <ClassStudentsTab
-            classData={classData}
-            classSubject={subject || undefined}
-            classStaff={classStaff}
-            classStudents={classStudents}
-            allStudents={allStudentsData}
-            loadingStudents={false}
-            onStudentsUpdated={handleClassUpdated}
-          />
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="space-y-6">
-          <ClassStaffTab
-            classData={classData}
-            classSubject={subject || undefined}
-            classStaff={classStaff}
-            allStaff={allStaffData}
-            loadingStaff={false}
-            onAssignStaff={handleAssignStaff}
-            onRemoveStaff={handleRemoveStaff}
-          />
+          <div className="border-t pt-6">
+            <ClassPeopleTab
+              classData={classData}
+              classSubject={subject || undefined}
+              classStaff={classStaff}
+              classStudents={classStudents}
+              allStudents={allStudentsData}
+              allStaff={allStaffData}
+              onStudentsUpdated={handleClassUpdated}
+              onAssignStaff={handleAssignStaff}
+              onRemoveStaff={handleRemoveStaff}
+              allowStudentEnrollment={classData.session_type === 'CLASS'}
+            />
+          </div>
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">

@@ -1,0 +1,5 @@
+interface:
+  display_name: "Audit UCAT Questions"
+  short_description: "Audit and fix UCAT question stems via MCP"
+policy:
+  allow_implicit_invocation: false

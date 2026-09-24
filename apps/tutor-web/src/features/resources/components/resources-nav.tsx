@@ -1,10 +1,45 @@
 'use client';
 
+import type { ReactNode } from 'react';
 import Link from 'next/link';
-import { ChevronLeft } from 'lucide-react';
+import { ArrowLeft, ChevronLeft } from 'lucide-react';
 import { Button, ClickableCardRevealChevron, clickableCardInteractiveCn } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
-import { tutorCardCn } from '@/shared/lib/tutor-visual';
+import { tutorBtnIconOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
+import { ResourcesBreadcrumb, type ResourceBreadcrumbItem } from './resources-breadcrumb';
+
+export function ResourcesPageHeader({
+  title,
+  actions,
+  backHref,
+  backLabel,
+  breadcrumbs,
+}: {
+  title: string;
+  actions?: ReactNode;
+  backHref?: string;
+  backLabel?: string;
+  breadcrumbs?: ResourceBreadcrumbItem[];
+}) {
+  return (
+    <>
+      {breadcrumbs ? <ResourcesBreadcrumb items={breadcrumbs} /> : null}
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex min-w-0 items-start gap-3">
+          {backHref ? (
+            <Button asChild variant="outline" size="icon" className={cn('mt-1', tutorBtnIconOutline)}>
+              <Link href={backHref} aria-label={backLabel ?? 'Back'}>
+                <ArrowLeft className="h-4 w-4" />
+              </Link>
+            </Button>
+          ) : null}
+          <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
+        </div>
+        {actions ? <div className="shrink-0">{actions}</div> : null}
+      </div>
+    </>
+  );
+}
 
 export function ResourcesBackLink({
   href,

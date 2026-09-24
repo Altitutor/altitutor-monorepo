@@ -8,6 +8,7 @@ import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { SessionsCard } from './SessionsCard';
+import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 import { Button, SegmentedControl } from "@altitutor/ui";
 
 type Props = {
@@ -241,10 +242,6 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
-                            // Check if session has any students attending (planned attendance)
-                            const hasAttendingStudents = sessionStudents.length > 0 && 
-                              sessionStudents.some((student) => !student.planned_absence);
-                            
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
                             // Estimate width: assume column is ~150-200px wide, calculate from percentage
@@ -254,7 +251,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             blocks.push(
                               <div
                                 key={`admin-${d.toISOString()}-${s.id}-${idx}`}
-                                className={cn("absolute", !hasAttendingStudents && "opacity-50")}
+                                className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 5, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
@@ -290,10 +287,6 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
-                            // Check if session has any students attending (planned attendance)
-                            const hasAttendingStudents = sessionStudents.length > 0 && 
-                              sessionStudents.some((student) => !student.planned_absence);
-                            
                             // Calculate actual pixel dimensions for smart sizing
                             const cardHeight = Math.max(height, 45);
                             // Estimate width: assume column is ~150-200px wide, calculate from percentage
@@ -303,7 +296,7 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                             blocks.push(
                               <div
                                 key={`reg-${d.toISOString()}-${s.id}-${idx}`}
-                                className={cn("absolute", !hasAttendingStudents && "opacity-50")}
+                                className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
                                 style={{ top: `${top}px`, height: `${cardHeight}px`, left: `${left}%`, width: `${columnWidth}%`, zIndex: 10, minHeight: '45px' }}
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >

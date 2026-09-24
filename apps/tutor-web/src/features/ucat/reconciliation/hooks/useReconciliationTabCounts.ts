@@ -15,11 +15,14 @@ export function useReconciliationTabCounts() {
     const data = query.data
     return {
       questions:
-        data.pendingGeneratedStems.length +
         data.stemsWithNoCategory.length +
         data.questionsWithNoExplanation.length +
+        data.downvotedQuestions.length +
+        data.downvotedExplanations.length +
         data.untaggedQuestions.length +
-        data.privateStemsNotInSet.length,
+        data.privateStemsNotInSet.length +
+        data.stemsInMultipleSets.length +
+        data.potentialDuplicatePairs.length,
       sets:
         data.setsWithIncorrectQuestionCount.length +
         data.setsWithIncorrectTiming.length +

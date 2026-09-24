@@ -14,7 +14,7 @@ export default function BillingPage() {
 
   return (
     <StudentPageContainer className="space-y-8">
-      <div>
+      <div id="tour-billing-header">
         <h1 className="text-3xl font-bold tracking-tight">Billing & Payments</h1>
         <p className="mt-1 text-muted-foreground">
           Manage your payment methods and view invoices
@@ -23,7 +23,7 @@ export default function BillingPage() {
 
       <BillingSubsidiesSection />
 
-      <div>
+      <div id="tour-billing-payment-method">
         <h2 className="mb-4 text-2xl font-semibold">Payment Method</h2>
         <PaymentMethodCard />
       </div>

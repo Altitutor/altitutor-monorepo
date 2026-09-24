@@ -1,12 +1,12 @@
 'use client';
 
 import {
-  Button,
   FormControl,
   FormField,
   FormItem,
   FormMessage,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { Gauge } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -47,14 +47,15 @@ export function TaskEstimateField({ form }: TaskEstimateFieldProps) {
                 }}
                 getItemLabel={(opt) => opt.label}
                 getItemId={(opt) => (opt.value == null ? 'none' : String(opt.value))}
+                fullWidth
                 placeholder="Set estimate"
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal">
+                  <SearchableSelectFieldTrigger>
                     <Gauge className="h-4 w-4 text-muted-foreground" />
                     <span className={cn(!estimateValue && 'text-muted-foreground')}>
                       {displayValue || 'Set estimate'}
                     </span>
-                  </Button>
+                  </SearchableSelectFieldTrigger>
                 }
               />
             </FormControl>

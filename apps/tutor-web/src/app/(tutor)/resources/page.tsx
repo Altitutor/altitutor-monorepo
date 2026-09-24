@@ -1,6 +1,7 @@
 'use client';
 
 import { SubjectCard, useResourceSubjects } from '@/features/resources';
+import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import { TutorPageContainer } from '@/shared/components/layouts';
 
 export default function TutorResourcesPage() {
@@ -27,7 +28,7 @@ export default function TutorResourcesPage() {
             <SubjectCard
               key={subject.id}
               subject={subject}
-              href={`/resources/${encodeURIComponent((subject.short_name || subject.name || '').toLowerCase())}`}
+              href={getTutorResourceSubjectHref(subject)}
             />
           ))}
         </div>

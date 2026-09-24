@@ -41,7 +41,12 @@ export interface SessionForLogging {
     Tables<'staff'> & {
       planned_absence?: boolean;
       is_swapped_in?: boolean;
-      session_staff_type?: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR';
+      session_staff_type?:
+        | 'MAIN_TUTOR'
+        | 'SECONDARY_TUTOR'
+        | 'TRIAL_TUTOR'
+        | 'CHECK_IN_HOST'
+        | 'CHECK_IN_RECEIVER';
       sessions_staff_id?: string | null;
       session_was_trial?: boolean;
       is_swapped?: boolean;
@@ -165,6 +170,8 @@ export function useSessionForLogging(sessionId: string | null | undefined) {
               | 'MAIN_TUTOR'
               | 'SECONDARY_TUTOR'
               | 'TRIAL_TUTOR'
+              | 'CHECK_IN_HOST'
+              | 'CHECK_IN_RECEIVER'
               | undefined,
             sessions_staff_id: row.id,
             session_was_trial: row.was_trial ?? false,

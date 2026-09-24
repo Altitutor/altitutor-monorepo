@@ -1,6 +1,11 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import {
+  isRegistrationTokenRevoked,
+  resolveRegistrationStudentId,
+} from '@/features/registration/lib/public-registration-token';
 
 // Mark this route as dynamic to prevent static generation
 export const dynamic = 'force-dynamic';
@@ -29,15 +34,30 @@ export async function GET(request: NextRequest) {
       }
     );
 
-    // Check if token exists in students table
+    if (await isRegistrationTokenRevoked(supabaseAdmin, token)) {
+      return NextResponse.json(
+        { valid: false, revoked: true, error: 'This registration link has been replaced. Please use the newest link from Altitutor.' },
+        { status: 410 }
+      );
+    }
+
+    const studentId = await resolveRegistrationStudentId(supabaseAdmin, token);
+    if (!studentId) {
+      return NextResponse.json(
+        { valid: false, error: 'Invalid or revoked registration link' },
+        { status: 404 }
+      );
+    }
+
     const { data: student, error: studentError } = await supabaseAdmin
       .from('students')
-      .select('id, first_name, last_name, email, phone, school, curriculum, year_level, status, user_id, invite_token')
-      .eq('invite_token', token)
+      .select('id, first_name, last_name, email, phone, school, curriculum, year_level, status, user_id')
+      .eq('id', studentId)
       .maybeSingle();
 
     if (studentError) {
       console.error('Error fetching student:', studentError);
+      captureApiError(studentError, "/api/register/validate");
       return NextResponse.json(
         { error: 'Failed to validate token', details: studentError.message },
         { status: 500 }
@@ -46,17 +66,24 @@ export async function GET(request: NextRequest) {
 
     if (!student) {
       return NextResponse.json(
-        { valid: false, error: 'Invalid or expired token' },
+        { valid: false, error: 'Invalid registration link' },
         { status: 404 }
       );
     }
 
-    // Check if student is already fully registered (has account AND status is ACTIVE)
-    if (student.user_id && student.status === 'ACTIVE') {
+    if (student.status === 'ACTIVE') {
       return NextResponse.json({
         valid: false,
         alreadyRegistered: true,
         error: 'This student is already fully registered',
+      }, { status: 200 });
+    }
+
+    if (student.status !== 'TRIAL') {
+      return NextResponse.json({
+        valid: false,
+        unavailable: true,
+        error: 'Registration is not available for this student. Please contact Altitutor.',
       }, { status: 200 });
     }
     
@@ -138,6 +165,7 @@ export async function GET(request: NextRequest) {
       }),
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/register/validate");
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },
       { status: 500 }

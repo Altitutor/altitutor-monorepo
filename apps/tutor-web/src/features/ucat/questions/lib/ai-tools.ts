@@ -10,24 +10,46 @@ import {
   proseMirrorToPlainText,
 } from '@/features/ucat/shared/lib/rich-text'
 
+const AiTimeBurdenInputSchema = z.string().nullable().optional().refine(
+  (value) => {
+    const input = value?.trim() ?? ''
+    if (input === '') return true
+    if (/^\d+$/u.test(input)) return Number(input) > 0
+    if (!/^\d+:[0-5]\d$/u.test(input)) return false
+    const [minutes = '0', seconds = '0'] = input.split(':')
+    return (Number(minutes) * 60) + Number(seconds) > 0
+  },
+  'Expected time to correct must be positive whole seconds or mm:ss.',
+).describe(
+  'Expected active working time to a fully correct first-exposure answer, as positive whole seconds or mm:ss, with the question encountered in its authored stem position. Empty means unknown.',
+)
+
 export const AiToolQuestionStemPayloadSchema = z.object({
   sectionId: z.string().uuid(),
   categoryId: z.string().uuid().nullable().optional(),
   stemText: z.unknown(),
-  isPrivate: z.boolean().default(true),
+  accessScope: z.enum(['public', 'private']).default('public'),
   questions: z.array(
     z.object({
       questionText: z.unknown(),
-      questionType: z.enum(['multiple_choice', 'syllogism']),
+      responseType: z.enum(['multiple_choice', 'drag_and_drop']),
+      answerScheme: z.enum([
+        'single_choice',
+        'situational_judgement_rating',
+        'decision_making_binary_placement',
+        'situational_judgement_most_least',
+      ]),
       answerExplanation: z.unknown().nullable().optional(),
-      difficulty: z.number().nullable().optional(),
-      timeBurdenSeconds: z.string().nullable().optional(),
+      difficulty: z.number().min(0).max(1).nullable().optional().describe(
+        'Expected proportion incorrect on first exposure under realistic section timing. 0 is easiest, 1 is hardest, and null means unknown.',
+      ),
+      timeBurdenSeconds: AiTimeBurdenInputSchema,
       tagIds: z.array(z.string().uuid()).default([]),
       options: z.array(
         z.object({
           answerText: z.unknown(),
           answerExplanation: z.unknown().nullable().optional(),
-          isAnswer: z.boolean(),
+          answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
         })
       ),
     })
@@ -69,7 +91,7 @@ export const AiToolWriteQuestionResponseSchema = z.object({
   options: z.array(
     z.object({
       answerText: z.string().min(1),
-      isAnswer: z.boolean(),
+      answerKeyValue: z.enum(['correct']).nullable(),
     })
   ).min(2).max(5),
   rationale: z.string().nullable().optional(),
@@ -84,6 +106,139 @@ export type AiToolReviewFlag = {
   suggestedCorrectOptionIndex?: number | null
   suggestedAnswerExplanation?: string | null
   suggestedChanges?: string | null
+}
+
+const HOW_IMPORTANT_SCALE_OPTIONS = [
+  'Very important',
+  'Important',
+  'Of minor importance',
+  'Not important at all',
+] as const
+
+const HOW_APPROPRIATE_SCALE_OPTIONS = [
+  'A very appropriate thing to do',
+  'Appropriate, but not ideal',
+  'Inappropriate, but not awful',
+  'A very inappropriate thing to do',
+] as const
+
+export type ReviewFlagTextReplacement = {
+  from: string
+  to: string
+}
+
+export type ReviewFlagAcceptPlan =
+  | { kind: 'correct_option'; optionIndex: number }
+  | { kind: 'option_texts'; optionTexts: string[] }
+  | { kind: 'text_replacement'; replacement: ReviewFlagTextReplacement }
+  | { kind: 'text_replacement_choice'; from: string; options: string[] }
+
+export function parseReviewFlagAcceptPlan(flag: AiToolReviewFlag): ReviewFlagAcceptPlan | null {
+  if (flag.suggestedCorrectOptionIndex != null) {
+    return { kind: 'correct_option', optionIndex: flag.suggestedCorrectOptionIndex }
+  }
+
+  const suggestedChanges = flag.suggestedChanges?.trim()
+  if (!suggestedChanges) return null
+
+  const letterAnswer =
+    /(?:change(?:\s+the)?\s+(?:selected\s+)?answer\s+to|select(?:\s+option)?|correct(?:\s+answer)?(?:\s+(?:is|should\s+be))?)\s*([A-Ea-e])\b/i.exec(
+      suggestedChanges
+    )
+  if (letterAnswer?.[1]) {
+    return {
+      kind: 'correct_option',
+      optionIndex: letterAnswer[1].toUpperCase().charCodeAt(0) - 65,
+    }
+  }
+
+  const eitherOr =
+    /Replace\s+[“"']([^“"']+)[”"']\s+with\s+either\s+[“"']([^“"']+)[”"']\s+or\s+[“"']([^“"']+)[”"']/i.exec(
+      suggestedChanges
+    )
+  if (eitherOr?.[1] && eitherOr[2] && eitherOr[3]) {
+    return {
+      kind: 'text_replacement_choice',
+      from: eitherOr[1],
+      options: [eitherOr[2], eitherOr[3]],
+    }
+  }
+
+  const simpleReplace =
+    /Replace\s+[“"']([^“"']+)[”"']\s+with\s+[“"']([^“"']+)[”"']/i.exec(suggestedChanges)
+  if (simpleReplace?.[1] && simpleReplace[2]) {
+    return {
+      kind: 'text_replacement',
+      replacement: { from: simpleReplace[1], to: simpleReplace[2] },
+    }
+  }
+
+  if (/how important/i.test(suggestedChanges) && /options?|scale/i.test(suggestedChanges)) {
+    const listed = extractListedOptionTexts(suggestedChanges)
+    return {
+      kind: 'option_texts',
+      optionTexts: listed ?? [...HOW_IMPORTANT_SCALE_OPTIONS],
+    }
+  }
+
+  if (/how appropriate/i.test(suggestedChanges) && /options?|scale/i.test(suggestedChanges)) {
+    const listed = extractListedOptionTexts(suggestedChanges)
+    return {
+      kind: 'option_texts',
+      optionTexts: listed ?? [...HOW_APPROPRIATE_SCALE_OPTIONS],
+    }
+  }
+
+  const unquotedReplace =
+    /Replace\s+(.+?)\s+with\s+(?:either\s+)?(.+?)(?:\s+and\b.*)?$/i.exec(suggestedChanges)
+  if (
+    unquotedReplace?.[1] &&
+    unquotedReplace[2] &&
+    !/how (important|appropriate)/i.test(suggestedChanges) &&
+    !/options?/i.test(unquotedReplace[1])
+  ) {
+    const from = unquotedReplace[1].trim().replace(/^["“']|["”']$/g, '')
+    const toRaw = unquotedReplace[2].trim()
+    const eitherParts = /^(?:either\s+)?["“']?(.+?)["”']?\s+or\s+["“']?(.+?)["”']?$/i.exec(toRaw)
+    if (eitherParts?.[1] && eitherParts[2]) {
+      return {
+        kind: 'text_replacement_choice',
+        from,
+        options: [eitherParts[1].trim(), eitherParts[2].trim()],
+      }
+    }
+    const to = toRaw.replace(/^["“']|["”']$/g, '')
+    if (from && to && from !== to) {
+      return { kind: 'text_replacement', replacement: { from, to } }
+    }
+  }
+
+  const listedOptions = extractListedOptionTexts(suggestedChanges)
+  if (listedOptions) {
+    return { kind: 'option_texts', optionTexts: listedOptions }
+  }
+
+  return null
+}
+
+function extractListedOptionTexts(suggestedChanges: string): string[] | null {
+  const match =
+    /(?:scale|options?)\s*:\s*(.+)$/i.exec(suggestedChanges.trim()) ??
+    /:\s*((?:Very important|A very appropriate)[\s\S]+)$/i.exec(suggestedChanges.trim())
+  if (!match?.[1]) return null
+  const parts = match[1]
+    .split(/[;•|\n]/)
+    .map((part) => part.trim().replace(/^[A-Ea-e][.)]\s*/, '').replace(/\.$/, ''))
+    .filter((part) => part.length > 0)
+  return parts.length >= 2 ? parts : null
+}
+
+function replacePlainTextInRichText(value: unknown, from: string, to: string): Json {
+  const plain = proseMirrorToPlainText(asJson(value)) ?? ''
+  if (!plain.includes(from)) {
+    return (value as Json) ?? plainTextToProseMirror('')
+  }
+  return plainTextToProseMirrorWithLineBreaks(plain.split(from).join(to))
 }
 
 export type MissingExplanationTarget = {
@@ -157,21 +312,22 @@ export function summarizeStemForAi(stem: AiToolQuestionStemPayload) {
     questions: stem.questions.map((question, questionIndex) => ({
       questionIndex,
       questionText: proseMirrorToPlainText(asJson(question.questionText)) ?? '',
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       answerExplanation: proseMirrorToPlainText(asJson(question.answerExplanation)) ?? '',
       selectedCorrectOptions: question.options
         .map((option, optionIndex) => ({
           optionIndex,
           label: String.fromCharCode(65 + optionIndex),
           answerText: proseMirrorToPlainText(asJson(option.answerText)) ?? '',
-          isAnswer: option.isAnswer,
+          answerKeyValue: option.answerKeyValue,
         }))
-        .filter((option) => option.isAnswer),
+        .filter((option) => option.answerKeyValue != null),
       options: question.options.map((option, optionIndex) => ({
         optionIndex,
         label: String.fromCharCode(65 + optionIndex),
         answerText: proseMirrorToPlainText(asJson(option.answerText)) ?? '',
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
         answerExplanation: proseMirrorToPlainText(asJson(option.answerExplanation)) ?? '',
       })),
     })),
@@ -209,28 +365,37 @@ export function writtenQuestionToFormValue(
 ): UcatQuestionStemFormValues['questions'][number] {
   return {
     questionText: plainTextToProseMirrorWithLineBreaks(response.questionText),
-    questionType: 'multiple_choice',
+    responseType: 'multiple_choice',
+    answerScheme: 'single_choice',
     answerExplanation: plainTextToProseMirror(response.answerExplanation),
     difficulty: null,
     timeBurdenSeconds: '',
     tagIds,
+    sourceChannel: 'ai_generation',
+    aiGenerationMetadata: null,
     options: response.options.map((option) => ({
       answerText: plainTextToProseMirror(option.answerText),
       answerExplanation: null,
-      isAnswer: option.isAnswer,
+      answerKeyValue: option.answerKeyValue,
     })),
   }
 }
 
 export function findMissingExplanations(
-  stem: Pick<UcatQuestionStemFormValues, 'questions'>,
+  stem: {
+    questions: Array<{
+      responseType: 'multiple_choice' | 'drag_and_drop'
+      answerExplanation?: unknown
+      options: Array<{ answerExplanation?: unknown }>
+    }>
+  },
   stemIndex?: number
 ): MissingExplanationTarget[] {
   const targets: MissingExplanationTarget[] = []
   stem.questions.forEach((question, questionIndex) => {
-    if (question.questionType === 'syllogism') {
+    if (question.responseType === 'drag_and_drop') {
       question.options.forEach((option, optionIndex) => {
-        if (!hasRichTextContent(option.answerExplanation ?? null)) {
+        if (!hasRichTextContent((option.answerExplanation ?? null) as Json | null)) {
           targets.push({
             stemIndex,
             questionIndex,
@@ -242,7 +407,7 @@ export function findMissingExplanations(
       })
       return
     }
-    if (!hasRichTextContent(question.answerExplanation ?? null)) {
+    if (!hasRichTextContent((question.answerExplanation ?? null) as Json | null)) {
       targets.push({ stemIndex, questionIndex, questionNumber: questionIndex + 1, kind: 'question' })
     }
   })
@@ -261,9 +426,16 @@ export function applyExplanationUpdates(
         (item) => item.questionIndex === questionIndex && !item.unresolved && !item.reviewRequired
       )
       if (!update) return question
-      if (question.questionType === 'syllogism') {
+      if (question.responseType === 'drag_and_drop') {
+        const questionExplanation = update.answerExplanation?.trim()
+        const shouldApplyQuestionExplanation =
+          !hasRichTextContent(question.answerExplanation ?? null) && !!questionExplanation
+        if (shouldApplyQuestionExplanation) appliedCount += 1
         return {
           ...question,
+          answerExplanation: shouldApplyQuestionExplanation
+            ? plainTextToProseMirror(questionExplanation)
+            : question.answerExplanation,
           options: question.options.map((option, optionIndex) => {
             if (hasRichTextContent(option.answerExplanation ?? null)) return option
             const explanation = update.optionExplanations?.[optionIndex]?.trim()
@@ -273,11 +445,26 @@ export function applyExplanationUpdates(
           }),
         }
       }
-      if (hasRichTextContent(question.answerExplanation ?? null)) return question
-      const explanation = update.answerExplanation?.trim()
-      if (!explanation) return question
-      appliedCount += 1
-      return { ...question, answerExplanation: plainTextToProseMirror(explanation) }
+      const questionExplanation = update.answerExplanation?.trim()
+      const shouldApplyQuestionExplanation =
+        !hasRichTextContent(question.answerExplanation ?? null) && !!questionExplanation
+      if (shouldApplyQuestionExplanation) appliedCount += 1
+      return {
+        ...question,
+        answerExplanation: shouldApplyQuestionExplanation
+          ? plainTextToProseMirror(questionExplanation)
+          : question.answerExplanation,
+        options: question.options.map((option, optionIndex) => {
+          if (hasRichTextContent(option.answerExplanation ?? null)) return option
+          const optionExplanation = update.optionExplanations?.[optionIndex]?.trim()
+          if (!optionExplanation) return option
+          appliedCount += 1
+          return {
+            ...option,
+            answerExplanation: plainTextToProseMirror(optionExplanation),
+          }
+        }),
+      }
     }),
   }
   return { stem: next, appliedCount }
@@ -300,14 +487,70 @@ export function collectExplanationReviewFlags(updates: AiToolExplanationUpdate[]
 
 export function applyReviewFlagSuggestion(
   stem: UcatQuestionStemFormValues,
-  flag: AiToolReviewFlag
+  flag: AiToolReviewFlag,
+  options?: { textReplacementTo?: string }
 ): UcatQuestionStemFormValues {
   const question = stem.questions[flag.questionIndex]
-  if (!question || question.questionType === 'syllogism' || flag.suggestedCorrectOptionIndex == null) {
+  if (!question || question.answerScheme !== 'single_choice') {
     return stem
   }
-  const suggestedOption = question.options[flag.suggestedCorrectOptionIndex]
-  if (!suggestedOption) return stem
+
+  const plan = parseReviewFlagAcceptPlan(flag)
+  if (!plan) return stem
+
+  if (plan.kind === 'correct_option') {
+    const suggestedOption = question.options[plan.optionIndex]
+    if (!suggestedOption) return stem
+
+    return {
+      ...stem,
+      questions: stem.questions.map((item, questionIndex) => {
+        if (questionIndex !== flag.questionIndex) return item
+        return {
+          ...item,
+          answerExplanation: flag.suggestedAnswerExplanation?.trim()
+            ? plainTextToProseMirror(flag.suggestedAnswerExplanation.trim())
+            : item.answerExplanation ?? null,
+          options: item.options.map((option, optionIndex) => ({
+            ...option,
+            answerKeyValue: optionIndex === plan.optionIndex ? 'correct' : null,
+          })),
+        }
+      }),
+    }
+  }
+
+  if (plan.kind === 'option_texts') {
+    return {
+      ...stem,
+      questions: stem.questions.map((item, questionIndex) => {
+        if (questionIndex !== flag.questionIndex) return item
+        const nextOptions = plan.optionTexts.map((text, optionIndex) => {
+          const existing = item.options[optionIndex]
+          return {
+            answerText: plainTextToProseMirror(text),
+            answerExplanation: existing?.answerExplanation ?? null,
+            answerKeyValue: existing?.answerKeyValue ?? null,
+          }
+        })
+        if (!nextOptions.some((option) => option.answerKeyValue === 'correct') && nextOptions[0]) {
+          nextOptions[0] = { ...nextOptions[0], answerKeyValue: 'correct' }
+        }
+        return {
+          ...item,
+          options: nextOptions,
+        }
+      }),
+    }
+  }
+
+  const replacement =
+    plan.kind === 'text_replacement'
+      ? plan.replacement
+      : plan.kind === 'text_replacement_choice' && options?.textReplacementTo
+        ? { from: plan.from, to: options.textReplacementTo }
+        : null
+  if (!replacement) return stem
 
   return {
     ...stem,
@@ -315,12 +558,10 @@ export function applyReviewFlagSuggestion(
       if (questionIndex !== flag.questionIndex) return item
       return {
         ...item,
-        answerExplanation: flag.suggestedAnswerExplanation?.trim()
-          ? plainTextToProseMirror(flag.suggestedAnswerExplanation.trim())
-          : item.answerExplanation ?? null,
-        options: item.options.map((option, optionIndex) => ({
+        questionText: replacePlainTextInRichText(item.questionText, replacement.from, replacement.to),
+        options: item.options.map((option) => ({
           ...option,
-          isAnswer: optionIndex === flag.suggestedCorrectOptionIndex,
+          answerText: replacePlainTextInRichText(option.answerText, replacement.from, replacement.to),
         })),
       }
     }),

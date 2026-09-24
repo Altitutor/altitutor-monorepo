@@ -1,0 +1,17 @@
+begin;
+select plan(9);
+select ok(not has_table_privilege('admin_reporting_reader','public.students','select'),'reporting role cannot read the student base table');
+select ok(not has_table_privilege('admin_reporting_reader','auth.users','select'),'reporting role cannot read identities');
+select ok(has_table_privilege('admin_reporting_reader','admin_reporting.students','select'),'reporting role reads the explicit projection');
+select ok(not has_table_privilege('admin_reporting_reader','admin_reporting.students','update'),'reporting projection is not writable');
+select ok(not has_function_privilege('admin_reporting_reader','public.admin_work_item_change(text,uuid,bigint,text,jsonb)','execute'),'reporting role cannot invoke operations');
+select ok(not exists(select from information_schema.columns where table_schema='admin_reporting' and column_name in ('invite_token','registration_public_token','legacy_registration_token','office_key_number','child_safe_agreement_number','invoice_pdf','billing_snapshot','raw','payload_metadata')),'reporting views exclude known secret columns');
+insert into auth.users(id) values ('ac000000-0000-4000-8000-000000000001');
+insert into public.staff(id,user_id,first_name,last_name,role,status) values ('ac000000-0000-4000-8000-000000000002','ac000000-0000-4000-8000-000000000001','Consent','Test','ADMINSTAFF','ACTIVE');
+select set_config('request.jwt.claims','{"sub":"ac000000-0000-4000-8000-000000000001","role":"authenticated","client_id":"old-ucat-client"}',true);
+set local role authenticated;
+select is(public.has_admin_mcp_access(),false,'existing OAuth consent does not silently grant admin access');
+select throws_ok($$insert into public.admin_mcp_grants(user_id,client_id) values ('ac000000-0000-4000-8000-000000000001','old-ucat-client')$$,'42501','new row violates row-level security policy for table "admin_mcp_grants"','OAuth tokens cannot grant themselves admin access');
+select throws_ok($$select public.admin_work_item_change('task',null,null,'no-consent','{"title":"Not authorised"}')$$,'42501','Admin MCP consent required','operational RPC also enforces explicit consent');
+select * from finish();
+rollback;

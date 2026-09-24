@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { Editor } from '@tiptap/react'
+import type { Json } from '@altitutor/shared'
 import type { UseFormReturn } from 'react-hook-form'
+import { ResponsiveResizablePanels, useToast } from '@altitutor/ui'
 import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import type { UcatQuestionSourceChannel } from '@/features/ucat/questions/api/questions'
 import { UcatQuestionEnginePreview } from '@/features/ucat/question-engine-preview/UcatQuestionEnginePreview'
 import { UcatTutorStemPreviewExamChrome } from '@/features/ucat/question-engine-preview/UcatTutorStemPreviewExamChrome'
 import {
@@ -16,11 +19,24 @@ import {
   type StemEditorMode,
 } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import { UcatStemEngineInlineEditor } from '@/features/ucat/questions/components/stem-editor/UcatStemEngineInlineEditor'
+import { UcatStemQuestionNavigator } from '@/features/ucat/questions/components/stem-editor/UcatStemQuestionNavigator'
 import type {
   CategoryOption,
   TagOption,
   UcatSectionOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
+import {
+  UcatAuthoringWorkspaceTabs,
+  type UcatAuthoringWorkspaceTab,
+} from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import { cn } from '@/shared/utils'
+import type { SelectedVisualImage } from '@/features/ucat/shared/lib/selected-visual-image'
+import { replaceSelectedImageAttrs } from '@/features/ucat/shared/lib/selected-visual-image'
+import { UcatSelectedImageMenu } from '@/features/ucat/shared/components/UcatSelectedImageMenu'
+import { UcatVisualEditorDialog } from '@/features/ucat/questions/components/stem-editor/UcatVisualEditorDialog'
+import { useExplanationFeedback } from '@/features/ucat/reconciliation/hooks/useExplanationFeedback'
+import type { BulkImportAiReviewPanelProps } from '@/features/ucat/questions/components/bulk-import/BulkImportAiReviewPanel'
+import type { StemMetadataDetectionControls } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
 
 type UcatStemEditorShellProps = {
   form: UseFormReturn<UcatQuestionStemFormValues>
@@ -43,11 +59,38 @@ type UcatStemEditorShellProps = {
   showQuestionNavigator?: boolean
   /** Initial edit vs preview mode (resets when stemId changes). */
   initialEditorMode?: StemEditorMode
+  editorMode?: StemEditorMode
+  onEditorModeChange?: (mode: StemEditorMode) => void
+  showAnswer?: boolean
+  onShowAnswerChange?: (show: boolean) => void
+  showModeControls?: boolean
   /** Reports the focused TipTap editor for dialog footer or floating toolbar placement. */
   onActiveTextEditorChange?: (editor: Editor | null) => void
   onCurrentQuestionIndexChange?: (index: number) => void
   focusTarget?: StemEditorFocusTarget | null
   focusMessage?: string | null
+  sourceChannel?: UcatQuestionSourceChannel | null
+  aiGenerationMetadata?: Json | null
+  createdByFirstName?: string | null
+  createdByLastName?: string | null
+  statusChangedByFirstName?: string | null
+  statusChangedByLastName?: string | null
+  statusChangedAt?: string | null
+  selectedImage?: SelectedVisualImage | null
+  onAcceptSelectedImage?: (imageNode: Json) => Promise<{ ok: boolean; message: string }> | { ok: boolean; message: string }
+  workspaceTab?: UcatAuthoringWorkspaceTab
+  onWorkspaceTabChange?: (tab: UcatAuthoringWorkspaceTab) => void
+  aiReviewAvailable?: boolean
+  bulkImportAiReview?: Omit<BulkImportAiReviewPanelProps, 'activeQuestionId' | 'activeQuestionIndex'> | null
+  onUseSelectedImageWithAi?: (image: SelectedVisualImage, editor: Editor) => void
+  metadataDetection?: StemMetadataDetectionControls | null
+}
+
+function imageNodeAttrs(imageNode: Json): Record<string, Json | undefined> | null {
+  if (!imageNode || typeof imageNode !== 'object' || Array.isArray(imageNode)) return null
+  const attrs = (imageNode as Record<string, Json>).attrs
+  if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs)) return null
+  return attrs as Record<string, Json | undefined>
 }
 
 export function UcatStemEditorShell({
@@ -65,17 +108,64 @@ export function UcatStemEditorShell({
   initialQuestionIndex,
   showQuestionNavigator = false,
   initialEditorMode = 'edit',
+  editorMode: controlledEditorMode,
+  onEditorModeChange,
+  showAnswer: controlledShowAnswer,
+  onShowAnswerChange,
+  showModeControls = true,
   onActiveTextEditorChange,
   onCurrentQuestionIndexChange,
   focusTarget = null,
   focusMessage = null,
+  sourceChannel = null,
+  aiGenerationMetadata = null,
+  createdByFirstName = null,
+  createdByLastName = null,
+  statusChangedByFirstName = null,
+  statusChangedByLastName = null,
+  statusChangedAt = null,
+  selectedImage = null,
+  onAcceptSelectedImage,
+  workspaceTab: controlledWorkspaceTab,
+  onWorkspaceTabChange,
+  aiReviewAvailable = Boolean(stemId),
+  bulkImportAiReview = null,
+  onUseSelectedImageWithAi,
+  metadataDetection = null,
 }: UcatStemEditorShellProps) {
-  const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
-  const [showAnswer, setShowAnswer] = useState(false)
+  const { toast } = useToast()
+  const explanationFeedbackQuery = useExplanationFeedback(stemId)
+  const [localEditorMode, setLocalEditorMode] = useState<StemEditorMode>(initialEditorMode)
+  const [localShowAnswer, setLocalShowAnswer] = useState(false)
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(initialQuestionIndex ?? 0)
+  const [localActiveWorkspace, setLocalActiveWorkspace] = useState<UcatAuthoringWorkspaceTab>('editor')
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [visualEditorContext, setVisualEditorContext] = useState<{
+    image: SelectedVisualImage
+    editor: Editor
+  } | null>(null)
+  const activeWorkspace = controlledWorkspaceTab ?? localActiveWorkspace
+  const editorMode = controlledEditorMode ?? localEditorMode
+  const showAnswer = controlledShowAnswer ?? localShowAnswer
+
+  const handleWorkspaceChange = useCallback((tab: UcatAuthoringWorkspaceTab) => {
+    setLocalActiveWorkspace(tab)
+    onWorkspaceTabChange?.(tab)
+  }, [onWorkspaceTabChange])
+
+  const handleEditorModeChange = useCallback((mode: StemEditorMode) => {
+    setLocalEditorMode(mode)
+    onEditorModeChange?.(mode)
+  }, [onEditorModeChange])
+
+  const handleShowAnswerChange = useCallback((show: boolean) => {
+    setLocalShowAnswer(show)
+    onShowAnswerChange?.(show)
+  }, [onShowAnswerChange])
 
   const handleTextEditorActive = useCallback(
     (textEditor: Editor | null) => {
+      setActiveTextEditor(textEditor)
       onActiveTextEditorChange?.(textEditor)
     },
     [onActiveTextEditorChange],
@@ -106,6 +196,15 @@ export function UcatStemEditorShell({
   const questionCount = watchedQuestions?.length ?? 0
   const safeQuestionIndex =
     questionCount > 0 ? Math.min(currentQuestionIndex, questionCount - 1) : 0
+  const firstAnswerScheme = watchedQuestions?.[0]?.answerScheme ?? 'single_choice'
+  const isSingleQuestionPlacement =
+    firstAnswerScheme === 'decision_making_binary_placement' ||
+    firstAnswerScheme === 'situational_judgement_most_least'
+  const showExamQuestionNavigator = showQuestionNavigator || questionCount > 1
+  const currentQuestionId = watchedQuestions?.[safeQuestionIndex]?.id
+  const currentExplanationFeedback = explanationFeedbackQuery.data?.find(
+    (feedback) => feedback.questionId === currentQuestionId,
+  )
 
   const previewQuestion = useMemo(
     () =>
@@ -136,7 +235,7 @@ export function UcatStemEditorShell({
   }, [initialQuestionIndex, questionCount, onCurrentQuestionIndexChange])
 
   useEffect(() => {
-    setEditorMode(initialEditorMode)
+    setLocalEditorMode(initialEditorMode)
   }, [initialEditorMode, stemId])
 
   useEffect(() => {
@@ -145,9 +244,50 @@ export function UcatStemEditorShell({
     }
   }, [editorMode, onActiveTextEditorChange])
 
+  useEffect(() => {
+    if (selectedImage) handleWorkspaceChange('ai')
+  }, [handleWorkspaceChange, selectedImage])
+
+  useEffect(() => {
+    if (
+      aiReviewAvailable
+      && typeof window !== 'undefined'
+      && new URLSearchParams(window.location.search).get('aiReview') === '1'
+    ) {
+      handleWorkspaceChange('review')
+    }
+  }, [aiReviewAvailable, handleWorkspaceChange])
+
   return (
-    <div className={className ?? 'flex min-h-0 flex-1 overflow-hidden'}>
-      <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+    <>
+    <div
+      className={cn('relative flex min-h-0 flex-1 flex-col overflow-hidden', className)}
+      data-ucat-editor-shell
+    >
+      <UcatSelectedImageMenu
+        editor={activeTextEditor}
+        onEditVisual={(image, editor) => setVisualEditorContext({ image, editor })}
+        onUseImageWithAi={onUseSelectedImageWithAi}
+      />
+      <UcatAuthoringWorkspaceTabs
+        value={activeWorkspace}
+        onValueChange={handleWorkspaceChange}
+        editorLabel="Question stem"
+        reviewAvailable={aiReviewAvailable}
+        className="shrink-0 border-b bg-background p-2 lg:hidden"
+      />
+      <ResponsiveResizablePanels
+        id="ucat-stem-editor-panels"
+        breakpoint="lg"
+        primaryDefaultSize="70%"
+        primaryMinSize={640}
+        secondaryDefaultSize={320}
+        secondaryMinSize={280}
+        secondaryMaxSize={480}
+        handleLabel="Resize question properties sidebar"
+        mobilePanel={activeWorkspace === 'editor' ? 'primary' : 'secondary'}
+        primary={(
+      <div className="flex h-full min-h-0 flex-col overflow-hidden">
         <div
           className={
             flush
@@ -155,22 +295,30 @@ export function UcatStemEditorShell({
               : 'flex min-h-0 flex-1 flex-col overflow-hidden rounded-md border border-border shadow-sm'
           }
         >
+          <UcatStemQuestionNavigator
+            form={form}
+            currentQuestionIndex={safeQuestionIndex}
+            onQuestionIndexChange={handleQuestionIndexChange}
+            isSingleQuestionPlacement={isSingleQuestionPlacement}
+          />
           <UcatTutorStemPreviewExamChrome
             sectionTitle={previewSectionTitle}
             questionCount={questionCount}
             currentQuestionIndex={safeQuestionIndex}
             onQuestionIndexChange={handleQuestionIndexChange}
-            showNavigator={showQuestionNavigator}
+            showNavigator={showExamQuestionNavigator}
           >
             {editorMode === 'edit' ? (
               <UcatStemEngineInlineEditor
                 form={form}
                 questionIndex={safeQuestionIndex}
                 sectionDisplayColumns={sectionDisplayColumns}
+                sectionName={previewSectionTitle}
                 stemId={stemId}
                 enableImages={enableImages}
                 onNewImageFileIds={onNewImageFileIds}
                 onTextEditorActive={handleTextEditorActive}
+                explanationFeedback={currentExplanationFeedback}
               />
             ) : previewQuestion ? (
               <UcatQuestionEnginePreview
@@ -182,6 +330,8 @@ export function UcatStemEditorShell({
           </UcatTutorStemPreviewExamChrome>
         </div>
       </div>
+        )}
+        secondary={(
       <UcatStemEditorPropertiesPanel
         form={form}
         sections={sections}
@@ -191,12 +341,62 @@ export function UcatStemEditorShell({
         currentQuestionIndex={safeQuestionIndex}
         onQuestionIndexChange={handleQuestionIndexChange}
         editorMode={editorMode}
-        onEditorModeChange={setEditorMode}
+        onEditorModeChange={handleEditorModeChange}
         showAnswer={showAnswer}
-        onShowAnswerChange={setShowAnswer}
+        onShowAnswerChange={handleShowAnswerChange}
+        showModeControls={showModeControls}
         focusTarget={focusTarget}
         focusMessage={focusMessage}
+        sourceChannel={sourceChannel}
+        aiGenerationMetadata={aiGenerationMetadata}
+        createdByFirstName={createdByFirstName}
+        createdByLastName={createdByLastName}
+        statusChangedByFirstName={statusChangedByFirstName}
+        statusChangedByLastName={statusChangedByLastName}
+        statusChangedAt={statusChangedAt}
+        activeTab={activeWorkspace === 'editor' ? 'properties' : activeWorkspace}
+        onActiveTabChange={handleWorkspaceChange}
+        selectedImage={selectedImage}
+        onAcceptSelectedImage={onAcceptSelectedImage}
+        onNewImageFileIds={onNewImageFileIds}
+        aiReviewAvailable={aiReviewAvailable}
+        bulkImportAiReview={bulkImportAiReview}
+        metadataDetection={metadataDetection}
+        className="h-full"
+      />
+        )}
       />
     </div>
+    {visualEditorContext?.image.visualType && visualEditorContext.image.visualSpec ? (
+      <UcatVisualEditorDialog
+        open
+        visualType={visualEditorContext.image.visualType}
+        spec={visualEditorContext.image.visualSpec}
+        title={visualEditorContext.image.visualTitle}
+        altText={visualEditorContext.image.visualAltText}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen) setVisualEditorContext(null)
+        }}
+        onApply={(imageNode) => {
+          const attrs = imageNodeAttrs(imageNode)
+          if (!attrs) {
+            toast({ title: 'Could not apply visual', description: 'The rendered visual was invalid.', variant: 'destructive' })
+            return
+          }
+          const replaced = replaceSelectedImageAttrs(
+            visualEditorContext.editor,
+            visualEditorContext.image,
+            attrs,
+          )
+          if (!replaced) {
+            toast({ title: 'Could not apply visual', description: 'The original image could not be found in the draft.', variant: 'destructive' })
+            return
+          }
+          setVisualEditorContext(null)
+          toast({ title: 'Visual updated' })
+        }}
+      />
+    ) : null}
+    </>
   )
 }

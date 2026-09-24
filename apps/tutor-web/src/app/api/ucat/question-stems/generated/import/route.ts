@@ -1,21 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { requireUcatTutor, type UcatTutorSupabaseClient } from '@/features/ucat/shared/server/guard'
+import { enqueueUcatQuestionAssessmentPreparation } from '@/features/ucat/questions/server/ai-assessment/dispatcher'
 
 const GeneratedOptionSchema = z.object({
   index: z.number().int().positive(),
   answerText: z.unknown(),
   answerExplanation: z.unknown().nullable().optional(),
-  isAnswer: z.boolean(),
+  answerKeyValue: z.enum(['correct', 'yes', 'no', 'most', 'least']).nullable(),
 })
 
 const GeneratedQuestionSchema = z.object({
   index: z.number().int().positive(),
   questionText: z.unknown(),
   answerExplanation: z.unknown().nullable().optional(),
-  difficulty: z.number().nullable().optional(),
-  timeBurdenSeconds: z.number().nullable().optional(),
-  questionType: z.enum(['multiple_choice', 'syllogism']),
+  difficulty: z.number().min(0).max(1).nullable().optional(),
+  timeBurdenSeconds: z.number().int().positive().nullable().optional(),
+  responseType: z.enum(['multiple_choice', 'drag_and_drop']),
+  answerScheme: z.enum([
+    'single_choice',
+    'situational_judgement_rating',
+    'decision_making_binary_placement',
+    'situational_judgement_most_least',
+  ]),
   tagIds: z.array(z.string().uuid()).default([]),
   options: z.array(GeneratedOptionSchema).min(1),
 })
@@ -52,7 +59,9 @@ export async function POST(request: NextRequest) {
     sectionId: stem.sectionId,
     categoryId: stem.categoryId ?? null,
     stemText: stem.stemText ?? {},
-    isPrivate: true,
+    accessScope: 'public',
+    sourceChannel: 'ai_generation',
+    tutorSourceNote: null,
     questions: stem.questions.map((question) => ({
       index: question.index,
       question_text: question.questionText ?? {},
@@ -62,7 +71,10 @@ export async function POST(request: NextRequest) {
           : question.answerExplanation,
       difficulty: question.difficulty ?? null,
       time_burden_seconds: question.timeBurdenSeconds ?? null,
-      question_type: question.questionType,
+      response_type: question.responseType,
+      answer_scheme: question.answerScheme,
+      source_channel: 'ai_generation',
+      ai_generation_metadata: stem.aiGenerationMetadata ?? null,
       tag_ids: question.tagIds ?? [],
       answer_options: question.options.map((option) => ({
         index: option.index,
@@ -71,7 +83,7 @@ export async function POST(request: NextRequest) {
           option.answerExplanation == null || option.answerExplanation === 'null'
             ? null
             : option.answerExplanation,
-        is_answer: option.isAnswer,
+        answer_key_value: option.answerKeyValue,
       })),
     })),
     ai_generation_metadata: stem.aiGenerationMetadata ?? null,
@@ -88,5 +100,11 @@ export async function POST(request: NextRequest) {
   }
 
   const ids = Array.isArray(data) ? (data as string[]) : []
+  await enqueueUcatQuestionAssessmentPreparation({
+    stemIds: ids,
+    triggerKind: 'review_submission',
+  }).catch((assessmentError) => {
+    console.error('Could not queue automatic UCAT AI assessment preparation after generated import', assessmentError)
+  })
   return NextResponse.json({ ids })
 }

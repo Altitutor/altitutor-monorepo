@@ -1,38 +1,13 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Button,
-  Label,
-  Checkbox,
-  Input,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  Textarea,
-  useToast,
-  SearchableSelect,
-} from '@altitutor/ui';
-import { Loader2, X } from 'lucide-react';
+import { Button, Label, Checkbox, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea, useToast, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
+import { Loader2 } from 'lucide-react';
 import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
 import type { InvoiceItemRow } from '../types';
 import type { CreateCreditNoteRequest } from '../types';
 import { getErrorMessage } from '@/shared/utils';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
 
 const CREDIT_NOTE_REASONS: { id: string; label: string }[] = [
   { id: 'duplicate', label: 'Duplicate charge' },
@@ -73,27 +48,22 @@ export function CreditNoteDialog({
   invoiceItems,
   onSuccess,
 }: CreditNoteDialogProps) {
+  const [idempotencyKey, setIdempotencyKey] = useState(() => crypto.randomUUID());
   const { toast } = useToast();
   const [reason, setReason] = useState<CreateCreditNoteRequest['reason']>('duplicate');
   const [effectiveDateEnabled, setEffectiveDateEnabled] = useState(false);
-  const [effectiveDate, setEffectiveDate] = useState<string>(() =>
-    new Date().toISOString().split('T')[0]
-  );
+  const [effectiveDate, setEffectiveDate] = useState<string>(() => new Date().toISOString().split('T')[0]);
   const [memo, setMemo] = useState('');
   const [internalNote, setInternalNote] = useState('');
   const [destination, setDestination] = useState<'refund' | 'credit_balance' | 'out_of_band'>('credit_balance');
   const [lineState, setLineState] = useState<Record<string, LineState>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [expanded, setExpanded] = useState(false);
 
   useEffect(() => {
-    if (!isOpen) setExpanded(false);
+    if (isOpen) setIdempotencyKey(crypto.randomUUID());
   }, [isOpen]);
 
-  const itemsWithStripeId = useMemo(
-    () => invoiceItems.filter((item) => item.stripe_invoice_item_id),
-    [invoiceItems]
-  );
+  const itemsWithStripeId = useMemo(() => invoiceItems.filter((item) => item.stripe_invoice_item_id), [invoiceItems]);
   const missingStripeIds = invoiceItems.length > 0 && itemsWithStripeId.length < invoiceItems.length;
 
   useEffect(() => {
@@ -108,7 +78,7 @@ export function CreditNoteDialog({
   const amountToCreditCents = useMemo(() => {
     return itemsWithStripeId.reduce(
       (sum, item) => (lineState[item.id]?.selected ? sum + (item.amount_cents ?? 0) : sum),
-      0
+      0,
     );
   }, [itemsWithStripeId, lineState]);
 
@@ -123,7 +93,7 @@ export function CreditNoteDialog({
         return next;
       });
     },
-    [itemsWithStripeId]
+    [itemsWithStripeId],
   );
 
   const handleSubmit = async () => {
@@ -168,7 +138,10 @@ export function CreditNoteDialog({
     try {
       const res = await fetch(`/api/invoices/${invoiceId}/credit-note`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Idempotency-Key': `manual-credit-note-${invoiceId}-${idempotencyKey}`,
+        },
         body: JSON.stringify(body),
       });
       const data = await res.json();
@@ -196,222 +169,16 @@ export function CreditNoteDialog({
   const isPaidInvoice = invoice.status === 'paid';
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
-      >
-        {/* Header */}
-        <div className="flex-shrink-0 border-b bg-background">
-          <DialogHeader className="px-6 pt-6 pb-4">
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex items-center gap-3 flex-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={onClose}
-                  className="shrink-0"
-                >
-                  <X className="h-4 w-4" />
-                </Button>
-                <div className="flex-1 min-w-0">
-                  <DialogTitle>Issue a credit note</DialogTitle>
-                  <DialogDescription asChild>
-                    <span>
-                      Adjust or refund finalised invoices with credit notes.
-                    </span>
-                  </DialogDescription>
-                </div>
-                <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              </div>
-            </div>
-          </DialogHeader>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-hidden min-h-0">
-          <div className="h-full overflow-y-auto">
-            <div className="p-6 space-y-6">
-          {/* Invoice (read-only) */}
-          <div className="space-y-2">
-            <Label>Invoice</Label>
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm">
-                #{invoice.stripe_invoice_number ?? invoiceId.slice(0, 8)} for{' '}
-                {formatInvoiceAmount(invoice.amount_due_cents, currency)}
-              </span>
-              {invoice.status &&
-                getInvoiceStatusBadge(toInvoiceStatusPayload({ status: invoice.status }))}
-            </div>
-          </div>
-
-          {/* Reason */}
-          <div className="space-y-2">
-            <Label htmlFor="credit-note-reason">Reason</Label>
-            <SearchableSelect<{ id: string; label: string }>
-              items={CREDIT_NOTE_REASONS}
-              value={CREDIT_NOTE_REASONS.find((r) => r.id === reason) ?? null}
-              onValueChange={(v) => v && setReason(v.id as CreateCreditNoteRequest['reason'])}
-              getItemId={(item) => item.id}
-              getItemLabel={(item) => item.label}
-              placeholder="Select reason"
-              trigger={
-                <Button variant="outline" className="w-full justify-start font-normal" id="credit-note-reason">
-                  {CREDIT_NOTE_REASONS.find((r) => r.id === reason)?.label ?? 'Select reason'}
-                </Button>
-              }
-            />
-          </div>
-
-          {/* Effective date */}
-          <div className="flex items-center gap-2">
-            <Checkbox
-              id="effective-date-checkbox"
-              checked={effectiveDateEnabled}
-              onCheckedChange={(c) => setEffectiveDateEnabled(c === true)}
-            />
-            <Label htmlFor="effective-date-checkbox" className="font-normal cursor-pointer">
-              Set an effective date
-            </Label>
-            {effectiveDateEnabled && (
-              <Input
-                type="date"
-                value={effectiveDate}
-                onChange={(e) => setEffectiveDate(e.target.value)}
-                className="w-40"
-              />
-            )}
-          </div>
-
-          {/* Items to credit */}
-          <div className="space-y-2">
-            <Label>Items to credit</Label>
-            {missingStripeIds && (
-              <p className="text-sm text-amber-600 dark:text-amber-500">
-                Some invoice items are missing Stripe line item IDs and cannot be credited.
-              </p>
-            )}
-            <div className="border rounded-md overflow-hidden">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-12 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <Checkbox
-                          checked={allSelected}
-                          onCheckedChange={(c) => setAllSelected(c === true)}
-                        />
-                        <span className="text-xs font-medium">Credit all</span>
-                      </div>
-                    </TableHead>
-                    <TableHead>Description</TableHead>
-                    <TableHead className="w-24">Credit Qty</TableHead>
-                    <TableHead className="w-24 text-right">Unit price</TableHead>
-                    <TableHead className="w-28 text-right">Credit Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {itemsWithStripeId.map((item) => {
-                    const selected = lineState[item.id]?.selected ?? false;
-                    const unitCents = item.amount_cents ?? 0;
-                    return (
-                      <TableRow key={item.id}>
-                        <TableCell className="text-center">
-                          <Checkbox
-                            checked={selected}
-                            onCheckedChange={(c) =>
-                              setLineState((prev) => ({
-                                ...prev,
-                                [item.id]: { selected: c === true },
-                              }))
-                            }
-                          />
-                        </TableCell>
-                        <TableCell className="text-sm">{item.description ?? '—'}</TableCell>
-                        <TableCell className="text-sm">1</TableCell>
-                        <TableCell className="text-right text-sm">
-                          {formatInvoiceAmount(unitCents, currency)}
-                        </TableCell>
-                        <TableCell className="text-right text-sm">
-                          {formatInvoiceAmount(unitCents, currency)}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-
-            <div className="flex justify-end gap-4 text-sm mt-2">
-              <span className="text-muted-foreground">Amount to credit:</span>
-              <span className="font-medium">{formatInvoiceAmount(amountToCreditCents, currency)}</span>
-            </div>
-          </div>
-
-          {/* How to credit (only for paid invoices) */}
-          {isPaidInvoice && (() => {
-            const destinationItems = DESTINATION_OPTIONS.map((d) => ({
-              id: d.id,
-              label:
-                d.id === 'refund'
-                  ? `${d.label} (maximum ${formatInvoiceAmount(amountToCreditCents, currency)})`
-                  : d.label,
-            }));
-            const selectedDestination = destinationItems.find((it) => it.id === destination) ?? null;
-            return (
-              <div className="space-y-2">
-                <Label>How to credit</Label>
-                <SearchableSelect<{ id: string; label: string }>
-                  items={destinationItems}
-                  value={selectedDestination}
-                  onValueChange={(v) => v && setDestination(v.id as typeof destination)}
-                  getItemId={(item) => item.id}
-                  getItemLabel={(item) => item.label}
-                  placeholder="Select how to credit"
-                  trigger={
-                    <Button variant="outline" className="w-full justify-start font-normal">
-                      {selectedDestination?.label ?? 'Select how to credit'}
-                    </Button>
-                  }
-                />
-              </div>
-            );
-          })()}
-
-          {/* Memo */}
-          <div className="space-y-2">
-            <Label htmlFor="credit-note-memo">Memo</Label>
-            <p className="text-xs text-muted-foreground">Appears on the credit note PDF</p>
-            <Textarea
-              id="credit-note-memo"
-              maxLength={500}
-              rows={3}
-              value={memo}
-              onChange={(e) => setMemo(e.target.value)}
-              placeholder="Optional memo"
-            />
-          </div>
-
-          {/* Internal note */}
-          <div className="space-y-2">
-            <Label htmlFor="credit-note-internal">Add internal note</Label>
-            <Input
-              id="credit-note-internal"
-              value={internalNote}
-              onChange={(e) => setInternalNote(e.target.value)}
-              placeholder="Optional internal note (not shown on PDF)"
-              maxLength={500}
-            />
-            </div>
-          </div>
-        </div>
-        </div>
-
-        {/* Footer */}
-        <DialogFooter className="flex-shrink-0 flex justify-between sm:justify-between px-6 py-4 border-t">
+    <AdminDialogShell
+      fillHeight
+      open={isOpen}
+      onClose={onClose}
+      title="Issue a credit note"
+      subtitle="Adjust or refund finalised invoices with credit notes."
+      contentClassName="md:max-w-4xl"
+      bodyClassName="!p-0 flex min-h-0 flex-1 flex-col overflow-hidden"
+      footer={
+        <>
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
@@ -425,8 +192,182 @@ export function CreditNoteDialog({
               'Issue credit note'
             )}
           </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        </>
+      }
+    >
+      <div className="flex-1 overflow-hidden min-h-0">
+        <div className="h-full overflow-y-auto">
+          <div className="p-6 space-y-6">
+            {/* Invoice (read-only) */}
+            <div className="space-y-2">
+              <Label>Invoice</Label>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm">
+                  #{invoice.stripe_invoice_number ?? invoiceId.slice(0, 8)} for{' '}
+                  {formatInvoiceAmount(invoice.amount_due_cents, currency)}
+                </span>
+                {invoice.status && getInvoiceStatusBadge(toInvoiceStatusPayload({ status: invoice.status }))}
+              </div>
+            </div>
+
+            {/* Reason */}
+            <div className="space-y-2">
+              <Label htmlFor="credit-note-reason">Reason</Label>
+              <SearchableSelect<{ id: string; label: string }>
+                items={CREDIT_NOTE_REASONS}
+                value={CREDIT_NOTE_REASONS.find((r) => r.id === reason) ?? null}
+                onValueChange={(v) => v && setReason(v.id as CreateCreditNoteRequest['reason'])}
+                getItemId={(item) => item.id}
+                getItemLabel={(item) => item.label}
+                placeholder="Select reason"
+                trigger={
+                  <SearchableSelectFieldTrigger id="credit-note-reason">
+                    {CREDIT_NOTE_REASONS.find((r) => r.id === reason)?.label ?? 'Select reason'}
+                  </SearchableSelectFieldTrigger>
+                }
+              />
+            </div>
+
+            {/* Effective date */}
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="effective-date-checkbox"
+                checked={effectiveDateEnabled}
+                onCheckedChange={(c) => setEffectiveDateEnabled(c === true)}
+              />
+              <Label htmlFor="effective-date-checkbox" className="font-normal cursor-pointer">
+                Set an effective date
+              </Label>
+              {effectiveDateEnabled && (
+                <SmartDatePickerField
+                  value={effectiveDate}
+                  onChange={(value) => setEffectiveDate(value ?? '')}
+                  className="w-40"
+                />
+              )}
+            </div>
+
+            {/* Items to credit */}
+            <div className="space-y-2">
+              <Label>Items to credit</Label>
+              {missingStripeIds && (
+                <p className="text-sm text-amber-600 dark:text-amber-500">
+                  Some invoice items are missing Stripe line item IDs and cannot be credited.
+                </p>
+              )}
+              <div className="border rounded-md overflow-hidden">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-12 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <Checkbox checked={allSelected} onCheckedChange={(c) => setAllSelected(c === true)} />
+                          <span className="text-xs font-medium">Credit all</span>
+                        </div>
+                      </TableHead>
+                      <TableHead>Description</TableHead>
+                      <TableHead className="w-24">Credit Qty</TableHead>
+                      <TableHead className="w-24 text-right">Unit price</TableHead>
+                      <TableHead className="w-28 text-right">Credit Amount</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {itemsWithStripeId.map((item) => {
+                      const selected = lineState[item.id]?.selected ?? false;
+                      const unitCents = item.amount_cents ?? 0;
+                      return (
+                        <TableRow key={item.id}>
+                          <TableCell className="text-center">
+                            <Checkbox
+                              checked={selected}
+                              onCheckedChange={(c) =>
+                                setLineState((prev) => ({
+                                  ...prev,
+                                  [item.id]: { selected: c === true },
+                                }))
+                              }
+                            />
+                          </TableCell>
+                          <TableCell className="text-sm">{item.description ?? '—'}</TableCell>
+                          <TableCell className="text-sm">1</TableCell>
+                          <TableCell className="text-right text-sm">
+                            {formatInvoiceAmount(unitCents, currency)}
+                          </TableCell>
+                          <TableCell className="text-right text-sm">
+                            {formatInvoiceAmount(unitCents, currency)}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                </Table>
+              </div>
+
+              <div className="flex justify-end gap-4 text-sm mt-2">
+                <span className="text-muted-foreground">Amount to credit:</span>
+                <span className="font-medium">{formatInvoiceAmount(amountToCreditCents, currency)}</span>
+              </div>
+            </div>
+
+            {/* How to credit (only for paid invoices) */}
+            {isPaidInvoice &&
+              (() => {
+                const destinationItems = DESTINATION_OPTIONS.map((d) => ({
+                  id: d.id,
+                  label:
+                    d.id === 'refund'
+                      ? `${d.label} (maximum ${formatInvoiceAmount(amountToCreditCents, currency)})`
+                      : d.label,
+                }));
+                const selectedDestination = destinationItems.find((it) => it.id === destination) ?? null;
+                return (
+                  <div className="space-y-2">
+                    <Label>How to credit</Label>
+                    <SearchableSelect<{ id: string; label: string }>
+                      items={destinationItems}
+                      value={selectedDestination}
+                      onValueChange={(v) => v && setDestination(v.id as typeof destination)}
+                      getItemId={(item) => item.id}
+                      getItemLabel={(item) => item.label}
+                      placeholder="Select how to credit"
+                      trigger={
+                        <SearchableSelectFieldTrigger>
+                          {selectedDestination?.label ?? 'Select how to credit'}
+                        </SearchableSelectFieldTrigger>
+                      }
+                    />
+                  </div>
+                );
+              })()}
+
+            {/* Memo */}
+            <div className="space-y-2">
+              <Label htmlFor="credit-note-memo">Memo</Label>
+              <p className="text-xs text-muted-foreground">Appears on the credit note PDF</p>
+              <Textarea
+                id="credit-note-memo"
+                maxLength={500}
+                rows={3}
+                value={memo}
+                onChange={(e) => setMemo(e.target.value)}
+                placeholder="Optional memo"
+              />
+            </div>
+
+            {/* Internal note */}
+            <div className="space-y-2">
+              <Label htmlFor="credit-note-internal">Add internal note</Label>
+              <Input
+                id="credit-note-internal"
+                value={internalNote}
+                onChange={(e) => setInternalNote(e.target.value)}
+                placeholder="Optional internal note (not shown on PDF)"
+                maxLength={500}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </AdminDialogShell>
   );
 }

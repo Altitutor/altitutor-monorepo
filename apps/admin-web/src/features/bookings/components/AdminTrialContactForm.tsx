@@ -14,7 +14,6 @@ import {
 } from '@altitutor/ui';
 import { Input } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
-import { Checkbox } from '@altitutor/ui';
 import { PhoneInput } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Plus, X } from 'lucide-react';
@@ -22,20 +21,25 @@ import type { Tables } from '@altitutor/shared';
 import { cn, getSubjectColorStyle } from '@/shared/utils';
 import { useSubjectsList } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useDebounce } from '@/shared/hooks/useDebounce';
+import { StudentParentsEditor } from '@/features/students/components/StudentParentsEditor';
+import type { StudentParentDraft } from '@/features/students/utils/studentParentDrafts';
 
 const adminTrialContactSchema = z.object({
   student_first_name: z.string().min(1, 'First name is required').max(100),
-  student_last_name: z.string().min(1, 'Last name is required').max(100),
-  student_email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  student_phone: z.string().min(1, 'Phone number is required'),
+  student_last_name: z.string().max(100),
+  student_email: z.union([z.literal(''), z.string().email('Invalid email address')]),
+  student_phone: z.string(),
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY']).optional(),
   year_level: z.enum(['Reception', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11', '12', '13']).optional(),
   subject_ids: z.array(z.string().uuid()).optional(),
   skip_parent_details: z.boolean().default(false),
-  parent_first_name: z.string().max(100).optional(),
-  parent_last_name: z.string().max(100).optional(),
-  parent_email: z.string().email('Invalid email address').optional().or(z.literal('')),
-  parent_phone: z.string().optional(),
+  parents: z.array(z.object({
+    existing_id: z.string().uuid().optional(),
+    first_name: z.string().max(100).optional().or(z.literal('')),
+    last_name: z.string().max(100).optional().or(z.literal('')),
+    email: z.string().email('Invalid email address').optional().or(z.literal('')),
+    phone: z.string().optional().nullable(),
+  })).optional().default([]),
 });
 
 export type AdminTrialContactFormValues = z.infer<typeof adminTrialContactSchema>;
@@ -69,15 +73,20 @@ export function AdminTrialContactForm({
       year_level: undefined,
       subject_ids: [],
       skip_parent_details: false,
-      parent_first_name: '',
-      parent_last_name: '',
-      parent_email: '',
-      parent_phone: '',
+      parents: [],
       ...defaultValues,
     },
   });
 
   const skipParentDetails = form.watch('skip_parent_details');
+  const watchedParents = form.watch('parents') ?? [];
+  const parents: StudentParentDraft[] = watchedParents.map((parent) => ({
+    existing_id: parent.existing_id,
+    first_name: parent.first_name || '',
+    last_name: parent.last_name || '',
+    email: parent.email || '',
+    phone: parent.phone ?? null,
+  }));
   const curriculum = form.watch('curriculum');
   const yearLevel = form.watch('year_level');
   const watchedSubjectIds = form.watch('subject_ids');
@@ -175,25 +184,13 @@ export function AdminTrialContactForm({
     }
   }, [form, onFormReady]);
 
-  // Watch form validity - only check required fields (first_name, last_name, phone)
+  // Watch form validity - first name is the only required student field
   const watchedFirstName = form.watch('student_first_name');
-  const watchedLastName = form.watch('student_last_name');
-  const watchedPhone = form.watch('student_phone');
   const errors = form.formState.errors;
   const isValidRequiredFields = useMemo(() => {
     const firstName = watchedFirstName?.trim() || '';
-    const lastName = watchedLastName?.trim() || '';
-    const phone = watchedPhone?.trim() || '';
-    
-    return (
-      firstName.length > 0 &&
-      !errors.student_first_name &&
-      lastName.length > 0 &&
-      !errors.student_last_name &&
-      phone.length > 0 &&
-      !errors.student_phone
-    );
-  }, [watchedFirstName, watchedLastName, watchedPhone, errors]);
+    return firstName.length > 0 && !errors.student_first_name;
+  }, [watchedFirstName, errors]);
   
   useEffect(() => {
     if (onValidityChange) {
@@ -235,9 +232,9 @@ export function AdminTrialContactForm({
               name="student_last_name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Last Name *</FormLabel>
+                  <FormLabel>Last Name</FormLabel>
                   <FormControl>
-                    <Input {...field} />
+                    <Input {...field} required={false} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -265,9 +262,9 @@ export function AdminTrialContactForm({
               name="student_phone"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Phone *</FormLabel>
+                  <FormLabel>Phone</FormLabel>
                   <FormControl>
-                    <PhoneInput value={field.value} onChange={field.onChange} />
+                    <PhoneInput value={field.value || ''} onChange={field.onChange} />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -298,6 +295,8 @@ export function AdminTrialContactForm({
                         getItemLabel={(o) => o.label}
                         getItemId={(o) => o.value}
                         placeholder="Select curriculum"
+                        fullWidth
+                        contentWidth="var(--radix-popover-trigger-width)"
                       />
                     </FormControl>
                     <FormMessage />
@@ -329,6 +328,8 @@ export function AdminTrialContactForm({
                         getItemLabel={(o) => o.label}
                         getItemId={(o) => o.value}
                         placeholder="Select year level"
+                        fullWidth
+                        contentWidth="var(--radix-popover-trigger-width)"
                       />
                     </FormControl>
                     <FormMessage />
@@ -408,94 +409,13 @@ export function AdminTrialContactForm({
           />
         </div>
 
-        {/* Parent Details */}
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-semibold">Parent/Guardian Details</h3>
-            <FormField
-              control={form.control}
-              name="skip_parent_details"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-center space-x-2 space-y-0">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <FormLabel className="cursor-pointer text-sm font-normal">
-                    Skip parent details
-                  </FormLabel>
-                </FormItem>
-              )}
-            />
-          </div>
-
-          {!skipParentDetails && (
-            <>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="parent_first_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>First Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="parent_last_name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Last Name</FormLabel>
-                      <FormControl>
-                        <Input {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="parent_email"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Email</FormLabel>
-                      <FormControl>
-                        <Input type="email" {...field} value={field.value || ''} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="parent_phone"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Phone</FormLabel>
-                      <FormControl>
-                        <PhoneInput value={field.value || ''} onChange={field.onChange} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-            </>
-          )}
-        </div>
+        <StudentParentsEditor
+          value={parents}
+          onChange={(next) => form.setValue('parents', next, { shouldDirty: true, shouldValidate: true })}
+          showSkip
+          skipped={skipParentDetails}
+          onSkippedChange={(next) => form.setValue('skip_parent_details', next, { shouldDirty: true })}
+        />
       </form>
     </Form>
   );

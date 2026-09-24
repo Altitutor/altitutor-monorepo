@@ -1,9 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useDraggable, useDroppable } from '@dnd-kit/core'
+import { useDroppable } from '@dnd-kit/core'
+import {
+  SortableContext,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
-import { BookOpen, ChevronRight, Folder, Globe, GripVertical, Lock } from 'lucide-react'
+import { BookOpen, ChevronRight, Folder, GripVertical } from 'lucide-react'
 import {
   Tooltip,
   TooltipContent,
@@ -15,14 +20,27 @@ import {
   taxonomyDropId,
 } from '@/features/ucat/shared/components/taxonomy-hierarchy-tree'
 import type { UcatLearningModuleTreeNode } from '@/features/ucat/learning-modules/types/tree'
+import type { UcatLearningModuleKind } from '@/features/ucat/learning-modules/types'
+import { UcatInlineCreateLearningModule } from '@/features/ucat/learning-modules/components/UcatInlineCreateLearningModule'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
+import { UcatRowActions, type UcatRowAction } from '@/features/ucat/shared/row-actions'
 import { cn } from '@/shared/utils'
 
 type LearningModuleHierarchyTreeProps = {
   nodes: UcatLearningModuleTreeNode[]
   onItemClick: (id: string) => void
+  sectionId: string | null
   searchQuery?: string
   className?: string
   editMode?: boolean
+  showRootInlineCreate?: boolean
+  getRowActions?: (node: UcatLearningModuleTreeNode) => UcatRowAction[]
+  onInlineCreate?: (params: {
+    kind: UcatLearningModuleKind
+    title: string
+    sectionId: string | null
+    parentId: string | null
+  }) => Promise<void>
 }
 
 function nodeOrDescendantMatchesSearch(node: UcatLearningModuleTreeNode, query: string): boolean {
@@ -38,26 +56,6 @@ function KindIcon({ kind }: { kind: UcatLearningModuleTreeNode['kind'] }) {
     <Tooltip>
       <TooltipTrigger asChild>
         <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-muted/80 text-muted-foreground">
-          <Icon className="h-3.5 w-3.5" aria-hidden />
-        </span>
-      </TooltipTrigger>
-      <TooltipContent>{label}</TooltipContent>
-    </Tooltip>
-  )
-}
-
-function PrivacyIcon({ isPrivate }: { isPrivate: boolean }) {
-  const Icon = isPrivate ? Lock : Globe
-  const label = isPrivate ? 'Private — visible only to assigned students' : 'Public — visible in the student library'
-  return (
-    <Tooltip>
-      <TooltipTrigger asChild>
-        <span
-          className={cn(
-            'inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md',
-            isPrivate ? 'bg-amber-500/10 text-amber-800 dark:text-amber-300' : 'bg-sky-500/10 text-sky-700 dark:text-sky-300',
-          )}
-        >
           <Icon className="h-3.5 w-3.5" aria-hidden />
         </span>
       </TooltipTrigger>
@@ -85,13 +83,20 @@ function LearningModuleHierarchyTreeNode({
   searchQuery,
   depth = 0,
   editMode = false,
+  sectionId,
+  getRowActions,
+  onInlineCreate,
 }: {
   node: UcatLearningModuleTreeNode
   onItemClick: (id: string) => void
   searchQuery: string
   depth?: number
   editMode?: boolean
+  sectionId: string | null
+  getRowActions?: LearningModuleHierarchyTreeProps['getRowActions']
+  onInlineCreate?: LearningModuleHierarchyTreeProps['onInlineCreate']
 }) {
+  const rowActions = getRowActions?.(node) ?? []
   const hasChildren = node.children.length > 0
   const query = searchQuery.trim().toLowerCase()
   const matchesSearch = !query || node.title.toLowerCase().includes(query)
@@ -100,10 +105,11 @@ function LearningModuleHierarchyTreeNode({
   )
   const [expanded, setExpanded] = useState(depth === 0 || matchesSearch || hasMatchingDescendant)
 
-  const { attributes, listeners, setNodeRef: setDragRef, transform, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: taxonomyDragId(node.id),
     disabled: !editMode,
   })
+  // Only folders accept nest-into drops. Lessons are sortable siblings only.
   const { setNodeRef: setDropRef, isOver } = useDroppable({
     id: taxonomyDropId(node.id),
     disabled: !editMode || node.kind !== 'folder',
@@ -115,10 +121,16 @@ function LearningModuleHierarchyTreeNode({
     }
   }, [hasMatchingDescendant, matchesSearch])
 
-  const dragStyle = transform ? { transform: CSS.Translate.toString(transform) } : undefined
+  const dragStyle = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+  }
+  const toggleExpanded = () => {
+    if (node.kind === 'folder') setExpanded((prev) => !prev)
+  }
 
   return (
-    <li className="rounded-lg">
+    <li ref={setNodeRef} style={dragStyle} className={cn('rounded-lg', isDragging && 'opacity-40')}>
       <div
         ref={setDropRef}
         className={cn(
@@ -128,7 +140,7 @@ function LearningModuleHierarchyTreeNode({
       >
         <button
           type="button"
-          onClick={() => setExpanded((prev) => !prev)}
+          onClick={toggleExpanded}
           disabled={!hasChildren}
           aria-label={expanded ? `Collapse ${node.title}` : `Expand ${node.title}`}
           aria-expanded={hasChildren ? expanded : undefined}
@@ -148,12 +160,7 @@ function LearningModuleHierarchyTreeNode({
         {editMode ? (
           <button
             type="button"
-            ref={setDragRef}
-            style={dragStyle}
-            className={cn(
-              'flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted/80 active:cursor-grabbing',
-              isDragging && 'opacity-40',
-            )}
+            className="flex h-8 w-6 shrink-0 cursor-grab items-center justify-center rounded-md text-muted-foreground hover:bg-muted/80 active:cursor-grabbing"
             aria-label={`Drag ${node.title}`}
             {...attributes}
             {...listeners}
@@ -165,7 +172,12 @@ function LearningModuleHierarchyTreeNode({
         <button
           type="button"
           onClick={() => {
-            if (!editMode) onItemClick(node.id)
+            if (editMode) return
+            if (node.kind === 'folder') {
+              toggleExpanded()
+              return
+            }
+            onItemClick(node.id)
           }}
           className={cn(
             'flex min-w-0 flex-1 items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-sm font-medium transition-colors duration-300',
@@ -173,12 +185,20 @@ function LearningModuleHierarchyTreeNode({
           )}
         >
           <KindIcon kind={node.kind} />
-          <PrivacyIcon isPrivate={node.is_private} />
           <span className="block min-w-0 flex-1 truncate" title={node.title}>
             {node.title}
           </span>
+          {node.kind === 'lesson' ? (
+            <UcatContentStatusBadge status={node.status} className="shrink-0" />
+          ) : null}
           <ContentCountBadge node={node} />
         </button>
+
+        {rowActions.length > 0 ? (
+          <div className="shrink-0" onClick={(event) => event.stopPropagation()}>
+            <UcatRowActions actions={rowActions} />
+          </div>
+        ) : null}
       </div>
 
       {hasChildren ? (
@@ -193,9 +213,21 @@ function LearningModuleHierarchyTreeNode({
               <LearningModuleHierarchyTree
                 nodes={node.children}
                 onItemClick={onItemClick}
+                sectionId={sectionId}
                 searchQuery={searchQuery}
                 editMode={editMode}
+                showRootInlineCreate={false}
+                getRowActions={getRowActions}
+                onInlineCreate={onInlineCreate}
               />
+              {editMode && onInlineCreate && node.kind === 'folder' ? (
+                <UcatInlineCreateLearningModule
+                  sectionId={sectionId}
+                  parentId={node.id}
+                  indent={18}
+                  onCreate={onInlineCreate}
+                />
+              ) : null}
             </div>
           </div>
         </div>
@@ -207,27 +239,58 @@ function LearningModuleHierarchyTreeNode({
 export function LearningModuleHierarchyTree({
   nodes,
   onItemClick,
+  sectionId,
   searchQuery = '',
   className,
   editMode = false,
+  showRootInlineCreate = true,
+  getRowActions,
+  onInlineCreate,
 }: LearningModuleHierarchyTreeProps) {
   if (!nodes.length) {
-    return <p className="text-sm text-muted-foreground">Nothing in this section.</p>
+    return (
+      <div className="space-y-1">
+        <p className="text-sm text-muted-foreground">Nothing in this section.</p>
+        {editMode && showRootInlineCreate && onInlineCreate ? (
+          <UcatInlineCreateLearningModule
+            sectionId={sectionId}
+            parentId={null}
+            onCreate={onInlineCreate}
+          />
+        ) : null}
+      </div>
+    )
   }
+
+  const sortableIds = nodes.map((node) => taxonomyDragId(node.id))
 
   return (
     <TooltipProvider delayDuration={300}>
-      <ul className={cn('space-y-0', className)}>
-        {nodes.map((node) => (
-          <LearningModuleHierarchyTreeNode
-            key={node.id}
-            node={node}
-            onItemClick={onItemClick}
-            searchQuery={searchQuery}
-            editMode={editMode}
-          />
-        ))}
-      </ul>
+      <SortableContext items={sortableIds} strategy={verticalListSortingStrategy}>
+        <ul className={cn('space-y-0', className)}>
+          {nodes.map((node) => (
+            <LearningModuleHierarchyTreeNode
+              key={node.id}
+              node={node}
+              onItemClick={onItemClick}
+              sectionId={sectionId}
+              searchQuery={searchQuery}
+              editMode={editMode}
+              getRowActions={getRowActions}
+              onInlineCreate={onInlineCreate}
+            />
+          ))}
+          {editMode && showRootInlineCreate && onInlineCreate ? (
+            <li>
+              <UcatInlineCreateLearningModule
+                sectionId={sectionId}
+                parentId={null}
+                onCreate={onInlineCreate}
+              />
+            </li>
+          ) : null}
+        </ul>
+      </SortableContext>
     </TooltipProvider>
   )
 }

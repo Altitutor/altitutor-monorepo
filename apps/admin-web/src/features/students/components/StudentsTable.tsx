@@ -30,7 +30,7 @@ import {
 import { ArrowUpDown, Loader2 } from 'lucide-react';
 import type { Tables, DataTableFilterDefinition, DataTableSortOption, DataTableColumnDefinition } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
-import { getStudentStatusColor, getSubjectCurriculumColor } from '@/shared/utils';
+import { getSubjectCurriculumColor } from '@/shared/utils';
 import { sortStudentsByStatus } from '@/shared/utils/tableSorting';
 import { AddStudentModal } from './AddStudentModal';
 import { ViewStudentModal } from './ViewStudentModal';
@@ -44,16 +44,82 @@ import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { LogAbsenceDialog } from '@/features/sessions/components';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import { SendStudentInviteDialog } from './SendStudentInviteDialog';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
+import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
 import { studentsApi } from '../api';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { useStudentActions } from '../hooks/useStudentActions';
+import { InPersonStatusBadge } from './InPersonStatusBadge';
+import type { StudentSearchField } from '../api/students';
 // import { useVirtualizer } from '@tanstack/react-virtual';
 
 interface StudentsTableProps {
   onRefresh?: number;
   onStudentSelect?: (studentId: string) => void;
   addModalState?: [boolean, (open: boolean) => void];
+}
+
+interface StudentRowActionsProps {
+  student: Tables<'students'>;
+  onOpenInPage: () => void;
+  onEditDetails: () => void;
+  onPasswordResetOrRegistration: () => void;
+  passwordResetLabel: string;
+  onLogAbsence: () => void;
+  onBookTrialSession: () => void;
+  onBookDraftingSession: () => void;
+  onBookSubsidyInterview: () => void;
+  onBookCheckIn: () => void;
+  onSendDiscontinuationLink?: () => void;
+  onDiscontinue?: () => void;
+  onReEnroll?: () => void;
+  onDelete: () => void;
+}
+
+function StudentRowActions({
+  student,
+  onOpenInPage,
+  onEditDetails,
+  onPasswordResetOrRegistration,
+  passwordResetLabel,
+  onLogAbsence,
+  onBookTrialSession,
+  onBookDraftingSession,
+  onBookSubsidyInterview,
+  onBookCheckIn,
+  onSendDiscontinuationLink,
+  onDiscontinue,
+  onReEnroll,
+  onDelete,
+}: StudentRowActionsProps) {
+  const studentActions = useStudentActions({
+    studentId: student.id,
+    student,
+    onOpenInPage,
+    onEditDetails,
+    onPasswordResetOrRegistration,
+    passwordResetLabel,
+    onLogAbsence,
+    onBookTrialSession,
+    onBookDraftingSession,
+    onBookSubsidyInterview,
+    onBookCheckIn,
+    onSendDiscontinuationLink,
+    onDiscontinue,
+    onReEnroll,
+    onDelete,
+  });
+
+  return (
+    <ActionsMenu
+      type="student"
+      entityId={student.id}
+      copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
+      {...studentActions}
+    />
+  );
 }
 
 export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStudentSelect, addModalState: _addModalState }: StudentsTableProps = {}) {
@@ -64,10 +130,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const { data: quickFilters = [] } = useQuickFilters('students');
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
   
-  const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
+  const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
   const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
-  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'first_name', 'last_name', 'classes'], []);
+  const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
 
   const {
     state,
@@ -83,7 +150,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'subscriptionOnline', 'inPersonClass'],
+    filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass'],
   });
 
   const { 
@@ -94,11 +161,11 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     refetch,
   } = useStudentsMinimal({
     search: state.search,
-    statuses: state.filters.status as Tables<'students'>['status'][],
+    searchFields,
+    statuses: state.filters.status as NonNullable<Tables<'students'>['status']>[],
     curriculums: state.filters.curriculum as string[],
     yearLevels: state.filters.yearLevel as number[],
     subjectIds: state.filters.subject as string[],
-    subscriptionOnline: state.filters.subscriptionOnline as string[] | undefined,
     inPersonClass: state.filters.inPersonClass as string[] | undefined,
     page: state.page,
     pageSize: state.pageSize,
@@ -118,6 +185,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   // Actions menu states
   const [actionStudentId, setActionStudentId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [isBookTrialSessionModalOpen, setIsBookTrialSessionModalOpen] = useState(false);
   const [isBookDraftingSessionModalOpen, setIsBookDraftingSessionModalOpen] = useState(false);
   const [isBookSubsidyInterviewModalOpen, setIsBookSubsidyInterviewModalOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -127,17 +195,19 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const [inviteDialogType, setInviteDialogType] = useState<'invite' | 'registration'>('invite');
   const [, setLoadingPasswordReset] = useState(false);
   const [, setHasPasswordResetLinkSent] = useState(false);
+  const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
+  const [studentForDiscontinuationLink, setStudentForDiscontinuationLink] = useState<{ id: string; first_name?: string; last_name?: string; phone?: string | null } | null>(null);
   const [isDiscontinuing, setIsDiscontinuing] = useState(false);
-  const [studentToDiscontinue, setStudentToDiscontinue] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
+  const [studentToReEnroll, setStudentToReEnroll] = useState<{ id: string; first_name?: string; last_name?: string } | null>(null);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     {
       key: 'status',
-      label: 'Status',
+      label: 'In-person status',
       options: [
         { label: 'ACTIVE', value: 'ACTIVE' },
         { label: 'TRIAL', value: 'TRIAL' },
-        { label: 'INACTIVE', value: 'INACTIVE' },
         { label: 'DISCONTINUED', value: 'DISCONTINUED' },
       ],
     },
@@ -159,14 +229,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         .map(s => ({ label: s.long_name ?? '', value: s.id })),
     },
     {
-      key: 'subscriptionOnline',
-      label: 'Online (subscription)',
-      options: [
-        { label: 'Has subscription', value: 'has' },
-        { label: 'No subscription', value: 'none' },
-      ],
-    },
-    {
       key: 'inPersonClass',
       label: 'In person (classes)',
       options: [
@@ -186,8 +248,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const columnDefinitions: DataTableColumnDefinition[] = [
     { key: 'status', label: 'Status' },
     { key: 'education', label: 'Education' },
-    { key: 'first_name', label: 'First Name' },
-    { key: 'last_name', label: 'Last Name' },
+    { key: 'student', label: 'Student' },
     { key: 'email', label: 'Email' },
     { key: 'phone', label: 'Phone' },
     { key: 'school', label: 'School' },
@@ -222,56 +283,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const handleStudentClick = (id: string) => {
     setSelectedStudentId(id);
     setIsViewModalOpen(true);
-  };
-
-  const handleDiscontinueStudent = async (): Promise<boolean> => {
-    if (!currentStaff || !studentToDiscontinue) return false;
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(studentToDiscontinue.id, currentStaff.id);
-
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return false;
-      }
-
-      refetch();
-      setStudentToDiscontinue(null);
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    } finally {
-      setIsDiscontinuing(false);
-    }
   };
 
   const handleStudentUpdated = () => {
@@ -430,7 +441,14 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
         quickFilters={quickFilters}
-        searchPlaceholder="Search students..."
+        searchPlaceholder="Search name, email or phone..."
+        searchFromOptions={[
+          { label: 'Name', value: 'name' },
+          { label: 'Email', value: 'email' },
+          { label: 'Phone', value: 'phone' },
+        ]}
+        searchFromValue={searchFields}
+        onSearchFromChange={(values) => setSearchFields(values as StudentSearchField[])}
         isLoading={isFetching}
       />
 
@@ -452,18 +470,9 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                   Education
                 </TableHead>
               )}
-              {state.visibleColumns.includes('first_name') && (
-                <TableHead className="cursor-pointer" onClick={() => setSort('first_name', state.sortBy === 'first_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
-                  First Name
-                  <ArrowUpDown className={cn(
-                    "ml-2 h-4 w-4 inline",
-                    state.sortBy === 'first_name' ? "opacity-100" : "opacity-40"
-                  )} />
-                </TableHead>
-              )}
-              {state.visibleColumns.includes('last_name') && (
+              {state.visibleColumns.includes('student') && (
                 <TableHead className="cursor-pointer" onClick={() => setSort('last_name', state.sortBy === 'last_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}>
-                  Last Name
+                  Student
                   <ArrowUpDown className={cn(
                     "ml-2 h-4 w-4 inline",
                     state.sortBy === 'last_name' ? "opacity-100" : "opacity-40"
@@ -508,8 +517,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
               filteredStudents.map((student, index) => {
                 const studentWithClasses = student as Tables<'students'> & {
                   classes?: Array<{ id: string; short_name: string | null; long_name: string | null; day_of_week: number | null; start_time: string | null; level: string | null; subject?: Tables<'subjects'> | null }>;
-                  has_online_subscription?: boolean;
-                  has_in_person_class?: boolean;
                   subjects?: Tables<'subjects'>[];
                   parents?: Tables<'parents'>[];
                 };
@@ -526,19 +533,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                     {state.visibleColumns.includes('status') && (
                       <TableCell>
                         <div className="flex flex-wrap gap-1 items-center">
-                          <Badge className={cn("text-xs", getStudentStatusColor(student.status as 'ACTIVE' | 'INACTIVE' | 'TRIAL' | 'DISCONTINUED'))}>
-                            {student.status}
-                          </Badge>
-                          {studentWithClasses.has_online_subscription ? (
-                            <Badge variant="outline" className="text-xs border-sky-500/40 text-sky-800 dark:text-sky-200">
-                              ONLINE
-                            </Badge>
-                          ) : null}
-                          {studentWithClasses.has_in_person_class ? (
-                            <Badge variant="outline" className="text-xs border-emerald-500/40 text-emerald-900 dark:text-emerald-200">
-                              IN PERSON
-                            </Badge>
-                          ) : null}
+                          <InPersonStatusBadge status={student.status} className="text-xs" />
                         </div>
                       </TableCell>
                     )}
@@ -561,14 +556,16 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         </div>
                       </TableCell>
                     )}
-                    {state.visibleColumns.includes('first_name') && (
-                      <TableCell className="font-medium">
-                        {student.first_name || '-'}
-                      </TableCell>
-                    )}
-                    {state.visibleColumns.includes('last_name') && (
-                      <TableCell className="font-medium">
-                        {student.last_name || '-'}
+                    {state.visibleColumns.includes('student') && (
+                      <TableCell>
+                        <div className="font-medium">
+                          {`${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed Student'}
+                        </div>
+                        {(student.email || student.phone) ? (
+                          <div className="text-xs text-muted-foreground">
+                            {[student.email, student.phone].filter(Boolean).join(' · ')}
+                          </div>
+                        ) : null}
                       </TableCell>
                     )}
                     {state.visibleColumns.includes('email') && (
@@ -664,10 +661,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                       </TableCell>
                     )}
                     <TableCell onClick={(e) => e.stopPropagation()}>
-                      <ActionsMenu
-                        type="student"
-                        entityId={student.id}
-                        copyTagDisplayText={`${student.first_name || ''} ${student.last_name || ''}`.trim()}
+                      <StudentRowActions
+                        student={student}
                         onOpenInPage={() => {
                           router.push(`/students/${student.id}`);
                         }}
@@ -682,6 +677,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                         onLogAbsence={() => {
                           setActionStudentId(student.id);
                           setIsLogAbsenceDialogOpen(true);
+                        }}
+                        onBookTrialSession={() => {
+                          setActionStudentId(student.id);
+                          setIsBookTrialSessionModalOpen(true);
                         }}
                         onBookDraftingSession={() => {
                           setActionStudentId(student.id);
@@ -702,11 +701,15 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
                             ],
                           })
                         }
-                        onDiscontinue={student.status === 'TRIAL' || student.status === 'ACTIVE'
-                          ? () => {
-                              setStudentToDiscontinue(student);
-                            }
-                          : undefined}
+                        onSendDiscontinuationLink={() => {
+                          setStudentForDiscontinuationLink(student);
+                        }}
+                        onDiscontinue={() => {
+                          setStudentToDiscontinue(student);
+                        }}
+                        onReEnroll={() => {
+                          setStudentToReEnroll(student);
+                        }}
                         onDelete={() => {
                           setActionStudentId(student.id);
                           setIsDeleteDialogOpen(true);
@@ -781,6 +784,23 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           staffId={currentStaff.id}
           initialStudentId={actionStudentId}
           allowPastSessions={true}
+        />
+      )}
+
+      {actionStudentId && (
+        <BookSessionModal
+          isOpen={isBookTrialSessionModalOpen}
+          onClose={() => {
+            setIsBookTrialSessionModalOpen(false);
+            setActionStudentId(null);
+          }}
+          sessionType="TRIAL_SESSION"
+          initialStudentId={actionStudentId}
+          onBookingCreated={() => {
+            setIsBookTrialSessionModalOpen(false);
+            setActionStudentId(null);
+            handleStudentUpdated();
+          }}
         />
       )}
 
@@ -889,6 +909,20 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         );
       })()}
 
+      {studentForDiscontinuationLink && (
+        <StudentExitRequestDialog
+          open={!!studentForDiscontinuationLink}
+          onOpenChange={(open) => {
+            if (!open) setStudentForDiscontinuationLink(null);
+          }}
+          studentId={studentForDiscontinuationLink.id}
+          studentName={[studentForDiscontinuationLink.first_name, studentForDiscontinuationLink.last_name].filter(Boolean).join(' ') || 'this student'}
+          studentPhone={studentForDiscontinuationLink.phone}
+          workflowKey="student_discontinuation"
+          onCreated={refetch}
+        />
+      )}
+
       {studentToDiscontinue && (
         <DiscontinueStudentConfirmDialog
           isOpen={!!studentToDiscontinue}
@@ -896,8 +930,63 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
             if (!open) setStudentToDiscontinue(null);
           }}
           studentName={[studentToDiscontinue.first_name, studentToDiscontinue.last_name].filter(Boolean).join(' ') || 'this student'}
-          onConfirm={handleDiscontinueStudent}
           isDiscontinuing={isDiscontinuing}
+          onConfirm={async () => {
+            if (!currentStaff) return false;
+
+            try {
+              setIsDiscontinuing(true);
+              const result = await studentsApi.discontinueStudent(studentToDiscontinue.id, currentStaff.id);
+              if (!result.success) throw new Error(result.error);
+              toast({
+                title: 'Success',
+                description: 'Student discontinued successfully.',
+              });
+              await refetch();
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Discontinue failed',
+                description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsDiscontinuing(false);
+            }
+          }}
+        />
+      )}
+
+      {studentToReEnroll && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={!!studentToReEnroll}
+          onOpenChange={(open) => {
+            if (!open) setStudentToReEnroll(null);
+          }}
+          studentName={[studentToReEnroll.first_name, studentToReEnroll.last_name].filter(Boolean).join(' ') || 'this student'}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(studentToReEnroll.id);
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              handleStudentUpdated();
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
     </div>

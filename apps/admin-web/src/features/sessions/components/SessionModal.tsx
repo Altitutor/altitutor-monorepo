@@ -1,15 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, SegmentedControl, SegmentedTabPanelContent, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@altitutor/ui';
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, Button, Separator, SegmentedControl, SegmentedTabPanelContent, useToast, AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, SearchableSelect, SearchableSelectFieldTrigger } from '@altitutor/ui';
 import { useRouter } from 'next/navigation';
 import { useSessionActions } from '../hooks/useSessionActions';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { X } from 'lucide-react';
-import { getSessionTitle, getShortSessionName } from '../utils/session-helpers';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewClassModal } from '@/features/classes';
+import { ChevronLeft, ChevronRight, X } from 'lucide-react';
+import {
+  formatSessionNavigationDate,
+  getAdjacentSessionSiblings,
+  getSessionNavigationLabel,
+  getSessionTitle,
+  getShortSessionName,
+} from '../utils/session-helpers';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { SessionFiles } from './SessionFiles';
@@ -36,6 +39,7 @@ import {
   useAddParentToSession,
   useRemoveParentFromSession,
   useUpdateSession,
+  useSessionsWithDetails,
 } from '../hooks';
 import {
   buildStudentAttendanceMap,
@@ -46,7 +50,9 @@ import {
 import { IssuePill } from '@/features/issues';
 import { formatTime } from '@/shared/utils/datetime';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
+import { defaultCheckInSessionsStaffType } from '@altitutor/shared/pay-tiers';
 import { Loader2 } from 'lucide-react';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type SessionModalProps = {
   isOpen: boolean;
@@ -72,11 +78,16 @@ type UndoTarget =
       swappedStaffName?: string;
     };
 
-export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) {
+export function SessionModal(props: SessionModalProps) {
+  return <SessionModalContent key={props.sessionId} {...props} />;
+}
+
+function SessionModalContent({ isOpen, sessionId: initialSessionId, onClose }: SessionModalProps) {
   const router = useRouter();
   const { toast } = useToast();
   const openWindow = useChatStore(s => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
+  const entityModals = useEntityModals();
   const addStudentMutation = useAddStudentToSession();
   const addStaffMutation = useAssignStaffToSession();
   const removeStudentMutation = useRemoveStudentFromSession();
@@ -87,11 +98,24 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const undoStaffAbsenceMutation = useUndoStaffAbsences();
   const updateSessionMutation = useUpdateSession();
 
+  const [sessionId, setSessionId] = useState(initialSessionId);
+
   // Business logic hooks
   const sessionData = useSessionData({
     sessionId: sessionId,
     enabled: isOpen && !!sessionId,
   });
+
+  const classId = sessionData.data?.session?.class_id ?? null;
+  const classSessionsQuery = useSessionsWithDetails(
+    {
+      classId: classId ?? undefined,
+      includeInactive: false,
+      orderBy: 'start_at',
+      ascending: true,
+    },
+    { enabled: isOpen && !!classId }
+  );
 
   const modals = useSessionModals();
 
@@ -105,6 +129,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   useEffect(() => {
     if (!isOpen) {
       modals.reset();
+      setSessionId(initialSessionId);
       setUndoTarget(null);
       setIsEditing(false);
       setPendingSaveData(null);
@@ -148,27 +173,29 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   };
 
   const handleOpenSession = (id: string) => {
-    // Close current modal and open new one
-    onClose();
-    setTimeout(() => {
-      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id } }));
-    }, 100);
+    if (id === sessionId) return;
+    modals.reset();
+    setUndoTarget(null);
+    setIsEditing(false);
+    setPendingSaveData(null);
+    setActiveTab('details');
+    setSessionId(id);
   };
 
   const handleOpenStaff = (id: string) => {
-    modals.openStaffModal(id);
+    entityModals.openStaff(id);
   };
 
   const handleOpenClass = (id: string) => {
-    modals.openClassModal(id);
+    entityModals.openClass(id);
   };
 
   const handleOpenTopic = (id: string) => {
-    window.dispatchEvent(new CustomEvent('open-topic-modal', { detail: { id } }));
+    entityModals.openTopic(id);
   };
 
   const handleOpenFile = (id: string) => {
-    window.dispatchEvent(new CustomEvent('open-file-preview', { detail: { id } }));
+    entityModals.openFilePreview(id);
   };
 
   const handleMessageStudent = async (studentId: string) => {
@@ -243,7 +270,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
-          <SheetHeader className="px-6 py-4">
+          <SheetHeader className="border-b bg-card px-6 py-4">
             <SheetTitle>{sessionData.isLoading ? 'Loading...' : ''}</SheetTitle>
             <SheetDescription className="sr-only">
               {sessionData.isLoading ? 'Loading session details.' : 'Session details unavailable.'}
@@ -259,6 +286,8 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   const { session, sessionsStudents, sessionsStaff, tutorLog, sessionsParents = [] } = sessionData.data;
   const meetingMode = session.type !== 'CLASS';
+  const adminMeetingMode = session.type === 'ADMIN_MEETING';
+  const allowAddParticipants = !helpers.hasTutorLog;
   const allowAbsenceLogging = Boolean(session.class_id || session.admin_shift_id);
   const parentsData = (sessionsParents as Array<{ id: string; parent: Tables<'parents'> | null }>)
     .filter((row): row is { id: string; parent: Tables<'parents'> } => row.parent != null)
@@ -288,7 +317,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
 
   // Process students and staff data
   const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
-  const staffData = processSessionStaff(sessionsStaff, actualStaffAttendance, helpers.hasTutorLog, tutorLog?.created_by);
+  const staffData = processSessionStaff(
+    sessionsStaff,
+    actualStaffAttendance,
+    helpers.hasTutorLog,
+    tutorLog?.created_by ?? undefined
+  );
   type SessionsStudentRow = { student_id: string | null };
   type SessionsStaffRow = { staff_id: string | null };
   const existingStudentIds = (sessionsStudents as SessionsStudentRow[])
@@ -297,6 +331,12 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
   const existingStaffIds = (sessionsStaff as SessionsStaffRow[])
     .map((row) => row.staff_id)
     .filter((id: string | null | undefined): id is string => !!id);
+  const classSessions = classSessionsQuery.data?.sessions ?? [];
+  const selectedClassSession = classSessions.find((classSession) => classSession.id === sessionId) ?? null;
+  const { previous: previousClassSession, next: nextClassSession } = getAdjacentSessionSiblings(
+    classSessions,
+    sessionId
+  );
 
   return (
     <>
@@ -304,46 +344,115 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
           <div className="flex flex-col h-full min-h-0">
             {/* Sticky Header */}
-            <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
-              <SheetHeader className="px-6 pt-6 pb-4">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-center gap-3 flex-1">
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={onClose}
-                      className="shrink-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                    <div className="flex-1">
-                      <SheetTitle>Session Details</SheetTitle>
-                      <SheetDescription asChild>
-                        <div className="text-lg font-medium text-muted-foreground flex items-center gap-2 flex-wrap">
-                          {sessionTitle}
-                          <IssuePill
-                            entityType="session"
+            <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
+              <SheetHeader className="px-4 pt-6 pb-4 md:px-6">
+                <div className="flex items-start gap-2 md:gap-3">
+                  <Button variant="outline" size="icon" onClick={onClose} className="shrink-0">
+                    <X className="h-4 w-4" />
+                  </Button>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex min-w-0 items-center justify-between gap-2">
+                      <SheetTitle className="shrink-0">Session Details</SheetTitle>
+                      <div className="flex shrink-0 items-center gap-1 md:gap-2">
+                        {classId ? (
+                          <div className="flex items-center gap-1 md:gap-2">
+                            {previousClassSession ? (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-14 flex-col gap-0.5 py-1"
+                                onClick={() => handleOpenSession(previousClassSession.id)}
+                                aria-label="Previous session in class"
+                                title={`Previous session: ${getSessionNavigationLabel(previousClassSession)}`}
+                              >
+                                <ChevronLeft className="h-4 w-4" />
+                                <span className="text-[10px] font-normal leading-none text-muted-foreground">
+                                  {formatSessionNavigationDate(previousClassSession.start_at)}
+                                </span>
+                              </Button>
+                            ) : null}
+                            <div className="hidden md:block">
+                              <SearchableSelect<Tables<'sessions'>>
+                                items={classSessions}
+                                value={selectedClassSession}
+                                onValueChange={(selectedSession) => {
+                                  if (selectedSession) handleOpenSession(selectedSession.id);
+                                }}
+                                getItemId={(classSession) => classSession.id}
+                                getItemLabel={getSessionNavigationLabel}
+                                getItemValue={(classSession) =>
+                                  [
+                                    getSessionNavigationLabel(classSession),
+                                    classSession.long_name,
+                                    classSession.short_name,
+                                  ]
+                                    .filter(Boolean)
+                                    .join(' ')
+                                }
+                                searchPlaceholder="Search session dates or times…"
+                                emptyMessage="No class sessions found."
+                                loading={classSessionsQuery.isLoading}
+                                disabled={classSessionsQuery.isLoading || classSessions.length === 0}
+                                contentWidth="280px"
+                                align="end"
+                                trigger={
+                                  <SearchableSelectFieldTrigger
+                                    className="h-10 w-24 px-2 text-sm"
+                                    aria-label="Select class session"
+                                  >
+                                    {formatSessionNavigationDate(session.start_at)}
+                                  </SearchableSelectFieldTrigger>
+                                }
+                              />
+                            </div>
+                            {nextClassSession ? (
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                className="h-10 w-14 flex-col gap-0.5 py-1"
+                                onClick={() => handleOpenSession(nextClassSession.id)}
+                                aria-label="Next session in class"
+                                title={`Next session: ${getSessionNavigationLabel(nextClassSession)}`}
+                              >
+                                <ChevronRight className="h-4 w-4" />
+                                <span className="text-[10px] font-normal leading-none text-muted-foreground">
+                                  {formatSessionNavigationDate(nextClassSession.start_at)}
+                                </span>
+                              </Button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        {sessionId && (
+                          <ActionsMenu
+                            type="session"
                             entityId={sessionId}
-                            enabled={isOpen && !!sessionId}
+                            copyTagDisplayText={sessionTitle || sessionId}
+                            {...sessionActions}
+                            sessionType={session.type}
+                            sessionStudents={
+                              adminMeetingMode
+                                ? []
+                                : studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
+                                    id: d.student.id,
+                                    name: `${d.student.first_name} ${d.student.last_name}`,
+                                  }))
+                            }
+                            onSendBookingConfirmation={modals.openBookingConfirmationDialog}
                           />
-                        </div>
-                      </SheetDescription>
+                        )}
+                      </div>
                     </div>
+                    <SheetDescription asChild>
+                      <div className="mt-1 flex min-w-0 items-center gap-2 text-sm font-medium text-muted-foreground">
+                        <span className="truncate">{sessionTitle}</span>
+                        <IssuePill
+                          entityType="session"
+                          entityId={sessionId}
+                          enabled={isOpen && !!sessionId}
+                        />
+                      </div>
+                    </SheetDescription>
                   </div>
-                  {sessionId && (
-                    <ActionsMenu
-                      type="session"
-                      entityId={sessionId}
-                      copyTagDisplayText={sessionTitle || sessionId}
-                      {...sessionActions}
-                      sessionType={session.type}
-                      sessionStudents={studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
-                        id: d.student.id,
-                        name: `${d.student.first_name} ${d.student.last_name}`,
-                      }))}
-                      onSendBookingConfirmation={modals.openBookingConfirmationDialog}
-                    />
-                  )}
                 </div>
               </SheetHeader>
               <div className="px-6 pb-4">
@@ -374,8 +483,9 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     isSessionInPast={helpers.isSessionInPast}
                     currentStaff={currentStaff || null}
                     onOpenSession={handleOpenSession}
-                    onOpenStudent={modals.openStudentModal}
+                    onOpenStudent={entityModals.openStudent}
                     onOpenStaff={handleOpenStaff}
+                    onOpenParent={entityModals.openParent}
                     onOpenClass={handleOpenClass}
                     onMessageStudent={handleMessageStudent}
                     onMessageStaff={handleMessageStaff}
@@ -424,20 +534,25 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                     }
                         : undefined
                     }
-                    onAddStudentToSession={meetingMode ? undefined : modals.openAddStudentToSessionModal}
-                    onAddStaffToSession={meetingMode ? undefined : modals.openAddStaffToSessionModal}
+                    onAddStudentToSession={!meetingMode && allowAddParticipants ? modals.openAddStudentToSessionModal : undefined}
+                    onAddStaffToSession={!meetingMode && allowAddParticipants ? modals.openAddStaffToSessionModal : undefined}
                     meetingMode={meetingMode}
+                    adminMeetingMode={adminMeetingMode}
                     parentsData={parentsData}
-                    onMeetingAddStudent={async (student) => {
+                    onMeetingAddStudent={adminMeetingMode || !allowAddParticipants ? undefined : async (student) => {
                       if (!sessionId) return;
                       await addStudentMutation.mutateAsync({ sessionId, studentId: student.id });
                       await sessionData.refresh();
                       toast({ title: 'Student added', description: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() });
                     }}
-                    onMeetingAddStaff={async (staffMember) => {
+                    onMeetingAddStaff={!allowAddParticipants ? undefined : async (staffMember) => {
                       if (!sessionId) return;
                       const staffType =
-                        session.type === 'CHECK_IN' ? 'CHECK_IN_RECEIVER' : 'MAIN_TUTOR';
+                        session.type === 'CHECK_IN'
+                          ? defaultCheckInSessionsStaffType(
+                              studentsData.length > 0 || parentsData.length > 0
+                            )
+                          : 'MAIN_TUTOR';
                       await addStaffMutation.mutateAsync({
                         sessionId,
                         staffId: staffMember.id,
@@ -446,7 +561,7 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
                       await sessionData.refresh();
                       toast({ title: 'Staff added', description: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() });
                     }}
-                    onMeetingAddParent={async (parent) => {
+                    onMeetingAddParent={adminMeetingMode ? undefined : async (parent) => {
                       if (!sessionId) return;
                       await addParentMutation.mutateAsync({ sessionId, parentId: parent.id });
                       await sessionData.refresh();
@@ -535,42 +650,6 @@ export function SessionModal({ isOpen, sessionId, onClose }: SessionModalProps) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-
-      {/* Student Modal */}
-      {modals.selectedStudentId && (
-        <ViewStudentModal
-          isOpen={modals.isStudentModalOpen}
-          onClose={modals.closeStudentModal}
-          studentId={modals.selectedStudentId}
-          onStudentUpdated={() => {
-            // Optionally refresh session data
-          }}
-        />
-      )}
-
-      {/* Staff Modal */}
-      {modals.selectedStaffId && (
-        <ViewStaffModal
-          isOpen={modals.isStaffModalOpen}
-          onClose={modals.closeStaffModal}
-          staffId={modals.selectedStaffId}
-          onStaffUpdated={() => {
-            // Optionally refresh session data
-          }}
-        />
-      )}
-
-      {/* Class Modal */}
-      {modals.selectedClassId && (
-        <ViewClassModal
-          isOpen={modals.isClassModalOpen}
-          onClose={modals.closeClassModal}
-          classId={modals.selectedClassId}
-          onClassUpdated={() => {
-            // Optionally refresh session data
-          }}
-        />
-      )}
 
       {/* Log Session Modal */}
       {currentStaff && (

@@ -6,7 +6,7 @@ import {
   isEligibleForReview,
   validateApprovedPromotionTier,
 } from '../evaluate';
-import { METRIC_KEYS } from '../metric-keys';
+import { METRIC_KEYS, resourceMetricKey } from '../metric-keys';
 
 describe('pay tier requirement evaluation', () => {
   const metrics = {
@@ -20,6 +20,10 @@ describe('pay tier requirement evaluation', () => {
     'sessions.CLASS.any': 55,
     [METRIC_KEYS.teachingAll]: 80,
     [METRIC_KEYS.adminAll]: 10,
+    [resourceMetricKey('NOTES', 'subject-a')]: 4,
+    [resourceMetricKey('SOLUTIONS', 'subject-a')]: 3,
+    [resourceMetricKey('TEST', 'subject-b')]: 5,
+    [resourceMetricKey('UNKNOWN')]: 2,
   };
 
   it('evaluates tenure days', () => {
@@ -68,7 +72,11 @@ describe('pay tier requirement evaluation', () => {
       {
         id: '2',
         requirement_kind: 'SESSION_COUNT',
-        params: { min: 40, session_types: ['CLASS'], attendance_types: ['MAIN_TUTOR'] },
+        params: {
+          min: 40,
+          session_types: ['CLASS'],
+          attendance_types: ['MAIN_TUTOR'],
+        },
       },
       metrics
     );
@@ -81,12 +89,46 @@ describe('pay tier requirement evaluation', () => {
       {
         id: '3',
         requirement_kind: 'SESSION_COUNT',
-        params: { min: 100, session_types: ['CLASS', 'DRAFTING', 'EXAM_COURSE'] },
+        params: {
+          min: 100,
+          session_types: ['CLASS', 'DRAFTING', 'EXAM_COURSE'],
+        },
       },
       metrics
     );
     expect(result.met).toBe(false);
     expect(result.current).toBe(80);
+  });
+
+  it('evaluates all resources including unknown legacy resources', () => {
+    const result = evaluateRequirement(
+      {
+        id: 'resource-all',
+        requirement_kind: 'RESOURCE_COUNT',
+        params: { min: 14 },
+      },
+      metrics
+    );
+    expect(result.met).toBe(true);
+    expect(result.current).toBe(14);
+  });
+
+  it('filters resources by exclusive type and subject', () => {
+    const result = evaluateRequirement(
+      {
+        id: 'resource-filtered',
+        requirement_kind: 'RESOURCE_COUNT',
+        params: {
+          min: 7,
+          resource_types: ['NOTES', 'SOLUTIONS'],
+          subject_ids: ['subject-a'],
+        },
+      },
+      metrics
+    );
+    expect(result.met).toBe(true);
+    expect(result.current).toBe(7);
+    expect(result.label).toContain('1 selected subject');
   });
 
   it('is eligible only when all requirements met', () => {
@@ -103,7 +145,11 @@ describe('pay tier requirement evaluation', () => {
           id: 'b',
           tier_number: 1,
           requirement_kind: 'SESSION_COUNT',
-          params: { min: 100, session_types: ['CLASS'], attendance_types: ['MAIN_TUTOR'] },
+          params: {
+            min: 100,
+            session_types: ['CLASS'],
+            attendance_types: ['MAIN_TUTOR'],
+          },
           sort_order: 1,
         },
       ],

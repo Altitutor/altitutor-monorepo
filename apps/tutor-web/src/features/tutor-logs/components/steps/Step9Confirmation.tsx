@@ -1,6 +1,7 @@
 'use client';
 
-import { Badge } from '@altitutor/ui';
+import { AccountClassBadge, Badge } from '@altitutor/ui';
+import { formatTutorLogStaffAttendanceLabel } from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '../../types';
 import { useTutorLogStep9Data } from '../../hooks/useTutorLogStep9Data';
 import { format } from 'date-fns';
@@ -17,22 +18,14 @@ export function Step9Confirmation({
   onSubmit: _onSubmit,
   isSubmitting: _isSubmitting,
 }: Step9ConfirmationProps) {
-  const {
-    session,
-    studentsMap,
-    staffMap,
-    topicsMap,
-    topicFilesMap,
-  } = useTutorLogStep9Data(formData);
+  const { session, studentsMap, staffMap, topicsMap, topicFilesMap } = useTutorLogStep9Data(formData);
 
   const attendedStudents = formData.studentAttendance?.filter((sa) => sa.attended) || [];
   const attendedStaff = formData.staffAttendance?.filter((sa) => sa.attended) || [];
 
   return (
     <div className="space-y-6">
-      <p className="text-sm text-muted-foreground">
-        Please review the details below before submitting your log.
-      </p>
+      <p className="text-sm text-muted-foreground">Please review the details below before submitting your log.</p>
 
       {/* Session Info */}
       {session && (
@@ -64,8 +57,8 @@ export function Step9Confirmation({
             const staff = staffMap.get(sa.staffId);
             return (
               <div key={sa.staffId} className="flex items-center gap-2 text-sm">
-                <Badge variant={sa.type === 'MAIN_TUTOR' ? 'default' : 'outline'}>
-                  {sa.type === 'MAIN_TUTOR' ? 'Main Tutor' : sa.type === 'SECONDARY_TUTOR' ? 'Secondary Tutor' : 'Trial Tutor'}
+                <Badge variant={sa.type === 'MAIN_TUTOR' || sa.type === 'CHECK_IN_HOST' ? 'default' : 'outline'}>
+                  {formatTutorLogStaffAttendanceLabel(sa.type, session?.type)}
                 </Badge>
                 <span>
                   {staff?.first_name} {staff?.last_name}
@@ -112,9 +105,12 @@ export function Step9Confirmation({
                         const student = studentsMap.get(studentId);
                         if (!student) return null;
                         return (
-                          <Badge key={studentId} variant="secondary" className="text-xs">
-                            {student.first_name} {student.last_name}
-                          </Badge>
+                          <div key={studentId} className="flex items-center gap-1">
+                            <Badge variant="secondary" className="text-xs">
+                              {student.first_name} {student.last_name}
+                            </Badge>
+                            <AccountClassBadge accountClass={student.account_class} />
+                          </div>
                         );
                       })}
                     </div>
@@ -137,7 +133,7 @@ export function Step9Confirmation({
               const topicData = topicsMap.get(topic.topicId);
               const files = (formData.topicFiles || []).filter((tf) => tf.topicId === topic.topicId);
               if (files.length === 0) return null;
-              
+
               return (
                 <div key={topic.topicId} className="space-y-2">
                   <div className="text-sm font-medium">{topicData?.name}</div>
@@ -147,7 +143,7 @@ export function Step9Confirmation({
                       if (!fileData) return null;
                       const fileCode = fileData.code || '';
                       const studentIds = file.studentIds || [];
-                      
+
                       return (
                         <div key={file.topicsFilesId} className="space-y-1">
                           <div className="font-mono text-sm text-muted-foreground">{fileCode}</div>
@@ -157,9 +153,12 @@ export function Step9Confirmation({
                                 const student = studentsMap.get(studentId);
                                 if (!student) return null;
                                 return (
-                                  <Badge key={studentId} variant="secondary" className="text-xs">
-                                    {student.first_name} {student.last_name}
-                                  </Badge>
+                                  <div key={studentId} className="flex items-center gap-1">
+                                    <Badge variant="secondary" className="text-xs">
+                                      {student.first_name} {student.last_name}
+                                    </Badge>
+                                    <AccountClassBadge accountClass={student.account_class} />
+                                  </div>
                                 );
                               })}
                             </div>
@@ -195,5 +194,3 @@ export function Step9Confirmation({
     </div>
   );
 }
-
-

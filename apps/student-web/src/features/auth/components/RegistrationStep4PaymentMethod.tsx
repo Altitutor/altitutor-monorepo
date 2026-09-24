@@ -1,15 +1,42 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
-import { UseFormReturn } from 'react-hook-form';
-import { Button, Label, Checkbox, Dialog, DialogContent, DialogHeader, DialogTitle, PolicyViewer, FormControl, FormField, FormItem, FormMessage, SkeletonPolicyContent, SkeletonStripeCardForm } from '@altitutor/ui';
-import { loadStripe, StripeElementsOptions } from '@stripe/stripe-js';
-import { Elements, CardNumberElement, CardExpiryElement, CardCvcElement, useStripe, useElements } from '@stripe/react-stripe-js';
-import { Loader2, CheckCircle2 } from 'lucide-react';
-import { useToast } from '@altitutor/ui';
-import type { RegistrationFormValues } from '../validations';
-import { studentBtnPrimary } from '@/shared/lib/student-visual';
-import { cn } from '@/shared/utils';
+import { useState, useEffect, useMemo, useCallback } from "react";
+import { UseFormReturn } from "react-hook-form";
+import {
+  Button,
+  Label,
+  Checkbox,
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  PolicyViewer,
+  FormControl,
+  FormField,
+  FormItem,
+  FormMessage,
+  SkeletonPolicyContent,
+  SkeletonStripeCardForm,
+} from "@altitutor/ui";
+import type { StripeElementsOptions } from "@stripe/stripe-js";
+import {
+  CardNumberElement,
+  CardExpiryElement,
+  CardCvcElement,
+  useStripe,
+  useElements,
+} from "@stripe/react-stripe-js";
+import { Loader2, CheckCircle2 } from "lucide-react";
+import { useToast } from "@altitutor/ui";
+import type { RegistrationFormValues } from "../validations";
+import { studentBtnPrimary } from "@/shared/lib/student-visual";
+import { cn } from "@/shared/utils";
+import { StripeElementsProvider } from "@/shared/components/payments/StripeElementsProvider";
+import {
+  captureRegistrationEvent,
+  captureRegistrationOperationalError,
+} from "@/features/registration/lib/registration-observability";
+import { completeRegistrationPaymentSetup } from "@/features/registration/lib/complete-registration-payment-setup";
 
 interface RegistrationStep4PaymentMethodProps {
   form: UseFormReturn<RegistrationFormValues>;
@@ -18,10 +45,11 @@ interface RegistrationStep4PaymentMethodProps {
   preloadedClientSecret?: string | null;
 }
 
-// Use pre-loaded Stripe instance
-import type { Stripe } from '@stripe/stripe-js';
-
-function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormValues> }) {
+function BillingPolicyCheckbox({
+  form,
+}: {
+  form: UseFormReturn<RegistrationFormValues>;
+}) {
   const [policyOpen, setPolicyOpen] = useState(false);
   const [policyContent, setPolicyContent] = useState<unknown>(null);
   const [policyLoading, setPolicyLoading] = useState(false);
@@ -30,7 +58,7 @@ function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormV
     if (policyContent !== null) return;
     setPolicyLoading(true);
     try {
-      const res = await fetch('/api/policies/billing');
+      const res = await fetch("/api/policies/billing");
       const data = await res.json();
       setPolicyContent(data.content ?? null);
     } catch {
@@ -45,7 +73,7 @@ function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormV
       setPolicyOpen(open);
       if (open) fetchPolicy();
     },
-    [fetchPolicy]
+    [fetchPolicy],
   );
 
   return (
@@ -60,14 +88,17 @@ function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormV
                 <Checkbox
                   id="billingPolicyAgreed"
                   checked={field.value}
-                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                  onCheckedChange={(checked) =>
+                    field.onChange(checked === true)
+                  }
                 />
               </FormControl>
               <label
                 htmlFor="billingPolicyAgreed"
                 className="text-sm leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
               >
-                By registering as a student at Altitutor, I agree to Altitutor&apos;s{' '}
+                By registering as a student at Altitutor, I agree to
+                Altitutor&apos;s{" "}
                 <button
                   type="button"
                   onClick={(e) => {
@@ -101,21 +132,13 @@ function BillingPolicyCheckbox({ form }: { form: UseFormReturn<RegistrationFormV
   );
 }
 
-let stripePromise: Promise<Stripe | null> | null = null;
-function getStripePromise() {
-  if (!stripePromise) {
-    stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY || '');
-  }
-  return stripePromise;
-}
-
-function PaymentForm({ 
-  onSuccess, 
-  clientSecret, 
+function PaymentForm({
+  onSuccess,
+  clientSecret,
   studentId: _studentId,
-  token 
-}: { 
-  onSuccess: () => void; 
+  token,
+}: {
+  onSuccess: () => void;
   clientSecret: string;
   studentId: string;
   token: string;
@@ -127,21 +150,22 @@ function PaymentForm({
   const { toast } = useToast();
 
   // Detect dark mode dynamically
-  const isDarkMode = typeof window !== 'undefined' && 
-    document.documentElement.classList.contains('dark');
+  const isDarkMode =
+    typeof window !== "undefined" &&
+    document.documentElement.classList.contains("dark");
 
   const elementOptions = {
     style: {
       base: {
-        fontSize: '16px',
-        color: isDarkMode ? '#ffffff' : '#1a1a1a',
-        fontFamily: 'system-ui, sans-serif',
-        '::placeholder': {
-          color: isDarkMode ? '#9ca3af' : '#6b7280',
+        fontSize: "16px",
+        color: isDarkMode ? "#ffffff" : "#1a1a1a",
+        fontFamily: "system-ui, sans-serif",
+        "::placeholder": {
+          color: isDarkMode ? "#9ca3af" : "#6b7280",
         },
       },
       invalid: {
-        color: '#ef4444',
+        color: "#ef4444",
       },
     },
   };
@@ -150,6 +174,9 @@ function PaymentForm({
     e.preventDefault();
 
     if (!stripe || !elements) {
+      captureRegistrationEvent("student_registration_payment_setup_blocked", {
+        result_code: "stripe_not_ready",
+      });
       return;
     }
 
@@ -159,71 +186,102 @@ function PaymentForm({
     const cardNumberElement = elements.getElement(CardNumberElement);
 
     if (!cardNumberElement) {
-      setError('Card element not found');
+      captureRegistrationEvent("student_registration_payment_setup_failed", {
+        result_code: "card_element_missing",
+      });
+      captureRegistrationOperationalError(
+        new Error("Stripe card element missing"),
+        "payment_setup",
+        "card_element_missing",
+      );
+      setError("Card element not found");
       setIsProcessing(false);
       return;
     }
 
     try {
-      const { setupIntent, error: confirmError } = await stripe.confirmCardSetup(clientSecret, {
-        payment_method: {
-          card: cardNumberElement,
-        },
-      });
+      captureRegistrationEvent("student_registration_payment_setup_started");
+      const { setupIntent, error: confirmError } =
+        await stripe.confirmCardSetup(clientSecret, {
+          payment_method: {
+            card: cardNumberElement,
+          },
+        });
 
       if (confirmError) {
-        setError(confirmError.message || 'Failed to add payment method');
+        captureRegistrationEvent("student_registration_payment_setup_failed", {
+          result_code: confirmError.code || "stripe_confirmation_failed",
+        });
+        setError(confirmError.message || "Failed to add payment method");
         setIsProcessing(false);
         return;
       }
 
-      if (setupIntent && setupIntent.status === 'succeeded') {
-        // Wait a moment for webhook to process, then verify
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        
-        // Verify payment method was saved
-        const verifyResponse = await fetch('/api/register/payment-method', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+      if (setupIntent?.status === "succeeded") {
+        captureRegistrationEvent(
+          "student_registration_payment_setup_succeeded",
+        );
+      }
+
+      const verifyPaymentMethod = async (setupIntentId: string) => {
+        const verifyResponse = await fetch("/api/register/payment-method", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             token,
-            action: 'verify_payment_method',
+            action: "verify_payment_method",
+            setupIntentId,
           }),
         });
+        return (await verifyResponse.json()) as {
+          verified?: boolean;
+          code?: string;
+        };
+      };
 
-        const verifyData = await verifyResponse.json();
+      const result = await completeRegistrationPaymentSetup({
+        setupIntent,
+        verify: verifyPaymentMethod,
+      });
 
-        if (!verifyData.verified) {
-          // Payment method might still be processing, wait a bit more
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          const retryResponse = await fetch('/api/register/payment-method', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              token,
-              action: 'verify_payment_method',
-            }),
-          });
-
-          const retryData = await retryResponse.json();
-          
-          if (!retryData.verified) {
-            setError('Payment method added but verification failed. Please try again.');
-            setIsProcessing(false);
-            return;
-          }
-        }
-
-        toast({
-          title: 'Success',
-          description: 'Payment method added and verified successfully',
-        });
-        
-        onSuccess();
+      if (!result.ok) {
+        captureRegistrationEvent(
+          "student_registration_payment_verification_failed",
+          {
+            result_code: result.resultCode,
+            retry_number: 1,
+          },
+        );
+        captureRegistrationOperationalError(
+          new Error("Payment method verification failed after retry"),
+          "payment_verification",
+          result.resultCode,
+        );
+        setError(result.message);
+        setIsProcessing(false);
+        return;
       }
+
+      toast({
+        title: "Success",
+        description: "Payment method added and verified successfully",
+      });
+      captureRegistrationEvent("student_registration_payment_verified", {
+        result_code: "verified",
+      });
+
+      onSuccess();
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'An unexpected error occurred';
+      captureRegistrationEvent("student_registration_payment_setup_failed", {
+        result_code: "unexpected_client_error",
+      });
+      captureRegistrationOperationalError(
+        err,
+        "payment_setup",
+        "unexpected_client_error",
+      );
+      const errorMessage =
+        err instanceof Error ? err.message : "An unexpected error occurred";
       setError(errorMessage);
       setIsProcessing(false);
     }
@@ -234,10 +292,7 @@ function PaymentForm({
       <div className="space-y-2">
         <Label htmlFor="cardNumber">Card Number</Label>
         <div className="rounded-md p-3 bg-white dark:bg-gray-800">
-          <CardNumberElement 
-            id="cardNumber"
-            options={elementOptions}
-          />
+          <CardNumberElement id="cardNumber" options={elementOptions} />
         </div>
       </div>
 
@@ -245,37 +300,27 @@ function PaymentForm({
         <div className="space-y-2">
           <Label htmlFor="cardExpiry">Expiry Date</Label>
           <div className="rounded-md p-3 bg-white dark:bg-gray-800">
-            <CardExpiryElement 
-              id="cardExpiry"
-              options={elementOptions}
-            />
+            <CardExpiryElement id="cardExpiry" options={elementOptions} />
           </div>
         </div>
 
         <div className="space-y-2">
           <Label htmlFor="cardCvc">CVC</Label>
           <div className="rounded-md p-3 bg-white dark:bg-gray-800">
-            <CardCvcElement 
-              id="cardCvc"
-              options={elementOptions}
-            />
+            <CardCvcElement id="cardCvc" options={elementOptions} />
           </div>
         </div>
       </div>
 
-      {error && (
-        <div className="text-sm text-destructive">
-          {error}
-        </div>
-      )}
+      {error && <div className="text-sm text-destructive">{error}</div>}
 
       <Button
         type="submit"
         disabled={isProcessing || !stripe || !elements}
-        className={cn(studentBtnPrimary, 'w-full')}
+        className={cn(studentBtnPrimary, "w-full")}
       >
         {isProcessing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-        {isProcessing ? 'Verifying...' : 'Add & Verify Payment Method'}
+        {isProcessing ? "Verifying..." : "Add & Verify Payment Method"}
       </Button>
     </form>
   );
@@ -287,13 +332,15 @@ export function RegistrationStep4PaymentMethod({
   studentId,
   preloadedClientSecret,
 }: RegistrationStep4PaymentMethodProps) {
-  const [clientSecret, setClientSecret] = useState<string | null>(preloadedClientSecret || null);
+  const [clientSecret, setClientSecret] = useState<string | null>(
+    preloadedClientSecret || null,
+  );
   const [isLoading, setIsLoading] = useState(false);
   const [isVerified, setIsVerified] = useState(false);
   const { toast } = useToast();
 
   // Check if payment method is already verified
-  const paymentMethodVerified = form.watch('paymentMethodVerified');
+  const paymentMethodVerified = form.watch("paymentMethodVerified");
 
   // Use preloaded client secret if available, otherwise fetch
   useEffect(() => {
@@ -315,37 +362,58 @@ export function RegistrationStep4PaymentMethod({
 
     let cancelled = false;
     setIsLoading(true);
-    
-    fetch('/api/register/payment-method', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+
+    fetch("/api/register/payment-method", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         token,
-        action: 'create_setup_intent',
+        action: "create_setup_intent",
       }),
     })
       .then(async (res) => {
         if (cancelled) return;
-        
+
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.error || 'Failed to initialize payment method setup');
+          captureRegistrationEvent(
+            "student_registration_payment_initialization_failed",
+            {
+              http_status: res.status,
+              result_code: data.code || "setup_intent_api_error",
+            },
+          );
+          throw new Error("Failed to initialize payment method setup");
         }
-        
+
         if (!cancelled) {
+          captureRegistrationEvent("student_registration_payment_initialized", {
+            result_code: "created_on_payment_step",
+          });
           setClientSecret(data.client_secret);
           setIsLoading(false);
         }
       })
       .catch((error: unknown) => {
         if (cancelled) return;
-        
-        const errorMessage = error instanceof Error ? error.message : 'Failed to initialize payment method setup';
-        console.error('[RegistrationStep4PaymentMethod] Error fetching setup intent:', error);
+
+        const errorMessage =
+          error instanceof Error
+            ? error.message
+            : "Failed to initialize payment method setup";
+        console.error(
+          "[RegistrationStep4PaymentMethod] Error fetching setup intent:",
+          error,
+        );
+        captureRegistrationOperationalError(
+          error,
+          "payment_initialization",
+          "setup_intent_request_failed",
+        );
         toast({
-          title: 'Error',
+          title: "Error",
           description: errorMessage,
-          variant: 'destructive',
+          variant: "destructive",
         });
         setIsLoading(false);
       });
@@ -365,18 +433,22 @@ export function RegistrationStep4PaymentMethod({
 
   const handleSuccess = useCallback(() => {
     setIsVerified(true);
-    form.setValue('paymentMethodVerified', true);
+    form.setValue("paymentMethodVerified", true);
     setClientSecret(null);
   }, [form]);
 
-  const elementsOptions: StripeElementsOptions = useMemo(() => ({
-    clientSecret: clientSecret || undefined,
-    appearance: {
-      theme: 'stripe',
-    },
-  }), [clientSecret]);
+  const elementsOptions: StripeElementsOptions = useMemo(
+    () => ({
+      clientSecret: clientSecret || undefined,
+      appearance: {
+        theme: "stripe",
+      },
+    }),
+    [clientSecret],
+  );
 
-  const paymentMethodError = form.formState.errors.paymentMethodVerified?.message;
+  const paymentMethodError =
+    form.formState.errors.paymentMethodVerified?.message;
 
   if (paymentMethodVerified || isVerified) {
     return (
@@ -384,7 +456,7 @@ export function RegistrationStep4PaymentMethod({
         <div>
           <h3 className="text-lg font-semibold">Payment Method</h3>
           <p className="text-sm text-muted-foreground mt-1">
-          Add a payment method to pay for sessions.
+            Add a payment method to pay for sessions.
           </p>
         </div>
 
@@ -414,7 +486,8 @@ export function RegistrationStep4PaymentMethod({
       <div>
         <h3 className="text-lg font-semibold">Payment Method</h3>
         <p className="text-sm text-muted-foreground mt-1">
-        Add a payment method to pay for sessions. Your card will be verified but not charged until you are added to a class.
+          Add a payment method to pay for sessions. Your card will be verified
+          but not charged until you are added to a class.
         </p>
       </div>
 
@@ -426,14 +499,14 @@ export function RegistrationStep4PaymentMethod({
 
       {!isLoading && clientSecret && (
         <div className="space-y-6">
-          <Elements stripe={getStripePromise()} options={elementsOptions}>
-            <PaymentForm 
-              onSuccess={handleSuccess} 
+          <StripeElementsProvider options={elementsOptions}>
+            <PaymentForm
+              onSuccess={handleSuccess}
               clientSecret={clientSecret}
               studentId={studentId}
               token={token}
             />
-          </Elements>
+          </StripeElementsProvider>
 
           <BillingPolicyCheckbox form={form} />
         </div>
@@ -441,4 +514,3 @@ export function RegistrationStep4PaymentMethod({
     </div>
   );
 }
-

@@ -2,7 +2,8 @@ export type StaffPayTierRequirementKind =
   | 'TENURE_DAYS'
   | 'TENURE_MONTHS'
   | 'TIME_SINCE_LAST_PROMOTION'
-  | 'SESSION_COUNT';
+  | 'SESSION_COUNT'
+  | 'RESOURCE_COUNT';
 
 export type TimeUnit = 'days' | 'weeks' | 'months';
 
@@ -30,10 +31,17 @@ export interface SessionCountRequirementParams {
   attendance_types?: string[];
 }
 
+export interface ResourceCountRequirementParams {
+  min: number;
+  resource_types?: string[];
+  subject_ids?: string[];
+}
+
 export type RequirementParams =
   | TenureRequirementParams
   | TimeSincePromotionRequirementParams
-  | SessionCountRequirementParams;
+  | SessionCountRequirementParams
+  | ResourceCountRequirementParams;
 
 export interface StaffPayTierRequirement {
   id: string;

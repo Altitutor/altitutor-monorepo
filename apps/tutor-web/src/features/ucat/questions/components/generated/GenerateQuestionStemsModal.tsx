@@ -1,20 +1,21 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import type { Editor } from '@tiptap/react'
 import type { Json } from '@altitutor/shared'
 import { Copy } from 'lucide-react'
 import {
   Button,
   Input,
-  Label,
   SearchableSelect,
   Spinner,
+  Switch,
   Textarea,
   useToast,
 } from '@altitutor/ui'
 import type { BulkImportStemDraft } from '@/features/ucat/questions/hooks/useBulkImportWizard'
 import {
-  useGenerateUcatQuestionDrafts,
+  useStartUcatQuestionGeneration,
   useImportGeneratedUcatQuestionStems,
   useUcatCategories,
   useUcatGenerationModelProfiles,
@@ -24,10 +25,9 @@ import {
   useUcatTags,
   type UcatStemCatalogItem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
-import {
-  UcatGenerationApiError,
-  type UcatGenerationDebugInfo,
-  type UcatGenerationProgress,
+import type {
+  UcatGenerationDebugInfo,
+  UcatGenerationProgress,
 } from '@/features/ucat/questions/api/questions'
 import {
   UcatQuestionStemDialog,
@@ -35,8 +35,9 @@ import {
   type TagOption,
 } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { mapCategoriesToOptions, mapTagsToOptions, taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { resolveRootSectionId } from '@/features/ucat/shared/lib/taxonomy-reparent'
 import { buildStemCatalogFilterDefinitions } from '@/features/ucat/shared/lib/stem-catalog-filters'
-import type { UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
+import { parseTimeToSeconds } from '@/features/ucat/shared/lib/time-utils'
 import { Step3SetAnswers } from '@/features/ucat/questions/components/bulk-import/Step3SetAnswers'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
 import {
@@ -45,11 +46,13 @@ import {
   UcatStemCatalogSidePanel,
 } from '@/features/ucat/shared/components/ucat-stem-catalog-panel'
 import { UcatSortableList } from '@/features/ucat/shared/drag-list'
+import { UcatPropertyRow } from '@/features/ucat/shared/components/UcatPropertyRow'
 import { cn } from '@/shared/utils'
 
 type GenerateQuestionStemsModalProps = {
   open: boolean
   onClose: () => void
+  onStarted?: (runId: string) => void
 }
 
 type DraftWithMetadata = BulkImportStemDraft & {
@@ -59,6 +62,7 @@ type DraftWithMetadata = BulkImportStemDraft & {
 type DifficultyTarget = 'easy' | 'medium' | 'hard' | 'mixed'
 type TimeBurdenTarget = 'low' | 'medium' | 'high' | 'mixed'
 type SourceMode = 'none' | 'random' | 'selected'
+type ImageGenerationMode = 'auto' | 'deterministic' | 'ai'
 
 type SelectOption<TValue extends string> = {
   id: TValue
@@ -85,45 +89,11 @@ const SOURCE_MODE_OPTIONS: Array<SelectOption<SourceMode>> = [
   { id: 'none', label: 'No source examples' },
 ]
 
-function toFormValues(stem: {
-  sectionId: string
-  categoryId: string | null
-  stemText: Json
-  isPrivate: boolean
-  questions: Array<{
-    questionText: Json
-    answerExplanation: Json | null
-    difficulty: number | null
-    timeBurdenSeconds: number | null
-    questionType: 'multiple_choice' | 'syllogism'
-    tagIds: string[]
-    options: Array<{
-      answerText: Json
-      answerExplanation: Json | null
-      isAnswer: boolean
-    }>
-  }>
-}): UcatQuestionStemFormValues {
-  return {
-    sectionId: stem.sectionId,
-    categoryId: stem.categoryId,
-    stemText: stem.stemText,
-    isPrivate: true,
-    questions: stem.questions.map((question) => ({
-      questionText: question.questionText,
-      questionType: question.questionType,
-      answerExplanation: question.answerExplanation,
-      difficulty: question.difficulty,
-      timeBurdenSeconds: question.timeBurdenSeconds != null ? String(question.timeBurdenSeconds) : '',
-      tagIds: question.tagIds ?? [],
-      options: question.options.map((option) => ({
-        answerText: option.answerText,
-        answerExplanation: option.answerExplanation,
-        isAnswer: option.isAnswer,
-      })),
-    })),
-  }
-}
+const IMAGE_GENERATION_MODE_OPTIONS: Array<SelectOption<ImageGenerationMode>> = [
+  { id: 'auto', label: 'Auto' },
+  { id: 'deterministic', label: 'Deterministic renderer' },
+  { id: 'ai', label: 'AI-generated stem image' },
+]
 
 function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
   const values = draft.values
@@ -138,15 +108,18 @@ function toImportPayload(draft: DraftWithMetadata): Record<string, unknown> {
       difficulty: question.difficulty ?? null,
       timeBurdenSeconds:
         question.timeBurdenSeconds && question.timeBurdenSeconds.trim().length > 0
-          ? Number(question.timeBurdenSeconds)
+          ? parseTimeToSeconds(question.timeBurdenSeconds)
           : null,
-      questionType: question.questionType,
+      responseType: question.responseType,
+      answerScheme: question.answerScheme,
       tagIds: question.tagIds ?? [],
+      sourceChannel: question.sourceChannel ?? 'ai_generation',
+      aiGenerationMetadata: question.aiGenerationMetadata ?? draft.aiGenerationMetadata,
       options: question.options.map((option, optionIndex) => ({
         index: optionIndex + 1,
         answerText: option.answerText,
         answerExplanation: option.answerExplanation ?? null,
-        isAnswer: option.isAnswer,
+        answerKeyValue: option.answerKeyValue,
       })),
     })),
     aiGenerationMetadata: draft.aiGenerationMetadata,
@@ -163,15 +136,16 @@ function formatDebugJson(value: unknown): string {
   return JSON.stringify(value, null, 2)
 }
 
-const SOURCE_STEM_FILTER_KEYS = new Set(['question_tag_id', 'visibility', 'question_type'])
+const SOURCE_STEM_FILTER_KEYS = new Set(['question_tag_id', 'visibility'])
 const GENERATION_STEP_LABELS: Record<UcatGenerationProgress['step'], string> = {
   setup: 'Setup',
   sources: 'Sources',
   generating: 'Model calls',
   gates: 'Validation',
+  images: 'Images',
   drafts: 'Drafts',
 }
-const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'drafts']
+const GENERATION_STEP_ORDER: UcatGenerationProgress['step'][] = ['setup', 'sources', 'generating', 'gates', 'images', 'drafts']
 
 function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null }) {
   if (!debug) return null
@@ -206,7 +180,7 @@ function GenerationDebugPanel({ debug }: { debug: UcatGenerationDebugInfo | null
       <div className="grid gap-3 text-sm md:grid-cols-2">
         <div>Requested stems: {debug.requestedStemCount}</div>
         <div>Section: {debug.sectionName ?? '-'}</div>
-        <div>Selected category: {debug.selectedCategoryName ?? 'Spread across categories'}</div>
+        <div>Selected category: {debug.selectedCategoryName ?? 'Realistic category mix'}</div>
         <div>Prompt layers: {debug.promptLayerCount}</div>
         <div className="md:col-span-2">Source sample IDs: {debug.sourceSampleIds.join(', ') || '-'}</div>
       </div>
@@ -324,14 +298,14 @@ function GenerationProgressPanel({
   )
 }
 
-export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionStemsModalProps) {
+export function GenerateQuestionStemsModal({ open, onClose, onStarted }: GenerateQuestionStemsModalProps) {
   const { toast } = useToast()
   const sectionsQuery = useUcatSections()
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const modelProfilesQuery = useUcatGenerationModelProfiles(open)
   const stemCatalogQuery = useUcatStemCatalog(open)
-  const generateMutation = useGenerateUcatQuestionDrafts()
+  const generateMutation = useStartUcatQuestionGeneration()
   const importMutation = useImportGeneratedUcatQuestionStems()
 
   const [step, setStep] = useState<'config' | 'generating' | 'review'>('config')
@@ -339,6 +313,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [categoryId, setCategoryId] = useState<string | null>(null)
   const [modelProfileId, setModelProfileId] = useState<string | null>(null)
   const [sourceMode, setSourceMode] = useState<SourceMode>('random')
+  const [includeAiSourceStems, setIncludeAiSourceStems] = useState(false)
+  const [imageGenerationMode, setImageGenerationMode] = useState<ImageGenerationMode>('auto')
   const [selectedSourceIds, setSelectedSourceIds] = useState<string[]>([])
   const [targetTagIds, setTargetTagIds] = useState<string[]>([])
   const [difficultyTarget, setDifficultyTarget] = useState<DifficultyTarget>('mixed')
@@ -353,6 +329,10 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [generationDebug, setGenerationDebug] = useState<UcatGenerationDebugInfo | null>(null)
   const [generationProgress, setGenerationProgress] = useState<UcatGenerationProgress | null>(null)
+  const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const isGeneratingRef = useRef(false)
+  const allowNavigationRef = useRef(false)
+  const ignoreNextPopStateRef = useRef(false)
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => categoriesQuery.data ?? [], [categoriesQuery.data])
@@ -371,9 +351,10 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return all.filter((stem) => {
       if (!stem.sectionId || stem.sectionId !== sectionId) return false
       if (categoryId && stem.categoryId !== categoryId) return false
+      if (!includeAiSourceStems && stem.sourceChannel === 'ai_generation') return false
       return true
     })
-  }, [stemCatalogQuery.data, sectionId, categoryId])
+  }, [stemCatalogQuery.data, sectionId, categoryId, includeAiSourceStems])
 
   const stemById = useMemo(() => {
     const map = new Map<string, UcatStemCatalogItem>()
@@ -394,18 +375,24 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   )
 
   const tagOptions = useMemo(
-    () =>
-      mapTagsToOptions(tags)
+    () => {
+      const mappedTags = mapTagsToOptions(tags)
+      const taxonomyRows = mappedTags.map((tag) => ({
+        id: tag.id ?? '',
+        parent_id: tag.parent_question_tag_id ?? null,
+        section_id: tag.ucat_section_id ?? null,
+      }))
+      return mappedTags
         .filter((tag) => {
           if (!sectionId) return true
-          const section = (tag as { ucat_section_id?: string | null }).ucat_section_id
-          return !section || section === sectionId
+          return resolveRootSectionId(taxonomyRows, tag.id ?? '') === sectionId
         })
         .map((tag) => ({
           id: tag.id ?? '',
           name: taxonomyDisplayLabel(tag),
         }))
-        .filter((tag) => tag.id),
+        .filter((tag) => tag.id)
+    },
     [tags, sectionId]
   )
 
@@ -441,7 +428,79 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     (sourceMode !== 'selected' || selectedSourceIds.length > 0)
 
   const isBusy = generateMutation.isPending || importMutation.isPending
+  const isGenerating = step === 'generating' && generateMutation.isPending
   const showSourceStemPicker = step === 'config' && sourceMode === 'selected'
+
+  useEffect(() => {
+    isGeneratingRef.current = isGenerating
+  }, [isGenerating])
+
+  useEffect(() => {
+    const message = 'Question generation is still running. Leaving this page may interrupt active AI model calls. Leave anyway?'
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!isGeneratingRef.current || allowNavigationRef.current) return
+      event.preventDefault()
+      event.returnValue = ''
+    }
+
+    const handleDocumentClick = (event: MouseEvent) => {
+      if (
+        !isGeneratingRef.current ||
+        allowNavigationRef.current ||
+        event.defaultPrevented ||
+        event.button !== 0 ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey
+      ) {
+        return
+      }
+
+      const anchor = (event.target as Element | null)?.closest('a[href]') as HTMLAnchorElement | null
+      if (!anchor || anchor.target || anchor.hasAttribute('download')) return
+
+      const destination = new URL(anchor.href, window.location.href)
+      if (
+        destination.origin === window.location.origin &&
+        destination.pathname === window.location.pathname &&
+        destination.search === window.location.search
+      ) {
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      if (!window.confirm(message)) return
+
+      allowNavigationRef.current = true
+      anchor.click()
+    }
+
+    const handlePopState = () => {
+      if (ignoreNextPopStateRef.current) {
+        ignoreNextPopStateRef.current = false
+        return
+      }
+      if (!isGeneratingRef.current || allowNavigationRef.current) return
+      if (window.confirm(message)) {
+        allowNavigationRef.current = true
+        return
+      }
+      ignoreNextPopStateRef.current = true
+      window.history.forward()
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    document.addEventListener('click', handleDocumentClick, true)
+    window.addEventListener('popstate', handlePopState)
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload)
+      document.removeEventListener('click', handleDocumentClick, true)
+      window.removeEventListener('popstate', handlePopState)
+    }
+  }, [])
 
   useEffect(() => {
     if (step !== 'generating') {
@@ -455,12 +514,19 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     return () => window.clearInterval(interval)
   }, [step])
 
+  useEffect(() => {
+    if (step !== 'review') {
+      setActiveTextEditor(null)
+    }
+  }, [step])
+
   function resetState() {
     setStep('config')
     setSectionId('')
     setCategoryId(null)
     setModelProfileId(null)
     setSourceMode('random')
+    setIncludeAiSourceStems(false)
     setSelectedSourceIds([])
     setTargetTagIds([])
     setDifficultyTarget('mixed')
@@ -474,6 +540,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
     setGenerationError(null)
     setGenerationDebug(null)
     setGenerationProgress(null)
+    setImageGenerationMode('auto')
+    setActiveTextEditor(null)
   }
 
   async function handleGenerate() {
@@ -487,47 +555,33 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
       totalStems: stemCount,
     })
     setStep('generating')
+    window.dispatchEvent(new CustomEvent('ucat-generation-starting', { detail: { totalStems: stemCount } }))
+    onClose()
     try {
       const result = await generateMutation.mutateAsync({
         sectionId,
         categoryId,
         modelProfileId: effectiveModelProfileId,
         sourceMode,
+        includeAiSourceStems,
+        imageGenerationMode,
         sourceStemIds: sourceMode === 'selected' ? selectedSourceIds : [],
         stemCount,
         difficultyTarget,
         timeBurdenTarget,
         targetTagIds,
         runInstructions: runInstructions.trim() || null,
-        onProgress: setGenerationProgress,
       })
-      const nextDrafts: DraftWithMetadata[] = result.stems.map((stem, index) => ({
-        id:
-          typeof crypto !== 'undefined' && 'randomUUID' in crypto
-            ? crypto.randomUUID()
-            : `generated-${index + 1}`,
-        values: toFormValues(stem),
-        aiGenerationMetadata: stem.aiGenerationMetadata,
-      }))
-      setGenerationDebug(result.debug ?? null)
-      setGenerationProgress({
-        step: 'drafts',
-        message: 'Generation complete',
-        completedStems: result.stems.length,
-        totalStems: stemCount,
-        runId: result.debug?.runId ?? result.debugRunId ?? null,
+      onStarted?.(result.runId)
+      window.dispatchEvent(new CustomEvent('ucat-generation-started', { detail: { runId: result.runId } }))
+      toast({
+        title: 'Generation started',
+        description: 'Track progress in the notifications tray.',
       })
-      setDrafts(nextDrafts)
-      setStep('review')
-      if (result.discardedCount && result.discardedCount > 0) {
-        toast({
-          title: 'Some candidates were discarded',
-          description: `${result.discardedCount} internal candidate${result.discardedCount === 1 ? '' : 's'} failed blocking gates.`,
-        })
-      }
+      resetState()
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to generate question stems'
-      if (error instanceof UcatGenerationApiError) setGenerationDebug(error.debug)
+      window.dispatchEvent(new CustomEvent('ucat-generation-start-failed', { detail: { message } }))
       setGenerationError(message)
       setStep('config')
       toast({
@@ -561,6 +615,13 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
   }
 
   function handleRequestClose() {
+    if (isGenerating) {
+      if (!window.confirm('Question generation is still running. Close this dialog? Generation will continue while you stay on this page.')) {
+        return
+      }
+      onClose()
+      return
+    }
     if (isBusy) return
     if (
       step === 'review' &&
@@ -615,6 +676,7 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             : drafts.length === 0 || importMutation.isPending
         }
         defaultExpanded
+        richTextToolbarEditor={step === 'review' ? activeTextEditor : null}
       >
         {step === 'config' ? (
           <div className="flex min-h-0 flex-1 overflow-hidden">
@@ -633,9 +695,8 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                     {generationError}
                   </div>
                 ) : null}
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Section</Label>
+                <div className="space-y-1">
+                  <UcatPropertyRow label="Section">
                     <SearchableSelect<(typeof sections)[number]>
                       items={sections}
                       value={selectedSection}
@@ -654,10 +715,11 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       searchPlaceholder="Search sections..."
                       emptyMessage="No sections found"
                       disabled={sections.length === 0}
+                      fullWidth
+                      ariaLabel="Section"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Stem category</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Stem category">
                     <SearchableSelect<{ id: string; name: string }>
                       items={categoryOptions}
                       value={categoryOptions.find((item) => item.id === categoryId) ?? null}
@@ -667,29 +729,30 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       }}
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => taxonomyDisplayLabel(item)}
-                      placeholder="Spread across categories"
+                      placeholder="Realistic category mix"
                       searchPlaceholder="Search categories..."
                       emptyMessage="No categories found"
                       disabled={!sectionId}
                       allowClear
-                      clearLabel="Spread across categories"
+                      clearLabel="Realistic category mix"
+                      fullWidth
+                      ariaLabel="Stem category"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Number of stems</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Number of stems">
                     <Input
                       type="number"
                       min={1}
                       max={maxRequestedStems}
                       value={stemCount}
+                      aria-label="Number of stems"
                       onChange={(event) => {
                         const next = Number.parseInt(event.target.value || '1', 10)
                         setStemCount(Number.isFinite(next) ? Math.max(1, Math.min(maxRequestedStems, next)) : 1)
                       }}
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Difficulty target</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Difficulty target">
                     <SearchableSelect<SelectOption<DifficultyTarget>>
                       items={DIFFICULTY_OPTIONS}
                       value={DIFFICULTY_OPTIONS.find((item) => item.id === difficultyTarget) ?? null}
@@ -699,10 +762,11 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search difficulty..."
+                      fullWidth
+                      ariaLabel="Difficulty target"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Time burden target</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Time burden target">
                     <SearchableSelect<SelectOption<TimeBurdenTarget>>
                       items={TIME_BURDEN_OPTIONS}
                       value={TIME_BURDEN_OPTIONS.find((item) => item.id === timeBurdenTarget) ?? null}
@@ -712,49 +776,53 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search time burden..."
+                      fullWidth
+                      ariaLabel="Time burden target"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Target tags</Label>
-                    <SearchableSelect<{ id: string; name: string }>
-                      items={tagOptions.filter((tag) => !targetTagIds.includes(tag.id))}
-                      value={null}
-                      onValueChange={(value) => {
-                        if (value?.id && !targetTagIds.includes(value.id)) setTargetTagIds((prev) => [...prev, value.id])
-                      }}
-                      getItemId={(item) => item.id}
-                      getItemLabel={(item) => item.name}
-                      placeholder="Add tag"
-                      searchPlaceholder="Search tags..."
-                      emptyMessage="No tags found"
-                      disabled={!sectionId || tagOptions.length === 0}
-                    />
-                  </div>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Target tags">
+                    <div className="space-y-2">
+                      <SearchableSelect<{ id: string; name: string }>
+                        items={tagOptions.filter((tag) => !targetTagIds.includes(tag.id))}
+                        value={null}
+                        onValueChange={(value) => {
+                          if (value?.id && !targetTagIds.includes(value.id)) setTargetTagIds((prev) => [...prev, value.id])
+                        }}
+                        getItemId={(item) => item.id}
+                        getItemLabel={(item) => item.name}
+                        placeholder="Add tag"
+                        searchPlaceholder="Search tags..."
+                        emptyMessage="No tags found"
+                        disabled={!sectionId || tagOptions.length === 0}
+                        fullWidth
+                        ariaLabel="Target tags"
+                      />
+                      {selectedTags.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {selectedTags.map((tag) => (
+                            <Button
+                              key={tag.id}
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setTargetTagIds((prev) => prev.filter((id) => id !== tag.id))}
+                            >
+                              {tag.name} ×
+                            </Button>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  </UcatPropertyRow>
                 </div>
-                {selectedTags.length > 0 ? (
-                  <div className="flex flex-wrap gap-2">
-                    {selectedTags.map((tag) => (
-                      <Button
-                        key={tag.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setTargetTagIds((prev) => prev.filter((id) => id !== tag.id))}
-                      >
-                        {tag.name} ×
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
               </section>
 
               <section className="space-y-4 rounded-md border p-4">
                 <div>
                   <h2 className="font-semibold">AI settings</h2>
                 </div>
-                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <Label>Model profile</Label>
+                <div className="space-y-1">
+                  <UcatPropertyRow label="Model profile">
                     <SearchableSelect<(typeof modelProfiles)[number]>
                       items={modelProfiles}
                       value={modelProfiles.find((profile) => profile.id === effectiveModelProfileId) ?? null}
@@ -765,10 +833,11 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                       searchPlaceholder="Search models..."
                       emptyMessage="No model profiles found"
                       loading={modelProfilesQuery.isLoading}
+                      fullWidth
+                      ariaLabel="Model profile"
                     />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>Source examples</Label>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Source examples">
                     <SearchableSelect<SelectOption<SourceMode>>
                       items={SOURCE_MODE_OPTIONS}
                       value={SOURCE_MODE_OPTIONS.find((item) => item.id === sourceMode) ?? null}
@@ -778,12 +847,48 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                         setSelectedSourceIds([])
                         setStemSearch('')
                         setStemFilters({})
+                        if (value.id === 'none') setIncludeAiSourceStems(false)
                       }}
                       getItemId={(item) => item.id}
                       getItemLabel={(item) => item.label}
                       searchPlaceholder="Search source modes..."
+                      fullWidth
+                      ariaLabel="Source examples"
                     />
-                  </div>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Include AI sources">
+                    <div className="flex min-h-10 items-center justify-end">
+                      <Switch
+                        id="include-ai-source-stems"
+                        aria-label="Include AI-generated source stems"
+                        checked={includeAiSourceStems}
+                        disabled={sourceMode === 'none'}
+                        onCheckedChange={(checked) => {
+                          setIncludeAiSourceStems(checked)
+                          setSelectedSourceIds([])
+                        }}
+                      />
+                    </div>
+                  </UcatPropertyRow>
+                  <UcatPropertyRow label="Image generation">
+                    <div className="space-y-2">
+                      <SearchableSelect<SelectOption<ImageGenerationMode>>
+                        items={IMAGE_GENERATION_MODE_OPTIONS}
+                        value={IMAGE_GENERATION_MODE_OPTIONS.find((item) => item.id === imageGenerationMode) ?? null}
+                        onValueChange={(value) => {
+                          if (value) setImageGenerationMode(value.id)
+                        }}
+                        getItemId={(item) => item.id}
+                        getItemLabel={(item) => item.label}
+                        searchPlaceholder="Search image modes..."
+                        fullWidth
+                        ariaLabel="Image generation"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        Auto uses AI for stem-level QR source images when an image API is configured, and deterministic rendering for DM set/logical diagrams.
+                      </p>
+                    </div>
+                  </UcatPropertyRow>
                 </div>
 
                 {showSourceStemPicker ? (
@@ -809,15 +914,15 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
                 </div>
                 ) : null}
 
-                <div className="space-y-2">
-                  <Label>Run instructions</Label>
+                <UcatPropertyRow label="Run instructions">
                   <Textarea
                     className="min-h-24"
                     value={runInstructions}
                     onChange={(event) => setRunInstructions(event.target.value)}
                     placeholder="One-off notes for this generation run"
+                    aria-label="Run instructions"
                   />
-                </div>
+                </UcatPropertyRow>
               </section>
               <GenerationDebugPanel debug={generationDebug} />
             </section>
@@ -868,12 +973,19 @@ export function GenerateQuestionStemsModal({ open, onClose }: GenerateQuestionSt
             <Step3SetAnswers
               stems={drafts}
               categories={categories}
-              sections={sections.map((s) => ({ id: s.id, display_columns: s.display_columns }))}
+              tags={stemDialogTags}
+              sections={sections.map((s) => ({
+                id: s.id,
+                name: s.name,
+                display_columns: s.display_columns,
+              }))}
               onUpdateStem={(stemId, values) =>
                 setDrafts((prev) =>
                   prev.map((draft) => (draft.id === stemId ? { ...draft, values } : draft))
                 )
               }
+              sourceChannel="ai_generation"
+              onActiveTextEditorChange={setActiveTextEditor}
             />
             <GenerationDebugPanel debug={generationDebug} />
           </div>

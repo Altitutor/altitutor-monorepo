@@ -1,12 +1,39 @@
-import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
+import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject, Json } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { isTiptapContentEmpty } from '@/shared/utils/plainTextToTiptapJson';
+import type { ClassSchedulePlan, ClassScheduleProposal, StoredClassSchedule } from '../types/schedule';
+
+type ScheduleRevisionWithSlots = Tables<'class_schedule_revisions'> & {
+  class_schedule_slots: Tables<'class_schedule_slots'>[];
+};
+
+function mapStoredClassSchedule(data: ScheduleRevisionWithSlots): StoredClassSchedule {
+  return {
+    id: data.id,
+    scheduleType: data.schedule_type as 'RECURRING' | 'CUSTOM',
+    sessionType: data.session_type as StoredClassSchedule['sessionType'],
+    billingType: data.billing_type,
+    frequencyWeeks: data.frequency_weeks as 1 | 2 | null,
+    anchorDate: data.anchor_date,
+    effectiveFrom: data.effective_from,
+    effectiveTo: data.effective_to,
+    rows: [...data.class_schedule_slots]
+      .sort((left, right) => left.position - right.position)
+      .map((row) => ({
+        id: row.id,
+        dayOfWeek: row.day_of_week,
+        startTime: row.start_time,
+        endTime: row.end_time,
+        room: row.room ?? '',
+      })),
+  };
+}
 
 export type MinimalClass = Pick<
   Tables<'classes'>,
-  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name'
+  'id' | 'day_of_week' | 'start_time' | 'end_time' | 'status' | 'room' | 'subject_id' | 'level' | 'short_name' | 'long_name' | 'schedule_summary_short' | 'schedule_summary_long' | 'schedule_weekdays' | 'schedule_rows' | 'schedule_frequency_weeks' | 'schedule_anchor_date' | 'next_session_start_at' | 'session_type' | 'billing_type' | 'billing_type_effective_from'
 > & {
   subject?: Tables<'subjects'> | null;
   studentCount?: number;
@@ -14,10 +41,78 @@ export type MinimalClass = Pick<
   staff?: Tables<'staff'>[];
 };
 
+export type ClassStudent = Tables<'students'> & { enrolled_at: string };
+export type ClassStaff = Tables<'staff'> & { assigned_at: string };
+
+export interface ClassDeleteImpact {
+  futureSessionCount: number;
+  historicalSessionCount: number;
+  protectedFutureSessionCount: number;
+  canDelete: boolean;
+}
+
 /**
  * Classes API client for working with class data
  */
 export const classesApi = {
+  getLatestSchedule: async (classId: string): Promise<StoredClassSchedule | null> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('class_schedule_revisions')
+      .select('id, class_id, schedule_type, session_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
+      .eq('class_id', classId)
+      .is('superseded_at', null)
+      .order('effective_from', { ascending: false })
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    if (!data) return null;
+    return mapStoredClassSchedule(data as ScheduleRevisionWithSlots);
+  },
+
+  getScheduleTimeline: async (classId: string): Promise<StoredClassSchedule[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const today = new Intl.DateTimeFormat('en-CA', {
+      timeZone: 'Australia/Adelaide',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).format(new Date());
+    const { data, error } = await supabase
+      .from('class_schedule_revisions')
+      .select('id, class_id, schedule_type, session_type, billing_type, frequency_weeks, anchor_date, effective_from, effective_to, created_at, created_by, superseded_at, class_schedule_slots(id, schedule_revision_id, day_of_week, start_time, end_time, room, position, created_at)')
+      .eq('class_id', classId)
+      .is('superseded_at', null)
+      .gte('effective_to', today)
+      .order('effective_from', { ascending: true })
+      .order('created_at', { ascending: true });
+    if (error) throw error;
+    return ((data ?? []) as ScheduleRevisionWithSlots[]).map(mapStoredClassSchedule);
+  },
+
+  previewSchedule: async (proposal: ClassScheduleProposal): Promise<ClassSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('preview_class_schedule', {
+      p_proposal: proposal as unknown as Json,
+    });
+    if (error) throw error;
+    return data as unknown as ClassSchedulePlan;
+  },
+
+  applySchedule: async (
+    proposal: ClassScheduleProposal,
+    expectedProposalHash: string
+  ): Promise<ClassSchedulePlan> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('apply_class_schedule', {
+      p_proposal: proposal as unknown as Json,
+      p_expected_proposal_hash: expectedProposalHash,
+    });
+    if (error) throw error;
+    return data as unknown as ClassSchedulePlan;
+  },
+
   /**
    * Get all classes
    */
@@ -25,7 +120,7 @@ export const classesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { data, error } = await supabase
       .from('classes')
-      .select('id, subject_id, day_of_week, start_time, end_time, status, room');
+      .select('id, subject_id, session_type, day_of_week, start_time, end_time, status, room');
     if (error) throw error;
     return (data ?? []) as Tables<'classes'>[];
   },
@@ -108,6 +203,16 @@ export const classesApi = {
       level?: string | null;
       short_name?: string | null;
       long_name?: string | null;
+      schedule_summary_short?: string | null;
+      schedule_summary_long?: string | null;
+      schedule_weekdays?: number[];
+      schedule_rows?: Json;
+      schedule_frequency_weeks?: number | null;
+      schedule_anchor_date?: string | null;
+      next_session_start_at?: string | null;
+      billing_type: Tables<'classes'>['billing_type'];
+      billing_type_effective_from: string;
+      session_type: Tables<'classes'>['session_type'];
     }
     const rpcData = rpcResult as unknown as {
       classes: RpcClassRow[];
@@ -120,7 +225,10 @@ export const classesApi = {
 
     // Apply day filter that RPC doesn't support
     if (dayFilters.length > 0) {
-      classes = classes.filter((c) => c.day_of_week !== undefined && dayFilters.includes(c.day_of_week));
+      classes = classes.filter((c) =>
+        (c.schedule_weekdays ?? (c.day_of_week === undefined ? [] : [c.day_of_week]))
+          .some((day) => dayFilters.includes(day))
+      );
     }
 
     // Transform RPC response to match expected format
@@ -140,6 +248,16 @@ export const classesApi = {
         level: cls.level,
         short_name: cls.short_name ?? null,
         long_name: cls.long_name ?? null,
+        schedule_summary_short: cls.schedule_summary_short ?? null,
+        schedule_summary_long: cls.schedule_summary_long ?? null,
+        schedule_weekdays: cls.schedule_weekdays ?? (cls.day_of_week === undefined ? [] : [cls.day_of_week]),
+        schedule_rows: cls.schedule_rows ?? [],
+        schedule_frequency_weeks: cls.schedule_frequency_weeks ?? null,
+        schedule_anchor_date: cls.schedule_anchor_date ?? null,
+        next_session_start_at: cls.next_session_start_at ?? null,
+        session_type: cls.session_type,
+        billing_type: cls.billing_type,
+        billing_type_effective_from: cls.billing_type_effective_from,
         subject,
         studentCount: students.length,
         students,
@@ -200,6 +318,9 @@ export const classesApi = {
         long_name?: string | null;
         created_at?: string | null;
         updated_at?: string | null;
+        billing_type: Tables<'classes'>['billing_type'];
+        billing_type_effective_from: string;
+        session_type: Tables<'classes'>['session_type'];
       }
       const rpcData = rpcResult as unknown as {
         classes: RpcClassRow[];
@@ -232,6 +353,9 @@ export const classesApi = {
           long_name: cls.long_name ?? null,
           created_at: cls.created_at || null,
           updated_at: cls.updated_at || null,
+          billing_type: cls.billing_type,
+          billing_type_effective_from: cls.billing_type_effective_from,
+          session_type: cls.session_type,
         } as Tables<'classes'>;
         
         classes.push(classData);
@@ -267,6 +391,159 @@ export const classesApi = {
       console.error('Error getting classes with details:', error);
       throw error;
     }
+  },
+
+  /**
+   * Get a student's class enrollments, including previous (unenrolled) ones.
+   */
+  getStudentClassEnrollments: async (studentId: string): Promise<Array<{
+    class: Tables<'classes'>;
+    subject?: Tables<'subjects'>;
+    staff: Tables<'staff'>[];
+    students: Tables<'students'>[];
+    enrollment: Tables<'classes_students'>;
+    hasOccurredSession: boolean;
+  }>> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const nowIso = new Date().toISOString();
+
+    type EnrollmentRow = Tables<'classes_students'> & {
+      class: (Tables<'classes'> & { subject_details?: Tables<'subjects'> | null }) | null;
+    };
+    type StaffRow = { class_id: string; staff: Tables<'staff'> | null };
+    type StudentRow = { class_id: string; student: Tables<'students'> | null };
+    type StudentSessionRow = {
+      session: Pick<Tables<'sessions'>, 'class_id' | 'start_at'> | null;
+    };
+
+    const { data: enrollmentRows, error: enrollmentsError } = await supabase
+      .from('classes_students')
+      .select(`
+        id,
+        class_id,
+        student_id,
+        enrolled_at,
+        enrolled_by,
+        unenrolled_at,
+        unenrolled_by,
+        created_at,
+        created_by,
+        updated_at,
+        class:classes(
+          *,
+          subject_details:subjects(*)
+        )
+      `)
+      .eq('student_id', studentId)
+      .order('enrolled_at', { ascending: false });
+
+    if (enrollmentsError) throw enrollmentsError;
+
+    const enrollments = (enrollmentRows ?? []) as EnrollmentRow[];
+    const classIds = [...new Set(
+      enrollments
+        .map((row) => row.class?.id)
+        .filter((id): id is string => Boolean(id))
+    )];
+
+    const classStaff: Record<string, Tables<'staff'>[]> = {};
+    const classStudents: Record<string, Tables<'students'>[]> = {};
+    const occurredSessionStartsByClass = new Map<string, number[]>();
+    for (const classId of classIds) {
+      classStaff[classId] = [];
+      classStudents[classId] = [];
+    }
+
+    if (classIds.length > 0) {
+      const [
+        { data: staffRows, error: staffError },
+        { data: studentRows, error: studentsError },
+        { data: studentSessionRows, error: studentSessionsError },
+      ] =
+        await Promise.all([
+          supabase
+            .from('classes_staff')
+            .select('class_id, staff:staff!class_assignments_staff_id_fkey(*)')
+            .in('class_id', classIds)
+            .is('unassigned_at', null),
+          supabase
+            .from('classes_students')
+            .select('class_id, student:students(*)')
+            .in('class_id', classIds)
+            .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`),
+          supabase
+            .from('sessions_students')
+            .select(`
+              session:sessions!inner(
+                class_id,
+                start_at
+              )
+            `)
+            .eq('student_id', studentId)
+            .in('session.class_id', classIds)
+            .eq('session.status', 'ACTIVE')
+            .lte('session.start_at', nowIso),
+        ]);
+
+      if (staffError) throw staffError;
+      if (studentsError) throw studentsError;
+      if (studentSessionsError) throw studentSessionsError;
+
+      ((staffRows ?? []) as StaffRow[]).forEach((row) => {
+        if (row.staff && row.class_id) {
+          classStaff[row.class_id] = classStaff[row.class_id] ?? [];
+          classStaff[row.class_id].push(row.staff);
+        }
+      });
+
+      ((studentRows ?? []) as StudentRow[]).forEach((row) => {
+        if (row.student && row.class_id) {
+          classStudents[row.class_id] = classStudents[row.class_id] ?? [];
+          classStudents[row.class_id].push(row.student);
+        }
+      });
+
+      ((studentSessionRows ?? []) as StudentSessionRow[]).forEach((row) => {
+        const classId = row.session?.class_id;
+        const startAt = row.session?.start_at;
+        if (!classId || !startAt) return;
+
+        const starts = occurredSessionStartsByClass.get(classId) ?? [];
+        starts.push(new Date(startAt).getTime());
+        occurredSessionStartsByClass.set(classId, starts);
+      });
+    }
+
+    return enrollments.flatMap((row) => {
+      if (!row.class) return [];
+      const { subject_details, ...classBase } = row.class;
+      const enrolledAtMs = new Date(row.enrolled_at).getTime();
+      const unenrolledAtMs = row.unenrolled_at
+        ? new Date(row.unenrolled_at).getTime()
+        : Number.POSITIVE_INFINITY;
+      const hasOccurredSession = (occurredSessionStartsByClass.get(classBase.id) ?? [])
+        .some((startAtMs) => startAtMs >= enrolledAtMs && startAtMs < unenrolledAtMs);
+
+      return [{
+        class: classBase,
+        subject: subject_details ?? undefined,
+        staff: classStaff[classBase.id] ?? [],
+        students: classStudents[classBase.id] ?? [],
+        enrollment: {
+          id: row.id,
+          class_id: row.class_id,
+          student_id: row.student_id,
+          enrolled_at: row.enrolled_at,
+          enrolled_by: row.enrolled_by,
+          unenrolled_at: row.unenrolled_at,
+          unenrolled_by: row.unenrolled_by,
+          created_at: row.created_at,
+          created_by: row.created_by,
+          updated_at: row.updated_at,
+        },
+        hasOccurredSession,
+      }];
+    });
   },
 
   /**
@@ -405,8 +682,8 @@ export const classesApi = {
   getClassWithDetails: async (classId: string): Promise<{
     class: Tables<'classes'> | null;
     subject: Tables<'subjects'> | null;
-    students: Tables<'students'>[];
-    staff: Tables<'staff'>[];
+    students: ClassStudent[];
+    staff: ClassStaff[];
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     
@@ -447,6 +724,7 @@ export const classesApi = {
       const { data: staffData, error: staffError } = await supabase
         .from('classes_staff')
         .select(`
+          assigned_at,
           staff:staff!class_assignments_staff_id_fkey(*)
         `)
         .eq('class_id', classId)
@@ -457,13 +735,13 @@ export const classesApi = {
       // Transform the data
       const cls = classData as Tables<'classes'>;
       const subject = (classData as { subject_details?: Tables<'subjects'> } | null)?.subject_details ?? null;
-      const students = ((studentsData as Array<{ student: Tables<'students'> | null }> | null) ?? [])
-        .map((row) => row.student)
-        .filter(Boolean) as Tables<'students'>[];
-      const staffRows: Array<{ staff: Tables<'staff'> | null }> = staffData ? ((staffData as unknown) as Array<{ staff: Tables<'staff'> | null }>) : [];
+      const students = ((studentsData as Array<{ enrolled_at: string; student: Tables<'students'> | null }> | null) ?? [])
+        .filter((row): row is { enrolled_at: string; student: Tables<'students'> } => row.student != null)
+        .map((row) => ({ ...row.student, enrolled_at: row.enrolled_at }));
+      const staffRows: Array<{ assigned_at: string; staff: Tables<'staff'> | null }> = staffData ? ((staffData as unknown) as Array<{ assigned_at: string; staff: Tables<'staff'> | null }>) : [];
       const staff = staffRows
-        .map((row) => row.staff)
-        .filter(Boolean) as Tables<'staff'>[];
+        .filter((row): row is { assigned_at: string; staff: Tables<'staff'> } => row.staff != null)
+        .map((row) => ({ ...row.staff, assigned_at: row.assigned_at }));
       
       return { class: cls, subject, students, staff };
       
@@ -480,8 +758,8 @@ export const classesApi = {
   getClassDetails: async (classId: string): Promise<{
     class: Tables<'classes'> | null;
     subject: Tables<'subjects'> | null;
-    students: (Tables<'students'> & { subjects?: Tables<'subjects'>[] })[];
-    staff: Tables<'staff'>[];
+    students: (ClassStudent & { subjects?: Tables<'subjects'>[] })[];
+    staff: ClassStaff[];
     upcomingSessions: Tables<'sessions'>[];
   }> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -594,6 +872,24 @@ export const classesApi = {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     const { error } = await supabase.from('classes').delete().eq('id', id);
     if (error) throw error;
+  },
+
+  getDeleteImpact: async (id: string): Promise<ClassDeleteImpact> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('preview_class_deletion', { p_class_id: id });
+    if (error) throw error;
+    const impact = data as {
+      future_session_count: number;
+      historical_session_count: number;
+      protected_future_session_count: number;
+      can_delete: boolean;
+    };
+    return {
+      futureSessionCount: impact.future_session_count,
+      historicalSessionCount: impact.historical_session_count,
+      protectedFutureSessionCount: impact.protected_future_session_count,
+      canDelete: impact.can_delete,
+    };
   },
   
   /**
@@ -1026,29 +1322,48 @@ export const classesApi = {
   },
 
   /**
-   * Get count of active classes (ACTIVE status)
+   * Get count of active classes (ACTIVE status with at least one current enrollment).
+   * Excludes empty ACTIVE classes.
    */
   getActiveClassesCount: async (): Promise<number> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const nowIso = new Date().toISOString();
     const { count, error } = await supabase
       .from('classes')
-      .select('id', { count: 'exact', head: true })
-      .eq('status', 'ACTIVE');
+      .select('id, classes_students!inner(id)', { count: 'exact', head: true })
+      .eq('status', 'ACTIVE')
+      .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`, {
+        foreignTable: 'classes_students',
+      });
     
     if (error) throw error;
     return count ?? 0;
   },
 
   /**
-   * Get count of current class enrollments (unenrolled_at is null or in the future)
+   * Get count of current class enrollments in classes that have not finished.
+   * Excludes past unenrolments, inactive/archived classes, and classes whose
+   * session_end_date is before today.
    */
   getCurrentEnrollmentsCount: async (): Promise<number> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const now = new Date();
+    const nowIso = now.toISOString();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, '0'),
+      String(now.getDate()).padStart(2, '0'),
+    ].join('-');
+
     const { count, error } = await supabase
       .from('classes_students')
-      .select('id', { count: 'exact', head: true })
-      .or(`unenrolled_at.is.null,unenrolled_at.gt.${new Date().toISOString()}`);
-    
+      .select('id, classes!inner(id)', { count: 'exact', head: true })
+      .or(`unenrolled_at.is.null,unenrolled_at.gt.${nowIso}`)
+      .eq('classes.status', 'ACTIVE')
+      .or(`session_end_date.is.null,session_end_date.gte.${today}`, {
+        foreignTable: 'classes',
+      });
+
     if (error) throw error;
     return count ?? 0;
   },
@@ -1087,6 +1402,17 @@ export const classesApi = {
       level: string | null;
       short_name: string | null;
       long_name: string | null;
+      cohort_label: string | null;
+      session_start_date: string;
+      session_end_date: string;
+      schedule_timezone: string;
+      schedule_summary_short: string | null;
+      schedule_summary_long: string | null;
+      schedule_weekdays: number[];
+      schedule_rows: Json;
+      next_session_start_at: string | null;
+      billing_type: Tables<'classes'>['billing_type'];
+      billing_type_effective_from: string;
     }
     
     interface RPCSubject {
@@ -1136,8 +1462,17 @@ export const classesApi = {
       created_at: null,
       updated_at: null,
       created_by: null,
-      session_start_date: null,
-      session_end_date: null,
+      cohort_label: c.cohort_label,
+      session_start_date: c.session_start_date,
+      session_end_date: c.session_end_date,
+      schedule_timezone: c.schedule_timezone,
+      schedule_summary_short: c.schedule_summary_short,
+      schedule_summary_long: c.schedule_summary_long,
+      schedule_weekdays: c.schedule_weekdays,
+      schedule_rows: c.schedule_rows,
+      next_session_start_at: c.next_session_start_at,
+      billing_type: c.billing_type,
+      billing_type_effective_from: c.billing_type_effective_from,
       subject: rpcData.classSubjects?.[c.id] as ClassWithExpandedSubject['subject'] | undefined,
       staff: (rpcData.classStaff?.[c.id] || []).map((s) => ({
         id: s.id,

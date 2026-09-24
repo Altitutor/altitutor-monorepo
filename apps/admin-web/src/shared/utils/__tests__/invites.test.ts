@@ -61,7 +61,7 @@ describe('getInviteUrlForStudent', () => {
     expect(url).toBe('https://student.altitutor.com/invite/token-123');
   });
 
-  it('should generate register URL for student', () => {
+  it('should generate the short durable registration URL for a student', () => {
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
@@ -70,7 +70,7 @@ describe('getInviteUrlForStudent', () => {
     });
     
     const url = getInviteUrlForStudent('token-123', 'register');
-    expect(url).toBe('http://localhost:3001/register/token-123');
+    expect(url).toBe('http://localhost:3001/r/token-123');
   });
 
   it('should default to invite path', () => {
@@ -191,7 +191,7 @@ describe('getBookingConfirmationUrl', () => {
     });
   });
 
-  it('should generate development booking confirmation URL', () => {
+  it('should generate development booking-management URL', () => {
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
@@ -199,8 +199,8 @@ describe('getBookingConfirmationUrl', () => {
       writable: true,
     });
     
-    const url = getBookingConfirmationUrl('session-123');
-    expect(url).toBe('http://localhost:3001/booking-success?sessionId=session-123');
+    const url = getBookingConfirmationUrl('public-token-123');
+    expect(url).toBe('http://localhost:3001/b/public-token-123');
   });
 
   it('should generate production booking confirmation URL', () => {
@@ -209,11 +209,11 @@ describe('getBookingConfirmationUrl', () => {
       writable: true,
     });
     
-    const url = getBookingConfirmationUrl('session-123');
-    expect(url).toBe('https://student.altitutor.com/booking-success?sessionId=session-123');
+    const url = getBookingConfirmationUrl('public-token-123');
+    expect(url).toBe('https://student.altitutor.com/b/public-token-123');
   });
 
-  it('should include session ID in query parameter', () => {
+  it('should include the public token in the path', () => {
     const env: Record<string, string | undefined> = { ...process.env, NODE_ENV: 'development' };
     delete env.NEXT_PUBLIC_STUDENT_URL;
     Object.defineProperty(process, 'env', {
@@ -221,7 +221,7 @@ describe('getBookingConfirmationUrl', () => {
       writable: true,
     });
     
-    const url = getBookingConfirmationUrl('session-abc-123');
-    expect(url).toContain('sessionId=session-abc-123');
+    const url = getBookingConfirmationUrl('public-token-abc');
+    expect(url).toBe('http://localhost:3001/b/public-token-abc');
   });
 });

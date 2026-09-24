@@ -1,14 +1,13 @@
 'use client';
 
-import { useEffect, useRef, useMemo, useState, useLayoutEffect } from 'react';
-import { useMessagesForContact, useContactHeader } from '../api/queries';
+import { type ReactNode, useEffect, useRef, useMemo, useState, useLayoutEffect, useId } from 'react';
+import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeader, useAvailableSenders } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
-import { useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
 import { StaffAvatar } from './StaffAvatar';
-import { X, File, Download, Music, Play, Pause, AlertTriangle } from 'lucide-react';
-import { Input, Button, Badge, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger, type JSONContent } from '@altitutor/ui';
-import { cn } from '@/shared/utils';
+import { X, File, Download, Music, Play, Pause } from 'lucide-react';
+import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
 import type { Database, Tables } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -18,7 +17,29 @@ import { useIssues } from '@/features/issues/api/queries';
 import { issuesApi } from '@/features/issues/api/issues';
 import type { IssueTagInsert, IssueWithTags, IssueUpdate } from '@/features/issues/types';
 import { extractMentions } from '@/shared/utils/extractMentions';
+import { cn } from '@/shared/utils';
 import { getTagEntity, resolveTagLabels } from '@/features/issues/utils/mentionLabels';
+import { useSendMessage } from '../api/mutations';
+import { ImessageMessageActions } from '../imessage/ImessageMessageActions';
+import {
+  AMBIGUOUS_SMS_RESEND_CONFIRM,
+  UNCONFIRMED_SEND_HINT,
+  asAppleService,
+  asOwnedNumberProvider,
+  defaultPhoneSmsSender,
+  isResendViaSmsSpent,
+  messageBubbleClassName,
+  outboundStatusClassName,
+  resendViaSmsAvailability,
+} from '../utils/macBridgePresentation';
+import {
+  buildReactionsByTargetGuid,
+  collectAttachedReactionIds,
+  normalizeImessageGuid,
+  reactionTypeToEmoji,
+  reactionTypeToLabel,
+  type MessageReaction,
+} from '../utils/reactions';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
 
@@ -33,25 +54,36 @@ function getTagKey(tag: Partial<IssueTagInsert>) {
   return null;
 }
 
-function issueTagToDraft(tag: IssueWithTags['tags'][number]): IssueTagDraft | null {
-  if (tag.student_id) return { student_id: tag.student_id };
-  if (tag.staff_id) return { staff_id: tag.staff_id };
-  if (tag.parent_id) return { parent_id: tag.parent_id };
-  if (tag.class_id) return { class_id: tag.class_id };
-  if (tag.session_id) return { session_id: tag.session_id };
-  if (tag.invoice_id) return { invoice_id: tag.invoice_id };
-  if (tag.subject_id) return { subject_id: tag.subject_id };
-  return null;
+function issueDescriptionMentionsToDrafts(issue: IssueWithTags): IssueTagDraft[] {
+  const description = issue.description as JSONContent | null;
+  return extractMentions(description)
+    .map((mention): IssueTagDraft | null => {
+      if (mention.type === 'student') return { student_id: mention.id };
+      if (mention.type === 'staff') return { staff_id: mention.id };
+      if (mention.type === 'parent') return { parent_id: mention.id };
+      if (mention.type === 'class') return { class_id: mention.id };
+      if (mention.type === 'session') return { session_id: mention.id };
+      if (mention.type === 'invoice') return { invoice_id: mention.id };
+      if (mention.type === 'subject') return { subject_id: mention.id };
+      return null;
+    })
+    .filter((tag): tag is IssueTagDraft => !!tag);
 }
 
+export type ThreadFeedEntry = { id: string; at: string; content: ReactNode };
 interface Props {
-  contactId: string;
+  /** Supplied by a unified feed; transport/reaction rendering stays shared. */
+  feed?: { key: string; messages: ThreadMessage[]; entries: ThreadFeedEntry[]; hasMore: boolean; loadMore: () => void; labelForConversation?: (id: string) => string | undefined };
+
+  contactId?: string | null;
+  conversationId?: string | null;
   ownedNumberId?: string | null;
   isSearching?: boolean;
   searchTerm?: string;
   onSearchTermChange?: (term: string) => void;
   onExitSearch?: () => void;
   hideAddIssueHover?: boolean;
+  onResentViaSms?: (smsOwnedNumberId: string) => void;
 }
 
 interface AttachmentProps {
@@ -149,8 +181,8 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
   useEffect(() => {
     const storageUrl = attachment.storage_url;
     
-    // Skip invalid local:// URLs
-    if (storageUrl?.startsWith('local://')) {
+    // Provider-owned attachment locators are not Supabase Storage object paths.
+    if (storageUrl && /^[a-z][a-z0-9+.-]*:/i.test(storageUrl) && !/^https?:/i.test(storageUrl)) {
       setUrlError(true);
       return;
     }
@@ -378,20 +410,54 @@ export function MessageAttachment({ attachment }: AttachmentProps) {
 }
 
 export function MessageThread({
+  feed,
   contactId,
+  conversationId,
   ownedNumberId,
   isSearching = false,
   searchTerm = '',
   onSearchTermChange,
   onExitSearch,
-  hideAddIssueHover = false
+  hideAddIssueHover = false,
+  onResentViaSms,
 }: Props) {
-  const { data, fetchNextPage, hasNextPage } = useMessagesForContact(contactId, ownedNumberId);
+  const contactMessages = useMessagesForContact(contactId ?? null, ownedNumberId);
+  const conversationMessages = useMessages(conversationId ?? '');
+  const query = conversationId
+    ? conversationMessages
+    : contactMessages;
+  const data = useMemo(() => feed ? { pages: [{ items: feed.messages }] } : query.data, [feed, query.data]);
+  const fetchNextPage = feed?.loadMore ?? query.fetchNextPage;
+  const hasNextPage = feed?.hasMore ?? query.hasNextPage;
   const qc = useQueryClient();
+  const channelNonce = useId().replace(/:/g, '');
+  const { data: availableSenders = [] } = useAvailableSenders();
+  const sendMessage = useSendMessage();
+  const smsSender = defaultPhoneSmsSender(availableSenders);
+  const isGroupThread = Boolean(conversationId) && !contactId;
+  const threadItems = data?.pages.flatMap((page) => page.items) ?? [];
+  const resendSourceIds = threadItems
+    .filter((message) => message.status === 'FAILED' || message.status === 'AMBIGUOUS')
+    .map((message) => message.id);
+  const resendSourceKey = [...resendSourceIds].sort().join(',');
+  const { data: linkedSmsResends = [] } = useQuery({
+    queryKey: ['messages', 'sms-resends', contactId, resendSourceKey],
+    enabled: Boolean(contactId) && resendSourceIds.length > 0,
+    queryFn: async () => {
+      const supabase = getSupabaseClient();
+      const { data: rows, error } = await supabase
+        .from('messages')
+        .select('resent_from_message_id, status')
+        .in('resent_from_message_id', resendSourceIds);
+      if (error) throw error;
+      return rows ?? [];
+    },
+  });
   const scrollRef = useRef<HTMLDivElement>(null);
   const shouldStickToBottomRef = useRef(true);
+  const selectionKey = feed?.key ?? (conversationId ? `group:${conversationId}` : `contact:${contactId ?? ''}`);
   const lastRenderedContactIdRef = useRef<string | null>(null);
-  const prevContactId = useRef(contactId);
+  const prevContactId = useRef(selectionKey);
   
   const [isCreateIssueOpen, setIsCreateIssueOpen] = useState(false);
   const [isEditIssueOpen, setIsEditIssueOpen] = useState(false);
@@ -400,20 +466,40 @@ export function MessageThread({
   
   // Reset initial load flag when contact changes
   useEffect(() => {
-    if (prevContactId.current !== contactId) {
-      prevContactId.current = contactId;
+    if (prevContactId.current !== selectionKey) {
+      prevContactId.current = selectionKey;
       shouldStickToBottomRef.current = true;
     }
-  }, [contactId]);
+  }, [selectionKey]);
 
   useEffect(() => {
-    if (!contactId) return;
+    if (!contactId && !conversationId) return;
     
     // Get all conversation IDs for this contact to subscribe to all of them
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
     let channel: ReturnType<typeof supabase.channel> | null = null;
     let cancelled = false;
     
+    if (conversationId) {
+      channel = supabase
+        .channel(`messages-conversation-${conversationId}-${channelNonce}`)
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
+          table: 'messages',
+          filter: `conversation_id=eq.${conversationId}`,
+        }, () => {
+          qc.invalidateQueries({ queryKey: messagesKeys.messages(conversationId) });
+        })
+        .subscribe();
+
+      return () => {
+        if (channel) supabase.removeChannel(channel);
+      };
+    }
+
+    if (!contactId) return;
+
     // Fetch conversation IDs for this contact
     supabase
       .from('conversations')
@@ -424,29 +510,28 @@ export function MessageThread({
         if (cancelled) return;
         if (!conversations || conversations.length === 0) return;
         
-        const conversationIds = conversations.map((c) => {
-          if (!c || typeof c !== 'object' || !('id' in c)) return '';
-          return String(c.id);
-        }).filter((id): id is string => id !== '');
-        
-        // Subscribe to messages from all conversations for this contact
+        const conversationIds = new Set(
+          conversations.map((c) => {
+            if (!c || typeof c !== 'object' || !('id' in c)) return '';
+            return String(c.id);
+          }).filter((id): id is string => id !== ''),
+        );
+
+        // Avoid conversation_id=in.(...) realtime filters — they are unreliable.
+        // Filter client-side so device-sent outbound inserts still refresh the thread.
         channel = supabase
-          .channel(`messages-contact-${contactId}`)
-          .on('postgres_changes', { 
-            event: 'INSERT', 
-            schema: 'public', 
+          .channel(`messages-contact-${contactId}-${channelNonce}`)
+          .on('postgres_changes', {
+            event: '*',
+            schema: 'public',
             table: 'messages',
-            filter: `conversation_id=in.(${conversationIds.join(',')})`
-          }, () => {
-            // Invalidate to refetch all messages for this contact
-            qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
-          })
-          .on('postgres_changes', { 
-            event: 'UPDATE', 
-            schema: 'public', 
-            table: 'messages',
-            filter: `conversation_id=in.(${conversationIds.join(',')})`
-          }, () => {
+          }, (payload) => {
+            const next = payload.new as { conversation_id?: string } | null;
+            const prev = payload.old as { conversation_id?: string } | null;
+            const conversationIdChanged =
+              (next?.conversation_id && conversationIds.has(next.conversation_id)) ||
+              (prev?.conversation_id && conversationIds.has(prev.conversation_id));
+            if (!conversationIdChanged) return;
             qc.invalidateQueries({ queryKey: messagesKeys.messagesForContact(contactId, ownedNumberId) });
           })
           .on('postgres_changes', { 
@@ -466,66 +551,95 @@ export function MessageThread({
         supabase.removeChannel(channel);
       }
     };
-  }, [contactId, ownedNumberId, qc]);
+  }, [channelNonce, contactId, conversationId, ownedNumberId, qc]);
 
-  // Filter and process messages for search
+  // Filter and process messages for search; attach tapbacks onto their target bubbles.
   const processedMessages = useMemo(() => {
     if (!data?.pages) return [];
     const items = data.pages.flatMap(p => p.items);
-    
+    const reactionsByTarget = buildReactionsByTargetGuid(items);
+    const attachedReactionIds = collectAttachedReactionIds(items, reactionsByTarget);
+
     type MessageItem = typeof items[number];
-    type ProcessedMessageItem = 
-      | (MessageItem & { type: 'message'; searchTerm?: string })
+    type ProcessedMessageItem =
+      | (MessageItem & {
+          type: 'message';
+          searchTerm?: string;
+          reactions: MessageReaction[];
+          orphanReactionEmoji?: string | null;
+        })
       | { type: 'separator'; count: number; id: string };
-    
+
+    const withReactions = (message: MessageItem, search?: string): Extract<ProcessedMessageItem, { type: 'message' }> => {
+      const targetGuid = normalizeImessageGuid(message.imessage_guid);
+      const reactions = (!message.is_reaction && targetGuid
+        ? reactionsByTarget.get(targetGuid)
+        : undefined) ?? [];
+
+      return {
+        ...message,
+        type: 'message' as const,
+        searchTerm: search,
+        reactions,
+        orphanReactionEmoji: message.is_reaction && !attachedReactionIds.has(message.id)
+          ? reactionTypeToEmoji(message.reaction_type)
+          : null,
+      };
+    };
+
+    const visibleItems = items.filter((message) => !attachedReactionIds.has(message.id));
+
     if (!isSearching || !searchTerm.trim()) {
-      // When not searching, return items with type 'message' - newest first for column-reverse
-      return items.map((m) => ({ ...m, type: 'message' as const })) as ProcessedMessageItem[];
+      return visibleItems.map((message) => withReactions(message)) as ProcessedMessageItem[];
     }
-    
+
     const search = searchTerm.toLowerCase();
-    const itemsToFilter = items;
     const filtered: ProcessedMessageItem[] = [];
     let hiddenCount = 0;
-    
-    itemsToFilter.forEach((m, index) => {
-      const matches = m.body.toLowerCase().includes(search);
-      
+
+    visibleItems.forEach((message, index) => {
+      const matches = message.body.toLowerCase().includes(search);
+
       if (matches) {
-        // Add separator for hidden messages before this one
         if (hiddenCount > 0) {
           filtered.push({ type: 'separator', count: hiddenCount, id: `sep-${index}` });
           hiddenCount = 0;
         }
-        filtered.push({ ...m, type: 'message', searchTerm });
+        filtered.push(withReactions(message, searchTerm));
       } else {
         hiddenCount++;
       }
     });
-    
-    // Add final separator if needed
+
     if (hiddenCount > 0) {
       filtered.push({ type: 'separator', count: hiddenCount, id: `sep-end` });
     }
-    
+
     return filtered;
   }, [data, isSearching, searchTerm]);
 
   // Render oldest -> newest so native wheel direction behaves normally.
-  const renderedMessages = useMemo(() => [...processedMessages].reverse(), [processedMessages]);
+  const renderedMessages = useMemo(() => {
+    if (!feed) return [...processedMessages].reverse();
+    const entries = feed.entries.map((entry) => ({ ...entry, type: 'feed' as const }));
+    return [...processedMessages, ...entries].sort((a, b) => {
+      const dateOf = (item: typeof a) => item.type === 'feed' ? item.at : item.type === 'message' ? item.created_at ?? '' : '';
+      return dateOf(a).localeCompare(dateOf(b)) || a.id.localeCompare(b.id);
+    });
+  }, [processedMessages, feed]);
 
   // Keep viewport pinned to bottom on initial contact load and while user stays near bottom.
   useLayoutEffect(() => {
     const el = scrollRef.current;
     if (!el) return;
 
-    const isContactSwitch = lastRenderedContactIdRef.current !== contactId;
+    const isContactSwitch = lastRenderedContactIdRef.current !== selectionKey;
     if (isContactSwitch || shouldStickToBottomRef.current) {
       el.scrollTop = el.scrollHeight;
     }
 
-    lastRenderedContactIdRef.current = contactId;
-  }, [contactId, renderedMessages.length]);
+    lastRenderedContactIdRef.current = selectionKey;
+  }, [selectionKey, renderedMessages.length]);
 
   // Keep pinned to bottom while dynamic content (attachments, images, etc.) settles.
   useEffect(() => {
@@ -543,7 +657,7 @@ export function MessageThread({
 
     observer.observe(el, { childList: true, subtree: true, characterData: true });
     return () => observer.disconnect();
-  }, [contactId]);
+  }, [selectionKey]);
 
   // Highlight search term in message body
   const highlightText = (text: string, term: string) => {
@@ -562,7 +676,7 @@ export function MessageThread({
     );
   };
 
-  const { data: contact } = useContactHeader(contactId);
+  const { data: contact } = useContactHeader(contactId ?? null);
   const { data: candidateIssues = [] } = useIssues({ status: ['open', 'awaiting_response'] });
 
   const contactIssueTags = useMemo<IssueTagDraft[]>(() => {
@@ -587,7 +701,7 @@ export function MessageThread({
     if (wantedKeys.size === 0) return [] as IssueWithTags[];
 
     return candidateIssues.filter((issue) =>
-      issue.tags.some((tag) => {
+      issueDescriptionMentionsToDrafts(issue).some((tag) => {
         const key = getTagKey(tag);
         return !!key && wantedKeys.has(key);
       })
@@ -595,9 +709,7 @@ export function MessageThread({
   }, [candidateIssues, contactIssueTags]);
 
   const appendTagsToIssueDescription = async (issue: IssueWithTags) => {
-    const existingIssueTags = issue.tags
-      .map(issueTagToDraft)
-      .filter((tag): tag is IssueTagDraft => !!tag);
+    const existingIssueTags = issueDescriptionMentionsToDrafts(issue);
     const allTags = [...existingIssueTags, ...contactIssueTags].filter((tag, index, arr) => {
       const key = getTagKey(tag);
       if (!key) return false;
@@ -667,6 +779,19 @@ export function MessageThread({
     }
   };
 
+  const handleResendViaSms = async (messageId: string, body: string, requireConfirm: boolean) => {
+    if (!contactId || !smsSender) return;
+    if (requireConfirm && !window.confirm(AMBIGUOUS_SMS_RESEND_CONFIRM)) return;
+    await sendMessage.mutateAsync({
+      contactId,
+      body,
+      selectedSenderId: smsSender.id,
+      resentFromMessageId: messageId,
+    });
+    onResentViaSms?.(smsSender.id);
+    void qc.invalidateQueries({ queryKey: ['messages', 'sms-resends'] });
+  };
+
   return (
     <div className="flex flex-col flex-1 min-h-0 h-full">
       {/* Search bar */}
@@ -699,13 +824,14 @@ export function MessageThread({
             Load older messages
           </button>
         )}
-        {processedMessages.length === 0 && !isSearching ? (
+        {renderedMessages.length === 0 && !isSearching ? (
           <div className="text-xs text-muted-foreground">No messages yet.</div>
-        ) : isSearching && processedMessages.length === 0 ? (
+        ) : isSearching && renderedMessages.length === 0 ? (
           <div className="text-xs text-muted-foreground">No messages found.</div>
         ) : (
           renderedMessages
             .map((item, index, arr) => {
+              if (item.type === 'feed') return <div key={item.id}>{item.content}</div>;
               if (item.type === 'separator') {
                 return (
                   <div key={item.id} className="text-center text-xs text-muted-foreground my-2 py-1">
@@ -726,9 +852,19 @@ export function MessageThread({
               const showDateSeparator = !isSearching && (index === 0 || (prevIsMessage && prevCreatedAt && isDifferentDay(m.created_at, prevCreatedAt)));
               
               const direction = m.direction as 'INBOUND' | 'OUTBOUND';
+              const cleanedBody = m.body
+                ?.replace(/\uFFFC/g, '')
+                .replace(/OBJ/gi, '')
+                .trim() || '';
+              const isMacBridge = asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE';
+              const showError = direction === 'OUTBOUND' &&
+                isMacBridge &&
+                (m.status === 'FAILED' || m.status === 'AMBIGUOUS') &&
+                Boolean(m.error_message);
               
               return (
                 <div key={m.id}>
+                  {feed?.labelForConversation && <div className="text-xs text-muted-foreground mb-1">{feed.labelForConversation(m.conversation_id)}</div>}
                   {showDateSeparator && (
                     <div className="text-center text-xs text-muted-foreground my-3">
                       {formatDaySeparator(m.created_at)}
@@ -745,54 +881,6 @@ export function MessageThread({
                     )}
                     
                     <div className={`max-w-[80%] group relative ${direction === 'OUTBOUND' ? 'text-right' : ''}`}>
-                      {!hideAddIssueHover && (
-                        <div className={cn(
-                          "absolute top-0 opacity-0 group-hover:opacity-100 transition-opacity z-10",
-                          direction === 'OUTBOUND' ? "right-full mr-2" : "left-full ml-2"
-                        )}>
-                          {matchedIssues.length === 0 ? (
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
-                              onClick={handleCreateIssue}
-                              title="Open issue"
-                              disabled={isIssueActionLoading}
-                            >
-                              <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
-                            </Button>
-                          ) : (
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="icon"
-                                  className="h-7 w-7 rounded-full bg-background border shadow-sm hover:bg-muted"
-                                  title="Open issue"
-                                  disabled={isIssueActionLoading}
-                                >
-                                  <AlertTriangle className="h-3.5 w-3.5 text-muted-foreground hover:text-warning" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align={direction === 'OUTBOUND' ? 'end' : 'start'}>
-                                <DropdownMenuItem onClick={handleCreateIssue}>
-                                  Create new issue
-                                </DropdownMenuItem>
-                                {matchedIssues.map((issue) => (
-                                  <DropdownMenuItem
-                                    key={issue.id}
-                                    onClick={() => handleAddToIssue(issue)}
-                                  >
-                                    <span className="mr-1">Add to open issue:</span>
-                                    {issue.name ?? ''}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          )}
-                        </div>
-                      )}
-
                       {/* Sender badge for outbound messages */}
                       {direction === 'OUTBOUND' && m.sender && (
                         <div className={`mb-1 ${direction === 'OUTBOUND' ? 'flex justify-end' : 'flex justify-start'}`}>
@@ -803,45 +891,137 @@ export function MessageThread({
                           </Badge>
                         </div>
                       )}
-                      {/* Attachments */}
-                      {m.message_attachments && m.message_attachments.length > 0 && (
-                        <div className={`mb-2 flex flex-col gap-2 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
-                          {m.message_attachments.map((attachment) => (
-                            <MessageAttachment 
-                              key={attachment.id} 
-                              attachment={attachment as Tables<'message_attachments'>} 
-                              direction={direction}
-                            />
-                          ))}
-                        </div>
-                      )}
-                      {/* Message body */}
+                      {/* Attachments + body, with iMessage-style reaction badges */}
                       {(() => {
+                        if (m.is_reaction) {
+                          const emoji = m.orphanReactionEmoji ?? reactionTypeToEmoji(m.reaction_type);
+                          if (!emoji) return null;
+                          return (
+                            <div
+                              className="inline-flex h-8 min-w-8 items-center justify-center rounded-full border bg-background px-2 text-base shadow-sm"
+                              title={reactionTypeToLabel(m.reaction_type)}
+                            >
+                              {emoji}
+                            </div>
+                          );
+                        }
+
                         // Filter out Unicode object replacement character (U+FFFC) and "OBJ" text that appears when attachments are present
                         // The iMessage bridge sends U+FFFC (￼) as a placeholder for attachments
-                        const cleanedBody = m.body
-                          ?.replace(/\uFFFC/g, '') // Remove Unicode object replacement character
-                          .replace(/OBJ/gi, '') // Remove "OBJ" text as fallback
-                          .trim() || '';
-                        // Only render message body if it has content after cleaning
-                        if (!cleanedBody) return null;
+                        const attachments = m.message_attachments ?? [];
+                        const hasAttachments = attachments.length > 0;
+                        if (!cleanedBody && !hasAttachments) return null;
+
                         return (
-                          <div className={`inline-block px-3 py-2 rounded-md text-sm whitespace-pre-wrap ${
-                            direction === 'OUTBOUND' 
-                              ? (m.sender?.provider === 'TWILIO' 
-                                  ? 'bg-[#30D158] dark:bg-[#1E8E3E] text-white' 
-                                  : 'bg-[#007AFF] dark:bg-[#0A84FF] text-white')
-                              : 'bg-muted'
-                          } break-words [overflow-wrap:anywhere] max-w-full`}>
-                            {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
+                          <div className={cn('relative inline-block max-w-full', m.reactions.length > 0 && 'mb-2')}>
+                            {hasAttachments && (
+                              <div className={cn('flex flex-col gap-2', cleanedBody && 'mb-2', direction === 'OUTBOUND' ? 'items-end' : 'items-start')}>
+                                {attachments.map((attachment) => (
+                                  <MessageAttachment
+                                    key={attachment.id}
+                                    attachment={attachment as Tables<'message_attachments'>}
+                                    direction={direction}
+                                  />
+                                ))}
+                              </div>
+                            )}
+                            {cleanedBody ? (
+                              <div className={`inline-block px-3 py-2 rounded-2xl text-sm whitespace-pre-wrap ${
+                                messageBubbleClassName({
+                                  direction,
+                                  provider: asOwnedNumberProvider(m.sender?.provider),
+                                  appleService: asAppleService(m.apple_service),
+                                  isGroup: isGroupThread,
+                                })
+                              } break-words [overflow-wrap:anywhere] max-w-full`}>
+                                {isSearching && searchTerm ? highlightText(cleanedBody, searchTerm) : cleanedBody}
+                              </div>
+                            ) : null}
+                            {m.reactions.length > 0 && (
+                              <div
+                                className={cn(
+                                  'absolute -bottom-2 z-10 flex items-center gap-0.5',
+                                  direction === 'OUTBOUND' ? 'left-1' : 'right-1'
+                                )}
+                              >
+                                {m.reactions.map((reaction) => (
+                                  <span
+                                    key={reaction.id}
+                                    title={reaction.label}
+                                    className="inline-flex h-6 min-w-6 items-center justify-center rounded-full border border-black/5 bg-background px-1 text-[13px] shadow-sm dark:border-white/10"
+                                  >
+                                    {reaction.emoji}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
                           </div>
                         );
                       })()}
-                      <div className={`text-[10px] text-muted-foreground mt-1 flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`text-[10px] text-muted-foreground mt-1 flex flex-col gap-0.5 ${direction === 'OUTBOUND' ? 'items-end' : 'items-start'}`}>
+                        <div className={`flex items-center gap-1.5 ${direction === 'OUTBOUND' ? 'justify-end' : 'justify-start'}`}>
                         <span>{formatMessageDate(m.created_at)}</span>
                         {direction === 'OUTBOUND' && m.status && (
-                          <span className="text-[9px]">• {formatMessageStatus(m.status)}</span>
+                          <span
+                            className={outboundStatusClassName(m.status, asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE')}
+                            title={m.status === 'AMBIGUOUS' ? UNCONFIRMED_SEND_HINT : undefined}
+                          >
+                            • {formatMessageStatus(m.status)}
+                          </span>
                         )}
+                        {(() => {
+                          const resend = resendViaSmsAvailability({
+                            direction,
+                            status: m.status,
+                            body: cleanedBody,
+                            provider: asOwnedNumberProvider(m.sender?.provider),
+                            isGroup: isGroupThread,
+                            spent: isResendViaSmsSpent(m.id, linkedSmsResends),
+                          });
+                          if (resend === 'hidden') return null;
+                          if (resend === 'spent') {
+                            return <span className="text-[10px] text-muted-foreground">Resent via SMS</span>;
+                          }
+                          const disabled = resend === 'unavailable' || !smsSender || sendMessage.isPending;
+                          return (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              className="h-6 px-1.5 text-[10px]"
+                              disabled={disabled}
+                              onClick={() => void handleResendViaSms(m.id, cleanedBody, resend === 'confirm')}
+                            >
+                              Resend via SMS
+                            </Button>
+                          );
+                        })()}
+                        {!m.is_reaction && (
+                          <ImessageMessageActions
+                            messageId={m.id}
+                            conversationId={m.conversation_id}
+                            contactId={contactId}
+                            imessageGuid={m.imessage_guid}
+                            body={(m.body ?? '')
+                              .replace(/\uFFFC/g, '')
+                              .replace(/OBJ/gi, '')
+                              .trim()}
+                            sentAt={m.sent_at}
+                            createdAt={m.created_at}
+                            isOwnMessage={direction === 'OUTBOUND'}
+                            showCreateIssue={!hideAddIssueHover}
+                            matchedIssues={matchedIssues}
+                            issueActionLoading={isIssueActionLoading}
+                            onCreateIssue={handleCreateIssue}
+                            onAddToIssue={handleAddToIssue}
+                          />
+                        )}
+                        </div>
+                        {showError ? (
+                          <div className={`max-w-full text-[11px] ${m.status === 'FAILED' ? 'text-destructive' : 'text-amber-600 dark:text-amber-400'}`}>
+                            {m.error_message}
+                          </div>
+                        ) : null}
                       </div>
                     </div>
                   </div>

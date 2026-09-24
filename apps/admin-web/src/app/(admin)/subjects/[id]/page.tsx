@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from "@altitutor/ui";
+import { Button, SearchableSelectFieldTrigger } from "@altitutor/ui";
 import { 
   AlertTriangle,
   Loader2,
@@ -44,6 +44,8 @@ import { TopicsHierarchy, AddTopicModal } from '@/features/topics';
 import { useTopics } from '@/features/topics/hooks';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSubjectActions } from '@/features/subjects/hooks/useSubjectActions';
+import { AdminLoadingSkeleton } from '@/shared/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 const CURRICULUM_OPTIONS: { id: string; label: string }[] = [
   { id: 'SACE', label: 'SACE' },
@@ -231,13 +233,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
   });
 
   if (loading && !subject) {
-    return (
-      <div className="p-6">
-        <div className="flex items-center justify-center h-64">
-          <Loader2 className="h-8 w-8 animate-spin" />
-        </div>
-      </div>
-    );
+    return <AdminLoadingSkeleton />;
   }
 
   if (error || !subject) {
@@ -373,9 +369,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                           placeholder="Select curriculum"
                           allowClear
                           trigger={
-                            <Button variant="outline" className="w-full justify-start font-normal">
+                            <SearchableSelectFieldTrigger>
                               {field.value ? CURRICULUM_OPTIONS.find((c) => c.id === field.value)?.label ?? field.value : 'Select curriculum'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       </FormControl>
@@ -400,9 +396,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                           placeholder="Select discipline"
                           allowClear
                           trigger={
-                            <Button variant="outline" className="w-full justify-start font-normal">
+                            <SearchableSelectFieldTrigger>
                               {field.value ? DISCIPLINE_OPTIONS.find((d) => d.id === field.value)?.label ?? field.value : 'Select discipline'}
-                            </Button>
+                            </SearchableSelectFieldTrigger>
                           }
                         />
                       </FormControl>
@@ -538,41 +534,42 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         ) : (
           <>
             <div className="space-y-6">
-              <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                <div className="text-sm font-medium">Name:</div>
-                <div>{subject.name}</div>
-                
-                <div className="text-sm font-medium">Year Level:</div>
-                <div>{subject.year_level || '-'}</div>
-                
-                <div className="text-sm font-medium">Curriculum:</div>
-                <div>
-                  {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
-                </div>
-                
-                <div className="text-sm font-medium">Discipline:</div>
-                <div>
-                  {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
-                </div>
-                
-                <div className="text-sm font-medium">Level:</div>
-                <div>{subject.level || '-'}</div>
-                
-                <div className="text-sm font-medium">Color:</div>
-                <div className="flex items-center gap-2">
-                  {subject.color ? (
-                    <>
-                      <div
-                        className="w-6 h-6 rounded border border-gray-300"
-                        style={{ backgroundColor: subject.color }}
-                      />
-                      <span className="text-sm">{subject.color}</span>
-                    </>
-                  ) : (
-                    '-'
-                  )}
-                </div>
-              </div>
+              <PropertyForm>
+                <PropertyFormRow label="Name">
+                  <div>{subject.name}</div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Year level">
+                  <div>{subject.year_level || '-'}</div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Curriculum">
+                  <div>
+                    {subject.curriculum ? <SubjectCurriculumBadge value={subject.curriculum} /> : '-'}
+                  </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Discipline">
+                  <div>
+                    {subject.discipline ? <SubjectDisciplineBadge value={subject.discipline} /> : '-'}
+                  </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Level">
+                  <div>{subject.level || '-'}</div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Color">
+                  <div className="flex items-center gap-2">
+                    {subject.color ? (
+                      <>
+                        <div
+                          className="w-6 h-6 rounded border border-gray-300"
+                          style={{ backgroundColor: subject.color }}
+                        />
+                        <span className="text-sm">{subject.color}</span>
+                      </>
+                    ) : (
+                      '-'
+                    )}
+                  </div>
+                </PropertyFormRow>
+              </PropertyForm>
               
               <Separator className="my-4" />
               

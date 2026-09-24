@@ -6,7 +6,7 @@ import {
   type BillingPreferences,
   type BillingPreferencesUpdate,
 } from '../api/billing-preferences';
-import { studentsKeys } from '@/features/students/hooks/useStudentsQuery';
+import { invalidateStudentDetail } from '@/shared/lib/query-invalidation';
 
 export const billingPreferencesKeys = {
   all: ['billing-preferences'] as const,
@@ -69,7 +69,7 @@ export function useBillingPreferences({
     },
     onSuccess: (_, { studentId: id }) => {
       queryClient.invalidateQueries({ queryKey: billingPreferencesKeys.detail(id) });
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detail(id) });
+      void invalidateStudentDetail(queryClient, id);
       toast({ title: 'Success', description: 'Billing preference updated' });
     },
   });

@@ -4,7 +4,7 @@ import { Skeleton } from "@altitutor/ui";
 import { cn } from "@/lib/utils";
 
 type PlanPickerPriceSkeletonProps = {
-  /** Pro card — lighter bones on dark background */
+  /** Lighter bones for a featured card on a dark background. */
   featured?: boolean;
 };
 

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type Stripe from "stripe";
 import type { Database } from "@altitutor/shared";
 import {
   isUcatBillingInterval,
@@ -9,11 +10,15 @@ import {
 
 type AdminClient = SupabaseClient<Database>;
 
+const STRIPE_PRICE_VALIDATION_TTL_MS = 5 * 60 * 1000;
+const validatedStripePrices = new Map<string, number>();
+
 export type UcatPlanPriceRow = {
   plan_tier: UcatPaidPlanTier;
   billing_interval: UcatBillingInterval;
   base_price_cents: number;
   stripe_price_id: string | null;
+  checkout_enabled: boolean;
 };
 
 export async function getUcatPlanPrice(
@@ -23,7 +28,9 @@ export async function getUcatPlanPrice(
 ): Promise<UcatPlanPriceRow | null> {
   const { data, error } = await supabase
     .from("ucat_plan_prices")
-    .select("plan_tier, billing_interval, base_price_cents, stripe_price_id")
+    .select(
+      "plan_tier, billing_interval, base_price_cents, stripe_price_id, checkout_enabled",
+    )
     .eq("plan_tier", tier)
     .eq("billing_interval", interval)
     .maybeSingle();
@@ -41,7 +48,40 @@ export async function getUcatPlanPrice(
     billing_interval: data.billing_interval,
     base_price_cents: data.base_price_cents,
     stripe_price_id: data.stripe_price_id,
+    checkout_enabled: data.checkout_enabled ?? true,
   };
+}
+
+export async function stripePriceMatchesUcatPlan(
+  stripe: Stripe,
+  planPrice: UcatPlanPriceRow,
+): Promise<boolean> {
+  const priceId = planPrice.stripe_price_id?.trim();
+  if (!priceId) return false;
+
+  const cacheKey = [
+    priceId,
+    planPrice.base_price_cents,
+    planPrice.billing_interval,
+  ].join(":");
+  const validatedUntil = validatedStripePrices.get(cacheKey) ?? 0;
+  if (validatedUntil > Date.now()) return true;
+
+  const price = await stripe.prices.retrieve(priceId);
+  const matches =
+    price.active &&
+    price.currency.toLowerCase() === "aud" &&
+    price.unit_amount === planPrice.base_price_cents &&
+    price.recurring?.interval === planPrice.billing_interval &&
+    (price.recurring.interval_count ?? 1) === 1;
+
+  if (matches) {
+    validatedStripePrices.set(
+      cacheKey,
+      Date.now() + STRIPE_PRICE_VALIDATION_TTL_MS,
+    );
+  }
+  return matches;
 }
 
 export async function resolveUcatPlanFromStripePriceId(
@@ -74,13 +114,10 @@ export async function resolveUcatPlanFromStripePriceId(
   if (stripeProductId) {
     const { data: config } = await supabase
       .from("ucat_subscription_config")
-      .select("unlimited_stripe_product_id, pro_stripe_product_id")
+      .select("unlimited_stripe_product_id")
       .limit(1)
       .maybeSingle();
 
-    if (config?.pro_stripe_product_id === stripeProductId) {
-      return { plan_tier: "pro", billing_interval: null };
-    }
     if (config?.unlimited_stripe_product_id === stripeProductId) {
       return { plan_tier: "unlimited", billing_interval: null };
     }

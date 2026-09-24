@@ -58,6 +58,11 @@ const dataTypeLabels: Record<GraphDataType, string> = {
   attempt_count: 'Number of attempts',
 }
 
+const GRAPH_TOOLTIP_WRAPPER_STYLE = {
+  zIndex: 30,
+  pointerEvents: 'none',
+} as const
+
 function getYAxisDomain(
   dataType: GraphDataType,
   isMockContext?: boolean,
@@ -124,6 +129,7 @@ export function ProgressGraph({
           }
         />
         <Tooltip
+          wrapperStyle={GRAPH_TOOLTIP_WRAPPER_STYLE}
           contentStyle={{
             backgroundColor: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',
@@ -186,6 +192,7 @@ export function ProgressGraph({
           }
         />
         <Tooltip
+          wrapperStyle={GRAPH_TOOLTIP_WRAPPER_STYLE}
           contentStyle={{
             backgroundColor: 'hsl(var(--card))',
             border: '1px solid hsl(var(--border))',

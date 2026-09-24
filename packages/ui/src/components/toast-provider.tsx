@@ -9,6 +9,9 @@ export interface ToastInput {
   action?: { label: string; onClick: () => void };
   variant?: "default" | "destructive";
   duration?: number;
+  /** Stable id — reusing the same id updates an existing toast instead of stacking another. */
+  id?: string | number;
+  onDismiss?: () => void;
 }
 
 interface ToastContextValue {
@@ -21,7 +24,7 @@ const ToastContext = React.createContext<ToastContextValue | undefined>(
 );
 
 function mapLegacyToastToSonner(input: ToastInput): void {
-  const { title, description, action, variant, duration } = input;
+  const { title, description, action, variant, duration, id, onDismiss } = input;
   const actionOption = action
     ? { label: action.label, onClick: () => action.onClick() }
     : undefined;
@@ -34,6 +37,13 @@ function mapLegacyToastToSonner(input: ToastInput): void {
   const opts = {
     ...durationOption,
     ...(actionOption ? { action: actionOption } : {}),
+    ...(id !== undefined ? { id } : {}),
+    ...(onDismiss
+      ? {
+          onDismiss: () => onDismiss(),
+          onAutoClose: () => onDismiss(),
+        }
+      : {}),
   };
 
   const trimmedTitle = title?.trim();
@@ -84,13 +94,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <Toaster
+        data-toast-container
         position="top-right"
         theme="system"
         closeButton
-        className="toaster group"
+        className="toaster group pointer-events-auto z-[2147483647]"
         toastOptions={{
           classNames: {
-            toast: "border-border bg-card text-card-foreground shadow-lg",
+            toast: "border-border bg-card text-card-foreground",
             title: "text-foreground",
             description: "text-muted-foreground",
             actionButton:

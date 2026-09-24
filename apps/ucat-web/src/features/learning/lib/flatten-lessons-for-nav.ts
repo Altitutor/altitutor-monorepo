@@ -2,12 +2,20 @@ import {
   buildLearningModuleTree,
   groupModulesBySection,
 } from "@/features/learning/lib/build-module-tree";
-import type { LearningModuleRow, LearningModuleTreeNode } from "@/features/learning/types";
+import type {
+  LearningModuleRow,
+  LearningModuleTreeNode,
+} from "@/features/learning/types";
+import { learningModuleHref } from "@/features/learning/lib/learning-module-href";
 
 export type LessonNavEntry = {
   id: string;
   label: string;
   href: string;
+  icon_key: string | null;
+  kind: LearningModuleRow["kind"];
+  started_at: string | null;
+  completed_at: string | null;
 };
 
 function walkLessonNodes(
@@ -19,7 +27,11 @@ function walkLessonNodes(
       lessons.push({
         id: node.id,
         label: node.title ?? "Lesson",
-        href: `/learn/${node.id}`,
+        href: learningModuleHref(node.id, node.section_number),
+        icon_key: node.icon_key,
+        kind: node.kind,
+        started_at: node.started_at,
+        completed_at: node.completed_at,
       });
     }
     if (node.children.length > 0) {
@@ -29,7 +41,9 @@ function walkLessonNodes(
 }
 
 /** Lessons in catalog order: section groups, then depth-first within each tree. */
-export function flattenLessonsForNav(modules: LearningModuleRow[]): LessonNavEntry[] {
+export function flattenLessonsForNav(
+  modules: LearningModuleRow[],
+): LessonNavEntry[] {
   const tree = buildLearningModuleTree(modules);
   const sections = groupModulesBySection(tree);
   const lessons: LessonNavEntry[] = [];

@@ -4,8 +4,7 @@ import { useMemo } from 'react';
 import { useParams } from 'next/navigation';
 import {
   ResourceAccessDenied,
-  ResourcesBackLink,
-  ResourcesBreadcrumb,
+  ResourcesPageHeader,
   ResourcesPager,
   type ResourceSidebarItem,
   ResourcesSidebar,
@@ -91,36 +90,28 @@ export default function TutorResourceTopicPage() {
   const subjectLabel =
     subject?.long_name || subject?.name || subject?.short_name || subjectShortName;
   const subjectHref = `/resources/${encodeURIComponent(subjectShortName)}`;
+  const topicTitle =
+    topic?.code && topic?.name
+      ? `Topic ${topic.code} · ${topic.name}`
+      : topic?.code
+        ? `Topic ${topic.code}`
+        : topicCode;
 
   return (
     <TutorPageContainer className="space-y-8">
-      <ResourcesBreadcrumb
-        items={[
+      <ResourcesPageHeader
+        title={topicTitle}
+        backHref={subjectHref}
+        backLabel={`Back to ${subjectLabel}`}
+        breadcrumbs={[
           { label: 'Resources', href: '/resources' },
           { label: subjectLabel, href: subjectHref },
-          {
-            label:
-              topic?.code && topic?.name
-                ? `Topic ${topic.code} · ${topic.name}`
-                : topic?.code
-                  ? `Topic ${topic.code}`
-                  : topicCode,
-          },
+          { label: topicTitle },
         ]}
       />
 
       <div className="flex flex-col gap-6 lg:flex-row">
         <div className="min-w-0 flex-1 space-y-6">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">
-              {topic?.code && topic?.name
-                ? `Topic ${topic.code} · ${topic.name}`
-                : topic?.code
-                  ? `Topic ${topic.code}`
-                  : topicCode}
-            </h1>
-          </div>
-
           {filesLoading ? (
             <div className="space-y-3">
               <div className="h-14 rounded-2xl bg-muted/50 ring-1 ring-black/[0.05] dark:ring-white/10" />
@@ -161,11 +152,6 @@ export default function TutorResourceTopicPage() {
         </div>
 
         <div className="flex w-full flex-col gap-3 lg:sticky lg:top-6 lg:w-72 lg:shrink-0 lg:self-start">
-          <ResourcesBackLink
-            href={subjectHref}
-            label={`Back to ${subjectLabel}`}
-            className="hidden lg:inline-flex"
-          />
           <ResourcesSidebar title="All topics" items={sidebarItems} className="hidden lg:block" />
           <ResourcesPager prev={prev} next={next} ariaLabel="Topic navigation" />
         </div>

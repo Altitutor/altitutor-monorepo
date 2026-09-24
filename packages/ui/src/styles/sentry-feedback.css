@@ -1,0 +1,66 @@
+/*
+ * Keep Sentry's feedback form visually aligned with the shared dialog system.
+ *
+ * Sentry renders the form in a shadow root, but intentionally exposes these
+ * custom properties on its host element. App theme tokens therefore remain the
+ * source of truth for both light and dark mode.
+ */
+#sentry-feedback {
+  color-scheme: light;
+  font-family: inherit;
+
+  --font-family: inherit;
+  --font-size: 0.875rem;
+  --foreground: hsl(var(--card-foreground));
+  --background: hsl(var(--card));
+  --accent-foreground: hsl(var(--primary-foreground));
+  --accent-background: hsl(var(--primary));
+  --error-color: hsl(var(--destructive));
+  --border: 1px solid hsl(var(--border));
+  --outline: 2px solid hsl(var(--ring));
+  --interactive-filter: none;
+
+  --dialog-background: hsl(var(--card));
+  --dialog-color: hsl(var(--card-foreground));
+  --dialog-border: 1px solid hsl(var(--border));
+  --dialog-border-radius: var(--radius);
+  --dialog-box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+  --dialog-padding: 1rem;
+  --dialog-header-weight: 600;
+  --form-width: min(24rem, calc(100vw - 4rem));
+
+  --input-border: 1px solid hsl(var(--input));
+  --input-border-radius: calc(var(--radius) - 0.25rem);
+  --input-color: hsl(var(--foreground));
+  --input-placeholder-color: hsl(var(--muted-foreground));
+  --input-font-weight: 400;
+  --input-focus-outline: 2px solid hsl(var(--ring));
+
+  --button-padding: 0.5rem 1rem;
+  --button-border-radius: calc(var(--radius) - 0.25rem);
+  --button-font-weight: 500;
+  --button-primary-color: hsl(var(--primary-foreground));
+  --button-primary-background: hsl(var(--primary));
+  --button-primary-border: 1px solid hsl(var(--primary));
+  --button-primary-hover-color: hsl(var(--primary-foreground));
+  --button-primary-hover-background: hsl(var(--primary) / 0.9);
+  --button-primary-focus-outline: 2px solid hsl(var(--ring));
+  --button-color: hsl(var(--foreground));
+  --button-background: hsl(var(--background));
+  --button-border: 1px solid hsl(var(--border));
+  --button-hover-background: hsl(var(--muted));
+  --button-focus-outline: 2px solid hsl(var(--ring));
+
+  --success-background: hsl(var(--card));
+  --success-border: 1px solid hsl(var(--border));
+  --success-border-radius: var(--radius);
+  --success-box-shadow:
+    0 20px 25px -5px rgb(0 0 0 / 0.1),
+    0 8px 10px -6px rgb(0 0 0 / 0.1);
+}
+
+.dark #sentry-feedback {
+  color-scheme: dark;
+}

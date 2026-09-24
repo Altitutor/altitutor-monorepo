@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
-import { addDays, format, isSameDay, startOfDay } from 'date-fns';
+import { addDays, format } from 'date-fns';
 import {
   ArrowRight,
   BookOpen,
@@ -12,11 +12,11 @@ import {
   User,
   type LucideIcon,
 } from 'lucide-react';
-import { Button, ClickableNavCard, Skeleton } from '@altitutor/ui';
-import { formatSessionDate } from '@altitutor/shared';
+import { Button, ClickableNavCard } from '@altitutor/ui';
 import type { StudentSessionWithStaff } from '@/shared/api/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { StudentSessionsCard } from '@/shared/components';
+import { StudentTodaySessionsCalendarView } from '@/features/sessions/components/StudentTodaySessionsCalendarView';
+import { StudentDashboardRecentSessionsCard } from './StudentDashboardRecentSessionsCard';
 import { StudentPageContainer } from '@/shared/components/layouts';
 import { useStudentSessions } from '@/shared/hooks';
 import { studentBtnOutline, studentCardCn } from '@/shared/lib/student-visual';
@@ -65,16 +65,6 @@ const quickLinks: QuickLinkItem[] = [
   },
 ];
 
-function SessionsBlockSkeleton({ rows = 2 }: { rows?: number }) {
-  return (
-    <div className="space-y-2">
-      {Array.from({ length: rows }, (_, i) => (
-        <Skeleton key={i} className="h-28 w-full rounded-xl" />
-      ))}
-    </div>
-  );
-}
-
 function classGroupKey(session: StudentSessionWithStaff): string {
   return session.class_id ?? session.subject_id ?? session.session_id ?? '';
 }
@@ -86,6 +76,7 @@ export interface StudentDashboardHomeProps {
 export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
   const [dashboardSessionId, setDashboardSessionId] = useState<string | null>(null);
   const today = useMemo(() => new Date(), []);
+  const todayStr = format(today, 'yyyy-MM-dd');
   const rangeStart = format(addDays(today, -SESSION_PAST_DAYS), 'yyyy-MM-dd');
   const rangeEnd = format(addDays(today, SESSION_RANGE_DAYS), 'yyyy-MM-dd');
 
@@ -94,18 +85,9 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
     rangeEnd,
   );
 
-  const upcomingSessionsForBlock = useMemo((): StudentSessionWithStaff[] => {
+  const todaySessions = useMemo((): StudentSessionWithStaff[] => {
     if (!sessions?.length) return [];
-    const nowMs = Date.now();
-    const upcoming = sessions.filter(
-      (s) => s.start_at && new Date(s.start_at).getTime() > nowMs && s.session_id,
-    );
-    if (!upcoming.length) return [];
-    upcoming.sort(
-      (a, b) => new Date(a.start_at!).getTime() - new Date(b.start_at!).getTime(),
-    );
-    const anchorDay = startOfDay(new Date(upcoming[0].start_at!));
-    return upcoming.filter((s) => isSameDay(new Date(s.start_at!), anchorDay));
+    return sessions.filter((s) => s.session_id && s.start_at);
   }, [sessions]);
 
   const recentPerClassSessions = useMemo((): StudentSessionWithStaff[] => {
@@ -133,13 +115,13 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
   const displayName = firstName?.trim() || 'Student';
   const dateLabel = format(today, 'd MMMM yyyy');
 
-  const openSession = (sessionId: string | null | undefined) => {
-    if (sessionId) setDashboardSessionId(sessionId);
+  const openSession = (sessionId: string) => {
+    setDashboardSessionId(sessionId);
   };
 
   return (
     <div className="min-h-full">
-      <StudentPageContainer className="space-y-10">
+      <StudentPageContainer className="space-y-8">
         <header className="space-y-2">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -150,76 +132,47 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
           <p className="text-muted-foreground max-w-2xl text-pretty">Welcome to Altitutor Student.</p>
         </header>
 
-        <section aria-labelledby="next-session-heading" className="space-y-4">
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <h2 id="next-session-heading" className="text-2xl font-semibold">
-              Next session
-            </h2>
-            <Button asChild variant="outline" size="sm" className={cn(studentBtnOutline, 'shrink-0')}>
-              <Link href="/classes" className="gap-2">
-                Timetable
-                <ArrowRight className="h-4 w-4" />
-              </Link>
-            </Button>
-          </div>
-
-          {sessionsLoading ? (
-            <SessionsBlockSkeleton rows={2} />
-          ) : sessionsError ? (
-            <p className="text-sm text-muted-foreground">
-              Could not load your sessions.{' '}
-              <Link href="/classes" className="font-medium text-foreground underline-offset-4 hover:underline">
-                Open timetable
-              </Link>
-            </p>
-          ) : upcomingSessionsForBlock.length > 0 ? (
-            <div className="space-y-2">
-              {upcomingSessionsForBlock.map((session) => (
-                <StudentSessionsCard
-                  key={session.session_id!}
-                  session={session}
-                  staff={session.staff}
-                  students={session.students}
-                  dateLabel={session.start_at ? formatSessionDate(session.start_at) : null}
-                  onClick={() => openSession(session.session_id)}
-                />
-              ))}
+        <div className="grid grid-cols-1 items-start gap-6 md:grid-cols-3">
+          <section aria-labelledby="todays-sessions-heading" className="md:col-span-2">
+            <div className={studentCardCn('flex flex-col overflow-hidden')}>
+              <div className="flex flex-wrap items-end justify-between gap-3 px-4 pb-2 pt-3">
+                <h2 id="todays-sessions-heading" className="text-lg font-semibold">
+                  Today’s sessions
+                </h2>
+                <Button asChild variant="outline" size="sm" className={cn(studentBtnOutline, 'shrink-0')}>
+                  <Link href="/classes" className="gap-2">
+                    Timetable
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                </Button>
+              </div>
+              <div className="max-h-[520px] min-h-0 overflow-auto">
+                {sessionsError ? (
+                  <p className="px-4 py-8 text-sm text-muted-foreground">
+                    Could not load your sessions.{' '}
+                    <Link href="/classes" className="font-medium text-foreground underline-offset-4 hover:underline">
+                      Open timetable
+                    </Link>
+                  </p>
+                ) : (
+                  <StudentTodaySessionsCalendarView
+                    date={todayStr}
+                    sessions={todaySessions}
+                    isLoading={sessionsLoading}
+                    onOpenSession={openSession}
+                  />
+                )}
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No upcoming sessions in the next several weeks. Book or check your timetable under Classes.
-            </p>
-          )}
-        </section>
+          </section>
 
-        <section aria-labelledby="recent-sessions-heading" className="space-y-4">
-          <h2 id="recent-sessions-heading" className="text-2xl font-semibold">
-            Recent sessions
-          </h2>
-
-          {sessionsLoading ? (
-            <SessionsBlockSkeleton rows={2} />
-          ) : sessionsError ? (
-            <p className="text-sm text-muted-foreground">Could not load your sessions.</p>
-          ) : recentPerClassSessions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              When you have completed classes, your most recent session for each class will show here.
-            </p>
-          ) : (
-            <div className="space-y-2">
-              {recentPerClassSessions.map((session) => (
-                <StudentSessionsCard
-                  key={session.session_id!}
-                  session={session}
-                  staff={session.staff}
-                  students={session.students}
-                  dateLabel={session.start_at ? formatSessionDate(session.start_at) : null}
-                  onClick={() => openSession(session.session_id)}
-                />
-              ))}
-            </div>
-          )}
-        </section>
+          <StudentDashboardRecentSessionsCard
+            sessions={recentPerClassSessions}
+            isLoading={sessionsLoading}
+            isError={sessionsError}
+            onOpenSession={openSession}
+          />
+        </div>
 
         <section aria-labelledby="quick-links-heading" className="space-y-4">
           <div className="mb-4 flex items-center gap-2">

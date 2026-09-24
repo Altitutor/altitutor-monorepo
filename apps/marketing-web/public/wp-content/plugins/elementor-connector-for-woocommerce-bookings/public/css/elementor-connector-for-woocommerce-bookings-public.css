@@ -1,0 +1,35 @@
+/**
+ * All of the CSS for your public-facing functionality should be
+ * included in this file.
+ */
+.elementor-widget-ecwb-booking-form form {
+	display: block !important;
+}
+
+#wc-bookings-booking-form fieldset,
+#wc-bookings-booking-form table {
+	border: none;
+	width: 100%;
+}
+
+#wc-bookings-booking-form .form-field input[type=number] {
+	width: auto;
+}
+
+.elementor-widget-ecwb-booking-form table:not( .has-background ) tbody tr:nth-child(2n) td,
+.elementor-widget-ecwb-booking-form fieldset,
+.elementor-widget-ecwb-booking-form fieldset legend {
+	background: transparent;
+}
+
+#wc-bookings-booking-form {
+	flex-wrap: wrap;
+}
+
+#wc-bookings-booking-form p[class*="wc_bookings_field_person"] {
+	order: 0;
+}
+
+#wc-bookings-booking-form > {
+	order: 1;
+}

@@ -1,0 +1,168 @@
+/**
+ * @jest-environment jsdom
+ */
+import React from "react";
+import { act, render, waitFor } from "@testing-library/react";
+import * as Sentry from "@sentry/nextjs";
+import { AuthCallbackClient } from "@/app/auth/callback/auth-callback-client";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
+
+let searchParams = new URLSearchParams(
+  "code=pkce-code&intent=login&provider=apple&next=%2Fdashboard",
+);
+
+const exchangeCodeForSession = jest.fn();
+const getSession = jest.fn();
+const updateUser = jest.fn();
+const verifyOtp = jest.fn();
+
+jest.mock("next/navigation", () => ({
+  useSearchParams: () => searchParams,
+}));
+
+jest.mock("@/features/auth/lib/navigate-after-auth", () => ({
+  navigateAfterAuth: jest.fn(),
+}));
+
+jest.mock("@/lib/supabase/client", () => ({
+  getSupabaseBrowserClient: () => ({
+    auth: {
+      exchangeCodeForSession,
+      getSession,
+      updateUser,
+      verifyOtp,
+    },
+  }),
+}));
+
+jest.mock("@/lib/analytics/posthog", () => ({
+  captureUcatEvent: jest.fn(),
+}));
+
+jest.mock("@sentry/nextjs", () => ({
+  captureMessage: jest.fn(),
+}));
+
+const captureMessage = jest.mocked(Sentry.captureMessage);
+
+describe("AuthCallbackClient", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    exchangeCodeForSession.mockReset();
+    getSession.mockReset();
+    updateUser.mockReset();
+    verifyOtp.mockReset();
+    searchParams = new URLSearchParams(
+      "code=pkce-code&intent=login&provider=apple&next=%2Fdashboard",
+    );
+
+    let resolveExchange!: (value: {
+      data?: unknown;
+      error: { message: string } | null;
+    }) => void;
+    exchangeCodeForSession.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveExchange = resolve;
+        }),
+    );
+    (
+      exchangeCodeForSession as unknown as {
+        flush: (value: {
+          data?: unknown;
+          error: { message: string } | null;
+        }) => void;
+      }
+    ).flush = (value) => resolveExchange(value);
+
+    getSession.mockResolvedValue({ data: { session: { user: { id: "u1" } } } });
+    updateUser.mockResolvedValue({ error: null });
+  });
+
+  it("routes email confirmation links through the server account gate", async () => {
+    searchParams = new URLSearchParams(
+      "token_hash=email-token&type=email&intent=signup&next=%2Fdashboard",
+    );
+    verifyOtp.mockResolvedValue({ error: null });
+
+    render(<AuthCallbackClient />);
+
+    await waitFor(() =>
+      expect(navigateAfterAuth).toHaveBeenCalledWith(
+        "/auth/continue?intent=signup&next=%2Fdashboard",
+      ),
+    );
+  });
+
+  it("exchanges the PKCE code and hard-navigates at most once when searchParams identity churns", async () => {
+    const { rerender } = render(<AuthCallbackClient />);
+
+    await act(async () => {
+      searchParams = new URLSearchParams(searchParams.toString());
+      rerender(<AuthCallbackClient />);
+      searchParams = new URLSearchParams(searchParams.toString());
+      rerender(<AuthCallbackClient />);
+    });
+
+    expect(exchangeCodeForSession).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      (
+        exchangeCodeForSession as unknown as {
+          flush: (value: { error: null }) => void;
+        }
+      ).flush({ error: null });
+    });
+
+    await waitFor(() => {
+      expect(navigateAfterAuth).toHaveBeenCalledTimes(1);
+    });
+
+    expect(exchangeCodeForSession).toHaveBeenCalledWith("pkce-code");
+    expect(navigateAfterAuth).toHaveBeenCalledWith(
+      "/auth/continue?intent=login&provider=apple&next=%2Fdashboard",
+    );
+  });
+
+  it("does not fail when a consumed PKCE code disappears from the URL", async () => {
+    const { rerender } = render(<AuthCallbackClient />);
+
+    await waitFor(() =>
+      expect(exchangeCodeForSession).toHaveBeenCalledTimes(1),
+    );
+
+    await act(async () => {
+      searchParams = new URLSearchParams(
+        "intent=login&provider=apple&next=%2Fdashboard",
+      );
+      rerender(<AuthCallbackClient />);
+    });
+
+    expect(navigateAfterAuth).not.toHaveBeenCalledWith(
+      "/login?error=auth_failed",
+    );
+  });
+
+  it("reports a genuine missing callback payload to Sentry", async () => {
+    searchParams = new URLSearchParams(
+      "intent=login&provider=apple&next=%2Fdashboard",
+    );
+
+    render(<AuthCallbackClient />);
+
+    await waitFor(() =>
+      expect(captureMessage).toHaveBeenCalledWith(
+        "Auth callback failed",
+        expect.objectContaining({
+          level: "warning",
+          tags: expect.objectContaining({
+            app: "ucat-web",
+            auth_failure_stage: "missing_payload",
+            auth_intent: "login",
+            auth_provider: "apple",
+          }),
+        }),
+      ),
+    );
+  });
+});

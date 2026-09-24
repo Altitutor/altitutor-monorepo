@@ -1,9 +1,15 @@
 import type { Json } from '@altitutor/shared'
+import {
+  BULK_IMPORT_LIST_ITEM_PREFIX,
+  encodeBulkImportMarkedText,
+  execRegexOnTokenizedLine,
+  stripBulkImportFormatTokens,
+} from '@/features/ucat/shared/lib/bulk-import-inline-format'
 
 /**
  * Shared output types for the line-based UCAT parser.
  * Section-specific parsers (Verbal Reasoning, Decision Making) add their own
- * classification (category, questionType) when mapping to form values.
+ * classification (category and response contract) when mapping to form values.
  */
 export type ParsedOption = {
   label: string
@@ -14,6 +20,9 @@ export type ParsedQuestion = {
   number: number | null
   text: string
   options: ParsedOption[]
+  /** Decision Making adds this classification for downstream previews. */
+  responseType?: 'multiple_choice' | 'drag_and_drop'
+  answerScheme?: 'single_choice' | 'situational_judgement_rating' | 'decision_making_binary_placement' | 'situational_judgement_most_least'
 }
 
 export type ParsedStem = {
@@ -125,7 +134,7 @@ function isImageTokenLine(line: string): boolean {
 }
 
 function normaliseStructuralText(text: string): string {
-  return text
+  return stripBulkImportFormatTokens(text)
     .replace(/\[\[TABLE:[^\]]+\]\]/g, '[[TABLE]]')
     .replace(/\[\[IMG:[^\]]+\]\]/g, '[[IMG]]')
     .replace(/\s+/g, ' ')
@@ -161,6 +170,19 @@ function normaliseTextBlock(lines: string[], config: ParserConfig): string {
   return result.join('\n').trim()
 }
 
+const BLOCK_NODE_TYPES = new Set([
+  'paragraph',
+  'table',
+  'tableRow',
+  'tableCell',
+  'tableHeader',
+  'bulletList',
+  'orderedList',
+  'listItem',
+  'blockquote',
+  'heading',
+])
+
 export function nodeToText(node: PMNode | null | undefined): string {
   if (!node) return ''
 
@@ -169,12 +191,65 @@ export function nodeToText(node: PMNode | null | undefined): string {
     return token ?? ''
   }
 
+  if (node.type === 'hardBreak') return '\n'
+
   if (typeof node.text === 'string') return node.text
   if (!Array.isArray(node.content) || node.content.length === 0) return ''
-  return node.content.map((child) => nodeToText(child)).join(' ')
+
+  const parts = node.content.map((child) => nodeToText(child))
+  const hasBlockChild = node.content.some((child) => BLOCK_NODE_TYPES.has(child?.type ?? ''))
+  // Inline siblings (text / hardBreak / image) must not get spaces inserted — that collapses
+  // soft line breaks and can destroy tabs between adjacent TipTap text nodes.
+  // Block children (e.g. flattening a table cell) keep space-separated plain text.
+  if (hasBlockChild) {
+    return parts
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .join(' ')
+  }
+  return parts.join('')
 }
 
-/** Matches option labels: A. B. a) b) etc. (label only) */
+/**
+ * Like {@link nodeToText}, but encodes bold/italic marks as bulk-import tokens so they
+ * survive the logical-line round-trip. Images still become [[IMG:…]] placeholders.
+ */
+export function nodeToTokenizedText(node: PMNode | null | undefined): string {
+  if (!node) return ''
+
+  if (node.type === 'image') {
+    const token = encodeImageToken(node.attrs)
+    return token ?? ''
+  }
+
+  if (node.type === 'hardBreak') return '\n'
+
+  if (typeof node.text === 'string') {
+    const marks = Array.isArray(node.marks)
+      ? (node.marks as Array<{ type?: string | null }>)
+      : null
+    return encodeBulkImportMarkedText(node.text, marks)
+  }
+  if (!Array.isArray(node.content) || node.content.length === 0) return ''
+
+  const parts = node.content.map((child) => nodeToTokenizedText(child))
+  const hasBlockChild = node.content.some((child) => BLOCK_NODE_TYPES.has(child?.type ?? ''))
+  if (hasBlockChild) {
+    return parts
+      .map((part) => part.trim())
+      .filter((part) => part.length > 0)
+      .join(' ')
+  }
+  return parts.join('')
+}
+
+/** Emit question-cell paragraphs as separate logical lines (preserves line breaks). */
+function appendQuestionTextLogicalLines(qText: string, lines: string[]): void {
+  for (const part of qText.split('\n')) {
+    const trimmed = part.trim()
+    if (trimmed.length > 0) lines.push(trimmed)
+  }
+}
 const OPTION_LABEL_RE = /^\s*([A-Ea-e])([\.\)])\s*$/
 /** Matches label + text in same cell: A. $180 or a) option text */
 const OPTION_LABEL_WITH_TEXT_RE = /^\s*([A-Ea-e])([\.\)])\s*(.+)$/
@@ -208,8 +283,8 @@ export function extractQuestionRowFromNestedTable(
       break
     }
     if (c?.type === 'paragraph') {
-      const t = nodeToText(c).trim()
-      if (t.length > 0) qText += (qText ? ' ' : '') + t
+      const t = nodeToTokenizedText(c).replace(/\n+/g, '\n').trim()
+      if (t.length > 0) qText += (qText ? '\n' : '') + t
     }
   }
   if (!nestedTable) return null
@@ -218,7 +293,7 @@ export function extractQuestionRowFromNestedTable(
     ? (nestedTable.content as PMNode[]).map((r) => {
         const rContent = (r as PMNode)?.content
         const rowCells = Array.isArray(rContent) ? rContent : []
-        return rowCells.map((cell) => nodeToText(cell).trim())
+        return rowCells.map((cell) => nodeToTokenizedText(cell).trim())
       })
     : []
   if (!isOptionsTable(nestedRows)) return null
@@ -244,11 +319,10 @@ export function isQuestionTableWithNestedOptions(tableNode: PMNode): boolean {
 export function isOptionsTable(rows: string[][]): boolean {
   if (rows.length < 2 || rows.length > 6) return false
   for (const row of rows) {
-    const hasLabelOrCombined = row.some(
-      (cell) =>
-        OPTION_LABEL_RE.test(cell.trim()) ||
-        OPTION_LABEL_WITH_TEXT_RE.test(cell.trim())
-    )
+    const hasLabelOrCombined = row.some((cell) => {
+      const plain = stripBulkImportFormatTokens(cell).trim()
+      return OPTION_LABEL_RE.test(plain) || OPTION_LABEL_WITH_TEXT_RE.test(plain)
+    })
     if (!hasLabelOrCombined) return false
   }
   return true
@@ -267,14 +341,14 @@ export function extractOptionLinesFromTable(rows: string[][]): string[] {
     let textCell = ''
     for (const cell of row) {
       const trimmed = cell.trim()
-      const combined = OPTION_LABEL_WITH_TEXT_RE.exec(trimmed)
+      const combined = execRegexOnTokenizedLine(trimmed, OPTION_LABEL_WITH_TEXT_RE)
       if (combined) {
         labelChar = (combined[1] ?? '').toUpperCase()
         labelSeparator = combined[2] === ')' ? ')' : '.'
         textCell = (combined[3] ?? '').trim()
         break
       }
-      const labelOnly = OPTION_LABEL_RE.exec(trimmed)
+      const labelOnly = OPTION_LABEL_RE.exec(stripBulkImportFormatTokens(trimmed))
       if (labelOnly) {
         labelChar = (labelOnly[1] ?? '').toUpperCase()
         labelSeparator = labelOnly[2] === ')' ? ')' : '.'
@@ -298,6 +372,35 @@ type CollectState = {
   preserveBlankLines?: boolean
 }
 
+function orderedListStart(node: PMNode): number {
+  const start = node.attrs?.start
+  return typeof start === 'number' && Number.isFinite(start) ? start : 1
+}
+
+/** Push one logical line per soft/hard line inside paragraph plain text. */
+function appendLogicalLinesFromParagraphText(
+  text: string,
+  lines: string[],
+  st: CollectState
+): void {
+  const rawLines = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n')
+  let pushedAny = false
+  for (const raw of rawLines) {
+    const trimmed = raw.replace(/\s+$/u, '')
+    if (trimmed.trim().length > 0) {
+      lines.push((st.prefixForNextLine ?? '') + trimmed.trim())
+      st.prefixForNextLine = undefined
+      pushedAny = true
+    } else if (st.preserveBlankLines && !st.prefixForNextLine) {
+      lines.push('')
+      pushedAny = true
+    }
+  }
+  if (!pushedAny && text.trim().length === 0 && st.preserveBlankLines && !st.prefixForNextLine) {
+    lines.push('')
+  }
+}
+
 /** Emit one logical line per paragraph (or nested table) inside a table cell. */
 function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectState): void {
   if (!cell) return
@@ -314,13 +417,13 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
     if (c.type === 'table') {
       collectLogicalLinesFromNode(c, lines, st)
       pushed = true
+    } else if (c.type === 'orderedList' || c.type === 'bulletList') {
+      collectLogicalLinesFromNode(c, lines, st)
+      pushed = true
     } else if (c.type === 'paragraph') {
-      const t = nodeToText(c).trim()
-      if (t.length > 0) {
-        lines.push((st.prefixForNextLine ?? '') + t)
-        st.prefixForNextLine = undefined
-        pushed = true
-      }
+      const before = lines.length
+      appendLogicalLinesFromParagraphText(nodeToTokenizedText(c), lines, st)
+      if (lines.length > before) pushed = true
     } else if (Array.isArray(c.content) && c.content.length > 0) {
       appendLinesFromTableCell(c, lines, st)
       pushed = true
@@ -328,24 +431,16 @@ function appendLinesFromTableCell(cell: PMNode, lines: string[], st: CollectStat
   }
 
   if (!pushed) {
-    const text = nodeToText(cell).trim()
-    if (text.length > 0) {
-      lines.push((st.prefixForNextLine ?? '') + text)
-      st.prefixForNextLine = undefined
-    }
+    appendLogicalLinesFromParagraphText(nodeToTokenizedText(cell), lines, st)
   }
 }
 
-function collectLogicalLinesFromNode(
-  node: PMNode,
-  lines: string[],
-  state?: CollectState
-): void {
+function collectLogicalLinesFromNode(node: PMNode, lines: string[], state?: CollectState): void {
   if (!node) return
   const st = state ?? {}
 
   if (node.type === 'image') {
-    const text = nodeToText(node).trim()
+    const text = nodeToTokenizedText(node).trim()
     if (text.length > 0) {
       lines.push((st.prefixForNextLine ?? '') + text)
       st.prefixForNextLine = undefined
@@ -363,7 +458,7 @@ function collectLogicalLinesFromNode(
           const { qNum, qText, optionLines } = extracted
           lines.push((st.prefixForNextLine ?? '') + `${qNum}.`)
           st.prefixForNextLine = undefined
-          if (qText.length > 0) lines.push(qText)
+          if (qText.length > 0) appendQuestionTextLogicalLines(qText, lines)
           for (const opt of optionLines) lines.push(opt)
           continue
         }
@@ -378,7 +473,7 @@ function collectLogicalLinesFromNode(
       const row = rows[r]
       const cells = Array.isArray(row?.content) ? row.content : []
       for (const cell of cells) {
-        const text = nodeToText(cell).trim()
+        const text = nodeToTokenizedText(cell).trim()
         if (text.length > 0) {
           lines.push((st.prefixForNextLine ?? '') + text)
           st.prefixForNextLine = undefined
@@ -390,24 +485,29 @@ function collectLogicalLinesFromNode(
 
   if (node.type === 'orderedList') {
     const items = Array.isArray(node.content) ? node.content : []
+    const start = orderedListStart(node)
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i]
       if (!item) continue
-      st.prefixForNextLine = `${i + 1}. `
+      st.prefixForNextLine = `${start + i}. `
       collectLogicalLinesFromNode(item, lines, st)
     }
     return
   }
 
-  if (node.type === 'paragraph') {
-    const text = nodeToText(node).trim()
-    if (text.length > 0) {
-      lines.push((st.prefixForNextLine ?? '') + text)
-      st.prefixForNextLine = undefined
-    } else if (st.preserveBlankLines) {
-      lines.push('')
+  if (node.type === 'bulletList') {
+    const items = Array.isArray(node.content) ? node.content : []
+    for (const item of items) {
+      if (!item) continue
+      st.prefixForNextLine = `${st.prefixForNextLine ?? ''}${BULK_IMPORT_LIST_ITEM_PREFIX}`
+      collectLogicalLinesFromNode(item, lines, st)
       st.prefixForNextLine = undefined
     }
+    return
+  }
+
+  if (node.type === 'paragraph') {
+    appendLogicalLinesFromParagraphText(nodeToTokenizedText(node), lines, st)
     return
   }
 
@@ -469,7 +569,7 @@ function collectBlocksFromNodeForQR(
   const st = state ?? {}
 
   if (node.type === 'image') {
-    const text = nodeToText(node).trim()
+    const text = nodeToTokenizedText(node).trim()
     if (text.length > 0) {
       lines.push((st.prefixForNextLine ?? '') + text)
       st.prefixForNextLine = undefined
@@ -487,7 +587,7 @@ function collectBlocksFromNodeForQR(
         const { qNum, qText, optionLines } = extracted
         lines.push((st.prefixForNextLine ?? '') + `${qNum}.`)
         st.prefixForNextLine = undefined
-        if (qText.length > 0) lines.push(qText)
+        if (qText.length > 0) appendQuestionTextLogicalLines(qText, lines)
         for (const opt of optionLines) lines.push(opt)
       }
       return
@@ -497,7 +597,7 @@ function collectBlocksFromNodeForQR(
       ? (node.content as PMNode[]).map((row) => {
           const rowContent = (row as PMNode)?.content
           const cells = Array.isArray(rowContent) ? rowContent : []
-          return cells.map((cell) => nodeToText(cell).trim())
+          return cells.map((cell) => nodeToTokenizedText(cell).trim())
         })
       : []
     if (isOptionsTable(rows)) {
@@ -522,21 +622,29 @@ function collectBlocksFromNodeForQR(
 
   if (node.type === 'orderedList') {
     const items = Array.isArray(node.content) ? node.content : []
+    const start = orderedListStart(node)
     for (let i = 0; i < items.length; i += 1) {
       const item = items[i]
       if (!item) continue
-      st.prefixForNextLine = `${i + 1}. `
+      st.prefixForNextLine = `${start + i}. `
       collectBlocksFromNodeForQR(item, lines, tableMap, st)
     }
     return
   }
 
-  if (node.type === 'paragraph') {
-    const text = nodeToText(node).trim()
-    if (text.length > 0) {
-      lines.push((st.prefixForNextLine ?? '') + text)
+  if (node.type === 'bulletList') {
+    const items = Array.isArray(node.content) ? node.content : []
+    for (const item of items) {
+      if (!item) continue
+      st.prefixForNextLine = `${st.prefixForNextLine ?? ''}${BULK_IMPORT_LIST_ITEM_PREFIX}`
+      collectBlocksFromNodeForQR(item, lines, tableMap, st)
       st.prefixForNextLine = undefined
     }
+    return
+  }
+
+  if (node.type === 'paragraph') {
+    appendLogicalLinesFromParagraphText(nodeToTokenizedText(node), lines, st)
     return
   }
 
@@ -585,18 +693,17 @@ function getQuestionMatch(
   qRe: ReturnType<typeof buildQuestionRegexes>,
   questionNumberOnOwnLine: boolean
 ): QuestionMatch | null {
-  const inlineQuestionMatch = qRe.inline.exec(line)
-  const numberOnlyMatch = qRe.numberOnly.exec(line)
-  const isQuestionLine =
-    !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
+  const inlineQuestionMatch = execRegexOnTokenizedLine(line, qRe.inline)
+  const numberOnlyMatch = execRegexOnTokenizedLine(line, qRe.numberOnly)
+  const isQuestionLine = !!numberOnlyMatch || (!questionNumberOnOwnLine && !!inlineQuestionMatch)
 
   if (!isQuestionLine) return null
 
   const numberRaw =
-    inlineQuestionMatch != null ? inlineQuestionMatch[1] ?? '' : numberOnlyMatch?.[1] ?? ''
-  const number = Number.parseInt(numberRaw, 10)
+    inlineQuestionMatch != null ? (inlineQuestionMatch[1] ?? '') : (numberOnlyMatch?.[1] ?? '')
+  const number = Number.parseInt(stripBulkImportFormatTokens(numberRaw), 10)
   return {
-    numberRaw,
+    numberRaw: stripBulkImportFormatTokens(numberRaw),
     number: Number.isNaN(number) ? null : number,
     inlineText: inlineQuestionMatch?.[2] ?? '',
     isInline: inlineQuestionMatch != null,
@@ -640,8 +747,8 @@ function hasNearbyAnswerOptionEvidence(
       return true
     }
 
-    const inlineOptionMatch = oRe.inline.exec(candidate)
-    const labelOnlyMatch = oRe.labelOnly.exec(candidate)
+    const inlineOptionMatch = execRegexOnTokenizedLine(candidate, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(candidate, oRe.labelOnly)
     if (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) {
       return true
     }
@@ -674,7 +781,9 @@ function lineLooksLikeOptionStart(
   oRe: ReturnType<typeof buildOptionRegexes>,
   answerOptionOnOwnLine: boolean
 ): boolean {
-  return !!(answerOptionOnOwnLine ? oRe.labelOnly.exec(line) : oRe.inline.exec(line) || oRe.labelOnly.exec(line))
+  return !!(answerOptionOnOwnLine
+    ? execRegexOnTokenizedLine(line, oRe.labelOnly)
+    : execRegexOnTokenizedLine(line, oRe.inline) || execRegexOnTokenizedLine(line, oRe.labelOnly))
 }
 
 /**
@@ -779,8 +888,8 @@ export function parseFromLines(
         config.enforceSequentialQuestionNumbers !== false
       ) &&
       hasNearbyAnswerOptionEvidence(rawLines, idx, config, qRe, oRe)
-    const inlineOptionMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const inlineOptionMatch = execRegexOnTokenizedLine(line, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(line, oRe.labelOnly)
 
     if (expectingQuestionTextLine && currentQuestion) {
       if (!isBlank(trimmed)) {
@@ -822,9 +931,9 @@ export function parseFromLines(
       (answerOptionOnOwnLine ? !!labelOnlyMatch : !!(inlineOptionMatch || labelOnlyMatch)) &&
       currentQuestion
 
-    if (isOptionLine) {
+      if (isOptionLine) {
       flushCurrentOption()
-      const label = (inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? ''
+      const label = stripBulkImportFormatTokens((inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? '')
       const textFromLine =
         !answerOptionOnOwnLine && inlineOptionMatch ? (inlineOptionMatch[2] ?? '').trim() : ''
       currentOption = { label, text: '' }
@@ -863,14 +972,20 @@ export function parseFromLines(
           if (!isBlank(questionTextLines[i] ?? '')) nonBlankIndices.push(i)
         }
         if (nonBlankIndices.length === 5) {
-          const last5NonBlank = nonBlankIndices.reverse() as [number, number, number, number, number]
+          const last5NonBlank = nonBlankIndices.reverse() as [
+            number,
+            number,
+            number,
+            number,
+            number,
+          ]
           const firstIdx = last5NonBlank[0]
-          const allNonOption = last5NonBlank.every(
-            (i) => {
-              const l = questionTextLines[i] ?? ''
-              return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
-            }
-          )
+          const allNonOption = last5NonBlank.every((i) => {
+            const l = questionTextLines[i] ?? ''
+            return (
+              !execRegexOnTokenizedLine(l, oRe.inline) && !execRegexOnTokenizedLine(l, oRe.labelOnly)
+            )
+          })
           // Require firstIdx > 0 so we keep at least the question text line (index 0); otherwise
           // we'd splice away everything when questionTextLines has exactly 5 lines (question + 4 options).
           if (allNonOption && firstIdx > 0) {
@@ -1033,8 +1148,8 @@ export function classifyParseLineRoles(
         config.enforceSequentialQuestionNumbers !== false
       ) &&
       hasNearbyAnswerOptionEvidence(rawLines, idx, config, qRe, oRe)
-    const inlineOptionMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const inlineOptionMatch = execRegexOnTokenizedLine(line, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(line, oRe.labelOnly)
 
     if (expectingQuestionTextLine && currentQuestion) {
       if (!isBlank(trimmed)) {
@@ -1083,7 +1198,7 @@ export function classifyParseLineRoles(
     if (isOptionLine) {
       roles[idx] = 'option'
       flushCurrentOption()
-      const label = (inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? ''
+      const label = stripBulkImportFormatTokens((inlineOptionMatch ?? labelOnlyMatch)?.[1] ?? '')
       const textFromLine =
         !answerOptionOnOwnLine && inlineOptionMatch ? (inlineOptionMatch[2] ?? '').trim() : ''
       currentOption = { label, text: '' }
@@ -1131,11 +1246,19 @@ export function classifyParseLineRoles(
           if (!isBlank(questionTextLines[i] ?? '')) nonBlankIndices.push(i)
         }
         if (nonBlankIndices.length === 5) {
-          const last5NonBlank = nonBlankIndices.reverse() as [number, number, number, number, number]
+          const last5NonBlank = nonBlankIndices.reverse() as [
+            number,
+            number,
+            number,
+            number,
+            number,
+          ]
           const firstIdx = last5NonBlank[0]
           const allNonOption = last5NonBlank.every((i) => {
             const l = questionTextLines[i] ?? ''
-            return !oRe.inline.test(l) && !oRe.labelOnly.test(l)
+            return (
+              !execRegexOnTokenizedLine(l, oRe.inline) && !execRegexOnTokenizedLine(l, oRe.labelOnly)
+            )
           })
           if (allNonOption && firstIdx > 0) {
             const optionTexts = last5NonBlank.map((i) => questionTextLines[i] ?? '')
@@ -1188,7 +1311,10 @@ export function buildQuestionPasteSpansForLine(
   role: ParseLineHighlightRole,
   config: Pick<
     ParserConfig,
-    'questionIndicator' | 'answerOptionIndicator' | 'questionNumberOnOwnLine' | 'answerOptionOnOwnLine'
+    | 'questionIndicator'
+    | 'answerOptionIndicator'
+    | 'questionNumberOnOwnLine'
+    | 'answerOptionOnOwnLine'
   >
 ): QuestionPasteSpan[] {
   if (role === 'none' || role === 'stem') return []
@@ -1219,16 +1345,16 @@ export function buildQuestionPasteSpansForLine(
   }
 
   if (role === 'question') {
-    const inlineMatch = qRe.inline.exec(line)
+    const inlineMatch = execRegexOnTokenizedLine(line, qRe.inline)
     if (inlineMatch) return inlineTextSpan(inlineMatch, 'question')
-    if (questionNumberOnOwnLine && qRe.numberOnly.test(line)) return []
-    if (qRe.numberOnly.test(line)) return []
+    if (questionNumberOnOwnLine && execRegexOnTokenizedLine(line, qRe.numberOnly)) return []
+    if (execRegexOnTokenizedLine(line, qRe.numberOnly)) return []
     return trimmedSpan('question')
   }
 
   if (role === 'option') {
-    const inlineMatch = oRe.inline.exec(line)
-    const labelOnlyMatch = oRe.labelOnly.exec(line)
+    const inlineMatch = execRegexOnTokenizedLine(line, oRe.inline)
+    const labelOnlyMatch = execRegexOnTokenizedLine(line, oRe.labelOnly)
     if (inlineMatch) return inlineTextSpan(inlineMatch, 'option')
     if (answerOptionOnOwnLine && labelOnlyMatch) return []
     if (labelOnlyMatch) return []

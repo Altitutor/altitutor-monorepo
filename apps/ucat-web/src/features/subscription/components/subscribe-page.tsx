@@ -2,7 +2,7 @@
 
 import { MARKETING_TOKENS } from "@altitutor/shared";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { fetchPublicSubscriptionConfig } from "@/features/subscription/api/fetch-public-subscription-config";
+import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import {
   defaultPublicSubscriptionConfig,
   getPublicPracticeDayDiscount,
@@ -12,7 +12,6 @@ import { PlanPicker } from "@/features/subscription/components/plan-picker/plan-
 import { PlanPickerCheckIcon } from "@/features/subscription/components/plan-picker/plan-picker-check-icon";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
 import Link from "next/link";
-import { useEffect, useState } from "react";
 
 const { typography: typo } = MARKETING_TOKENS;
 
@@ -26,20 +25,9 @@ const ONLINE_FEATURES = [
 
 export function SubscribePage() {
   const access = useUcatAccess();
-  const [cfg, setCfg] = useState(defaultPublicSubscriptionConfig);
+  const { data: cfg = defaultPublicSubscriptionConfig } =
+    usePublicSubscriptionConfig();
 
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      const next = await fetchPublicSubscriptionConfig();
-      if (!cancelled) setCfg(next);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  const unlimitedTrialEligible = access.unlimitedTrialEligible;
   const freeIsCurrentPlan =
     access.onlineTier === "free" && !access.isLoading && access.signupCompleted;
   const monthlyPracticeDiscount = getPublicPracticeDayDiscount(cfg, "month");
@@ -53,7 +41,8 @@ export function SubscribePage() {
           className={`sticky top-0 z-20 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 border-b border-marketing-primary/15 bg-white/90 px-4 py-3 text-center text-sm shadow-sm backdrop-blur-md ${typo.secondarySans}`}
         >
           <span className="text-marketing-charcoal/70">
-            You&apos;re on UCAT Free. Compare paid plans below or return to the app.
+            You&apos;re on UCAT Free. Compare Unlimited below or return to the
+            app.
           </span>
           <Link
             href="/dashboard"
@@ -69,24 +58,23 @@ export function SubscribePage() {
           <span
             className={`text-xs font-bold uppercase tracking-[0.25em] text-marketing-primary ${typo.dataMono}`}
           >
-            Alti UCAT Online Platform
+            Altitutor UCAT
           </span>
           <h1
             className={`mt-4 text-5xl font-bold leading-tight text-marketing-charcoal sm:text-6xl md:text-7xl ${typo.headingSans}`}
           >
             Everything you need to{" "}
-            <span className={`italic text-marketing-primary/80 ${typo.dramaSerif}`}>
-              ace UCAT
+            <span
+              className={`italic text-marketing-primary/80 ${typo.dramaSerif}`}
+            >
+              prepare with a clear next step
             </span>
           </h1>
           <p
             className={`mx-auto mt-6 max-w-2xl text-lg text-marketing-charcoal/60 sm:text-xl ${typo.secondarySans}`}
           >
-            Start with UCAT Free, or unlock unlimited online access with UCAT
-            Unlimited and UCAT Pro.
-            {unlimitedTrialEligible
-              ? ` Try Unlimited free for ${cfg.trialDays} days.`
-              : null}
+            Start with UCAT Free, or unlock unrestricted online access with
+            UCAT Unlimited.
           </p>
 
           <div
@@ -118,36 +106,40 @@ export function SubscribePage() {
               >
                 Your consistency
                 <br />
-                <span className={`italic text-marketing-accent/80 ${typo.dramaSerif}`}>
+                <span
+                  className={`italic text-marketing-accent/80 ${typo.dramaSerif}`}
+                >
                   earns discounts
                 </span>
               </h2>
-              <p className={`mt-5 text-marketing-cream/60 ${typo.secondarySans}`}>
-                We believe in radical accountability. Hit your daily practice
-                target and the platform costs almost nothing. Miss it, and the
-                penalty fee activates — funding our non-profit mission.
+              <p
+                className={`mt-5 text-marketing-cream/60 ${typo.secondarySans}`}
+              >
+                Turn consistent practice into real savings. Reach your daily
+                question target to earn discounts from the standard subscription
+                price while building the routine UCAT preparation demands.
               </p>
             </div>
             <div className="space-y-4">
               {[
                 {
                   icon: "✦",
-                  title: "Standard price",
+                  title: "Earn as you practice",
                   desc: monthlyPracticeDiscount
-                    ? `Complete ${cfg.minQuestionsPerDay}+ questions in a day and earn ${formatMoneyFromMinorUnits(monthlyPracticeDiscount.discountPerDayCents, cfg.currency)} off your bill (up to ${monthlyPracticeDiscount.maxDiscountsPerPeriod} days per billing period on monthly).`
-                    : `Complete ${cfg.minQuestionsPerDay}+ questions in a day to earn discounts off your bill.`,
+                    ? `Answer ${cfg.minQuestionsPerDay}+ questions in a day and earn ${formatMoneyFromMinorUnits(monthlyPracticeDiscount.discountPerDayCents, cfg.currency)} off your bill (up to ${monthlyPracticeDiscount.maxDiscountsPerPeriod} days per billing period on monthly).`
+                    : `Answer ${cfg.minQuestionsPerDay}+ questions in a day to earn discounts off your bill.`,
                   accent: true,
                 },
                 {
                   icon: "⚡",
-                  title: "Penalty price",
-                  desc: "Miss your target for too many days and the penalty rate kicks in. It's the price of inconsistency.",
+                  title: "A clear standard price",
+                  desc: "See the full subscription price and the maximum practice discount before you subscribe.",
                   accent: false,
                 },
                 {
                   icon: "◎",
                   title: "Cancel anytime",
-                  desc: "No lock-in. Cancel before your trial ends and you won't be charged a cent.",
+                  desc: "No lock-in. You can schedule cancellation from your subscription settings at any time.",
                   accent: false,
                 },
               ].map(({ icon, title, desc, accent }) => (
@@ -165,10 +157,14 @@ export function SubscribePage() {
                     {icon}
                   </span>
                   <div>
-                    <p className={`font-semibold text-marketing-cream ${typo.headingSans}`}>
+                    <p
+                      className={`font-semibold text-marketing-cream ${typo.headingSans}`}
+                    >
                       {title}
                     </p>
-                    <p className={`mt-1 text-sm text-marketing-cream/60 ${typo.secondarySans}`}>
+                    <p
+                      className={`mt-1 text-sm text-marketing-cream/60 ${typo.secondarySans}`}
+                    >
                       {desc}
                     </p>
                   </div>
@@ -187,9 +183,11 @@ export function SubscribePage() {
             >
               Choose your plan
             </h2>
-            <p className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}>
-              UCAT Free includes limited access. UCAT Unlimited and UCAT Pro
-              unlock everything with accountability pricing.
+            <p
+              className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}
+            >
+              UCAT Free includes ongoing access with resetting allowances.
+              UCAT Unlimited removes the limits with accountability pricing.
             </p>
           </div>
 
@@ -199,9 +197,44 @@ export function SubscribePage() {
             className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}
           >
             All prices in AUD and include GST where applicable. Cancel anytime
-            before trial ends. Penalty pricing activates only when daily
-            practice targets are not met.
+            from subscription settings. Practice-day discounts are earned when
+            daily question targets are met.
           </p>
+        </div>
+      </section>
+
+      <section className="bg-white px-4 py-20">
+        <div className="mx-auto max-w-5xl">
+          <div className="grid gap-8 md:grid-cols-[0.7fr_1.3fr] md:items-center">
+            <div>
+              <span
+                className={`text-xs font-bold uppercase tracking-[0.25em] text-marketing-primary ${typo.dataMono}`}
+              >
+                Student outcome
+              </span>
+              <h2
+                className={`mt-3 text-3xl font-bold text-marketing-charcoal sm:text-4xl ${typo.headingSans}`}
+              >
+                Support across the path to medicine
+              </h2>
+            </div>
+            <figure className="rounded-3xl bg-marketing-cream p-7 ring-1 ring-marketing-charcoal/10 sm:p-9">
+              <blockquote
+                className={`text-lg leading-relaxed text-marketing-charcoal/80 ${typo.secondarySans}`}
+              >
+                “The training course was super helpful in prepping me with the
+                communication skills and also ability to clearly describe my
+                experiences during my interview. I have accepted an offer for
+                medicine at Adelaide uni and got to where I am with the guidance
+                and support from the course!”
+              </blockquote>
+              <figcaption
+                className={`mt-5 text-sm font-semibold text-marketing-primary ${typo.headingSans}`}
+              >
+                Anesha — Student, Altitutor UCAT and Medicine Interview Courses
+              </figcaption>
+            </figure>
+          </div>
         </div>
       </section>
     </div>

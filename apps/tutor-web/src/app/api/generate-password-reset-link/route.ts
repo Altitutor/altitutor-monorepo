@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
 
     if (error) {
       console.error('Failed to generate password reset link:', error);
+      captureApiError(error, "/api/generate-password-reset-link");
       return NextResponse.json(
         { error: `Failed to generate password reset link: ${error.message}` },
         { status: 500 }
@@ -84,6 +86,7 @@ export async function POST(request: NextRequest) {
       link: link.toString(),
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/generate-password-reset-link");
     console.error('Unexpected error generating password reset link:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

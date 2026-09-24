@@ -12,7 +12,7 @@ export function sessionCardIconChipClassName(
 ) {
   return cn(
     "flex h-9 w-9 shrink-0 items-center justify-center rounded-lg transition-colors duration-200",
-    variant === "today" && "bg-sidebar text-sidebar-foreground",
+    variant === "today" && "bg-primary text-primary-foreground",
     variant === "future" && "bg-muted/80 text-muted-foreground",
     variant === "default" && "bg-muted text-muted-foreground",
     className,

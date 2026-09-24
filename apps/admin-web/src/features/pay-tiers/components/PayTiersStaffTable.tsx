@@ -20,6 +20,7 @@ import { cn } from '@/shared/utils';
 import { usePayTiersStaffSummaries } from '../hooks';
 import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { formatCheckInRecency } from '@/features/reconciliation/utils/formatCheckInRecency';
+import { ResourceMetricCell, SessionMetricCell, TimeMetricCell } from './PayTierMetricCells';
 
 type StaffSummary = {
   staffId: string;
@@ -31,6 +32,7 @@ type StaffSummary = {
   nextTierNumber: number | null;
   isEligibleForReview: boolean;
   lastCheckIn: { sessionId: string; startAt: string; longName: string | null } | null;
+  metrics: Record<string, number> | null;
 };
 
 type StaffRow = StaffSummary & {
@@ -106,6 +108,10 @@ export function PayTiersStaffTable() {
     { key: 'currentTier', label: 'Current tier' },
     { key: 'status', label: 'Status' },
     { key: 'lastCheckIn', label: 'Last check-in' },
+    { key: 'tenure', label: 'Tenure' },
+    { key: 'timeSincePromotion', label: 'Time since promotion' },
+    { key: 'sessions', label: 'Sessions' },
+    { key: 'resources', label: 'Resources' },
   ];
 
   const filteredRows = useMemo(() => {
@@ -225,7 +231,7 @@ export function PayTiersStaffTable() {
           isLoading={isFetching}
         />
 
-        <div className="rounded-md border">
+        <div className="overflow-x-auto rounded-md border">
           <Table>
             <TableHeader>
               <TableRow>
@@ -296,6 +302,12 @@ export function PayTiersStaffTable() {
                     </div>
                   </TableHead>
                 )}
+                {state.visibleColumns.includes('tenure') && <TableHead>Tenure</TableHead>}
+                {state.visibleColumns.includes('timeSincePromotion') && (
+                  <TableHead>Time since promotion</TableHead>
+                )}
+                {state.visibleColumns.includes('sessions') && <TableHead>Sessions</TableHead>}
+                {state.visibleColumns.includes('resources') && <TableHead>Resources</TableHead>}
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -340,6 +352,26 @@ export function PayTiersStaffTable() {
                         {s.lastCheckIn
                           ? formatCheckInRecency(s.lastCheckIn.startAt)
                           : 'Never'}
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('tenure') && (
+                      <TableCell className="align-top py-3">
+                        <TimeMetricCell metrics={s.metrics} prefix="tenure" />
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('timeSincePromotion') && (
+                      <TableCell className="align-top py-3">
+                        <TimeMetricCell metrics={s.metrics} prefix="time_since_promotion" />
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('sessions') && (
+                      <TableCell className="align-top py-3">
+                        <SessionMetricCell metrics={s.metrics} />
+                      </TableCell>
+                    )}
+                    {state.visibleColumns.includes('resources') && (
+                      <TableCell className="align-top py-3">
+                        <ResourceMetricCell metrics={s.metrics} />
                       </TableCell>
                     )}
                   </TableRow>

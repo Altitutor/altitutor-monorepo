@@ -1,4 +1,5 @@
 import type { Json, UcatSkillTrainerKey } from '@altitutor/shared'
+import { UCAT_CALCULATOR_MATHS_CATEGORIES } from '@altitutor/shared'
 import type { UcatSkillTrainerItemRow } from '@/features/ucat/skill-trainer/api/items'
 import {
   defaultContentForTrainerKey,
@@ -9,6 +10,12 @@ import { hasRichTextContent, plainTextToProseMirror } from '@/features/ucat/shar
 
 function asRecord(value: unknown): Record<string, unknown> {
   return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
+}
+
+function asCalculatorCategory(value: unknown): UcatSkillTrainerItemFormValues['calculatorCategory'] {
+  return typeof value === 'string' && (UCAT_CALCULATOR_MATHS_CATEGORIES as readonly string[]).includes(value)
+    ? (value as UcatSkillTrainerItemFormValues['calculatorCategory'])
+    : undefined
 }
 
 export function mapRowToFormValues(row: UcatSkillTrainerItemRow): UcatSkillTrainerItemFormValues {
@@ -56,6 +63,7 @@ export function mapRowToFormValues(row: UcatSkillTrainerItemRow): UcatSkillTrain
         ...base,
         buttonSequence: Array.isArray(content.button_sequence)
           ? content.button_sequence.filter((v): v is string => typeof v === 'string')
+              .filter((v) => v !== '=')
           : [],
         label: typeof content.label === 'string' ? content.label : '',
       }
@@ -76,6 +84,7 @@ export function mapRowToFormValues(row: UcatSkillTrainerItemRow): UcatSkillTrain
         question,
         expression,
         answer: typeof content.answer === 'number' ? content.answer : 0,
+        calculatorCategory: asCalculatorCategory(content.category),
       }
     }
   }
@@ -105,7 +114,10 @@ export function mapFormValuesToContent(values: UcatSkillTrainerItemFormValues): 
     case 'find_word':
       return {
         passage: values.passage ?? EMPTY_DOC,
-        keywords: values.keywords ?? [],
+        keywords: (values.keywords ?? []).map((keyword) => ({
+          id: keyword.id,
+          text: keyword.text,
+        })),
       }
     case 'find_concept':
       return {
@@ -125,7 +137,7 @@ export function mapFormValuesToContent(values: UcatSkillTrainerItemFormValues): 
       }
     case 'numpad_speed':
       return {
-        button_sequence: values.buttonSequence ?? [],
+        button_sequence: (values.buttonSequence ?? []).filter((key) => key !== '='),
         ...(values.label?.trim() ? { label: values.label.trim() } : {}),
       }
     case 'calculator_maths': {
@@ -137,6 +149,7 @@ export function mapFormValuesToContent(values: UcatSkillTrainerItemFormValues): 
         ...(values.expression?.trim() && !hasQuestion
           ? { expression: values.expression.trim() }
           : {}),
+        ...(values.calculatorCategory ? { category: values.calculatorCategory } : {}),
       }
     }
   }

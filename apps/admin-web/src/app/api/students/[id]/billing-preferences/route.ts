@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -120,6 +121,7 @@ export async function PATCH(
 
     if (updateError) {
       console.error('[api/students/billing-preferences] Update error:', updateError);
+      captureApiError(updateError, "/api/students/[id]/billing-preferences");
       return NextResponse.json(
         { error: 'Failed to update billing preferences', details: updateError.message },
         { status: 500 }
@@ -131,6 +133,7 @@ export async function PATCH(
       billing_preferences: updatedBilling,
     });
   } catch (error) {
+    captureApiError(error, "/api/students/[id]/billing-preferences");
     console.error('[api/students/billing-preferences] Error:', error);
     return NextResponse.json(
       { error: getErrorMessage(error) },

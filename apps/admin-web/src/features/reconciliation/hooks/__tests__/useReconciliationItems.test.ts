@@ -7,7 +7,6 @@ import type {
   UnloggedSession,
   UnassignedClass,
   UnassignedTask,
-  FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
@@ -21,7 +20,6 @@ type ReconciliationQueries = {
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
   unassignedTasks: { data?: UnassignedTask[] };
-  failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
   trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
@@ -35,7 +33,6 @@ const createMockQueries = (overrides?: Partial<ReconciliationQueries>): Reconcil
   unloggedSessions: { data: [] as UnloggedSession[] },
   unassignedClasses: { data: [] as UnassignedClass[] },
   unassignedTasks: { data: [] as UnassignedTask[] },
-  failedDeliveryMessages: { data: [] as FailedDeliveryMessage[] },
   studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
   studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
   trialStudentsNotSignedUp: { data: [] as TrialStudentNotSignedUp[] },
@@ -83,17 +80,6 @@ describe('useReconciliationItems', () => {
     expect(result.current.hasAnyItems).toBe(true);
   });
 
-  it('should aggregate communication items correctly', () => {
-    const queries = createMockQueries({
-      failedDeliveryMessages: { data: [{ message_id: '1' } as FailedDeliveryMessage] },
-    });
-
-    const { result } = renderHook(() => useReconciliationItems(queries));
-
-    expect(result.current.communicationItems).toHaveLength(1);
-    expect(result.current.hasAnyItems).toBe(true);
-  });
-
   it('should aggregate trial items correctly', () => {
     const queries = createMockQueries({
       trialStudentsNotSignedUp: { data: [{ student_id: '1' } as TrialStudentNotSignedUp] },
@@ -123,7 +109,6 @@ describe('useReconciliationItems', () => {
 
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
-    expect(result.current.communicationItems).toHaveLength(0);
     expect(result.current.trialItems).toHaveLength(0);
     expect(result.current.operationsItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
@@ -137,7 +122,6 @@ describe('useReconciliationItems', () => {
       unloggedSessions: { data: undefined },
       unassignedClasses: { data: undefined },
       unassignedTasks: { data: undefined },
-      failedDeliveryMessages: { data: undefined },
       studentsWithoutClasses: { data: undefined },
       studentsWithoutPaymentMethod: { data: undefined },
       trialStudentsNotSignedUp: { data: undefined },
@@ -148,7 +132,6 @@ describe('useReconciliationItems', () => {
 
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
-    expect(result.current.communicationItems).toHaveLength(0);
     expect(result.current.trialItems).toHaveLength(0);
     expect(result.current.operationsItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);

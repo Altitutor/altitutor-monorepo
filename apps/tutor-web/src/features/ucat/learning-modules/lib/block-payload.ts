@@ -1,5 +1,9 @@
 import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import type { DraftBlock } from '@/features/ucat/learning-modules/lib/learning-module-editor-types'
+import {
+  isPendingGeneratedAssessment,
+  isRunBackedPlaceholderWithoutIds,
+} from '@/features/ucat/learning-modules/lib/pending-generated-assessment'
 import type { UcatLearningModuleBlockPayload } from '@/features/ucat/learning-modules/types'
 
 export function toBlockPayload(blocks: DraftBlock[]): UcatLearningModuleBlockPayload[] {
@@ -8,6 +12,7 @@ export function toBlockPayload(blocks: DraftBlock[]): UcatLearningModuleBlockPay
 
 function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningModuleBlockPayload {
   const base = {
+    ...(block.id ? { id: block.id } : {}),
     block_type: block.block_type,
     index,
     require_completion_before_next: block.require_completion_before_next,
@@ -18,6 +23,7 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
       return {
         ...base,
         content: {
+          ...block.content,
           body: block.content.body ?? plainTextToProseMirror(''),
         },
       }
@@ -39,18 +45,19 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
       return {
         ...base,
         question_stem_id: block.question_stem_id?.trim() || undefined,
-        content: {},
+        content: block.content,
       }
     case 'question':
       return {
         ...base,
         question_id: block.question_id?.trim() || undefined,
-        content: {},
+        question_stem_id: block.question_stem_id?.trim() || undefined,
+        content: isPendingGeneratedAssessment(block.content) ? block.content : {},
       }
-    case 'skill_trainer_set':
+    case 'skill_trainer':
       return {
         ...base,
-        skill_trainer_set_id: block.skill_trainer_set_id?.trim() || undefined,
+        skill_trainer_id: block.skill_trainer_id?.trim() || undefined,
         content: block.content,
       }
     default:
@@ -58,7 +65,7 @@ function sanitizeBlockPayload(block: DraftBlock, index: number): UcatLearningMod
   }
 }
 
-export function validateBlocksForSave(blocks: DraftBlock[]): string | null {
+export function validateBlocksForSave(blocks: DraftBlock[], options?: { isPublished?: boolean }): string | null {
   for (let i = 0; i < blocks.length; i += 1) {
     const block = blocks[i]
     const label = `Block ${i + 1} (${block.block_type.replace(/_/g, ' ')})`
@@ -75,18 +82,26 @@ export function validateBlocksForSave(blocks: DraftBlock[]): string | null {
         }
         break
       case 'question_stem':
-        if (!block.question_stem_id) {
+      case 'question': {
+        const isPending =
+          isPendingGeneratedAssessment(block.content) || block.content.pendingGeneratedStem === true
+        if (isPending && options?.isPublished) {
+          return `${label}: pending generated assessment placeholders can only be saved on unpublished lessons`
+        }
+        if (isPendingGeneratedAssessment(block.content) && isRunBackedPlaceholderWithoutIds(block)) {
+          break
+        }
+        if (block.block_type === 'question_stem' && !block.question_stem_id) {
           return `${label}: select a question stem before saving`
         }
-        break
-      case 'question':
-        if (!block.question_id) {
+        if (block.block_type === 'question' && !block.question_id) {
           return `${label}: select a question before saving`
         }
         break
-      case 'skill_trainer_set':
-        if (!block.skill_trainer_set_id) {
-          return `${label}: select a skill trainer set before saving`
+      }
+      case 'skill_trainer':
+        if (!block.skill_trainer_id) {
+          return `${label}: select a skill trainer before saving`
         }
         break
       default:

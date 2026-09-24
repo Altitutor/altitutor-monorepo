@@ -1,11 +1,12 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { randomUUID } from 'crypto';
-import type { Tables, TablesUpdate } from '@altitutor/shared';
+import type { Tables } from '@altitutor/shared';
 import { sendEmail } from '@/shared/lib/email';
-import { getInviteEmailTemplate } from '@/shared/lib/email-templates';
+import { buildRegistrationEmail } from '@altitutor/email';
 import { getStudentRegistrationInviteMessage } from '@/features/messages/api/systemTemplates';
+import { getInviteUrlForStudent } from '@/shared/utils/invites';
 
 export async function POST(request: NextRequest) {
   try {
@@ -39,7 +40,6 @@ export async function POST(request: NextRequest) {
 
     // Handle FormData or JSON
     let studentId: string;
-    let existingToken: string | undefined;
     let shouldSendEmail: boolean | undefined;
     let shouldSendSms: boolean | undefined;
     let recipientType: 'student' | 'parent' | undefined;
@@ -53,7 +53,6 @@ export async function POST(request: NextRequest) {
     if (contentType.includes('multipart/form-data')) {
       const formData = await request.formData();
       studentId = formData.get('studentId') as string;
-      existingToken = formData.get('token') as string | undefined;
       shouldSendEmail = formData.get('sendEmail') === 'true';
       shouldSendSms = formData.get('sendSms') === 'true';
       recipientType = formData.get('recipientType') as 'student' | 'parent' | undefined;
@@ -77,7 +76,6 @@ export async function POST(request: NextRequest) {
     } else {
       const body = await request.json();
       studentId = body.studentId;
-      existingToken = body.token;
       shouldSendEmail = body.sendEmail;
       shouldSendSms = body.sendSms;
       recipientType = body.recipientType;
@@ -97,9 +95,9 @@ export async function POST(request: NextRequest) {
     // Fetch student record
     const { data: student, error: studentError } = await supabase
       .from('students')
-      .select('id, first_name, last_name, email, phone, status, user_id, invite_token')
+      .select('id, first_name, last_name, email, phone, status, user_id, registration_public_token')
       .eq('id', studentId)
-      .single<Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'user_id' | 'invite_token'>>();
+      .single<Pick<Tables<'students'>, 'id' | 'first_name' | 'last_name' | 'email' | 'phone' | 'status' | 'user_id' | 'registration_public_token'>>();
 
     if (studentError || !student) {
       return NextResponse.json(
@@ -108,10 +106,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if student is already fully registered (has account AND status is ACTIVE)
-    if (student.user_id && student.status === 'ACTIVE') {
+    if (student.status !== 'TRIAL') {
       return NextResponse.json(
-        { error: 'This student is already fully registered' },
+        { error: student.status === 'ACTIVE'
+          ? 'This student is already fully registered'
+          : 'Registration is not available for this student' },
         { status: 400 }
       );
     }
@@ -119,32 +118,23 @@ export async function POST(request: NextRequest) {
     // If student has account but hasn't registered (status != ACTIVE), allow registration link
     // This will skip password creation in the registration flow
 
-    // Generate or use existing token
-    let token = existingToken || student.invite_token;
-    
+    let token = student.registration_public_token;
     if (!token) {
-      token = randomUUID();
-      
-      // Update student with invite token (use admin client for proper typing)
-      const updateData: TablesUpdate<'students'> = { invite_token: token };
-      const { error: updateError } = await supabaseAdmin!
-        .from('students')
-        .update(updateData)
-        .eq('id', studentId);
-
-      if (updateError) {
-        console.error('Failed to update invite token:', updateError);
+      const { data: issuedToken, error: issueError } = await supabaseAdmin.rpc(
+        'issue_student_registration_public_token',
+        { p_student_id: studentId }
+      );
+      if (issueError || typeof issuedToken !== 'string') {
+        captureApiError(issueError, "/api/students/send-registration-invite");
         return NextResponse.json(
-          { error: `Failed to generate invite token: ${updateError.message}` },
+          { error: issueError?.message || 'Failed to issue registration link' },
           { status: 500 }
         );
       }
+      token = issuedToken;
     }
 
-    // Build registration URL
-    const isDev = process.env.NODE_ENV === 'development';
-    const baseUrl = isDev ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
-    const registrationUrl = `${baseUrl}/register/${token}`;
+    const registrationUrl = getInviteUrlForStudent(token, 'register');
 
     // Determine recipient based on recipientType and recipientId
     let recipient: { id: string; first_name: string; last_name: string; email: string | null; phone: string | null } | null = null;
@@ -214,18 +204,15 @@ export async function POST(request: NextRequest) {
 
         const emailPromises = emailRecipients.map(async (r) => {
           try {
-            const html = getInviteEmailTemplate({
-              firstName: r.first_name,
-              lastName: r.last_name,
-              inviteUrl: registrationUrl,
-              linkType: 'registration',
+            const email = buildRegistrationEmail({
+              recipientName: [r.first_name, r.last_name].filter(Boolean).join(' '),
+              registrationUrl,
               studentName: `${student.first_name} ${student.last_name}`,
             });
 
             await sendEmail({
               to: r.email,
-              subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
-              html,
+              email,
               attachments: attachments.length > 0 ? attachments : undefined,
             });
 
@@ -447,36 +434,20 @@ export async function POST(request: NextRequest) {
     // Send email if requested
     if (shouldSendEmail && contactMethod === 'email' && recipient) {
       try {
-        // Use custom message if provided, otherwise use template
-        let html: string;
-        if (customMessage && customMessage.trim()) {
-          // For custom messages, create a simple HTML email with the message
-          html = `
-            <!DOCTYPE html>
-            <html>
-            <body style="font-family: Arial, sans-serif; padding: 20px;">
-              <p>${customMessage.replace(/\n/g, '<br>')}</p>
-              <p><a href="${registrationUrl}">${registrationUrl}</a></p>
-            </body>
-            </html>
-          `;
-        } else {
-          html = getInviteEmailTemplate({
-            firstName: recipient.first_name,
-            lastName: recipient.last_name,
-            inviteUrl: registrationUrl,
-            linkType: 'registration',
-            studentName: `${student.first_name} ${student.last_name}`,
-          });
-        }
+        const email = buildRegistrationEmail({
+          recipientName: [recipient.first_name, recipient.last_name].filter(Boolean).join(' '),
+          registrationUrl,
+          studentName: `${student.first_name} ${student.last_name}`,
+          staffIntroduction: customMessage?.trim() || undefined,
+        });
 
         await sendEmail({
           to: recipient.email!,
-          subject: `Complete Registration for ${student.first_name} ${student.last_name} - Altitutor`,
-          html,
+          email,
           attachments: attachments.length > 0 ? attachments : undefined,
         });
       } catch (error) {
+        captureApiError(error, "/api/students/send-registration-invite");
         const errorMsg = `Failed to send email to ${recipient.email}: ${error instanceof Error ? error.message : 'Unknown error'}`;
         console.error('Failed to send email:', errorMsg, error);
         return NextResponse.json(
@@ -514,6 +485,7 @@ export async function POST(request: NextRequest) {
           if (createContactError || !newContact) {
             const errorMsg = `Failed to create contact: ${createContactError?.message || 'Unknown error'}`;
             console.error('Failed to create contact:', createContactError);
+            captureApiError(createContactError, "/api/students/send-registration-invite");
             return NextResponse.json(
               { error: errorMsg },
               { status: 500 }
@@ -554,6 +526,7 @@ export async function POST(request: NextRequest) {
           if (ownedError || !data) {
             const errorMsg = `No owned number found: ${ownedError?.message || 'Unknown error'}`;
             console.error('No owned number found:', ownedError);
+            captureApiError(ownedError, "/api/students/send-registration-invite");
             return NextResponse.json(
               { error: errorMsg },
               { status: 500 }
@@ -586,6 +559,7 @@ export async function POST(request: NextRequest) {
           if (convoCreateError || !newConvo) {
             const errorMsg = `Failed to create conversation: ${convoCreateError?.message || 'Unknown error'}`;
             console.error('Failed to create conversation:', convoCreateError);
+            captureApiError(convoCreateError, "/api/students/send-registration-invite");
             return NextResponse.json(
               { error: errorMsg },
               { status: 500 }
@@ -622,6 +596,7 @@ export async function POST(request: NextRequest) {
         if (messageError || !message) {
           const errorMsg = `Failed to create message: ${messageError?.message || 'Unknown error'}`;
           console.error('Failed to create message:', messageError);
+          captureApiError(messageError, "/api/students/send-registration-invite");
           return NextResponse.json(
             { error: errorMsg },
             { status: 500 }
@@ -660,6 +635,7 @@ export async function POST(request: NextRequest) {
           );
         }
       } catch (smsError) {
+        captureApiError(smsError, "/api/students/send-registration-invite");
         const errorMsg = `Exception sending SMS to ${recipient.phone}: ${smsError instanceof Error ? smsError.message : 'Unknown error'}`;
         console.error('Exception sending SMS:', smsError);
         return NextResponse.json(
@@ -676,6 +652,7 @@ export async function POST(request: NextRequest) {
       message: shouldSendEmail || shouldSendSms ? 'Registration invite sent successfully' : 'Registration link generated',
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/students/send-registration-invite");
     console.error('Unexpected error sending registration invite:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

@@ -26,6 +26,8 @@ import type { Note, FolderTreeItem } from '../types';
 interface FolderTreeProps {
   searchQuery?: string;
   onNoteClick?: (noteId: string) => void;
+  /** Called after inline document creation; falls back to onNoteClick / page navigation. */
+  onNoteCreated?: (noteId: string) => void;
   onProjectClick?: (projectId: string) => void;
 }
 
@@ -33,7 +35,12 @@ interface FolderTreeProps {
  * Folder tree: notes without a folder (droppable), root "+ Create new", then root folders.
  * Search mode shows flat results instead.
  */
-export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: FolderTreeProps) {
+export function FolderTree({
+  searchQuery = '',
+  onNoteClick,
+  onNoteCreated,
+  onProjectClick,
+}: FolderTreeProps) {
   const router = useRouter();
   const isSearching = searchQuery.length > 0;
   const { data: projects = [] } = useProjects();
@@ -68,6 +75,14 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
     } else {
       router.push(`/documents/${noteId}`);
     }
+  };
+
+  const handleNoteCreated = (noteId: string) => {
+    if (onNoteCreated) {
+      onNoteCreated(noteId);
+      return;
+    }
+    handleNoteClick(noteId);
   };
 
   const updateNoteMutation = useUpdateNote();
@@ -200,7 +215,7 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
             <FolderInlineCreateDocument
               folderId={null}
               indent={8}
-              onCreated={(id) => handleNoteClick(id)}
+              onCreated={handleNoteCreated}
             />
           </DroppableNoFolder>
         )}
@@ -212,6 +227,7 @@ export function FolderTree({ searchQuery = '', onNoteClick, onProjectClick }: Fo
               folder={folder}
               level={0}
               onNoteClick={onNoteClick}
+              onNoteCreated={onNoteCreated}
               onProjectClick={onProjectClick}
               projects={projects}
             />

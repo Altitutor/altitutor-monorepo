@@ -21,22 +21,16 @@ import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '../../hooks/useClassActions';
 import { useQueryClient } from '@tanstack/react-query';
 import { classesApi } from "../../api";
-import { useClassDetails, classesKeys, useDeleteClass } from '../../hooks/useClassesQuery';
+import { useClassDeleteImpact, useClassDetails, useDeleteClass } from '../../hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
-import { useUpdateClass } from '../../hooks/useClassesQuery';
-import type { TablesUpdate } from '@altitutor/shared';
-import { ClassInfoTab, ClassInfoFormData } from './tabs/ClassInfoTab';
-import { ClassStudentsTab } from './tabs/ClassStudentsTab';
-import { ClassStaffTab } from './tabs/ClassStaffTab';
+import { ClassInfoTab } from './tabs/ClassInfoTab';
+import { ClassPeopleTab } from './tabs/ClassPeopleTab';
 import { ClassSessionsTab } from './tabs/ClassSessionsTab';
 import { ClassActivityTab } from '@/features/activity/components/tabs/ClassActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
 import { IssuePill } from '@/features/issues';
+import { invalidateClassSurfaces } from '@/shared/lib/query-invalidation';
 
 interface ViewClassModalProps {
   isOpen: boolean;
@@ -57,7 +51,6 @@ export function ViewClassModal({
   const { data: allSubjects = [] } = useSubjects();
   const { data: allStudentsData = [] } = useStudents();
   const { data: allStaffData = [] } = useStaff();
-  const updateClassMutation = useUpdateClass();
   
   // Extract data from classDetails
   const classData = classDetails?.class || null;
@@ -69,16 +62,10 @@ export function ViewClassModal({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  
-  // Nested modal state for sessions table interactions
-  const {
-    nestedSessionId,
-    nestedStaffId,
-    nestedStudentId,
-    setNestedSessionId,
-    setNestedStaffId,
-    setNestedStudentId,
-  } = useNestedModalEvents({ isOpen });
+  const { data: deleteImpact, isLoading: isDeleteImpactLoading } = useClassDeleteImpact(
+    classData?.id,
+    isDeleteDialogOpen
+  );
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -105,56 +92,13 @@ export function ViewClassModal({
     }
   }, [isOpen]);
 
-  // Update class handler
-  const handleClassUpdate = async (data: ClassInfoFormData) => {
-    if (!classData) return;
-    
-    try {
-      const updateData: TablesUpdate<'classes'> = {
-        level: data.level || null,
-        day_of_week: data.dayOfWeek,
-        start_time: data.startTime,
-        end_time: data.endTime,
-        status: data.status,
-        subject_id: data.subjectId || null,
-        room: data.room || null,
-        session_start_date: data.sessionStartDate || null,
-        session_end_date: data.sessionEndDate || null,
-      };
-      await updateClassMutation.mutateAsync({ id: classData.id, data: updateData });
-      
-      // Invalidate class details to refetch full data including subject relationship
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      
-      // Reset edit mode
-      setIsEditing(false);
-      
-      // Notify parent of update
-      onClassUpdated();
-      
-      toast({
-        title: 'Class updated',
-        description: 'Class has been updated successfully.',
-      });
-    } catch (err) {
-      console.error('Failed to update class:', err);
-      toast({
-        title: 'Update failed',
-        description: 'There was an error updating the class. Please try again.',
-        variant: 'destructive',
-      });
-    }
-  };
-
   // Handle staff assignment
   const handleAssignStaff = async (staffId: string) => {
     if (!classData) return;
     
     try {
       await classesApi.assignStaff(classData.id, staffId);
-      // Invalidate class details and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       onClassUpdated();
       toast({
         title: 'Success',
@@ -176,9 +120,7 @@ export function ViewClassModal({
     
     try {
       await classesApi.unassignStaff(classData.id, staffId);
-      // Invalidate class details and classes list
-      queryClient.invalidateQueries({ queryKey: classesKeys.detailFull(classData.id) });
-      queryClient.invalidateQueries({ queryKey: classesKeys.minimal() });
+      await invalidateClassSurfaces(queryClient, classData.id);
       onClassUpdated();
       toast({
         title: 'Success',
@@ -231,32 +173,6 @@ export function ViewClassModal({
           </SheetContent>
         </Sheet>
 
-        {/* Nested Session Modal */}
-        <SessionModal
-          isOpen={!!nestedSessionId}
-          sessionId={nestedSessionId}
-          onClose={() => setNestedSessionId(null)}
-        />
-
-        {/* Nested Staff Modal */}
-        {nestedStaffId && (
-          <ViewStaffModal
-            isOpen={!!nestedStaffId}
-            staffId={nestedStaffId}
-            onClose={() => setNestedStaffId(null)}
-            onStaffUpdated={onClassUpdated}
-          />
-        )}
-
-        {/* Nested Student Modal */}
-        {nestedStudentId && (
-          <ViewStudentModal
-            isOpen={!!nestedStudentId}
-            studentId={nestedStudentId}
-            onClose={() => setNestedStudentId(null)}
-            onStudentUpdated={onClassUpdated}
-          />
-        )}
       </>
     );
   }
@@ -267,7 +183,7 @@ export function ViewClassModal({
       <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] lg:w-[800px] md:max-w-none">
         <div className="flex flex-col h-full min-h-0">
           {/* Sticky Header */}
-          <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+          <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
             <SheetHeader className="px-6 pt-6 pb-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex items-center gap-3 flex-1">
@@ -283,8 +199,8 @@ export function ViewClassModal({
                     <SheetTitle>
                       {isEditing ? 'Edit Class' : 'Class Details'}
                     </SheetTitle>
-                    <SheetDescription className="text-lg font-medium">
-                      <div className="flex items-center gap-2 flex-wrap">
+                    <SheetDescription asChild>
+                      <div className="flex flex-wrap items-center gap-2 text-lg font-medium text-muted-foreground">
                         {classData.long_name?.trim() ?? ''}
                         <IssuePill
                           entityType="class"
@@ -296,12 +212,14 @@ export function ViewClassModal({
                   </div>
                 </div>
                 {classId && (
-                  <ActionsMenu
-                    type="class"
-                    entityId={classId}
-                    copyTagDisplayText={classData.short_name?.trim() ?? ''}
-                    {...classActions}
-                  />
+                  <div className="flex items-center gap-2">
+                    <ActionsMenu
+                      type="class"
+                      entityId={classId}
+                      copyTagDisplayText={classData.short_name?.trim() ?? ''}
+                      {...classActions}
+                    />
+                  </div>
                 )}
               </div>
             </SheetHeader>
@@ -312,8 +230,6 @@ export function ViewClassModal({
                 onValueChange={setActiveTab}
                 options={[
                   { value: 'details', label: 'Details' },
-                  { value: 'students', label: 'Students' },
-                  { value: 'staff', label: 'Staff' },
                   { value: 'sessions', label: 'Sessions' },
                   { value: 'activity', label: 'Activity' },
                 ]}
@@ -325,7 +241,7 @@ export function ViewClassModal({
           <div className="flex-1 min-h-0 relative">
             <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
               <div className="p-6">
-                <ClassInfoTab
+                    <ClassInfoTab
                   classData={classData}
                   subject={subject}
                   subjects={allSubjects}
@@ -333,38 +249,29 @@ export function ViewClassModal({
                   isLoading={isLoading}
                   onEdit={() => setIsEditing(true)}
                   onCancelEdit={() => setIsEditing(false)}
-                  onSubmit={handleClassUpdate}
-                />
-              </div>
-            </SegmentedTabPanelContent>
-
-            <SegmentedTabPanelContent when="students" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-              <div className="p-6">
-                <ClassStudentsTab
-                  classData={classData}
-                  classSubject={subject || undefined}
-                  classStaff={classStaff}
-                  classStudents={classStudents}
-                  allStudents={allStudentsData}
-                  loadingStudents={false}
-                  onStudentsUpdated={() => {}}
-                />
-              </div>
-            </SegmentedTabPanelContent>
-
-            <SegmentedTabPanelContent when="staff" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-              <div className="p-6">
-                <ClassStaffTab
-                  classData={classData}
-                  classSubject={subject || undefined}
-                  classStaff={classStaff}
-                  allStaff={allStaffData}
-                  loadingStaff={false}
-                  onAssignStaff={handleAssignStaff}
-                  onRemoveStaff={handleRemoveStaff}
-                />
-              </div>
-            </SegmentedTabPanelContent>
+                  onSaved={() => {
+                    setIsEditing(false);
+                    void invalidateClassSurfaces(queryClient, classData.id);
+                    onClassUpdated();
+                    toast({ title: 'Class updated', description: 'Class details and future Sessions were updated.' });
+                      }}
+                    />
+                    <div className="mt-6 border-t pt-6">
+                      <ClassPeopleTab
+                        classData={classData}
+                        classSubject={subject || undefined}
+                        classStaff={classStaff}
+                        classStudents={classStudents}
+                        allStudents={allStudentsData}
+                        allStaff={allStaffData}
+                        onStudentsUpdated={() => {}}
+                        onAssignStaff={handleAssignStaff}
+                        onRemoveStaff={handleRemoveStaff}
+                        allowStudentEnrollment={classData.session_type === 'CLASS'}
+                      />
+                    </div>
+                  </div>
+                </SegmentedTabPanelContent>
 
             <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
               <div className="h-full p-6">
@@ -386,60 +293,8 @@ export function ViewClassModal({
           </div>
         </div>
         
-        {/* Sticky Footer with Buttons */}
-        {classData && isEditing && activeTab === 'details' && (
-          <div className="sticky bottom-0 left-0 right-0 p-6 border-t bg-background mt-auto shrink-0">
-            <div className="flex w-full justify-end">
-              <div className="flex space-x-2">
-                <Button variant="outline" type="button" onClick={() => setIsEditing(false)} disabled={isLoading}>
-                  Cancel
-                </Button>
-                <Button 
-                  type="button"
-                  disabled={isLoading}
-                  onClick={() => {
-                    const form = document.getElementById('class-edit-form') as HTMLFormElement;
-                    if (form) {
-                      form.requestSubmit();
-                    }
-                  }}
-                >
-                  {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                  Save Changes
-                </Button>
-              </div>
-            </div>
-          </div>
-        )}
       </SheetContent>
     </Sheet>
-
-    {/* Nested Session Modal */}
-    <SessionModal
-      isOpen={!!nestedSessionId}
-      sessionId={nestedSessionId}
-      onClose={() => setNestedSessionId(null)}
-    />
-
-    {/* Nested Staff Modal */}
-    {nestedStaffId && (
-      <ViewStaffModal
-        isOpen={!!nestedStaffId}
-        staffId={nestedStaffId}
-        onClose={() => setNestedStaffId(null)}
-        onStaffUpdated={onClassUpdated}
-      />
-    )}
-
-    {/* Nested Student Modal */}
-    {nestedStudentId && (
-      <ViewStudentModal
-        isOpen={!!nestedStudentId}
-        studentId={nestedStudentId}
-        onClose={() => setNestedStudentId(null)}
-        onStudentUpdated={onClassUpdated}
-      />
-    )}
 
     {/* Delete confirmation dialog */}
     <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {
@@ -452,8 +307,12 @@ export function ViewClassModal({
         <AlertDialogHeader>
           <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
           <AlertDialogDescription>
-            This action cannot be undone. This will permanently delete the class
-            {classData?.level ? ` "${classData.level}"` : ''} and all associated data from the database.
+            This permanently deletes the Class
+            {classData?.level ? ` "${classData.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.
+            {' '}Historical Sessions are never deleted.
+            {deleteImpact && !deleteImpact.canDelete
+              ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit Class instead.`
+              : ''}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <div className="py-4">
@@ -482,7 +341,12 @@ export function ViewClassModal({
               setIsDeleteDialogOpen(false);
               setDeleteConfirmText('');
             }}
-            disabled={isDeleting || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
+            disabled={
+              isDeleting
+              || isDeleteImpactLoading
+              || !deleteImpact?.canDelete
+              || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')
+            }
             className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isDeleting ? (

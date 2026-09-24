@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { keepPreviousData } from '@tanstack/react-query';
-import { parentsApi } from '../api/parents';
+import { parentsApi, type ParentSearchField } from '../api/parents';
 import type { Tables, TablesInsert, TablesUpdate, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -10,6 +10,7 @@ export const parentsKeys = {
   lists: () => [...parentsKeys.all(), 'list'] as const,
   list: (params: {
     search?: string;
+    searchFields?: ParentSearchField[];
     page?: number;
     pageSize?: number;
     orderBy?: keyof Tables<'parents'>;
@@ -20,6 +21,7 @@ export const parentsKeys = {
 
 export interface UseParentsListParams {
   search?: string;
+  searchFields?: ParentSearchField[];
   page?: number;
   pageSize?: number;
   orderBy?: keyof Tables<'parents'>;
@@ -29,6 +31,7 @@ export interface UseParentsListParams {
 export function useParentsList(params: UseParentsListParams) {
   const {
     search = '',
+    searchFields = ['name', 'email', 'phone'],
     page = 1,
     pageSize = 50,
     orderBy = 'last_name',
@@ -38,8 +41,8 @@ export function useParentsList(params: UseParentsListParams) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: parentsKeys.list({ search, page, pageSize, orderBy, ascending }),
-    queryFn: () => parentsApi.list({ search, limit: pageSize, offset, orderBy, ascending }),
+    queryKey: parentsKeys.list({ search, searchFields, page, pageSize, orderBy, ascending }),
+    queryFn: () => parentsApi.list({ search, searchFields, limit: pageSize, offset, orderBy, ascending }),
     placeholderData: keepPreviousData,
     staleTime: 1000 * 60 * 3, // 3 minutes
     gcTime: 1000 * 60 * 5,

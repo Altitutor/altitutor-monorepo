@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { finalizeExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
+import { useEffect, useRef, useState } from "react";
+import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
+import { getLaunchConflictAttempt } from "@/features/exam-attempts/lib/active-exam-attempt-state";
+import { isAttemptAtResults } from "@/features/exam-attempts/lib/banner-copy";
 import type {
   ActiveExamAttempt,
   ExamAttemptKind,
@@ -14,13 +16,14 @@ export function useExamAttemptLaunchGate(
   kind: ExamAttemptKind | null,
   resourceId: string | undefined,
 ) {
-  const { active, isLoading, refresh } = useActiveExamAttempt();
+  const { active, isLoading, refresh, clearLocal } = useActiveExamAttempt();
   const [status, setStatus] = useState<LaunchGateStatus>(
     kind && resourceId ? "checking" : "allowed",
   );
   const [conflictActive, setConflictActive] =
     useState<ActiveExamAttempt | null>(null);
-  const [isFinalizing, setIsFinalizing] = useState(false);
+  const [isDiscarding, setIsDiscarding] = useState(false);
+  const discardPromiseRef = useRef<Promise<void> | null>(null);
 
   useEffect(() => {
     if (!kind || !resourceId) {
@@ -29,34 +32,59 @@ export function useExamAttemptLaunchGate(
       return;
     }
 
+    if (isDiscarding) {
+      setStatus("checking");
+      return;
+    }
+
     if (isLoading) {
       setStatus("checking");
       return;
     }
 
-    if (!active || (active.kind === kind && active.resourceId === resourceId)) {
+    if (active && isAttemptAtResults(active)) {
+      clearLocal();
       setConflictActive(null);
       setStatus("allowed");
       return;
     }
 
-    setConflictActive(active);
-    setStatus("blocked");
-  }, [kind, resourceId, active, isLoading]);
+    const conflict = getLaunchConflictAttempt(active, kind, resourceId);
+    if (!conflict) {
+      setConflictActive(null);
+      setStatus("allowed");
+      return;
+    }
 
-  async function finalizeConflictAndContinue() {
-    if (!conflictActive) return;
-    setIsFinalizing(true);
-    try {
-      await finalizeExamAttempt({
-        kind: conflictActive.kind,
-        attemptId: conflictActive.attemptId,
+    setConflictActive(conflict);
+    setStatus("blocked");
+  }, [kind, resourceId, active, isLoading, isDiscarding, clearLocal]);
+
+  async function discardConflictAndContinue() {
+    if (discardPromiseRef.current) return discardPromiseRef.current;
+    const attemptToDiscard = conflictActive;
+    if (!attemptToDiscard) return;
+
+    setIsDiscarding(true);
+    const request = (async () => {
+      await discardExamAttempt({
+        kind: attemptToDiscard.kind,
+        attemptId: attemptToDiscard.attemptId,
       });
+      clearLocal();
       await refresh();
       setConflictActive(null);
       setStatus("allowed");
+    })();
+    discardPromiseRef.current = request;
+
+    try {
+      await request;
     } finally {
-      setIsFinalizing(false);
+      if (discardPromiseRef.current === request) {
+        discardPromiseRef.current = null;
+        setIsDiscarding(false);
+      }
     }
   }
 
@@ -64,7 +92,7 @@ export function useExamAttemptLaunchGate(
     launchAllowed: status === "allowed",
     isCheckingLaunch: status === "checking",
     conflictActive: status === "blocked" ? conflictActive : null,
-    isFinalizingConflict: isFinalizing,
-    finalizeConflictAndContinue,
+    isDiscardingConflict: isDiscarding,
+    discardConflictAndContinue,
   };
 }

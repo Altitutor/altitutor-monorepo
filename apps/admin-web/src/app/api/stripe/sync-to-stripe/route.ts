@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -99,6 +100,7 @@ export async function POST(request: NextRequest) {
 
     if (pmError) {
       console.error('Error fetching payment methods:', pmError);
+      captureApiError(pmError, "/api/stripe/sync-to-stripe");
       return NextResponse.json(
         { error: 'Failed to fetch payment methods: ' + pmError.message },
         { status: 500 }
@@ -165,6 +167,7 @@ export async function POST(request: NextRequest) {
         : 'No changes needed',
     });
   } catch (error: unknown) {
+    captureApiError(error, "/api/stripe/sync-to-stripe");
     const errorMessage = getErrorMessage(error);
     console.error('Error syncing to Stripe:', error);
     return NextResponse.json(

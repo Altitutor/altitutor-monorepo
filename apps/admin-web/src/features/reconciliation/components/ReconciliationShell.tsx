@@ -4,9 +4,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { AlertCircle } from 'lucide-react';
 import { useQueryClient } from '@tanstack/react-query';
 import { SegmentedControl } from '@altitutor/ui';
-import { reconciliationKeys } from '../api/queryKeys';
 import { useReconciliationTabCounts } from '../api/queries';
-import { projectKeys } from '@/features/projects/api/queryKeys';
 import { ReconciliationHandlersProvider } from './ReconciliationActions';
 import {
   useReconciliationModals,
@@ -24,20 +22,23 @@ import { ViewClassModal } from '@/features/classes';
 import { EditProjectDialog } from '@/features/projects/components/EditProjectDialog';
 import { AssignStaffModalWrapper } from './AssignStaffModalWrapper';
 import { EnrollStudentModalWrapper } from './EnrollStudentModalWrapper';
+import {
+  invalidateReconciliationProjectSurfaces,
+  invalidateReconciliationSurfaces,
+  invalidateUnloggedSessionSurfaces,
+} from '@/shared/lib/query-invalidation';
 
 const NAV = [
   { segment: 'financial', href: '/reconciliation/financial', label: 'Financial' },
   { segment: 'scheduling', href: '/reconciliation/scheduling', label: 'Scheduling' },
   { segment: 'communication', href: '/reconciliation/communication', label: 'Communication' },
   { segment: 'operations', href: '/reconciliation/operations', label: 'Operations' },
-  { segment: 'family', href: '/reconciliation/family', label: 'Family' },
 ] as const;
 
 function tabCountForSegment(
   segment: (typeof NAV)[number]['segment'],
   counts: { financial: number; scheduling: number; communication: number; operations: number } | undefined
 ): number | undefined {
-  if (segment === 'family') return undefined;
   if (!counts) return undefined;
   if (segment === 'financial') return counts.financial;
   if (segment === 'scheduling') return counts.scheduling;
@@ -48,62 +49,7 @@ function tabCountForSegment(
 export function ReconciliationShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { data: currentStaff } = useCurrentStaff();
   const tabCounts = useReconciliationTabCounts();
-  const modals = useReconciliationModals();
-  const assignStaffMutation = useAssignStaffMutation();
-  const enrollStudentMutation = useEnrollStudentMutation();
-
-  const handleCloseLogSession = () => {
-    modals.handleCloseLogSession();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.unloggedSessions() });
-    void queryClient.invalidateQueries({ queryKey: reconciliationKeys.familyCheckIns() });
-  };
-
-  const handleCloseStudent = () => {
-    modals.handleCloseStudent();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
-  };
-
-  const handleCloseClass = () => {
-    modals.handleCloseClass();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
-  };
-
-  const handleCloseStaff = () => {
-    modals.handleCloseStaff();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
-  };
-
-  const handleCloseProject = () => {
-    modals.handleCloseProject();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
-    queryClient.invalidateQueries({ queryKey: projectKeys.all });
-  };
-
-  const handleCloseParent = () => {
-    modals.handleCloseParent();
-    queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
-  };
-
-  const handleAssignStaff = async (params: {
-    staffId: string;
-    classId: string;
-    assignedAt: Date;
-    currentStaffId: string;
-  }) => {
-    await assignStaffMutation.mutateAsync(params);
-  };
-
-  const handleEnrollStudent = async (params: {
-    studentId: string;
-    classId: string;
-    enrolledAt: Date;
-    staffId: string;
-  }) => {
-    await enrollStudentMutation.mutateAsync(params);
-  };
 
   const counts = tabCounts.data;
   const totalItems =
@@ -112,7 +58,6 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
       : undefined;
 
   const formatBadge = (segment: (typeof NAV)[number]['segment']): string | null => {
-    if (segment === 'family') return null;
     if (tabCounts.isPending) return '…';
     if (tabCounts.isError) return '—';
     const n = tabCountForSegment(segment, counts);
@@ -124,20 +69,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
     NAV[0].segment;
 
   return (
-    <ReconciliationHandlersProvider
-      handlers={{
-        onOpenStudent: modals.handleOpenStudent,
-        onLogSession: modals.handleLogSession,
-        onOpenInvoice: modals.handleOpenInvoice,
-        onOpenSession: modals.handleOpenSession,
-        onOpenClass: modals.handleOpenClass,
-        onOpenStaff: modals.handleOpenStaff,
-        onOpenParent: modals.handleOpenParent,
-        onOpenProject: modals.handleOpenProject,
-        onAssignStaff: modals.handleAssignStaff,
-        onAddClass: modals.handleAddClass,
-      }}
-    >
+    <ReconciliationInteractionProvider>
       <div className="min-w-0 overflow-x-hidden p-6 space-y-8">
         <div>
           <h1 className="text-3xl font-bold tracking-tight">Reconciliation Dashboard</h1>
@@ -169,22 +101,95 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
 
         {children}
 
-        {tabCounts.isSuccess &&
-          totalItems === 0 &&
-          pathname !== '/reconciliation/family' &&
-          !pathname?.startsWith('/reconciliation/family/') && (
+        {tabCounts.isSuccess && totalItems === 0 && (
           <div className="text-center py-12 text-muted-foreground">
             <p className="text-lg">No reconciliation items found</p>
             <p className="text-sm mt-2">All data is consistent!</p>
           </div>
         )}
+      </div>
+    </ReconciliationInteractionProvider>
+  );
+}
+
+export function ReconciliationInteractionProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
+  const { data: currentStaff } = useCurrentStaff();
+  const modals = useReconciliationModals();
+  const assignStaffMutation = useAssignStaffMutation();
+  const enrollStudentMutation = useEnrollStudentMutation();
+
+  const handleCloseLogSession = () => {
+    modals.handleCloseLogSession();
+    void invalidateUnloggedSessionSurfaces(queryClient);
+  };
+
+  const handleCloseStudent = () => {
+    modals.handleCloseStudent();
+    void invalidateReconciliationSurfaces(queryClient);
+  };
+
+  const handleCloseClass = () => {
+    modals.handleCloseClass();
+    void invalidateReconciliationSurfaces(queryClient);
+  };
+
+  const handleCloseStaff = () => {
+    modals.handleCloseStaff();
+    void invalidateReconciliationSurfaces(queryClient);
+  };
+
+  const handleCloseProject = () => {
+    modals.handleCloseProject();
+    void invalidateReconciliationProjectSurfaces(queryClient);
+  };
+
+  const handleCloseParent = () => {
+    modals.handleCloseParent();
+    void invalidateReconciliationSurfaces(queryClient);
+  };
+
+  const handleAssignStaff = async (params: {
+    staffId: string;
+    classId: string;
+    assignedAt: Date;
+    currentStaffId: string;
+  }) => {
+    await assignStaffMutation.mutateAsync(params);
+  };
+
+  const handleEnrollStudent = async (params: {
+    studentId: string;
+    classId: string;
+    enrolledAt: Date;
+    staffId: string;
+  }) => {
+    await enrollStudentMutation.mutateAsync(params);
+  };
+
+  return (
+    <ReconciliationHandlersProvider
+      handlers={{
+        onOpenStudent: modals.handleOpenStudent,
+        onLogSession: modals.handleLogSession,
+        onOpenInvoice: modals.handleOpenInvoice,
+        onOpenSession: modals.handleOpenSession,
+        onOpenClass: modals.handleOpenClass,
+        onOpenStaff: modals.handleOpenStaff,
+        onOpenParent: modals.handleOpenParent,
+        onOpenProject: modals.handleOpenProject,
+        onAssignStaff: modals.handleAssignStaff,
+        onAddClass: modals.handleAddClass,
+      }}
+    >
+      {children}
 
         <ViewStudentModal
           isOpen={modals.isStudentModalOpen}
           onClose={handleCloseStudent}
           studentId={modals.selectedStudentId}
           onStudentUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -193,7 +198,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           onClose={handleCloseParent}
           parentId={modals.selectedParentId}
           onParentUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -225,7 +230,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           staffId={modals.selectedStaffId}
           onClose={handleCloseStaff}
           onStaffUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -234,7 +239,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
           classId={modals.selectedClassId}
           onClose={handleCloseClass}
           onClassUpdated={() => {
-            queryClient.invalidateQueries({ queryKey: reconciliationKeys.all });
+            void invalidateReconciliationSurfaces(queryClient);
           }}
         />
 
@@ -264,7 +269,6 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
             onEnroll={handleEnrollStudent}
           />
         )}
-      </div>
     </ReconciliationHandlersProvider>
   );
 }

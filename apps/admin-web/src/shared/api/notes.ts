@@ -1,4 +1,5 @@
-import type { Tables, TablesInsert, Database } from '@altitutor/shared';
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
+import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { JSONContent } from '@tiptap/core';
@@ -17,22 +18,7 @@ export const notesApi = {
     note: JSONContent;
     staffId: string;
   }): Promise<Tables<'notes'>> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    const noteInsert: TablesInsert<'notes'> = {
-      target_type: params.targetType,
-      target_id: params.targetId,
-      note: params.note as TablesInsert<'notes'>['note'],
-      created_by: params.staffId,
-    };
-    
-    const { data, error } = await supabase
-      .from('notes')
-      .insert(noteInsert)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data as Tables<'notes'>;
+    return mutateWorkItem<Tables<'notes'>>('note', { target_type: params.targetType, target_id: params.targetId, note: params.note });
   },
 
   /**
@@ -81,19 +67,7 @@ export const notesApi = {
   /**
    * Update a note
    */
-  updateNote: async (noteId: string, note: JSONContent): Promise<Tables<'notes'>> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    const { data, error } = await supabase
-      .from('notes')
-      .update({ note })
-      .eq('id', noteId)
-      .select()
-      .single();
-    
-    if (error) throw error;
-    return data as Tables<'notes'>;
-  },
+  updateNote: async (noteId: string, note: JSONContent, revision?: number): Promise<Tables<'notes'>> => mutateWorkItem<Tables<'notes'>>('note', { note }, noteId, revision),
 
   /**
    * Delete a note

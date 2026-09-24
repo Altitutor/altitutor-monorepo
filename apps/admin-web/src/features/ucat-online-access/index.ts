@@ -6,5 +6,4 @@ export {
   type UcatOnlineAccessRow,
   type UcatOnlineTierOverride,
 } from './api/ucat-online-access';
-export { UcatOnlineAccessPageContent } from './components/UcatOnlineAccessPageContent';
 export { SetUcatTierOverrideModal } from './components/SetUcatTierOverrideModal';

@@ -12,6 +12,11 @@ export const EXPANDABLE_DIALOG_TRANSITION = 'transition-[width,height,max-width]
  */
 export const EXPANDED_DIALOG_CONTENT_CLASS =
   '!left-[50%] !top-[50%] !-translate-x-1/2 !-translate-y-1/2 !right-auto !bottom-auto !w-[calc(100vw-2rem)] !h-[calc(100dvh-2rem)] !max-w-none'
+
+/** Fixed wizard height — overrides DialogContent `sm:h-auto` so short steps don't shrink the modal. */
+export const WIZARD_DIALOG_HEIGHT_CLASS = 'sm:!h-[90vh] sm:!max-h-[90vh] overflow-hidden'
+
+export const COMPACT_WIZARD_DIALOG_HEIGHT_CLASS = 'sm:!h-[80vh] sm:!max-h-[80vh] overflow-hidden'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import { cn } from '@/shared/utils'
 

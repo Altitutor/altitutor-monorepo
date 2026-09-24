@@ -21,13 +21,13 @@ function toSnapshot(state: QuestionEngineState): ExamEngineSnapshot {
     phase: state.phase,
     instructionsIndex: state.instructionsIndex,
     showReadyDialog: state.showReadyDialog,
-    showTimeExpiredDialog: false,
+    showTimeExpiredDialog: state.showTimeExpiredDialog,
     nextSegmentTimerStartedAt: null,
     currentIndex: state.currentIndex,
     visitedQuestionIds: state.visitedQuestionIds,
     flaggedIds: state.flaggedIds,
     selectedAnswers: state.selectedAnswers,
-    syllogismSnapshots: state.syllogismSnapshots,
+    placementSnapshots: state.placementSnapshots,
     reviewFilter: state.reviewFilter,
     reviewFilterIndex: state.reviewFilterIndex,
     reviewFilterIndicesSnapshot: state.reviewFilterIndicesSnapshot,
@@ -37,6 +37,7 @@ function toSnapshot(state: QuestionEngineState): ExamEngineSnapshot {
     viewingQuestionIndex: state.viewingQuestionIndex,
     loadingMoreTargetIndex: state.loadingMoreTargetIndex,
     loadingMoreExcludeStemIds: state.loadingMoreExcludeStemIds,
+    activeQuestionTiming: state.activeQuestionTiming,
   };
 }
 
@@ -48,11 +49,19 @@ function advanceOneSegmentExpiry(
 ): CatchUpResult {
   const working = { ...state, showTimeExpiredDialog: false };
   const nextSegmentStartsAt = new Date(expiredEndsAt).getTime();
+  working.activeQuestionTiming = null;
 
   if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
     if (practice) {
+      if ((exam.practiceSessionTimeLimitSeconds ?? 0) > 0) {
+        return {
+          state: { ...working, showTimeExpiredDialog: true },
+          currentSegmentEndsAt: null,
+          isComplete: false,
+        };
+      }
       return {
-        state: { ...working, phase: "practiceComplete" },
+        state: { ...working, showTimeExpiredDialog: true },
         currentSegmentEndsAt: null,
         isComplete: false,
       };

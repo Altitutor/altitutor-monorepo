@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
@@ -32,6 +33,7 @@ export async function GET() {
     .maybeSingle();
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/exam-attempts/active");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {
@@ -41,8 +43,21 @@ export async function GET() {
     );
   }
 
-  const active = await getActiveExamAttempt(supabaseAdmin, student.id, {
-    readerClient: supabase,
-  });
-  return NextResponse.json({ active });
+  try {
+    const active = await getActiveExamAttempt(supabaseAdmin, student.id, {
+      readerClient: supabase,
+    });
+    return NextResponse.json({ active });
+  } catch (error) {
+    captureApiError(error, "/api/ucat/exam-attempts/active");
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to load active exam attempt",
+      },
+      { status: 500 },
+    );
+  }
 }

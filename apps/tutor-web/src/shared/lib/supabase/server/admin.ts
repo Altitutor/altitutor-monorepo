@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 // Create a server-only admin client using the service role key
 // Never import this from client components
@@ -10,7 +11,7 @@ export const supabaseAdmin = (() => {
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
   
   if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !serviceRoleKey) return null;
-  return createClient<Database>(
+  return instrumentSupabaseClient(createClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     serviceRoleKey,
     {
@@ -19,7 +20,6 @@ export const supabaseAdmin = (() => {
         persistSession: false,
       },
     }
-  );
+  ));
 })();
-
 

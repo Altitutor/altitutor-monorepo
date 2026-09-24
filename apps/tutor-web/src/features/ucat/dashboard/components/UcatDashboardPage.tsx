@@ -2,6 +2,7 @@
 
 import {
   BookOpen,
+  FileDiff,
   FileQuestion,
   FolderTree,
   GitMerge,
@@ -9,9 +10,10 @@ import {
   Layers,
   School,
   ScrollText,
+  ShieldCheck,
   Tag,
-  Target,
   Dumbbell,
+  DraftingCompass,
   type LucideIcon,
   Users,
 } from 'lucide-react'
@@ -39,16 +41,10 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
         icon: BookOpen,
       },
       {
-        title: 'Skill trainer questions',
+        title: 'Skill trainer',
         description: 'Author drill items for each UCAT skill trainer type',
         href: '/ucat/skill-trainer-questions',
         icon: Dumbbell,
-      },
-      {
-        title: 'Skill trainer sets',
-        description: 'Author timed skill trainer drill sets for student practice',
-        href: '/ucat/skill-trainer-sets',
-        icon: Target,
       },
     ],
   },
@@ -57,7 +53,7 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
     cards: [
       {
         title: 'Questions',
-        description: 'Manage question stems, multiple-choice questions, and syllogisms',
+        description: 'Manage question stems and their response contracts',
         href: '/ucat/questions',
         icon: FileQuestion,
       },
@@ -95,6 +91,24 @@ const sections: { heading: string; cards: UcatNavCard[] }[] = [
   {
     heading: 'Settings',
     cards: [
+      {
+        title: 'Audits',
+        description: 'Monitor durable UCAT content audit runs and outcomes',
+        href: '/ucat/audits',
+        icon: ShieldCheck,
+      },
+      {
+        title: 'AI content changes',
+        description: 'Review, apply, or reject staged changes to live content',
+        href: '/ucat/content-changes',
+        icon: FileDiff,
+      },
+      {
+        title: 'Mock blueprints',
+        description: 'Manage versioned full-mock totals, timings, and category ranges',
+        href: '/ucat/mock-blueprints',
+        icon: DraftingCompass,
+      },
       {
         title: 'Reconciliation',
         description: 'Fix uncategorized stems and questions missing explanations',

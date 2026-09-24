@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
@@ -46,7 +47,7 @@ export async function POST(request: NextRequest) {
     .select('id')
     .in('id', topicIds);
 
-  if (topicError) return NextResponse.json({ error: topicError.message }, { status: 500 });
+  if (topicError) return captureApiErrorResponse(topicError, "/api/flashcards/images/signed-urls", NextResponse.json({ error: topicError.message }, { status: 500 }));
 
   const accessibleTopicIds = new Set(
     ((accessibleTopics ?? []) as unknown as Array<{ id: string | null }>)
@@ -63,20 +64,20 @@ export async function POST(request: NextRequest) {
   }
 
   const adminClient = getServerSupabaseAdmin();
-  const signedUrls: string[] = [];
-  for (const path of paths) {
-    const { data, error } = await adminClient.storage
-      .from(BUCKET)
-      .createSignedUrl(path, REFRESHED_URL_EXPIRY_SECONDS);
-
-    if (error || !data?.signedUrl) {
-      return NextResponse.json(
-        { error: error?.message ?? 'No signed URL returned', path },
-        { status: error?.message === 'Object not found' ? 404 : 500 },
-      );
-    }
-    signedUrls.push(data.signedUrl);
+  const { data, error } = await adminClient.storage
+    .from(BUCKET)
+    .createSignedUrls(paths, REFRESHED_URL_EXPIRY_SECONDS);
+  if (error) {
+    captureApiError(error, '/api/flashcards/images/signed-urls');
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+  const failed = data.find((item) => item.error || !item.signedUrl);
+  if (failed) {
+    return NextResponse.json(
+      { error: failed.error ?? 'No signed URL returned', path: failed.path },
+      { status: failed.error === 'Object not found' ? 404 : 500 },
+    );
   }
 
-  return NextResponse.json({ data: { signedUrls } });
+  return NextResponse.json({ data: { signedUrls: data.map((item) => item.signedUrl) } });
 }

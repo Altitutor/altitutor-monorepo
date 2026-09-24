@@ -1,0 +1,101 @@
+import React from "react";
+import {
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
+import { SocialAuthButtons } from "@/features/auth/components/social-auth-buttons";
+import { captureUcatEvent } from "@/lib/analytics/posthog";
+import { rememberLastSignInMethod } from "@/features/auth/lib/last-sign-in-method";
+
+const signInWithOAuth = jest.fn();
+
+jest.mock("@/lib/supabase/client", () => ({
+  getSupabaseBrowserClient: () => ({
+    auth: { signInWithOAuth },
+  }),
+}));
+
+jest.mock("@/lib/analytics/posthog", () => ({
+  captureUcatEvent: jest.fn(),
+}));
+
+describe("SocialAuthButtons", () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
+    window.localStorage.clear();
+    signInWithOAuth.mockResolvedValue({ error: null });
+  });
+
+  it("badges the last social method used on this browser", () => {
+    rememberLastSignInMethod("google");
+    render(
+      <SocialAuthButtons
+        enabledProviders={["google", "apple"]}
+        intent="login"
+        redirectTo="/dashboard"
+      />,
+    );
+
+    const google = screen.getByRole("button", {
+      name: /Continue with Google/i,
+    });
+    expect(within(google).getByText("Last used")).toBeInTheDocument();
+    expect(
+      within(
+        screen.getByRole("button", { name: /Continue with Apple/i }),
+      ).queryByText("Last used"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("starts Google signup with callback context and analytics", async () => {
+    render(
+      <SocialAuthButtons
+        enabledProviders={["google"]}
+        intent="signup"
+        redirectTo="/subscribe"
+        referralCode="ABCD1234"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with Google" }),
+    );
+
+    await waitFor(() => expect(signInWithOAuth).toHaveBeenCalledTimes(1));
+    const credentials = signInWithOAuth.mock.calls[0][0];
+    expect(credentials.provider).toBe("google");
+    const callback = new URL(credentials.options.redirectTo);
+    expect(callback.searchParams.get("intent")).toBe("signup");
+    expect(callback.searchParams.has("newsletter")).toBe(false);
+    expect(callback.searchParams.get("ref")).toBe("ABCD1234");
+    expect(captureUcatEvent).toHaveBeenCalledWith("signup_started", {
+      auth_provider: "google",
+      referral_present: true,
+      newsletter_opt_in: true,
+    });
+  });
+
+  it("shows OAuth errors without navigating away", async () => {
+    signInWithOAuth.mockResolvedValue({
+      error: { message: "Provider unavailable" },
+    });
+    render(
+      <SocialAuthButtons
+        enabledProviders={["apple"]}
+        intent="login"
+        redirectTo="/dashboard"
+      />,
+    );
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Continue with Apple" }),
+    );
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Provider unavailable",
+    );
+  });
+});

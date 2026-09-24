@@ -6,9 +6,9 @@ import {
   useDeleteStaff,
   useAssignSubjectToStaff,
   useRemoveSubjectFromStaff,
-  staffKeys,
 } from './useStaffQuery';
 import type { StaffDetailsFormData } from '../components/modal/tabs';
+import { invalidateStaffSurfaces } from '@/shared/lib/query-invalidation';
 
 interface UseStaffMutationsProps {
   staffId: string;
@@ -56,22 +56,11 @@ export function useStaffMutations({
         last_name: data.lastName,
         email: data.email || undefined,
         phone_number: data.phoneNumber || null,
+        birthday: data.birthday || null,
         role: data.role,
         status: data.status,
         office_key_number: data.officeKeyNumber,
         has_parking_remote: data.hasParkingRemote,
-        availability_monday: data.availability_monday,
-        availability_tuesday: data.availability_tuesday,
-        availability_wednesday: data.availability_wednesday,
-        availability_thursday: data.availability_thursday,
-        availability_friday: data.availability_friday,
-        availability_saturday_am: data.availability_saturday_am,
-        availability_saturday_pm: data.availability_saturday_pm,
-        availability_sunday_am: data.availability_sunday_am,
-        availability_sunday_pm: data.availability_sunday_pm,
-        drafting_availability: data.drafting_availability,
-        trial_session_availability: data.trial_session_availability,
-        subsidy_interview_availability: data.subsidy_interview_availability,
       };
       
       // Update staff basic info
@@ -85,9 +74,7 @@ export function useStaffMutations({
         await removeSubjectMutation.mutateAsync({ staffId, subjectId });
       }
       
-      // Invalidate queries
-      await queryClient.invalidateQueries({ queryKey: staffKeys.detailFull(staffId) });
-      await queryClient.invalidateQueries({ queryKey: staffKeys.minimal({}) });
+      await invalidateStaffSurfaces(queryClient, staffId);
       
       toast({
         title: 'Staff updated',

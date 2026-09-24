@@ -1,4 +1,4 @@
-export type OnboardingChoice = "free" | "unlimited_trial";
+export type OnboardingChoice = "free";
 
 export async function completeUcatOnboarding(
   choice: OnboardingChoice,

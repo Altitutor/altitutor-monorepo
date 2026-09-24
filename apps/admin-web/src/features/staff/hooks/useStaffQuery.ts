@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
-import { staffApi } from '../api/staff';
+import { staffApi, type StaffSearchField } from '../api/staff';
 import type { Tables } from '@altitutor/shared';
+import { useAuthStore } from '@/shared/lib/supabase/auth';
 type Staff = Tables<'staff'>;
 type StaffRole = string;
 type StaffStatus = string;
@@ -15,7 +16,7 @@ export const staffKeys = {
   detail: (id: string) => [...staffKeys.details(), id] as const,
   detailFull: (id: string) => [...staffKeys.detail(id), 'details'] as const,
   withSubjects: () => [...staffKeys.all, 'withSubjects'] as const,
-  current: () => [...staffKeys.all, 'current'] as const,
+  current: (userId?: string) => [...staffKeys.all, 'current', userId ?? null] as const,
   byRole: (role: StaffRole) => [...staffKeys.all, 'byRole', role] as const,
   byStatus: (status: StaffStatus) => [...staffKeys.all, 'byStatus', status] as const,
 };
@@ -23,6 +24,7 @@ export const staffKeys = {
 // For table display - minimal data
 export interface UseStaffListParams {
   search?: string;
+  searchFields?: StaffSearchField[];
   role?: string;
   status?: string;
   roles?: string[];
@@ -37,6 +39,7 @@ export interface UseStaffListParams {
 export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
   const {
     search = '',
+    searchFields = ['name', 'email', 'phone'],
     role,
     status,
     roles = [],
@@ -51,10 +54,11 @@ export function useStaffMinimalPaginated(params: UseStaffListParams = {}) {
   const offset = (Math.max(page, 1) - 1) * pageSize;
 
   return useQuery({
-    queryKey: staffKeys.minimal({ search, role, status, roles, statuses, subjectIds, page, pageSize, orderBy, ascending }),
+    queryKey: staffKeys.minimal({ search, searchFields, role, status, roles, statuses, subjectIds, page, pageSize, orderBy, ascending }),
     queryFn: () =>
       staffApi.listMinimal({
         search,
+        searchFields,
         role,
         status,
         roles,
@@ -156,10 +160,14 @@ export function useStaffById(staffId: string) {
 
 // Get current staff member (logged in user)
 export function useCurrentStaff() {
+  const userId = useAuthStore((state) => state.user?.id);
+  const authLoading = useAuthStore((state) => state.loading);
+
   return useQuery({
-    queryKey: staffKeys.current(),
-    queryFn: staffApi.getCurrentStaff,
-    staleTime: 1000 * 60 * 5, // 5 minutes - user data doesn't change often
+    queryKey: staffKeys.current(userId),
+    queryFn: () => staffApi.getByUserId(userId!),
+    enabled: !authLoading && !!userId,
+    staleTime: 30_000,
     gcTime: 1000 * 60 * 15, // 15 minutes
   });
 }

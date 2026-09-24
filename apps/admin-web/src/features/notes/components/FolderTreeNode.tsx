@@ -12,6 +12,7 @@ interface FolderTreeNodeProps {
   folder: FolderTreeItem;
   level?: number;
   onNoteClick?: (noteId: string) => void;
+  onNoteCreated?: (noteId: string) => void;
   onProjectClick?: (projectId: string) => void;
   projects?: Array<{ id: string; name: string | null }>;
 }
@@ -19,7 +20,14 @@ interface FolderTreeNodeProps {
 /**
  * Recursive component for rendering folder tree nodes
  */
-export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick, projects = [] }: FolderTreeNodeProps) {
+export function FolderTreeNode({
+  folder,
+  level = 0,
+  onNoteClick,
+  onNoteCreated,
+  onProjectClick,
+  projects = [],
+}: FolderTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const router = useRouter();
 
@@ -35,6 +43,14 @@ export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick,
     } else {
       router.push(`/documents/${noteId}`);
     }
+  };
+
+  const handleNoteCreated = (noteId: string) => {
+    if (onNoteCreated) {
+      onNoteCreated(noteId);
+      return;
+    }
+    handleNoteClick(noteId);
   };
 
   return (
@@ -76,6 +92,7 @@ export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick,
                 folder={childFolder}
                 level={level + 1}
                 onNoteClick={onNoteClick}
+                onNoteCreated={onNoteCreated}
                 onProjectClick={onProjectClick}
                 projects={projects}
               />
@@ -84,7 +101,7 @@ export function FolderTreeNode({ folder, level = 0, onNoteClick, onProjectClick,
             <FolderInlineCreateDocument
               folderId={folder.id}
               indent={indent + 36}
-              onCreated={(id) => handleNoteClick(id)}
+              onCreated={handleNoteCreated}
             />
           </div>
         )}

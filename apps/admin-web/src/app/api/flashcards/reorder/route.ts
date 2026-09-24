@@ -1,3 +1,4 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -30,7 +31,7 @@ export async function POST(request: NextRequest) {
     .eq('topic_id', topicId)
     .is('deleted_at', null);
 
-  if (cardsError) return NextResponse.json({ error: cardsError.message }, { status: 500 });
+  if (cardsError) return captureApiErrorResponse(cardsError, "/api/flashcards/reorder", NextResponse.json({ error: cardsError.message }, { status: 500 }));
 
   const existingIds = new Set<string>((cards ?? []).map((card) => String(card.id)));
   const uniqueOrderedIds: string[] = Array.from(new Set<string>(orderedIds)).filter((id) => existingIds.has(id));
@@ -41,6 +42,7 @@ export async function POST(request: NextRequest) {
   try {
     await persistTopicFlashcardOrder(supabaseAdmin, topicId, uniqueOrderedIds);
   } catch (error) {
+    captureApiError(error, "/api/flashcards/reorder");
     const message = error instanceof Error ? error.message : 'Unable to reorder flashcards';
     return NextResponse.json({ error: message }, { status: 500 });
   }

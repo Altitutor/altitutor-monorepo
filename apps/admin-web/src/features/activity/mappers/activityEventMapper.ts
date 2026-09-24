@@ -1,601 +1,432 @@
-import type { ActivityEvent, ActivityEventDisplay, ActivityEventsResponse, ChangedField } from '../types';
-import { getActivityTemplate, getGroupedActivityTemplate, FIELD_LABELS } from './activityMessageTemplates';
-import { coalesceRelatedEvents } from './activityEventCoalescer';
-import { extractTextFromNoteContent } from '@/shared/utils/noteContentUtils';
-import { formatDate, formatActivityTimestamp } from '@/shared/utils/datetime';
+import { formatActivityTimestamp, formatCompactDate, formatDate } from '@/shared/utils/datetime';
+import type {
+  ActivityEvent,
+  ActivityEventDisplay,
+  ActivityMessagePart,
+  ActivityEventsResponse,
+  ActivityIconColor,
+  ActivityIconType,
+  ChangedField,
+} from '../types';
 
-/**
- * Get staff name from related entities
- */
-function getStaffName(
-  staffId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
+type Payload = Record<string, unknown>;
+
+function asRecord(value: unknown): Payload {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? value as Payload
+    : {};
+}
+
+function text(value: unknown): string | undefined {
+  return typeof value === 'string' && value.trim() ? value.trim() : undefined;
+}
+
+function entityNames(event: ActivityEvent, entityType: string): string[] {
+  return event.entities
+    .filter((entity) => entity.entityType === entityType && entity.displayName)
+    .map((entity) => entity.displayName!)
+    .filter((name, index, names) => names.indexOf(name) === index);
+}
+
+function entityNameByRole(event: ActivityEvent, role: string): string | undefined {
+  return event.entities.find((entity) => entity.role === role)?.displayName || undefined;
+}
+
+function displayName(
+  event: ActivityEvent,
+  payload: Payload,
+  entityType: string
 ): string | undefined {
-  if (!staffId) return undefined;
-  const staff = relatedEntities.staff?.[staffId];
-  if (!staff) return undefined;
-  return `${staff.first_name} ${staff.last_name}`;
+  return entityNames(event, entityType)[0]
+    || text(asRecord(payload.display)[`${entityType}_name`]);
 }
 
-/**
- * Get student name from related entities
- */
-function getStudentName(
-  studentId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
-  if (!studentId) return undefined;
-  const student = relatedEntities.students?.[studentId];
-  if (!student) return undefined;
-  return `${student.first_name} ${student.last_name}`;
+function textArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.flatMap((item) => text(item) || [])
+    : [];
 }
 
-/**
- * Get class name from related entities (database long_name/short_name only).
- */
-function getClassName(
-  classId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
-  if (!classId) return undefined;
-  const class_ = relatedEntities.classes?.[classId];
-  if (!class_) return undefined;
-  return class_.long_name?.trim() ?? class_.short_name?.trim() ?? undefined;
+function displayNames(event: ActivityEvent, payload: Payload, entityType: string): string[] {
+  const linkedNames = entityNames(event, entityType);
+  if (linkedNames.length) return linkedNames;
+  const display = asRecord(payload.display);
+  const names = textArray(display[`${entityType}_names`]);
+  const singleName = text(display[`${entityType}_name`]);
+  return names.length ? names : singleName ? [singleName] : [];
 }
 
-/**
- * Get session name from related entities (database long_name/short_name only).
- */
-function getSessionName(
-  sessionId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
-  if (!sessionId) return undefined;
-  const session = relatedEntities.sessions?.[sessionId];
-  if (!session) return undefined;
-
-  if (session.long_name?.trim()) return session.long_name.trim();
-  if (session.short_name?.trim()) return session.short_name.trim();
-
-  if (session.start_at) {
-    const date = new Date(session.start_at);
-    const hours = date.getHours();
-    const minutes = date.getMinutes();
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const hour12 = hours % 12 || 12;
-    const paddedMinutes = minutes.toString().padStart(2, '0');
-    const timeStr = `${hour12}:${paddedMinutes} ${ampm}`;
-    return `${formatDate(date.toISOString())} ${timeStr}`;
-  }
-  return session.type ? `Session ${session.type}` : undefined;
+function formatList(values: string[]): string {
+  if (values.length <= 1) return values[0] || '';
+  if (values.length === 2) return `${values[0]} and ${values[1]}`;
+  return `${values.slice(0, -1).join(', ')}, and ${values.at(-1)}`;
 }
 
-/**
- * Get parent name from related entities
- */
-function getParentName(
-  parentId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
-  if (!parentId) return undefined;
-  const parent = relatedEntities.parents?.[parentId];
-  if (!parent) return undefined;
-  return `${parent.first_name} ${parent.last_name}`;
+function sentenceName(name: string | undefined, fallback: string): string {
+  return name || fallback;
 }
 
-/**
- * Get task title from related entities
- */
-function getTaskTitle(
-  taskId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
-  if (!taskId) return undefined;
-  const task = relatedEntities.tasks?.[taskId];
-  if (!task) return undefined;
-  return task.title || undefined;
+function formatSession(event: ActivityEvent, payload: Payload): string {
+  const name = displayName(event, payload, 'session');
+  if (name) return name;
+  const session = asRecord(payload.session);
+  const startAt = text(session.start_at) || text(payload.start_at);
+  return startAt ? formatDate(startAt) : 'the session';
 }
 
-/**
- * Get note content from related entities.
- * Returns raw note content (TipTap JSON or plain text) for NoteContentDisplay.
- */
-function getNoteContent(
-  noteId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): Record<string, unknown> | string | undefined {
-  if (!noteId) return undefined;
-  const note = relatedEntities.notes?.[noteId];
-  if (!note) return undefined;
-  return note.note as Record<string, unknown> | string | undefined;
-}
-
-/**
- * Get subject name from related entities
- */
-function getSubjectName(
-  subjectId: string | null | undefined,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string | undefined {
-  if (!subjectId) return undefined;
-  const subject = relatedEntities.subjects?.[subjectId];
-  if (!subject) return undefined;
-  // Prefer short_name or long_name, fallback to name
-  return subject.short_name || subject.long_name || subject.name || undefined;
-}
-
-/**
- * Format field value for display
- */
-function formatFieldValue(
-  value: unknown,
-  fieldName: string,
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): string {
-  if (value === null || value === undefined) return '';
-  
-  // Handle date/time values - check for ISO date strings or date/time field names
-  const dateTimeFieldNames = ['start_at', 'end_at', 'created_at', 'updated_at', 'performed_at', 'credited_at', 'date', 'time'];
-  const isDateTimeField = dateTimeFieldNames.some(name => fieldName.includes(name));
-  
-  if (typeof value === 'string') {
-    // Check if it's an ISO date string (matches formats like "2026-01-13T08:45:00+00:00" or "2026-01-13T08:45:00Z")
-    // Supports fractional seconds with any number of digits (milliseconds or microseconds)
-    const isoDateRegex = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?(Z|[+-]\d{2}:\d{2})?$/;
-    if (isoDateRegex.test(value) || isDateTimeField) {
-      try {
-        const date = new Date(value);
-        if (!isNaN(date.getTime())) {
-          return formatActivityTimestamp(date);
-        }
-      } catch (e) {
-        // If parsing fails, fall through to other handling
-      }
-    }
-    
-    // Handle UUIDs that might be foreign keys (only if not a date/time)
-    if (value.length === 36 && !isDateTimeField) {
-      // Check if it's a subject ID
-      if (fieldName === 'subject_id' || fieldName.includes('subject')) {
-        const subjectName = getSubjectName(value, relatedEntities);
-        if (subjectName) return subjectName;
-      }
-      
-      // Check if it's a staff ID
-      const staffName = getStaffName(value, relatedEntities);
-      if (staffName) return staffName;
-      
-      // Check if it's a student ID
-      const studentName = getStudentName(value, relatedEntities);
-      if (studentName) return studentName;
-      
-      // Check if it's a class ID
-      const className = getClassName(value, relatedEntities);
-      if (className) return className;
+function linkedMessageParts(event: ActivityEvent, message: string): ActivityMessagePart[] | undefined {
+  const byName = new Map<string, ActivityEvent['entities'][number]>();
+  for (const entity of event.entities) {
+    if (entity.displayName && !byName.has(entity.displayName)) {
+      byName.set(entity.displayName, entity);
     }
   }
-  
-  // Handle status values
-  if (fieldName === 'status' && typeof value === 'string') {
-    return value.replace(/_/g, ' ').replace(/\b\w/g, (l) => l.toUpperCase());
+  const names = [...byName.keys()].sort((a, b) => b.length - a.length);
+  if (!names.length) return undefined;
+  const escapedNames = names.map((name) => name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+  const segments = message.split(new RegExp(`(${escapedNames.join('|')})`, 'g'));
+  const parts = segments.flatMap<ActivityMessagePart>((segment) => {
+    if (!segment) return [];
+    const entity = byName.get(segment);
+    return entity
+      ? [{ kind: 'entity', text: segment, entity }]
+      : [{ kind: 'text', text: segment }];
+  });
+  return parts.some((part) => part.kind === 'entity') ? parts : undefined;
+}
+
+function paymentMethod(payload: Payload): string {
+  const brand = text(payload.card_brand);
+  const last4 = text(payload.card_last4);
+  if (brand && last4) return `${brand} ending ${last4}`;
+  if (last4) return `payment method ending ${last4}`;
+  return 'payment method';
+}
+
+function titleCase(value: string): string {
+  return value.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase());
+}
+
+function cents(value: unknown): number | undefined {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && /^-?\d+$/.test(value)) return Number(value);
+  return undefined;
+}
+
+function integer(value: unknown): number | undefined {
+  const parsed = cents(value);
+  return parsed != null && Number.isInteger(parsed) ? parsed : undefined;
+}
+
+function formatCents(amountCents: number, currency: string): string {
+  return `$${(amountCents / 100).toFixed(2)} ${currency}`;
+}
+
+function invoiceCurrency(payload: Payload): string {
+  return text(payload.currency) || 'AUD';
+}
+
+function invoicePaidSettlement(payload: Payload): string {
+  const paid = cents(payload.amount_paid_cents);
+  if (paid == null) return '';
+  const currency = invoiceCurrency(payload);
+  const fromBalance = cents(payload.amount_paid_from_balance_cents) ?? 0;
+  const fromCard = cents(payload.amount_paid_from_card_cents) ?? Math.max(0, paid - fromBalance);
+  const total = formatCents(paid, currency);
+  if (fromBalance > 0 && fromCard > 0) {
+    return ` (${total}, ${formatCents(fromBalance, currency)} from credit balance, ${formatCents(fromCard, currency)} from card)`;
   }
-  
+  if (fromBalance > 0) {
+    return ` (${total} from credit balance)`;
+  }
+  return ` (${total})`;
+}
+
+function invoiceCreditNoteAmount(payload: Payload): string {
+  const amount = cents(payload.amount_cents);
+  return amount == null ? '' : ` of ${formatCents(amount, invoiceCurrency(payload))}`;
+}
+
+const GENERIC_SESSION_CREDIT_MEMO = 'Session absence credit';
+
+function invoiceCreditNoteWhy(payload: Payload): string {
+  const category = text(payload.reason_category);
+  const reasonNote = text(payload.reason_note);
+  const memo = text(payload.memo);
+  const internalNote = text(payload.internal_note);
+  const stripeReason = text(payload.reason);
+  const note = reasonNote
+    || (memo && memo !== GENERIC_SESSION_CREDIT_MEMO ? memo : undefined)
+    || internalNote;
+
+  if (category) {
+    return note ? ` (${titleCase(category)}: ${note})` : ` (${titleCase(category)})`;
+  }
+  if (note) return ` (${note})`;
+  if (stripeReason) return ` (${titleCase(stripeReason)})`;
+  return '';
+}
+
+function invoiceNotificationRecipients(payload: Payload): string {
+  const count = integer(payload.recipient_count);
+  if (count == null || count < 1) return '';
+  return ` to ${count} ${count === 1 ? 'recipient' : 'recipients'}`;
+}
+
+const DATE_CHANGE_FIELDS = new Set(['birthday', 'due_date', 'start_date', 'target_date']);
+
+function formatChangedValue(fieldName: string, value: unknown): string | undefined {
+  if (value == null) return undefined;
+  if (DATE_CHANGE_FIELDS.has(fieldName) && (typeof value === 'string' || value instanceof Date)) {
+    return formatCompactDate(value) ?? String(value);
+  }
   return String(value);
 }
 
-/**
- * Map activity event to display format
- */
+function changedFields(payload: Payload): ChangedField[] | undefined {
+  const changes = asRecord(payload.changes);
+  const fields = Object.entries(changes).flatMap(([fieldName, value]) => {
+    const change = asRecord(value);
+    const oldValue = change.old;
+    const newValue = change.new;
+    return [{
+      fieldName,
+      fieldLabel: titleCase(fieldName),
+      oldValue: formatChangedValue(fieldName, oldValue),
+      newValue: formatChangedValue(fieldName, newValue),
+    }];
+  });
+  return fields.length ? fields : undefined;
+}
+
+function statusField(payload: Payload): ChangedField[] | undefined {
+  if (payload.previous_status === undefined && payload.status === undefined) return undefined;
+  return [{
+    fieldName: 'status',
+    fieldLabel: 'Status',
+    oldValue: text(payload.previous_status),
+    newValue: text(payload.status),
+  }];
+}
+
+function eventPresentation(event: ActivityEvent, payload: Payload): {
+  message: string;
+  icon: ActivityIconType;
+  color: ActivityIconColor;
+  fields?: ChangedField[];
+} {
+  const eventName = event.event_name;
+  const student = sentenceName(displayName(event, payload, 'student'), 'the student');
+  const parent = sentenceName(displayName(event, payload, 'parent'), 'the parent');
+  const staff = sentenceName(displayName(event, payload, 'staff'), 'the staff member');
+  const className = sentenceName(displayName(event, payload, 'class'), 'the class');
+  const adminShift = sentenceName(displayName(event, payload, 'admin_shift'), 'the admin shift');
+  const task = sentenceName(displayName(event, payload, 'task'), 'the task');
+  const issue = sentenceName(displayName(event, payload, 'issue'), 'the issue');
+  const project = sentenceName(displayName(event, payload, 'project'), 'the project');
+  const session = formatSession(event, payload);
+  const staffOut = sentenceName(entityNameByRole(event, 'staff_out'), staff);
+  const staffIn = sentenceName(entityNameByRole(event, 'staff_in'), 'the replacement staff member');
+  const sessionFrom = sentenceName(entityNameByRole(event, 'session_from'), session);
+  const sessionTo = sentenceName(entityNameByRole(event, 'session_to'), 'the replacement session');
+  const invoiceNumber = displayName(event, payload, 'invoice');
+  const invoice = invoiceNumber ? `invoice ${invoiceNumber}` : 'the invoice';
+  const invoiceSessions = displayNames(event, payload, 'session');
+  const invoiceWithSessions = invoiceSessions.length
+    ? `${invoice} for ${formatList(invoiceSessions)}`
+    : invoice;
+  const paymentAttemptDeclined = text(payload.outcome) === 'declined';
+
+  const catalog: Record<string, [string, ActivityIconType, ActivityIconColor]> = {
+    'onboarding.journey_started': [`started an onboarding journey for ${student}`, 'user-plus', 'blue'],
+    'onboarding.journey_updated': [`updated the onboarding journey for ${student}`, 'user-edit', 'gray'],
+    'onboarding.action_updated': [`updated ${text(asRecord(payload.after).action_key)?.replace(/_/g, ' ') || 'an onboarding action'} for ${student}`, 'user-edit', 'blue'],
+    'student.created': [`created ${student}`, 'user-plus', 'green'],
+    'student.registered': [`registered ${student}`, 'check', 'green'],
+    'student.user_account_created': [`created ${student}'s user account`, 'user-plus', 'green'],
+    'student.payment_method_added': [`added ${paymentMethod(payload)}`, 'check', 'green'],
+    'student.payment_method_removed': [`removed ${paymentMethod(payload)}`, 'x', 'red'],
+    'student.properties_changed': [`changed ${student}`, 'user-edit', 'blue'],
+    'student.discontinued': [`discontinued ${student}`, 'user-minus', 'red'],
+    'student.reactivated': [`reactivated ${student}`, 'user-plus', 'green'],
+    'student.deleted': [`deleted ${student}`, 'x', 'red'],
+    'student.parent_linked': [`linked ${parent}`, 'user-plus', 'green'],
+    'student.parent_unlinked': [`unlinked ${parent}`, 'user-minus', 'red'],
+
+    'staff.created': [`created ${staff}`, 'user-plus', 'green'],
+    'staff.user_account_created': [`created ${staff}'s user account`, 'user-plus', 'green'],
+    'staff.status_changed': [`changed ${staff}'s status`, 'user-edit', 'blue'],
+    'staff.deleted': [`deleted ${staff}`, 'user-minus', 'red'],
+
+    'class.created': [`created ${className}`, 'class-plus', 'green'],
+    'class.schedule_updated': [`updated ${className}'s schedule`, 'class-edit', 'blue'],
+    'class.status_changed': [`changed ${className}'s status`, 'class-edit', 'blue'],
+    'class.deleted': [`deleted ${className}`, 'x', 'red'],
+    'class.student_added': [`added ${student} to ${className}`, 'user-plus', 'green'],
+    'class.student_removed': [`removed ${student} from ${className}`, 'user-minus', 'red'],
+    'class.staff_added': [`added ${staff} to ${className}`, 'user-plus', 'green'],
+    'class.staff_removed': [`removed ${staff} from ${className}`, 'user-minus', 'red'],
+
+    'admin_shift.created': [`created ${adminShift}`, 'session-plus', 'green'],
+    'admin_shift.schedule_updated': [`updated ${adminShift}'s schedule`, 'session-edit', 'blue'],
+    'admin_shift.status_changed': [`changed ${adminShift}'s status`, 'session-edit', 'blue'],
+    'admin_shift.staff_added': [`added ${staff} to ${adminShift}`, 'user-plus', 'green'],
+    'admin_shift.staff_removed': [`removed ${staff} from ${adminShift}`, 'user-minus', 'red'],
+    'admin_shift.deleted': [`deleted ${adminShift}`, 'x', 'red'],
+
+    'session.created': [`created ${session}`, 'session-plus', 'green'],
+    'session.schedule_updated': [`updated ${session}`, 'session-edit', 'blue'],
+    'session.status_changed': [`changed ${session}'s status`, 'session-edit', 'blue'],
+    'session.logged': [`logged ${session}`, 'check', 'green'],
+    'session.log_corrected': [`corrected the log for ${session}`, 'session-edit', 'blue'],
+    'session.log_removed': [`removed the log for ${session}`, 'x', 'red'],
+    'session.student_added': [`added ${student} to ${session}`, 'user-plus', 'green'],
+    'session.student_removed': [`removed ${student} from ${session}`, 'user-minus', 'red'],
+    'session.staff_added': [`added ${staff} to ${session}`, 'user-plus', 'green'],
+    'session.staff_removed': [`removed ${staff} from ${session}`, 'user-minus', 'red'],
+    'session.parent_added': [`added ${parent} to ${session}`, 'user-plus', 'green'],
+    'session.parent_removed': [`removed ${parent} from ${session}`, 'user-minus', 'red'],
+    'session.student_attended': [`recorded ${student} as attended at ${session}`, 'check', 'green'],
+    'session.student_absent': [`recorded ${student} as absent from ${session}`, 'x', 'red'],
+    'session.student_attendance_corrected': [`corrected ${student}'s attendance for ${session}`, 'session-edit', 'blue'],
+    'session.staff_attended': [`recorded ${staff} as attended at ${session}`, 'check', 'green'],
+    'session.staff_absent': [`recorded ${staff} as absent from ${session}`, 'x', 'red'],
+    'session.staff_attendance_corrected': [`corrected ${staff}'s attendance for ${session}`, 'session-edit', 'blue'],
+    'session.parent_attended': [`recorded ${parent} as attended at ${session}`, 'check', 'green'],
+    'session.parent_absent': [`recorded ${parent} as absent from ${session}`, 'x', 'red'],
+    'session.parent_attendance_corrected': [`corrected ${parent}'s attendance for ${session}`, 'session-edit', 'blue'],
+    'session.student_absence_recorded': [`recorded ${student}'s planned absence from ${session}`, 'x', 'yellow'],
+    'session.student_absence_cleared': [`cleared ${student}'s planned absence from ${session}`, 'check', 'green'],
+    'session.student_rescheduled': [`rescheduled ${student} from ${sessionFrom} to ${sessionTo}`, 'arrow-right', 'blue'],
+    'session.student_reschedule_reversed': [`reversed ${student}'s reschedule from ${sessionFrom} to ${sessionTo}`, 'arrow-left', 'gray'],
+    'session.student_credited': [`credited ${student} for ${session}`, 'check', 'purple'],
+    'session.student_credit_reversed': [`reversed ${student}'s credit for ${session}`, 'arrow-left', 'gray'],
+    'session.staff_absence_recorded': [`recorded ${staff}'s planned absence from ${session}`, 'x', 'yellow'],
+    'session.staff_absence_cleared': [`cleared ${staff}'s planned absence from ${session}`, 'check', 'green'],
+    'session.staff_swapped': [`swapped ${staffOut} out for ${staffIn} in ${session}`, 'user-edit', 'blue'],
+    'session.staff_swap_reversed': [`reversed the swap of ${staffOut} for ${staffIn} in ${session}`, 'arrow-left', 'gray'],
+    'session.file_added': [`added ${text(payload.display_name) || 'a file'}`, 'file', 'green'],
+    'session.file_removed': [`removed ${text(payload.display_name) || 'a file'}`, 'file', 'red'],
+    'session.deleted': ['deleted the session', 'x', 'red'],
+
+    'invoice.issued': [`issued ${invoiceWithSessions}`, 'file', 'blue'],
+    'invoice.paid': [`recorded ${invoiceWithSessions} as paid${invoicePaidSettlement(payload)}`, 'check', 'green'],
+    'invoice.payment_failed': [`recorded a failed payment for ${invoiceWithSessions}`, 'x', 'red'],
+    'invoice.payment_attempted': [
+      paymentAttemptDeclined
+        ? `attempted to charge the card for ${invoiceWithSessions} (declined)`
+        : `attempted to charge the card for ${invoiceWithSessions}`,
+      paymentAttemptDeclined ? 'x' : 'check',
+      paymentAttemptDeclined ? 'red' : 'blue',
+    ],
+    'invoice.notification_sent': [`sent the invoice notification for ${invoiceWithSessions}${invoiceNotificationRecipients(payload)}`, 'file', 'blue'],
+    'invoice.voided': [`voided ${invoiceWithSessions}`, 'x', 'red'],
+    'invoice.refunded': [`refunded ${invoiceWithSessions}`, 'arrow-left', 'purple'],
+    'invoice.credit_note_added': [`added a ${titleCase(text(payload.credit_note_type) || 'credit')} credit note${invoiceCreditNoteAmount(payload)} to ${invoiceWithSessions}${invoiceCreditNoteWhy(payload)}`, 'file', 'purple'],
+    'invoice.credit_note_voided': [`voided the credit note for ${invoiceWithSessions}`, 'x', 'red'],
+
+    'task.created': [`created ${task}`, 'flag', 'green'],
+    'task.status_changed': [`changed ${task}'s status`, 'flag', 'blue'],
+    'task.assignee_changed': [`changed ${task}'s assignee`, 'user-edit', 'blue'],
+    'task.properties_changed': [`changed ${task}`, 'flag', 'blue'],
+    'task.deleted': [`deleted ${task}`, 'x', 'red'],
+    'issue.created': [`created ${issue}`, 'flag', 'green'],
+    'issue.status_changed': [`changed ${issue}'s status`, 'flag', 'blue'],
+    'issue.properties_changed': [`changed ${issue}`, 'flag', 'blue'],
+    'issue.task_linked': [`linked ${task}`, 'arrow-right', 'blue'],
+    'issue.task_unlinked': [`unlinked ${task}`, 'arrow-left', 'gray'],
+    'issue.deleted': [`deleted ${issue}`, 'x', 'red'],
+    'project.created': [`created ${project}`, 'flag', 'green'],
+    'project.status_changed': [`changed ${project}'s status`, 'flag', 'blue'],
+    'project.lead_changed': [`changed ${project}'s lead`, 'user-edit', 'blue'],
+    'project.properties_changed': [`changed ${project}`, 'flag', 'blue'],
+    'project.task_linked': [`linked ${task}`, 'arrow-right', 'blue'],
+    'project.task_unlinked': [`unlinked ${task}`, 'arrow-left', 'gray'],
+    'project.deleted': [`deleted ${project}`, 'x', 'red'],
+
+    'note.added': ['added a note', 'note', 'gray'],
+    'note.removed': ['removed a note', 'note', 'red'],
+    'form.response_submitted': ['submitted a form response', 'file', 'green'],
+    'form.response_removed': ['removed a form response', 'file', 'red'],
+  };
+
+  const [message, icon, color] = catalog[eventName] || [
+    eventName.split('.').slice(1).join(' ').replace(/_/g, ' '),
+    'default',
+    'gray',
+  ];
+  const fields = eventName.endsWith('.status_changed')
+    ? statusField(payload)
+    : eventName.endsWith('.properties_changed')
+      ? changedFields(payload)
+      : undefined;
+  return { message, icon, color, fields };
+}
+
+function resolvePerformer(event: ActivityEvent, payload: Payload): { id: string; name: string } {
+  const display = asRecord(payload.display);
+  const actorType = text(payload.actor_type);
+  if (event.actor_staff_id) {
+    return {
+      id: event.actor_staff_id,
+      name: text(display.actor_name) || event.actorName || 'Staff',
+    };
+  }
+  if (actorType === 'student') {
+    return { id: '', name: text(display.student_name) || 'Student' };
+  }
+  if (actorType === 'parent') {
+    return { id: '', name: text(display.parent_name) || 'Parent' };
+  }
+  return { id: '', name: 'System' };
+}
+
 export function mapActivityEventToDisplay(
   event: ActivityEvent,
-  relatedEntities: ActivityEventsResponse['relatedEntities'],
-  studentsSubjectsToSubjectId?: Record<string, string>
+  relatedEntities?: ActivityEventsResponse['relatedEntities']
 ): ActivityEventDisplay {
-  const template = getActivityTemplate(event.entity_type, event.event_type, event.changed_fields);
-  
-  // Get performed by name
-  const performedByName = getStaffName(event.performed_by, relatedEntities) || 'Unknown';
-  
-  // Get related entity names
-  const studentName = getStudentName(event.student_id, relatedEntities);
-  const staffName = getStaffName(event.staff_id, relatedEntities);
-  const className = getClassName(event.class_id, relatedEntities);
-  const sessionName = getSessionName(event.session_id, relatedEntities);
-  const parentName = getParentName(event.parent_id, relatedEntities);
-  const taskTitle = getTaskTitle(event.task_id, relatedEntities);
-  
-  // For notes CREATED events, get note content (raw for display, text for message template)
-  let noteContent: Record<string, unknown> | string | undefined;
-  let noteContentForMessage: string | undefined;
-  if (event.entity_type === 'notes' && event.event_type === 'CREATED') {
-    const raw = getNoteContent(event.entity_id, relatedEntities);
-    noteContent = raw;
-    noteContentForMessage =
-      raw != null
-        ? typeof raw === 'string'
-          ? raw
-          : extractTextFromNoteContent(raw as import('@altitutor/shared').Json)
-        : undefined;
-  }
-  
-  // For students_subjects CREATED events, extract subject_id from the entity
-  let subjectName: string | undefined;
-  if (event.entity_type === 'students_subjects' && event.event_type === 'CREATED' && studentsSubjectsToSubjectId) {
-    const subjectId = studentsSubjectsToSubjectId[event.entity_id];
-    if (subjectId) {
-      subjectName = getSubjectName(subjectId, relatedEntities);
-    }
-  }
-  
-  // Handle changed fields for UPDATE events
-  let oldValue: string | undefined;
-  let newValue: string | undefined;
-  let changedFieldName: string | undefined;
-  let changedFieldLabel: string | undefined;
-  const changedFields: ChangedField[] = [];
-  const fieldLabels: Record<string, string> = {};
-  
-  if (event.changed_fields && event.event_type === 'UPDATED') {
-    const changedFieldsObj = typeof event.changed_fields === 'object' && event.changed_fields !== null && !Array.isArray(event.changed_fields)
-      ? event.changed_fields as Record<string, unknown>
-      : null;
-    
-    if (changedFieldsObj) {
-      const changedFieldNames = Object.keys(changedFieldsObj);
-      
-      // Process all changed fields
-      for (const fieldName of changedFieldNames) {
-        const fieldChange = changedFieldsObj[fieldName] as { old: unknown; new: unknown } | undefined;
-        if (fieldChange && typeof fieldChange === 'object' && 'old' in fieldChange && 'new' in fieldChange) {
-          const fieldLabel = FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ');
-          const formattedOldValue = formatFieldValue(fieldChange.old, fieldName, relatedEntities);
-          const formattedNewValue = formatFieldValue(fieldChange.new, fieldName, relatedEntities);
-          
-          changedFields.push({
-            fieldName,
-            fieldLabel,
-            oldValue: formattedOldValue || undefined,
-            newValue: formattedNewValue || undefined,
-          });
-          
-          fieldLabels[fieldName] = fieldLabel;
-        }
-      }
-      
-      // Keep first field for backward compatibility (grouping, etc.)
-      if (changedFieldNames.length > 0) {
-        const firstField = changedFieldNames[0];
-        changedFieldName = firstField;
-        const firstFieldChange = changedFieldsObj[firstField] as { old: unknown; new: unknown } | undefined;
-        if (firstFieldChange && typeof firstFieldChange === 'object' && 'old' in firstFieldChange && 'new' in firstFieldChange) {
-          changedFieldLabel = FIELD_LABELS[firstField] || firstField.replace(/_/g, ' ');
-          oldValue = formatFieldValue(firstFieldChange.old, firstField, relatedEntities);
-          newValue = formatFieldValue(firstFieldChange.new, firstField, relatedEntities);
-        }
-      }
-    }
-  }
-  
-  // Build message context
-  const context = {
-    performedByName,
-    studentName,
-    staffName,
-    className,
-    sessionName,
-    parentName,
-    taskTitle,
-    subjectName,
-    noteContent: noteContentForMessage,
-    fieldLabels,
-    oldValue,
-    newValue,
-  };
-  
-  // Generate message
-  const message = template.messageTemplate(event, context);
-  
-  // Build related entities for display
-  const relatedEntitiesDisplay: ActivityEventDisplay['relatedEntities'] = {};
-  
-  if (event.student_id && studentName) {
-    relatedEntitiesDisplay.student = {
-      id: event.student_id,
-      name: studentName,
-      type: 'student',
-    };
-  }
-  
-  if (event.staff_id && staffName) {
-    relatedEntitiesDisplay.staff = {
-      id: event.staff_id,
-      name: staffName,
-      type: 'staff',
-    };
-  }
-  
-  if (event.class_id && className) {
-    relatedEntitiesDisplay.class = {
-      id: event.class_id,
-      name: className,
-      type: 'class',
-    };
-  }
-  
-  if (event.session_id && sessionName) {
-    relatedEntitiesDisplay.session = {
-      id: event.session_id,
-      name: sessionName,
-      type: 'session',
-    };
-  }
-  
-  if (event.parent_id && parentName) {
-    relatedEntitiesDisplay.parent = {
-      id: event.parent_id,
-      name: parentName,
-      type: 'parent',
-    };
-  }
-  
-  if (event.task_id && taskTitle) {
-    relatedEntitiesDisplay.task = {
-      id: event.task_id,
-      name: taskTitle,
-      type: 'task',
-    };
-  }
-  
+  const payload = asRecord(event.payload);
+  const presentation = eventPresentation(event, payload);
+  const recordedAt = event.recorded_at;
+  const liveNote = relatedEntities?.notes?.[event.subject_id];
+  const noteContent = event.event_name === 'note.added'
+    ? liveNote?.note ?? payload.note
+    : undefined;
   return {
     id: event.id,
-    icon: template.icon,
-    iconColor: template.color,
-    message,
-    timestamp: formatActivityTimestamp(event.performed_at),
-    performedAt: event.performed_at,
-    performedBy: {
-      id: event.performed_by || '',
-      name: performedByName,
-    },
-    relatedEntities: Object.keys(relatedEntitiesDisplay).length > 0 ? relatedEntitiesDisplay : undefined,
-    metadata: (typeof event.metadata === 'object' && event.metadata !== null && !Array.isArray(event.metadata))
-      ? event.metadata as Record<string, unknown>
-      : {},
-    changedFields: changedFields.length > 0 ? changedFields : undefined, // Store all changed fields
-    changedFieldName, // Store for grouping UPDATE events (backward compatibility)
-    changedFieldLabel, // Store human-readable field label for display (backward compatibility)
-    oldValue, // Store old value for display formatting (backward compatibility)
-    newValue, // Store new value for display formatting (backward compatibility)
-    entityId: event.entity_id, // Store entity ID for grouping (e.g., session ID for session updates)
-    noteContent, // Store full note content for preserving line breaks
+    icon: presentation.icon,
+    iconColor: presentation.color,
+    message: presentation.message,
+    messageParts: linkedMessageParts(event, presentation.message),
+    timestamp: formatActivityTimestamp(recordedAt),
+    performedAt: recordedAt,
+    performedBy: resolvePerformer(event, payload),
+    metadata: payload,
+    changedFields: presentation.fields,
+    entityId: event.subject_id,
+    entityType: event.subject_type === 'form_response' ? 'form_responses' : event.subject_type,
+    eventType: event.event_name,
+    noteContent: noteContent as Record<string, unknown> | string | undefined,
   };
 }
 
-/**
- * Check if two activities can be grouped together
- */
-function canGroupActivities(
-  a: ActivityEventDisplay,
-  b: ActivityEventDisplay,
-  timeWindowMs: number = 5 * 60 * 1000 // 5 minutes default
-): boolean {
-  // Must have same performer
-  if (a.performedBy.id !== b.performedBy.id) return false;
-  
-  // Must have same icon and color (indicates same type of action)
-  if (a.icon !== b.icon || a.iconColor !== b.iconColor) return false;
-  
-  // Must be within time window
-  const timeDiff = Math.abs(new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime());
-  if (timeDiff > timeWindowMs) return false;
-  
-  // For deletion/removal events, check if they're removing the same entity type
-  // (e.g., removing same student from different sessions)
-  if (a.icon === 'user-minus' || a.icon === 'x') {
-    // Check if same target entity (student/staff being removed)
-    const aTargetId = a.relatedEntities?.student?.id || a.relatedEntities?.staff?.id;
-    const bTargetId = b.relatedEntities?.student?.id || b.relatedEntities?.staff?.id;
-    
-    if (aTargetId && bTargetId && aTargetId === bTargetId) {
-      // Same target entity - check if different parent entity (e.g., different sessions)
-      const aParentId = a.relatedEntities?.session?.id || a.relatedEntities?.class?.id;
-      const bParentId = b.relatedEntities?.session?.id || b.relatedEntities?.class?.id;
-      
-      // If they have different parent entities, they can be grouped
-      if (aParentId && bParentId && aParentId !== bParentId) {
-        return true;
-      }
-    }
-  }
-  
-  // For creation/addition events, check if adding same entity to different parents
-  if (a.icon === 'user-plus') {
-    const aTargetId = a.relatedEntities?.student?.id || a.relatedEntities?.staff?.id;
-    const bTargetId = b.relatedEntities?.student?.id || b.relatedEntities?.staff?.id;
-    
-    if (aTargetId && bTargetId && aTargetId === bTargetId) {
-      const aParentId = a.relatedEntities?.session?.id || a.relatedEntities?.class?.id;
-      const bParentId = b.relatedEntities?.session?.id || b.relatedEntities?.class?.id;
-      
-      if (aParentId && bParentId && aParentId !== bParentId) {
-        return true;
-      }
-    }
-  }
-  
-  // For UPDATE events (user-edit or arrow-right icons), check if updating same field
-  // on different entities (e.g., different sessions)
-  if (a.icon === 'user-edit' || a.icon === 'arrow-right') {
-    // Must be updating the same field
-    if (a.changedFieldName && b.changedFieldName && a.changedFieldName === b.changedFieldName) {
-      // Check if they're updating different entities using entityId (most reliable)
-      if (a.entityId && b.entityId) {
-        // If entity IDs are different, they're updating different entities - group them
-        if (a.entityId !== b.entityId) {
-          return true;
-        }
-        // If entity IDs are the same, don't group (same entity being updated)
-        return false;
-      }
-      
-      // Fallback: check session IDs in relatedEntities
-      const aSessionId = a.relatedEntities?.session?.id;
-      const bSessionId = b.relatedEntities?.session?.id;
-      
-      // If both have sessions and they're different, group them
-      if (aSessionId && bSessionId && aSessionId !== bSessionId) {
-        // Optional: also check if they have the same class (if available)
-        const aClassId = a.relatedEntities?.class?.id;
-        const bClassId = b.relatedEntities?.class?.id;
-        
-        // If class_id is available, ensure they match; otherwise, allow grouping
-        if (!aClassId || !bClassId || aClassId === bClassId) {
-          return true;
-        }
-      }
-      
-      // If we can't verify entity IDs but they're consecutive UPDATE events
-      // with the same field, assume they're different entities and group them
-      // This handles edge cases where entity lookup failed
-      // (Only if we don't have entityId - if we had it and they matched, we'd have returned false above)
-      return true;
-    }
-  }
-  
-  return false;
-}
-
-/**
- * Create a grouped activity from multiple similar activities
- */
-function createGroupedActivity(
-  activities: ActivityEventDisplay[],
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): ActivityEventDisplay {
-  if (activities.length === 0) {
-    throw new Error('Cannot create grouped activity from empty array');
-  }
-  
-  if (activities.length === 1) {
-    return activities[0];
-  }
-  
-  const first = activities[0];
-  
-  // Collect entity IDs for grouped entities (e.g., session IDs)
-  const groupedEntityIds: string[] = [];
-  const entityType = first.relatedEntities?.session ? 'session' : 
-                     first.relatedEntities?.class ? 'class' : 
-                     undefined;
-  
-  activities.forEach((activity) => {
-    const entityId = entityType === 'session' ? activity.relatedEntities?.session?.id :
-                     entityType === 'class' ? activity.relatedEntities?.class?.id :
-                     undefined;
-    if (entityId && !groupedEntityIds.includes(entityId)) {
-      groupedEntityIds.push(entityId);
-    }
-  });
-  
-  // Get changed field name for UPDATE events
-  const changedFieldName = first.changedFieldName;
-  
-  // Generate grouped message
-  const groupedMessage = getGroupedActivityTemplate(
-    first,
-    activities.length,
-    groupedEntityIds,
-    relatedEntities,
-    changedFieldName
-  );
-  
-  // Use earliest timestamp
-  const earliestTimestamp = activities.reduce((earliest, current) => 
-    new Date(current.performedAt) < new Date(earliest.performedAt) ? current : earliest
-  );
-  
-  return {
-    ...first,
-    id: `grouped-${first.id}`,
-    message: groupedMessage,
-    timestamp: formatActivityTimestamp(earliestTimestamp.performedAt),
-    performedAt: earliestTimestamp.performedAt,
-    groupedCount: activities.length,
-    groupedEntityIds,
-    isGrouped: true,
-    originalEvents: activities,
-    changedFieldName, // Preserve changed field name for UPDATE events
-    // Clear detailed fields for grouped activities - details will show when expanded
-    changedFields: undefined,
-    changedFieldLabel: undefined,
-    oldValue: undefined,
-    newValue: undefined,
-    // Clear related entities to prevent showing session/class details in grouped message
-    relatedEntities: undefined,
-  };
-}
-
-/**
- * Group similar consecutive activities together
- */
-function groupSimilarActivities(
-  activities: ActivityEventDisplay[],
-  relatedEntities: ActivityEventsResponse['relatedEntities']
-): ActivityEventDisplay[] {
-  if (activities.length === 0) return [];
-  
-  const grouped: ActivityEventDisplay[] = [];
-  let currentGroup: ActivityEventDisplay[] = [activities[0]];
-  
-  for (let i = 1; i < activities.length; i++) {
-    const current = activities[i];
-    const previous = currentGroup[currentGroup.length - 1];
-    
-    if (canGroupActivities(previous, current)) {
-      currentGroup.push(current);
-    } else {
-      // Finalize current group
-      if (currentGroup.length > 1) {
-        grouped.push(createGroupedActivity(currentGroup, relatedEntities));
-      } else {
-        grouped.push(currentGroup[0]);
-      }
-      currentGroup = [current];
-    }
-  }
-  
-  // Handle remaining group
-  if (currentGroup.length > 1) {
-    grouped.push(createGroupedActivity(currentGroup, relatedEntities));
-  } else {
-    grouped.push(currentGroup[0]);
-  }
-  
-  return grouped;
-}
-
-/**
- * Map multiple activity events to display format with coalescing and grouping
- * 
- * Processing pipeline:
- * 1. Map raw events to display format (applies field-level transformations)
- * 2. Coalesce related events into logical actions (combines multi-event patterns)
- * 3. Group similar consecutive activities (groups repeated similar actions)
- */
 export function mapActivityEventsToDisplay(
-  response: ActivityEventsResponse
+  response: ActivityEventsResponse,
+  options?: { chronological?: boolean }
 ): ActivityEventDisplay[] {
-  // Step 1: Map raw events to display format
-  const mapped = response.events.map((event) => 
-    mapActivityEventToDisplay(event, response.relatedEntities, response.studentsSubjectsToSubjectId)
-  );
-  
-  // Step 2: Coalesce related events into logical actions
-  // This combines events that represent a single logical action (e.g., rescheduling)
-  const coalesced = coalesceRelatedEvents(mapped, response.relatedEntities);
-  
-  // Step 3: Group similar consecutive activities
-  // This groups repeated similar actions (e.g., adding same student to multiple sessions)
-  return groupSimilarActivities(coalesced, response.relatedEntities);
+  const direction = options?.chronological ? 1 : -1;
+  return response.events
+    .flatMap((event) => {
+      if (
+        event.event_name === 'note.added' &&
+        response.relatedEntities.notes &&
+        !response.relatedEntities.notes[event.subject_id]
+      ) {
+        return [];
+      }
+      return [mapActivityEventToDisplay(event, response.relatedEntities)];
+    })
+    .sort((a, b) => (
+      (new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()) * direction
+    ));
 }
-

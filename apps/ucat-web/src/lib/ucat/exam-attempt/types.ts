@@ -1,20 +1,46 @@
-import type { QuestionEngineState } from "@/features/question-engine/model/types";
+import type {
+  QuestionEngineExam,
+  QuestionEngineMode,
+  QuestionEngineState,
+} from "@/features/question-engine/model/types";
 
 export type ExamAttemptKind = "set" | "mock" | "practice";
 
+export type ExamAttemptTimingSnapshot = {
+  setModeTiming?: QuestionEngineExam["setModeTiming"];
+  mockTimingSegments?: QuestionEngineExam["mockTimingSegments"];
+  mockSetSummaries?: QuestionEngineExam["mockSetSummaries"];
+  timePerQuestionSeconds?: number | null;
+  practiceSessionTimeLimitSeconds?: number | null;
+};
+
 /** Serializable question-engine state persisted for resume. */
+export type QuestionActiveTimingContext = {
+  questionId: string;
+  questionSetId: string;
+  mode: QuestionEngineMode;
+  wasTimed: boolean;
+};
+
+export type QuestionActiveTimingState = QuestionActiveTimingContext & {
+  startedAt: string;
+  segmentEndsAt: string | null;
+};
+
 export type ExamEngineSnapshot = Pick<
   QuestionEngineState,
   | "phase"
   | "instructionsIndex"
   | "showReadyDialog"
   | "showTimeExpiredDialog"
+  | "timeExpiredFromInstructions"
   | "nextSegmentTimerStartedAt"
   | "currentIndex"
   | "visitedQuestionIds"
   | "flaggedIds"
   | "selectedAnswers"
-  | "syllogismSnapshots"
+  | "placementSnapshots"
+  | "responseSnapshots"
   | "reviewFilter"
   | "reviewFilterIndex"
   | "reviewFilterIndicesSnapshot"
@@ -24,7 +50,9 @@ export type ExamEngineSnapshot = Pick<
   | "viewingQuestionIndex"
   | "loadingMoreTargetIndex"
   | "loadingMoreExcludeStemIds"
->;
+> & {
+  activeQuestionTiming?: QuestionActiveTimingState | null;
+};
 
 export type ActiveExamAttempt = {
   kind: ExamAttemptKind;
@@ -32,6 +60,7 @@ export type ActiveExamAttempt = {
   resourceId: string;
   label: string;
   resumeHref: string;
+  exitHref?: string;
   resultsHref: string;
   currentSegmentEndsAt: string | null;
   engineSnapshot: ExamEngineSnapshot;
@@ -39,6 +68,8 @@ export type ActiveExamAttempt = {
   setAttemptIdsBySetId: Record<string, string>;
   practiceSessionId: string | null;
   wasTimed: boolean;
+  examTiming?: ExamAttemptTimingSnapshot;
+  studyPlanTaskId?: string | null;
 };
 
 export type BeginExamAttemptInput = {
@@ -49,6 +80,7 @@ export type BeginExamAttemptInput = {
   engineSnapshot: ExamEngineSnapshot;
   segmentTimeLimitSeconds: number | null;
   questionSetIdForMockSet?: string;
+  studyPlanTaskId?: string | null;
 };
 
 export type SyncExamAttemptInput = {
@@ -59,6 +91,8 @@ export type SyncExamAttemptInput = {
   /** When present, the server starts a new segment using its own clock. */
   startSegmentTimeLimitSeconds?: number | null;
   setAttemptIdsBySetId?: Record<string, string>;
+  /** Current question for server-owned question active time. Null closes any open interval. */
+  questionActiveTiming?: QuestionActiveTimingContext | null;
 };
 
 export type FinalizeExamAttemptInput = {

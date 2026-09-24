@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -87,11 +88,13 @@ export async function POST(
       .eq('id', id);
 
     if (updateError) {
+      captureApiError(updateError, "/api/ucat-plan-prices/[id]/sync-from-stripe");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
     return NextResponse.json({ base_price_cents: unitAmount });
   } catch (error) {
+    captureApiError(error, "/api/ucat-plan-prices/[id]/sync-from-stripe");
     return NextResponse.json(
       { error: getErrorMessage(error) || 'Failed to sync from Stripe' },
       { status: 500 },

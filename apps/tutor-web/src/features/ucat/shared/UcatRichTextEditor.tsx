@@ -15,7 +15,9 @@ import type { SetImageOptions } from '@tiptap/extension-image'
 import { uploadUcatImage } from '@/features/ucat/shared/ucatImages'
 import { useRefreshedUcatContent } from '@/features/ucat/question-engine-preview/hooks/useRefreshedUcatContent'
 import {
+  cacheSignedUrls,
   docStructureFingerprint,
+  extractUcatImagePathFromSignedUrl,
   extractImageUrlsFromDoc,
 } from '@/features/ucat/question-engine-preview/lib/refresh-ucat-image-urls'
 import {
@@ -23,6 +25,7 @@ import {
   UCAT_PARSE_DECO_META,
   type UcatParseHighlightConfig,
 } from '@/features/ucat/shared/ucatParseHighlightPlugin'
+import { UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME } from '@/features/ucat/shared/lib/ucat-paragraph-spacing'
 
 /** TipTap reads `text-foreground`; pin dark body text on white UCAT engine shells when app theme is dark. */
 const UCAT_RTE_FORCE_LIGHT_CHROME_CLASSNAME =
@@ -36,13 +39,20 @@ const UCAT_RTE_LIST_MARKER_CLASSNAME =
  * Use `[&_table]` — not `[&_.ProseMirror_table]`, which requires a nested editor node.
  */
 export const UCAT_ENGINE_TABLE_ROOT_CLASSNAME =
-  '[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:border-solid [&_table]:!border-[#9ba9bd] [&_th]:border [&_th]:border-solid [&_th]:!border-[#9ba9bd] [&_th]:bg-[#f3f4f6] [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:border-solid [&_td]:!border-[#9ba9bd] [&_td]:p-2 [&_td]:align-top'
+  '[&_table]:my-2 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-visible [&_table]:border [&_table]:border-solid [&_table]:!border-[#9ba9bd] [&_th]:border [&_th]:border-solid [&_th]:!border-[#9ba9bd] [&_th]:bg-[#f3f4f6] [&_th]:p-2 [&_th]:text-left [&_td]:border [&_td]:border-solid [&_td]:!border-[#9ba9bd] [&_td]:p-2 [&_td]:align-top'
 
 /**
  * Table borders when styles live on a wrapper around RichTextEditor (inline edit chrome).
  */
 export const UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME =
-  '[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:!border-[#9ba9bd] [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:!border-[#9ba9bd] [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:!border-[#9ba9bd] [&_.tiptap_th]:bg-[#f3f4f6] [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:!border-[#9ba9bd] [&_.ProseMirror_th]:bg-[#f3f4f6] [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:!border-[#9ba9bd] [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:!border-[#9ba9bd] [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top'
+  '[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:overflow-visible [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:!border-[#9ba9bd] [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-visible [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:!border-[#9ba9bd] [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:!border-[#9ba9bd] [&_.tiptap_th]:bg-[#f3f4f6] [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:!border-[#9ba9bd] [&_.ProseMirror_th]:bg-[#f3f4f6] [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:!border-[#9ba9bd] [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:!border-[#9ba9bd] [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top'
+
+/**
+ * Theme-aware tables for dark/light app chrome (skill trainer previews, review).
+ * Avoids engine `#f3f4f6` headers which become unreadable with white dark-mode text.
+ */
+export const UCAT_THEME_TABLE_WRAPPER_CLASSNAME =
+  '[&_.tiptap_table]:my-2 [&_.tiptap_table]:w-full [&_.tiptap_table]:border-collapse [&_.tiptap_table]:overflow-visible [&_.tiptap_table]:border [&_.tiptap_table]:border-solid [&_.tiptap_table]:border-border [&_.ProseMirror_table]:my-2 [&_.ProseMirror_table]:w-full [&_.ProseMirror_table]:border-collapse [&_.ProseMirror_table]:overflow-visible [&_.ProseMirror_table]:border [&_.ProseMirror_table]:border-solid [&_.ProseMirror_table]:border-border [&_.tiptap_th]:border [&_.tiptap_th]:border-solid [&_.tiptap_th]:border-border [&_.tiptap_th]:!bg-muted [&_.tiptap_th]:p-2 [&_.tiptap_th]:text-left [&_.tiptap_th]:text-foreground [&_.ProseMirror_th]:border [&_.ProseMirror_th]:border-solid [&_.ProseMirror_th]:border-border [&_.ProseMirror_th]:!bg-muted [&_.ProseMirror_th]:p-2 [&_.ProseMirror_th]:text-left [&_.ProseMirror_th]:text-foreground [&_.tiptap_td]:border [&_.tiptap_td]:border-solid [&_.tiptap_td]:border-border [&_.tiptap_td]:p-2 [&_.tiptap_td]:align-top [&_.tiptap_td]:text-foreground [&_.ProseMirror_td]:border [&_.ProseMirror_td]:border-solid [&_.ProseMirror_td]:border-border [&_.ProseMirror_td]:p-2 [&_.ProseMirror_td]:align-top [&_.ProseMirror_td]:text-foreground'
 
 /** @deprecated Use UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME or UCAT_ENGINE_TABLE_ROOT_CLASSNAME */
 export const UCAT_ENGINE_TABLE_CLASSNAME = UCAT_ENGINE_TABLE_WRAPPER_CLASSNAME
@@ -96,6 +106,8 @@ export interface UcatRichTextEditorProps {
    * neutral palette so content stays readable on white UCAT engine chrome while the app is in dark mode.
    */
   forceLightChrome?: boolean
+  /** Adds UCAT engine paragraph spacing between passage paragraphs. */
+  paragraphSpacing?: boolean
 }
 
 function toJsonContent(value: UcatRichTextValue): JSONContent | null {
@@ -108,8 +120,59 @@ function toJsonContent(value: UcatRichTextValue): JSONContent | null {
   return value as JSONContent
 }
 
+/**
+ * Older pasted stems can contain a block image inside a paragraph. Split that
+ * invalid shape into sibling blocks before TipTap receives the document.
+ */
+function normalizeBlockImagesInDocument(value: JSONContent | null): JSONContent | null {
+  if (value == null) return value
+
+  function normalizeNode(node: JSONContent): JSONContent[] {
+    const normalizedContent = node.content?.flatMap(normalizeNode)
+    const normalizedNode = normalizedContent
+      ? { ...node, content: normalizedContent }
+      : node
+
+    if (
+      normalizedNode.type !== 'paragraph' ||
+      !normalizedContent?.some((child) => child.type === 'image')
+    ) {
+      return [normalizedNode]
+    }
+
+    const blocks: JSONContent[] = []
+    let inlineContent: JSONContent[] = []
+    for (const child of normalizedContent) {
+      if (child.type !== 'image') {
+        inlineContent.push(child)
+        continue
+      }
+      if (inlineContent.length > 0) {
+        blocks.push({ ...normalizedNode, content: inlineContent })
+      }
+      blocks.push(child)
+      inlineContent = []
+    }
+    // Keep a text block after a trailing image so the next typed character has
+    // a valid inline parent rather than an invalid document-level selection.
+    blocks.push({ ...normalizedNode, content: inlineContent })
+    return blocks
+  }
+
+  return normalizeNode(value)[0] ?? value
+}
+
 function fromJsonContent(json: JSONContent): Json {
   return json as unknown as Json
+}
+
+function cacheUploadedUcatImageUrl(fileId: string, signedUrl: string): void {
+  const storagePath = extractUcatImagePathFromSignedUrl(signedUrl)
+  if (storagePath) {
+    cacheSignedUrls([storagePath], [fileId], [signedUrl, signedUrl])
+    return
+  }
+  cacheSignedUrls([], [fileId], [signedUrl])
 }
 
 export function UcatRichTextEditor({
@@ -131,6 +194,7 @@ export function UcatRichTextEditor({
   additionalExtensions,
   onEditorReady: onEditorReadyProp,
   forceLightChrome = false,
+  paragraphSpacing = false,
 }: UcatRichTextEditorProps) {
   const editorRef = useRef<RichTextEditorRef | null>(null)
   const [isPasteProcessing, setIsPasteProcessing] = useState(false)
@@ -190,6 +254,7 @@ export function UcatRichTextEditor({
 
         try {
           const { fileId, signedUrl } = await uploadUcatImage({ file, stemId })
+          cacheUploadedUcatImageUrl(fileId, signedUrl)
           collectedFileIds.push(fileId)
 
           if (maxImagesPerDocument === 1) {
@@ -364,6 +429,7 @@ export function UcatRichTextEditor({
                   file,
                   stemId,
                 })
+                cacheUploadedUcatImageUrl(fileId, signedUrl)
                 collectedFileIds.push(fileId)
                 signedUrls.push(signedUrl)
               } catch (error) {
@@ -427,10 +493,16 @@ export function UcatRichTextEditor({
 
   const jsonRecord =
     value && typeof value === 'object' ? (value as Record<string, unknown>) : null
-  const { content: refreshedContent, isLoading: isRefreshingImages, hasImageRefs } =
-    useRefreshedUcatContent(jsonRecord)
+  const {
+    content: refreshedContent,
+    isLoading: isRefreshingImages,
+    hasImageRefs,
+  } = useRefreshedUcatContent(jsonRecord)
 
-  const liveEditorContent = useMemo(() => toJsonContent(value), [value])
+  const liveEditorContent = useMemo(
+    () => normalizeBlockImagesInDocument(toJsonContent(value)),
+    [value]
+  )
   const liveStructureKey = useMemo(
     () => docStructureFingerprint(liveEditorContent as Record<string, unknown>),
     [liveEditorContent]
@@ -446,8 +518,10 @@ export function UcatRichTextEditor({
     return extractImageUrlsFromDoc(refreshedContent).join('\0')
   }, [hasImageRefs, refreshedContent])
 
-  // Match UcatRichContentBlock: never mount TipTap with expired signed URLs — broken
-  // images do not recover when src is updated via setContent after the first failed load.
+  // Do not mount TipTap with an expired persisted URL. This applies to editable
+  // editors too: otherwise the editor keeps the broken image src for its lifetime.
+  // The structure check below still prevents an async refresh from replacing a
+  // document that changed while the URL request was in flight.
   const waitingForImageRefresh =
     hasImageRefs && (isRefreshingImages || refreshedContent == null)
   const editorContent = waitingForImageRefresh
@@ -457,7 +531,10 @@ export function UcatRichTextEditor({
       : liveEditorContent
 
   const editorMountKey = useMemo(
-    () => (hasImageRefs ? refreshedImageUrlsKey : 'ucat-rte-stable'),
+    () =>
+      hasImageRefs
+        ? refreshedImageUrlsKey
+        : 'ucat-rte-stable',
     [hasImageRefs, refreshedImageUrlsKey]
   )
 
@@ -500,6 +577,7 @@ export function UcatRichTextEditor({
           autoFocus={autoFocus}
           editable={editable}
           minHeight={minHeight}
+          className={paragraphSpacing ? UCAT_ENGINE_PARAGRAPH_SPACING_CLASSNAME : undefined}
           pastePlainTextAsParagraphs={pastePlainTextAsParagraphs}
           pasteTableBehavior={pasteTableBehavior}
           pasteStripFormatting={pasteStripFormatting}

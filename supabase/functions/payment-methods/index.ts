@@ -1,4 +1,11 @@
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
+import {
+  buildStudentPaymentMethodInsert,
+  decidePersistFromSetupIntent,
+  isPaymentMethodUniqueViolation,
+  stripeId,
+} from '../_shared/student-payment-method.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import Stripe from 'npm:stripe@16.6.0';
 
@@ -17,7 +24,119 @@ function json(resp: unknown, status = 200) {
   });
 }
 
-Deno.serve(async (req: Request) => {
+type PersistSetupIntentOutcome =
+  | { verified: true }
+  | { verified: false; retryable: boolean; code: string };
+
+type PersistDb = {
+  from: (table: string) => {
+    select: (columns: string) => {
+      eq: (column: string, value: string) => {
+        maybeSingle: () => Promise<{
+          data: { stripe_customer_id?: string } | null;
+          error: { code?: string } | null;
+        }>;
+      } & Promise<{
+        data: { stripe_payment_method_id?: string }[] | null;
+        error: { code?: string } | null;
+      }>;
+    };
+    insert: (row: ReturnType<typeof buildStudentPaymentMethodInsert>) => Promise<{
+      error: { code?: string } | null;
+    }>;
+  };
+};
+
+async function persistSucceededSetupIntent(input: {
+  stripe: Stripe;
+  supabaseService: PersistDb;
+  studentId: string;
+  setupIntentId: string;
+}): Promise<PersistSetupIntentOutcome> {
+  const { stripe, supabaseService, studentId, setupIntentId } = input;
+
+  const { data: billing, error: billingError } = await supabaseService
+    .from('students_billing')
+    .select('stripe_customer_id')
+    .eq('student_id', studentId)
+    .maybeSingle();
+
+  if (billingError || !billing?.stripe_customer_id) {
+    return { verified: false, retryable: true, code: 'billing_not_initialized' };
+  }
+
+  let setupIntent: Stripe.SetupIntent;
+  try {
+    setupIntent = await stripe.setupIntents.retrieve(setupIntentId);
+  } catch {
+    return { verified: false, retryable: true, code: 'setup_intent_not_found' };
+  }
+
+  const decision = decidePersistFromSetupIntent({
+    studentId,
+    stripeCustomerId: billing.stripe_customer_id,
+    setupIntent: {
+      id: setupIntent.id,
+      status: setupIntent.status,
+      customer: stripeId(setupIntent.customer),
+      payment_method: stripeId(setupIntent.payment_method),
+      metadata: setupIntent.metadata ?? {},
+    },
+  });
+
+  if (decision.action === 'reject') {
+    return {
+      verified: false,
+      retryable: decision.retryable,
+      code: decision.code,
+    };
+  }
+
+  const { data: existingMethods, error: existingError } = await supabaseService
+    .from('student_payment_methods')
+    .select('id, stripe_payment_method_id')
+    .eq('student_id', studentId);
+
+  if (existingError) {
+    return { verified: false, retryable: true, code: 'payment_query_failed' };
+  }
+
+  if (
+    existingMethods?.some(
+      (method) => method.stripe_payment_method_id === decision.paymentMethodId,
+    )
+  ) {
+    return { verified: true };
+  }
+
+  const paymentMethod = await stripe.paymentMethods.retrieve(
+    decision.paymentMethodId,
+  );
+  const card =
+    paymentMethod && typeof paymentMethod === 'object' && 'card' in paymentMethod
+      ? (paymentMethod.card ?? null)
+      : null;
+
+  const { error: insertError } = await supabaseService
+    .from('student_payment_methods')
+    .insert(
+      buildStudentPaymentMethodInsert({
+        studentId,
+        paymentMethodId: decision.paymentMethodId,
+        isDefault: !existingMethods || existingMethods.length === 0,
+        card,
+      }),
+    );
+
+  if (insertError && !isPaymentMethodUniqueViolation(insertError)) {
+    console.error('[payment-methods] Failed to save payment method:', insertError);
+    return { verified: false, retryable: true, code: 'payment_persist_failed' };
+  }
+
+  return { verified: true };
+}
+
+serveWithSentry('payment-methods', async (req: Request, sentry) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -39,7 +158,7 @@ Deno.serve(async (req: Request) => {
 
   // Parse body first to check if this is a registration flow
   const body = await req.json();
-  const { action, studentId, paymentMethodId, email, name, registrationToken } = body;
+  const { action, studentId, paymentMethodId, email, name, registrationToken, setupIntentId } = body;
 
   // Check if this is a registration flow (no auth required)
   const isRegistrationFlow = !!registrationToken;
@@ -92,20 +211,42 @@ Deno.serve(async (req: Request) => {
       return json({ error: 'Registration token required' }, 400);
     }
 
-    // Validate token and get student (same validation as /api/register/validate)
-    const { data: student, error: studentError } = await supabaseService
-      .from('students')
-      .select('id, status, user_id')
-      .eq('invite_token', registrationToken)
-      .maybeSingle();
+    const { data: isRevoked, error: revocationError } = await supabaseService
+      .rpc('service_is_public_link_revoked', {
+        p_purpose: 'REGISTRATION',
+        p_token: registrationToken,
+      });
 
-    if (studentError || !student) {
-      return json({ error: 'Invalid or expired registration token' }, 404);
+    if (revocationError) {
+      sentry.captureException(revocationError);
+      return json({ error: 'Registration link validation unavailable' }, 503);
     }
 
-    // Security check: prevent reuse of token for already registered students
-    if (student.user_id && student.status === 'ACTIVE') {
+    if (isRevoked === true) {
+      return json({ error: 'Registration link was revoked' }, 404);
+    }
+
+    const studentQuery = supabaseService
+      .from('students')
+      .select('id, status, user_id');
+    const isLegacyUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      .test(registrationToken);
+    const { data: student, error: studentError } = isLegacyUuid
+      ? await studentQuery.or(
+          `registration_public_token.eq.${registrationToken},legacy_registration_token.eq.${registrationToken}`
+        ).maybeSingle()
+      : await studentQuery.eq('registration_public_token', registrationToken).maybeSingle();
+
+    if (studentError || !student) {
+      return json({ error: 'Invalid registration link' }, 404);
+    }
+
+    if (student.status === 'ACTIVE') {
       return json({ error: 'Student already registered' }, 400);
+    }
+
+    if (student.status !== 'TRIAL') {
+      return json({ error: 'Registration is unavailable for this student' }, 409);
     }
 
     authenticatedStudentId = student.id;
@@ -346,6 +487,27 @@ Deno.serve(async (req: Request) => {
       return json({ success: true, message: 'Payment method deleted' });
 
     } else if (action === 'verify_payment_method') {
+      if (typeof setupIntentId === 'string' && setupIntentId) {
+        const persisted = await persistSucceededSetupIntent({
+          stripe,
+          supabaseService: supabaseService as unknown as PersistDb,
+          studentId: targetStudentId,
+          setupIntentId,
+        });
+        if (persisted.verified) {
+          return json({
+            verified: true,
+            message: 'Payment method verified',
+          });
+        }
+        if (!persisted.retryable) {
+          return json({
+            verified: false,
+            code: persisted.code,
+          });
+        }
+      }
+
       // Verify that student has at least one payment method
       const { data: paymentMethods, error: pmError } = await supabaseService
         .from('student_payment_methods')
@@ -358,7 +520,9 @@ Deno.serve(async (req: Request) => {
       }
 
       if (!paymentMethods || paymentMethods.length === 0) {
-        return json({ verified: false, error: 'No payment method found' }, 400);
+        // Stripe's webhook may still be persisting a successfully attached
+        // payment method. The registration client polls this expected state.
+        return json({ verified: false, code: 'webhook_pending' });
       }
 
       return json({
@@ -371,6 +535,7 @@ Deno.serve(async (req: Request) => {
     }
 
   } catch (e: unknown) {
+    sentry.captureException(e);
     const msg = e instanceof Error ? e.message : String(e);
     console.error('[payment-methods] error', msg);
     return json({ 
@@ -379,4 +544,3 @@ Deno.serve(async (req: Request) => {
     }, 500);
   }
 });
-

@@ -20,33 +20,44 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  isDialogPrimaryShortcutEvent,
   useToast,
 } from '@altitutor/ui'
-import { X } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Trash2, X } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
+import { useRouter } from 'next/navigation'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
 import {
-  useSetUcatQuestionStemApprovalStatus,
+  useSetUcatQuestionStemStatus,
+  useDeleteUcatQuestionStem,
   useUcatCategories,
   useUcatQuestionDetail,
   useUcatSections,
   useUcatTags,
   useUpdateUcatQuestionStem,
 } from '@/features/ucat/questions/hooks/useUcatQuestions'
+import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
+import { UcatStemEditorLoadingSkeleton } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorLoadingSkeleton'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
-import type { StemEditorFocusTarget } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import type {
+  StemEditorFocusTarget,
+  StemEditorMode,
+} from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
 import type { CategoryOption, TagOption } from '@/features/ucat/questions/components/UcatQuestionStemDialog'
 import { UcatRichTextToolbar } from '@/features/ucat/shared/components/UcatRichTextToolbar'
 import { mapCategoriesToOptions, mapTagsToOptions } from '@/features/ucat/shared/lib/taxonomy-paths'
 import { snapshotQuestionStemFormValues, isSnapshotDirty } from '@/features/ucat/shared/lib/dirty-state'
 import { findMissingExplanations } from '@/features/ucat/questions/lib/ai-tools'
 import {
-  formValuesToStemBundlePayload,
   getFirstStemValidationMessage,
+  persistStemFormValues,
   stemDetailToFormValues,
 } from '@/features/ucat/questions/lib/stem-editor-form'
 import { ucatKeys } from '@/features/ucat/shared/lib/query-keys'
 import { fetchReconciliationData } from '@/features/ucat/reconciliation/api/reconciliation'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast } from '@/features/ucat/shared/lifecycle-errors'
+import { ucatQuestionsApi } from '@/features/ucat/questions/api/questions'
 import { cn } from '@/shared/utils'
 import {
   tutorBtnIconOutline,
@@ -56,6 +67,16 @@ import {
   tutorDialogFooterStrip,
   tutorDialogHeaderStrip,
 } from '@/shared/lib/tutor-visual'
+import {
+  ExpandButton,
+  EXPANDABLE_DIALOG_TRANSITION,
+  EXPANDED_DIALOG_CONTENT_CLASS,
+} from '@/shared/components/expandable-dialog'
+import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
+import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
+import { UcatRowActions } from '@/features/ucat/shared/row-actions'
+import type { UcatAuthoringWorkspaceTab } from '@/features/ucat/shared/components/UcatAuthoringWorkspaceTabs'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 
 export type UcatApprovalQueueEntry =
   | {
@@ -70,25 +91,30 @@ export type UcatApprovalQueueEntry =
       questionId?: string
     }
 
-type SkipChoice = 'save' | 'discard' | null
+type NavigateChoice = 'save' | 'discard' | null
+type NavigateDirection = 'prev' | 'next'
 
 export function UcatQuestionStemApprovalQueueDialog({
   open,
   title,
   entries,
+  workflowStatus,
   onClose,
 }: {
   open: boolean
   title: string
   entries: UcatApprovalQueueEntry[]
+  workflowStatus?: UcatContentStatus
   onClose: () => void
 }) {
   const [snapshotEntries, setSnapshotEntries] = useState<UcatApprovalQueueEntry[]>([])
+  const [expanded, setExpanded] = useState(true)
   const wasOpenRef = useRef(false)
 
   useEffect(() => {
     if (open && !wasOpenRef.current) {
       setSnapshotEntries(entries)
+      setExpanded(true)
     }
     if (!open) {
       setSnapshotEntries([])
@@ -100,11 +126,21 @@ export function UcatQuestionStemApprovalQueueDialog({
     <Dialog open={open} onOpenChange={(next) => (!next ? onClose() : undefined)}>
       <DialogContent
         className={cn(
-          'flex h-[92vh] w-full flex-col gap-0 p-0 md:max-w-6xl [&>button]:hidden',
+          // Force height: DialogContent base uses sm:h-auto, which collapses during load.
+          'flex !h-[92vh] w-full flex-col gap-0 overflow-hidden p-0 sm:!h-[92vh] md:max-w-6xl [&>button]:hidden',
           tutorDialogContentClass,
+          EXPANDABLE_DIALOG_TRANSITION,
+          expanded && EXPANDED_DIALOG_CONTENT_CLASS,
         )}
       >
-        <UcatQuestionStemApprovalQueue title={title} entries={snapshotEntries} onExit={onClose} />
+        <UcatQuestionStemApprovalQueue
+          title={title}
+          entries={snapshotEntries}
+          workflowStatus={workflowStatus}
+          onExit={onClose}
+          expanded={expanded}
+          onToggleExpanded={() => setExpanded((current) => !current)}
+        />
       </DialogContent>
     </Dialog>
   )
@@ -129,21 +165,35 @@ export function UcatQuestionStemApprovalQueuePage({
 function UcatQuestionStemApprovalQueue({
   title,
   entries,
+  workflowStatus,
   onExit,
+  expanded,
+  onToggleExpanded,
 }: {
   title: string
   entries: UcatApprovalQueueEntry[]
+  workflowStatus?: UcatContentStatus
   onExit: () => void
+  expanded?: boolean
+  onToggleExpanded?: () => void
 }) {
   const { toast } = useToast()
+  const router = useRouter()
+  const { copyId } = useUcatCopyId()
   const queryClient = useQueryClient()
   const [index, setIndex] = useState(0)
-  const [skipDialogOpen, setSkipDialogOpen] = useState(false)
+  const [navigateDialogOpen, setNavigateDialogOpen] = useState(false)
+  const [pendingNavigateDirection, setPendingNavigateDirection] = useState<NavigateDirection | null>(null)
   const [closeDialogOpen, setCloseDialogOpen] = useState(false)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
   const [activeQuestionIndex, setActiveQuestionIndex] = useState(0)
+  const [activeWorkspaceTab, setActiveWorkspaceTab] = useState<UcatAuthoringWorkspaceTab>('editor')
+  const [editorMode, setEditorMode] = useState<StemEditorMode>('edit')
+  const [showAnswer, setShowAnswer] = useState(false)
 
   const currentEntry = entries[index] ?? null
+  const nextStemId = entries[index + 1]?.stemId ?? null
   const initialActiveQuestionIndex =
     currentEntry?.mode === 'reconciliation' ? currentEntry.questionIndex ?? 0 : 0
   const detailQuery = useUcatQuestionDetail(currentEntry?.stemId ?? null)
@@ -151,7 +201,8 @@ function UcatQuestionStemApprovalQueue({
   const categoriesQuery = useUcatCategories()
   const tagsQuery = useUcatTags()
   const updateMutation = useUpdateUcatQuestionStem()
-  const approvalMutation = useSetUcatQuestionStemApprovalStatus()
+  const statusMutation = useSetUcatQuestionStemStatus()
+  const deleteMutation = useDeleteUcatQuestionStem()
 
   const sections = useMemo(() => sectionsQuery.data ?? [], [sectionsQuery.data])
   const categories = useMemo(() => mapCategoriesToOptions(categoriesQuery.data ?? []) as CategoryOption[], [categoriesQuery.data])
@@ -178,66 +229,121 @@ function UcatQuestionStemApprovalQueue({
     baselineRef.current = snapshotQuestionStemFormValues(defaultValues)
     setActiveTextEditor(null)
     setActiveQuestionIndex(initialActiveQuestionIndex)
-  }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex])
+    setEditorMode(workflowStatus === 'published' ? 'view' : 'edit')
+    setShowAnswer(false)
+  }, [detailQuery.data, defaultValues, form, initialActiveQuestionIndex, workflowStatus])
+
+  useEffect(() => {
+    if (!nextStemId) return
+    void queryClient.prefetchQuery({
+      queryKey: ucatKeys.question(nextStemId),
+      queryFn: () => ucatQuestionsApi.getDetail(nextStemId),
+      staleTime: 30_000,
+    })
+  }, [nextStemId, queryClient])
 
   const watchedValues = form.watch()
-  const hasUnsavedChanges =
-    baselineRef.current !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baselineRef.current)
-
   const isLoading =
     detailQuery.isLoading || sectionsQuery.isLoading || categoriesQuery.isLoading || tagsQuery.isLoading
-  const isMutating = updateMutation.isPending || approvalMutation.isPending
+  const isMutating = updateMutation.isPending || statusMutation.isPending || deleteMutation.isPending
   const isAiMode = currentEntry?.mode === 'ai_approval'
+  const isDraftWorkflow = isAiMode && workflowStatus === 'draft'
+  const isPublishedWorkflow = isAiMode && workflowStatus === 'published'
+  const isReviewWorkflow = isAiMode && !isDraftWorkflow && !isPublishedWorkflow
+  const metadataDetection = useManualStemMetadataDetection({
+    enabled: isAiMode && !isLoading && detailQuery.data != null,
+    resetKey: currentEntry?.stemId ?? null,
+    form,
+    values: watchedValues,
+    sections,
+    categories,
+    tags,
+  })
+  const hasUnsavedChanges =
+    baselineRef.current !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baselineRef.current)
   const currentNumber = entries.length === 0 ? 0 : index + 1
   const progressLabel = `${currentNumber} of ${entries.length}`
   const queueComplete = entries.length > 0 && index >= entries.length
+  const canGoPreviousStem = !queueComplete && index > 0
+  const canGoNextStem = !queueComplete && index < entries.length - 1
   const questionCount = watchedValues.questions?.length ?? 0
   const isLastAiQuestion = !isAiMode || questionCount <= 1 || activeQuestionIndex >= questionCount - 1
-  const aiPrimaryLabel = isLastAiQuestion ? 'Approve' : 'Next question'
+  const hasPreviousAiQuestion = isAiMode && activeQuestionIndex > 0
+  const aiPrimaryLabel = isLastAiQuestion
+    ? isDraftWorkflow ? 'Send for review' : 'Publish'
+    : 'Next question'
 
   const focus = getEntryFocus(currentEntry)
+  const copyIdAction = detailQuery.data
+    ? buildCopyIdRowAction(buildStemCopyIdEntries(detailQuery.data), copyId)
+    : null
 
   function goNext() {
     setActiveTextEditor(null)
     setIndex((prev) => Math.min(prev + 1, entries.length))
   }
 
+  function goPreviousStem() {
+    setActiveTextEditor(null)
+    setIndex((prev) => Math.max(prev - 1, 0))
+  }
+
+  function goNextStem() {
+    setActiveTextEditor(null)
+    setIndex((prev) => Math.min(prev + 1, Math.max(entries.length - 1, 0)))
+  }
+
   async function invalidateQueueData(stemId: string) {
     await Promise.all([
       queryClient.invalidateQueries({ queryKey: ucatKeys.question(stemId) }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('default') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('generated') }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTagIds() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.questionStemTypes() }),
+      queryClient.invalidateQueries({ queryKey: ucatKeys.questions('all') }),
       queryClient.invalidateQueries({ queryKey: ucatKeys.reconciliation() }),
-      queryClient.invalidateQueries({ queryKey: ucatKeys.stemCatalog() }),
     ])
   }
 
-  async function saveCurrent(): Promise<boolean> {
+  async function saveCurrent(options?: { requestAssessment?: boolean }): Promise<boolean> {
     if (!currentEntry) return false
     let ok = false
     const submit = form.handleSubmit as unknown as (
       onValid: (values: UcatQuestionStemFormValues) => Promise<void>,
       onInvalid: (errors: Record<string, unknown>) => void,
     ) => () => Promise<void>
-    await submit(
-      async (values) => {
-        await updateMutation.mutateAsync({
-          stemId: currentEntry.stemId,
-          payload: formValuesToStemBundlePayload(JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues, currentEntry.stemId),
-        })
-        baselineRef.current = snapshotQuestionStemFormValues(values)
-        ok = true
-      },
-      (errors: Record<string, unknown>) => {
-        toast({
-          title: 'Validation failed',
-          description: getFirstStemValidationMessage(errors),
-          variant: 'destructive',
-        })
-      },
-    )()
+    try {
+      await submit(
+        async (values) => {
+          baselineRef.current = await persistStemFormValues(currentEntry.stemId, values, {
+            baselineSnapshot: baselineRef.current,
+            updateStem: (payload) =>
+              updateMutation.mutateAsync({
+                stemId: currentEntry.stemId,
+                payload,
+                requestAssessment: options?.requestAssessment ?? true,
+                invalidate: false,
+              }),
+            setStatus: (status) =>
+              statusMutation.mutateAsync({
+                stemId: currentEntry.stemId,
+                status,
+                invalidate: false,
+              }),
+          })
+          ok = true
+        },
+        (errors: Record<string, unknown>) => {
+          toast({
+            title: 'Validation failed',
+            description: getFirstStemValidationMessage(errors),
+            variant: 'destructive',
+          })
+        },
+      )()
+    } catch (error) {
+      toast({
+        title: 'Could not save question',
+        description: error instanceof Error ? error.message : 'The question could not be saved.',
+        variant: 'destructive',
+      })
+    }
     return ok
   }
 
@@ -269,7 +375,12 @@ function UcatQuestionStemApprovalQueue({
       })
       const stillMissing = latest.privateStemsNotInSet.some((stem) => stem.id === currentEntry.stemId)
       if (!stillMissing) return true
-      toast({ title: 'Set membership still missing', description: 'Add this private stem to a staff-authored set before moving to the next item.', variant: 'destructive' })
+      toast({
+        title: 'Private stem still unused',
+        description:
+          'Attach this private stem to a set, learning module, or session — or make it public — before moving to the next item.',
+        variant: 'destructive',
+      })
       return false
     }
     return true
@@ -277,16 +388,66 @@ function UcatQuestionStemApprovalQueue({
 
   async function handleApprove() {
     if (!currentEntry) return
-    const saved = await saveCurrent()
+    form.setValue('status', 'published', { shouldDirty: true })
+    const saved = await saveCurrent({ requestAssessment: false })
     if (!saved) return
-    await approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status: 'approved' })
+    const approvedStemId = currentEntry.stemId
+    toast(lifecycleStatusSuccessToast({
+      contentLabel: 'Question',
+      count: 1,
+      status: 'published',
+      onUndo: () => {
+        void ucatQuestionsApi.bulkRestoreStatus([approvedStemId], 'published', 'in_review')
+          .then(async () => {
+            await invalidateQueueData(approvedStemId)
+            toast({ title: 'Question status restored' })
+          })
+          .catch((error) => toast({
+            title: 'Could not undo status change',
+            description: error instanceof Error ? error.message : 'The question could not be returned to review.',
+            variant: 'destructive',
+          }))
+      },
+    }))
     if (currentEntry.mode === 'ai_approval' && entries.length === 1) {
-      await invalidateQueueData(currentEntry.stemId)
       onExit()
+      void invalidateQueueData(currentEntry.stemId)
       return
     }
     goNext()
     void invalidateQueueData(currentEntry.stemId)
+  }
+
+  async function handleSendForReview() {
+    if (!currentEntry) return
+    form.setValue('status', 'in_review', { shouldDirty: true })
+    const saved = await saveCurrent({ requestAssessment: false })
+    if (!saved) return
+    const submittedStemId = currentEntry.stemId
+    toast(lifecycleStatusSuccessToast({
+      contentLabel: 'Question',
+      count: 1,
+      status: 'in_review',
+      onUndo: () => {
+        void ucatQuestionsApi.bulkRestoreStatus([submittedStemId], 'in_review', 'draft')
+          .then(async () => {
+            await invalidateQueueData(submittedStemId)
+            toast({ title: 'Question status restored' })
+          })
+          .catch((error) => toast({
+            title: 'Could not undo status change',
+            description: error instanceof Error ? error.message : 'The question could not be returned to draft.',
+            variant: 'destructive',
+          }))
+      },
+    }))
+    if (entries.length === 1) {
+      onExit()
+      void invalidateQueueData(submittedStemId)
+      return
+    }
+    goNext()
+    void invalidateQueueData(submittedStemId)
   }
 
   function handleAiPrimaryAction() {
@@ -294,14 +455,37 @@ function UcatQuestionStemApprovalQueue({
       setActiveQuestionIndex((current) => Math.min(current + 1, Math.max(questionCount - 1, 0)))
       return
     }
-    void handleApprove()
+    if (isDraftWorkflow) void handleSendForReview()
+    else void handleApprove()
+  }
+
+  function handleAiPreviousQuestion() {
+    setActiveQuestionIndex((current) => Math.max(current - 1, 0))
   }
 
   async function handleReject() {
     if (!currentEntry) return
-    const saved = await saveCurrent()
+    form.setValue('status', 'draft', { shouldDirty: true })
+    const saved = await saveCurrent({ requestAssessment: false })
     if (!saved) return
-    await approvalMutation.mutateAsync({ stemId: currentEntry.stemId, status: 'rejected' })
+    const rejectedStemId = currentEntry.stemId
+    toast(lifecycleStatusSuccessToast({
+      contentLabel: 'Question',
+      count: 1,
+      status: 'draft',
+      onUndo: () => {
+        void ucatQuestionsApi.bulkRestoreStatus([rejectedStemId], 'draft', 'in_review')
+          .then(async () => {
+            await invalidateQueueData(rejectedStemId)
+            toast({ title: 'Question status restored' })
+          })
+          .catch((error) => toast({
+            title: 'Could not undo status change',
+            description: error instanceof Error ? error.message : 'The question could not be returned to review.',
+            variant: 'destructive',
+          }))
+      },
+    }))
     goNext()
     void invalidateQueueData(currentEntry.stemId)
   }
@@ -315,29 +499,90 @@ function UcatQuestionStemApprovalQueue({
     void invalidateQueueData(currentEntry.stemId)
   }
 
-  function handleSkip() {
-    if (hasUnsavedChanges) {
-      setSkipDialogOpen(true)
-      return
-    }
-    goNext()
+  async function handleSavePublished() {
+    if (!currentEntry) return
+    const saved = await saveCurrent()
+    if (!saved) return
+    void invalidateQueueData(currentEntry.stemId)
   }
 
-  async function applySkip(choice: SkipChoice) {
-    if (!currentEntry || choice == null) return
-    setSkipDialogOpen(false)
+  function requestNavigate(direction: NavigateDirection) {
+    if (direction === 'prev' && !canGoPreviousStem) return
+    if (direction === 'next' && !canGoNextStem) return
+    if (hasUnsavedChanges) {
+      setPendingNavigateDirection(direction)
+      setNavigateDialogOpen(true)
+      return
+    }
+    if (direction === 'prev') goPreviousStem()
+    else goNextStem()
+  }
+
+  async function applyNavigate(choice: NavigateChoice) {
+    if (!currentEntry || choice == null || pendingNavigateDirection == null) return
+    const direction = pendingNavigateDirection
+    setNavigateDialogOpen(false)
+    setPendingNavigateDirection(null)
     if (choice === 'save') {
       const saved = await saveCurrent()
       if (!saved) return
       void invalidateQueueData(currentEntry.stemId)
     }
-    goNext()
+    if (direction === 'prev') goPreviousStem()
+    else goNextStem()
   }
 
   function requestExit() {
     if (hasUnsavedChanges) setCloseDialogOpen(true)
     else onExit()
   }
+
+  async function handleDeleteStem() {
+    if (!currentEntry) return
+    const stemId = currentEntry.stemId
+    try {
+      await deleteMutation.mutateAsync(stemId)
+      setDeleteDialogOpen(false)
+      toast({ title: 'Question stem deleted' })
+      goNext()
+      void invalidateQueueData(stemId)
+    } catch (error) {
+      toast(lifecycleErrorToast(error, 'Cannot delete', router.push))
+    }
+  }
+
+  // Page-mode queues are not wrapped in DialogContent; dialog-mode defers to the shared
+  // Cmd/Ctrl+Enter handler on Dialog/AlertDialog content instead.
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!isDialogPrimaryShortcutEvent(event)) return
+      if (
+        document.querySelector(
+          '[data-slot="dialog-content"], [data-slot="alert-dialog-content"]',
+        )
+      ) {
+        return
+      }
+      if (event.target instanceof HTMLTextAreaElement) return
+      if (isMutating || queueComplete || !currentEntry) return
+
+      if (isPublishedWorkflow) {
+        if (!hasUnsavedChanges) return
+        event.preventDefault()
+        event.stopPropagation()
+        void handleSavePublished()
+        return
+      }
+
+      event.preventDefault()
+      event.stopPropagation()
+      if (isAiMode) handleAiPrimaryAction()
+      else void handleSaveAndNext()
+    }
+
+    document.addEventListener('keydown', onKeyDown, true)
+    return () => document.removeEventListener('keydown', onKeyDown, true)
+  })
 
   return (
     <>
@@ -354,6 +599,36 @@ function UcatQuestionStemApprovalQueue({
               </p>
             </div>
           </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {currentEntry && !queueComplete ? (
+              <UcatStemEditorHeaderControls
+                mode={editorMode}
+                onModeChange={setEditorMode}
+                showAnswer={showAnswer}
+                onShowAnswerChange={setShowAnswer}
+              />
+            ) : null}
+            {onToggleExpanded && expanded != null ? (
+              <ExpandButton expanded={expanded} onToggle={onToggleExpanded} />
+            ) : null}
+            {currentEntry ? (
+              <UcatRowActions
+                actions={[
+                  ...(copyIdAction ? [copyIdAction] : []),
+                  {
+                    label: 'Open in page',
+                    href: `/ucat/questions/${currentEntry.stemId}`,
+                  },
+                  {
+                    label: 'Delete',
+                    icon: <Trash2 className="h-4 w-4" />,
+                    onClick: () => setDeleteDialogOpen(true),
+                    destructive: true,
+                  },
+                ]}
+              />
+            ) : null}
+          </div>
         </div>
       </DialogHeader>
 
@@ -365,7 +640,7 @@ function UcatQuestionStemApprovalQueue({
             </div>
           </div>
         ) : isLoading ? (
-          <div className="flex flex-1 items-center justify-center text-muted-foreground">Loading stem...</div>
+          <UcatStemEditorLoadingSkeleton />
         ) : (
           <UcatStemEditorShell
             flush
@@ -379,7 +654,12 @@ function UcatQuestionStemApprovalQueue({
             tags={tags}
             stemId={currentEntry.stemId}
             initialQuestionIndex={currentEntry.mode === 'reconciliation' ? currentEntry.questionIndex : activeQuestionIndex}
-            initialEditorMode="edit"
+            initialEditorMode={isPublishedWorkflow ? 'view' : 'edit'}
+            editorMode={editorMode}
+            onEditorModeChange={setEditorMode}
+            showAnswer={showAnswer}
+            onShowAnswerChange={setShowAnswer}
+            showModeControls={false}
             enableImages
             sectionTitleOverride={detailQuery.data?.section_name ?? undefined}
             displayColumnsFallback={detailQuery.data?.display_columns ?? undefined}
@@ -387,16 +667,54 @@ function UcatQuestionStemApprovalQueue({
             onCurrentQuestionIndexChange={setActiveQuestionIndex}
             focusTarget={focus.target}
             focusMessage={focus.message}
+            sourceChannel={detailQuery.data?.source_channel ?? null}
+            aiGenerationMetadata={detailQuery.data?.ai_generation_metadata ?? null}
+            createdByFirstName={detailQuery.data?.created_by_first_name ?? null}
+            createdByLastName={detailQuery.data?.created_by_last_name ?? null}
+            statusChangedByFirstName={detailQuery.data?.status_changed_by_first_name ?? null}
+            statusChangedByLastName={detailQuery.data?.status_changed_by_last_name ?? null}
+            statusChangedAt={detailQuery.data?.status_changed_at ?? null}
+            workspaceTab={activeWorkspaceTab}
+            onWorkspaceTabChange={setActiveWorkspaceTab}
+            metadataDetection={isAiMode ? {
+              pendingDiff: metadataDetection.pendingDiff,
+              onAccept: metadataDetection.acceptField,
+              onDismiss: metadataDetection.dismissField,
+            } : null}
           />
         )}
       </div>
 
       <DialogFooter className={cn('flex-shrink-0 flex-row items-center gap-3 px-6 py-4 sm:justify-start', tutorDialogFooterStrip)}>
         <div className="flex min-w-0 flex-1 items-center gap-3">
-          {!queueComplete && currentEntry && isAiMode ? (
+          {!queueComplete && currentEntry && isReviewWorkflow ? (
             <Button type="button" variant="destructive" onClick={() => void handleReject()} disabled={isMutating}>
-              Reject
+              Move to drafts
             </Button>
+          ) : null}
+          {entries.length > 0 && !queueComplete && currentEntry ? (
+            <div className="flex shrink-0 items-center gap-1">
+              <Button
+                type="button"
+                variant="outline"
+                className={tutorBtnOutline}
+                onClick={() => requestNavigate('prev')}
+                disabled={isMutating || !canGoPreviousStem}
+              >
+                <ChevronLeft className="mr-2 h-4 w-4" />
+                Previous stem
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className={tutorBtnOutline}
+                onClick={() => requestNavigate('next')}
+                disabled={isMutating || !canGoNextStem}
+              >
+                Next stem
+                <ChevronRight className="ml-2 h-4 w-4" />
+              </Button>
+            </div>
           ) : null}
           {activeTextEditor ? (
             <div className="min-w-0 flex-1 overflow-x-auto">
@@ -405,48 +723,81 @@ function UcatQuestionStemApprovalQueue({
           ) : <div className="flex-1" />}
           {entries.length === 0 || queueComplete || !currentEntry ? (
             <div className="flex shrink-0 items-center gap-2">
-              <Button type="button" className={tutorBtnPrimary} onClick={onExit}>
+              <Button type="button" className={tutorBtnPrimary} onClick={onExit} data-dialog-primary-action="">
                 Close
               </Button>
             </div>
           ) : (
             <div className="flex shrink-0 items-center gap-2">
-              {isAiMode ? (
+              {isPublishedWorkflow ? (
+                <Button
+                  type="button"
+                  className={tutorBtnPrimary}
+                  onClick={() => void handleSavePublished()}
+                  disabled={isMutating || !hasUnsavedChanges}
+                  data-dialog-primary-action=""
+                >
+                  {updateMutation.isPending ? 'Saving…' : 'Save changes'}
+                </Button>
+              ) : isAiMode ? (
                 <>
-                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleSkip} disabled={isMutating}>
-                    Skip
-                  </Button>
-                  <Button type="button" className={tutorBtnPrimary} onClick={handleAiPrimaryAction} disabled={isMutating}>
+                  {hasPreviousAiQuestion ? (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className={tutorBtnOutline}
+                      onClick={handleAiPreviousQuestion}
+                      disabled={isMutating}
+                    >
+                      Previous question
+                    </Button>
+                  ) : null}
+                  <Button
+                    type="button"
+                    className={tutorBtnPrimary}
+                    onClick={handleAiPrimaryAction}
+                    disabled={isMutating}
+                    data-dialog-primary-action=""
+                  >
                     {aiPrimaryLabel}
                   </Button>
                 </>
               ) : (
-                <>
-                  <Button type="button" variant="outline" className={tutorBtnOutline} onClick={handleSkip} disabled={isMutating}>
-                    Skip
-                  </Button>
-                  <Button type="button" className={tutorBtnPrimary} onClick={() => void handleSaveAndNext()} disabled={isMutating}>
-                    Save and next
-                  </Button>
-                </>
+                <Button
+                  type="button"
+                  className={tutorBtnPrimary}
+                  onClick={() => void handleSaveAndNext()}
+                  disabled={isMutating}
+                  data-dialog-primary-action=""
+                >
+                  Save and next
+                </Button>
               )}
             </div>
           )}
         </div>
       </DialogFooter>
 
-      <AlertDialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+      <AlertDialog
+        open={navigateDialogOpen}
+        onOpenChange={(open) => {
+          setNavigateDialogOpen(open)
+          if (!open) setPendingNavigateDirection(null)
+        }}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Skip with unsaved changes?</AlertDialogTitle>
+            <AlertDialogTitle>Leave with unsaved changes?</AlertDialogTitle>
             <AlertDialogDescription>
-              Save this stem before skipping, or discard the edits and move to the next item.
+              Save this stem before moving to another item, or discard the edits and continue.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <Button type="button" variant="outline" onClick={() => void applySkip('discard')}>Discard and skip</Button>
-            <AlertDialogAction onClick={() => void applySkip('save')}>Save and skip</AlertDialogAction>
+            <Button type="button" variant="outline" onClick={() => void applyNavigate('discard')}>
+              Discard and continue
+            </Button>
+            <AlertDialogAction onClick={() => void applyNavigate('save')}>Save and continue</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -460,6 +811,29 @@ function UcatQuestionStemApprovalQueue({
           <AlertDialogFooter>
             <AlertDialogCancel>Stay</AlertDialogCancel>
             <AlertDialogAction onClick={onExit}>Discard and leave</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete question stem?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the current generated stem from the review queue. You can restore it later from deleted questions.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deleteMutation.isPending}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={deleteMutation.isPending}
+              onClick={(event) => {
+                event.preventDefault()
+                void handleDeleteStem()
+              }}
+            >
+              Delete stem
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -478,5 +852,9 @@ function getEntryFocus(entry: UcatApprovalQueueEntry | null): { target: StemEdit
   if (entry.issueType === 'missing_tags') {
     return { target: 'tags', message: `Add at least one tag to question ${(entry.questionIndex ?? 0) + 1}.` }
   }
-  return { target: 'sets', message: 'Add this private stem to a staff-authored set.' }
+  return {
+    target: 'sets',
+    message:
+      'Attach this unused private stem to a set, learning module, or session — or make it public.',
+  }
 }

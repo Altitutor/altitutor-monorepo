@@ -8,6 +8,7 @@ import { ViewClassModal } from '@/features/classes';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from "@altitutor/ui";
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 
 type ViewMode = 'table' | 'timetable';
 
@@ -41,6 +42,7 @@ export function ClassesTabNew({
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
+  const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
   
   // Class modal state
@@ -304,6 +306,10 @@ export function ClassesTabNew({
                 onClick={() => handleViewClass(cls.class.id)}
                 onChangeClass={() => openChangeClassModal(cls.class.id)}
                 onUnenroll={() => openUnenrollModal(cls.class.id)}
+                onSendUnenrollmentLink={() => {
+                  setSelectedClass(cls);
+                  setIsUnenrollmentLinkOpen(true);
+                }}
               />
             ))}
           </div>
@@ -360,6 +366,22 @@ export function ClassesTabNew({
         />
       )}
 
+      {selectedClass && (
+        <StudentExitRequestDialog
+          open={isUnenrollmentLinkOpen}
+          onOpenChange={(next) => {
+            setIsUnenrollmentLinkOpen(next);
+            if (!next) setSelectedClass(null);
+          }}
+          studentId={student.id}
+          studentName={[student.first_name, student.last_name].filter(Boolean).join(' ')}
+          studentPhone={student.phone}
+          workflowKey="student_unenrolment"
+          classId={selectedClass.class.id}
+          onCreated={onStudentUpdated}
+        />
+      )}
+
       {/* Class Modal */}
       {selectedClassId && (
         <ViewClassModal
@@ -378,4 +400,3 @@ export function ClassesTabNew({
     </>
   );
 }
-

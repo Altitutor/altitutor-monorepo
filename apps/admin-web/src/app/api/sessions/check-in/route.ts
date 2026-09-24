@@ -1,9 +1,15 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { randomUUID } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import type { Database } from '@altitutor/shared';
-import { CHECK_IN_HOST, CHECK_IN_RECEIVER } from '@altitutor/shared/pay-tiers';
+import {
+  CHECK_IN_HOST,
+  CHECK_IN_RECEIVER,
+  checkInStaffingError,
+  defaultCheckInSessionsStaffType,
+} from '@altitutor/shared/pay-tiers';
 
 type SessionsStaffType = Database['public']['Tables']['sessions_staff']['Insert']['type'];
 
@@ -82,16 +88,25 @@ export async function POST(request: NextRequest) {
     let receiverIds = uniqueIds(checkInStaff?.receiver_ids);
     const legacyStaffList = uniqueIds(staffIds);
 
+    const hasStudentsOrParents = studentList.length > 0 || parentList.length > 0;
+
     if (sessionType === 'CHECK_IN') {
       if (hostIds.length === 0 && receiverIds.length === 0 && legacyStaffList.length > 0) {
-        receiverIds = [legacyStaffList[0]!];
-        hostIds = legacyStaffList.slice(1);
+        const legacyType = defaultCheckInSessionsStaffType(hasStudentsOrParents);
+        if (legacyType === CHECK_IN_HOST) {
+          hostIds = legacyStaffList;
+        } else {
+          receiverIds = [legacyStaffList[0]!];
+          hostIds = legacyStaffList.slice(1);
+        }
       }
-      if (receiverIds.length === 0) {
-        return NextResponse.json(
-          { error: 'At least one receiving staff member is required for a check-in' },
-          { status: 400 }
-        );
+      const staffingError = checkInStaffingError({
+        hostCount: hostIds.length,
+        receiverCount: receiverIds.length,
+        hasStudentsOrParents,
+      });
+      if (staffingError) {
+        return NextResponse.json({ error: staffingError }, { status: 400 });
       }
       const overlap = hostIds.filter((id) => receiverIds.includes(id));
       if (overlap.length > 0) {
@@ -122,6 +137,7 @@ export async function POST(request: NextRequest) {
 
     if (sessionError || !session) {
       console.error('Failed to create meeting session:', sessionError);
+      captureApiError(sessionError, "/api/sessions/check-in");
       return NextResponse.json(
         { error: sessionError?.message ?? 'Failed to create session' },
         { status: 500 }
@@ -159,6 +175,7 @@ export async function POST(request: NextRequest) {
       const { error } = await admin.from('sessions_staff').insert(row);
       if (error) {
         await rollback();
+        captureApiError(error, "/api/sessions/check-in");
         return NextResponse.json({ error: error.message ?? 'Failed to link staff' }, { status: 500 });
       }
     }
@@ -174,6 +191,7 @@ export async function POST(request: NextRequest) {
       if (error) {
         await admin.from('sessions_staff').delete().eq('session_id', sessionId);
         await rollback();
+        captureApiError(error, "/api/sessions/check-in");
         return NextResponse.json({ error: error.message ?? 'Failed to link student' }, { status: 500 });
       }
     }
@@ -190,12 +208,14 @@ export async function POST(request: NextRequest) {
         await admin.from('sessions_students').delete().eq('session_id', sessionId);
         await admin.from('sessions_staff').delete().eq('session_id', sessionId);
         await rollback();
+        captureApiError(error, "/api/sessions/check-in");
         return NextResponse.json({ error: error.message ?? 'Failed to link parent' }, { status: 500 });
       }
     }
 
     return NextResponse.json({ session_id: sessionId });
   } catch (error) {
+    captureApiError(error, "/api/sessions/check-in");
     console.error('Meeting session creation error:', error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Internal server error' },

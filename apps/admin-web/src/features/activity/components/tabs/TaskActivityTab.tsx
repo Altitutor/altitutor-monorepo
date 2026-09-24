@@ -1,6 +1,6 @@
 'use client';
 
-import { ActivityFeed } from '../ActivityFeed';
+import { ActivityTabLayout } from '../ActivityTabLayout';
 import { useTaskActivity } from '../../hooks';
 
 interface TaskActivityTabProps {
@@ -9,12 +9,17 @@ interface TaskActivityTabProps {
 }
 
 export function TaskActivityTab({ taskId, isOpen = true }: TaskActivityTabProps) {
-  const { data, isLoading, error } = useTaskActivity(taskId, isOpen);
+  const { data, isLoading, error, hasNextPage, isFetchingNextPage, fetchNextPage } =
+    useTaskActivity(taskId, isOpen);
 
   return (
-    <div className="h-full">
-      <ActivityFeed data={data} isLoading={isLoading} error={error} />
-    </div>
+    <ActivityTabLayout
+      data={data}
+      isLoading={isLoading}
+      error={error}
+      hasNextPage={hasNextPage}
+      isFetchingNextPage={isFetchingNextPage}
+      onLoadMore={fetchNextPage}
+    />
   );
 }
-

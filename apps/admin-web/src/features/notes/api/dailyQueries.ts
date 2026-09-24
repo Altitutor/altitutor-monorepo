@@ -1,3 +1,4 @@
+import { useWorkItemRevision } from '@/features/admin-mcp/client/operations';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
 import { dailyNotesApi } from './dailyNotes';
@@ -40,6 +41,7 @@ export type UpdateDailyNoteVariables = {
  * Update a daily note. Caller must pass updatedBy (e.g. from useCurrentStaff()) when updates don't include updated_by.
  */
 export function useUpdateDailyNote() {
+  const withRevision = useWorkItemRevision();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
@@ -49,7 +51,7 @@ export function useUpdateDailyNote() {
         ...updates,
         updated_by: updates.updated_by ?? updatedBy ?? null,
       };
-      const note = await dailyNotesApi.update(id, updatesWithStaff);
+      const note = await withRevision(id, (revision) => dailyNotesApi.update(id, updatesWithStaff, revision));
       return { note, date, silent };
     },
     onSuccess: ({ note, date }) => {

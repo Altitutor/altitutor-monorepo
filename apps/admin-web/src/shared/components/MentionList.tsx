@@ -5,11 +5,12 @@ import React, {
   useState,
   useMemo,
 } from 'react';
-import { Badge, Skeleton } from '@altitutor/ui';
+import { Badge, Skeleton, commandPaletteItemActiveStyles, commandPaletteItemInactiveStyles } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { entityTypes } from '@/features/command-palette/config/commandPalette.config';
 import { getEntityDisplayText } from '@/features/command-palette/utils/entityFormatters';
 import { calculateMatchScore } from '@/features/command-palette/utils/matchScoring';
+import { excludeDoneEntities } from '@/features/command-palette/utils/excludeDoneEntities';
 import { useEntitySearch } from '@/shared/hooks/useEntitySearch';
 import type { CommandPaletteEntityResult } from '@/features/command-palette/types';
 
@@ -78,7 +79,8 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
   );
 
   const items = useMemo(
-    () => results.filter((item) => !excludeSet.has(item.id)),
+    () =>
+      excludeDoneEntities(results).filter((item) => !excludeSet.has(item.id)),
     [results, excludeSet]
   );
 
@@ -307,8 +309,10 @@ export const MentionList = forwardRef<MentionListRef, MentionListProps>((props, 
                     <button
                       key={`${item.type}-${item.id}`}
                       className={cn(
-                        'w-full flex items-start gap-2 px-2 py-1.5 rounded-sm text-left transition-colors',
-                        isSelected ? 'bg-accent text-accent-foreground' : 'hover:bg-muted/50'
+                        'w-full flex items-start gap-2 px-2 py-1.5 rounded-sm text-left',
+                        isSelected
+                          ? commandPaletteItemActiveStyles
+                          : commandPaletteItemInactiveStyles
                       )}
                       onMouseDown={(e) => {
                         e.preventDefault();

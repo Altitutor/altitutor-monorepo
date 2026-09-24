@@ -133,7 +133,6 @@ export function ProgressCircular({
             strokeWidth={sw}
             strokeDasharray={circumference}
             strokeLinecap="round"
-            className="text-accent"
             initial={
               reduceMotion ? false : { strokeDashoffset: circumference }
             }
@@ -148,7 +147,7 @@ export function ProgressCircular({
           <div className="absolute inset-0 flex items-center justify-center">
             <span
               className={cn(
-                "font-semibold tabular-nums",
+                "font-semibold tabular-nums text-foreground",
                 size <= 56 ? "text-xs" : "text-lg",
               )}
             >

@@ -1,244 +1,202 @@
-import { NextResponse } from 'next/server'
-import { requireUcatTutor } from '@/features/ucat/shared/server/guard'
+import { captureApiErrorResponse } from "@/lib/sentry/capture-api-error";
+import { NextResponse } from "next/server";
+import { requireUcatTutor } from "@/features/ucat/shared/server/guard";
 import {
   getSetSectionStatus,
   parseSetSections,
   formatSetSectionsDisplay,
   isMockSetOrderCorrect,
-} from '@/features/ucat/shared/lib/set-section-status'
-import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
-import type { UcatSectionForStatus } from '@/features/ucat/shared/lib/set-section-status'
+} from "@/features/ucat/shared/lib/set-section-status";
+import { proseMirrorToPlainText } from "@/features/ucat/shared/lib/rich-text";
+import type { UcatSectionForStatus } from "@/features/ucat/shared/lib/set-section-status";
+import {
+  getOpenExplanationFeedback,
+  getOpenQuestionFeedback,
+} from "@/features/ucat/reconciliation/server/explanation-feedback";
+import type {
+  PrivateStemNotInSet,
+  QuestionWithNoExplanation,
+  StemInMultipleSets,
+  StemWithNoCategory,
+  UntaggedQuestion,
+} from "@/features/ucat/reconciliation/api/reconciliation";
 
-function hasExplanation(value: unknown): boolean {
-  if (value == null) return false
-  if (typeof value !== 'object') return false
-  const rec = value as Record<string, unknown>
-  const content = rec.content
-  if (!Array.isArray(content)) return false
-  const text = content
-    .flatMap((node) => {
-      if (!node || typeof node !== 'object') return []
-      const n = node as Record<string, unknown>
-      const c = n.content
-      if (!Array.isArray(c)) return []
-      return c.map((child) => (child && typeof child === 'object' && 'text' in child ? String((child as { text?: string }).text ?? '') : '')).join('')
-    })
-    .join('')
-  return text.trim().length > 0
-}
-
-type QuestionRow = {
-  id: string
-  question_text: unknown
-  answer_explanation: unknown
-  index: number
-  deleted_at?: string | null
-  tags?: Array<{ id: string; name: string }> | null
-  answer_options?: Array<{ answer_text?: unknown; answer_explanation: unknown; deleted_at?: string | null }>
-}
-
-function questionIsUntagged(q: QuestionRow): boolean {
-  if (q.deleted_at) return false
-  const tags = q.tags
-  return tags == null || (Array.isArray(tags) && tags.length === 0)
-}
-
-function questionLacksExplanation(q: QuestionRow): boolean {
-  if (q.deleted_at) return false
-
-  const hasQuestionExplanation = hasExplanation(q.answer_explanation)
-  if (hasQuestionExplanation) return false
-
-  const options = (q.answer_options ?? []).filter((opt) => !opt.deleted_at)
-  if (options.length === 0) return true
-  const allOptionsHaveExplanation = options.every((opt) => hasExplanation(opt.answer_explanation))
-  return !allOptionsHaveExplanation
-}
-
-type StemDetailRow = {
-  id: string
-  section_id: string
-  section_name: string
-  stem_text: unknown
-  question_stem_category_id: string | null
-  category_name?: string | null
-  is_ai_generated?: boolean | null
-  approval_status?: 'approved' | 'pending' | 'rejected' | null
-  deleted_at: string | null
-  questions: QuestionRow[]
-}
+type ReconciliationContentIssues = {
+  stemsWithNoCategory: StemWithNoCategory[];
+  questionsWithNoExplanation: QuestionWithNoExplanation[];
+  untaggedQuestions: UntaggedQuestion[];
+  feedbackQuestions: QuestionWithNoExplanation[];
+  privateStemsNotInSet: PrivateStemNotInSet[];
+  stemsInMultipleSets: StemInMultipleSets[];
+};
 
 export async function GET() {
-  const access = await requireUcatTutor()
-  if (!access.ok) return access.response
+  const access = await requireUcatTutor();
+  if (!access.ok) return access.response;
 
-  const { data: stems, error } = await access.userClient
-    .from('vtutor_ucat_question_stem_detail')
-    .select('id,section_id,section_name,stem_text,question_stem_category_id,category_name,is_ai_generated,approval_status,deleted_at,questions')
-    .is('deleted_at', null)
+  const [
+    sectionsResult,
+    setsResult,
+    mockDetailsResult,
+    explanationFeedback,
+    questionFeedback,
+  ] = await Promise.all([
+    access.userClient
+      .from("vtutor_ucat_sections")
+      .select("id,section_number,name,number_of_questions,time_limit_seconds"),
+    access.userClient
+      .from("vtutor_ucat_question_sets")
+      .select("id,name,sections,stem_count,question_count,time_limit_seconds")
+      .is("deleted_at", null),
+    access.userClient
+      .from("vtutor_ucat_mock_detail")
+      .select("id,name,sets")
+      .is("deleted_at", null),
+    getOpenExplanationFeedback(),
+    getOpenQuestionFeedback(),
+  ]);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-  const rows = (stems ?? []) as StemDetailRow[]
-
-  const { data: stemsList, error: stemsListError } = await access.userClient
-    .from('vtutor_ucat_question_stems')
-    .select('id,is_private,set_names')
-    .is('deleted_at', null)
-
-  if (stemsListError) return NextResponse.json({ error: stemsListError.message }, { status: 500 })
-
-  const privateStemIdsNotInSet = new Set<string>()
-  for (const s of stemsList ?? []) {
-    const row = s as { id: string; is_private: boolean; set_names: unknown }
-    if (!row.is_private) continue
-    const setNames = row.set_names
-    const isEmpty = setNames == null || (Array.isArray(setNames) && setNames.length === 0)
-    if (isEmpty) privateStemIdsNotInSet.add(row.id)
-  }
-
-  const stemsWithNoCategory = rows
-    .filter((r) => !r.question_stem_category_id)
-    .map((r) => ({
-      id: r.id,
-      sectionId: r.section_id,
-      sectionName: r.section_name ?? '',
-      stemText: r.stem_text,
-      questions: (r.questions ?? []) as QuestionRow[],
-    }))
-
-  const questionsWithNoExplanation: Array<{
-    stemId: string
-    stemText: unknown
-    sectionId: string
-    sectionName: string
-    questionId: string
-    questionText: unknown
-    questionIndex: number
-  }> = []
-
-  for (const stem of rows) {
-    const questions = (stem.questions ?? []) as QuestionRow[]
-    for (const q of questions) {
-      if (questionLacksExplanation(q)) {
-        questionsWithNoExplanation.push({
-          stemId: stem.id,
-          stemText: stem.stem_text,
-          sectionId: stem.section_id,
-          sectionName: stem.section_name ?? '',
-          questionId: q.id,
-          questionText: q.question_text,
-          questionIndex: q.index,
-        })
-      }
+  for (const result of [sectionsResult, setsResult, mockDetailsResult]) {
+    if (result.error) {
+      return captureApiErrorResponse(
+        result.error,
+        "/api/ucat/reconciliation",
+        NextResponse.json({ error: result.error.message }, { status: 500 }),
+      );
     }
   }
 
-  const untaggedQuestions: Array<{
-    stemId: string
-    stemText: unknown
-    sectionId: string
-    sectionName: string
-    questionId: string
-    questionText: unknown
-    questionIndex: number
-    answerOptions: QuestionRow['answer_options']
-  }> = []
-  for (const stem of rows) {
-    const questions = (stem.questions ?? []) as QuestionRow[]
-    for (const q of questions) {
-      if (questionIsUntagged(q)) {
-        untaggedQuestions.push({
-          stemId: stem.id,
-          stemText: stem.stem_text,
-          sectionId: stem.section_id,
-          sectionName: stem.section_name ?? '',
-          questionId: q.id,
-          questionText: q.question_text,
-          questionIndex: q.index,
-          answerOptions: q.answer_options ?? [],
-        })
-      }
-    }
+  const feedbackQuestionIds = [
+    ...new Set(
+      [...explanationFeedback, ...questionFeedback]
+        .filter((feedback) => feedback.downvotes > 0)
+        .map((feedback) => feedback.questionId),
+    ),
+  ];
+  const contentIssuesResult = await access.userClient.rpc(
+    "tutor_ucat_reconciliation_content_issues",
+    { p_feedback_question_ids: feedbackQuestionIds },
+  );
+  if (contentIssuesResult.error) {
+    return captureApiErrorResponse(
+      contentIssuesResult.error,
+      "/api/ucat/reconciliation",
+      NextResponse.json(
+        { error: contentIssuesResult.error.message },
+        { status: 500 },
+      ),
+    );
   }
 
-  const pendingGeneratedStems = rows
-    .filter((r) => r.is_ai_generated === true && r.approval_status === 'pending')
-    .map((r) => ({
-      id: r.id,
-      sectionId: r.section_id,
-      sectionName: r.section_name ?? '',
-      categoryId: r.question_stem_category_id,
-      categoryName: r.category_name ?? null,
-      stemText: r.stem_text,
-      questions: (r.questions ?? []) as QuestionRow[],
-    }))
+  const contentIssues =
+    contentIssuesResult.data &&
+    typeof contentIssuesResult.data === "object" &&
+    !Array.isArray(contentIssuesResult.data)
+      ? (contentIssuesResult.data as unknown as ReconciliationContentIssues)
+      : {
+          stemsWithNoCategory: [],
+          questionsWithNoExplanation: [],
+          untaggedQuestions: [],
+          feedbackQuestions: [],
+          privateStemsNotInSet: [],
+          stemsInMultipleSets: [],
+        };
+  const feedbackQuestionById = new Map(
+    contentIssues.feedbackQuestions.map((question) => [
+      question.questionId,
+      question,
+    ]),
+  );
+  const downvotedExplanations = explanationFeedback
+    .flatMap((feedback) => {
+      if (feedback.downvotes === 0) return [];
+      const question = feedbackQuestionById.get(feedback.questionId);
+      return question ? [{ ...question, ...feedback }] : [];
+    })
+    .sort(
+      (left, right) =>
+        right.downvotes - left.downvotes ||
+        right.latestAt.localeCompare(left.latestAt),
+    );
 
-  const privateStemsNotInSet = rows
-    .filter((r) => privateStemIdsNotInSet.has(r.id))
-    .map((r) => ({
-      id: r.id,
-      sectionId: r.section_id,
-      sectionName: r.section_name ?? '',
-      categoryId: r.question_stem_category_id,
-      categoryName: r.category_name ?? null,
-      stemText: r.stem_text,
-      questions: (r.questions ?? []) as QuestionRow[],
-    }))
+  const downvotedQuestions = questionFeedback
+    .flatMap((feedback) => {
+      if (feedback.downvotes === 0) return [];
+      const question = feedbackQuestionById.get(feedback.questionId);
+      return question ? [{ ...question, ...feedback }] : [];
+    })
+    .sort(
+      (left, right) =>
+        right.downvotes - left.downvotes ||
+        right.latestAt.localeCompare(left.latestAt),
+    );
 
-  // Fetch sections for set/mock status computation
-  const { data: sectionsData, error: sectionsError } = await access.userClient
-    .from('vtutor_ucat_sections')
-    .select('id,section_number,name,number_of_questions,time_limit_seconds')
+  const {
+    stemsWithNoCategory,
+    questionsWithNoExplanation,
+    untaggedQuestions,
+    privateStemsNotInSet,
+    stemsInMultipleSets,
+  } = contentIssues;
 
-  if (sectionsError) return NextResponse.json({ error: sectionsError.message }, { status: 500 })
-  const sections: UcatSectionForStatus[] = (sectionsData ?? []).map((s) => {
-    const row = s as { id?: string; section_number?: number; name?: unknown; number_of_questions?: number; time_limit_seconds?: number }
-    const nameVal = row.name
-    const nameStr: string | null = nameVal == null ? null : typeof nameVal === 'string' ? nameVal : (proseMirrorToPlainText(nameVal as import('@altitutor/shared').Json) ?? null)
-    return {
-      id: row.id ?? null,
-      section_number: row.section_number ?? null,
-      name: nameStr ?? null,
-      number_of_questions: row.number_of_questions ?? null,
-      time_limit_seconds: row.time_limit_seconds ?? null,
-    }
-  })
+  // Potential duplicate stems have their own maintained, paginated queue so
+  // unrelated reconciliation issue pages do not pay the matching cost.
+  const potentialDuplicatePairs: never[] = [];
 
-  // Fetch sets: exclude deleted and student-generated
-  const { data: setsData, error: setsError } = await access.userClient
-    .from('vtutor_ucat_question_sets')
-    .select('id,name,sections,stem_count,question_count,time_limit_seconds')
-    .is('deleted_at', null)
-    .eq('is_student_generated', false)
+  const sections: UcatSectionForStatus[] = (sectionsResult.data ?? []).map(
+    (s) => {
+      const row = s as {
+        id?: string;
+        section_number?: number;
+        name?: unknown;
+        number_of_questions?: number;
+        time_limit_seconds?: number;
+      };
+      const nameVal = row.name;
+      const nameStr: string | null =
+        nameVal == null
+          ? null
+          : typeof nameVal === "string"
+            ? nameVal
+            : (proseMirrorToPlainText(
+                nameVal as import("@altitutor/shared").Json,
+              ) ?? null);
+      return {
+        id: row.id ?? null,
+        section_number: row.section_number ?? null,
+        name: nameStr ?? null,
+        number_of_questions: row.number_of_questions ?? null,
+        time_limit_seconds: row.time_limit_seconds ?? null,
+      };
+    },
+  );
 
-  if (setsError) return NextResponse.json({ error: setsError.message }, { status: 500 })
-  const allSets = (setsData ?? []) as Array<{
-    id: string
-    name: unknown
-    sections: unknown
-    stem_count: number
-    question_count: number
-    time_limit_seconds: number | null
-  }>
+  const allSets = (setsResult.data ?? []) as Array<{
+    id: string;
+    name: unknown;
+    sections: unknown;
+    stem_count: number;
+    question_count: number;
+    time_limit_seconds: number | null;
+  }>;
 
   type SetReconciliationRow = {
-    id: string
-    name: string
-    sectionDisplay: string
-    stemCount: number
-    questionCount: number
-    timeLimitSeconds: number | null
-    sectionCount: number
-    firstSectionNumber: number | null
-    questionCountStatus: 'match' | 'mismatch'
-    questionCountTooltip: string
-    timeLimitStatus: 'match' | 'partial' | 'mismatch' | 'untimed'
-    timeLimitTooltip: string
-  }
+    id: string;
+    name: string;
+    sectionDisplay: string;
+    stemCount: number;
+    questionCount: number;
+    timeLimitSeconds: number | null;
+    sectionCount: number;
+    firstSectionNumber: number | null;
+    questionCountStatus: "match" | "mismatch";
+    questionCountTooltip: string;
+    timeLimitStatus: "match" | "partial" | "mismatch" | "untimed";
+    timeLimitTooltip: string;
+  };
 
   const setRows: SetReconciliationRow[] = allSets.map((s) => {
-    const parsed = parseSetSections(s.sections ?? null)
+    const parsed = parseSetSections(s.sections ?? null);
     const status = getSetSectionStatus(
       {
         sectionCount: parsed.sectionCount,
@@ -246,9 +204,12 @@ export async function GET() {
         question_count: s.question_count ?? null,
         time_limit_seconds: s.time_limit_seconds ?? null,
       },
-      sections
-    )
-    const nameStr = proseMirrorToPlainText(s.name as import('@altitutor/shared').Json)?.trim() || 'Untitled'
+      sections,
+    );
+    const nameStr =
+      proseMirrorToPlainText(
+        s.name as import("@altitutor/shared").Json,
+      )?.trim() || "Untitled";
     return {
       id: s.id,
       name: nameStr,
@@ -262,65 +223,71 @@ export async function GET() {
       questionCountTooltip: status.questionCountTooltip,
       timeLimitStatus: status.timeLimitStatus,
       timeLimitTooltip: status.timeLimitTooltip,
-    }
-  })
+    };
+  });
 
   const setsWithIncorrectQuestionCount = setRows.filter(
-    (r) => r.sectionCount === 1 && r.questionCountStatus === 'mismatch'
-  )
+    (r) => r.sectionCount === 1 && r.questionCountStatus === "mismatch",
+  );
   const setsWithIncorrectTiming = setRows.filter((r) => {
-    if (r.timeLimitStatus === 'untimed') return false
-    if (r.timeLimitStatus === 'match' && r.questionCountStatus === 'mismatch') return false
-    return r.timeLimitStatus === 'partial' || r.timeLimitStatus === 'mismatch'
-  })
-  const setsWithMultipleSections = setRows.filter((r) => r.sectionCount > 1)
+    if (r.timeLimitStatus === "untimed") return false;
+    if (r.timeLimitStatus === "match" && r.questionCountStatus === "mismatch")
+      return false;
+    return r.timeLimitStatus === "partial" || r.timeLimitStatus === "mismatch";
+  });
+  const setsWithMultipleSections = setRows.filter((r) => r.sectionCount > 1);
 
-  // Fetch mocks: exclude deleted
-  const { data: mocksData, error: mocksError } = await access.userClient
-    .from('vtutor_ucat_mocks')
-    .select('id,name,set_count')
-    .is('deleted_at', null)
+  const mocksList = (mockDetailsResult.data ?? []) as Array<{
+    id: string;
+    name: unknown;
+    sets?: Array<{ id: string; name?: unknown; sections?: unknown }> | null;
+  }>;
 
-  if (mocksError) return NextResponse.json({ error: mocksError.message }, { status: 500 })
-  const mocksList = (mocksData ?? []) as Array<{ id: string; name: unknown; set_count: number }>
-
-  const mocksWithIncorrectSets: Array<{ id: string; name: string; setCount: number; sets: Array<{ id: string; name: string }> }> = []
+  const mocksWithIncorrectSets: Array<{
+    id: string;
+    name: string;
+    setCount: number;
+    sets: Array<{ id: string; name: string }>;
+  }> = [];
   for (const mock of mocksList) {
-    const { data: mockDetail } = await access.userClient
-      .from('vtutor_ucat_mock_detail')
-      .select('sets')
-      .eq('id', mock.id)
-      .maybeSingle()
-
-    const sets = (mockDetail as { sets?: Array<{ id: string; name?: unknown; sections?: unknown }> } | null)?.sets ?? []
-    const correct = isMockSetOrderCorrect(mock.set_count ?? 0, sets, sections)
+    const sets = mock.sets ?? [];
+    const setCount = sets.length;
+    const correct = isMockSetOrderCorrect(setCount, sets, sections);
     if (!correct) {
       const mockNameStr =
-        typeof mock.name === 'string'
-          ? mock.name.trim() || 'Untitled'
-          : proseMirrorToPlainText(mock.name as import('@altitutor/shared').Json)?.trim() || 'Untitled'
+        typeof mock.name === "string"
+          ? mock.name.trim() || "Untitled"
+          : proseMirrorToPlainText(
+              mock.name as import("@altitutor/shared").Json,
+            )?.trim() || "Untitled";
       const setsDisplay = sets.map((st) => ({
         id: st.id,
-        name: proseMirrorToPlainText(st.name as import('@altitutor/shared').Json)?.trim() || 'Untitled',
-      }))
+        name:
+          proseMirrorToPlainText(
+            st.name as import("@altitutor/shared").Json,
+          )?.trim() || "Untitled",
+      }));
       mocksWithIncorrectSets.push({
         id: mock.id,
         name: mockNameStr,
-        setCount: mock.set_count ?? 0,
+        setCount,
         sets: setsDisplay,
-      })
+      });
     }
   }
 
   return NextResponse.json({
-    pendingGeneratedStems,
     stemsWithNoCategory,
     questionsWithNoExplanation,
+    downvotedQuestions,
+    downvotedExplanations,
     untaggedQuestions,
     privateStemsNotInSet,
+    stemsInMultipleSets,
+    potentialDuplicatePairs,
     setsWithIncorrectQuestionCount,
     setsWithIncorrectTiming,
     setsWithMultipleSections,
     mocksWithIncorrectSets,
-  })
+  });
 }

@@ -4,6 +4,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   getAttemptedMockIds,
   getMockAttemptsWithBreakdown,
+  getMockQuestionCount,
   getStudentMocks,
 } from "@/features/mocks/api/mocks-api";
 
@@ -26,6 +27,15 @@ export function useMockAttemptsWithBreakdown(mockId: string | null) {
     queryKey: ["ucat", "mock-attempts", mockId],
     queryFn: () =>
       mockId ? getMockAttemptsWithBreakdown(mockId) : Promise.resolve([]),
+    enabled: !!mockId,
+  });
+}
+
+export function useMockQuestionCount(mockId: string | null) {
+  return useQuery({
+    queryKey: ["ucat", "mock-question-count", mockId],
+    queryFn: () =>
+      mockId ? getMockQuestionCount(mockId) : Promise.resolve(0),
     enabled: !!mockId,
   });
 }

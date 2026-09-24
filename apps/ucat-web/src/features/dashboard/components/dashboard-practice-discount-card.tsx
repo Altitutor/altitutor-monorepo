@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Check } from "lucide-react";
+import { Check, Gift } from "lucide-react";
 import {
   Badge,
   Card,
@@ -19,6 +19,7 @@ import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { usePracticeDiscountDashboard } from "@/features/subscription/hooks/use-practice-discount-dashboard";
+import { useUcatReferralSummary } from "@/features/subscription/hooks/use-ucat-referral-summary";
 import { formatMoneyFromMinorUnits } from "@/features/subscription/lib/format-subscription-copy";
 import { UcatHoverChevron } from "@/lib/ucat-hover-chevron";
 import {
@@ -32,21 +33,26 @@ import {
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
 
-const DAY_STATUS_CLASS: Record<
-  PracticeDiscountDayEntry["status"],
-  string
-> = {
+const DAY_STATUS_CLASS: Record<PracticeDiscountDayEntry["status"], string> = {
   earned: "bg-primary text-primary-foreground",
   in_progress: "bg-primary/30 ring-2 ring-primary/50",
   missed: "bg-muted text-muted-foreground",
 };
 
-function WeekDayCell({ day }: { day: PracticeDiscountDayEntry }) {
-  const tooltip = day.earnedCredit
-    ? `${day.weekdayLabel}: discount earned (${day.questionsDone} questions)`
+function dayTooltip(day: PracticeDiscountDayEntry, compact: boolean): string {
+  const label = compact
+    ? `${day.weekdayLabel} ${day.dayOfMonthLabel}`
+    : day.weekdayLabel;
+  const base = day.earnedCredit
+    ? `${label}: discount earned (${day.questionsDone} questions)`
     : day.isToday
-      ? `${day.weekdayLabel}: ${day.questionsDone} / ${day.minQuestions} questions today`
-      : `${day.weekdayLabel}: ${day.questionsDone} questions — no discount`;
+      ? `${label}: ${day.questionsDone} / ${day.minQuestions} questions today`
+      : `${label}: ${day.questionsDone} questions — no discount`;
+  return day.isBillingDate ? `${base} · Billing date` : base;
+}
+
+function WeekDayCell({ day }: { day: PracticeDiscountDayEntry }) {
+  const tooltip = dayTooltip(day, false);
 
   return (
     <Tooltip>
@@ -57,6 +63,8 @@ function WeekDayCell({ day }: { day: PracticeDiscountDayEntry }) {
               "flex h-8 w-8 items-center justify-center rounded-full text-xs font-semibold tabular-nums",
               DAY_STATUS_CLASS[day.status],
               day.isToday && "ring-2 ring-foreground/20 ring-offset-2 ring-offset-card",
+              day.isBillingDate &&
+                "outline outline-2 outline-offset-2 outline-amber-500/80",
             )}
             aria-label={tooltip}
           >
@@ -70,9 +78,10 @@ function WeekDayCell({ day }: { day: PracticeDiscountDayEntry }) {
             className={cn(
               "text-[10px] tabular-nums text-muted-foreground",
               day.isToday && "font-medium text-foreground",
+              day.isBillingDate && "font-medium text-amber-700 dark:text-amber-400",
             )}
           >
-            {day.weekdayLabel}
+            {day.isBillingDate ? "Bill" : day.weekdayLabel}
           </span>
         </div>
       </TooltipTrigger>
@@ -83,6 +92,40 @@ function WeekDayCell({ day }: { day: PracticeDiscountDayEntry }) {
   );
 }
 
+function MonthDayCell({ day }: { day: PracticeDiscountDayEntry }) {
+  const tooltip = dayTooltip(day, true);
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <div
+          className={cn(
+            "flex h-7 w-7 items-center justify-center rounded-full text-[10px] font-semibold tabular-nums",
+            DAY_STATUS_CLASS[day.status],
+            day.isToday && "ring-2 ring-foreground/20 ring-offset-1 ring-offset-card",
+            day.isBillingDate &&
+              "outline outline-2 outline-offset-1 outline-amber-500/80",
+          )}
+          aria-label={tooltip}
+        >
+          {day.earnedCredit ? (
+            <Check className="h-3 w-3" aria-hidden />
+          ) : (
+            day.dayOfMonthLabel
+          )}
+        </div>
+      </TooltipTrigger>
+      <TooltipContent side="top" className="max-w-xs text-sm">
+        {tooltip}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
+function recentDaysHeading(windowDays: number): string {
+  return windowDays === 7 ? "Last 7 days" : "Last 30 days";
+}
+
 export function DashboardPracticeDiscountCard() {
   const access = useUcatAccess();
   const {
@@ -91,6 +134,7 @@ export function DashboardPracticeDiscountCard() {
     isError: quotaError,
   } = useQuotaUsage();
   const { data, isLoading, isError } = usePracticeDiscountDashboard();
+  const referralSummaryQuery = useUcatReferralSummary();
 
   const accessIndicatesPaid =
     !access.isLoading &&
@@ -104,6 +148,10 @@ export function DashboardPracticeDiscountCard() {
     quotaData.onlineTier !== "free";
   const isPaidTier = accessIndicatesPaid || quotaIndicatesPaid;
   const displayTier = access.onlineTier ?? quotaData?.onlineTier ?? null;
+  const nextBillFreeFromReferral =
+    referralSummaryQuery.data?.stats.nextBillFreeFromReferral === true;
+  const queuedReferralRewards =
+    referralSummaryQuery.data?.stats.queuedFreeBills ?? 0;
 
   if (!access.isLoading && !quotaLoading && !isPaidTier) {
     return null;
@@ -119,6 +167,8 @@ export function DashboardPracticeDiscountCard() {
 
   const { today } = data;
   const showInvoiceDiscount = data.eligible && data.cap > 0;
+  const isWeeklyWindow = data.recentDaysWindowDays === 7;
+  const hasBillingDate = data.recentDays.some((day) => day.isBillingDate);
 
   return (
     <Card className={UCAT_CARD_CHROME}>
@@ -151,6 +201,23 @@ export function DashboardPracticeDiscountCard() {
         </div>
       </CardHeader>
       <CardContent className="space-y-6">
+        {nextBillFreeFromReferral ? (
+          <div className="flex items-start gap-3 rounded-ucatControl border border-primary/25 bg-primary/[0.08] px-4 py-3">
+            <Gift
+              className="mt-0.5 h-4 w-4 shrink-0 text-primary"
+              aria-hidden="true"
+            />
+            <div className="min-w-0">
+              <p className="text-sm font-medium">Your next bill is free</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                {queuedReferralRewards === 1
+                  ? "Covered by a referral reward."
+                  : `Covered by a referral reward · ${queuedReferralRewards} rewards ready.`}
+              </p>
+            </div>
+          </div>
+        ) : null}
+
         <div className="space-y-2">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <p className="text-sm font-medium">Today</p>
@@ -173,7 +240,8 @@ export function DashboardPracticeDiscountCard() {
               <QuotaProgressBar
                 used={today.questionsDone}
                 limit={today.minQuestions}
-                atLimit={today.questionsDone >= today.minQuestions}
+                // Hitting the daily target is success here (not a quota limit).
+                atLimit={false}
               />
               <p className="text-xs text-muted-foreground">
                 {today.questionsDone >= today.minQuestions
@@ -196,23 +264,57 @@ export function DashboardPracticeDiscountCard() {
         </div>
 
         <div className="space-y-3">
-          <p className="text-sm font-medium">Last 7 days</p>
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <p className="text-sm font-medium">
+              {recentDaysHeading(data.recentDaysWindowDays)}
+            </p>
+            {hasBillingDate ? (
+              <p className="text-[10px] text-muted-foreground">
+                <span
+                  className="mr-1 inline-block h-2 w-2 rounded-full outline outline-2 outline-offset-1 outline-amber-500/80"
+                  aria-hidden
+                />
+                Billing date
+              </p>
+            ) : null}
+          </div>
           <TooltipProvider delayDuration={200}>
-            <div className="flex justify-between gap-1 sm:justify-start sm:gap-3">
-              {data.lastSevenDays.map((day) => (
-                <WeekDayCell key={day.date} day={day} />
-              ))}
-            </div>
+            {isWeeklyWindow ? (
+              <div className="flex justify-between gap-1 sm:justify-start sm:gap-3">
+                {data.recentDays.map((day) => (
+                  <WeekDayCell key={day.date} day={day} />
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-7 gap-1.5 sm:gap-2">
+                {data.recentDays.map((day) => (
+                  <div key={day.date} className="flex justify-center">
+                    <MonthDayCell day={day} />
+                  </div>
+                ))}
+              </div>
+            )}
           </TooltipProvider>
         </div>
 
-        {showInvoiceDiscount ? (
+        {showInvoiceDiscount || nextBillFreeFromReferral ? (
           <div className="rounded-ucatControl border border-border/60 bg-muted/30 px-4 py-3">
-            <p className="text-sm text-muted-foreground">Next invoice discount</p>
+            <p className="text-sm text-muted-foreground">
+              {nextBillFreeFromReferral
+                ? "Next invoice"
+                : "Next invoice discount"}
+            </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums tracking-tight">
-              {formatMoneyFromMinorUnits(data.totalDiscountCents, data.currency)}
+              {nextBillFreeFromReferral
+                ? formatMoneyFromMinorUnits(0, data.currency)
+                : formatMoneyFromMinorUnits(
+                    data.totalDiscountCents,
+                    data.currency,
+                  )}
               <span className="ml-2 text-sm font-normal text-muted-foreground">
-                ({data.earned} / {data.cap} days this period)
+                {nextBillFreeFromReferral
+                  ? "referral reward covers this bill"
+                  : `(${data.earned} / ${data.cap} days this period)`}
               </span>
             </p>
           </div>

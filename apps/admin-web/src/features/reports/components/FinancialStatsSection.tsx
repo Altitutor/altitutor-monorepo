@@ -1,6 +1,5 @@
 'use client';
 
-import { useState } from 'react';
 import type { ReportDataPoint, ReportEntityLink, RevenueReportDataPoint } from '../types';
 import { useBillingStatsReport } from '../hooks/useAdditionalReports';
 import { RevenueReportChart } from './RevenueReportChart';
@@ -15,9 +14,9 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
-import { ViewInvoiceModal } from '@/features/billing';
-import { ViewStudentModal } from '@/features/students';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { ReportSummaryCard } from './ReportSummaryCard';
+import { buildReportSummary } from '../utils/reportSummaries';
 
 function getBillingErrorsDeduplicatedEntities(
   refundsByDay: ReportDataPoint[],
@@ -95,9 +94,7 @@ function SubsidiesTooltip({
 }
 
 export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialStatsSectionProps) {
-  const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
-  const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
-  const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
+  const entityModals = useEntityModals();
 
   const { data, isLoading, error } = useBillingStatsReport(dateRange.start, dateRange.end);
 
@@ -105,22 +102,22 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
     const link = entity.link;
     if (!link) return;
     if (link.kind === 'session' && link.sessionId) {
-      setSelectedSessionId(link.sessionId);
+      entityModals.openSession(link.sessionId);
     } else if (
       (link.kind === 'invoice' ||
         link.kind === 'refund' ||
         link.kind === 'credit') &&
       link.invoiceId
     ) {
-      setSelectedInvoiceId(link.invoiceId);
+      entityModals.openInvoice(link.invoiceId);
     } else if (link.studentId) {
-      setSelectedStudentId(link.studentId);
+      entityModals.openStudent(link.studentId);
     }
   };
 
   const handleSubsidyEntityClick = (entity: { link?: ReportEntityLink }) => {
     const link = entity.link;
-    if (link?.studentId) setSelectedStudentId(link.studentId);
+    if (link?.studentId) entityModals.openStudent(link.studentId);
   };
 
   const errorsChartData =
@@ -146,6 +143,26 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
         data.voidedInvoicesByDay
       )
     : [];
+  const billingErrorsSeries: ReportDataPoint[] = errorsChartData.map((point) => ({
+    date: point.date,
+    count: point.refunds + point.credits + point.voids,
+    entities: billingErrorsEntities.filter((entity) =>
+      [data?.refundsByDay, data?.creditsByDay, data?.voidedInvoicesByDay]
+        .flatMap((series) => series ?? [])
+        .some((day) => day.date === point.date && day.entities.some((candidate) => candidate.id === entity.id))
+    ),
+  }));
+  const billingErrorsSummary = buildReportSummary(billingErrorsSeries, 'sum', ['createdBy']);
+  const subsidiesEnrolledSummary = buildReportSummary(
+    data?.subsidiesEnrolledByDay ?? [],
+    'latest',
+    ['createdBy']
+  );
+  const subsidiesCreatedSummary = buildReportSummary(
+    data?.subsidiesCreatedByDay ?? [],
+    'sum',
+    ['createdBy']
+  );
 
   return (
     <>
@@ -213,8 +230,9 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                  <div className="h-[220px] min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={errorsChartData}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -249,7 +267,12 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
                         fill="hsl(var(--primary) / 0.4)"
                       />
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </div>
+                  <ReportSummaryCard
+                    total={billingErrorsSummary.total}
+                    entries={billingErrorsSummary.byStaff}
+                  />
                 </div>
                 <ReportsEntitiesTable
                   entities={billingErrorsEntities}
@@ -274,8 +297,9 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                  <div className="h-[220px] min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={data?.subsidiesEnrolledByDay ?? []}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -301,7 +325,12 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </div>
+                  <ReportSummaryCard
+                    total={subsidiesEnrolledSummary.total}
+                    entries={subsidiesEnrolledSummary.byStaff}
+                  />
                 </div>
                 <ReportsEntitiesTable
                   entities={
@@ -338,8 +367,9 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
               </div>
             ) : (
               <div className="space-y-4">
-                <div className="h-[220px]">
-                  <ResponsiveContainer width="100%" height="100%">
+                <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_16rem]">
+                  <div className="h-[220px] min-w-0">
+                    <ResponsiveContainer width="100%" height="100%" minWidth={0}>
                     <BarChart
                       data={data?.subsidiesCreatedByDay ?? []}
                       margin={{ top: 8, right: 8, left: 0, bottom: 0 }}
@@ -365,7 +395,12 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
                         radius={[4, 4, 0, 0]}
                       />
                     </BarChart>
-                  </ResponsiveContainer>
+                    </ResponsiveContainer>
+                  </div>
+                  <ReportSummaryCard
+                    total={subsidiesCreatedSummary.total}
+                    entries={subsidiesCreatedSummary.byStaff}
+                  />
                 </div>
                 <ReportsEntitiesTable
                   entities={data?.subsidiesCreatedByDay?.flatMap((day) => day.entities) ?? []}
@@ -377,25 +412,6 @@ export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialSta
           </div>
         )}
     </div>
-
-    <SessionModal
-      isOpen={!!selectedSessionId}
-      sessionId={selectedSessionId}
-      onClose={() => setSelectedSessionId(null)}
-    />
-
-    <ViewInvoiceModal
-      isOpen={!!selectedInvoiceId}
-      invoiceId={selectedInvoiceId}
-      onClose={() => setSelectedInvoiceId(null)}
-    />
-
-    <ViewStudentModal
-      isOpen={!!selectedStudentId}
-      studentId={selectedStudentId}
-      onClose={() => setSelectedStudentId(null)}
-      onStudentUpdated={() => {}}
-    />
     </>
   );
 }

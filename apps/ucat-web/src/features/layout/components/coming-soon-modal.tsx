@@ -9,6 +9,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
+import { UCAT_DIALOG_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 
 const COMING_SOON_MESSAGE =
   "This feature is still in development. We are working hard to get it ready for you soon.";
@@ -27,7 +28,10 @@ export function ComingSoonModal({ open, onOpenChange }: ComingSoonModalProps) {
           <AlertDialogDescription>{COMING_SOON_MESSAGE}</AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
-          <AlertDialogAction onClick={() => onOpenChange(false)}>
+          <AlertDialogAction
+            className={UCAT_DIALOG_PRIMARY_ACTION}
+            onClick={() => onOpenChange(false)}
+          >
             OK
           </AlertDialogAction>
         </AlertDialogFooter>

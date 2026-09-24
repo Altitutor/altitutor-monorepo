@@ -23,7 +23,7 @@ export function InstructionsContent({
 
   return (
     <div
-      className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed`}
+      className={`h-full overflow-auto font-[${UCAT_FONTS.body}] text-[11pt] leading-relaxed text-black dark:text-black`}
       data-testid="instructions-content"
     >
       <div className="py-4 sm:py-5">
@@ -37,8 +37,9 @@ export function InstructionsContent({
           <RichTextEditor
             content={displayContent}
             editable={false}
+            omitTypography
             minHeight="auto"
-            className="min-h-0 [&_.ProseMirror]:min-h-[200px]"
+            className="min-h-0 text-black dark:text-black [&_.ProseMirror]:min-h-[200px] [&_.ProseMirror]:!text-black [&_.ProseMirror]:dark:!text-black"
           />
         )}
       </div>

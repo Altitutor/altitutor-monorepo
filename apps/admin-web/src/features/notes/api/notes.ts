@@ -1,3 +1,4 @@
+import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
@@ -83,33 +84,14 @@ export const notesApi = {
    * Create a new note
    */
   create: async (note: NoteInsert): Promise<Note> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    const { data, error } = await supabase
-      .from('notes_documents')
-      .insert(note)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Note;
+    return mutateWorkItem<Note>('document', note);
   },
 
   /**
    * Update a note
    */
-  update: async (noteId: string, updates: NoteUpdate): Promise<Note> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    const { data, error } = await supabase
-      .from('notes_documents')
-      .update(updates)
-      .eq('id', noteId)
-      .select()
-      .single();
-
-    if (error) throw error;
-    return data as Note;
+  update: async (noteId: string, updates: NoteUpdate, revision?: number): Promise<Note> => {
+    return mutateWorkItem<Note>('document', updates, noteId, revision);
   },
 
   /**

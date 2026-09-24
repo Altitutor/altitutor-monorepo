@@ -10,6 +10,7 @@ export type SessionDisplay = {
   id: string;
   start_at: string | null;
   end_at: string | null;
+  type: string | null;
   class: {
     subject: {
       name: string | null;
@@ -62,6 +63,10 @@ export function useTutorLogStep9Data(
             id: sessionDetail.session_id,
             start_at: sessionDetail.start_at ?? null,
             end_at: sessionDetail.end_at ?? null,
+            type:
+              'session_type' in sessionDetail
+                ? ((sessionDetail as { session_type?: string | null }).session_type ?? null)
+                : null,
             class: {
               subject: {
                 name: sessionDetail.subject_name ?? null,

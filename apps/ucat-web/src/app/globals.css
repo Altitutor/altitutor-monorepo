@@ -1,5 +1,6 @@
-@import '@altitutor/ui/styles/native-datetime-input.css';
-@import '@altitutor/ui/styles/quiet-scrollbars.css';
+@import "@altitutor/ui/styles/native-datetime-input.css";
+@import "@altitutor/ui/styles/quiet-scrollbars.css";
+@import "@altitutor/ui/styles/sentry-feedback.css";
 @import url("https://fonts.googleapis.com/css2?family=Outfit:wght@400;700&family=Plus+Jakarta+Sans:wght@400;700&family=Cormorant+Garamond:ital,wght@1,300;1,400;1,700&family=IBM+Plex+Mono:wght@400;600&display=swap");
 
 @tailwind base;
@@ -10,25 +11,31 @@
   :root {
     /* Light grey app canvas — slightly darker than before for clearer contrast vs white cards */
     --background: 220 13% 92%;
-    --foreground: 212 86% 14%;
+    /*
+     * Body text: marketing charcoal (#1A1A1A), not navy.
+     * Navy stays on --primary for CTAs / chrome so copy doesn’t feel accent-saturated.
+     */
+    --foreground: 0 0% 10%;
 
     --card: 0 0% 100%;
-    --card-foreground: 212 86% 14%;
+    --card-foreground: 0 0% 10%;
 
     --popover: 0 0% 100%;
-    --popover-foreground: 212 86% 14%;
+    --popover-foreground: 0 0% 10%;
 
+    /* Navy (#0a2941) — buttons, focus ring, selected accents — not chrome flood */
     --primary: 212 86% 14%;
     --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 96%;
-    --secondary-foreground: 224 20% 12%;
+    --secondary-foreground: 0 0% 12%;
 
     --muted: 220 11% 89%;
-    --muted-foreground: 212 86% 25%;
+    /* Neutral grey secondary copy (≈ marketing charcoal @ ~65% on white) */
+    --muted-foreground: 0 0% 40%;
 
     --accent: 198 29% 67%;
-    --accent-foreground: 212 86% 14%;
+    --accent-foreground: 0 0% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 0 0% 100%;
@@ -42,9 +49,15 @@
     --ucat-radius-shell: 1.25rem;
     --ucat-radius-control: 0.75rem;
 
-    /* Same chrome blue as primary CTAs — rail, avatar chip, `bg-sidebar` accents */
-    --sidebar: var(--primary);
-    --sidebar-foreground: var(--primary-foreground);
+    /*
+     * Neutral rail (mirrors dark mode): white panel on the grey canvas,
+     * charcoal labels — navy stays on primary CTAs / selection accents.
+     */
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 0 0% 10%;
+
+    /* Matches the selected item treatment used by navigation and menus. */
+    --graph-column-highlight: hsl(var(--muted));
 
     --motion-ease-standard: cubic-bezier(0.32, 0.72, 0, 1);
     --motion-duration-snappy: 150ms;
@@ -90,6 +103,9 @@
      */
     --sidebar: 0 0% 13%;
     --sidebar-foreground: 0 0% 96%;
+
+    /* `dark:bg-white/[0.11]`, expressed as an SVG-compatible paint token. */
+    --graph-column-highlight: hsl(0 0% 100% / 0.11);
 
     --secondary: 0 0% 17%;
     --secondary-foreground: 0 0% 96%;
@@ -138,10 +154,59 @@
         [role="button"],
         [role="tab"]
       ):not(:disabled):not([data-motion-static]) {
-      transition-property: color, background-color, border-color, text-decoration-color, fill, stroke,
-        box-shadow, filter, opacity, transform;
+      transition-property:
+        color, background-color, border-color, text-decoration-color, fill,
+        stroke, box-shadow, filter, opacity, transform;
       transition-duration: var(--motion-duration-subtle);
       transition-timing-function: var(--motion-ease-standard);
+    }
+
+    /*
+     * Global press micro-interaction (header icon buttons language).
+     * Opt out with `data-motion-static`. Stronger presses (e.g. `active:scale-95`)
+     * still win via Tailwind utilities layer.
+     */
+    :where(
+        button,
+        summary,
+        input[type="button"],
+        input[type="submit"],
+        input[type="reset"],
+        [role="button"],
+        [role="tab"]
+      ):not(:disabled):not([aria-disabled="true"]):not(
+        [data-motion-static]
+      ):active {
+      transform: scale(0.98);
+    }
+
+    /*
+     * Clickable cards / list rows that also lift on hover — compose lift + press
+     * so `transform` does not fight (Tailwind utilities cannot combine transforms).
+     * Transform lives here rather than on `UCAT_SURFACE_MOTION`, which Motion
+     * stagger items also use.
+     */
+    .ucat-pressable-lift:not([data-motion-static]) {
+      transition-property:
+        color, background-color, box-shadow, transform, ring-color;
+      transition-duration: var(--motion-duration-subtle);
+      transition-timing-function: var(--motion-ease-standard);
+    }
+
+    .ucat-pressable-lift:not([data-motion-static]):hover {
+      transform: translateY(-0.125rem);
+    }
+
+    .ucat-pressable-lift:not([data-motion-static]):active:not(:disabled):not(
+        [aria-disabled="true"]
+      ) {
+      transform: scale(0.98);
+    }
+
+    .ucat-pressable-lift:not([data-motion-static]):hover:active:not(
+        :disabled
+      ):not([aria-disabled="true"]) {
+      transform: translateY(-0.125rem) scale(0.98);
     }
   }
 }
@@ -172,9 +237,46 @@
   }
 }
 
+@keyframes ucat-auth-header-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -4px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
+@keyframes ucat-auth-feedback-enter {
+  from {
+    opacity: 0;
+    transform: translate3d(0, -3px, 0);
+  }
+  to {
+    opacity: 1;
+    transform: translate3d(0, 0, 0);
+  }
+}
+
 @media (prefers-reduced-motion: no-preference) {
   .auth-entrance {
-    animation: ucat-auth-enter var(--motion-duration-enter) var(--motion-ease-standard) both;
+    animation: ucat-auth-enter var(--motion-duration-enter)
+      var(--motion-ease-standard) both;
+  }
+
+  .auth-header-entrance {
+    animation: ucat-auth-header-enter var(--motion-duration-enter)
+      var(--motion-ease-standard) both;
+  }
+
+  .auth-feedback-entrance {
+    animation: ucat-auth-feedback-enter var(--motion-duration-snappy)
+      var(--motion-ease-standard) both;
+  }
+
+  .auth-submit:active:not(:disabled) {
+    transform: scale(0.985);
   }
 }
 
@@ -186,6 +288,43 @@
   overflow-x: clip;
   overflow-y: auto;
   overscroll-behavior-y: contain;
+}
+
+/**
+ * A single composited glass layer keeps scrolled content readable beneath the
+ * floating toolbar. The mask graduates both the tint and blur without any
+ * scroll listener or per-frame JavaScript work.
+ */
+.ucat-toolbar-scrim {
+  background: linear-gradient(
+    to bottom,
+    hsl(var(--background) / 0.96) 0%,
+    hsl(var(--background) / 0.82) 58%,
+    hsl(var(--background) / 0) 100%
+  );
+  -webkit-backdrop-filter: blur(14px) saturate(135%);
+  backdrop-filter: blur(14px) saturate(135%);
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    #000 0%,
+    #000 62%,
+    transparent 100%
+  );
+  mask-image: linear-gradient(to bottom, #000 0%, #000 62%, transparent 100%);
+}
+
+/**
+ * Quieten long-form app copy while preserving headings, controls, links,
+ * explicit semantic colours, and the high-contrast UCAT question engine.
+ */
+#ucat-app-shell
+  :where(p, li, dd, figcaption, blockquote, td):not(.text-destructive):not(
+    .text-primary
+  ):not(.text-success):not(.text-warning):not(
+    [data-tour="question-engine-shell"],
+    [data-tour="question-engine-shell"] *
+  ) {
+  color: hsl(var(--muted-foreground));
 }
 
 /**
@@ -313,9 +452,11 @@
  * https://css-tricks.com/16px-or-larger-text-prevents-ios-form-zoom/
  */
 @media (hover: none) and (pointer: coarse) {
-  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="hidden"]):not(
-      [type="button"]
-    ):not([type="submit"]):not([type="reset"]):not([type="image"]):not([type="file"]),
+  input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not(
+      [type="hidden"]
+    ):not([type="button"]):not([type="submit"]):not([type="reset"]):not(
+      [type="image"]
+    ):not([type="file"]),
   textarea,
   select,
   [contenteditable="true"] {

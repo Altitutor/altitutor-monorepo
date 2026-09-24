@@ -11,6 +11,7 @@ import {
   deriveStaffAttendanceStatus,
   buildStudentAttendanceMap,
   buildStaffAttendanceMap,
+  shouldDimSessionInCalendar,
 } from '../attendanceDerivation';
 import {
   STUDENT_PLANNED_STATUSES,
@@ -593,5 +594,57 @@ describe('Edge cases and complex scenarios', () => {
 
     expect(result.status).toBe(STUDENT_PLANNED_STATUSES.RESCHEDULED);
     expect(result.rescheduledDate).toBeTruthy();
+  });
+});
+
+describe('shouldDimSessionInCalendar', () => {
+  it('does not dim sessions with no students', () => {
+    expect(shouldDimSessionInCalendar([])).toBe(false);
+  });
+
+  it('dims sessions when all planned students have planned absences', () => {
+    expect(
+      shouldDimSessionInCalendar([
+        {
+          sessions_students_id: 'ss-1',
+          planned_absence: true,
+          is_extra: false,
+        },
+        {
+          sessions_students_id: 'ss-2',
+          planned_absence: true,
+          is_extra: false,
+        },
+      ])
+    ).toBe(true);
+  });
+
+  it('does not dim sessions when at least one planned student is attending', () => {
+    expect(
+      shouldDimSessionInCalendar([
+        {
+          sessions_students_id: 'ss-1',
+          planned_absence: true,
+          is_extra: false,
+        },
+        {
+          sessions_students_id: 'ss-2',
+          planned_absence: false,
+          is_extra: false,
+        },
+      ])
+    ).toBe(false);
+  });
+
+  it('ignores unplanned extra students when deciding whether to dim', () => {
+    expect(
+      shouldDimSessionInCalendar([
+        {
+          sessions_students_id: null,
+          planned_absence: true,
+          is_extra: true,
+        },
+      ])
+    ).toBe(false);
   });
 });

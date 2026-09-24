@@ -1,5 +1,6 @@
 'use client'
 
+import type { ReactNode } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import {
   Accordion,
@@ -7,7 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
   Button,
-  Label,
+  SearchableSelect,
   Switch,
 } from '@altitutor/ui'
 import { Eye, EyeOff } from 'lucide-react'
@@ -15,6 +16,21 @@ import { SegmentedControl } from '@/shared/components/segmented-control'
 import type { UcatSkillTrainerApprovalStatus } from '@altitutor/shared'
 import type { UcatSkillTrainerItemFormValues } from '@/features/ucat/skill-trainer/types/schema'
 import { tutorCardCn } from '@/shared/lib/tutor-visual'
+
+const APPROVAL_OPTIONS: Array<{ value: UcatSkillTrainerApprovalStatus; label: string }> = [
+  { value: 'approved', label: 'Approved' },
+  { value: 'pending', label: 'Pending' },
+  { value: 'rejected', label: 'Rejected' },
+]
+
+function PropertyRow({ label, children }: { label: string; children: ReactNode }) {
+  return (
+    <div className="flex items-center justify-between gap-3 py-1.5">
+      <span className="shrink-0 text-sm text-muted-foreground">{label}</span>
+      <div className="min-w-0 w-[58%]">{children}</div>
+    </div>
+  )
+}
 
 export type SkillTrainerEditorMode = 'edit' | 'view'
 
@@ -61,72 +77,63 @@ export function UcatSkillTrainerPropertiesPanel({
   const trainerKey = form.watch('trainerKey')
   const trainerName = trainers.find((t) => t.key === trainerKey)?.name ?? trainerKey
 
-  return (
-    <aside className="flex w-80 shrink-0 flex-col overflow-y-auto border-l bg-muted/20">
-      <div className="space-y-3 p-3">
-        <Accordion type="multiple" defaultValue={['display', 'item']} className="space-y-2">
-          <PropertiesCard value="display" title="Display">
-            <div className="space-y-3">
-              <div className="space-y-2">
-                <Label className="text-xs text-muted-foreground">Mode</Label>
-                <SegmentedControl
-                  fullWidth
-                  value={editorMode}
-                  onValueChange={onEditorModeChange}
-                  options={[
-                    { value: 'edit', label: 'Edit' },
-                    { value: 'view', label: 'Preview' },
-                  ]}
-                />
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <Label className="text-sm">Show answer</Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => onShowAnswerChange(!showAnswer)}
-                >
-                  {showAnswer ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
-                </Button>
-              </div>
-            </div>
-          </PropertiesCard>
+  const selectedApproval =
+    approvalStatus != null ? (APPROVAL_OPTIONS.find((option) => option.value === approvalStatus) ?? null) : null
 
+  return (
+    <aside className="flex h-full w-80 shrink-0 flex-col overflow-y-auto border-l bg-background p-4">
+      <div className="space-y-4">
+        <div className={tutorCardCn('space-y-4 p-3')}>
+          <PropertyRow label="Mode">
+            <SegmentedControl
+              fullWidth
+              value={editorMode}
+              onValueChange={onEditorModeChange}
+              options={[
+                { value: 'edit', label: 'Edit' },
+                { value: 'view', label: 'Preview' },
+              ]}
+            />
+          </PropertyRow>
+          {editorMode === 'view' ? (
+            <PropertyRow label="Show answer">
+              <Button
+                type="button"
+                variant={showAnswer ? 'secondary' : 'outline'}
+                size="sm"
+                className="w-full gap-1.5"
+                onClick={() => onShowAnswerChange(!showAnswer)}
+              >
+                {showAnswer ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              </Button>
+            </PropertyRow>
+          ) : null}
+        </div>
+
+        <Accordion type="multiple" defaultValue={['item']} className="space-y-2">
           <PropertiesCard value="item" title="Item">
-            <div className="space-y-3">
-              <div className="space-y-1">
-                <Label className="text-xs text-muted-foreground">Trainer type</Label>
-                <p className="text-sm font-medium">{trainerName}</p>
-              </div>
-              <div className="flex items-center justify-between gap-2">
-                <Label htmlFor="is-active" className="text-sm">
-                  Active in bank
-                </Label>
-                <Switch
-                  id="is-active"
-                  checked={form.watch('isActive')}
-                  onCheckedChange={(checked) => form.setValue('isActive', checked, { shouldDirty: true })}
+            <PropertyRow label="Trainer type">
+              <span className="block text-right text-sm text-foreground">{trainerName}</span>
+            </PropertyRow>
+            <PropertyRow label="Active in bank">
+              <Switch
+                id="is-active"
+                checked={form.watch('isActive')}
+                onCheckedChange={(checked) => form.setValue('isActive', checked, { shouldDirty: true })}
+              />
+            </PropertyRow>
+            {!isNew && approvalStatus && onApprovalChange ? (
+              <PropertyRow label="Approval">
+                <SearchableSelect<{ value: UcatSkillTrainerApprovalStatus; label: string }>
+                  items={APPROVAL_OPTIONS}
+                  value={selectedApproval}
+                  onValueChange={(item) => item && onApprovalChange(item.value)}
+                  getItemLabel={(item) => item.label}
+                  getItemId={(item) => item.value}
+                  placeholder="Select approval status"
                 />
-              </div>
-              {!isNew && approvalStatus && onApprovalChange ? (
-                <div className="space-y-2 border-t pt-3">
-                  <Label className="text-xs text-muted-foreground">Approval</Label>
-                  <p className="text-sm capitalize">{approvalStatus}</p>
-                  <div className="flex flex-wrap gap-2">
-                    <Button type="button" variant="outline" size="sm" onClick={() => onApprovalChange('approved')}>
-                      Approve
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onApprovalChange('pending')}>
-                      Pending
-                    </Button>
-                    <Button type="button" variant="outline" size="sm" onClick={() => onApprovalChange('rejected')}>
-                      Reject
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </div>
+              </PropertyRow>
+            ) : null}
           </PropertiesCard>
         </Accordion>
       </div>

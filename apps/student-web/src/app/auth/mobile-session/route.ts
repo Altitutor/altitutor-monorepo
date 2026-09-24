@@ -2,6 +2,7 @@ import type { Database } from '@altitutor/shared';
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
 import { NextRequest, NextResponse } from 'next/server';
+import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 export async function POST(request: NextRequest) {
   const authorization = request.headers.get('authorization');
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
   }
 
   const cookieStore = await cookies();
-  const supabase = createServerClient<Database>(
+  const supabase = instrumentSupabaseClient(createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
         name: 'student-auth',
       },
     },
-  );
+  ));
 
   const { error } = await supabase.auth.setSession({
     access_token: accessToken,

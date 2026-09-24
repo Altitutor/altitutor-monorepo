@@ -7,10 +7,12 @@ export function SettingsRow({
   title,
   description,
   control,
+  controlClassName,
 }: {
   title: string;
   description: ReactNode;
   control: ReactNode;
+  controlClassName?: string;
 }) {
   return (
     <div
@@ -23,7 +25,14 @@ export function SettingsRow({
         <h3 className="text-base font-semibold tracking-tight">{title}</h3>
         <div className="text-sm text-muted-foreground">{description}</div>
       </div>
-      <div className="w-full shrink-0 sm:flex sm:max-w-xs sm:justify-end">{control}</div>
+      <div
+        className={cn(
+          "w-full shrink-0 sm:flex sm:max-w-xs sm:justify-end",
+          controlClassName,
+        )}
+      >
+        {control}
+      </div>
     </div>
   );
 }

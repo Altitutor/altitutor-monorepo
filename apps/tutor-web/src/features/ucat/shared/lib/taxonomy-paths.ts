@@ -99,6 +99,7 @@ export function mapTagsToOptions(
     id?: string | null
     name?: string | null
     parent_question_tag_id?: string | null
+    ucat_section_id?: string | null
   }>
 ): TagOption[] {
   const paths = buildTaxonomyPathLookup(tagsToTaxonomyNodes(rows))
@@ -107,6 +108,8 @@ export function mapTagsToOptions(
     .map((row) => ({
       id: row.id,
       name: row.name ?? '',
+      parent_question_tag_id: row.parent_question_tag_id ?? null,
+      ucat_section_id: row.ucat_section_id ?? null,
       label: paths.get(row.id) ?? row.name ?? 'Untitled',
     }))
 }

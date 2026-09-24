@@ -1,16 +1,28 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { clearExamAttemptProgress } from "@/lib/ucat/exam-attempt/service";
 import { finalizeExamAttemptOnServer } from "@/lib/ucat/exam-attempt/finalize-attempt";
 import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
+import type { FinalExamQuestionAttemptInput } from "@/lib/ucat/exam-attempt/finalize-attempt";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
+import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import { ServerTiming } from "@/lib/performance/server-timing";
+import { waitUntil } from "@vercel/functions";
+import { processPendingPreparationRefreshes } from "@/features/preparation/server/preparation-refresh-worker";
+
+function isExamAttemptKind(value: unknown): value is ExamAttemptKind {
+  return value === "set" || value === "mock" || value === "practice";
+}
 
 export async function POST(request: NextRequest) {
+  const timing = new ServerTiming();
   const supabase = await getSupabaseServerClient();
   const {
     data: { user },
     error: authError,
   } = await supabase.auth.getUser();
+  timing.mark("auth");
 
   if (authError) {
     return NextResponse.json({ error: "Failed to get user" }, { status: 500 });
@@ -25,15 +37,35 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as {
-    kind?: ExamAttemptKind;
+  const body = (await request.json().catch(() => null)) as {
+    kind?: unknown;
     attemptId?: string;
     complete?: boolean;
-  };
+    answers?: FinalExamQuestionAttemptInput[];
+  } | null;
+
+  if (!body) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
 
   if (!body.kind || !body.attemptId || !body.complete) {
     return NextResponse.json(
       { error: "Missing required fields" },
+      { status: 400 },
+    );
+  }
+  if (!isExamAttemptKind(body.kind)) {
+    return NextResponse.json(
+      { error: "Invalid attempt kind" },
+      { status: 400 },
+    );
+  }
+  if (!Array.isArray(body.answers)) {
+    return NextResponse.json(
+      { error: "Final answers are required" },
       { status: 400 },
     );
   }
@@ -43,8 +75,10 @@ export async function POST(request: NextRequest) {
     .select("id")
     .eq("user_id", user.id)
     .maybeSingle();
+  timing.mark("student");
 
   if (studentError) {
+    captureApiError(studentError, "/api/ucat/exam-attempts/finalize");
     return NextResponse.json({ error: studentError.message }, { status: 500 });
   }
   if (!student) {
@@ -54,70 +88,47 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  await clearExamAttemptProgress(
-    supabaseAdmin,
-    student.id,
-    body.kind,
-    body.attemptId,
-  );
-
-  const origin = request.nextUrl.origin;
-  const cookie = request.headers.get("cookie") ?? "";
-
-  if (body.kind === "set") {
-    const res = await fetch(
-      `${origin}/api/ucat/set-attempts/${body.attemptId}`,
-      {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          cookie,
-        },
-        body: JSON.stringify({ complete: true }),
-      },
+  try {
+    const result = await finalizeExamAttemptOnServer(
+      supabaseAdmin,
+      student.id,
+      body.kind,
+      body.attemptId,
+      body.answers,
+      { grantDiscount: false },
     );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          error: (data as { error?: string }).error ?? "Failed to finalize set",
-        },
-        { status: res.status },
+    timing.mark("finalize");
+    let discount = {
+      earnedDiscount: result.earnedDiscount ?? false,
+      discountCents: result.discountCents ?? 0,
+    };
+    if (result.newlyCompleted) {
+      captureUcatLearningActivityCompletedInBackground({
+        userId: user.id,
+        activityType: body.kind,
+        activityId: body.attemptId,
+        properties: { completion_source: "question_engine" },
+      });
+      discount = await maybeGrantPracticeDayDiscount(supabaseAdmin, student.id);
+      waitUntil(
+        processPendingPreparationRefreshes({
+          studentId: student.id,
+          limit: 1,
+        }),
       );
     }
-    return NextResponse.json(data);
-  }
-
-  if (body.kind === "mock") {
-    const res = await fetch(
-      `${origin}/api/ucat/mock-attempts/${body.attemptId}`,
+    timing.mark("discount");
+    return timing.apply(NextResponse.json({ ...result, ...discount }));
+  } catch (error) {
+    captureApiError(error, "/api/ucat/exam-attempts/finalize");
+    return NextResponse.json(
       {
-        method: "PATCH",
-        headers: {
-          "Content-Type": "application/json",
-          cookie,
-        },
-        body: JSON.stringify({ complete: true }),
+        error:
+          error instanceof Error
+            ? error.message
+            : "Failed to finalize exam attempt",
       },
+      { status: 500 },
     );
-    const data = await res.json().catch(() => ({}));
-    if (!res.ok) {
-      return NextResponse.json(
-        {
-          error:
-            (data as { error?: string }).error ?? "Failed to finalize mock",
-        },
-        { status: res.status },
-      );
-    }
-    return NextResponse.json(data);
   }
-
-  await finalizeExamAttemptOnServer(
-    supabaseAdmin,
-    student.id,
-    "practice",
-    body.attemptId,
-  );
-  return NextResponse.json({ success: true });
 }

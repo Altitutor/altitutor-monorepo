@@ -1,13 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
   Select,
@@ -21,6 +16,7 @@ import {
   type UcatQuotaPeriod,
   type UcatSubscriptionConfigRow,
 } from '../api/ucat-subscription-config';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 
 const QUOTA_PERIODS = ['day', 'week', 'month'] as const;
 
@@ -68,6 +64,13 @@ const FREE_QUOTA_AREAS = [
 
 type FreeQuotaLimitKey = (typeof FREE_QUOTA_AREAS)[number]['limitKey'];
 type FreeQuotaPeriodKey = (typeof FREE_QUOTA_AREAS)[number]['periodKey'];
+type FreeQuotaArea = (typeof FREE_QUOTA_AREAS)[number];
+
+type FreeQuotaRow = FreeQuotaArea & {
+  limit: number;
+  period: UcatQuotaPeriod;
+  status: 'Enabled' | 'Disabled';
+};
 
 function getQuotaLimit(row: UcatSubscriptionConfigRow, key: FreeQuotaLimitKey): number {
   return row[key] ?? 0;
@@ -84,64 +87,89 @@ interface UcatFreeQuotaConfigFormProps {
 }
 
 export function UcatFreeQuotaConfigForm({ initial, onSaved }: UcatFreeQuotaConfigFormProps) {
-  const [freeQuotas, setFreeQuotas] = useState(() =>
-    Object.fromEntries(
-      FREE_QUOTA_AREAS.map((area) => [
-        area.key,
-        {
-          limit: String(getQuotaLimit(initial, area.limitKey)),
-          period: getQuotaPeriod(initial, area.periodKey),
-        },
-      ]),
-    ) as Record<string, { limit: string; period: UcatQuotaPeriod }>,
-  );
+  const [editingArea, setEditingArea] = useState<FreeQuotaRow | null>(null);
+  const [limitInput, setLimitInput] = useState('');
+  const [periodInput, setPeriodInput] = useState<UcatQuotaPeriod>('day');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const rows = useMemo<FreeQuotaRow[]>(
+    () =>
+      FREE_QUOTA_AREAS.map((area) => {
+        const limit = getQuotaLimit(initial, area.limitKey);
+        return {
+          ...area,
+          limit,
+          period: getQuotaPeriod(initial, area.periodKey),
+          status: limit === 0 ? 'Disabled' : 'Enabled',
+        };
+      }),
+    [initial],
+  );
+
   useEffect(() => {
-    setFreeQuotas(
-      Object.fromEntries(
-        FREE_QUOTA_AREAS.map((area) => [
-          area.key,
-          {
-            limit: String(getQuotaLimit(initial, area.limitKey)),
-            period: getQuotaPeriod(initial, area.periodKey),
-          },
-        ]),
-      ) as Record<string, { limit: string; period: UcatQuotaPeriod }>,
-    );
-  }, [initial]);
+    if (!editingArea) return;
+    setLimitInput(String(editingArea.limit));
+    setPeriodInput(editingArea.period);
+    setError(null);
+  }, [editingArea]);
+
+  const columns = useMemo<SettingsDataTableColumn<FreeQuotaRow>[]>(
+    () => [
+      {
+        key: 'label',
+        label: 'Quota',
+        render: (row) => <span className="font-medium">{row.label}</span>,
+        sortValue: (row) => row.label,
+        searchValue: (row) => `${row.label} ${row.description}`,
+      },
+      {
+        key: 'limit',
+        label: 'Limit',
+        render: (row) => <span className="font-mono tabular-nums">{row.limit}</span>,
+        sortValue: (row) => row.limit,
+      },
+      {
+        key: 'period',
+        label: 'Per',
+        render: (row) => <span className="capitalize">{row.period}</span>,
+        sortValue: (row) => row.period,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        render: (row) => <span className={row.status === 'Disabled' ? 'text-muted-foreground' : undefined}>{row.status}</span>,
+        sortValue: (row) => row.status,
+      },
+      {
+        key: 'description',
+        label: 'Description',
+        render: (row) => <span className="text-muted-foreground">{row.description}</span>,
+        sortValue: (row) => row.description,
+        searchValue: (row) => row.description,
+      },
+    ],
+    [],
+  );
 
   const handleSave = async () => {
+    if (!editingArea) return;
     setError(null);
 
-    const quotaPayload: Partial<UcatSubscriptionConfigRow> = {};
-    for (const area of FREE_QUOTA_AREAS) {
-      const entry = freeQuotas[area.key];
-      const limit = parseInt(entry?.limit ?? '0', 10);
-      if (!Number.isFinite(limit) || limit < 0) {
-        setError(`${area.label}: limit must be 0 or greater`);
-        return;
-      }
-      quotaPayload[area.limitKey] = limit;
-      quotaPayload[area.periodKey] = entry?.period ?? 'day';
+    const limit = parseInt(limitInput, 10);
+    if (!Number.isFinite(limit) || limit < 0) {
+      setError(`${editingArea.label}: limit must be 0 or greater`);
+      return;
     }
 
     setSaving(true);
     try {
       await ucatSubscriptionConfigApi.update(initial.id, {
-        free_practice_limit: quotaPayload.free_practice_limit!,
-        free_practice_period: quotaPayload.free_practice_period!,
-        free_sets_limit: quotaPayload.free_sets_limit!,
-        free_sets_period: quotaPayload.free_sets_period!,
-        free_mocks_limit: quotaPayload.free_mocks_limit!,
-        free_mocks_period: quotaPayload.free_mocks_period!,
-        free_learn_limit: quotaPayload.free_learn_limit!,
-        free_learn_period: quotaPayload.free_learn_period!,
-        free_skill_trainer_limit: quotaPayload.free_skill_trainer_limit!,
-        free_skill_trainer_period: quotaPayload.free_skill_trainer_period!,
+        [editingArea.limitKey]: limit,
+        [editingArea.periodKey]: periodInput,
       });
-      onSaved();
+      await Promise.resolve(onSaved());
+      setEditingArea(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save');
     } finally {
@@ -150,81 +178,72 @@ export function UcatFreeQuotaConfigForm({ initial, onSaved }: UcatFreeQuotaConfi
   };
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>UCAT Free tier limits</CardTitle>
-        <CardDescription>
-          Per-area usage limits for UCAT Free students. Each area has its own limit and reset period;
-          quotas do not share a pool. Set limit to <strong>0</strong> to disable an area for Free
-          students. Period boundaries use each student&apos;s timezone (weeks start Monday).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-6">
-        <div className="space-y-6">
-          {FREE_QUOTA_AREAS.map((area) => {
-            const entry = freeQuotas[area.key] ?? { limit: '0', period: 'day' as UcatQuotaPeriod };
-            const disabled = parseInt(entry.limit, 10) === 0;
-
-            return (
-              <div
-                key={area.key}
-                className="grid gap-4 rounded-lg border p-4 md:grid-cols-[1fr_140px_140px] md:items-end"
-              >
-                <div className="space-y-1">
-                  <p className="text-sm font-medium">{area.label}</p>
-                  <p className="text-xs text-muted-foreground">{area.description}</p>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`${area.key}-limit`}>Limit</Label>
-                  <Input
-                    id={`${area.key}-limit`}
-                    type="number"
-                    min={0}
-                    value={entry.limit}
-                    onChange={(e) =>
-                      setFreeQuotas((prev) => ({
-                        ...prev,
-                        [area.key]: { ...entry, limit: e.target.value },
-                      }))
-                    }
-                  />
-                  {disabled ? (
-                    <p className="text-xs text-amber-600 dark:text-amber-500">Disabled on Free</p>
-                  ) : null}
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor={`${area.key}-period`}>Per</Label>
-                  <Select
-                    value={entry.period}
-                    onValueChange={(v) => {
-                      if (!isQuotaPeriod(v)) return;
-                      setFreeQuotas((prev) => ({
-                        ...prev,
-                        [area.key]: { ...entry, period: v },
-                      }));
-                    }}
-                  >
-                    <SelectTrigger id={`${area.key}-period`}>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="day">Day</SelectItem>
-                      <SelectItem value="week">Week</SelectItem>
-                      <SelectItem value="month">Month</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            );
-          })}
+    <>
+      <div className="space-y-4">
+        <SettingsDataTable
+          data={rows}
+          columns={columns}
+          getRowId={(row) => row.key}
+          filterKeys={[]}
+          searchPlaceholder="Search Free tier limits..."
+          defaultSort={{ field: 'label', direction: 'asc' }}
+          getActions={(row) => [
+            {
+              id: 'edit',
+              label: 'Edit',
+              onSelect: () => setEditingArea(row),
+            },
+          ]}
+        />
+      </div>
+      <AdminDialogShell
+        open={!!editingArea}
+        onClose={() => setEditingArea(null)}
+        title={editingArea ? `Edit ${editingArea.label}` : 'Edit Free tier limit'}
+        subtitle="Set limit to 0 to disable this area for UCAT Free students. Period boundaries use each student's timezone."
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setEditingArea(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving…' : 'Save limit'}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="free-tier-limit">Limit</Label>
+            <Input
+              id="free-tier-limit"
+              type="number"
+              min={0}
+              value={limitInput}
+              onChange={(e) => setLimitInput(e.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="free-tier-period">Per</Label>
+            <Select
+              value={periodInput}
+              onValueChange={(value) => {
+                if (isQuotaPeriod(value)) setPeriodInput(value);
+              }}
+            >
+              <SelectTrigger id="free-tier-period">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="day">Day</SelectItem>
+                <SelectItem value="week">Week</SelectItem>
+                <SelectItem value="month">Month</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
-
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-
-        <Button type="button" onClick={handleSave} disabled={saving}>
-          {saving ? 'Saving…' : 'Save limits'}
-        </Button>
-      </CardContent>
-    </Card>
+        {error ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      </AdminDialogShell>
+    </>
   );
 }

@@ -14,6 +14,7 @@ import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { SessionsCard } from './SessionsCard';
+import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 
 type Props = {
   date?: string;
@@ -64,11 +65,12 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
       }
     });
 
-    // Add 1 hour buffer before earliest and after latest
-    const startHour = Math.max(0, Math.floor(earliestStart / 60) - 1);
-    // Calculate end hour: add 60 minutes to latest end time, then get the hour
-    const endHourWithBuffer = latestEnd + 60; // Add 1 hour in minutes
-    const endHour = Math.min(23, Math.floor(endHourWithBuffer / 60));
+    // Snap to the hour containing the first session start; end at the hour boundary
+    // rounded up from the last session end (e.g. 10:30 end → show through 11:00, not 12:00).
+    const startHour = Math.max(0, Math.floor(earliestStart / 60));
+    const endAtHourBoundary =
+      latestEnd % 60 === 0 ? latestEnd / 60 : Math.ceil(latestEnd / 60);
+    const endHour = Math.min(23, Math.max(startHour, endAtHourBoundary - 1));
 
     // Generate slots for the range
     const slotCount = endHour - startHour + 1;
@@ -214,10 +216,6 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const sessionStudents = sessionsData?.sessionStudents?.[s.id] || [];
                         const sessionStaff = sessionsData?.sessionStaff?.[s.id] || [];
                         
-                        // Check if session has any students attending (planned attendance)
-                        const hasAttendingStudents = sessionStudents.length > 0 && 
-                          sessionStudents.some((student) => !student.planned_absence);
-                        
                         const cardHeight = Math.max(height, 45);
                         const cardWidth =
                           dayColumnWidth > 0
@@ -228,7 +226,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         blocks.push(
                           <div
                             key={s.id}
-                            className={cn("absolute", !hasAttendingStudents && "opacity-50")}
+                            className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
                             style={{
                               top: `${top}px`,
                               height: `${cardHeight}px`,
@@ -272,10 +270,6 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         const sessionStudents = (sessionsData?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                         const sessionStaff = (sessionsData?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                         
-                        // Check if session has any students attending (planned attendance)
-                        const hasAttendingStudents = sessionStudents.length > 0 && 
-                          sessionStudents.some((student) => !student.planned_absence);
-                        
                         const cardHeight = Math.max(height, 45);
                         const cardWidth =
                           dayColumnWidth > 0
@@ -286,7 +280,7 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                         blocks.push(
                           <div
                             key={s.id}
-                            className={cn("absolute", !hasAttendingStudents && "opacity-50")}
+                            className={cn("absolute", shouldDimSessionInCalendar(sessionStudents) && "opacity-50")}
                             style={{
                               top: `${top}px`,
                               height: `${cardHeight}px`,

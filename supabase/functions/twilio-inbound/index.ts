@@ -1,6 +1,7 @@
 // @ts-nocheck
 // deno-lint-ignore-file no-explicit-any
 import 'jsr:@supabase/functions-js/edge-runtime.d.ts';
+import { serveWithSentry } from '../_shared/sentry.ts';
 import { createClient } from 'jsr:@supabase/supabase-js@2';
 import {
   parseFormEncoded,
@@ -33,7 +34,7 @@ async function verifyTwilioSignature(
   );
 }
 
-Deno.serve(async (req: Request) => {
+serveWithSentry('twilio-inbound', async (req: Request, sentry) => {
   if (req.method === 'OPTIONS') {
     const acrh = req.headers.get('access-control-request-headers') || '';
     const requestHeaders = (acrh || 'content-type, x-twilio-signature').toLowerCase();
@@ -145,8 +146,7 @@ Deno.serve(async (req: Request) => {
 
     return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
   } catch (e: unknown) {
+    sentry.captureException(e);
     return new Response(JSON.stringify({ error: e?.message || 'unknown error' }), { status: 500, headers: { 'Content-Type': 'application/json' } });
   }
 });
-
-

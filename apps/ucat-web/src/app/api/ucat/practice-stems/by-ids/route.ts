@@ -1,3 +1,4 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
@@ -48,11 +49,12 @@ export async function POST(request: NextRequest) {
   }
 
   const { data: stemDetails, error: stemDetailsError } = await supabase
-    .from("vstudent_ucat_question_stem_detail")
+    .from("vstudent_ucat_question_stem_delivery")
     .select("id,section_name,display_columns,stem_text,questions")
     .in("id", stemIds);
 
   if (stemDetailsError) {
+    captureApiError(stemDetailsError, "/api/ucat/practice-stems/by-ids");
     return NextResponse.json(
       { error: stemDetailsError.message },
       { status: 500 },

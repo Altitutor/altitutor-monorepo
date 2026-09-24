@@ -6,7 +6,7 @@ import {
   FormItem,
   FormMessage,
   SearchableSelect,
-  Button,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { UseFormReturn } from 'react-hook-form';
 import { cn } from '@/shared/utils/index';
@@ -47,18 +47,17 @@ export function TaskPriorityField({ form }: TaskPriorityFieldProps) {
                 }
                 getItemId={(o) => String(o.value)}
                 getItemLabel={(o) => o.label}
+                fullWidth
                 placeholder="Priority"
                 searchPlaceholder="Search priority..."
                 emptyMessage="No options found"
                 trigger={
-                  <Button variant="outline" className="w-full justify-start font-normal">
-                    <div className="flex items-center gap-2 flex-1">
-                      <PriorityIcon className={cn('h-4 w-4', iconColor)} />
-                      <span className={cn(priorityValue === 0 && 'text-muted-foreground')}>
-                        {displayValue}
-                      </span>
-                    </div>
-                  </Button>
+                  <SearchableSelectFieldTrigger>
+                    <PriorityIcon className={cn('h-4 w-4', iconColor)} />
+                    <span className={cn(priorityValue === 0 && 'text-muted-foreground')}>
+                      {displayValue}
+                    </span>
+                  </SearchableSelectFieldTrigger>
                 }
                 renderItem={(opt) => {
                   const OptionIcon = getPriorityIcon(opt.value);

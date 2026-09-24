@@ -209,55 +209,86 @@ export async function fetchAllStaffTierSummaries(admin: AdminClient): Promise<
     nextTierNumber: number | null;
     isEligibleForReview: boolean;
     lastCheckIn: LastCheckInInfo | null;
+    metrics: Record<string, number> | null;
   }>
 > {
-  const { data: staffList, error } = await admin
-    .from('staff')
-    .select('id, first_name, last_name, role, status, current_tier_number')
-    .eq('status', 'ACTIVE')
-    .order('last_name');
-  if (error) throw error;
+  const [staffResult, tiers, requirementsResult] = await Promise.all([
+    admin
+      .from('staff')
+      .select(
+        'id, first_name, last_name, role, status, current_tier_number, employment_started_at, metric_overrides'
+      )
+      .eq('status', 'ACTIVE')
+      .order('last_name'),
+    fetchPayTiers(admin),
+    admin
+      .from('staff_pay_tier_requirements')
+      .select('id, tier_number, requirement_kind, params, sort_order')
+      .order('tier_number')
+      .order('sort_order'),
+  ]);
+  if (staffResult.error) throw staffResult.error;
+  if (requirementsResult.error) throw requirementsResult.error;
 
-  const tiers = await fetchPayTiers(admin);
-  const maxTier = tiers.length > 0 ? tiers[tiers.length - 1]!.tier_number : 1;
+  const staffList = staffResult.data ?? [];
+  if (staffList.length === 0) return [];
 
-  const summaries = await Promise.all(
-    (staffList ?? []).map(async (s) => {
-      let isEligible = false;
-      let nextTier: number | null =
-        s.current_tier_number < maxTier ? s.current_tier_number + 1 : null;
-      try {
-        const progress = await fetchStaffTierProgress(admin, s.id);
-        isEligible = progress.isEligibleForReview;
-        nextTier = progress.nextTierNumber;
-        return {
-          staffId: s.id,
-          firstName: s.first_name,
-          lastName: s.last_name,
-          role: s.role,
-          status: s.status,
-          currentTierNumber: s.current_tier_number,
-          nextTierNumber: nextTier,
-          isEligibleForReview: isEligible,
-          lastCheckIn: progress.lastCheckIn,
-        };
-      } catch {
-        return {
-          staffId: s.id,
-          firstName: s.first_name,
-          lastName: s.last_name,
-          role: s.role,
-          status: s.status,
-          currentTierNumber: s.current_tier_number,
-          nextTierNumber: nextTier,
-          isEligibleForReview: false,
-          lastCheckIn: null,
-        };
-      }
-    })
+  const { data: summaryData, error: summaryError } = await admin.rpc(
+    'get_staff_pay_tier_summary_data',
+    { p_staff_ids: staffList.map((staff) => staff.id) }
   );
+  if (summaryError) throw summaryError;
 
-  return summaries;
+  const summaryByStaffId = new Map((summaryData ?? []).map((row) => [row.staff_id, row]));
+  const requirements = (requirementsResult.data ?? []).map((requirement) => ({
+    id: requirement.id,
+    tier_number: requirement.tier_number,
+    requirement_kind:
+      requirement.requirement_kind as StaffTierProgress['requirementsForNextTier'][0]['requirement_kind'],
+    params: requirement.params,
+    sort_order: requirement.sort_order,
+  }));
+
+  return staffList.map((staff) => {
+    const summary = summaryByStaffId.get(staff.id);
+    if (!summary) {
+      throw new Error(`Missing pay tier summary data for staff ${staff.id}`);
+    }
+
+    const lastCheckIn: LastCheckInInfo | null =
+      summary.last_check_in_session_id && summary.last_check_in_start_at
+        ? {
+            sessionId: summary.last_check_in_session_id,
+            startAt: summary.last_check_in_start_at,
+            longName: summary.last_check_in_long_name,
+          }
+        : null;
+    const progress = buildStaffTierProgress({
+      staffId: staff.id,
+      currentTierNumber: staff.current_tier_number,
+      employmentStartedAt: staff.employment_started_at,
+      metricOverrides: parseOverrides(staff.metric_overrides),
+      metrics: jsonMetricsToRecord(summary.metrics),
+      tiers,
+      requirements,
+      promotions: [],
+      lastCheckIn,
+      checkIns: [],
+    });
+
+    return {
+      staffId: staff.id,
+      firstName: staff.first_name,
+      lastName: staff.last_name,
+      role: staff.role,
+      status: staff.status,
+      currentTierNumber: staff.current_tier_number,
+      nextTierNumber: progress.nextTierNumber,
+      isEligibleForReview: progress.isEligibleForReview,
+      lastCheckIn: progress.lastCheckIn,
+      metrics: progress.metrics,
+    };
+  });
 }
 
 export interface StaffCheckInRecord {

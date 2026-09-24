@@ -9,7 +9,7 @@ import type { Tables } from '@altitutor/shared';
  */
 export function useStudentSearchFilter(
   searchQuery: string,
-  statuses: Tables<'students'>['status'][] = ['ACTIVE', 'TRIAL']
+  statuses: NonNullable<Tables<'students'>['status']>[] = ['ACTIVE', 'TRIAL']
 ) {
   return useQuery({
     queryKey: [...studentsKeys.lists(), 'search-filter', searchQuery.trim(), statuses.sort().join(',')],

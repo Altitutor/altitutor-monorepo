@@ -19,12 +19,12 @@ import type { Tables } from '@altitutor/shared';
 /** Contact data shape from getContactForTemplate - uses partial types from API response */
 type ContactForTemplate = {
   contact_type: string;
-  students?: { id: string; first_name: string | null; last_name: string | null; status?: string; user_id?: string | null } | null;
+  students?: { id: string; first_name: string | null; last_name: string | null; status?: string | null; user_id?: string | null } | null;
   parents?: {
     id: string;
     first_name: string;
     last_name: string;
-    parents_students?: Array<{ students: { id: string; first_name: string | null; last_name: string | null; status?: string; user_id?: string | null } | null }>;
+    parents_students?: Array<{ students: { id: string; first_name: string | null; last_name: string | null; status?: string | null; user_id?: string | null } | null }>;
   } | null;
   staff?: { id: string; first_name: string | null; last_name: string | null; role?: string | null; user_id?: string | null } | null;
 } | null;

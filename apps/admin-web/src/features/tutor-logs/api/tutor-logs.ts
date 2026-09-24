@@ -12,11 +12,11 @@ export const tutorLogsApi = {
    * Create a tutor log with all related records atomically via RPC function
    * All operations are executed within a single transaction
    */
-  createTutorLog: async (data: TutorLogFormData, createdBy: string): Promise<Tables<'tutor_logs'>> => {
+  createTutorLog: async (data: TutorLogFormData, loggedForStaffId: string): Promise<Tables<'tutor_logs'>> => {
     try {
       const payload = {
         data,
-        createdBy,
+        loggedForStaffId,
       };
       
       const response = await fetch('/api/tutor-logs/create', {
@@ -273,7 +273,9 @@ export const tutorLogsApi = {
     tutorLogs: Array<{
       id: string;
       session_id: string;
-      created_by: string;
+      created_by: string | null;
+      logged_for_staff_id: string | null;
+      updated_by: string | null;
       created_at: string;
       updated_at: string | null;
     }>;
@@ -395,14 +397,14 @@ export const tutorLogsApi = {
   /**
    * Update a tutor log (admin only)
    */
-  updateTutorLog: async (id: string, data: TutorLogFormData, createdBy: string): Promise<void> => {
+  updateTutorLog: async (id: string, data: TutorLogFormData, loggedForStaffId: string): Promise<void> => {
     try {
       const response = await fetch(`/api/tutor-logs/${id}/update`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ data, createdBy }),
+        body: JSON.stringify({ data, loggedForStaffId }),
       });
 
       if (!response.ok) {
@@ -433,4 +435,3 @@ export const tutorLogsApi = {
     if (error) throw error;
   },
 };
-

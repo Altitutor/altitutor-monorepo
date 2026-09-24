@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -6,6 +7,7 @@ import type { Database } from '@altitutor/shared';
 // Whitelist of fields that tutors are allowed to update
 const ALLOWED_UPDATE_FIELDS = [
   'phone_number',
+  'birthday',
   'profile_bio',
   'profile_image_file_id',
   'availability_monday',
@@ -39,6 +41,7 @@ export async function PATCH(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -57,6 +60,7 @@ export async function PATCH(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -70,9 +74,9 @@ export async function PATCH(request: NextRequest) {
       if (field in body) {
         const value = body[field];
         // Type guard to ensure value is correct type
-        if (field === 'phone_number') {
+        if (field === 'phone_number' || field === 'birthday') {
           if (typeof value === 'string' || value === null) {
-            updates[field] = value;
+            updates[field] = value === '' ? null : value;
           }
         } else if (field === 'profile_bio' || field === 'profile_image_file_id') {
           if (typeof value === 'string' || value === null) {
@@ -126,6 +130,7 @@ export async function PATCH(request: NextRequest) {
     
     if (error) {
       console.error('Error updating profile:', error);
+      captureApiError(error, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to update profile' },
         { status: 500 }
@@ -140,6 +145,7 @@ export async function PATCH(request: NextRequest) {
         last_name: data.last_name,
         email: data.email,
         phone: data.phone_number,
+        birthday: data.birthday,
         role: data.role,
         status: data.status,
         profile_bio: data.profile_bio,
@@ -159,6 +165,7 @@ export async function PATCH(request: NextRequest) {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/profile");
     console.error('Error in PATCH /api/profile:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -181,6 +188,7 @@ export async function GET() {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -202,6 +210,7 @@ export async function GET() {
     
     if (error) {
       console.error('Error fetching profile:', error);
+      captureApiError(error, "/api/profile");
       return NextResponse.json(
         { error: 'Failed to fetch profile' },
         { status: 500 }
@@ -221,6 +230,7 @@ export async function GET() {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/profile");
     console.error('Error in GET /api/profile:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

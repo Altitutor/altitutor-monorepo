@@ -1,168 +1,67 @@
 "use client";
 
-import { useMemo } from "react";
+import { motion } from "motion/react";
+import { Skeleton } from "@altitutor/ui";
 import { UcatPageHeader } from "@/features/layout";
-import { useProgress } from "../hooks/use-progress";
-import { useProgressMode } from "../hooks/use-progress-mode";
-import { ProgressModeFloatingToolbar } from "./progress-mode-floating-toolbar";
-import { SectionProgressCards } from "./section-progress-cards";
+import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { useMockProgress } from "../hooks/use-progress";
 import { MockAttemptsCard } from "./mock-attempts-card";
-import {
-  filterByTimeFrame,
-  getSharedDateRange,
-  computeSectionProgressFromMockAttempts,
-} from "../lib/progress-data-utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
-import { UCAT_CARD_CHROME } from "@/lib/ucat-surface-motion";
-import { cn } from "@/lib/utils";
-import { AnimatedInteger } from "./progress-animated-display";
-import { formatUcatPercentile } from "../lib/percentiles";
 
 export function MocksProgressPage() {
-  const { data, isLoading, error } = useProgress();
-  const progressMode = useProgressMode();
-
-  const filteredMockAttempts = useMemo(() => {
-    if (!data?.mockAttempts) return [];
-    return filterByTimeFrame(
-      data.mockAttempts,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [data, progressMode.mode, progressMode.timeFrameDays]);
-
-  const sectionProgress = useMemo(() => {
-    if (!data) return [];
-    return computeSectionProgressFromMockAttempts(
-      data.mockAttempts,
-      data.setAttempts,
-      data.sectionProgress,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [data, progressMode.mode, progressMode.timeFrameDays]);
-
-  const sharedDateRange = useMemo(() => {
-    return getSharedDateRange(
-      [],
-      [],
-      filteredMockAttempts,
-      progressMode.mode,
-      progressMode.timeFrameDays,
-    );
-  }, [filteredMockAttempts, progressMode.mode, progressMode.timeFrameDays]);
-
-  const averageMockScore = useMemo(() => {
-    const withScore = filteredMockAttempts.filter(
-      (a) => a.scaledScore != null && a.scaledScore > 0,
-    );
-    if (withScore.length === 0) return null;
-    const sum = withScore.reduce((s, a) => s + (a.scaledScore ?? 0), 0);
-    return Math.round(sum / withScore.length);
-  }, [filteredMockAttempts]);
-  const averageMockPercentile = formatUcatPercentile(averageMockScore, "mock");
+  const { data, isLoading, error } = useMockProgress();
+  const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Mock progress"
-          description="Loading your mock progress..."
-        />
-        <div className="animate-pulse space-y-6">
-          <div className="h-32 w-64 mx-auto rounded-xl bg-muted" />
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {[1, 2, 3, 4].map((i) => (
-              <div key={i} className="h-32 rounded-lg bg-muted" />
-            ))}
-          </div>
-          <div className="h-64 rounded-lg bg-muted" />
+      <div className="space-y-6 pb-8">
+        <div className="mx-auto w-full max-w-[1400px] px-5 pt-6 sm:px-6">
+          <UcatPageHeader
+            title="Mock progress"
+            backHref="/progress"
+            backLabel="Back to progress"
+          />
         </div>
+        <Skeleton className="h-[560px] w-full" />
+        <Skeleton className="mx-auto h-80 w-[calc(100%-3rem)] max-w-[1352px] rounded-2xl" />
       </div>
     );
   }
 
-  if (error) {
+  if (error || !data) {
     return (
-      <div className="space-y-6">
+      <div className="mx-auto w-full max-w-[1400px] space-y-6 px-5 py-6 sm:px-6">
         <UcatPageHeader
           title="Mock progress"
-          description="Could not load your mock progress."
+          backHref="/progress"
+          backLabel="Back to progress"
         />
-        <p className="text-sm text-destructive">{error.message}</p>
-      </div>
-    );
-  }
-
-  if (!data) {
-    return (
-      <div className="space-y-6">
-        <UcatPageHeader
-          title="Mock progress"
-          description="No progress data available."
-        />
+        <p className="text-sm text-destructive">
+          {error?.message ?? "No mock progress data is available."}
+        </p>
       </div>
     );
   }
 
   return (
-    <div className="relative space-y-6 pb-[max(6.5rem,calc(env(safe-area-inset-bottom,0px)+5rem))]">
-      <UcatPageHeader
-        title="Mock progress"
-        description="Track your performance across mock exams."
-      />
-
-      <div className="flex justify-center">
-        <Card className={cn(UCAT_CARD_CHROME, "w-full max-w-xs")}>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-base font-medium text-center">
-              Average mock score
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div
-              className={cn(
-                "text-4xl font-bold tabular-nums text-center",
-                averageMockScore == null && "text-muted-foreground",
-              )}
-            >
-              {averageMockScore != null ? (
-                <AnimatedInteger value={averageMockScore} />
-              ) : (
-                "—"
-              )}
-            </div>
-            {averageMockPercentile ? (
-              <div className="mt-1 text-center text-xs font-medium text-muted-foreground">
-                {averageMockPercentile}
-              </div>
-            ) : null}
-          </CardContent>
-        </Card>
-      </div>
-
-      <SectionProgressCards
-        sections={sectionProgress}
-        linkToSection
-        sectionHrefPrefix="/progress/mocks/sections"
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-      />
-
-      <MockAttemptsCard
-        attempts={data.mockAttempts}
-        mode={progressMode.mode}
-        timeFrameDays={progressMode.timeFrameDays}
-        sharedDateRange={sharedDateRange}
-      />
-
-      <ProgressModeFloatingToolbar
-        mode={progressMode.mode}
-        onModeChange={progressMode.onModeChange}
-        timeFrameDays={progressMode.timeFrameDays}
-        onTimeFrameDaysChange={progressMode.onTimeFrameDaysChange}
-        showAttemptFilter={false}
-      />
-    </div>
+    <motion.div
+      className="space-y-6 pb-8"
+      variants={containerVariants}
+      initial="hidden"
+      animate="show"
+    >
+      <motion.div
+        variants={itemVariants}
+        className="mx-auto w-full max-w-[1400px] px-5 pt-6 sm:px-6"
+      >
+        <UcatPageHeader
+          title="Mock progress"
+          backHref="/progress"
+          backLabel="Back to progress"
+        />
+      </motion.div>
+      <motion.div variants={itemVariants}>
+        <MockAttemptsCard summary={data} />
+      </motion.div>
+    </motion.div>
   );
 }

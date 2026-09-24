@@ -1,8 +1,12 @@
 ---
 name: building-native-ui
-description: Complete guide for building beautiful apps with Expo Router. Covers fundamentals, styling, components, navigation, animations, patterns, and native tabs.
+description: >-
+  Expo Router native UI: styling, components, navigation, animations, native tabs.
+  Use for apps/*-app only — not Next.js *-web.
 version: 1.0.1
 license: MIT
+paths:
+  - "apps/*-app/**"
 ---
 
 # Expo UI Guidelines

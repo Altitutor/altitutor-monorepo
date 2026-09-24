@@ -1,13 +1,17 @@
+import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import type { Json } from "@altitutor/shared";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import type { QuestionStemWithQuestions } from "@/features/question-engine/model/types";
 import { maybeAutoCompleteQuestionBlock } from "@/lib/ucat/learning/progress-service";
+import { findUndeliveredPracticeQuestionIds } from "@/lib/ucat/practice-sessions/authorize-delivered-questions";
+import { captureUcatLearningActivityCompletedInBackground } from "@/lib/analytics/posthog-server";
 import {
-  checkQuotaForAction,
-  quotaExceededResponse,
-} from "@/lib/ucat/quota/quota-service";
+  PRACTICE_SESSION_ENDED_CODE,
+  PRACTICE_SESSION_ENDED_MESSAGE,
+} from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { parseQuotaExceededMessage } from "@/lib/ucat/quota/parse-quota-error";
+import { quotaExceededResponse } from "@/lib/ucat/quota/quota-service";
 
 export async function POST(request: NextRequest) {
   const supabase = await getSupabaseServerClient();
@@ -36,13 +40,12 @@ export async function POST(request: NextRequest) {
     studentQuestionSetAttemptId: string | null;
     studentPracticeSessionId?: string | null;
     questionId: string;
-    questionAnswerOptionId: string | null;
     answerSnapshot?: Json | null;
-    timeSpentSeconds?: number | null;
     isFlagged?: boolean;
     wasTimed?: boolean;
     learningModuleBlockId?: string | null;
     mode?: "question" | "question_stem" | "set" | "mock" | "learn";
+    submittedByStem?: boolean;
   };
 
   if (!body.questionId) {
@@ -83,60 +86,45 @@ export async function POST(request: NextRequest) {
   if (isPracticeAttempt) {
     const { data: session, error: sessionError } = await supabaseAdmin
       .from("student_practice_sessions")
-      .select("id, stems_snapshot, unlimited, completed_at")
+      .select(
+        "id, stems_snapshot, unlimited, completed_at, discarded_at, expired_at",
+      )
       .eq("id", body.studentPracticeSessionId!)
       .eq("student_id", student.id)
       .maybeSingle();
 
     if (sessionError) {
+      captureApiError(sessionError, "/api/ucat/question-attempts");
       return NextResponse.json(
         { error: sessionError.message },
         { status: 500 },
       );
     }
 
-    const deliveredStems = Array.isArray(session?.stems_snapshot)
-      ? (session.stems_snapshot as QuestionStemWithQuestions[])
-      : [];
-    const deliveredQuestionIds = new Set(
-      deliveredStems.flatMap((stem) =>
-        Array.isArray(stem.questions)
-          ? stem.questions.map((question) => question.id)
-          : [],
-      ),
-    );
-    const latestDeliveredStem = deliveredStems.at(-1);
-    const latestDeliveredQuestionIds = new Set(
-      latestDeliveredStem?.questions?.map((question) => question.id) ?? [],
-    );
-
     if (
       !session ||
       session.completed_at ||
-      !deliveredQuestionIds.has(body.questionId)
+      session.discarded_at ||
+      session.expired_at
     ) {
+      return NextResponse.json(
+        {
+          code: PRACTICE_SESSION_ENDED_CODE,
+          error: PRACTICE_SESSION_ENDED_MESSAGE,
+        },
+        { status: 410 },
+      );
+    }
+
+    const undeliveredQuestionIds = findUndeliveredPracticeQuestionIds(
+      session.stems_snapshot,
+      [body.questionId],
+    );
+    if (undeliveredQuestionIds.length > 0) {
       return NextResponse.json(
         { error: "Question is not part of this practice session" },
         { status: 403 },
       );
-    }
-
-    const hasAnswer =
-      body.questionAnswerOptionId != null || body.answerSnapshot != null;
-    const canFinishLatestUnlimitedStem =
-      Boolean(session.unlimited) &&
-      latestDeliveredQuestionIds.has(body.questionId);
-
-    if (!canFinishLatestUnlimitedStem) {
-      const quotaCheck = await checkQuotaForAction(
-        supabaseAdmin,
-        student.id,
-        "practice",
-        { practiceQuestionId: body.questionId, hasAnswer },
-      );
-      if (!quotaCheck.allowed) {
-        return quotaExceededResponse(quotaCheck.payload);
-      }
     }
   }
 
@@ -174,31 +162,29 @@ export async function POST(request: NextRequest) {
     existingError.code !== "PGRST116" &&
     existingError.code !== "PGRST123"
   ) {
+    captureApiError(existingError, "/api/ucat/question-attempts");
     return NextResponse.json({ error: existingError.message }, { status: 500 });
   }
 
-  const hasTime =
-    typeof body.timeSpentSeconds === "number" && body.timeSpentSeconds > 0;
   const hasFlag = typeof body.isFlagged === "boolean";
+  const isSubmitted = body.submittedByStem === true;
 
   if (existing) {
     const updatePayload: {
-      question_answer_option_id: string | null;
-      answer_snapshot: Json | null;
-      is_submitted: boolean;
-      time_spent_seconds?: number | null;
+      answer_snapshot?: Json | null;
+      is_submitted?: boolean;
       is_flagged?: boolean;
       was_timed?: boolean;
       mode?: "question" | "question_stem" | "set" | "mock" | "learn";
       learning_module_block_id?: string | null;
-    } = {
-      question_answer_option_id: body.questionAnswerOptionId,
-      answer_snapshot: body.answerSnapshot ?? null,
-      is_submitted: false,
-    };
+    } = {};
 
-    if (hasTime) {
-      updatePayload.time_spent_seconds = body.timeSpentSeconds ?? null;
+    if (Object.prototype.hasOwnProperty.call(body, "answerSnapshot")) {
+      updatePayload.answer_snapshot = body.answerSnapshot ?? null;
+    }
+
+    if (isSubmitted) {
+      updatePayload.is_submitted = true;
     }
 
     if (hasFlag) {
@@ -219,18 +205,26 @@ export async function POST(request: NextRequest) {
       .eq("student_id", student.id);
 
     if (updateError) {
+      captureApiError(updateError, "/api/ucat/question-attempts");
       return NextResponse.json({ error: updateError.message }, { status: 500 });
     }
 
-    const hasAnswer =
-      body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    const hasAnswer = body.answerSnapshot != null;
     if (isLearnAttempt && hasAnswer) {
       try {
-        await maybeAutoCompleteQuestionBlock(
+        const progress = await maybeAutoCompleteQuestionBlock(
           supabaseAdmin,
           student.id,
           body.learningModuleBlockId!,
         );
+        if (progress.lessonNewlyCompleted && progress.lessonId) {
+          captureUcatLearningActivityCompletedInBackground({
+            userId: user.id,
+            activityType: "lesson",
+            activityId: progress.lessonId,
+            properties: { completion_source: "lesson_question_auto" },
+          });
+        }
       } catch {
         // Progress update is best-effort; attempt is already saved.
       }
@@ -253,11 +247,11 @@ export async function POST(request: NextRequest) {
     student_question_set_attempt_id: string | null;
     student_practice_session_id: string | null;
     question_id: string;
-    question_answer_option_id: string | null;
     answer_snapshot: Json | null;
     is_flagged: boolean;
     is_submitted: boolean;
     time_spent_seconds: number | null;
+    first_seen_at?: string;
     was_timed: boolean;
     mode: "question" | "question_stem" | "set" | "mock" | "learn" | null;
     learning_module_block_id: string | null;
@@ -269,22 +263,31 @@ export async function POST(request: NextRequest) {
       ? body.learningModuleBlockId!
       : null,
     question_id: body.questionId,
-    question_answer_option_id: body.questionAnswerOptionId,
     answer_snapshot: body.answerSnapshot ?? null,
     is_flagged: hasFlag ? (body.isFlagged ?? false) : false,
-    is_submitted: false,
-    time_spent_seconds: hasTime ? (body.timeSpentSeconds ?? null) : null,
+    is_submitted: isSubmitted,
+    time_spent_seconds: null,
+    ...(practiceSessionId ? { first_seen_at: new Date().toISOString() } : {}),
     was_timed: body.wasTimed ?? false,
     mode: body.mode ?? null,
   };
 
   const { data: inserted, error: insertError } = await supabaseAdmin
     .from("student_question_attempts")
-    .insert(insertPayload)
+    .upsert(insertPayload, {
+      onConflict: practiceSessionId
+        ? "student_practice_session_id,question_id"
+        : setAttemptId
+          ? "student_question_set_attempt_id,question_id"
+          : "id",
+    })
     .select("id")
     .maybeSingle();
 
   if (insertError || !inserted) {
+    const quota = parseQuotaExceededMessage(insertError?.message ?? "");
+    if (quota) return quotaExceededResponse(quota);
+    captureApiError(insertError, "/api/ucat/question-attempts");
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to insert question attempt" },
       { status: 500 },
@@ -292,14 +295,22 @@ export async function POST(request: NextRequest) {
   }
 
   const hasAnswer =
-    body.questionAnswerOptionId != null || body.answerSnapshot != null;
+    body.submittedByStem === true || body.answerSnapshot != null;
   if (isLearnAttempt && hasAnswer) {
     try {
-      await maybeAutoCompleteQuestionBlock(
+      const progress = await maybeAutoCompleteQuestionBlock(
         supabaseAdmin,
         student.id,
         body.learningModuleBlockId!,
       );
+      if (progress.lessonNewlyCompleted && progress.lessonId) {
+        captureUcatLearningActivityCompletedInBackground({
+          userId: user.id,
+          activityType: "lesson",
+          activityId: progress.lessonId,
+          properties: { completion_source: "lesson_question_auto" },
+        });
+      }
     } catch {
       // Progress update is best-effort; attempt is already saved.
     }

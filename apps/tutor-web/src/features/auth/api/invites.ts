@@ -32,7 +32,18 @@ export interface ValidateInviteResponse {
     first_name: string;
     last_name: string;
     email: string;
+    phone: string | null;
     role?: string;
+    subject_ids: string[];
+    subjects: Array<{
+      id: string;
+      name: string;
+      curriculum: string | null;
+      year_level: number | null;
+      level: string | null;
+      short_name: string | null;
+      long_name: string | null;
+    }>;
   };
   error?: string;
 }
@@ -41,6 +52,26 @@ export interface AcceptInviteRequest {
   token: string;
   email: string;
   password: string;
+  first_name: string;
+  last_name: string;
+  phone_number: string | null;
+  subject_ids: string[];
+  availability: {
+    monday: boolean;
+    tuesday: boolean;
+    wednesday: boolean;
+    thursday: boolean;
+    friday: boolean;
+    saturday_am: boolean;
+    saturday_pm: boolean;
+    sunday_am: boolean;
+    sunday_pm: boolean;
+    drafting: boolean;
+  };
+  birthday: string;
+  child_safe_agreement_number: string;
+  child_safe_policy_agreed: true;
+  profile_bio: string;
 }
 
 export interface AcceptInviteResponse {
@@ -129,14 +160,18 @@ export const invitesApi = {
   /**
    * Accept an invite and create an account
    */
-  acceptInvite: async (data: AcceptInviteRequest, baseUrl: string = ''): Promise<AcceptInviteResponse> => {
+  acceptInvite: async (
+    data: AcceptInviteRequest,
+    profileImage: File,
+    baseUrl: string = '',
+  ): Promise<AcceptInviteResponse> => {
     const url = baseUrl ? `${baseUrl}/api/invites/accept` : `/api/invites/accept`;
+    const form = new FormData();
+    form.set('payload', JSON.stringify(data));
+    form.set('profile_image', profileImage);
     const response = await fetch(url, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
+      body: form,
     });
 
     if (!response.ok) {
@@ -147,4 +182,3 @@ export const invitesApi = {
     return response.json();
   },
 };
-

@@ -1,50 +1,43 @@
 import type { Tables } from '@altitutor/shared';
 
+export interface ActivityEntityReference {
+  entityType: ActivityEntityType;
+  entityId: string;
+  role: string;
+  displayName?: string;
+}
+
 /**
  * Raw activity event from database
  */
-export type ActivityEvent = Tables<'activity_events'>;
+export type ActivityEvent = Tables<'domain_events'> & {
+  actorName?: string;
+  entities: ActivityEntityReference[];
+};
 
 /**
  * Entity type for activity events
  * 
- * Note: This list matches the tables that have activity event triggers in the database migration.
- * Excluded tables: messages, conversation_reads (not tracked via activity_events)
+ * Core entity types that can own a lifecycle activity feed.
  */
-export type ActivityEntityType = 
-  | 'students'
+export type ActivityEntityType =
+  | 'student'
+  | 'parent'
   | 'staff'
-  | 'classes'
-  | 'sessions'
-  | 'tasks'
-  | 'parents'
-  | 'notes'
-  | 'invoices'
-  | 'classes_staff'
-  | 'classes_students'
-  | 'sessions_students'
-  | 'sessions_staff'
-  | 'sessions_files'
-  | 'parents_students'
-  | 'invoice_items'
-  | 'student_subsidies'
-  | 'students_subjects'
-  | 'tutor_logs'
-  | 'tutor_logs_staff_attendance'
-  | 'tutor_logs_student_attendance'
-  | 'tutor_logs_topics'
-  | 'tutor_logs_topics_files'
-  | 'tutor_logs_topics_files_students'
-  | 'tutor_logs_topics_students'
-  | 'admin_shifts'
-  | 'admin_shifts_staff'
-  | 'issues'
-  | 'issue_tags';
+  | 'class'
+  | 'admin_shift'
+  | 'session'
+  | 'task'
+  | 'issue'
+  | 'project'
+  | 'invoice'
+  | 'form_response'
+  | 'note';
 
 /**
  * Event type
  */
-export type ActivityEventType = 'CREATED' | 'UPDATED' | 'DELETED' | 'FIELD_CHANGED';
+export type ActivityEventType = string;
 
 /**
  * Icon type for activity items
@@ -101,6 +94,10 @@ export interface PerformedBy {
   avatar?: string;
 }
 
+export type ActivityMessagePart =
+  | { kind: 'text'; text: string }
+  | { kind: 'entity'; text: string; entity: ActivityEntityReference };
+
 /**
  * Activity event display object (translated for UI)
  */
@@ -109,6 +106,7 @@ export interface ActivityEventDisplay {
   icon: ActivityIconType;
   iconColor: ActivityIconColor;
   message: string;
+  messageParts?: ActivityMessagePart[];
   timestamp: string;
   performedAt: string; // ISO string for sorting
   performedBy: PerformedBy;
@@ -119,6 +117,8 @@ export interface ActivityEventDisplay {
     session?: RelatedEntity;
     parent?: RelatedEntity;
     task?: RelatedEntity;
+    issue?: RelatedEntity;
+    project?: RelatedEntity;
   };
   metadata?: Record<string, unknown>;
   // Grouping metadata
@@ -140,6 +140,9 @@ export interface ActivityEventDisplay {
   newValue?: string;
   // The entity ID from the original event (useful for grouping)
   entityId?: string;
+  // Raw lifecycle subject/event names, retained for contextual actions.
+  entityType?: ActivityEntityType | string;
+  eventType?: ActivityEventType | string;
   // For note CREATED events: the full note content (TipTap JSON or plain text for rich display)
   noteContent?: Record<string, unknown> | string;
 }
@@ -150,15 +153,27 @@ export interface ActivityEventDisplay {
 export interface ActivityEventsParams {
   entityType?: ActivityEntityType;
   entityId?: string;
+  entityTypes?: ActivityEntityType[];
   studentId?: string | string[];
   staffId?: string | string[];
   classId?: string | string[];
   sessionId?: string | string[];
   parentId?: string | string[];
   issueId?: string | string[];
+  performedByIds?: string[];
+  performedAtGte?: string;
+  performedAtLte?: string;
+  recordedAtOrder?: 'asc' | 'desc';
   or?: string;
   limit?: number;
   offset?: number;
+}
+
+/**
+ * Session activity response — includes meeting live-mode hint for polling.
+ */
+export interface SessionActivityResponse extends ActivityEventsResponse {
+  isAdminMeetingLive?: boolean;
 }
 
 /**
@@ -174,11 +189,16 @@ export interface ActivityEventsResponse {
     parents?: Record<string, Tables<'parents'>>;
     tasks?: Record<string, Tables<'tasks'>>;
     issues?: Record<string, Tables<'issues'>>;
+    projects?: Record<string, Tables<'projects'>>;
     subjects?: Record<string, Tables<'subjects'>>;
     notes?: Record<string, Tables<'notes'>>;
   };
-  // Mapping of students_subjects entity_id to subject_id for CREATED events
+  // Mapping of students_subjects entity_id to subject_id (live row and/or activity metadata)
   studentsSubjectsToSubjectId?: Record<string, string>;
+  // Mapping of tutor_logs_topics entity_id → topic display name (for tutor-log coalesce messages)
+  tutorLogTopicNamesByEntityId?: Record<string, string>;
+  /** @deprecated Prefer hasMore — exact totals are no longer queried */
   total: number;
+  /** True when this page returned a full limit (more rows may exist) */
+  hasMore: boolean;
 }
-

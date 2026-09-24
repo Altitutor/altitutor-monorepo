@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
-import { studentsApi } from '../api/students';
+import { studentsApi, type StudentSearchField } from '../api/students';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
+import { activityKeys } from '@/features/activity/queryKeys';
 
 // Query Keys
 export const studentsKeys = {
@@ -8,24 +9,76 @@ export const studentsKeys = {
   lists: () => [...studentsKeys.all, 'list'] as const,
   list: (filters: string) => [...studentsKeys.lists(), { filters }] as const,
   minimal: (params: unknown) => [...studentsKeys.all, 'minimal', params] as const,
+  online: (params: unknown) => [...studentsKeys.all, 'online', params] as const,
   details: () => [...studentsKeys.all, 'detail'] as const,
   detail: (id: string) => [...studentsKeys.details(), id] as const,
   detailFull: (id: string) => [...studentsKeys.detail(id), 'details'] as const,
   withDetails: () => [...studentsKeys.all, 'withDetails'] as const,
   withSubjects: () => [...studentsKeys.all, 'withSubjects'] as const,
-  byStatus: (status: Tables<'students'>['status']) => [...studentsKeys.all, 'byStatus', status] as const,
+  byStatus: (status: NonNullable<Tables<'students'>['status']>) => [...studentsKeys.all, 'byStatus', status] as const,
   count: () => [...studentsKeys.all, 'count'] as const,
 };
+
+export interface UseOnlineStudentsListParams {
+  search?: string;
+  searchFields?: StudentSearchField[];
+  products?: string[];
+  entitlements?: string[];
+  page?: number;
+  pageSize?: number;
+  orderBy?: 'first_name' | 'last_name' | 'online_since';
+  ascending?: boolean;
+}
+
+export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
+  const {
+    search = '',
+    searchFields = ['name', 'email', 'phone'],
+    products = [],
+    entitlements = [],
+    page = 1,
+    pageSize = 50,
+    orderBy = 'last_name',
+    ascending = true,
+  } = params;
+  const offset = (Math.max(page, 1) - 1) * pageSize;
+
+  return useQuery({
+    queryKey: studentsKeys.online({
+      search,
+      searchFields,
+      products,
+      entitlements,
+      page,
+      pageSize,
+      orderBy,
+      ascending,
+    }),
+    queryFn: () => studentsApi.listOnline({
+      search,
+      searchFields,
+      products,
+      entitlements,
+      limit: pageSize,
+      offset,
+      orderBy,
+      ascending,
+    }),
+    placeholderData: keepPreviousData,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 5,
+  });
+}
 
 // For table display - minimal data
 export function useStudentsMinimal(params: UseStudentsListParams) {
   const {
     search = '',
+    searchFields = ['name', 'email', 'phone'],
     statuses = [],
     curriculums = [],
     yearLevels = [],
     subjectIds = [],
-    subscriptionOnline,
     inPersonClass,
     page = 1,
     pageSize = 50,
@@ -38,11 +91,11 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
   return useQuery({
     queryKey: studentsKeys.minimal({
       search,
+      searchFields,
       statuses,
       curriculums,
       yearLevels,
       subjectIds,
-      subscriptionOnline,
       inPersonClass,
       page,
       pageSize,
@@ -52,11 +105,11 @@ export function useStudentsMinimal(params: UseStudentsListParams) {
     queryFn: () =>
       studentsApi.listMinimal({
         search,
+        searchFields,
         statuses,
         curriculums,
         yearLevels,
         subjectIds,
-        subscriptionOnline,
         inPersonClass,
         limit: pageSize,
         offset,
@@ -104,12 +157,11 @@ export function useStudents() {
 // Paginated server-filtered students list
 export interface UseStudentsListParams {
   search?: string;
-  statuses?: Tables<'students'>['status'][];
+  searchFields?: StudentSearchField[];
+  statuses?: NonNullable<Tables<'students'>['status']>[];
   curriculums?: string[];
   yearLevels?: number[];
   subjectIds?: string[];
-  /** Filter: `has` = at least one student_subscriptions row, `none` = none */
-  subscriptionOnline?: string[];
   /** Filter: `has` = current class enrollment, `none` = not enrolled in any class */
   inPersonClass?: string[];
   page?: number; // 1-based
@@ -213,11 +265,21 @@ export function useStudentsCount() {
   });
 }
 
-// Active students count (ACTIVE or TRIAL status)
+// Active students count (ACTIVE status only — excludes TRIAL)
 export function useActiveStudentsCount() {
   return useQuery({
     queryKey: [...studentsKeys.all, 'activeCount'],
     queryFn: () => studentsApi.getActiveStudentsCount(),
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 10,
+  });
+}
+
+// Trial students count (TRIAL status)
+export function useTrialStudentsCount() {
+  return useQuery({
+    queryKey: [...studentsKeys.all, 'trialCount'],
+    queryFn: () => studentsApi.getTrialStudentsCount(),
     staleTime: 1000 * 60 * 3,
     gcTime: 1000 * 60 * 10,
   });
@@ -249,8 +311,9 @@ export function useUpdateStudent() {
         return { ...old, student: updatedStudent };
       });
 
-      // Invalidate ONLY entity's minimal list
+      // Refresh list surfaces and the lifecycle feed for this student.
       queryClient.invalidateQueries({ queryKey: ['students', 'minimal'] });
+      queryClient.invalidateQueries({ queryKey: activityKeys.student(id) });
     },
   });
 }
@@ -350,4 +413,4 @@ export function useStudentsSearchForAbsence(params: {
     queryFn: () => studentsApi.searchForAbsence({ search, page, pageSize }),
     staleTime: 1000 * 30, // 30 seconds
   });
-} 
+}

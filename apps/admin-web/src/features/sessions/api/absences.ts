@@ -6,10 +6,12 @@ import type {
   GetRescheduleSessionsParams,
   RescheduleSession,
   StudentSession,
+  AbsenceReason,
 } from '../types/absence';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { mapRescheduleSessionsFromRpc } from '../utils/rescheduleSessionMapping';
 
 /**
  * Absences API client for logging student absences
@@ -21,7 +23,8 @@ export const absencesApi = {
    */
   logAbsences: async (
     operations: AbsenceOperation[],
-    staffId: string
+    staffId: string,
+    reason: AbsenceReason,
   ): Promise<LogAbsencesResponse> => {
     try {
       const response = await fetch('/api/absences/log', {
@@ -32,6 +35,8 @@ export const absencesApi = {
         body: JSON.stringify({
           operations,
           staffId,
+          reasonCategory: reason.category,
+          reasonNote: reason.note,
         }),
       });
 
@@ -58,10 +63,7 @@ export const absencesApi = {
    * Undo student absences (reschedule or credit revert)
    * All operations are executed atomically via RPC function
    */
-  undoAbsences: async (
-    operations: UndoAbsenceOperation[],
-    staffId: string
-  ): Promise<UndoAbsencesResponse> => {
+  undoAbsences: async (operations: UndoAbsenceOperation[], staffId: string): Promise<UndoAbsencesResponse> => {
     try {
       const response = await fetch('/api/absences/undo', {
         method: 'POST',
@@ -95,32 +97,29 @@ export const absencesApi = {
 
   /**
    * Get a student's future sessions with session-student enrollment details
-   * 
+   *
    * Note: We use direct queries from sessions_students rather than search_sessions_admin RPC
    * because we need the sessionsStudentsId from sessions_students table for absence logging.
    * The RPC returns sessions but doesn't provide the sessions_students.id we need.
    */
   getStudentFutureSessions: async (
-    studentId: string, 
+    studentId: string,
     weeksAhead: number | null = 8,
     allowPastSessions: boolean = false,
-    weeksBack: number = 4
+    weeksBack: number = 4,
   ): Promise<StudentSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const now = new Date();
     // If weeksAhead is null, don't set a maxDate (fetch all future sessions)
-    const maxDate = weeksAhead === null 
-      ? null 
-      : new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
-    const minDate = allowPastSessions 
-      ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000)
-      : now;
+    const maxDate = weeksAhead === null ? null : new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
+    const minDate = allowPastSessions ? new Date(now.getTime() - weeksBack * 7 * 24 * 60 * 60 * 1000) : now;
 
     try {
       // Build query
       let query = supabase
         .from('sessions_students')
-        .select(`
+        .select(
+          `
           id,
           session_id,
           planned_absence,
@@ -131,7 +130,8 @@ export const absencesApi = {
               subject:subjects(*)
             )
           )
-        `)
+        `,
+        )
         .eq('student_id', studentId)
         .eq('planned_absence', false);
 
@@ -147,9 +147,20 @@ export const absencesApi = {
 
       if (error) throw error;
 
-      type RowWithSession = { id: string; session: { class?: { subject?: Tables<'subjects'> | null } | null } | null };
+      type RowWithSession = {
+        id: string;
+        session: {
+          class?: { subject?: Tables<'subjects'> | null } | null;
+        } | null;
+      };
       const sessions: StudentSession[] = (data || [])
-        .filter((row: RowWithSession): row is RowWithSession & { session: NonNullable<RowWithSession['session']> } => !!row.session)
+        .filter(
+          (
+            row: RowWithSession,
+          ): row is RowWithSession & {
+            session: NonNullable<RowWithSession['session']>;
+          } => !!row.session,
+        )
         .map((row) => {
           const session = row.session as unknown as Tables<'sessions'>;
           const cls = row.session.class;
@@ -191,9 +202,7 @@ export const absencesApi = {
    * - Student not already enrolled
    * - Within date range of original session
    */
-  getAvailableRescheduleSessions: async (
-    params: GetRescheduleSessionsParams
-  ): Promise<RescheduleSession[]> => {
+  getAvailableRescheduleSessions: async (params: GetRescheduleSessionsParams): Promise<RescheduleSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { originalSessionId, studentId, dateRangeDays } = params;
 
@@ -210,49 +219,7 @@ export const absencesApi = {
         throw error;
       }
 
-      // RPC returns JSONB array, Supabase should parse it automatically
-      // Handle case where data might be null, undefined, or already parsed
-      if (!data) {
-        return [];
-      }
-
-      // If data is a string (unparsed JSONB), parse it
-      type RpcSession = RescheduleSession & { class?: { subject_id?: string }; subject?: Tables<'subjects'>; studentCount?: number };
-      let sessions: RpcSession[] = [];
-      if (typeof data === 'string') {
-        try {
-          sessions = JSON.parse(data) as RpcSession[];
-        } catch (e) {
-          console.error('Error parsing RPC response:', e);
-          return [];
-        }
-      } else if (Array.isArray(data)) {
-        sessions = data as unknown as RpcSession[];
-      } else {
-        // If it's an object with an error, return empty array
-        if (data && typeof data === 'object' && 'error' in data) {
-          console.error('RPC returned error:', data.error);
-          return [];
-        }
-        return [];
-      }
-
-      // Transform RPC response to RescheduleSession format
-      return sessions.map((session: RpcSession) => ({
-        id: session.id,
-        start_at: session.start_at,
-        end_at: session.end_at,
-        class_id: session.class_id,
-        type: session.type,
-        status: session.status,
-        billing_type: null,
-        subject_id: session.class?.subject_id || null,
-        created_at: session.created_at,
-        updated_at: session.updated_at,
-        class: session.class || null,
-        subject: session.subject || null,
-        studentCount: session.studentCount || 0,
-      })) as RescheduleSession[];
+      return mapRescheduleSessionsFromRpc(data);
     } catch (error) {
       console.error('Error getting available reschedule sessions:', error);
       throw error;

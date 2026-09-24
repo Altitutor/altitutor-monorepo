@@ -1,33 +1,38 @@
 import type { Json } from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { QuestionEngineExam } from "@/features/question-engine/model/types";
-import { catchUpExpiredSegments } from "@/lib/ucat/exam-attempt/segment-catch-up";
-import { resolveExamForCatchUp, toStoredExamTiming } from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
+import {
+  examFromStoredTiming,
+  resolveExamForCatchUp,
+  toStoredExamTiming,
+} from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
 import {
   finalizeExamAttemptOnServer,
   isExamAttemptAtResults,
 } from "@/lib/ucat/exam-attempt/finalize-attempt";
-import { computeSegmentEndsAt } from "@/lib/ucat/exam-attempt/timing";
-import { mergeQuestionAttemptRowsIntoState } from "@/lib/ucat/exam-attempt/resume-state";
+import { buildFinalAnswersFromEngineSnapshot } from "@/lib/ucat/exam-attempt/build-final-answers";
+import { buildCatchUpPersistence } from "@/lib/ucat/exam-attempt/catch-up-persistence";
+import {
+  computeSegmentEndsAt,
+  resolveSyncedSegmentEndsAt,
+} from "@/lib/ucat/exam-attempt/timing";
 import type {
   ActiveExamAttempt,
   BeginExamAttemptInput,
+  ExamAttemptTimingSnapshot,
   ExamAttemptKind,
   ExamEngineSnapshot,
+  QuestionActiveTimingContext,
+  QuestionActiveTimingState,
   SyncExamAttemptInput,
 } from "@/lib/ucat/exam-attempt/types";
-import {
-  checkQuotaForAction,
-} from "@/lib/ucat/quota/quota-service";
+import { checkQuotaForAction } from "@/lib/ucat/quota/quota-service";
+import { getQuestionSetLabel } from "@/lib/ucat/exam-attempt/question-set-label";
+import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
 
 type AdminClient = SupabaseClient;
 
-export type StoredExamTiming = {
-  setModeTiming?: QuestionEngineExam["setModeTiming"];
-  mockTimingSegments?: QuestionEngineExam["mockTimingSegments"];
-  mockSetSummaries?: QuestionEngineExam["mockSetSummaries"];
-  timePerQuestionSeconds?: number | null;
-};
+export type StoredExamTiming = ExamAttemptTimingSnapshot;
 
 export type StoredExamSnapshot = {
   v: 1;
@@ -36,6 +41,8 @@ export type StoredExamSnapshot = {
     sourceType: QuestionEngineExam["sourceType"];
     sourceId: string;
     practice: boolean;
+    label?: string;
+    exitHref?: string;
   };
   examTiming?: StoredExamTiming;
   setAttemptIdsBySetId: Record<string, string>;
@@ -47,6 +54,13 @@ type AttemptRowBase = {
   engine_snapshot: Json | null;
   current_segment_ends_at: string | null;
   completed_at: string | null;
+};
+
+type PersistedAttemptSnapshot = {
+  inProgress: boolean;
+  completed: boolean;
+  stored: StoredExamSnapshot | null;
+  currentSegmentEndsAt: string | null;
 };
 
 export function wrapStoredSnapshot(input: {
@@ -106,146 +120,56 @@ function enrichStoredSnapshotForAttempt(
   return stored;
 }
 
-async function reconcileSetSnapshotFromQuestionAttempts(
-  admin: AdminClient,
-  studentId: string,
-  attemptId: string,
-  questionSetId: string,
-  stored: StoredExamSnapshot,
-): Promise<StoredExamSnapshot> {
-  const [attemptsResult, stemsResult] = await Promise.all([
-    admin
-      .from("student_question_attempts")
-      .select(
-        "question_id, question_answer_option_id, answer_snapshot, is_flagged",
-      )
-      .eq("student_id", studentId)
-      .eq("student_question_set_attempt_id", attemptId),
-    admin
-      .from("question_stems_question_sets")
-      .select("question_stem_id")
-      .eq("question_set_id", questionSetId)
-      .order("index"),
-  ]);
-
-  if (attemptsResult.error || !attemptsResult.data?.length) return stored;
-
-  const orderedStemIds = (stemsResult.data ?? []).map(
-    (row) => row.question_stem_id,
-  );
-  let questionIdsInOrder: string[] = [];
-  if (!stemsResult.error && orderedStemIds.length > 0) {
-    const { data: questions } = await admin
-      .from("ucat_questions")
-      .select("id, question_stem_id, index")
-      .in("question_stem_id", orderedStemIds)
-      .is("deleted_at", null);
-    const stemIndexById = new Map(
-      orderedStemIds.map((stemId, index) => [stemId, index]),
-    );
-    questionIdsInOrder = [...(questions ?? [])]
-      .sort(
-        (a, b) =>
-          (stemIndexById.get(a.question_stem_id) ?? Number.MAX_SAFE_INTEGER) -
-            (stemIndexById.get(b.question_stem_id) ??
-              Number.MAX_SAFE_INTEGER) ||
-          a.index - b.index,
-      )
-      .map((question) => question.id);
-  }
-
-  return {
-    ...stored,
-    state: mergeQuestionAttemptRowsIntoState(
-      stored.state,
-      attemptsResult.data,
-      questionIdsInOrder,
-    ),
-  };
-}
-
 async function maybeFinalizeResultsAttempt(
   admin: AdminClient,
   studentId: string,
   attempt: ActiveExamAttempt,
+  stored?: StoredExamSnapshot,
+  options: GetActiveExamAttemptOptions = {},
 ): Promise<boolean> {
   if (!isExamAttemptAtResults(attempt.kind, attempt.engineSnapshot.phase)) {
     return false;
+  }
+  const examForFinalize = await resolveExamForCatchUp(attempt, {
+    exam: options.exam,
+    stored,
+    readerClient: options.readerClient ?? admin,
+    requireQuestionContent: true,
+  });
+  if (!examForFinalize) {
+    throw new Error("Unable to recover exam content for finalization");
   }
   await finalizeExamAttemptOnServer(
     admin,
     studentId,
     attempt.kind,
     attempt.attemptId,
+    buildFinalAnswersFromEngineSnapshot(
+      examForFinalize,
+      attempt.engineSnapshot,
+    ),
   );
   return true;
 }
 
 function resumeHref(kind: ExamAttemptKind, resourceId: string): string {
-  switch (kind) {
-    case "set":
-      return `/exam/sets?id=${encodeURIComponent(resourceId)}`;
-    case "mock":
-      return `/exam/mocks?id=${encodeURIComponent(resourceId)}`;
-    case "practice":
-      return "/practice/session";
-  }
-}
-
-async function loadSetSectionNumber(
-  admin: AdminClient,
-  questionSetId: string,
-): Promise<number | null> {
-  const { data: link } = await admin
-    .from("question_stems_question_sets")
-    .select("question_stem_id")
-    .eq("question_set_id", questionSetId)
-    .order("index")
-    .limit(1)
-    .maybeSingle();
-
-  if (!link?.question_stem_id) return null;
-
-  const { data: stem } = await admin
-    .from("question_stems")
-    .select("section_id")
-    .eq("id", link.question_stem_id)
-    .maybeSingle();
-
-  if (!stem?.section_id) return null;
-
-  const { data: section } = await admin
-    .from("ucat_sections")
-    .select("name")
-    .eq("id", stem.section_id)
-    .maybeSingle();
-
-  if (!section?.name) return null;
-
-  const sectionNumbers: Record<string, number> = {
-    "Verbal Reasoning": 1,
-    "Decision Making": 2,
-    "Quantitative Reasoning": 3,
-    "Situational Judgement": 4,
-  };
-  return sectionNumbers[section.name] ?? null;
+  void kind;
+  void resourceId;
+  return "/exam";
 }
 
 async function buildResultsHref(
-  admin: AdminClient,
+  _admin: AdminClient,
   kind: ExamAttemptKind,
   attemptId: string,
-  resourceId: string,
+  _resourceId: string,
 ): Promise<string> {
   switch (kind) {
     case "set": {
-      const sectionNumber = await loadSetSectionNumber(admin, resourceId);
-      return sectionNumber != null
-        ? `/progress/sections/${sectionNumber}/set-attempts/${attemptId}`
-        : `/progress/set-attempts/${attemptId}`;
+      return `/progress/set-attempts/${attemptId}`;
     }
     case "mock":
-      return `/progress/mock-attempts/${attemptId}`;
+      return `/progress/mocks/mock-attempts/${attemptId}`;
     case "practice":
       return `/progress/practice-sessions/${attemptId}`;
     default: {
@@ -264,9 +188,7 @@ async function loadSetLabel(
     .select("name")
     .eq("id", questionSetId)
     .maybeSingle();
-  if (!data?.name) return "Question set";
-  if (typeof data.name === "string") return data.name;
-  return "Question set";
+  return getQuestionSetLabel(data?.name ?? null);
 }
 
 async function loadMockLabel(
@@ -298,6 +220,7 @@ function rowToActiveAttempt(
     wasTimed?: boolean;
     mockAttemptId?: string | null;
     practiceSessionId?: string | null;
+    studyPlanTaskId?: string | null;
     resultsHref: string;
   },
   stored: StoredExamSnapshot,
@@ -308,6 +231,7 @@ function rowToActiveAttempt(
     resourceId: row.resourceId,
     label: row.label,
     resumeHref: resumeHref(kind, row.resourceId),
+    exitHref: stored.exam.exitHref,
     resultsHref: row.resultsHref,
     currentSegmentEndsAt: row.current_segment_ends_at,
     engineSnapshot: stored.state,
@@ -315,6 +239,8 @@ function rowToActiveAttempt(
     setAttemptIdsBySetId: stored.setAttemptIdsBySetId,
     practiceSessionId: row.practiceSessionId ?? null,
     wasTimed: row.wasTimed ?? false,
+    examTiming: stored.examTiming,
+    studyPlanTaskId: row.studyPlanTaskId ?? null,
   };
 }
 
@@ -334,58 +260,84 @@ export async function getActiveExamAttempt(
     ("readerClient" in options || "exam" in options)
       ? options
       : { exam: options as QuestionEngineExam | null | undefined };
-  const [setRes, mockRes, practiceRes] = await Promise.all([
-    admin
-      .from("student_question_set_attempts")
-      .select(
-        "id, question_set_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed, student_ucat_mock_attempt_id",
-      )
-      .eq("student_id", studentId)
-      .is("completed_at", null)
-      .not("engine_snapshot", "is", null)
-      .is("student_ucat_mock_attempt_id", null)
-      .order("attempted_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    admin
-      .from("student_ucat_mock_attempts")
-      .select(
-        "id, ucat_mock_id, engine_snapshot, current_segment_ends_at, completed_at",
-      )
-      .eq("student_id", studentId)
-      .is("completed_at", null)
-      .not("engine_snapshot", "is", null)
-      .order("attempted_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-    admin
-      .from("student_practice_sessions")
-      .select(
-        "id, section_key, engine_snapshot, current_segment_ends_at, completed_at, ucat_section_id",
-      )
-      .eq("student_id", studentId)
-      .is("completed_at", null)
-      .not("engine_snapshot", "is", null)
-      .order("started_at", { ascending: false })
-      .limit(1)
-      .maybeSingle(),
-  ]);
+  const slotClient = admin as unknown as {
+    rpc: (
+      functionName: "get_ucat_active_exam_attempt_slot",
+      params: { p_student_id: string },
+    ) => Promise<{
+      data: Array<{ attempt_kind: string; attempt_id: string }> | null;
+      error: { message: string } | null;
+    }>;
+  };
+  const { data: activeSlots, error: activeSlotError } = await slotClient.rpc(
+    "get_ucat_active_exam_attempt_slot",
+    { p_student_id: studentId },
+  );
+  if (activeSlotError) throw new Error(activeSlotError.message);
+  const activeSlot = activeSlots?.[0] ?? null;
+  if (!activeSlot) return null;
+
+  const setRes =
+    activeSlot.attempt_kind === "set"
+      ? await admin
+          .from("student_question_set_attempts")
+          .select(
+            "id, question_set_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed, student_ucat_mock_attempt_id, study_plan_task_id",
+          )
+          .eq("id", activeSlot.attempt_id)
+          .eq("student_id", studentId)
+          .is("completed_at", null)
+          .is("discarded_at", null)
+          .is("expired_at", null)
+          .not("engine_snapshot", "is", null)
+          .is("student_ucat_mock_attempt_id", null)
+          .order("attempted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
+  const mockRes =
+    activeSlot.attempt_kind === "mock"
+      ? await admin
+          .from("student_ucat_mock_attempts")
+          .select(
+            "id, ucat_mock_id, engine_snapshot, current_segment_ends_at, completed_at, was_timed, study_plan_task_id",
+          )
+          .eq("id", activeSlot.attempt_id)
+          .eq("student_id", studentId)
+          .is("completed_at", null)
+          .is("discarded_at", null)
+          .is("expired_at", null)
+          .not("engine_snapshot", "is", null)
+          .order("attempted_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
+  const practiceRes =
+    activeSlot.attempt_kind === "practice"
+      ? await admin
+          .from("student_practice_sessions")
+          .select(
+            "id, section_key, engine_snapshot, current_segment_ends_at, completed_at, ucat_section_id, was_timed, study_plan_task_id",
+          )
+          .eq("id", activeSlot.attempt_id)
+          .eq("student_id", studentId)
+          .is("completed_at", null)
+          .is("discarded_at", null)
+          .is("expired_at", null)
+          .not("engine_snapshot", "is", null)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle()
+      : { data: null, error: null };
 
   if (setRes.data) {
     const parsed = parseStoredSnapshot(setRes.data.engine_snapshot);
     if (parsed) {
-      let stored = enrichStoredSnapshotForAttempt(
+      const stored = enrichStoredSnapshotForAttempt(
         "set",
         setRes.data.id,
         setRes.data.question_set_id,
         parsed,
-      );
-      stored = await reconcileSetSnapshotFromQuestionAttempts(
-        admin,
-        studentId,
-        setRes.data.id,
-        setRes.data.question_set_id,
-        stored,
       );
       const label = await loadSetLabel(admin, setRes.data.question_set_id);
       const resultsHref = await buildResultsHref(
@@ -404,11 +356,20 @@ export async function getActiveExamAttempt(
           resourceId: setRes.data.question_set_id,
           label,
           wasTimed: setRes.data.was_timed,
+          studyPlanTaskId: setRes.data.study_plan_task_id,
           resultsHref,
         },
         stored,
       );
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       const caughtAttempt = await maybeCatchUp(
@@ -420,7 +381,15 @@ export async function getActiveExamAttempt(
       );
       if (!caughtAttempt) return null;
       attempt = caughtAttempt;
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       return attempt;
@@ -467,11 +436,21 @@ export async function getActiveExamAttempt(
           resourceId: mockRes.data.ucat_mock_id,
           label,
           mockAttemptId: mockRes.data.id,
+          wasTimed: mockRes.data.was_timed,
+          studyPlanTaskId: mockRes.data.study_plan_task_id,
           resultsHref,
         },
         stored,
       );
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       const caughtAttempt = await maybeCatchUp(
@@ -483,7 +462,15 @@ export async function getActiveExamAttempt(
       );
       if (!caughtAttempt) return null;
       attempt = caughtAttempt;
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       return attempt;
@@ -520,11 +507,21 @@ export async function getActiveExamAttempt(
           resourceId: practiceRes.data.id,
           label,
           practiceSessionId: practiceRes.data.id,
+          wasTimed: practiceRes.data.was_timed,
+          studyPlanTaskId: practiceRes.data.study_plan_task_id,
           resultsHref,
         },
         stored,
       );
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       const caughtAttempt = await maybeCatchUp(
@@ -536,7 +533,15 @@ export async function getActiveExamAttempt(
       );
       if (!caughtAttempt) return null;
       attempt = caughtAttempt;
-      if (await maybeFinalizeResultsAttempt(admin, studentId, attempt)) {
+      if (
+        await maybeFinalizeResultsAttempt(
+          admin,
+          studentId,
+          attempt,
+          stored,
+          resolvedOptions,
+        )
+      ) {
         return attempt;
       }
       return attempt;
@@ -561,15 +566,15 @@ async function maybeCatchUp(
   const examForCatchUp = await resolveExamForCatchUp(attempt, {
     exam: options.exam,
     stored,
-    readerClient: options.readerClient,
+    readerClient: options.readerClient ?? admin,
   });
   if (!examForCatchUp) return attempt;
 
-  const caught = catchUpExpiredSegments(
+  const { caught, finalAnswers } = buildCatchUpPersistence(
     examForCatchUp,
     attempt.engineSnapshot,
     attempt.currentSegmentEndsAt,
-    { practice: attempt.kind === "practice" },
+    attempt.kind,
   );
   if (
     caught.state.phase === attempt.engineSnapshot.phase &&
@@ -590,55 +595,362 @@ async function maybeCatchUp(
     },
     examTiming: stored.examTiming ?? toStoredExamTiming(examForCatchUp),
     mockAttemptId: attempt.mockAttemptId,
+    questionActiveTiming: null,
   });
   const updated: ActiveExamAttempt = {
     ...attempt,
     engineSnapshot: caught.state,
     currentSegmentEndsAt: caught.currentSegmentEndsAt,
   };
-  if (isExamAttemptAtResults(attempt.kind, caught.state.phase)) {
+  if (finalAnswers) {
     await finalizeExamAttemptOnServer(
       admin,
       studentId,
       attempt.kind,
       attempt.attemptId,
+      finalAnswers,
     );
     return updated;
   }
   return updated;
 }
 
-async function isAttemptInProgress(
+async function loadPersistedAttemptSnapshot(
   admin: AdminClient,
   studentId: string,
   kind: ExamAttemptKind,
   attemptId: string,
-): Promise<boolean> {
+): Promise<PersistedAttemptSnapshot> {
+  const select =
+    "completed_at, discarded_at, expired_at, engine_snapshot, current_segment_ends_at";
   if (kind === "set") {
     const { data } = await admin
       .from("student_question_set_attempts")
-      .select("completed_at")
+      .select(select)
       .eq("id", attemptId)
       .eq("student_id", studentId)
       .maybeSingle();
-    return data != null && data.completed_at == null;
+    return toPersistedAttemptSnapshot(data);
   }
   if (kind === "mock") {
     const { data } = await admin
       .from("student_ucat_mock_attempts")
-      .select("completed_at")
+      .select(select)
       .eq("id", attemptId)
       .eq("student_id", studentId)
       .maybeSingle();
-    return data != null && data.completed_at == null;
+    return toPersistedAttemptSnapshot(data);
   }
-  const { data } = await admin
+  const { data, error } = await admin
     .from("student_practice_sessions")
-    .select("completed_at")
+    .select(select)
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
-  return data != null && data.completed_at == null;
+  if (error) throw new Error(error.message);
+  return toPersistedAttemptSnapshot(data);
+}
+
+function toPersistedAttemptSnapshot(
+  data: {
+    completed_at: string | null;
+    discarded_at: string | null;
+    expired_at: string | null;
+    engine_snapshot: Json | null;
+    current_segment_ends_at: string | null;
+  } | null,
+): PersistedAttemptSnapshot {
+  return {
+    inProgress:
+      data != null &&
+      data.completed_at == null &&
+      data.discarded_at == null &&
+      data.expired_at == null,
+    completed: data?.completed_at != null,
+    stored: parseStoredSnapshot(data?.engine_snapshot ?? null),
+    currentSegmentEndsAt: data?.current_segment_ends_at ?? null,
+  };
+}
+
+async function ignoreCompletedOrThrowPracticeEnded(
+  admin: AdminClient,
+  studentId: string,
+  attemptId: string,
+): Promise<null> {
+  const latest = await loadPersistedAttemptSnapshot(
+    admin,
+    studentId,
+    "practice",
+    attemptId,
+  );
+  if (latest.completed) return null;
+  throw new PracticeSessionEndedError();
+}
+
+function clampIntervalEnd(
+  startedAt: string,
+  requestedEnd: Date,
+  segmentEndsAt: string | null,
+): Date {
+  const startedMs = new Date(startedAt).getTime();
+  const segmentEndMs = segmentEndsAt ? new Date(segmentEndsAt).getTime() : null;
+  const requestedMs = requestedEnd.getTime();
+  const endMs =
+    segmentEndMs != null ? Math.min(requestedMs, segmentEndMs) : requestedMs;
+  return new Date(Math.max(startedMs, endMs));
+}
+
+function toQuestionAttemptMode(mode: QuestionActiveTimingContext["mode"]) {
+  if (mode === "questionStem") return "question_stem";
+  if (mode === "questions") return "question";
+  return mode;
+}
+
+function isSameQuestionTimingContext(
+  previous: QuestionActiveTimingState,
+  current: QuestionActiveTimingContext,
+): boolean {
+  return (
+    previous.questionId === current.questionId &&
+    previous.questionSetId === current.questionSetId &&
+    previous.mode === current.mode &&
+    previous.wasTimed === current.wasTimed
+  );
+}
+
+async function ensureMockSetAttempt(
+  admin: AdminClient,
+  studentId: string,
+  mockAttemptId: string,
+  questionSetId: string,
+  wasTimed: boolean,
+): Promise<string | null> {
+  const { data: existing } = await admin
+    .from("student_question_set_attempts")
+    .select("id")
+    .eq("student_id", studentId)
+    .eq("student_ucat_mock_attempt_id", mockAttemptId)
+    .eq("question_set_id", questionSetId)
+    .order("attempted_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (existing?.id) return existing.id;
+
+  const { data: inserted, error } = await admin
+    .from("student_question_set_attempts")
+    .insert({
+      student_id: studentId,
+      question_set_id: questionSetId,
+      student_ucat_mock_attempt_id: mockAttemptId,
+      was_timed: wasTimed,
+    })
+    .select("id")
+    .maybeSingle();
+  if (error) {
+    if (error.code === "23505") {
+      const { data: raced } = await admin
+        .from("student_question_set_attempts")
+        .select("id")
+        .eq("student_id", studentId)
+        .eq("student_ucat_mock_attempt_id", mockAttemptId)
+        .eq("question_set_id", questionSetId)
+        .order("attempted_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      return raced?.id ?? null;
+    }
+    return null;
+  }
+  if (!inserted?.id) return null;
+  return inserted.id;
+}
+
+async function resolveQuestionTimingSetAttemptId({
+  admin,
+  studentId,
+  kind,
+  attemptId,
+  setAttemptIdsBySetId,
+  context,
+}: {
+  admin: AdminClient;
+  studentId: string;
+  kind: ExamAttemptKind;
+  attemptId: string;
+  setAttemptIdsBySetId: Record<string, string>;
+  context: QuestionActiveTimingContext;
+}): Promise<string | null> {
+  if (kind === "practice") return null;
+  if (kind === "set") return attemptId;
+  return (
+    setAttemptIdsBySetId[context.questionSetId] ??
+    (await ensureMockSetAttempt(
+      admin,
+      studentId,
+      attemptId,
+      context.questionSetId,
+      context.wasTimed,
+    ))
+  );
+}
+
+async function incrementQuestionActiveTime({
+  admin,
+  studentId,
+  kind,
+  attemptId,
+  setAttemptIdsBySetId,
+  context,
+  elapsedMilliseconds,
+}: {
+  admin: AdminClient;
+  studentId: string;
+  kind: ExamAttemptKind;
+  attemptId: string;
+  setAttemptIdsBySetId: Record<string, string>;
+  context: QuestionActiveTimingContext;
+  elapsedMilliseconds: number;
+}): Promise<Record<string, string>> {
+  const nextSetAttemptIds = { ...setAttemptIdsBySetId };
+  const setAttemptId = await resolveQuestionTimingSetAttemptId({
+    admin,
+    studentId,
+    kind,
+    attemptId,
+    setAttemptIdsBySetId: nextSetAttemptIds,
+    context,
+  });
+  if (kind === "mock" && setAttemptId) {
+    nextSetAttemptIds[context.questionSetId] = setAttemptId;
+  }
+
+  if (kind !== "practice" && !setAttemptId) {
+    return nextSetAttemptIds;
+  }
+  const { error } = await admin.rpc("increment_ucat_question_active_time", {
+    p_student_id: studentId,
+    p_question_id: context.questionId,
+    p_set_attempt_id: kind === "practice" ? null : setAttemptId,
+    p_practice_session_id: kind === "practice" ? attemptId : null,
+    p_elapsed_milliseconds: Math.max(0, Math.round(elapsedMilliseconds)),
+    p_was_timed: context.wasTimed,
+    p_mode: toQuestionAttemptMode(context.mode),
+  });
+  if (error) throw new Error(error.message);
+  return nextSetAttemptIds;
+}
+
+async function applyQuestionActiveTiming({
+  admin,
+  studentId,
+  kind,
+  attemptId,
+  previous,
+  current,
+  segmentEndsAt,
+  setAttemptIdsBySetId,
+}: {
+  admin: AdminClient;
+  studentId: string;
+  kind: ExamAttemptKind;
+  attemptId: string;
+  previous: QuestionActiveTimingState | null | undefined;
+  current: QuestionActiveTimingContext | null | undefined;
+  segmentEndsAt: string | null;
+  setAttemptIdsBySetId: Record<string, string>;
+}): Promise<{
+  activeQuestionTiming: QuestionActiveTimingState | null;
+  setAttemptIdsBySetId: Record<string, string>;
+}> {
+  const now = new Date();
+  let nextSetAttemptIds = { ...setAttemptIdsBySetId };
+
+  if (
+    previous?.questionId &&
+    current?.questionId &&
+    isSameQuestionTimingContext(previous, current)
+  ) {
+    const intervalEnd = clampIntervalEnd(
+      previous.startedAt,
+      now,
+      previous.segmentEndsAt ?? segmentEndsAt,
+    );
+    const rawElapsedMilliseconds = Math.max(
+      0,
+      intervalEnd.getTime() - new Date(previous.startedAt).getTime(),
+    );
+    const elapsedMilliseconds = previous.wasTimed
+      ? rawElapsedMilliseconds
+      : Math.min(rawElapsedMilliseconds, 30_000);
+    nextSetAttemptIds = await incrementQuestionActiveTime({
+      admin,
+      studentId,
+      kind,
+      attemptId,
+      setAttemptIdsBySetId: nextSetAttemptIds,
+      context: previous,
+      elapsedMilliseconds,
+    });
+    return {
+      activeQuestionTiming: {
+        ...current,
+        startedAt: now.toISOString(),
+        segmentEndsAt,
+      },
+      setAttemptIdsBySetId: nextSetAttemptIds,
+    };
+  }
+
+  if (previous?.questionId && previous.startedAt) {
+    const intervalEnd = clampIntervalEnd(
+      previous.startedAt,
+      now,
+      previous.segmentEndsAt ?? segmentEndsAt,
+    );
+    const rawElapsedMilliseconds = Math.max(
+      0,
+      intervalEnd.getTime() - new Date(previous.startedAt).getTime(),
+    );
+    const elapsedMilliseconds = previous.wasTimed
+      ? rawElapsedMilliseconds
+      : Math.min(rawElapsedMilliseconds, 30_000);
+    nextSetAttemptIds = await incrementQuestionActiveTime({
+      admin,
+      studentId,
+      kind,
+      attemptId,
+      setAttemptIdsBySetId: nextSetAttemptIds,
+      context: previous,
+      elapsedMilliseconds,
+    });
+  }
+
+  if (!current?.questionId) {
+    return {
+      activeQuestionTiming: null,
+      setAttemptIdsBySetId: nextSetAttemptIds,
+    };
+  }
+
+  // The zero-duration upsert records first visibility for practice quota.
+  nextSetAttemptIds = await incrementQuestionActiveTime({
+    admin,
+    studentId,
+    kind,
+    attemptId,
+    setAttemptIdsBySetId: nextSetAttemptIds,
+    context: current,
+    elapsedMilliseconds: 0,
+  });
+
+  return {
+    activeQuestionTiming: {
+      ...current,
+      startedAt: now.toISOString(),
+      segmentEndsAt,
+    },
+    setAttemptIdsBySetId: nextSetAttemptIds,
+  };
 }
 
 async function persistSnapshot(
@@ -650,19 +962,26 @@ async function persistSnapshot(
     exam?: StoredExamSnapshot["exam"];
     examTiming?: StoredExamTiming;
     mockAttemptId?: string | null;
+    persistedAttempt?: PersistedAttemptSnapshot;
   },
-): Promise<void> {
-  const inProgress = await isAttemptInProgress(
-    admin,
-    studentId,
-    kind,
-    attemptId,
-  );
-  if (!inProgress) {
-    return;
+): Promise<Record<string, string> | null> {
+  const persisted =
+    input.persistedAttempt ??
+    (await loadPersistedAttemptSnapshot(admin, studentId, kind, attemptId));
+  if (!persisted.inProgress) {
+    if (kind === "practice" && !persisted.completed) {
+      throw new PracticeSessionEndedError();
+    }
+    return null;
   }
 
   let setAttemptIdsBySetId = input.setAttemptIdsBySetId ?? {};
+  if (persisted.stored?.setAttemptIdsBySetId) {
+    setAttemptIdsBySetId = {
+      ...persisted.stored.setAttemptIdsBySetId,
+      ...setAttemptIdsBySetId,
+    };
+  }
   let mockAttemptId = input.mockAttemptId ?? null;
   if (kind === "set" && input.exam?.sourceId) {
     setAttemptIdsBySetId = {
@@ -674,45 +993,118 @@ async function persistSnapshot(
   if (kind === "mock") {
     mockAttemptId = mockAttemptId ?? attemptId;
   }
+  mockAttemptId = mockAttemptId ?? persisted.stored?.mockAttemptId ?? null;
+
+  const currentSegmentEndsAt = input.currentSegmentEndsAt;
+  const nextState: ExamEngineSnapshot = { ...input.engineSnapshot };
+
+  if ("questionActiveTiming" in input && kind !== "practice") {
+    const timed = await applyQuestionActiveTiming({
+      admin,
+      studentId,
+      kind,
+      attemptId,
+      previous: persisted.stored?.state.activeQuestionTiming,
+      current: input.questionActiveTiming,
+      segmentEndsAt: currentSegmentEndsAt,
+      setAttemptIdsBySetId,
+    });
+    setAttemptIdsBySetId = timed.setAttemptIdsBySetId;
+    nextState.activeQuestionTiming = timed.activeQuestionTiming;
+  } else if ("questionActiveTiming" in input) {
+    // Practice closes the prior timing interval and stores this snapshot in a
+    // single database transaction below. The database replaces this marker
+    // with a server-timestamped active interval.
+    nextState.activeQuestionTiming = null;
+  } else {
+    nextState.activeQuestionTiming =
+      persisted.stored?.state.activeQuestionTiming ?? null;
+  }
 
   const stored = wrapStoredSnapshot({
-    state: input.engineSnapshot,
-    exam: input.exam ?? {
-      sourceType: kind === "set" ? "set" : kind === "mock" ? "mock" : "questionStem",
-      sourceId: attemptId,
-      practice: kind === "practice",
+    state: nextState,
+    exam: {
+      ...(persisted.stored?.exam ?? {
+        sourceType:
+          kind === "set" ? "set" : kind === "mock" ? "mock" : "questionStem",
+        sourceId: attemptId,
+        practice: kind === "practice",
+      }),
+      ...input.exam,
     },
-    examTiming: input.examTiming,
+    examTiming: persisted.stored?.examTiming ?? input.examTiming,
     setAttemptIdsBySetId,
     mockAttemptId,
   });
 
   const payload = {
     engine_snapshot: stored as unknown as Json,
-    current_segment_ends_at: input.currentSegmentEndsAt,
+    current_segment_ends_at: currentSegmentEndsAt,
+    last_activity_at: new Date().toISOString(),
   };
 
   if (kind === "set") {
-    await admin
+    const { data, error } = await admin
       .from("student_question_set_attempts")
       .update(payload)
       .eq("id", attemptId)
-      .eq("student_id", studentId);
-    return;
+      .eq("student_id", studentId)
+      .is("completed_at", null)
+      .is("discarded_at", null)
+      .is("expired_at", null)
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return setAttemptIdsBySetId;
   }
   if (kind === "mock") {
-    await admin
+    const { data, error } = await admin
       .from("student_ucat_mock_attempts")
       .update(payload)
       .eq("id", attemptId)
-      .eq("student_id", studentId);
-    return;
+      .eq("student_id", studentId)
+      .is("completed_at", null)
+      .is("discarded_at", null)
+      .is("expired_at", null)
+      .select("id")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!data) return null;
+    return setAttemptIdsBySetId;
   }
-  await admin
+  if ("questionActiveTiming" in input) {
+    const { data, error } = await admin.rpc(
+      "sync_ucat_practice_attempt_snapshot",
+      {
+        p_student_id: studentId,
+        p_session_id: attemptId,
+        p_engine_snapshot: stored as unknown as Json,
+        p_current_segment_ends_at: currentSegmentEndsAt,
+        p_question_active_timing: (input.questionActiveTiming ?? null) as Json,
+      },
+    );
+    if (error) throw new Error(error.message);
+    if (!data) {
+      return ignoreCompletedOrThrowPracticeEnded(admin, studentId, attemptId);
+    }
+    return setAttemptIdsBySetId;
+  }
+  const { data, error } = await admin
     .from("student_practice_sessions")
     .update(payload)
     .eq("id", attemptId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("completed_at", null)
+    .is("discarded_at", null)
+    .is("expired_at", null)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) {
+    return ignoreCompletedOrThrowPracticeEnded(admin, studentId, attemptId);
+  }
+  return setAttemptIdsBySetId;
 }
 
 export async function checkExamAttemptConflict(
@@ -727,6 +1119,42 @@ export async function checkExamAttemptConflict(
   return active;
 }
 
+async function createExamAttemptRecords(
+  admin: AdminClient,
+  input: {
+    kind: "set" | "mock";
+    studentId: string;
+    attemptId: string;
+    resourceId: string;
+    stored: StoredExamSnapshot;
+    endsAt: string | null;
+    wasTimed: boolean;
+    firstSetId?: string;
+    firstSetAttemptId?: string | null;
+    studyPlanTaskId?: string | null;
+  },
+): Promise<void> {
+  const rpcClient = admin as unknown as {
+    rpc: (
+      functionName: "create_ucat_exam_attempt_records",
+      params: Record<string, unknown>,
+    ) => Promise<{ error: { message: string } | null }>;
+  };
+  const { error } = await rpcClient.rpc("create_ucat_exam_attempt_records", {
+    p_attempt_kind: input.kind,
+    p_student_id: input.studentId,
+    p_attempt_id: input.attemptId,
+    p_resource_id: input.resourceId,
+    p_engine_snapshot: input.stored as unknown as Json,
+    p_current_segment_ends_at: input.endsAt,
+    p_was_timed: input.wasTimed,
+    p_first_set_id: input.firstSetId ?? null,
+    p_first_set_attempt_id: input.firstSetAttemptId ?? null,
+    p_study_plan_task_id: input.studyPlanTaskId ?? null,
+  });
+  if (error) throw new Error(error.message);
+}
+
 export async function beginExamAttempt(
   admin: AdminClient,
   studentId: string,
@@ -734,27 +1162,31 @@ export async function beginExamAttempt(
   examMeta: StoredExamSnapshot["exam"],
   examTiming?: StoredExamTiming,
 ): Promise<{ attempt: ActiveExamAttempt; resumed: boolean }> {
-  const existing = await resumeExistingExamAttempt(
-    admin,
-    studentId,
-    input.kind,
-    input.resourceId,
-  );
-  if (existing) {
-    return { attempt: existing, resumed: true };
+  const active = await getActiveExamAttempt(admin, studentId);
+  if (active?.kind === input.kind && active.resourceId === input.resourceId) {
+    if (
+      input.studyPlanTaskId &&
+      active.studyPlanTaskId !== input.studyPlanTaskId
+    ) {
+      throw new Error("EXAM_ATTEMPT_IN_PROGRESS");
+    }
+    return { attempt: active, resumed: true };
   }
-
-  const conflict = await checkExamAttemptConflict(
-    admin,
-    studentId,
-    input.kind,
-    input.resourceId,
-  );
-  if (conflict) {
+  if (active) {
     throw new Error("EXAM_ATTEMPT_IN_PROGRESS");
   }
 
   const endsAt = computeSegmentEndsAt(input.segmentTimeLimitSeconds);
+  const attemptWasTimed = Boolean(
+    input.wasTimed ||
+      input.segmentTimeLimitSeconds ||
+      examTiming?.setModeTiming?.setTimeLimitSeconds ||
+      examTiming?.mockTimingSegments?.some(
+        (segment) => (segment.timeLimitSeconds ?? 0) > 0,
+      ) ||
+      (examTiming?.timePerQuestionSeconds ?? 0) > 0 ||
+      (examTiming?.practiceSessionTimeLimitSeconds ?? 0) > 0,
+  );
   const stored = wrapStoredSnapshot({
     state: input.engineSnapshot,
     exam: examMeta,
@@ -764,124 +1196,130 @@ export async function beginExamAttempt(
   });
 
   if (input.kind === "set") {
-    const quotaCheck = await checkQuotaForAction(admin, studentId, "sets");
+    const quotaCheck = await checkQuotaForAction(admin, studentId, "sets", {
+      questionSetId: input.resourceId,
+    });
     if (!quotaCheck.allowed) {
       throw new Error(`QUOTA_EXCEEDED:${JSON.stringify(quotaCheck.payload)}`);
     }
-    const { data, error } = await admin
-      .from("student_question_set_attempts")
-      .insert({
-        student_id: studentId,
-        question_set_id: input.resourceId,
-        was_timed: input.wasTimed,
-        engine_snapshot: stored as unknown as Json,
-        current_segment_ends_at: endsAt,
-      })
-      .select("id, question_set_id, was_timed")
-      .maybeSingle();
-    if (error || !data) throw new Error(error?.message ?? "Failed to begin set");
+    const attemptId = crypto.randomUUID();
     const enrichedStored = enrichStoredSnapshotForAttempt(
       "set",
-      data.id,
-      data.question_set_id,
+      attemptId,
+      input.resourceId,
       {
         ...stored,
-        setAttemptIdsBySetId: { [data.question_set_id]: data.id },
+        setAttemptIdsBySetId: { [input.resourceId]: attemptId },
       },
     );
-    await admin
+    await createExamAttemptRecords(admin, {
+      kind: "set",
+      studentId,
+      attemptId,
+      resourceId: input.resourceId,
+      stored: enrichedStored,
+      endsAt,
+      wasTimed: attemptWasTimed,
+      studyPlanTaskId: input.studyPlanTaskId,
+    });
+    const { data: createdAttempt, error: createdAttemptError } = await admin
       .from("student_question_set_attempts")
-      .update({ engine_snapshot: enrichedStored as unknown as Json })
-      .eq("id", data.id)
-      .eq("student_id", studentId);
-    const label = await loadSetLabel(admin, data.question_set_id);
+      .select(
+        "engine_snapshot, current_segment_ends_at, was_timed, study_plan_task_id",
+      )
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .single();
+    if (createdAttemptError) throw new Error(createdAttemptError.message);
+    const createdStored =
+      parseStoredSnapshot(createdAttempt.engine_snapshot) ?? enrichedStored;
+    const label =
+      examMeta.label ?? (await loadSetLabel(admin, input.resourceId));
     const resultsHref = await buildResultsHref(
       admin,
       "set",
-      data.id,
-      data.question_set_id,
+      attemptId,
+      input.resourceId,
     );
     return {
       attempt: {
         kind: "set",
-        attemptId: data.id,
-        resourceId: data.question_set_id,
+        attemptId,
+        resourceId: input.resourceId,
         label,
-        resumeHref: resumeHref("set", data.question_set_id),
+        resumeHref: resumeHref("set", input.resourceId),
+        exitHref: examMeta.exitHref,
         resultsHref,
-        currentSegmentEndsAt: endsAt,
-        engineSnapshot: input.engineSnapshot,
+        currentSegmentEndsAt: createdAttempt.current_segment_ends_at,
+        engineSnapshot: createdStored.state,
         mockAttemptId: null,
-        setAttemptIdsBySetId: { [data.question_set_id]: data.id },
+        setAttemptIdsBySetId: { [input.resourceId]: attemptId },
         practiceSessionId: null,
-        wasTimed: data.was_timed,
+        wasTimed: createdAttempt.was_timed,
+        examTiming: createdStored.examTiming,
+        studyPlanTaskId: createdAttempt.study_plan_task_id,
       },
       resumed: false,
     };
   }
 
   if (input.kind === "mock") {
-    const quotaCheck = await checkQuotaForAction(admin, studentId, "mocks");
+    const quotaCheck = await checkQuotaForAction(admin, studentId, "mocks", {
+      mockId: input.resourceId,
+    });
     if (!quotaCheck.allowed) {
       throw new Error(`QUOTA_EXCEEDED:${JSON.stringify(quotaCheck.payload)}`);
     }
-    const { data, error } = await admin
-      .from("student_ucat_mock_attempts")
-      .insert({
-        student_id: studentId,
-        ucat_mock_id: input.resourceId,
-        engine_snapshot: stored as unknown as Json,
-        current_segment_ends_at: endsAt,
-      })
-      .select("id, ucat_mock_id")
-      .maybeSingle();
-    if (error || !data) throw new Error(error?.message ?? "Failed to begin mock");
+    const mockAttemptId = crypto.randomUUID();
+    const firstSetAttemptId = input.questionSetIdForMockSet
+      ? crypto.randomUUID()
+      : null;
+    const setAttemptIdsBySetId: Record<string, string> =
+      input.questionSetIdForMockSet && firstSetAttemptId
+        ? { [input.questionSetIdForMockSet]: firstSetAttemptId }
+        : {};
+    const mockStored: StoredExamSnapshot = {
+      ...stored,
+      mockAttemptId,
+      setAttemptIdsBySetId,
+    };
+    await createExamAttemptRecords(admin, {
+      kind: "mock",
+      studentId,
+      attemptId: mockAttemptId,
+      resourceId: input.resourceId,
+      stored: mockStored,
+      endsAt,
+      wasTimed: attemptWasTimed,
+      firstSetId: input.questionSetIdForMockSet,
+      firstSetAttemptId,
+      studyPlanTaskId: input.studyPlanTaskId,
+    });
 
-    const setAttemptIdsBySetId: Record<string, string> = {};
-    if (input.questionSetIdForMockSet) {
-      const { data: setAttempt, error: setError } = await admin
-        .from("student_question_set_attempts")
-        .insert({
-          student_id: studentId,
-          question_set_id: input.questionSetIdForMockSet,
-          student_ucat_mock_attempt_id: data.id,
-          was_timed: input.wasTimed,
-        })
-        .select("id, question_set_id")
-        .maybeSingle();
-      if (setError || !setAttempt) {
-        throw new Error(setError?.message ?? "Failed to begin mock set attempt");
-      }
-      setAttemptIdsBySetId[setAttempt.question_set_id] = setAttempt.id;
-      stored.setAttemptIdsBySetId = setAttemptIdsBySetId;
-      stored.mockAttemptId = data.id;
-      await admin
-        .from("student_ucat_mock_attempts")
-        .update({ engine_snapshot: stored as unknown as Json })
-        .eq("id", data.id);
-    }
-
-    const label = await loadMockLabel(admin, data.ucat_mock_id);
+    const label =
+      examMeta.label ?? (await loadMockLabel(admin, input.resourceId));
     const resultsHref = await buildResultsHref(
       admin,
       "mock",
-      data.id,
-      data.ucat_mock_id,
+      mockAttemptId,
+      input.resourceId,
     );
     return {
       attempt: {
         kind: "mock",
-        attemptId: data.id,
-        resourceId: data.ucat_mock_id,
+        attemptId: mockAttemptId,
+        resourceId: input.resourceId,
         label,
-        resumeHref: resumeHref("mock", data.ucat_mock_id),
+        resumeHref: resumeHref("mock", input.resourceId),
+        exitHref: examMeta.exitHref,
         resultsHref,
         currentSegmentEndsAt: endsAt,
         engineSnapshot: input.engineSnapshot,
-        mockAttemptId: data.id,
+        mockAttemptId,
         setAttemptIdsBySetId,
         practiceSessionId: null,
-        wasTimed: input.wasTimed,
+        wasTimed: attemptWasTimed,
+        studyPlanTaskId: input.studyPlanTaskId ?? null,
       },
       resumed: false,
     };
@@ -893,15 +1331,18 @@ export async function beginExamAttempt(
     .update({
       engine_snapshot: stored as unknown as Json,
       current_segment_ends_at: endsAt,
+      last_activity_at: new Date().toISOString(),
+      was_timed: attemptWasTimed,
     })
     .eq("id", sessionId)
     .eq("student_id", studentId)
     .is("completed_at", null)
-    .select("id, section_key, ucat_section_id")
+    .is("discarded_at", null)
+    .is("expired_at", null)
+    .select("id, section_key, ucat_section_id, study_plan_task_id")
     .maybeSingle();
-  if (error || !session) {
-    throw new Error(error?.message ?? "Practice session not found");
-  }
+  if (error) throw new Error(error.message);
+  if (!session) throw new PracticeSessionEndedError();
   const { data: section } = await admin
     .from("ucat_sections")
     .select("name")
@@ -925,13 +1366,15 @@ export async function beginExamAttempt(
       resourceId: session.id,
       label,
       resumeHref: resumeHref("practice", session.id),
+      exitHref: examMeta.exitHref,
       resultsHref,
       currentSegmentEndsAt: endsAt,
       engineSnapshot: input.engineSnapshot,
       mockAttemptId: null,
       setAttemptIdsBySetId: {},
       practiceSessionId: session.id,
-      wasTimed: input.wasTimed,
+      wasTimed: attemptWasTimed,
+      studyPlanTaskId: session.study_plan_task_id,
     },
     resumed: false,
   };
@@ -958,19 +1401,61 @@ export async function syncExamAttempt(
   examMeta?: StoredExamSnapshot["exam"],
   mockAttemptId?: string | null,
   examTiming?: StoredExamTiming,
-): Promise<string | null> {
-  const currentSegmentEndsAt =
-    input.startSegmentTimeLimitSeconds !== undefined
-      ? computeSegmentEndsAt(input.startSegmentTimeLimitSeconds)
-      : input.currentSegmentEndsAt;
-  await persistSnapshot(admin, studentId, input.kind, input.attemptId, {
-    ...input,
-    currentSegmentEndsAt,
-    exam: examMeta,
-    examTiming,
-    mockAttemptId,
+): Promise<{
+  currentSegmentEndsAt: string | null;
+  setAttemptIdsBySetId: Record<string, string>;
+}> {
+  const persisted = await loadPersistedAttemptSnapshot(
+    admin,
+    studentId,
+    input.kind,
+    input.attemptId,
+  );
+  const timingSnapshot =
+    persisted.stored ??
+    (examTiming
+      ? wrapStoredSnapshot({
+          state: input.engineSnapshot,
+          exam:
+            examMeta ??
+            ({
+              sourceType:
+                input.kind === "set"
+                  ? "set"
+                  : input.kind === "mock"
+                    ? "mock"
+                    : "questionStem",
+              sourceId: input.attemptId,
+              practice: input.kind === "practice",
+            } satisfies StoredExamSnapshot["exam"]),
+          examTiming,
+          setAttemptIdsBySetId: input.setAttemptIdsBySetId ?? {},
+          mockAttemptId: mockAttemptId ?? null,
+        })
+      : null);
+  const timingExam = timingSnapshot
+    ? examFromStoredTiming(timingSnapshot)
+    : null;
+  const currentSegmentEndsAt = resolveSyncedSegmentEndsAt({
+    exam: timingExam,
+    state: input.engineSnapshot as Parameters<
+      typeof resolveSyncedSegmentEndsAt
+    >[0]["state"],
+    persistedEndsAt: persisted.currentSegmentEndsAt,
+    startSegment: input.startSegmentTimeLimitSeconds !== undefined,
   });
-  return currentSegmentEndsAt;
+  const setAttemptIdsBySetId =
+    (await persistSnapshot(admin, studentId, input.kind, input.attemptId, {
+      ...input,
+      currentSegmentEndsAt,
+      exam: examMeta,
+      examTiming,
+      mockAttemptId,
+      persistedAttempt: persisted,
+    })) ??
+    input.setAttemptIdsBySetId ??
+    {};
+  return { currentSegmentEndsAt, setAttemptIdsBySetId };
 }
 
 export async function clearExamAttemptProgress(
@@ -979,6 +1464,29 @@ export async function clearExamAttemptProgress(
   kind: ExamAttemptKind,
   attemptId: string,
 ): Promise<void> {
+  const persisted = await loadPersistedAttemptSnapshot(
+    admin,
+    studentId,
+    kind,
+    attemptId,
+  );
+  if (persisted.inProgress && persisted.stored?.state.activeQuestionTiming) {
+    await persistSnapshot(admin, studentId, kind, attemptId, {
+      kind,
+      attemptId,
+      engineSnapshot: {
+        ...persisted.stored.state,
+        activeQuestionTiming: null,
+      },
+      currentSegmentEndsAt: persisted.currentSegmentEndsAt,
+      setAttemptIdsBySetId: persisted.stored.setAttemptIdsBySetId,
+      exam: persisted.stored.exam,
+      examTiming: persisted.stored.examTiming,
+      mockAttemptId: persisted.stored.mockAttemptId,
+      questionActiveTiming: null,
+    });
+  }
+
   const payload = {
     engine_snapshot: null,
     current_segment_ends_at: null,
@@ -1004,4 +1512,30 @@ export async function clearExamAttemptProgress(
     .update(payload)
     .eq("id", attemptId)
     .eq("student_id", studentId);
+}
+
+export async function expireStaleExamAttempts(
+  admin: AdminClient,
+  studentId: string,
+): Promise<number> {
+  const { data, error } = await admin.rpc("expire_stale_ucat_exam_attempts", {
+    p_student_id: studentId,
+  });
+  if (error) throw new Error(error.message);
+  return typeof data === "number" ? data : 0;
+}
+
+export async function discardExamAttempt(
+  admin: AdminClient,
+  studentId: string,
+  kind: ExamAttemptKind,
+  attemptId: string,
+): Promise<boolean> {
+  const { data, error } = await admin.rpc("discard_ucat_exam_attempt", {
+    p_student_id: studentId,
+    p_attempt_kind: kind,
+    p_attempt_id: attemptId,
+  });
+  if (error) throw new Error(error.message);
+  return data === true;
 }

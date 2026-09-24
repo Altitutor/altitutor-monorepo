@@ -20,7 +20,9 @@ import { useInvoiceActions } from '../hooks/useInvoiceActions';
 import { CreditNoteDialog } from './CreditNoteDialog';
 import { formatInvoiceDate, formatInvoiceAmount, calculateLineItemsSubtotal } from '../utils/invoiceFormatters';
 import { formatInvoiceTagText } from '../utils/invoiceTagText';
-import { invoicesKeys } from '../hooks/useInvoicesQuery';
+import { invalidateInvoiceDetail } from '@/shared/lib/query-invalidation';
+import { InvoiceActivityTab } from '@/features/activity/components';
+import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 
 type ViewInvoiceModalProps = {
   isOpen: boolean;
@@ -65,11 +67,6 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   const subtotalCents = invoice?.subtotal_cents;
   const totalCents = invoice?.total_cents;
-  const amountPaidFromBalanceCents = invoice?.amount_paid_from_balance_cents || 0;
-  const hasCreditBalance = amountPaidFromBalanceCents > 0;
-  const totalPaidCents = invoice?.amount_paid_cents || 0;
-  const paidFromCardCents = Math.max(0, totalPaidCents - amountPaidFromBalanceCents);
-  const hasAnyPayment = totalPaidCents > 0 || hasCreditBalance;
   const isRefunded = !!invoice?.is_refunded;
 
   const totalCreditSettlementCents = creditNotes
@@ -129,6 +126,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
         title: 'Success',
         description: recipientText,
       });
+      await invalidateInvoiceDetail(queryClient, invoiceId);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -170,9 +168,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
         description: 'Payment attempt initiated successfully',
       });
       
-      // Invalidate invoice queries to refresh data
-      queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-      queryClient.invalidateQueries({ queryKey: ['invoice-stripe-details', invoiceId] });
+      await invalidateInvoiceDetail(queryClient, invoiceId);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -239,7 +235,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     return (
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent className="w-full md:w-[600px] md:max-w-none overflow-y-auto p-0">
-          <SheetHeader className="px-6 py-4">
+          <SheetHeader className="border-b bg-card px-6 py-4">
             <SheetTitle>{isLoading ? 'Loading...' : ''}</SheetTitle>
           </SheetHeader>
           {isLoading && (
@@ -254,138 +250,138 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
     <>
       <Sheet open={isOpen} onOpenChange={onClose}>
         <SheetContent hideCloseButton className="h-full max-h-[100dvh] flex flex-col p-0 w-full md:w-[600px] md:max-w-none">
-          <div className="flex-1 overflow-y-auto p-6">
-            <SheetHeader className="mb-6">
-              <div className="flex items-start justify-between gap-4">
-                <div className="flex items-center gap-3 flex-1">
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={onClose}
-                    className="shrink-0"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                  <div className="flex-1">
-                    <SheetTitle>Invoice Details</SheetTitle>
-                    <SheetDescription className="text-lg font-medium">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
-                        <IssuePill
-                          entityType="invoice"
-                          entityId={invoiceId}
-                          enabled={isOpen && !!invoiceId}
-                        />
-                      </div>
-                    </SheetDescription>
-                  </div>
+          <SheetHeader className="flex-shrink-0 border-b bg-card px-6 pt-6 pb-4">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 flex-1">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={onClose}
+                  className="shrink-0"
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+                <div className="flex-1">
+                  <SheetTitle>Invoice Details</SheetTitle>
+                  <SheetDescription className="text-lg font-medium">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      Invoice #{invoice.stripe_invoice_number || invoice.id.slice(0, 8)}
+                      <IssuePill
+                        entityType="invoice"
+                        entityId={invoiceId}
+                        enabled={isOpen && !!invoiceId}
+                      />
+                    </div>
+                  </SheetDescription>
                 </div>
-                {invoiceId && (
-                  <ActionsMenu
-                    type="invoice"
-                    entityId={invoiceId}
-                    copyTagDisplayText={formatInvoiceTagText({
-                      invoiceDate: invoice.invoice_date,
-                      lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
-                      status: invoice.status,
-                    })}
-                    isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
-                    addCreditNoteDisabledReason={
-                      isRefunded
-                        ? 'This invoice has already been refunded.'
-                        : 'This invoice has already been fully credited.'
-                    }
-                    {...invoiceActions}
-                  />
-                )}
               </div>
-            </SheetHeader>
+              {invoiceId && (
+                <ActionsMenu
+                  type="invoice"
+                  entityId={invoiceId}
+                  copyTagDisplayText={formatInvoiceTagText({
+                    invoiceDate: invoice.invoice_date,
+                    lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
+                    status: invoice.status,
+                  })}
+                  isAddCreditNoteDisabled={canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)}
+                  addCreditNoteDisabledReason={
+                    isRefunded
+                      ? 'This invoice has already been refunded.'
+                      : 'This invoice has already been fully credited.'
+                  }
+                  {...invoiceActions}
+                />
+              )}
+            </div>
+          </SheetHeader>
+
+          <div className="flex-1 overflow-y-auto p-6">
             
             <div className="space-y-6">
               {/* Invoice Information */}
               <div>
                 <h3 className="text-lg font-semibold mb-4">Invoice Information</h3>
-                <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                  <div className="text-sm font-medium text-muted-foreground">Student:</div>
-                  <div className="text-sm">
-                    {invoice.student ? (
-                      <Button
-                        variant="link"
-                        size="sm"
-                        className="h-auto p-0 text-sm justify-start"
-                        onClick={() => modals.openStudentModal(invoice.student!.id)}
-                      >
-                        {invoice.student.first_name} {invoice.student.last_name}
-                      </Button>
-                    ) : (
-                      <span className="text-muted-foreground">-</span>
-                    )}
-                  </div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Invoice Date:</div>
-                  <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Status:</div>
-                  <div className="text-sm">
-                    {getInvoiceStatusBadge(
-                      toInvoiceStatusPayload({
-                        ...invoice,
-                        credit_notes: creditNotes.map((cn) => ({
-                          refund_amount_cents: cn.refund_amount_cents,
-                          credit_amount_cents: cn.credit_amount_cents,
-                          created_at: cn.created_at,
-                        })),
-                      })
-                    )}
-                  </div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Collection Method:</div>
-                  <div className="text-sm">
-                    <Badge variant="outline">
-                      {collectionMethod === 'charge_automatically' 
-                        ? 'Charge Automatically' 
-                        : collectionMethod === 'send_invoice'
-                        ? 'Send Invoice'
-                        : '—'}
-                    </Badge>
-                  </div>
-                  
+                <PropertyForm>
+                  <PropertyFormRow label="Student">
+                    <div className="text-sm">
+                      {invoice.student ? (
+                        <Button
+                          variant="link"
+                          size="sm"
+                          className="h-auto p-0 text-sm justify-start"
+                          onClick={() => modals.openStudentModal(invoice.student!.id)}
+                        >
+                          {invoice.student.first_name} {invoice.student.last_name}
+                        </Button>
+                      ) : (
+                        <span className="text-muted-foreground">-</span>
+                      )}
+                    </div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Invoice date">
+                    <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Status">
+                    <div className="text-sm">
+                      {getInvoiceStatusBadge(
+                        toInvoiceStatusPayload({
+                          ...invoice,
+                          credit_notes: creditNotes.map((cn) => ({
+                            refund_amount_cents: cn.refund_amount_cents,
+                            credit_amount_cents: cn.credit_amount_cents,
+                            created_at: cn.created_at,
+                          })),
+                        })
+                      )}
+                    </div>
+                  </PropertyFormRow>
+                  <PropertyFormRow label="Collection method">
+                    <div>
+                      <Badge variant="outline">
+                        {collectionMethod === 'charge_automatically' 
+                          ? 'Charge Automatically' 
+                          : collectionMethod === 'send_invoice'
+                          ? 'Send Invoice'
+                          : '—'}
+                      </Badge>
+                    </div>
+                  </PropertyFormRow>
                   {collectionMethod === 'charge_automatically' && lastPaymentError && (
-                    <>
-                      <div className="text-sm font-medium text-muted-foreground">Last Payment Error:</div>
+                    <PropertyFormRow label="Last payment error">
                       <div className="text-sm text-destructive">
                         {lastPaymentError.code}: {lastPaymentError.message}
                       </div>
-                    </>
+                    </PropertyFormRow>
                   )}
-                  
                   {collectionMethod === 'charge_automatically' && (
                     <>
-                      <div className="text-sm font-medium text-muted-foreground">Attempt Count:</div>
-                      <div className="text-sm">
-                        {isLoadingStripeDetails ? 'Loading...' : stripeDetails?.attempt_count ?? '—'}
-                      </div>
-                      
-                      <div className="text-sm font-medium text-muted-foreground">Next Payment Attempt:</div>
-                      <div className="text-sm">
-                        {isLoadingStripeDetails 
-                          ? 'Loading...' 
-                          : stripeDetails?.next_payment_attempt
-                          ? format(new Date(stripeDetails.next_payment_attempt * 1000), 'MMM d, yyyy h:mm a')
-                          : 'No retry scheduled'}
-                      </div>
-                      
-                      <div className="text-sm font-medium text-muted-foreground">Auto Retry Active:</div>
-                      <div className="text-sm">
-                        {isLoadingStripeDetails 
-                          ? 'Loading...' 
-                          : stripeDetails?.auto_retry_active 
-                          ? <Badge variant="default">Yes</Badge>
-                          : <Badge variant="secondary">No</Badge>}
-                      </div>
+                      <PropertyFormRow label="Attempt count">
+                        <div className="text-sm">
+                          {isLoadingStripeDetails ? 'Loading...' : stripeDetails?.attempt_count ?? '—'}
+                        </div>
+                      </PropertyFormRow>
+                      <PropertyFormRow label="Next payment attempt">
+                        <div className="text-sm">
+                          {isLoadingStripeDetails 
+                            ? 'Loading...' 
+                            : stripeDetails?.next_payment_attempt
+                            ? format(new Date(stripeDetails.next_payment_attempt * 1000), 'MMM d, yyyy h:mm a')
+                            : 'No retry scheduled'}
+                        </div>
+                      </PropertyFormRow>
+                      <PropertyFormRow label="Auto retry active">
+                        <div className="text-sm">
+                          {isLoadingStripeDetails 
+                            ? 'Loading...' 
+                            : stripeDetails?.auto_retry_active 
+                            ? <Badge variant="default">Yes</Badge>
+                            : <Badge variant="secondary">No</Badge>}
+                        </div>
+                      </PropertyFormRow>
                     </>
                   )}
-                </div>
+                </PropertyForm>
               </div>
 
               <Separator />
@@ -462,37 +458,12 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
                 )}
               </div>
 
-              {/* Amount Paid Breakdown */}
-              {hasAnyPayment && (
-                <>
-                  <Separator />
-                  <div>
-                    <h3 className="text-lg font-semibold mb-4">Amount Paid</h3>
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-3">
-                      {hasCreditBalance && (
-                        <>
-                          <div className="text-sm font-medium text-muted-foreground">
-                            Paid from Credit Balance:
-                          </div>
-                          <div className="text-sm text-green-600 dark:text-green-400">
-                            {formatInvoiceAmount(amountPaidFromBalanceCents, invoice.currency || 'AUD')}
-                          </div>
-                        </>
-                      )}
-                      {paidFromCardCents > 0 && (
-                        <>
-                          <div className="text-sm font-medium text-muted-foreground">
-                            Paid from Card:
-                          </div>
-                          <div className="text-sm">
-                            {formatInvoiceAmount(paidFromCardCents, invoice.currency || 'AUD')}
-                          </div>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                </>
-              )}
+              <Separator />
+
+              <div>
+                <h3 className="text-lg font-semibold mb-4">Activity</h3>
+                <InvoiceActivityTab invoiceId={invoice.id} isOpen={isOpen} />
+              </div>
 
               {/* Credit Notes and Refunds */}
               {(creditNotes.length > 0 || invoice.is_refunded) && (
@@ -629,8 +600,7 @@ export function ViewInvoiceModal({ isOpen, invoiceId, onClose }: ViewInvoiceModa
           }}
           invoiceItems={invoiceItems}
           onSuccess={() => {
-            queryClient.invalidateQueries({ queryKey: invoicesKeys.detail(invoiceId) });
-            queryClient.invalidateQueries({ queryKey: [...invoicesKeys.details(), invoiceId, 'credit-notes'] });
+            void invalidateInvoiceDetail(queryClient, invoiceId);
           }}
         />
       )}

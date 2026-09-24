@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
@@ -23,6 +24,7 @@ export async function GET(request: NextRequest) {
       'trial_session_duration_minutes',
       'drafting_session_duration_minutes',
       'subsidy_interview_duration_minutes',
+      'min_advance_booking_days',
     ]);
 
     const isPublicKey = PUBLIC_BOOKING_KEYS.has(settingKey);
@@ -76,6 +78,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ setting_value: data?.setting_value ?? null });
   } catch (error) {
+    captureApiError(error, "/api/bookings/settings");
     console.error('Error fetching booking setting:', error);
     return NextResponse.json(
       { error: 'Failed to fetch booking setting' },

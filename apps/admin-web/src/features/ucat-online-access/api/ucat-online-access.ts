@@ -5,8 +5,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type UcatOnlineTierOverride =
   | 'default'
   | 'force_free'
-  | 'force_unlimited'
-  | 'force_pro';
+  | 'force_unlimited';
 
 /** Extends generated student row until db:types includes tier override column */
 export type StudentWithUcatTierOverride = Pick<
@@ -111,6 +110,19 @@ export const manualOnlineAccessApi = {
     return (data ?? []) as unknown as ManualOnlineAccessRow[];
   },
 
+  listByStudent: async (studentId: string): Promise<ManualOnlineAccessRow[]> => {
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase
+      .from('students_online_access_manual')
+      .select(
+        'id, created_at, created_by, notes, student_id, subject_id, student:students(id, first_name, last_name, status, ucat_online_tier_override), subject:subjects(id, name, short_name, long_name)',
+      )
+      .eq('student_id', studentId)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return (data ?? []) as unknown as ManualOnlineAccessRow[];
+  },
+
   grant: async (params: {
     studentId: string;
     subjectId: string;
@@ -179,5 +191,4 @@ export const UCAT_TIER_OVERRIDE_LABELS: Record<UcatOnlineTierOverride, string> =
   default: 'Default (Stripe-derived)',
   force_free: 'Force UCAT Free',
   force_unlimited: 'Force UCAT Unlimited',
-  force_pro: 'Force UCAT Pro',
 };

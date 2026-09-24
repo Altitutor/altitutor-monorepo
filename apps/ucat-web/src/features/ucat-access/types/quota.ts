@@ -26,6 +26,10 @@ export type UcatQuotaUsageResponse = {
   isQuotaExempt: boolean;
   unlimitedTrialEligible: boolean;
   onboardingCompleted: boolean;
+  quotaResetEntitlement: {
+    availableCount: number;
+    nextExpiresAt: string | null;
+  };
   areas: UcatQuotaAreaUsage[];
 };
 

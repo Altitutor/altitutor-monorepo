@@ -27,7 +27,13 @@ export function UcatDeleteConfirmDialog({
   isPending?: boolean
 }) {
   async function handleConfirm() {
-    await onConfirm()
+    try {
+      await onConfirm()
+    } catch {
+      // The caller owns user-facing error feedback. Keep the dialog open and
+      // contain the rejection at this fire-and-forget event boundary.
+      return
+    }
     onOpenChange(false)
   }
 

@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
@@ -18,6 +19,7 @@ export async function GET() {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/blockouts");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -36,6 +38,7 @@ export async function GET() {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/blockouts");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -50,6 +53,7 @@ export async function GET() {
     
     if (error) {
       console.error('Error fetching blockouts:', error);
+      captureApiError(error, "/api/blockouts");
       return NextResponse.json(
         { error: 'Failed to fetch blockouts' },
         { status: 500 }
@@ -62,6 +66,7 @@ export async function GET() {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/blockouts");
     console.error('Error in GET /api/blockouts:', error);
     return NextResponse.json(
       { error: 'Internal server error' },
@@ -88,6 +93,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorCheckError) {
       console.error('Error checking tutor status:', tutorCheckError);
+      captureApiError(tutorCheckError, "/api/blockouts");
       return NextResponse.json(
         { error: 'Failed to verify tutor status' },
         { status: 500 }
@@ -106,6 +112,7 @@ export async function POST(request: NextRequest) {
     
     if (tutorIdError || !tutorId) {
       console.error('Error getting tutor ID:', tutorIdError);
+      captureApiError(tutorIdError, "/api/blockouts");
       return NextResponse.json(
         { error: 'Failed to get tutor ID' },
         { status: 500 }
@@ -147,6 +154,7 @@ export async function POST(request: NextRequest) {
     
     if (error) {
       console.error('Error creating blockout:', error);
+      captureApiError(error, "/api/blockouts");
       return NextResponse.json(
         { error: 'Failed to create blockout' },
         { status: 500 }
@@ -159,6 +167,7 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
+    captureApiError(error, "/api/blockouts");
     console.error('Error in POST /api/blockouts:', error);
     return NextResponse.json(
       { error: 'Internal server error' },

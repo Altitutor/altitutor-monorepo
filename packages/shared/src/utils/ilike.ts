@@ -7,6 +7,14 @@ export function escapeIlikePattern(value: string): string {
     .replace(/,/g, '');
 }
 
+/**
+ * Quote a PostgREST filter value so reserved characters (`.`, `,`, `:`, etc.)
+ * are not parsed as filter syntax. e.g. code `2.2` → `"2.2"`.
+ */
+export function quotePostgrestFilterValue(value: string): string {
+  return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+}
+
 export type SubjectQualifiedSearch =
   | { mode: 'general'; query: string }
   | { mode: 'qualified'; subjectQuery: string; codeQuery: string };
@@ -48,7 +56,8 @@ export function parseSubjectQualifiedSearch(search: string): SubjectQualifiedSea
 export function buildSubjectNameOrFilter(search: string): string {
   const query = escapeIlikePattern(search.trim());
   if (!query) return '';
-  return `short_name.ilike.%${query}%,long_name.ilike.%${query}%,name.ilike.%${query}%`;
+  const pattern = quotePostgrestFilterValue(`%${query}%`);
+  return `short_name.ilike.${pattern},long_name.ilike.${pattern},name.ilike.${pattern}`;
 }
 
 /** Substring match for topic/file codes. */
@@ -68,10 +77,17 @@ export function buildCodeAndNameOrFilter(
 ): string {
   const query = escapeIlikePattern(search.trim());
   if (!query) return '';
-  return `${codeField}.ilike.${query},${codeField}.ilike.${query}%,${nameField}.ilike.%${query}%`;
+  const exact = quotePostgrestFilterValue(query);
+  const prefix = quotePostgrestFilterValue(`${query}%`);
+  const contains = quotePostgrestFilterValue(`%${query}%`);
+  return `${codeField}.ilike.${exact},${codeField}.ilike.${prefix},${nameField}.ilike.${contains}`;
 }
 
-/** Index-friendly file code search: exact + prefix on code, substring on filename. */
+/**
+ * Index-friendly file code search: exact + prefix on code, substring on filename.
+ * Prefer flat filename columns (views). Nested paths like `file.filename` are
+ * not reliable inside PostgREST `.or()` — callers should search those separately.
+ */
 export function buildCodeAndFilenameOrFilter(
   codeField: string,
   filenameField: string,
@@ -79,5 +95,20 @@ export function buildCodeAndFilenameOrFilter(
 ): string {
   const query = escapeIlikePattern(search.trim());
   if (!query) return '';
-  return `${codeField}.ilike.${query},${codeField}.ilike.${query}%,${filenameField}.ilike.%${query}%`;
+  const exact = quotePostgrestFilterValue(query);
+  const prefix = quotePostgrestFilterValue(`${query}%`);
+  const contains = quotePostgrestFilterValue(`%${query}%`);
+  return `${codeField}.ilike.${exact},${codeField}.ilike.${prefix},${filenameField}.ilike.${contains}`;
+}
+
+/** Exact + prefix code match for PostgREST `.or()` (no nested columns). */
+export function buildCodeExactOrPrefixOrFilter(
+  codeField: string,
+  search: string,
+): string {
+  const query = escapeIlikePattern(search.trim());
+  if (!query) return '';
+  const exact = quotePostgrestFilterValue(query);
+  const prefix = quotePostgrestFilterValue(`${query}%`);
+  return `${codeField}.ilike.${exact},${codeField}.ilike.${prefix}`;
 }

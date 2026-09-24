@@ -1,17 +1,22 @@
 import { cn } from './cn';
 
-/** Hover lift + shadow for clickable cards (parent needs `group`). */
+/** Hover treatment for clickable cards (parent needs `group`). */
 export const clickableCardHoverCn =
-  'hover:-translate-y-0.5 hover:bg-muted/40 hover:shadow-[0_12px_40px_rgb(0,0,0,0.08)] hover:ring-black/[0.1] dark:hover:shadow-[0_12px_40px_rgb(0,0,0,0.32)] dark:hover:ring-white/[0.12]';
+  'hover:-translate-y-0.5 hover:bg-muted/50 dark:hover:bg-muted/80';
 
 /** Same as hover, for cards with overlay links (focus-within). */
 export const clickableCardFocusWithinCn =
-  'focus-within:-translate-y-0.5 focus-within:bg-muted/40 focus-within:shadow-[0_12px_40px_rgb(0,0,0,0.08)] focus-within:ring-black/[0.1] dark:focus-within:shadow-[0_12px_40px_rgb(0,0,0,0.32)] dark:focus-within:ring-white/[0.12]';
+  'focus-within:-translate-y-0.5 focus-within:bg-muted/50 dark:focus-within:bg-muted/80';
+
+/** Subtle trailing affordance for clickable cards without changing border width. */
+export const clickableCardRevealArrowCn =
+  "after:pointer-events-none after:absolute after:right-3 after:top-3 after:text-muted-foreground after:opacity-0 after:transition-all after:duration-200 after:content-['>'] hover:after:translate-x-0.5 hover:after:opacity-100 hover:after:text-foreground focus-within:after:translate-x-0.5 focus-within:after:opacity-100 focus-within:after:text-foreground";
 
 /** Combined hover + focus-within for interactive cards. */
 export const clickableCardInteractiveCn = cn(
   clickableCardHoverCn,
   clickableCardFocusWithinCn,
+  clickableCardRevealArrowCn,
 );
 
 /** Append extra classes to interactive card styles. */

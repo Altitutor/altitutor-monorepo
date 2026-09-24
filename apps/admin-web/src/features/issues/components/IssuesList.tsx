@@ -29,6 +29,8 @@ const ISSUE_FILTER_KEYS = ['status', 'due_date'] as const;
 export interface IssuesListProps {
   /** Initial filter values (e.g. dashboard: open only) */
   defaultFilters?: Record<string, unknown[]>;
+  /** Force collapsed pill layout (e.g. dashboard cards) */
+  compact?: boolean;
   hideToolbar?: boolean;
   embedView?: {
     groupBy?: string | null;
@@ -37,12 +39,19 @@ export interface IssuesListProps {
   };
 }
 
-export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: IssuesListProps = {}) {
+export function IssuesList({
+  defaultFilters,
+  compact = false,
+  hideToolbar = false,
+  embedView,
+}: IssuesListProps = {}) {
   const embedLocked = hideToolbar && embedView != null;
 
   const {
     filters,
     setFilters,
+    search,
+    setSearch,
     groupBy,
     setGroupBy,
     sortBy,
@@ -61,7 +70,7 @@ export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: I
   const [selectedIssueId, setSelectedIssueId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: issues = [], isLoading } = useIssues(filters);
+  const { data: issues = [], isLoading } = useIssues({ ...filters, search });
   const updateIssue = useUpdateIssue();
   const createIssue = useCreateIssue();
   const { data: currentStaff } = useCurrentStaff();
@@ -217,8 +226,12 @@ export function IssuesList({ defaultFilters, hideToolbar = false, embedView }: I
         isLoading={isLoading}
         noPadding={true}
         hideToolbar={hideToolbar}
+        compact={compact}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
+        searchValue={search}
+        onSearchChange={hideToolbar ? undefined : setSearch}
+        searchPlaceholder="Search issues..."
         descriptionConfig={
           hideToolbar
             ? undefined

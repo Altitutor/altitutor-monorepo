@@ -1,16 +1,17 @@
 'use client';
 
 import { useMemo } from 'react';
-import { Button, Checkbox, Input } from '@altitutor/ui';
 import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
+  Button,
+  Checkbox,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  Input,
 } from '@altitutor/ui';
-import { X, Search, Plus } from 'lucide-react';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@altitutor/ui';
+import { MoreHorizontal, Search, Plus, Trash2 } from 'lucide-react';
 import type { Tables } from '@altitutor/shared';
 import { useStudentAttendance, type StudentAttendanceItem } from '../../hooks/useStudentAttendance';
 import { MeetingEntitySearchAdd } from '@/features/sessions/components/MeetingEntitySearchAdd';
@@ -22,8 +23,48 @@ import {
   buildSessionStudentItemsForTutorLog,
   TUTOR_LOG_DRAFT_SESSIONS_STUDENTS_ID,
 } from '../../utils/logSessionAttendanceRows';
+import { cn } from '@/shared/utils';
 
 export type ParentAttendanceItem = { parentId: string; attended: boolean };
+
+function AttendanceToggle({
+  attended,
+  onChange,
+}: {
+  attended: boolean;
+  onChange: (attended: boolean) => void;
+}) {
+  return (
+    <div className="inline-flex shrink-0 overflow-hidden rounded-md border" role="group" aria-label="Attendance">
+      <button
+        type="button"
+        aria-pressed={attended}
+        onClick={() => onChange(true)}
+        className={cn(
+          'px-2.5 py-1 text-sm transition-colors',
+          attended
+            ? 'bg-green-50 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
+            : 'bg-background text-muted-foreground hover:bg-muted/60'
+        )}
+      >
+        Attended
+      </button>
+      <button
+        type="button"
+        aria-pressed={!attended}
+        onClick={() => onChange(false)}
+        className={cn(
+          'border-l px-2.5 py-1 text-sm transition-colors',
+          !attended
+            ? 'bg-red-50 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400'
+            : 'bg-background text-muted-foreground hover:bg-muted/60'
+        )}
+      >
+        Did not attend
+      </button>
+    </div>
+  );
+}
 
 type Step3StudentAttendanceProps = {
   title?: string;
@@ -36,9 +77,11 @@ type Step3StudentAttendanceProps = {
   onParentAttendanceUpdate?: (parentAttendance: ParentAttendanceItem[]) => void;
   addStudentVariant?: 'legacy' | 'search';
   onAddStudentToSession?: (studentId: string) => Promise<void>;
+  onRemoveStudentFromSession?: (studentId: string) => Promise<void>;
   onAddParentToSession?: (parentId: string) => Promise<void>;
   /** Default `both`: student + parent blocks. Use split sections in meeting combined step. */
   section?: 'both' | 'students' | 'parents';
+  showBillingConsequences?: boolean;
 };
 
 export function Step3StudentAttendance({
@@ -52,8 +95,10 @@ export function Step3StudentAttendance({
   onParentAttendanceUpdate,
   addStudentVariant = 'legacy',
   onAddStudentToSession,
+  onRemoveStudentFromSession,
   onAddParentToSession,
   section = 'both',
+  showBillingConsequences = false,
 }: Step3StudentAttendanceProps) {
   const queryClient = useQueryClient();
   const {
@@ -67,7 +112,6 @@ export function Step3StudentAttendance({
     setSearchTerm,
     handleAttendanceChange,
     handleAddStudent,
-    handleRemoveStudent,
     getStudentAttendance,
   } = useStudentAttendance({
     sessionId,
@@ -75,20 +119,14 @@ export function Step3StudentAttendance({
     onUpdate,
   });
 
-  const allowAbsenceLogging = Boolean(
-    sessionData?.session?.class_id || sessionData?.session?.admin_shift_id
-  );
+  const allowAbsenceLogging = Boolean(sessionData?.session?.class_id || sessionData?.session?.admin_shift_id);
 
   const studentSessionItems = useMemo(
     () =>
       sessionData?.students?.length != null
-        ? buildSessionStudentItemsForTutorLog(
-            sessionData.students,
-            studentAttendance,
-            allStudents
-          )
+        ? buildSessionStudentItemsForTutorLog(sessionData.students, studentAttendance, allStudents)
         : [],
-    [sessionData?.students, studentAttendance, allStudents]
+    [sessionData?.students, studentAttendance, allStudents],
   );
 
   const actualStudentMap = useMemo(() => {
@@ -101,7 +139,7 @@ export function Step3StudentAttendance({
 
   const studentsProcessed = useMemo(
     () => processSessionStudents(studentSessionItems, actualStudentMap, true),
-    [studentSessionItems, actualStudentMap]
+    [studentSessionItems, actualStudentMap],
   );
 
   if (isLoading) {
@@ -127,6 +165,16 @@ export function Step3StudentAttendance({
     onParentAttendanceUpdate([...others, { parentId, attended }]);
   };
 
+  const handleRemoveStudent = async (studentId: string) => {
+    if (onRemoveStudentFromSession) {
+      await onRemoveStudentFromSession(studentId);
+      await queryClient.invalidateQueries({
+        queryKey: [...sessionsKeys.detail(sessionId), 'forLogging'],
+      });
+    }
+    onUpdate(studentAttendance.filter((sa) => sa.studentId !== studentId));
+  };
+
   if (section === 'parents' && !showParents) {
     return null;
   }
@@ -142,18 +190,17 @@ export function Step3StudentAttendance({
               <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow>
-                    <TableHead className="min-w-0 w-[40%]">Student</TableHead>
+                    <TableHead className="min-w-0 w-[38%]">Student</TableHead>
                     {allowAbsenceLogging ? (
                       <>
-                        <TableHead className="min-w-0 w-[30%]">Planned attendance</TableHead>
-                        <TableHead className="min-w-0 w-[30%]">Actual attendance</TableHead>
+                        <TableHead className="min-w-0 w-[29%]">Planned attendance</TableHead>
+                        <TableHead className="min-w-0 w-[25%]">Actual attendance</TableHead>
                       </>
                     ) : (
                       <TableHead className="min-w-0 w-[35%]">Planned</TableHead>
                     )}
-                    {!allowAbsenceLogging ? (
-                      <TableHead className="min-w-0 w-[25%]">Actual</TableHead>
-                    ) : null}
+                    {!allowAbsenceLogging ? <TableHead className="min-w-0 w-[25%]">Actual</TableHead> : null}
+                    <TableHead className="w-12" aria-label="Actions" />
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -162,13 +209,10 @@ export function Step3StudentAttendance({
                     const isAttended = attendance ? Boolean(attendance.attended) : !data.plannedAbsence;
                     const isDraftExtra = data.sessionsStudentsId === TUTOR_LOG_DRAFT_SESSIONS_STUDENTS_ID;
 
-                    const actualCheckbox = (
-                      <Checkbox
-                        id={`student-${data.student.id}`}
-                        checked={isAttended}
-                        onCheckedChange={(checked) =>
-                          handleAttendanceChange(data.student.id, checked === true)
-                        }
+                    const actualAttendance = (
+                      <AttendanceToggle
+                        attended={isAttended}
+                        onChange={(next) => handleAttendanceChange(data.student.id, next)}
                       />
                     );
 
@@ -179,18 +223,6 @@ export function Step3StudentAttendance({
                             <span className="truncate">
                               {data.student.first_name} {data.student.last_name}
                             </span>
-                            {isDraftExtra ? (
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="sm"
-                                className="h-8 w-8 shrink-0 p-0"
-                                onClick={() => handleRemoveStudent(data.student.id)}
-                                aria-label="Remove student from log"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            ) : null}
                           </div>
                         </TableCell>
                         {allowAbsenceLogging ? (
@@ -201,16 +233,54 @@ export function Step3StudentAttendance({
                                 linkText={data.rescheduledDate || undefined}
                               />
                             </TableCell>
-                            <TableCell className="min-w-0 align-middle">{actualCheckbox}</TableCell>
+                            <TableCell className="min-w-0 align-middle">
+                              {actualAttendance}
+                              {showBillingConsequences && isAttended && data.plannedAbsence && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                  Attendance overrides the absence. Any credit will be restored as a new charge.
+                                </p>
+                              )}
+                            </TableCell>
                           </>
                         ) : (
                           <>
                             <TableCell className="min-w-0 align-middle">
                               <AttendanceCell status={data.plannedStatus} />
                             </TableCell>
-                            <TableCell className="min-w-0 align-middle">{actualCheckbox}</TableCell>
+                            <TableCell className="min-w-0 align-middle">
+                              {actualAttendance}
+                              {showBillingConsequences && isAttended && data.plannedAbsence && (
+                                <p className="mt-1 text-xs text-amber-700 dark:text-amber-300">
+                                  Attendance overrides the absence. Any credit will be restored as a new charge.
+                                </p>
+                              )}
+                            </TableCell>
                           </>
                         )}
+                        <TableCell className="align-middle text-right">
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                className="h-8 w-8"
+                                aria-label={`Actions for ${data.student.first_name} ${data.student.last_name}`}
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => void handleRemoveStudent(data.student.id)}
+                              >
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                {isDraftExtra ? 'Remove student from log' : 'Remove student'}
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
                       </TableRow>
                     );
                   })}
@@ -270,9 +340,7 @@ export function Step3StudentAttendance({
                       </button>
                     ))}
                     {filteredStudents.length === 0 && (
-                      <div className="text-center py-4 text-muted-foreground text-sm">
-                        No students found
-                      </div>
+                      <div className="text-center py-4 text-muted-foreground text-sm">No students found</div>
                     )}
                   </div>
 
@@ -291,9 +359,7 @@ export function Step3StudentAttendance({
           {section === 'both' && (
             <>
               <div className="border-t pt-4 mt-4" />
-              <p className="text-sm text-muted-foreground">
-                Record whether each linked parent attended this meeting.
-              </p>
+              <p className="text-sm text-muted-foreground">Record whether each linked parent attended this meeting.</p>
             </>
           )}
           {sessionParents.length === 0 ? (
@@ -329,9 +395,7 @@ export function Step3StudentAttendance({
                             <Checkbox
                               id={`parent-${p.id}`}
                               checked={getParentAttendance(p.id)}
-                              onCheckedChange={(checked) =>
-                                setParentAttendance(p.id, checked === true)
-                              }
+                              onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
                             />
                           </TableCell>
                         </>
@@ -340,9 +404,7 @@ export function Step3StudentAttendance({
                           <Checkbox
                             id={`parent-${p.id}`}
                             checked={getParentAttendance(p.id)}
-                            onCheckedChange={(checked) =>
-                              setParentAttendance(p.id, checked === true)
-                            }
+                            onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
                           />
                         </TableCell>
                       )}

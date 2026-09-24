@@ -21,6 +21,7 @@ import {
 import { useFlashcardTopic } from '@/features/flashcards';
 import {
   buildResourceFileTitle,
+  displayResourceFilename,
   flattenTopicFilesForNav,
 } from '@/features/resources/lib/helpers';
 import { StudentPageContainer } from '@/shared/components/layouts';
@@ -136,7 +137,9 @@ export default function ResourceFileDetailPage() {
               <h1 className="text-3xl font-bold tracking-tight">
                 {fileTitle ?? file?.code ?? fileCode}
               </h1>
-              <p className="mt-1 truncate text-muted-foreground">{file?.filename}</p>
+              <p className="mt-1 truncate text-muted-foreground">
+                {file ? displayResourceFilename(file.filename) : null}
+              </p>
             </div>
             {counterpartFile ? (
               <Button asChild variant="outline" size="sm" className={cn(studentBtnOutline, 'gap-1.5')}>

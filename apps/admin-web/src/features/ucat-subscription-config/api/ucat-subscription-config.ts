@@ -28,7 +28,6 @@ export type UcatSubscriptionConfigUpdate = Partial<
     | 'trial_days'
     | 'currency'
     | 'unlimited_stripe_product_id'
-    | 'pro_stripe_product_id'
     | keyof UcatFreeQuotaFields
   >
 >;

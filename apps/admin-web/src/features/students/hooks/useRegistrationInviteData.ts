@@ -10,7 +10,7 @@ export interface RegistrationInviteStudent {
   last_name: string;
   email: string | null;
   phone: string | null;
-  invite_token: string | null;
+  registration_public_token: string | null;
 }
 
 export interface RegistrationInviteParent {
@@ -46,7 +46,7 @@ async function fetchRegistrationInviteData(
 
   const { data: studentData, error: studentError } = await supabase
     .from('students')
-    .select('id, first_name, last_name, email, phone, invite_token')
+    .select('id, first_name, last_name, email, phone, registration_public_token')
     .eq('id', studentId)
     .single();
 
@@ -65,13 +65,13 @@ async function fetchRegistrationInviteData(
     last_name: studentData.last_name ?? '',
     email: studentData.email,
     phone: studentData.phone,
-    invite_token: studentData.invite_token,
+    registration_public_token: studentData.registration_public_token,
   };
 
   let token: string | null = null;
   let inviteUrl: string | null = null;
-  if (student.invite_token) {
-    token = student.invite_token;
+  if (student.registration_public_token) {
+    token = student.registration_public_token;
     inviteUrl = getInviteUrlForStudent(token, 'register');
   }
 

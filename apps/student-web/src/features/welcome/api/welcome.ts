@@ -37,7 +37,9 @@ export const welcomeApi = {
     });
 
     if (!response.ok) {
-      const errorData = await response.json().catch(() => ({ error: 'Failed to load welcome modal context' }));
+      const errorData = await response.json().catch(() => ({
+        error: 'Failed to load welcome modal context',
+      }));
       throw new Error(errorData.error || 'Failed to load welcome modal context');
     }
 
@@ -45,10 +47,9 @@ export const welcomeApi = {
   },
 
   /**
-   * Mark the student-welcome onboarding tour completed via SECURITY DEFINER
-   * RPC. The RPC merges {tour_id: {completed_at, version}} into the
-   * students.onboarding_progress JSONB and self-checks that the caller is the
-   * owning student, so no admin client is required.
+   * Mark the full-screen welcome wizard complete via SECURITY DEFINER RPC.
+   * Portal orientation stays on the dashboard spotlight tour
+   * (`student-portal-intro`), which auto-starts after welcome is done.
    */
   acknowledgeWelcomeModal: async (): Promise<WelcomeModalAckResponse> => {
     const supabase = getSupabaseClient();
@@ -58,7 +59,7 @@ export const welcomeApi = {
     });
 
     if (error) {
-      throw new Error(error.message || 'Failed to acknowledge welcome modal');
+      throw new Error(error.message || 'Failed to acknowledge welcome guide');
     }
 
     return {

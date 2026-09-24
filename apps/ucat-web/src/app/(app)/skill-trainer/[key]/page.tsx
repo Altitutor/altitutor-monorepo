@@ -1,6 +1,6 @@
 import { SkillTrainerDetailPage } from "@/features/skill-trainer/components/skill-trainer-detail-page";
 import { trainerKeyToSlug, trainerSlugToKey } from "@altitutor/shared";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 
 export default function SkillTrainerDetailRoute({
   params,
@@ -8,9 +8,6 @@ export default function SkillTrainerDetailRoute({
   params: { key: string };
 }) {
   const trainerKey = trainerSlugToKey(params.key);
-  if (!trainerKey) notFound();
-  if (params.key.includes("_")) {
-    redirect(`/skill-trainer/${trainerKeyToSlug(trainerKey)}`);
-  }
+  if (!trainerKey || trainerKeyToSlug(trainerKey) !== params.key) notFound();
   return <SkillTrainerDetailPage trainerKey={trainerKey} />;
 }

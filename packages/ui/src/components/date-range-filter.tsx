@@ -13,7 +13,6 @@ import {
   endOfMonth,
   format,
 } from 'date-fns';
-import { Input } from './input';
 import {
   Command,
   CommandEmpty,
@@ -23,6 +22,8 @@ import {
   CommandList,
 } from './command';
 import { cn } from '../lib/cn';
+import { SmartDatePickerField } from './smart-date-picker';
+import { usePreserveDropdownSubOnNextClose } from './dropdown-menu';
 
 export interface DateRangeQuickPick {
   id: string;
@@ -165,6 +166,7 @@ export function DateRangeFilter({
 }: DateRangeFilterProps) {
   const [search, setSearch] = React.useState('');
   const inputRef = React.useRef<HTMLInputElement>(null);
+  const preserveParentSubmenu = usePreserveDropdownSubOnNextClose();
 
   React.useEffect(() => {
     const input = inputRef.current;
@@ -182,6 +184,7 @@ export function DateRangeFilter({
   const handleQuickPickSelect = React.useCallback(
     (pick: DateRangeQuickPick) => {
       const { from, to } = pick.getRange();
+      preserveParentSubmenu();
       if (onRangeChange) {
         onRangeChange(from, to);
       } else {
@@ -189,20 +192,28 @@ export function DateRangeFilter({
         onToChange(to);
       }
     },
-    [onFromChange, onToChange, onRangeChange]
+    [onFromChange, onToChange, onRangeChange, preserveParentSubmenu]
   );
 
   return (
-    <div className={cn('flex flex-col gap-3 p-2', className)}>
+    <div
+      className={cn('flex flex-col gap-3 p-2', className)}
+      onPointerDown={(event) => event.stopPropagation()}
+      onClick={(event) => event.stopPropagation()}
+      onKeyDown={(event) => event.stopPropagation()}
+    >
       <div className="grid grid-cols-2 gap-2">
         <div>
           <label className="text-xs font-medium text-muted-foreground">
             {fromLabel}
           </label>
-          <Input
-            type="date"
+          <SmartDatePickerField
             value={fromValue}
-            onChange={(e) => onFromChange(e.target.value)}
+            onChange={(value) => {
+              preserveParentSubmenu();
+              onFromChange(value ?? '');
+            }}
+            stopPropagation
             className="h-8 mt-1"
           />
         </div>
@@ -210,10 +221,14 @@ export function DateRangeFilter({
           <label className="text-xs font-medium text-muted-foreground">
             {toLabel}
           </label>
-          <Input
-            type="date"
+          <SmartDatePickerField
             value={toValue}
-            onChange={(e) => onToChange(e.target.value)}
+            onChange={(value) => {
+              preserveParentSubmenu();
+              onToChange(value ?? '');
+            }}
+            stopPropagation
+            minDate={fromValue || undefined}
             className="h-8 mt-1"
           />
         </div>

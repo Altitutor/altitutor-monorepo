@@ -6,6 +6,7 @@ import {
   FormItem,
   FormMessage,
   SearchableSelect,
+  SearchableSelectFieldTrigger,
 } from '@altitutor/ui';
 import { Check, Link2 } from 'lucide-react';
 import { UseFormReturn } from 'react-hook-form';
@@ -33,17 +34,12 @@ export function TaskIssueField({
 
   const trigger = (
     <FormControl>
-      <button
-        type="button"
-        className="inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border hover:bg-muted h-10 px-4 py-2 w-full justify-start"
-      >
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
-          <span className={cn('truncate text-left', !selectedIssue && 'text-muted-foreground')}>
-            {selectedIssue?.name || 'Link issue'}
-          </span>
-        </div>
-      </button>
+      <SearchableSelectFieldTrigger>
+        <Link2 className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+        <span className={cn('truncate text-left', !selectedIssue && 'text-muted-foreground')}>
+          {selectedIssue?.name || 'Link issue'}
+        </span>
+      </SearchableSelectFieldTrigger>
     </FormControl>
   );
 

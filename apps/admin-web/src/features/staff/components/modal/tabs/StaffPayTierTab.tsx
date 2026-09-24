@@ -1,18 +1,16 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import {
-  Button,
-  SegmentedTabPanel,
-  SegmentedTabPanelContent,
-} from '@altitutor/ui';
+import { Button, SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { useToast } from '@altitutor/ui';
 import { usePayTierStaffProgress, useUpdateStaffTierProfile } from '@/features/pay-tiers/hooks';
 import {
   buildMetricOverridesFromUi,
+  resourceOverridesToRows,
   sessionOverridesToRows,
   timeOverridesToRows,
+  type ResourceOverrideRow,
   type SessionOverrideRow,
   type TimeOverrideRow,
 } from '@/features/pay-tiers/utils/metricOverrides';
@@ -27,12 +25,7 @@ type StaffPayTierTabProps = {
   onOpenSession: (sessionId: string) => void;
 };
 
-export function StaffPayTierTab({
-  staffId,
-  staffFirstName,
-  staffLastName,
-  onOpenSession,
-}: StaffPayTierTabProps) {
+export function StaffPayTierTab({ staffId, staffFirstName, staffLastName, onOpenSession }: StaffPayTierTabProps) {
   const { toast } = useToast();
   const { data: progress, isLoading, isError, error } = usePayTierStaffProgress(staffId);
   const updateProfile = useUpdateStaffTierProfile();
@@ -41,12 +34,14 @@ export function StaffPayTierTab({
   const [employmentDate, setEmploymentDate] = useState('');
   const [sessionRows, setSessionRows] = useState<SessionOverrideRow[]>([]);
   const [timeRows, setTimeRows] = useState<TimeOverrideRow[]>([]);
+  const [resourceRows, setResourceRows] = useState<ResourceOverrideRow[]>([]);
 
   useEffect(() => {
     if (!progress) return;
     setEmploymentDate(progress.employmentStartedAt.slice(0, 10));
     setSessionRows(sessionOverridesToRows(progress.metricOverrides));
     setTimeRows(timeOverridesToRows(progress.metricOverrides));
+    setResourceRows(resourceOverridesToRows(progress.metricOverrides));
   }, [progress]);
 
   if (isLoading) {
@@ -71,7 +66,7 @@ export function StaffPayTierTab({
         staffId,
         updates: {
           employment_started_at: new Date(employmentDate).toISOString(),
-          metric_overrides: buildMetricOverridesFromUi(sessionRows, timeRows),
+          metric_overrides: buildMetricOverridesFromUi(sessionRows, timeRows, resourceRows),
         },
       });
       toast({ title: 'Overrides saved' });
@@ -118,6 +113,8 @@ export function StaffPayTierTab({
             onSessionRowsChange={setSessionRows}
             timeRows={timeRows}
             onTimeRowsChange={setTimeRows}
+            resourceRows={resourceRows}
+            onResourceRowsChange={setResourceRows}
           />
           <div className="flex justify-end border-t pt-4">
             <Button disabled={updateProfile.isPending} onClick={handleSaveOverrides}>

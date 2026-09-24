@@ -2,14 +2,13 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { Editor } from '@tiptap/react'
-import Link from 'next/link'
 import type { Json } from '@altitutor/shared'
+import { useRouter } from 'next/navigation'
 import type { UseFormReturn } from 'react-hook-form'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import {
   Button,
-  Checkbox,
   Command,
   CommandEmpty,
   CommandGroup,
@@ -19,23 +18,38 @@ import {
   Popover,
   PopoverContent,
   PopoverTrigger,
+  Switch,
   useToast,
 } from '@altitutor/ui'
-import { ExternalLink, Trash2 } from 'lucide-react'
+import { ExternalLink, Plus, Trash2, X } from 'lucide-react'
 import { cn } from '@/shared/utils'
 import { ucatQuestionStemSchema, type UcatQuestionStemFormValues } from '@/features/ucat/questions/types/schema'
-import type { StemDetailRow } from '@/features/ucat/questions/api/questions'
+import { ucatQuestionsApi, type StemDetailRow } from '@/features/ucat/questions/api/questions'
+import type { UcatContentStatus } from '@/features/ucat/shared/types'
 import { DEFAULT_OPTIONS, EMPTY_DOC } from '@/features/ucat/questions/constants/stemFormConstants'
+import { buildEmptyStemFormValues, parseContentStatusFromSnapshot, stemDetailToFormValues } from '@/features/ucat/questions/lib/stem-editor-form'
+import { useManualStemMetadataDetection } from '@/features/ucat/questions/hooks/useManualStemMetadataDetection'
+import {
+  useDeleteUcatQuestionStem,
+  useSetUcatQuestionStemStatus,
+} from '@/features/ucat/questions/hooks/useUcatQuestions'
 import { isSnapshotDirty, snapshotQuestionStemFormValues } from '@/features/ucat/shared/lib/dirty-state'
-import { secondsToTimeString } from '@/features/ucat/shared/lib/time-utils'
 import { UcatDialogShell } from '@/features/ucat/shared/dialog-shell'
-import { parseUcatVisibilityError } from '@/features/ucat/shared/lib/visibility-error'
 import { useUcatCopyId } from '@/features/ucat/shared/hooks/useUcatCopyId'
 import { buildCopyIdRowAction, buildStemCopyIdEntries } from '@/features/ucat/shared/lib/copy-id-actions'
 import { UcatRowActions } from '@/features/ucat/shared/row-actions'
 import { UcatStemEditorShell } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorShell'
 import type { StemEditorMode } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorPropertiesPanel'
+import { UcatStemEditorHeaderControls } from '@/features/ucat/questions/components/stem-editor/UcatStemEditorHeaderControls'
 import { taxonomyDisplayLabel } from '@/features/ucat/shared/lib/taxonomy-paths'
+import { filterTagsForImportSection } from '@/features/ucat/shared/lib/taxonomy-reparent'
+import { lifecycleErrorToast, lifecycleStatusSuccessToast, type UcatLifecycleEntityType } from '@/features/ucat/shared/lifecycle-errors'
+import { UcatDeleteConfirmDialog } from '@/features/ucat/shared/delete-confirm-dialog'
+import { UcatContentStatusBadge } from '@/features/ucat/shared/components/UcatContentStatusBadge'
+import {
+  replaceSelectedImageAttrs,
+  type SelectedVisualImage,
+} from '@/features/ucat/shared/lib/selected-visual-image'
 
 /** Get the first validation error message from react-hook-form errors (supports nested paths). */
 function getFirstValidationMessage(errors: Record<string, unknown>): string {
@@ -60,13 +74,41 @@ function getFirstValidationMessage(errors: Record<string, unknown>): string {
   return 'Please fix the errors in the form.'
 }
 
+function collectImageFileIds(value: unknown, fileIds = new Set<string>()): Set<string> {
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectImageFileIds(item, fileIds))
+    return fileIds
+  }
+  if (!value || typeof value !== 'object') return fileIds
+  const record = value as Record<string, unknown>
+  if (record.type === 'image' && record.attrs && typeof record.attrs === 'object' && !Array.isArray(record.attrs)) {
+    const fileId = (record.attrs as Record<string, unknown>).fileId
+    if (typeof fileId === 'string' && fileId) fileIds.add(fileId)
+  }
+  Object.values(record).forEach((item) => collectImageFileIds(item, fileIds))
+  return fileIds
+}
+
+function imageNodeAttrs(imageNode: Json): Record<string, Json | undefined> | null {
+  if (!imageNode || typeof imageNode !== 'object' || Array.isArray(imageNode)) return null
+  const attrs = (imageNode as Record<string, Json>).attrs
+  if (!attrs || typeof attrs !== 'object' || Array.isArray(attrs)) return null
+  return attrs as Record<string, Json | undefined>
+}
+
 export type CategoryOption = {
   id: string | null
   name: string | null
   ucat_section_id?: string | null
   label?: string | null
 }
-export type TagOption = { id: string; name: string; label?: string | null }
+export type TagOption = {
+  id: string
+  name: string
+  label?: string | null
+  parent_question_tag_id?: string | null
+  ucat_section_id?: string | null
+}
 
 /** Section row for the stem form + engine preview layout (two-column vs single column). */
 export type UcatSectionOption = { id: string | null; name: string | null; display_columns?: number | null }
@@ -89,12 +131,13 @@ export function UcatQuestionStemDialog({
   initialEditorMode = 'edit',
   readOnly = false,
   warningPills,
+  onOpenLifecycleEntity,
 }: {
   open: boolean
   title: string
   submitLabel: string
   onClose: () => void
-  onSubmit: (values: UcatQuestionStemFormValues) => Promise<void>
+  onSubmit: (values: UcatQuestionStemFormValues, options?: { createMore?: boolean }) => Promise<void>
   sections: UcatSectionOption[]
   categories: CategoryOption[]
   tags: TagOption[]
@@ -105,54 +148,27 @@ export function UcatQuestionStemDialog({
   initialEditorMode?: StemEditorMode
   readOnly?: boolean
   warningPills?: string[]
+  onOpenLifecycleEntity?: (entityType: UcatLifecycleEntityType, entityId: string) => boolean
 }) {
   const { toast } = useToast()
+  const router = useRouter()
   const { copyId } = useUcatCopyId()
+  const statusMutation = useSetUcatQuestionStemStatus()
+  const deleteStemMutation = useDeleteUcatQuestionStem()
   const [newImageFileIds, setNewImageFileIds] = useState<Set<string>>(new Set())
   const [activeTextEditor, setActiveTextEditor] = useState<Editor | null>(null)
+  const [createMore, setCreateMore] = useState(false)
+  const [editorMode, setEditorMode] = useState<StemEditorMode>(initialEditorMode)
+  const [showAnswer, setShowAnswer] = useState(false)
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [selectedAiImageContext, setSelectedAiImageContext] = useState<{
+    image: SelectedVisualImage
+    editor: Editor
+  } | null>(null)
   const defaultValues = useMemo<UcatQuestionStemFormValues>(() => {
-    if (!initial) {
-      return {
-        sectionId: sections.find((section) => section.id)?.id ?? '',
-        categoryId: null,
-        stemText: EMPTY_DOC,
-        isPrivate: false,
-        questions: [
-          {
-            questionText: EMPTY_DOC,
-            questionType: 'multiple_choice',
-            answerExplanation: null,
-            difficulty: null,
-            timeBurdenSeconds: '',
-            tagIds: [],
-            options: [...DEFAULT_OPTIONS],
-          },
-        ],
-      }
-    }
-
-    return {
-      sectionId: initial.section_id,
-      categoryId: initial.question_stem_category_id,
-      stemText: (initial.stem_text ?? EMPTY_DOC) as Json,
-      isPrivate: initial.is_private,
-      questions: (initial.questions ?? []).map((question) => ({
-        questionText: (question.question_text ?? EMPTY_DOC) as Json,
-        answerExplanation: (question.answer_explanation ?? null) as Json | null,
-        questionType: question.question_type,
-        difficulty: question.difficulty,
-        timeBurdenSeconds: question.time_burden_seconds != null ? secondsToTimeString(question.time_burden_seconds) : '',
-        tagIds: (question.tags ?? []).map((tag) => tag.id),
-        options:
-          (question.answer_options ?? []).length > 0
-            ? (question.answer_options ?? []).map((option) => ({
-                answerText: (option.answer_text ?? EMPTY_DOC) as Json,
-                answerExplanation: (option.answer_explanation ?? null) as Json | null,
-                isAnswer: option.is_answer,
-              }))
-            : [...DEFAULT_OPTIONS],
-      })),
-    }
+    const fallbackSectionId = sections.find((section) => section.id)?.id ?? ''
+    if (!initial) return buildEmptyStemFormValues(fallbackSectionId)
+    return stemDetailToFormValues(initial, fallbackSectionId)
   }, [initial, sections])
 
   const createForm = useForm as unknown as (props: {
@@ -172,6 +188,7 @@ export function UcatQuestionStemDialog({
   // Only reset when opening a different stem—not when a refetch returns for the same stem.
   // A refetch during save would overwrite user edits with stale data before the mutation completes.
   const lastResetStemIdRef = useRef<string | null>(null)
+  const createResetOpenRef = useRef(false)
   useEffect(() => {
     if (initial) {
       const stemId = initial.id
@@ -190,25 +207,40 @@ export function UcatQuestionStemDialog({
     if (!open) {
       lastResetStemIdRef.current = null
       setActiveTextEditor(null)
+      setCreateMore(false)
+      createResetOpenRef.current = false
+      setShowAnswer(false)
+      setSelectedAiImageContext(null)
     }
   }, [open])
 
+  useEffect(() => {
+    if (open) {
+      setEditorMode(initialEditorMode)
+    }
+  }, [open, initial?.id, initialEditorMode, initialQuestionIndex])
+
   // When opening for create (no initial), reset form so previous content is cleared
   useEffect(() => {
-    if (open && !initial) {
+    if (open && !initial && !createResetOpenRef.current) {
+      createResetOpenRef.current = true
       const emptyDefaults: UcatQuestionStemFormValues = {
         sectionId: sections.find((section) => section.id)?.id ?? '',
         categoryId: null,
         stemText: EMPTY_DOC,
-        isPrivate: false,
+        accessScope: 'public',
+        tutorSourceNote: '',
         questions: [
           {
             questionText: EMPTY_DOC,
-            questionType: 'multiple_choice',
+            responseType: 'multiple_choice',
+            answerScheme: 'single_choice',
             answerExplanation: null,
             difficulty: null,
             timeBurdenSeconds: '',
             tagIds: [],
+            sourceChannel: 'individual',
+            aiGenerationMetadata: null,
             options: [...DEFAULT_OPTIONS],
           },
         ],
@@ -218,6 +250,44 @@ export function UcatQuestionStemDialog({
     }
   }, [open, initial, sections, form])
 
+  function buildNextCreateValues(values: UcatQuestionStemFormValues): UcatQuestionStemFormValues {
+    const nextValues = buildEmptyStemFormValues(values.sectionId)
+    const previousQuestions = values.questions?.length ? values.questions : nextValues.questions
+    const nextQuestions = previousQuestions.map((question) => {
+      const responseType = question.responseType
+      const answerScheme = question.answerScheme
+      return {
+        ...nextValues.questions[0]!,
+        responseType,
+        answerScheme,
+        questionText:
+          responseType === 'drag_and_drop'
+            ? question.questionText
+            : EMPTY_DOC,
+        answerExplanation: null,
+        difficulty: question.difficulty ?? null,
+        timeBurdenSeconds: question.timeBurdenSeconds ?? '',
+        tagIds: [...(question.tagIds ?? [])],
+        sourceChannel: 'individual' as const,
+        aiGenerationMetadata: null,
+        options:
+          responseType === 'drag_and_drop'
+            ? Array.from({ length: 5 }, () => ({
+                answerText: EMPTY_DOC,
+                answerExplanation: null,
+                answerKeyValue: 'no' as const,
+              }))
+            : [...DEFAULT_OPTIONS],
+      }
+    })
+    return {
+      ...nextValues,
+      categoryId: values.categoryId ?? null,
+      accessScope: values.accessScope,
+      tutorSourceNote: values.tutorSourceNote ?? '',
+      questions: nextQuestions,
+    }
+  }
 
   async function handleSave() {
     const submit = form.handleSubmit as unknown as (
@@ -229,25 +299,51 @@ export function UcatQuestionStemDialog({
         try {
           // Deep copy to avoid form state mutations (e.g. reset) overwriting values before API call
           const valuesCopy = JSON.parse(JSON.stringify(values)) as UcatQuestionStemFormValues
-          await onSubmit(valuesCopy)
+          await onSubmit(valuesCopy, { createMore: !initial && createMore })
+          if (stemId && valuesCopy.status) {
+            const baselineStatus = parseContentStatusFromSnapshot(baseline)
+            if (valuesCopy.status !== baselineStatus) {
+              const nextStatus = valuesCopy.status as UcatContentStatus
+              const previousStatus = baselineStatus ?? 'draft'
+              await statusMutation.mutateAsync({
+                stemId,
+                status: nextStatus,
+              })
+              toast(lifecycleStatusSuccessToast({
+                contentLabel: 'Question',
+                count: 1,
+                status: nextStatus,
+                onUndo: () => {
+                  void ucatQuestionsApi.bulkRestoreStatus([stemId], nextStatus, previousStatus)
+                    .then(() => toast({ title: 'Question status restored' }))
+                    .catch((error) => toast({
+                      title: 'Could not undo status change',
+                      description: error instanceof Error ? error.message : 'The previous status could not be restored.',
+                      variant: 'destructive',
+                    }))
+                },
+              }))
+            }
+          }
+          const usedImageFileIds = collectImageFileIds(valuesCopy)
+          const unusedImageFileIds = Array.from(newImageFileIds).filter((fileId) => !usedImageFileIds.has(fileId))
+          if (unusedImageFileIds.length > 0) {
+            void fetch('/api/ucat/images/cleanup', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ fileIds: unusedImageFileIds }),
+            }).catch((error) => {
+              console.error('Failed to schedule unused UCAT image preview cleanup:', error)
+            })
+          }
           setNewImageFileIds(new Set())
+          if (!initial && createMore) {
+            const nextValues = buildNextCreateValues(valuesCopy)
+            form.reset(nextValues)
+            setBaseline(snapshotQuestionStemFormValues(nextValues))
+          }
         } catch (error) {
-          const msg = error instanceof Error ? error.message : 'Failed to save question stem'
-          const parsed = parseUcatVisibilityError(msg)
-          toast({
-            title: 'Failed to save',
-            description: parsed.link ? (
-              <span>
-                {parsed.textBeforeLink}{' '}
-                <Link href={parsed.link.href} className="underline font-medium">
-                  {parsed.link.label}
-                </Link>
-              </span>
-            ) : (
-              msg
-            ),
-            variant: 'destructive',
-          })
+          toast(lifecycleErrorToast(error, 'Failed to save', router.push, onOpenLifecycleEntity))
         }
       },
       (errs: Record<string, unknown>) => {
@@ -262,17 +358,28 @@ export function UcatQuestionStemDialog({
   }
 
   const watchedValues = form.watch()
+  const showCreateMore = !initial && !readOnly
+  const metadataDetection = useManualStemMetadataDetection({
+    enabled: open && !readOnly,
+    resetKey: open ? (initial?.id ?? 'create') : null,
+    form,
+    values: watchedValues,
+    sections,
+    categories,
+    tags,
+  })
+
   const hasUnsavedChanges =
     baseline !== '' && isSnapshotDirty(snapshotQuestionStemFormValues(watchedValues), baseline)
 
   const stemId = initial?.id
+  const deleteAction =
+    onDelete ?? (stemId && !readOnly ? () => setDeleteConfirmOpen(true) : undefined)
 
   const copyIdAction =
     initial != null ? buildCopyIdRowAction(buildStemCopyIdEntries(initial), copyId) : null
 
-  const headerActions = (
-    <div className="flex items-center gap-2">
-      {stemId != null ? (
+  const headerActions = stemId != null ? (
         <UcatRowActions
           actions={[
             ...(copyIdAction ? [copyIdAction] : []),
@@ -281,21 +388,19 @@ export function UcatQuestionStemDialog({
               icon: <ExternalLink className="h-4 w-4" />,
               href: `/ucat/questions/${stemId}`,
             },
-            ...(onDelete
+            ...(deleteAction
               ? [
                   {
                     label: 'Delete',
                     icon: <Trash2 className="h-4 w-4" />,
-                    onClick: onDelete,
+                    onClick: deleteAction,
                     destructive: true,
                   },
                 ]
               : []),
           ]}
         />
-      ) : null}
-    </div>
-  )
+      ) : null
 
   function handleRequestClose() {
     if (!hasUnsavedChanges || window.confirm('Changes made will be lost. Close without saving?')) {
@@ -315,7 +420,8 @@ export function UcatQuestionStemDialog({
   }
 
   return (
-    <UcatDialogShell
+    <>
+      <UcatDialogShell
       open={open}
       onClose={handleRequestClose}
       title={title}
@@ -324,10 +430,28 @@ export function UcatQuestionStemDialog({
       saveLabel={submitLabel}
       saveDisabled={loading}
       isSaving={loading}
+      footerActions={
+        showCreateMore ? (
+          <label htmlFor="create-more-stems" className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Switch id="create-more-stems" checked={createMore} onCheckedChange={setCreateMore} />
+            <span>Create more</span>
+          </label>
+        ) : undefined
+      }
+      headerControls={
+        <UcatStemEditorHeaderControls
+          mode={editorMode}
+          onModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+        />
+      }
       headerActions={headerActions}
+      headerBadge={initial?.status ? <UcatContentStatusBadge status={initial.status} /> : undefined}
       warningPills={warningPills}
       hideCancel
       defaultExpanded
+      mobileFullscreen
       richTextToolbarEditor={activeTextEditor}
     >
       <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -340,10 +464,23 @@ export function UcatQuestionStemDialog({
           stemId={stemId ?? null}
           initialQuestionIndex={initialQuestionIndex}
           initialEditorMode={initialEditorMode}
+          editorMode={editorMode}
+          onEditorModeChange={setEditorMode}
+          showAnswer={showAnswer}
+          onShowAnswerChange={setShowAnswer}
+          showModeControls={false}
           enableImages
           sectionTitleOverride={initial?.section_name ?? undefined}
           displayColumnsFallback={initial?.display_columns ?? undefined}
           onActiveTextEditorChange={setActiveTextEditor}
+          sourceChannel={initial?.source_channel ?? (initial ? null : 'individual')}
+          aiGenerationMetadata={initial?.ai_generation_metadata ?? null}
+          createdByFirstName={initial?.created_by_first_name ?? null}
+          createdByLastName={initial?.created_by_last_name ?? null}
+          statusChangedByFirstName={initial?.status_changed_by_first_name ?? null}
+          statusChangedByLastName={initial?.status_changed_by_last_name ?? null}
+          statusChangedAt={initial?.status_changed_at ?? null}
+          aiReviewAvailable={Boolean(stemId)}
           onNewImageFileIds={(fileIds) =>
             setNewImageFileIds((prev) => {
               const next = new Set(prev)
@@ -351,9 +488,53 @@ export function UcatQuestionStemDialog({
               return next
             })
           }
+          selectedImage={selectedAiImageContext?.image ?? null}
+          onAcceptSelectedImage={(imageNode) => {
+            if (!selectedAiImageContext) return { ok: false, message: 'The original image is no longer selected.' }
+            const attrs = imageNodeAttrs(imageNode)
+            if (!attrs) return { ok: false, message: 'The preview did not contain a valid image.' }
+            const replaced = replaceSelectedImageAttrs(
+              selectedAiImageContext.editor,
+              selectedAiImageContext.image,
+              attrs,
+            )
+            if (!replaced) return { ok: false, message: 'The original image could not be found in the draft.' }
+            setSelectedAiImageContext(null)
+            return { ok: true, message: 'The reviewed image has been applied to the question stem.' }
+          }}
+          onUseSelectedImageWithAi={(image, editor) => setSelectedAiImageContext({ image, editor })}
+          metadataDetection={{
+            pendingDiff: metadataDetection.pendingDiff,
+            onAccept: metadataDetection.acceptField,
+            onDismiss: metadataDetection.dismissField,
+          }}
         />
       </div>
-    </UcatDialogShell>
+      </UcatDialogShell>
+
+      <UcatDeleteConfirmDialog
+        open={deleteConfirmOpen}
+        onOpenChange={setDeleteConfirmOpen}
+        title="Delete question stem?"
+        description="The stem and all its questions will be hidden from students. Remove it from any sets, sessions, or lessons first. You can restore it later from the deleted list."
+        isPending={deleteStemMutation.isPending}
+        onConfirm={async () => {
+          if (!stemId) return
+          try {
+            await deleteStemMutation.mutateAsync(stemId)
+            setDeleteConfirmOpen(false)
+            toast({
+              title: 'Question stem deleted',
+              description: 'The stem was soft-deleted.',
+            })
+            onClose()
+          } catch (error) {
+            toast(lifecycleErrorToast(error, 'Cannot delete question stem', router.push, onOpenLifecycleEntity))
+          }
+        }}
+      />
+
+    </>
   )
 }
 
@@ -369,54 +550,91 @@ export function QuestionTagsSelect({
   compact?: boolean
 }) {
   const [open, setOpen] = useState(false)
-  const selectedIds = (form.watch(`questions.${questionIndex}.tagIds`) ?? []) as string[]
+  const sectionId = form.watch('sectionId')
+  const watchedTagIds = form.watch(`questions.${questionIndex}.tagIds`)
+  const selectedIds = useMemo(
+    () => (watchedTagIds ?? []) as string[],
+    [watchedTagIds]
+  )
   const selectedTags = tags.filter((t) => selectedIds.includes(t.id))
+  const selectableTags = useMemo(
+    () => filterTagsForImportSection(tags, sectionId),
+    [tags, sectionId]
+  )
+  const availableTags = useMemo(
+    () => selectableTags.filter((tag) => !selectedIds.includes(tag.id)),
+    [selectableTags, selectedIds]
+  )
 
-  const toggleTag = (tagId: string) => {
-    const next = selectedIds.includes(tagId)
-      ? selectedIds.filter((id) => id !== tagId)
-      : [...selectedIds, tagId]
+  const addTag = (tagId: string) => {
+    if (selectedIds.includes(tagId)) return
+    form.setValue(`questions.${questionIndex}.tagIds`, [...selectedIds, tagId], { shouldDirty: true })
+    setOpen(false)
+  }
+
+  const removeTag = (tagId: string) => {
+    const next = selectedIds.filter((id) => id !== tagId)
     form.setValue(`questions.${questionIndex}.tagIds`, next, { shouldDirty: true })
   }
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          className={cn(
-            'justify-start text-left font-normal min-h-9',
-            compact ? 'w-full truncate px-2 text-xs' : 'w-full'
-          )}
+    <div className={cn('flex flex-wrap items-center gap-1.5', compact ? 'text-xs' : 'text-sm')}>
+      {selectedTags.map((tag) => (
+        <span
+          key={tag.id}
+          className="inline-flex max-w-full items-center gap-1 rounded-full border bg-muted px-2 py-1 text-xs font-medium text-foreground"
         >
-          {selectedTags.length === 0 ? 'Add tags...' : `${selectedTags.length} tag(s) selected`}
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-[280px] p-0" align="start">
-        <Command>
-          <CommandInput placeholder="Search tags..." />
-          <CommandList>
-            <CommandEmpty>No tags found.</CommandEmpty>
-            <CommandGroup>
-              {tags.map((tag) => {
-                const isSelected = selectedIds.includes(tag.id)
-                return (
+          <span className="min-w-0 truncate">{taxonomyDisplayLabel(tag)}</span>
+          <button
+            type="button"
+            aria-label={`Remove ${taxonomyDisplayLabel(tag)}`}
+            className="rounded-full p-0.5 text-muted-foreground hover:bg-background hover:text-foreground focus:outline-none focus:ring-2 focus:ring-ring"
+            onClick={() => removeTag(tag.id)}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      <Popover open={open} onOpenChange={setOpen}>
+        <PopoverTrigger asChild>
+          <Button
+            type="button"
+            variant={selectedTags.length === 0 ? 'outline' : 'ghost'}
+            size="sm"
+            className={cn(
+              'h-8 gap-1 rounded-full px-2.5 text-xs',
+              selectedTags.length === 0 && 'w-full justify-start'
+            )}
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add tag
+          </Button>
+        </PopoverTrigger>
+        <PopoverContent className="z-[100] flex max-h-[min(400px,80vh)] w-[340px] flex-col overflow-hidden p-0" align="start">
+          <Command className="flex min-h-0 flex-1 flex-col rounded-lg border-0">
+            <CommandInput placeholder="Search tags..." />
+            <CommandList
+              className="max-h-[min(300px,50vh)] overflow-y-auto overscroll-contain"
+              onWheel={(event) => event.stopPropagation()}
+              onTouchMove={(event) => event.stopPropagation()}
+            >
+              <CommandEmpty>No tags found.</CommandEmpty>
+              <CommandGroup>
+                {availableTags.map((tag) => (
                   <CommandItem
                     key={tag.id}
                     value={`${tag.id}-${taxonomyDisplayLabel(tag)}`}
-                    onSelect={() => toggleTag(tag.id)}
-                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white data-[disabled]:opacity-100 data-[disabled]:pointer-events-auto aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
+                    onSelect={() => addTag(tag.id)}
+                    className="flex items-center gap-2 text-brand-darkBlue dark:text-white aria-selected:bg-muted aria-selected:text-brand-darkBlue dark:aria-selected:bg-muted/50 dark:aria-selected:text-white hover:bg-muted dark:hover:bg-muted/50"
                   >
-                    <Checkbox checked={isSelected} />
-                    <span>{taxonomyDisplayLabel(tag)}</span>
+                    <span className="min-w-0 flex-1 truncate">{taxonomyDisplayLabel(tag)}</span>
                   </CommandItem>
-                )
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
-      </PopoverContent>
-    </Popover>
+                ))}
+              </CommandGroup>
+            </CommandList>
+          </Command>
+        </PopoverContent>
+      </Popover>
+    </div>
   )
 }

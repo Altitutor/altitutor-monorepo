@@ -9,11 +9,16 @@ import {
   type MutableRefObject,
   type SetStateAction,
 } from "react";
+import { useRouter } from "next/navigation";
 import type {
   QuestionEngineExam,
   QuestionEngineState,
 } from "@/features/question-engine/model/types";
-import type { ExamAttemptKind } from "@/lib/ucat/exam-attempt/types";
+import type {
+  ActiveExamAttempt,
+  ExamAttemptKind,
+  QuestionActiveTimingContext,
+} from "@/lib/ucat/exam-attempt/types";
 import {
   beginExamAttempt,
   fetchActiveExamAttempt,
@@ -29,21 +34,34 @@ import type { StoredExamSnapshot } from "@/lib/ucat/exam-attempt/service";
 import { toStoredExamTiming } from "@/lib/ucat/exam-attempt/load-exam-for-catch-up";
 import { isAttemptAtResults } from "@/features/exam-attempts/lib/banner-copy";
 import { isExamAttemptAtResults } from "@/lib/ucat/exam-attempt/finalize-attempt";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
+import { PracticeSessionEndedError } from "@/lib/ucat/practice-sessions/practice-session-ended";
+import { useToast } from "@altitutor/ui";
+import { canonicalizeEngineResponses } from "@/features/question-engine/lib/response-state";
 
 function toExamEngineSnapshot(
   state: QuestionEngineState,
+  exam: QuestionEngineExam,
 ): StoredExamSnapshot["state"] {
+  const responses = canonicalizeEngineResponses(exam.questions, {
+    selectedAnswers: state.selectedAnswers,
+    placementSnapshots: state.placementSnapshots,
+  });
   return {
     phase: state.phase,
     instructionsIndex: state.instructionsIndex,
     showReadyDialog: state.showReadyDialog,
     showTimeExpiredDialog: state.showTimeExpiredDialog,
+    timeExpiredFromInstructions: state.timeExpiredFromInstructions,
     nextSegmentTimerStartedAt: state.nextSegmentTimerStartedAt,
     currentIndex: state.currentIndex,
     visitedQuestionIds: state.visitedQuestionIds,
     flaggedIds: state.flaggedIds,
-    selectedAnswers: state.selectedAnswers,
-    syllogismSnapshots: state.syllogismSnapshots,
+    selectedAnswers: responses.selectedAnswers,
+    placementSnapshots: responses.placementSnapshots,
+    responseSnapshots: responses.responseSnapshots,
     reviewFilter: state.reviewFilter,
     reviewFilterIndex: state.reviewFilterIndex,
     reviewFilterIndicesSnapshot: state.reviewFilterIndicesSnapshot,
@@ -53,6 +71,57 @@ function toExamEngineSnapshot(
     viewingQuestionIndex: state.viewingQuestionIndex,
     loadingMoreTargetIndex: state.loadingMoreTargetIndex,
     loadingMoreExcludeStemIds: state.loadingMoreExcludeStemIds,
+    activeQuestionTiming: state.activeQuestionTiming,
+  };
+}
+
+export function sanitizeEngineSnapshotForExam(
+  exam: QuestionEngineExam,
+  snapshot: StoredExamSnapshot["state"],
+): StoredExamSnapshot["state"] {
+  const questionIds = new Set(exam.questions.map((question) => question.id));
+  const filterQuestionIds = (ids: string[] | undefined) =>
+    (ids ?? []).filter((id) => questionIds.has(id));
+  const filterQuestionRecord = <T>(record: Record<string, T> | undefined) =>
+    Object.fromEntries(
+      Object.entries(record ?? {}).filter(([id]) => questionIds.has(id)),
+    );
+  const lastQuestionIndex = Math.max(exam.questions.length - 1, 0);
+  const restoreReadyDialogOverInstructions =
+    snapshot.phase === "intro" &&
+    "instructionsScreens" in exam &&
+    exam.instructionsScreens.length > 0;
+  const responses = canonicalizeEngineResponses(exam.questions, {
+    responseSnapshots: filterQuestionRecord(snapshot.responseSnapshots),
+    selectedAnswers: filterQuestionRecord(snapshot.selectedAnswers),
+    placementSnapshots: filterQuestionRecord(snapshot.placementSnapshots),
+  });
+
+  return {
+    ...snapshot,
+    phase: restoreReadyDialogOverInstructions ? "instructions" : snapshot.phase,
+    instructionsIndex: restoreReadyDialogOverInstructions
+      ? 0
+      : snapshot.instructionsIndex,
+    showReadyDialog: restoreReadyDialogOverInstructions
+      ? false
+      : snapshot.showReadyDialog,
+    currentIndex: Math.min(
+      Math.max(snapshot.currentIndex ?? 0, 0),
+      lastQuestionIndex,
+    ),
+    viewingQuestionIndex:
+      snapshot.viewingQuestionIndex == null
+        ? null
+        : Math.min(
+            Math.max(snapshot.viewingQuestionIndex, 0),
+            lastQuestionIndex,
+          ),
+    visitedQuestionIds: filterQuestionIds(snapshot.visitedQuestionIds),
+    flaggedIds: filterQuestionIds(snapshot.flaggedIds),
+    responseSnapshots: responses.responseSnapshots,
+    selectedAnswers: responses.selectedAnswers,
+    placementSnapshots: responses.placementSnapshots,
   };
 }
 
@@ -64,6 +133,16 @@ function resolveExamAttemptKind(
   if (exam.sourceType === "set") return "set";
   if (exam.sourceType === "mock") return "mock";
   return null;
+}
+
+function getActiveAttemptFromConflict(
+  error: unknown,
+): ActiveExamAttempt | null {
+  if (!(error instanceof Error)) return null;
+  if (error.message !== "EXAM_ATTEMPT_IN_PROGRESS") return null;
+  const active = (error as Error & { active?: ActiveExamAttempt | null })
+    .active;
+  return active ?? null;
 }
 
 async function withTimeout<T>(
@@ -78,6 +157,25 @@ async function withTimeout<T>(
   ]);
 }
 
+export function getExamSnapshotSyncDelay(
+  pendingSinceMs: number,
+  nowMs: number,
+  debounceMs = 800,
+  maxWaitMs = 2_000,
+): number {
+  return Math.max(
+    0,
+    Math.min(debounceMs, maxWaitMs - Math.max(0, nowMs - pendingSinceMs)),
+  );
+}
+
+export function isCurrentSegmentSyncResponse(
+  requestedSegmentKey: string,
+  currentSegmentKey: string | null,
+): boolean {
+  return requestedSegmentKey === currentSegmentKey;
+}
+
 export function useExamAttemptLifecycle({
   enabled,
   exam,
@@ -86,6 +184,7 @@ export function useExamAttemptLifecycle({
   practice,
   practiceSessionId,
   attemptStateRef,
+  suppressQuestionTimingSyncRef,
 }: {
   enabled: boolean;
   exam: QuestionEngineExam | undefined;
@@ -97,27 +196,95 @@ export function useExamAttemptLifecycle({
     mockAttemptId: string | null;
     setAttemptIdsBySetId: Map<string, string>;
   }>;
+  suppressQuestionTimingSyncRef?: MutableRefObject<boolean>;
 }) {
   const { active, refresh, setLocal, updateLocal, clearLocal } =
     useActiveExamAttempt();
+  const router = useRouter();
+  const replaceRoute = router.replace;
+  const { openQuotaLimit } = useQuotaLimitDialog();
+  const { toast } = useToast();
   const attemptIdRef = useRef<string | null>(null);
   const [serverSegmentEndsAt, setServerSegmentEndsAt] = useState<string | null>(
     null,
+  );
+  const [documentVisible, setDocumentVisible] = useState(
+    () =>
+      typeof document === "undefined" || document.visibilityState === "visible",
   );
   const [hydrationStatus, setHydrationStatus] = useState<
     "idle" | "hydrating" | "hydrated"
   >("idle");
   const beganRef = useRef(false);
+  const beginningRef = useRef(false);
+  const beginCompletionRef = useRef<Promise<void> | null>(null);
   const hydratedRef = useRef(false);
   const hydratingRef = useRef(false);
+  const latestStateRef = useRef(state);
   const lifecycleKeyRef = useRef<string | null>(null);
   const segmentKeyRef = useRef<string | null>(null);
   const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const syncPendingSinceRef = useRef<number | null>(null);
   const syncBlockedRef = useRef(false);
+  const beginBlockedRef = useRef(false);
   const segmentStartPendingRef = useRef(false);
   const latestSyncInputRef = useRef<
     Parameters<typeof syncExamAttempt>[0] | null
   >(null);
+  const latestQuestionTimingRef = useRef<QuestionActiveTimingContext | null>(
+    null,
+  );
+  const syncQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const practiceSessionEndedRef = useRef(false);
+
+  const handlePracticeSessionEnded = useCallback(
+    (error: unknown): boolean => {
+      if (!(error instanceof PracticeSessionEndedError)) return false;
+      beginBlockedRef.current = true;
+      syncBlockedRef.current = true;
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      if (latestStateRef.current.phase === "practiceComplete") {
+        return true;
+      }
+      if (practiceSessionEndedRef.current) return true;
+      practiceSessionEndedRef.current = true;
+      clearLocal();
+      toast({
+        title: "Practice session ended",
+        description:
+          "This session ended in another tab or device. Start a new session to continue practising.",
+      });
+      replaceRoute("/practice");
+      return true;
+    },
+    [clearLocal, replaceRoute, toast],
+  );
+
+  const handleQuotaExceeded = useCallback(
+    (error: unknown): boolean => {
+      if (!(error instanceof QuotaExceededError)) return false;
+      beginBlockedRef.current = true;
+      syncBlockedRef.current = true;
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+      openQuotaLimit(error.payload, {
+        dismissAction: quotaRouteFallback(error.payload.area),
+      });
+      return true;
+    },
+    [openQuotaLimit],
+  );
+
+  const enqueueSync = useCallback(
+    <T>(operation: () => Promise<T>): Promise<T> => {
+      const result = syncQueueRef.current.then(operation, operation);
+      syncQueueRef.current = result.then(
+        () => undefined,
+        () => undefined,
+      );
+      return result;
+    },
+    [],
+  );
 
   const kind = exam ? resolveExamAttemptKind(exam, practice) : null;
   const resourceId =
@@ -133,21 +300,43 @@ export function useExamAttemptLifecycle({
     lifecycleKeyRef.current = lifecycleKey;
     attemptIdRef.current = null;
     beganRef.current = false;
+    beginningRef.current = false;
+    beginCompletionRef.current = null;
     hydratedRef.current = false;
     hydratingRef.current = false;
     segmentKeyRef.current = null;
+    syncPendingSinceRef.current = null;
     syncBlockedRef.current = false;
+    beginBlockedRef.current = false;
     segmentStartPendingRef.current = false;
+    practiceSessionEndedRef.current = false;
     setHydrationStatus("idle");
     setServerSegmentEndsAt(null);
   }, [lifecycleKey]);
+
+  latestStateRef.current = state;
+
+  latestQuestionTimingRef.current =
+    enabled && documentVisible && exam && state.phase === "question"
+      ? (() => {
+          const question = exam.questions[state.currentIndex];
+          if (!question) return null;
+          const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
+          return {
+            questionId: question.id,
+            questionSetId: question.questionSetId,
+            mode: exam.sourceType,
+            wasTimed: limit != null && limit > 0,
+          };
+        })()
+      : null;
 
   latestSyncInputRef.current =
     enabled && exam && kind && attemptIdRef.current
       ? {
           kind,
           attemptId: attemptIdRef.current,
-          engineSnapshot: toExamEngineSnapshot(state),
+          engineSnapshot: toExamEngineSnapshot(state, exam),
           currentSegmentEndsAt: serverSegmentEndsAt,
           setAttemptIdsBySetId: Object.fromEntries(
             attemptStateRef.current.setAttemptIdsBySetId.entries(),
@@ -159,6 +348,7 @@ export function useExamAttemptLifecycle({
           },
           examTiming: toStoredExamTiming(exam),
           mockAttemptId: attemptStateRef.current.mockAttemptId,
+          questionActiveTiming: latestQuestionTimingRef.current,
         }
       : null;
 
@@ -192,7 +382,10 @@ export function useExamAttemptLifecycle({
         attemptIdRef.current = attempt.attemptId;
         beganRef.current = true;
         let endsAt = attempt.currentSegmentEndsAt;
-        let snapshot = attempt.engineSnapshot;
+        let snapshot = sanitizeEngineSnapshotForExam(
+          exam,
+          attempt.engineSnapshot,
+        );
 
         if (exam && endsAt) {
           const caught = catchUpExpiredSegments(exam, snapshot, endsAt, {
@@ -204,28 +397,47 @@ export function useExamAttemptLifecycle({
           ) {
             snapshot = caught.state;
             endsAt = caught.currentSegmentEndsAt;
-            void syncExamAttempt({
-              kind,
-              attemptId: attempt.attemptId,
-              engineSnapshot: snapshot,
-              currentSegmentEndsAt: endsAt,
-              setAttemptIdsBySetId: attempt.setAttemptIdsBySetId,
-              examMeta: {
-                sourceType: exam.sourceType,
-                sourceId: exam.sourceId,
-                practice,
-              },
-              examTiming: toStoredExamTiming(exam),
-              mockAttemptId: attempt.mockAttemptId,
-            })
+            void enqueueSync(() =>
+              syncExamAttempt({
+                kind,
+                attemptId: attempt.attemptId,
+                engineSnapshot: snapshot,
+                currentSegmentEndsAt: endsAt,
+                setAttemptIdsBySetId: attempt.setAttemptIdsBySetId,
+                examMeta: {
+                  sourceType: exam.sourceType,
+                  sourceId: exam.sourceId,
+                  practice,
+                },
+                examTiming: toStoredExamTiming(exam),
+                mockAttemptId: attempt.mockAttemptId,
+                questionActiveTiming: null,
+              }),
+            )
               .then(() => refresh())
-              .catch(() => {
+              .catch((error: unknown) => {
+                if (handlePracticeSessionEnded(error)) return;
+                if (handleQuotaExceeded(error)) return;
                 // Resume state is already usable; a retry will occur on next sync.
               });
           }
         }
 
-        setServerSegmentEndsAt(endsAt);
+        const serverSegmentKey = getTimedSegmentKey(exam, snapshot);
+        // Resuming is server-authoritative. The engine performs automatic
+        // intro/visited-state updates while the fresh attempt is loading; an
+        // identity check here previously mistook those for user edits and
+        // discarded the saved answers and current index.
+        const nextLocalState: QuestionEngineState = {
+          ...latestStateRef.current,
+          ...snapshot,
+        };
+        const localSegmentKey = getTimedSegmentKey(exam, nextLocalState);
+
+        segmentKeyRef.current = serverSegmentKey;
+        setServerSegmentEndsAt(
+          localSegmentKey === serverSegmentKey ? endsAt : null,
+        );
         attemptStateRef.current.mockAttemptId = attempt.mockAttemptId;
         attemptStateRef.current.setAttemptIdsBySetId = new Map(
           Object.entries(attempt.setAttemptIdsBySetId),
@@ -254,13 +466,12 @@ export function useExamAttemptLifecycle({
         setState((prev) => ({
           ...prev,
           ...snapshot,
-          showTimeExpiredDialog: false,
         }));
-        segmentKeyRef.current = getTimedSegmentKey(exam, snapshot);
         setLocal({
           ...attempt,
-          currentSegmentEndsAt: endsAt,
-          engineSnapshot: snapshot,
+          currentSegmentEndsAt:
+            localSegmentKey === serverSegmentKey ? endsAt : null,
+          engineSnapshot: toExamEngineSnapshot(nextLocalState, exam),
         });
       } finally {
         if (!cancelled) {
@@ -286,11 +497,27 @@ export function useExamAttemptLifecycle({
     refresh,
     setLocal,
     clearLocal,
+    enqueueSync,
+    handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   const beginIfNeeded = useCallback(async () => {
     if (!enabled || !exam || !kind || !resourceId || beganRef.current) return;
+    if (beginningRef.current) {
+      await beginCompletionRef.current;
+      return;
+    }
     if (hydratingRef.current) return;
+    if (beginBlockedRef.current) return;
+
+    beginningRef.current = true;
+    let resolveBeginCompletion: () => void = () => {};
+    const beginCompletion = new Promise<void>((resolve) => {
+      resolveBeginCompletion = resolve;
+    });
+    beginCompletionRef.current = beginCompletion;
+    const stateAtBegin = state;
 
     const segmentLimit = getCurrentSegmentTimeLimitSeconds(exam, state);
     const wasTimed = segmentLimit != null && segmentLimit > 0;
@@ -299,6 +526,7 @@ export function useExamAttemptLifecycle({
       sourceType: exam.sourceType,
       sourceId: exam.sourceId,
       practice,
+      label: exam.title,
     };
 
     let questionSetIdForMockSet: string | undefined;
@@ -307,45 +535,138 @@ export function useExamAttemptLifecycle({
       questionSetIdForMockSet = exam.questions[firstStart]?.questionSetId;
     }
 
-    const { attempt } = await beginExamAttempt({
-      kind,
-      resourceId,
-      practiceSessionId: practiceSessionId ?? undefined,
-      wasTimed,
-      engineSnapshot: toExamEngineSnapshot(state),
-      segmentTimeLimitSeconds: segmentLimit,
-      questionSetIdForMockSet,
-      examMeta,
-      examTiming: toStoredExamTiming(exam),
-    });
+    let attempt: Awaited<ReturnType<typeof beginExamAttempt>>["attempt"];
+    let resumed = false;
+    try {
+      const initialQuestionTiming = latestQuestionTimingRef.current;
+      const engineSnapshot = toExamEngineSnapshot(state, exam);
+      if (initialQuestionTiming) {
+        engineSnapshot.activeQuestionTiming = {
+          ...initialQuestionTiming,
+          startedAt: new Date().toISOString(),
+          segmentEndsAt: null,
+        };
+      }
+      const result = await beginExamAttempt({
+        kind,
+        resourceId,
+        practiceSessionId: practiceSessionId ?? undefined,
+        wasTimed,
+        engineSnapshot,
+        segmentTimeLimitSeconds: segmentLimit,
+        questionSetIdForMockSet,
+        examMeta,
+        examTiming: toStoredExamTiming(exam),
+      });
+      if (lifecycleKeyRef.current !== lifecycleKey) return;
+      attempt = result.attempt;
+      resumed = result.resumed;
+    } catch (error) {
+      if (lifecycleKeyRef.current !== lifecycleKey) return;
+      if (handlePracticeSessionEnded(error)) return;
+      if (handleQuotaExceeded(error)) return;
+      const activeConflict = getActiveAttemptFromConflict(error);
+      if (activeConflict) {
+        beginBlockedRef.current = true;
+        syncBlockedRef.current = true;
+        setLocal(activeConflict);
+        router.replace(activeConflict.resumeHref);
+        return;
+      }
+      throw error;
+    } finally {
+      if (lifecycleKeyRef.current === lifecycleKey) {
+        beginningRef.current = false;
+      }
+      resolveBeginCompletion();
+      if (beginCompletionRef.current === beginCompletion) {
+        beginCompletionRef.current = null;
+      }
+    }
+
+    const attemptSnapshot = sanitizeEngineSnapshotForExam(
+      exam,
+      attempt.engineSnapshot,
+    );
+    const resumedAttempt = {
+      ...attempt,
+      engineSnapshot: attemptSnapshot,
+    };
+    // Server catch-up may finalize a resumed attempt while the begin request
+    // is running. Never hydrate that completion sentinel into the old
+    // in-engine results phase.
+    if (isAttemptAtResults(resumedAttempt)) {
+      clearLocal();
+      window.location.assign(attempt.resultsHref);
+      return;
+    }
+    const serverSegmentKey = getTimedSegmentKey(exam, attemptSnapshot);
+    const latestState = latestStateRef.current;
+    // A resumed attempt is server-authoritative. Mount-time engine effects
+    // (notably marking the first question visited) change the local state
+    // identity while the begin request is in flight; treating that automatic
+    // change as a user edit previously discarded the saved current index and
+    // answers, then autosaved the empty mount state over the good snapshot.
+    const shouldApplySnapshot = resumed || latestState === stateAtBegin;
+    const nextLocalState = shouldApplySnapshot
+      ? {
+          ...latestState,
+          ...attemptSnapshot,
+        }
+      : latestState;
+    const localSegmentKey = getTimedSegmentKey(exam, nextLocalState);
 
     beganRef.current = true;
     hydratedRef.current = true;
     hydratingRef.current = false;
     attemptIdRef.current = attempt.attemptId;
-    setServerSegmentEndsAt(attempt.currentSegmentEndsAt);
-    setLocal(attempt);
+    segmentKeyRef.current = serverSegmentKey;
+    setServerSegmentEndsAt(
+      localSegmentKey === serverSegmentKey
+        ? attempt.currentSegmentEndsAt
+        : null,
+    );
+    setLocal({
+      ...attempt,
+      currentSegmentEndsAt:
+        localSegmentKey === serverSegmentKey
+          ? attempt.currentSegmentEndsAt
+          : null,
+      engineSnapshot: toExamEngineSnapshot(nextLocalState, exam),
+    });
     attemptStateRef.current.mockAttemptId = attempt.mockAttemptId;
     attemptStateRef.current.setAttemptIdsBySetId = new Map(
       Object.entries(attempt.setAttemptIdsBySetId),
     );
-    setState((prev) => ({
-      ...prev,
-      ...attempt.engineSnapshot,
-      showTimeExpiredDialog: false,
-    }));
+    if (shouldApplySnapshot) {
+      setState((prev) =>
+        resumed
+          ? {
+              ...prev,
+              ...attemptSnapshot,
+            }
+          : prev === stateAtBegin
+            ? nextLocalState
+            : prev,
+      );
+    }
     setHydrationStatus("hydrated");
   }, [
     enabled,
     exam,
     kind,
     resourceId,
+    lifecycleKey,
     state,
     practice,
     practiceSessionId,
     setState,
     setLocal,
+    clearLocal,
     attemptStateRef,
+    router,
+    handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
 
   useEffect(() => {
@@ -395,64 +716,27 @@ export function useExamAttemptLifecycle({
 
     if (previousSegmentKey === null) return;
     const limit = getCurrentSegmentTimeLimitSeconds(exam, state);
+    const localSegmentEndsAt =
+      limit != null && limit > 0 && state.timerStartedAt != null
+        ? new Date(state.timerStartedAt + limit * 1000).toISOString()
+        : null;
+    const shouldPreserveLocalElapsed =
+      localSegmentEndsAt != null && Date.now() - state.timerStartedAt! > 1000;
+    const attemptId = attemptIdRef.current;
+    const requestedSegmentKey = segmentKey;
     segmentStartPendingRef.current = true;
-    void syncExamAttempt({
-      kind,
-      attemptId: attemptIdRef.current,
-      engineSnapshot: toExamEngineSnapshot(state),
-      currentSegmentEndsAt: null,
-      startSegmentTimeLimitSeconds: limit,
-      setAttemptIdsBySetId: Object.fromEntries(
-        attemptStateRef.current.setAttemptIdsBySetId.entries(),
-      ),
-      examMeta: {
-        sourceType: exam.sourceType,
-        sourceId: exam.sourceId,
-        practice,
-      },
-      examTiming: toStoredExamTiming(exam),
-      mockAttemptId: attemptStateRef.current.mockAttemptId,
-    })
-      .then(({ currentSegmentEndsAt }) => {
-        setServerSegmentEndsAt(currentSegmentEndsAt);
-        updateLocal(attemptIdRef.current!, {
-          currentSegmentEndsAt,
-          engineSnapshot: toExamEngineSnapshot(state),
-        });
-      })
-      .catch(() => {
-        // A failed background sync must not crash the question engine.
-      })
-      .finally(() => {
-        segmentStartPendingRef.current = false;
-      });
-  }, [
-    enabled,
-    exam,
-    kind,
-    practice,
-    segmentKey,
-    state.phase,
-    state.showReadyDialog,
-    state,
-    updateLocal,
-    attemptStateRef,
-  ]);
-
-  useEffect(() => {
-    if (!enabled || !exam || !kind || !attemptIdRef.current) return;
-    if (syncBlockedRef.current) return;
-    if (segmentStartPendingRef.current) return;
-    if (kind && isExamAttemptAtResults(kind, state.phase)) return;
-    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
-    syncTimerRef.current = setTimeout(() => {
-      if (syncBlockedRef.current) return;
-      if (kind && isExamAttemptAtResults(kind, state.phase)) return;
-      void syncExamAttempt({
+    setServerSegmentEndsAt(null);
+    void enqueueSync(() =>
+      syncExamAttempt({
         kind,
-        attemptId: attemptIdRef.current!,
-        engineSnapshot: toExamEngineSnapshot(state),
-        currentSegmentEndsAt: serverSegmentEndsAt,
+        attemptId,
+        engineSnapshot: toExamEngineSnapshot(state, exam),
+        currentSegmentEndsAt: shouldPreserveLocalElapsed
+          ? localSegmentEndsAt
+          : null,
+        startSegmentTimeLimitSeconds: shouldPreserveLocalElapsed
+          ? undefined
+          : limit,
         setAttemptIdsBySetId: Object.fromEntries(
           attemptStateRef.current.setAttemptIdsBySetId.entries(),
         ),
@@ -463,12 +747,128 @@ export function useExamAttemptLifecycle({
         },
         examTiming: toStoredExamTiming(exam),
         mockAttemptId: attemptStateRef.current.mockAttemptId,
+        questionActiveTiming: latestQuestionTimingRef.current,
+      }),
+    )
+      .then(({ currentSegmentEndsAt, setAttemptIdsBySetId }) => {
+        if (setAttemptIdsBySetId) {
+          attemptStateRef.current.setAttemptIdsBySetId = new Map(
+            Object.entries(setAttemptIdsBySetId),
+          );
+        }
+        if (
+          !isCurrentSegmentSyncResponse(
+            requestedSegmentKey,
+            segmentKeyRef.current,
+          )
+        ) {
+          if (setAttemptIdsBySetId) {
+            updateLocal(attemptId, { setAttemptIdsBySetId });
+          }
+          return;
+        }
+        setServerSegmentEndsAt(currentSegmentEndsAt);
+        updateLocal(attemptId, {
+          currentSegmentEndsAt,
+          engineSnapshot: toExamEngineSnapshot(state, exam),
+          ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
+        });
       })
-        .then(() => refresh())
-        .catch(() => {
+      .catch((error: unknown) => {
+        if (handlePracticeSessionEnded(error)) return;
+        if (handleQuotaExceeded(error)) return;
+        // A failed background sync must not crash the question engine.
+      })
+      .finally(() => {
+        if (segmentKeyRef.current === requestedSegmentKey) {
+          segmentStartPendingRef.current = false;
+        }
+      });
+  }, [
+    enabled,
+    exam,
+    kind,
+    hydrationStatus,
+    practice,
+    segmentKey,
+    state.phase,
+    state.showReadyDialog,
+    state,
+    updateLocal,
+    attemptStateRef,
+    enqueueSync,
+    handlePracticeSessionEnded,
+    handleQuotaExceeded,
+  ]);
+
+  useEffect(() => {
+    if (!enabled || !exam || !kind || !attemptIdRef.current) return;
+    if (syncBlockedRef.current) return;
+    if (segmentStartPendingRef.current) return;
+    if (suppressQuestionTimingSyncRef?.current) return;
+    if (kind && isExamAttemptAtResults(kind, state.phase)) return;
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    const now = Date.now();
+    const pendingSince = syncPendingSinceRef.current ?? now;
+    syncPendingSinceRef.current = pendingSince;
+    const delay = getExamSnapshotSyncDelay(pendingSince, now);
+    syncTimerRef.current = setTimeout(() => {
+      syncPendingSinceRef.current = null;
+      if (syncBlockedRef.current) return;
+      if (suppressQuestionTimingSyncRef?.current) return;
+      if (kind && isExamAttemptAtResults(kind, state.phase)) return;
+      const engineSnapshot = toExamEngineSnapshot(state, exam);
+      const attemptId = attemptIdRef.current!;
+      const requestedSegmentKey = getTimedSegmentKey(exam, state);
+      void enqueueSync(() =>
+        syncExamAttempt({
+          kind,
+          attemptId,
+          engineSnapshot,
+          currentSegmentEndsAt: serverSegmentEndsAt,
+          setAttemptIdsBySetId: Object.fromEntries(
+            attemptStateRef.current.setAttemptIdsBySetId.entries(),
+          ),
+          examMeta: {
+            sourceType: exam.sourceType,
+            sourceId: exam.sourceId,
+            practice,
+          },
+          examTiming: toStoredExamTiming(exam),
+          mockAttemptId: attemptStateRef.current.mockAttemptId,
+          questionActiveTiming: latestQuestionTimingRef.current,
+        }),
+      )
+        .then(({ currentSegmentEndsAt, setAttemptIdsBySetId }) => {
+          if (setAttemptIdsBySetId) {
+            attemptStateRef.current.setAttemptIdsBySetId = new Map(
+              Object.entries(setAttemptIdsBySetId),
+            );
+          }
+          if (
+            !isCurrentSegmentSyncResponse(
+              requestedSegmentKey,
+              segmentKeyRef.current,
+            )
+          ) {
+            if (setAttemptIdsBySetId) {
+              updateLocal(attemptId, { setAttemptIdsBySetId });
+            }
+            return;
+          }
+          setServerSegmentEndsAt(currentSegmentEndsAt);
+          updateLocal(attemptId, {
+            currentSegmentEndsAt,
+            engineSnapshot,
+            ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
+          });
+        })
+        .catch((error: unknown) => {
+          if (handlePracticeSessionEnded(error)) return;
+          if (handleQuotaExceeded(error)) return;
           // Keep the local engine usable and retry on the next state change.
         });
-    }, 800);
+    }, delay);
     return () => {
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
@@ -478,31 +878,229 @@ export function useExamAttemptLifecycle({
     kind,
     state,
     practice,
-    refresh,
     attemptStateRef,
     serverSegmentEndsAt,
+    updateLocal,
+    suppressQuestionTimingSyncRef,
+    enqueueSync,
+    handlePracticeSessionEnded,
+    handleQuotaExceeded,
   ]);
+
+  const activeQuestionTimingKey = latestQuestionTimingRef.current
+    ? `${latestQuestionTimingRef.current.questionId}:${latestQuestionTimingRef.current.questionSetId}:${latestQuestionTimingRef.current.wasTimed ? "timed" : "untimed"}`
+    : "none";
+
+  useEffect(() => {
+    const onVisibilityChange = () => {
+      setDocumentVisible(document.visibilityState === "visible");
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    return () =>
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+  }, []);
+
+  const syncQuestionTiming = useCallback(async () => {
+    if (!enabled || !exam || !kind || !attemptIdRef.current) return false;
+    if (syncBlockedRef.current) return false;
+    if (segmentStartPendingRef.current) return false;
+    if (kind && isExamAttemptAtResults(kind, state.phase)) return false;
+    const input = {
+      kind,
+      attemptId: attemptIdRef.current,
+      engineSnapshot: toExamEngineSnapshot(state, exam),
+      currentSegmentEndsAt: serverSegmentEndsAt,
+      setAttemptIdsBySetId: Object.fromEntries(
+        attemptStateRef.current.setAttemptIdsBySetId.entries(),
+      ),
+      examMeta: {
+        sourceType: exam.sourceType,
+        sourceId: exam.sourceId,
+        practice,
+      },
+      examTiming: toStoredExamTiming(exam),
+      mockAttemptId: attemptStateRef.current.mockAttemptId,
+      questionActiveTiming: latestQuestionTimingRef.current,
+    };
+    const requestedSegmentKey = getTimedSegmentKey(exam, state);
+    try {
+      const { currentSegmentEndsAt, setAttemptIdsBySetId } = await enqueueSync(
+        () => syncExamAttempt(input),
+      );
+      if (setAttemptIdsBySetId) {
+        attemptStateRef.current.setAttemptIdsBySetId = new Map(
+          Object.entries(setAttemptIdsBySetId),
+        );
+      }
+      if (
+        !isCurrentSegmentSyncResponse(
+          requestedSegmentKey,
+          segmentKeyRef.current,
+        )
+      ) {
+        if (setAttemptIdsBySetId) {
+          updateLocal(attemptIdRef.current!, { setAttemptIdsBySetId });
+        }
+        return true;
+      }
+      setServerSegmentEndsAt(currentSegmentEndsAt);
+      updateLocal(attemptIdRef.current!, {
+        currentSegmentEndsAt,
+        engineSnapshot: toExamEngineSnapshot(state, exam),
+        ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
+      });
+      return true;
+    } catch (error) {
+      if (handlePracticeSessionEnded(error) || handleQuotaExceeded(error)) {
+        return false;
+      }
+      // Question timing retries on the next heartbeat or transition.
+      return false;
+    }
+  }, [
+    enabled,
+    exam,
+    kind,
+    state,
+    serverSegmentEndsAt,
+    attemptStateRef,
+    practice,
+    updateLocal,
+    enqueueSync,
+    handlePracticeSessionEnded,
+    handleQuotaExceeded,
+  ]);
+
+  useEffect(() => {
+    if (!enabled || !exam || !kind || !attemptIdRef.current) return;
+    if (suppressQuestionTimingSyncRef?.current) return;
+    void syncQuestionTiming();
+  }, [
+    enabled,
+    exam,
+    kind,
+    hydrationStatus,
+    activeQuestionTimingKey,
+    syncQuestionTiming,
+    suppressQuestionTimingSyncRef,
+  ]);
+
+  useEffect(() => {
+    if (!enabled || activeQuestionTimingKey === "none") return;
+    const id = setInterval(syncQuestionTiming, 15000);
+    return () => clearInterval(id);
+  }, [enabled, activeQuestionTimingKey, syncQuestionTiming]);
+
+  const flushQuestionTiming = useCallback(
+    async (engineStateOverride?: QuestionEngineState) => {
+      const engineState = engineStateOverride ?? state;
+      if (!enabled || !exam || !kind) return false;
+      if (!attemptIdRef.current) {
+        if (beginningRef.current && beginCompletionRef.current) {
+          await beginCompletionRef.current;
+        } else {
+          await beginIfNeeded();
+        }
+      }
+      if (!attemptIdRef.current) return false;
+      const attemptId = attemptIdRef.current;
+      const requestedSegmentKey = getTimedSegmentKey(exam, engineState);
+      if (syncBlockedRef.current) return false;
+      if (kind && isExamAttemptAtResults(kind, engineState.phase)) return false;
+
+      try {
+        const { currentSegmentEndsAt, setAttemptIdsBySetId } =
+          await enqueueSync(() =>
+            syncExamAttempt({
+              kind,
+              attemptId,
+              engineSnapshot: toExamEngineSnapshot(engineState, exam),
+              currentSegmentEndsAt: serverSegmentEndsAt,
+              setAttemptIdsBySetId: Object.fromEntries(
+                attemptStateRef.current.setAttemptIdsBySetId.entries(),
+              ),
+              examMeta: {
+                sourceType: exam.sourceType,
+                sourceId: exam.sourceId,
+                practice,
+              },
+              examTiming: toStoredExamTiming(exam),
+              mockAttemptId: attemptStateRef.current.mockAttemptId,
+              questionActiveTiming: null,
+            }),
+          );
+        if (setAttemptIdsBySetId) {
+          attemptStateRef.current.setAttemptIdsBySetId = new Map(
+            Object.entries(setAttemptIdsBySetId),
+          );
+        }
+        if (
+          !isCurrentSegmentSyncResponse(
+            requestedSegmentKey,
+            segmentKeyRef.current,
+          )
+        ) {
+          if (setAttemptIdsBySetId) {
+            updateLocal(attemptId, { setAttemptIdsBySetId });
+          }
+          return true;
+        }
+        setServerSegmentEndsAt(currentSegmentEndsAt);
+        updateLocal(attemptId, {
+          currentSegmentEndsAt,
+          engineSnapshot: {
+            ...toExamEngineSnapshot(engineState, exam),
+            activeQuestionTiming: null,
+          },
+          ...(setAttemptIdsBySetId ? { setAttemptIdsBySetId } : {}),
+        });
+        return true;
+      } catch (error) {
+        handlePracticeSessionEnded(error);
+        handleQuotaExceeded(error);
+        return false;
+      }
+    },
+    [
+      enabled,
+      exam,
+      kind,
+      state,
+      serverSegmentEndsAt,
+      attemptStateRef,
+      practice,
+      updateLocal,
+      beginIfNeeded,
+      enqueueSync,
+      handlePracticeSessionEnded,
+      handleQuotaExceeded,
+    ],
+  );
 
   useEffect(() => {
     const flushLatestSnapshot = () => {
       const input = latestSyncInputRef.current;
       if (!input) return;
-      if (isExamAttemptAtResults(input.kind, input.engineSnapshot.phase)) return;
-      syncExamAttemptKeepalive(input);
+      if (syncBlockedRef.current) return;
+      if (isExamAttemptAtResults(input.kind, input.engineSnapshot.phase))
+        return;
+      syncExamAttemptKeepalive({ ...input, questionActiveTiming: null });
     };
 
     window.addEventListener("pagehide", flushLatestSnapshot);
     return () => {
       window.removeEventListener("pagehide", flushLatestSnapshot);
       flushLatestSnapshot();
-      syncBlockedRef.current = true;
+      syncPendingSinceRef.current = null;
       if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
     };
   }, []);
 
   return {
     serverSegmentEndsAt,
+    serverSegmentKey: segmentKeyRef.current,
     attemptId: attemptIdRef.current,
     isHydrating: hydrationStatus === "hydrating",
+    flushQuestionTiming,
   };
 }

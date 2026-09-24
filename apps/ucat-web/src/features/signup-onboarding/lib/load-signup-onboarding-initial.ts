@@ -1,4 +1,3 @@
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { loadSignupProfileInitial } from "@/features/auth/lib/signup-profile";
 import { resolveSignupStateForUser } from "@/features/signup-onboarding/lib/resolve-signup-state";
 import type { SignupOnboardingInitial } from "@/features/signup-onboarding/types";
@@ -6,41 +5,42 @@ import type { SignupOnboardingInitial } from "@/features/signup-onboarding/types
 export async function loadSignupOnboardingInitial(user: {
   id: string;
   email?: string | null;
+  new_email?: string | null;
   user_metadata?: Record<string, unknown>;
 }): Promise<SignupOnboardingInitial> {
   const profile = await loadSignupProfileInitial(user.id);
   const state = await resolveSignupStateForUser(user);
-
-  let testYear: number | null = null;
-  let testDate: string | null = null;
-  let targetScores = { s1: null as number | null, s2: null as number | null, s3: null as number | null };
-
-  if (supabaseAdmin) {
-    const { data } = await supabaseAdmin
-      .from("students")
-      .select(
-        "ucat_test_year, ucat_test_date, ucat_target_score_s1, ucat_target_score_s2, ucat_target_score_s3",
-      )
-      .eq("user_id", user.id)
-      .maybeSingle();
-
-    testYear = data?.ucat_test_year ?? null;
-    testDate = data?.ucat_test_date ?? null;
-    targetScores = {
-      s1: data?.ucat_target_score_s1 ?? null,
-      s2: data?.ucat_target_score_s2 ?? null,
-      s3: data?.ucat_target_score_s3 ?? null,
-    };
-  }
+  const metadata = user.user_metadata;
+  const metadataFirstName =
+    typeof metadata?.given_name === "string"
+      ? metadata.given_name.trim()
+      : typeof metadata?.first_name === "string"
+        ? metadata.first_name.trim()
+        : "";
+  const metadataLastName =
+    typeof metadata?.family_name === "string"
+      ? metadata.family_name.trim()
+      : typeof metadata?.last_name === "string"
+        ? metadata.last_name.trim()
+        : "";
+  const fullName =
+    typeof metadata?.full_name === "string"
+      ? metadata.full_name.trim()
+      : typeof metadata?.name === "string"
+        ? metadata.name.trim()
+        : "";
+  const fullNameParts = fullName.split(/\s+/).filter(Boolean);
 
   return {
+    userId: user.id,
     email: user.email ?? "",
-    firstName: profile.firstName,
-    lastName: profile.lastName,
+    pendingEmail: user.new_email?.trim() ?? "",
+    firstName: profile.firstName || metadataFirstName || fullNameParts[0] || "",
+    lastName:
+      profile.lastName ||
+      metadataLastName ||
+      (fullNameParts.length > 1 ? fullNameParts.slice(1).join(" ") : ""),
     phone: profile.phone,
     step: state.step,
-    testYear: testYear ?? state.testYear,
-    testDate,
-    targetScores,
   };
 }

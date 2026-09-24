@@ -38,6 +38,15 @@ export function getCurrentSegmentTimeLimitSeconds(
     return seg?.timeLimitSeconds ?? null;
   }
 
+  if (
+    (exam.sourceType === "questions" || exam.sourceType === "questionStem") &&
+    state.phase === "question" &&
+    exam.practiceSessionTimeLimitSeconds != null &&
+    exam.practiceSessionTimeLimitSeconds > 0
+  ) {
+    return exam.practiceSessionTimeLimitSeconds;
+  }
+
   // Questions/questionStem mode: only timed when in question phase (answer phase is untimed)
   if (
     (exam.sourceType === "questions" || exam.sourceType === "questionStem") &&
@@ -152,6 +161,102 @@ export function getNextMockSegment(
 }
 
 /**
+ * Starts the question segment confirmed by the Ready to Begin dialog.
+ *
+ * Resolving from the state inside the state updater avoids using a stale
+ * render snapshot when lag mode delays the confirmation. The current mock set
+ * is also used as a fallback because review navigation can leave currentIndex
+ * pointing at an earlier section while the next section's instructions are
+ * displayed.
+ */
+export function beginQuestionsFromReadyDialog(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+  now = Date.now(),
+): QuestionEngineState {
+  if (exam.sourceType === "set") {
+    return {
+      ...state,
+      phase: "question",
+      showReadyDialog: false,
+      currentIndex: 0,
+      timerStartedAt:
+        (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0 ? now : null,
+    };
+  }
+
+  if (exam.sourceType !== "mock") {
+    return {
+      ...state,
+      phase: "question",
+      showReadyDialog: false,
+      timerStartedAt: null,
+    };
+  }
+
+  const followingSegment = getNextMockSegment(exam, state);
+  const questionsSegment =
+    (followingSegment?.type === "questions" ? followingSegment : null) ??
+    exam.mockTimingSegments?.find(
+      (segment) =>
+        segment.type === "questions" &&
+        state.mockCurrentSetIndex != null &&
+        segment.setIndex === state.mockCurrentSetIndex,
+    ) ??
+    (state.phase === "intro"
+      ? exam.mockTimingSegments?.find((segment) => segment.type === "questions")
+      : null);
+
+  // Never dismiss the dialog into an arbitrary old question if the mock
+  // structure is inconsistent. Keeping it open is recoverable and avoids a
+  // silent restart of an earlier section.
+  if (questionsSegment?.type !== "questions") return state;
+
+  return {
+    ...state,
+    phase: "question",
+    showReadyDialog: false,
+    currentIndex: questionsSegment.questionStartIndex,
+    mockCurrentSetIndex: questionsSegment.setIndex,
+    timerStartedAt: (questionsSegment.timeLimitSeconds ?? 0) > 0 ? now : null,
+  };
+}
+
+/** Advances out of an expired instructions segment before showing its notice. */
+export function advanceAfterInstructionsTimeExpired(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+  now = Date.now(),
+): QuestionEngineState {
+  const next: QuestionEngineState = {
+    ...state,
+    phase: "question",
+    showReadyDialog: false,
+    showTimeExpiredDialog: true,
+    timeExpiredFromInstructions: true,
+  };
+  if (exam.sourceType === "set") {
+    next.currentIndex = 0;
+    next.timerStartedAt =
+      (exam.setModeTiming?.setTimeLimitSeconds ?? 0) > 0 ? now : null;
+  } else if (exam.sourceType === "mock") {
+    const nextSegment = getNextMockSegment(exam, state);
+    if (nextSegment?.type === "instructions") {
+      next.phase = "instructions";
+      next.instructionsIndex = nextSegment.instructionsIndex;
+      next.timerStartedAt =
+        (nextSegment.timeLimitSeconds ?? 0) > 0 ? now : null;
+    } else if (nextSegment?.type === "questions") {
+      next.currentIndex = nextSegment.questionStartIndex;
+      next.mockCurrentSetIndex = nextSegment.setIndex;
+      next.timerStartedAt =
+        (nextSegment.timeLimitSeconds ?? 0) > 0 ? now : null;
+    }
+  }
+  return next;
+}
+
+/**
  * For mock mode when in review: get the first segment of the next set.
  * Returns null if we're on the last set.
  */
@@ -171,6 +276,82 @@ export function getNextSetSegmentFromReview(
     return { ...prevSeg, segmentIndex: questionsSegIdx - 1 };
   }
   return { ...segments[questionsSegIdx], segmentIndex: questionsSegIdx };
+}
+
+/**
+ * Resolves the segment whose clock starts when a mock section expires.
+ * Review shares the section's question clock, but it is not itself a timing
+ * segment, so it must advance via the current set index rather than the
+ * current phase/index lookup used by instruction and question screens.
+ */
+export function getNextMockSegmentAfterExpiry(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+): (MockTimingSegment & { segmentIndex: number }) | null {
+  if (exam.sourceType !== "mock") return null;
+  if (state.phase === "review") {
+    return getNextSetSegmentFromReview(exam, state.mockCurrentSetIndex ?? 0);
+  }
+  return getNextMockSegment(exam, state);
+}
+
+/** Advances through any mock segments that elapsed while the expiry dialog was open. */
+export function advanceMockAfterTimeExpired(
+  exam: QuestionEngineExam,
+  state: QuestionEngineState,
+  firstSegment: MockTimingSegment & { segmentIndex: number },
+  segmentStartedAt: number,
+  now = Date.now(),
+): QuestionEngineState {
+  const next: QuestionEngineState = {
+    ...state,
+    showTimeExpiredDialog: false,
+    nextSegmentTimerStartedAt: null,
+  };
+  let activeSegment: (MockTimingSegment & { segmentIndex: number }) | null =
+    firstSegment;
+  let activeSegmentStartedAt = segmentStartedAt;
+
+  while (activeSegment) {
+    if (activeSegment.type === "instructions") {
+      next.phase = "instructions";
+      next.instructionsIndex = activeSegment.instructionsIndex;
+      const upcomingQuestions = exam.mockTimingSegments
+        ?.slice(activeSegment.segmentIndex + 1)
+        .find((segment) => segment.type === "questions");
+      if (upcomingQuestions?.type === "questions") {
+        next.mockCurrentSetIndex = upcomingQuestions.setIndex;
+      }
+    } else {
+      next.phase = "question";
+      next.currentIndex = activeSegment.questionStartIndex;
+      next.mockCurrentSetIndex = activeSegment.setIndex;
+    }
+
+    const limit = activeSegment.timeLimitSeconds ?? 0;
+    if (limit <= 0) {
+      next.timerStartedAt = null;
+      break;
+    }
+
+    const segmentEndsAt = activeSegmentStartedAt + limit * 1000;
+    if (segmentEndsAt > now) {
+      next.timerStartedAt = activeSegmentStartedAt;
+      break;
+    }
+
+    const followingSegment = getNextMockSegment(exam, next);
+    if (!followingSegment) {
+      next.phase = "mockScore";
+      next.timerStartedAt = null;
+      break;
+    }
+
+    activeSegment = followingSegment;
+    activeSegmentStartedAt = segmentEndsAt;
+  }
+
+  return next;
 }
 
 /**

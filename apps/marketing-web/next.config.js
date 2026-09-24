@@ -1,44 +1,33 @@
-function getSupabaseStorageRemotePatterns() {
-  const urls = [
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_PROJECT_REF ? `https://${process.env.SUPABASE_PROJECT_REF}.supabase.co` : undefined,
-    ...(process.env.NEXT_PUBLIC_SUPABASE_STORAGE_URLS ?? "").split(","),
-  ];
+const { withSentryConfig } = require("@sentry/nextjs");
+const legacyRedirects = require("./src/lib/legacy-redirects.json");
 
-  const patterns = new Map();
-
-  for (const value of urls) {
-    const trimmed = value?.trim();
-    if (!trimmed) continue;
-
-    try {
-      const url = new URL(trimmed.includes("://") ? trimmed : `https://${trimmed}`);
-
-      patterns.set(`${url.protocol}//${url.host}`, {
-        protocol: url.protocol.replace(":", ""),
-        hostname: url.hostname,
-        port: url.port,
-        pathname: "/storage/v1/object/public/**",
-      });
-    } catch {
-      console.warn(`Ignoring invalid Supabase Storage URL in marketing-web next.config.js: ${trimmed}`);
-    }
-  }
-
-  return Array.from(patterns.values());
-}
+const isSentrySourceMapUploadConfigured = Boolean(
+  process.env.SENTRY_AUTH_TOKEN &&
+    process.env.SENTRY_ORG &&
+    process.env.SENTRY_PROJECT,
+);
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   trailingSlash: true,
+  transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
   images: {
     remotePatterns: [
-      ...getSupabaseStorageRemotePatterns(),
+      {
+        protocol: "https",
+        hostname: "altitutor.com",
+        pathname: "/wp-content/uploads/**",
+      },
       {
         protocol: "https",
         hostname: "student.altitutor.com",
+        pathname: "/**",
+      },
+      {
+        protocol: "https",
+        hostname: "images.unsplash.com",
         pathname: "/**",
       },
     ],
@@ -57,6 +46,16 @@ const nextConfig = {
           {
             key: "X-Robots-Tag",
             value: "noindex, nofollow",
+          },
+        ],
+      },
+      {
+        source: "/wp-content/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value:
+              "public, max-age=3600, s-maxage=31536000, stale-while-revalidate=86400",
           },
         ],
       },
@@ -94,39 +93,26 @@ const nextConfig = {
         destination: "/sitemap.xml",
         permanent: true,
       },
-      {
-        source: "/shop/",
-        destination: "https://student.altitutor.com/booking/trial-session",
+      ...Object.entries(legacyRedirects.pageRedirects).map(
+        ([source, destination]) => ({
+          source,
+          destination,
+          permanent: true,
+        }),
+      ),
+      ...legacyRedirects.trialBookingPaths.map((source) => ({
+        source,
+        destination: legacyRedirects.trialBookingUrl,
         permanent: true,
-      },
+      })),
       {
         source: "/session/:slug*/",
-        destination: "https://student.altitutor.com/booking/trial-session",
+        destination: legacyRedirects.trialBookingUrl,
         permanent: true,
       },
       {
         source: "/product-category/:slug*/",
         destination: "/classes/",
-        permanent: true,
-      },
-      {
-        source: "/weekly-classes/",
-        destination: "/classes/weekly-classes/",
-        permanent: true,
-      },
-      {
-        source: "/english-assignment-drafting/",
-        destination: "/classes/english-assignment-drafting/",
-        permanent: true,
-      },
-      {
-        source: "/subsidy/",
-        destination: "/about/subsidy/",
-        permanent: true,
-      },
-      {
-        source: "/new-student-registration/",
-        destination: "https://student.altitutor.com/booking/trial-session",
         permanent: true,
       },
       {
@@ -139,18 +125,23 @@ const nextConfig = {
         destination: "/",
         permanent: true,
       },
-      {
-        source: "/contact-us/",
-        destination: "/about/contact/",
-        permanent: true,
-      },
-      {
-        source: "/testimonials/",
-        destination: "/about/testimonials/",
-        permanent: true,
-      },
     ];
   },
 };
 
-module.exports = nextConfig;
+module.exports = withSentryConfig(nextConfig, {
+  org: process.env.SENTRY_ORG,
+  project: process.env.SENTRY_PROJECT,
+  authToken: process.env.SENTRY_AUTH_TOKEN,
+  silent: !process.env.CI,
+  telemetry: false,
+  sourcemaps: {
+    disable: !isSentrySourceMapUploadConfigured,
+    deleteSourcemapsAfterUpload: true,
+  },
+  webpack: {
+    treeshake: {
+      removeDebugLogging: true,
+    },
+  },
+});

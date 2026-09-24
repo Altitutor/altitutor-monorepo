@@ -1,12 +1,12 @@
 #!/bin/bash
 
 # Script to download landing page images from WordPress site
-# Run this from the apps/student-web directory
+# Run this from the repository root. Product landing assets now live in marketing-web.
 
 set -e
 
 BASE_URL="https://student.altitutor.com/wp-content/uploads/sites/2/2023/12"
-OUTPUT_DIR="public/images/landing"
+OUTPUT_DIR="apps/marketing-web/public/images/landing"
 
 # Create output directory if it doesn't exist
 mkdir -p "$OUTPUT_DIR"
@@ -51,4 +51,3 @@ done
 echo ""
 echo "All images downloaded successfully!"
 echo "Images are now available at: $OUTPUT_DIR"
-

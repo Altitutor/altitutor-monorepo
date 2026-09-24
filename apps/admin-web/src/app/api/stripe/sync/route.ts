@@ -1,3 +1,4 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
@@ -100,6 +101,7 @@ export async function POST(request: NextRequest) {
 
     if (billingError) {
       console.error('Error upserting students_billing:', billingError);
+      captureApiError(billingError, "/api/stripe/sync");
       return NextResponse.json(
         { error: 'Failed to update billing record: ' + billingError.message },
         { status: 500 }
@@ -189,6 +191,7 @@ export async function POST(request: NextRequest) {
       errors: errors.length > 0 ? errors : undefined,
     });
   } catch (error: unknown) {
+    captureApiError(error, "/api/stripe/sync");
     const errorMessage = getErrorMessage(error);
     console.error('Error syncing Stripe customer:', error);
     return NextResponse.json(

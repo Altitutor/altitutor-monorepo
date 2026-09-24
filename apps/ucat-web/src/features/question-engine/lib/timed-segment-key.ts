@@ -40,6 +40,12 @@ export function getTimedSegmentKey(
   }
 
   if (exam.sourceType === "questions" || exam.sourceType === "questionStem") {
+    if (
+      state.phase === "question" &&
+      (exam.practiceSessionTimeLimitSeconds ?? 0) > 0
+    ) {
+      return "practice-session";
+    }
     if (state.phase === "question") {
       return `practice-question-${state.currentIndex}`;
     }

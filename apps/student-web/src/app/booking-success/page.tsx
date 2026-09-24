@@ -4,14 +4,18 @@ import { useEffect, useState, useMemo } from 'react';
 import { useSearchParams } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { format, parseISO, differenceInMinutes } from 'date-fns';
-import { Check, Calendar, Phone, Mail } from 'lucide-react';
+import { Check, Calendar, Phone, Mail, CalendarClock, XCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { formatSubjectDisplay, getSubjectColorStyle, formatSessionType, cn } from '@/shared/utils';
 import { VENUE_ADDRESS, CONTACT_PHONE, CONTACT_EMAIL } from '@/shared/constants';
 import { downloadCalendarEvent } from '@/shared/utils/calendar';
 import type { Tables } from '@altitutor/shared';
-import { studentBtnOutline } from '@/shared/lib/student-visual';
+import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visual';
+import { ChangeSessionDialog } from '@/features/bookings/components/ChangeSessionDialog';
+import { CancelBookingDialog } from '@/features/bookings/components/CancelBookingDialog';
+import { useMinAdvanceBookingDays } from '@/features/bookings/hooks/useBookingSettings';
+import { isWithinMinAdvanceThreshold } from '@/features/bookings/lib/public-booking-threshold';
 
 // Dynamically import VenueMap to avoid SSR issues with Leaflet
 const VenueMap = dynamic(() => import('@/shared/components/VenueMap').then(mod => ({ default: mod.VenueMap })), {
@@ -21,7 +25,10 @@ const VenueMap = dynamic(() => import('@/shared/components/VenueMap').then(mod =
 
 interface BookingData {
   session_id: string;
+  booking_token?: string | null;
+  is_terminal?: boolean;
   session_type?: string;
+  status?: string;
   start_at: string;
   end_at: string;
   student_first_name: string;
@@ -34,10 +41,21 @@ interface BookingData {
   subjects?: Tables<'subjects'>[];
 }
 
+function isPublicBookingType(
+  sessionType: string | undefined
+): sessionType is 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' {
+  return sessionType === 'TRIAL_SESSION' || sessionType === 'SUBSIDY_INTERVIEW';
+}
+
 export default function BookingSuccessPage() {
   const searchParams = useSearchParams();
+  const publicBookingIdentifier = searchParams.get('sessionId');
   const [bookingData, setBookingData] = useState<BookingData | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const { data: minAdvanceDays = 1 } = useMinAdvanceBookingDays();
 
   useEffect(() => {
     const sessionId = searchParams.get('sessionId');
@@ -47,10 +65,10 @@ export default function BookingSuccessPage() {
     
     if (storedData) {
       try {
-        const parsed = JSON.parse(storedData);
+        const parsed = JSON.parse(storedData) as BookingData;
         // Verify sessionId matches if provided
-        if (!sessionId || parsed.session_id === sessionId) {
-          setBookingData(parsed);
+        if (!sessionId || parsed.session_id === sessionId || parsed.booking_token === sessionId) {
+          setBookingData({ ...parsed, status: parsed.status ?? 'ACTIVE' });
           setIsLoading(false);
           // Clear the stored data after reading
           sessionStorage.removeItem('trial_booking_data');
@@ -66,17 +84,18 @@ export default function BookingSuccessPage() {
       fetch(`/api/bookings/trial/${sessionId}`)
         .then(async (response) => {
           if (!response.ok) {
+            const payload = await response.json().catch(() => null) as { error?: string } | null;
             if (response.status === 404) {
               throw new Error('Session not found');
             }
-            throw new Error('Failed to fetch booking data');
+            throw new Error(payload?.error || 'Failed to fetch booking data');
           }
           const data = await response.json();
           setBookingData(data);
         })
         .catch((error) => {
           console.error('Failed to fetch booking data:', error);
-          // Keep loading state false to show error message
+          setLoadError(error instanceof Error ? error.message : 'Unable to load booking details.');
         })
         .finally(() => {
           setIsLoading(false);
@@ -96,6 +115,20 @@ export default function BookingSuccessPage() {
     return date;
   }, [bookingData]);
 
+  const isCancelled = bookingData?.status === 'INACTIVE';
+  const canManage =
+    !!bookingData &&
+    !isCancelled &&
+    !bookingData.is_terminal &&
+    isPublicBookingType(bookingData.session_type) &&
+    !isWithinMinAdvanceThreshold(bookingData.start_at, minAdvanceDays);
+  const thresholdBlocksManage =
+    !!bookingData &&
+    !isCancelled &&
+    !bookingData.is_terminal &&
+    isPublicBookingType(bookingData.session_type) &&
+    isWithinMinAdvanceThreshold(bookingData.start_at, minAdvanceDays);
+
   if (isLoading) {
     return (
       <div className="container max-w-6xl py-8">
@@ -113,7 +146,7 @@ export default function BookingSuccessPage() {
       <div className="container max-w-6xl py-8">
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
-            <p className="text-muted-foreground">Unable to load booking details.</p>
+            <p className="text-muted-foreground">{loadError || 'Unable to load booking details.'}</p>
             <p className="text-sm text-muted-foreground mt-2">
               If you just completed a booking, please check your email for confirmation.
             </p>
@@ -125,6 +158,7 @@ export default function BookingSuccessPage() {
 
   const sessionStart = parseISO(bookingData.start_at);
   const sessionEnd = parseISO(bookingData.end_at);
+  const isCompleted = bookingData.is_terminal && !isCancelled;
 
   const durationMinutes = differenceInMinutes(sessionEnd, sessionStart);
   const durationHours = Math.floor(durationMinutes / 60);
@@ -158,19 +192,72 @@ export default function BookingSuccessPage() {
   const top = Math.max(0, (minutesFromStart(sessionStart) / 60) * slotHeight);
   const height = Math.max(45, (durationMinutes / 60) * slotHeight);
 
+  const sessionTypeLabel = bookingData.session_type
+    ? formatSessionType(bookingData.session_type).toLowerCase()
+    : 'session';
+
   return (
     <div className="container max-w-6xl py-8">
       <div className="mb-6 text-center">
-        <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/20 mb-4">
-          <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+        <div
+          className={cn(
+            'inline-flex items-center justify-center w-16 h-16 rounded-full mb-4',
+            isCancelled
+              ? 'bg-muted'
+              : 'bg-green-100 dark:bg-green-900/20'
+          )}
+        >
+          {isCancelled || isCompleted ? (
+            <XCircle className="h-8 w-8 text-muted-foreground" />
+          ) : (
+            <Check className="h-8 w-8 text-green-600 dark:text-green-400" />
+          )}
         </div>
-        <h1 className="text-3xl font-bold mb-2">Booking Confirmed!</h1>
+        <h1 className="text-3xl font-bold mb-2">
+          {isCancelled ? 'Booking Cancelled' : isCompleted ? 'Session Completed' : 'Booking Confirmed!'}
+        </h1>
         <p className="text-muted-foreground">
-          {bookingData.session_type 
-            ? `Your ${formatSessionType(bookingData.session_type).toLowerCase()} has been successfully booked`
-            : 'Your session has been successfully booked'}
+          {isCancelled
+            ? `Your ${sessionTypeLabel} has been cancelled`
+            : isCompleted
+              ? `Your ${sessionTypeLabel} has been completed`
+            : bookingData.session_type
+              ? `Your ${sessionTypeLabel} has been successfully booked`
+              : 'Your session has been successfully booked'}
         </p>
       </div>
+
+      {isPublicBookingType(bookingData.session_type) && !isCancelled && (
+        <div className="mb-6 flex flex-col items-center gap-3 sm:flex-row sm:justify-center">
+          <Button
+            type="button"
+            className={studentBtnPrimary}
+            disabled={!canManage}
+            onClick={() => setChangeOpen(true)}
+          >
+            <CalendarClock className="h-4 w-4 mr-2" />
+            Change session
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className={studentBtnOutline}
+            disabled={!canManage}
+            onClick={() => setCancelOpen(true)}
+          >
+            <XCircle className="h-4 w-4 mr-2" />
+            Cancel booking
+          </Button>
+        </div>
+      )}
+
+      {thresholdBlocksManage && (
+        <p className="mb-6 text-center text-sm text-muted-foreground">
+          Changes and cancellations must be made at least{' '}
+          {minAdvanceDays} day{minAdvanceDays === 1 ? '' : 's'} before the session.
+          Please contact Altitutor if you need help.
+        </p>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left Column: Booking Details */}
@@ -186,22 +273,30 @@ export default function BookingSuccessPage() {
                   <div className="text-sm">
                     {bookingData.student_first_name} {bookingData.student_last_name}
                   </div>
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Email:</div>
-                  <div className="text-sm">{bookingData.student_email}</div>
-                  
-                  {bookingData.student_phone && (
+
+                  {!bookingData.is_terminal && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Email:</div>
+                      <div className="text-sm">{bookingData.student_email}</div>
+                    </>
+                  )}
+
+                  {!bookingData.is_terminal && bookingData.student_phone && (
                     <>
                       <div className="text-sm font-medium text-muted-foreground">Phone:</div>
                       <div className="text-sm">{bookingData.student_phone}</div>
                     </>
                   )}
-                  
-                  <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
-                  <div className="text-sm">
-                    {bookingData.curriculum}
-                    {bookingData.year_level && ` - Year ${bookingData.year_level === 'Reception' || bookingData.year_level === 0 ? 'Reception' : bookingData.year_level}`}
-                  </div>
+
+                  {!bookingData.is_terminal && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Curriculum:</div>
+                      <div className="text-sm">
+                        {bookingData.curriculum}
+                        {bookingData.year_level && ` - Year ${bookingData.year_level === 'Reception' || bookingData.year_level === 0 ? 'Reception' : bookingData.year_level}`}
+                      </div>
+                    </>
+                  )}
                   
                   {bookingData.subjects && bookingData.subjects.length > 0 && (
                     <>
@@ -244,6 +339,13 @@ export default function BookingSuccessPage() {
                   
                   <div className="text-sm font-medium text-muted-foreground">Duration:</div>
                   <div className="text-sm">{durationDisplay}</div>
+
+                  {isCancelled && (
+                    <>
+                      <div className="text-sm font-medium text-muted-foreground">Status:</div>
+                      <div className="text-sm text-muted-foreground">Cancelled</div>
+                    </>
+                  )}
                 </div>
               </div>
             </CardContent>
@@ -268,115 +370,153 @@ export default function BookingSuccessPage() {
           </Card>
         </div>
 
-        {/* Right Column: Calendar */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <CardTitle>Calendar</CardTitle>
-              <Button
-                onClick={() => downloadCalendarEvent(bookingData)}
-                variant="outline"
-                size="sm"
-                className={studentBtnOutline}
-              >
-                <Calendar className="h-4 w-4 mr-2" />
-                Add to Calendar
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="flex-1 overflow-auto relative border rounded-lg">
-              <div
-                className="grid gap-0 min-h-full relative bg-background"
-                style={{ gridTemplateColumns: `minmax(80px, 100px) minmax(150px, 1fr)` }}
-              >
-                {/* Headers */}
-                <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">
-                  Time
-                </div>
-                <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm">
-                  {format(sessionDate, 'EEE dd MMM')}
-                </div>
-
-                {/* Rows */}
-                {slots.map((hour, idx) => (
-                  <div key={hour} className="contents">
-                    <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
-                      {format(new Date(2000, 0, 1, hour, 0), 'h a')}
-                    </div>
-                    <div className="relative border-b border-r h-[75px] bg-background">
-                      {idx === 0 && (
-                        <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
-                          <div
-                            className="absolute bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 p-2 rounded shadow-md border-2 border-green-300 dark:border-green-700"
-                            style={{
-                              top: `${top}px`,
-                              height: `${height}px`,
-                              left: '2.5%',
-                              width: '95%',
-                              zIndex: 20,
-                              minHeight: '45px',
-                            }}
-                          >
-                            <div className="text-xs font-semibold mb-1">
-                              {bookingData.session_type 
-                                ? formatSessionType(bookingData.session_type)
-                                : 'Session'}
-                            </div>
-                            <div className="text-xs">
-                              {format(sessionStart, 'h:mm a')} - {format(sessionEnd, 'h:mm a')}
-                            </div>
-                            {bookingData.subjects && bookingData.subjects.length > 0 && (
-                              <div className="text-xs mt-1 opacity-80">
-                                {bookingData.subjects.map(s => formatSubjectDisplay(s)).join(', ')}
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+        {/* Right Column: Calendar & Contact */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <CardTitle>Calendar</CardTitle>
+                {!isCancelled && (
+                  <Button
+                    onClick={() => downloadCalendarEvent(bookingData)}
+                    variant="outline"
+                    size="sm"
+                    className={studentBtnOutline}
+                  >
+                    <Calendar className="h-4 w-4 mr-2" />
+                    Add to Calendar
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="flex-1 overflow-auto relative border rounded-lg">
+                <div
+                  className="grid gap-0 min-h-full relative bg-background"
+                  style={{ gridTemplateColumns: `minmax(80px, 100px) minmax(150px, 1fr)` }}
+                >
+                  {/* Headers */}
+                  <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-xs">
+                    Time
                   </div>
-                ))}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
+                  <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r text-sm">
+                    {format(sessionDate, 'EEE dd MMM')}
+                  </div>
 
-      {/* Contact Altitutor Card */}
-      <div className="mt-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Phone className="h-5 w-5" />
-              Contact Altitutor
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="flex items-center gap-3">
-                <Phone className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Phone</p>
-                  <a href={`tel:${CONTACT_PHONE}`} className="text-sm text-muted-foreground hover:underline">
-                    {CONTACT_PHONE}
-                  </a>
+                  {/* Rows */}
+                  {slots.map((hour, idx) => (
+                    <div key={hour} className="contents">
+                      <div className="sticky left-0 z-10 p-2 text-sm bg-muted/30 border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
+                        {format(new Date(2000, 0, 1, hour, 0), 'h a')}
+                      </div>
+                      <div className="relative border-b border-r h-[75px] bg-background">
+                        {idx === 0 && (
+                          <div className="absolute inset-0" style={{ height: `${slots.length * slotHeight}px` }}>
+                            <div
+                              className={cn(
+                                'absolute p-2 rounded shadow-md border-2',
+                                isCancelled
+                                  ? 'bg-muted text-muted-foreground border-border'
+                                  : 'bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-200 border-green-300 dark:border-green-700'
+                              )}
+                              style={{
+                                top: `${top}px`,
+                                height: `${height}px`,
+                                left: '2.5%',
+                                width: '95%',
+                                zIndex: 20,
+                                minHeight: '45px',
+                              }}
+                            >
+                              <div className="text-xs font-semibold mb-1">
+                                {bookingData.session_type
+                                  ? formatSessionType(bookingData.session_type)
+                                  : 'Session'}
+                                {isCancelled ? ' (Cancelled)' : ''}
+                              </div>
+                              <div className="text-xs">
+                                {format(sessionStart, 'h:mm a')} - {format(sessionEnd, 'h:mm a')}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-              <div className="flex items-center gap-3">
-                <Mail className="h-5 w-5 text-muted-foreground" />
-                <div>
-                  <p className="text-sm font-medium">Email</p>
-                  <a href={`mailto:${CONTACT_EMAIL}`} className="text-sm text-muted-foreground hover:underline">
-                    {CONTACT_EMAIL}
-                  </a>
+            </CardContent>
+          </Card>
+
+          {/* Contact Altitutor Card */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Phone className="h-5 w-5" />
+                Contact Altitutor
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center gap-3">
+                  <Phone className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Phone</p>
+                    <a href={`tel:${CONTACT_PHONE}`} className="text-sm text-muted-foreground hover:underline">
+                      {CONTACT_PHONE}
+                    </a>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <Mail className="h-5 w-5 text-muted-foreground" />
+                  <div>
+                    <p className="text-sm font-medium">Email</p>
+                    <a href={`mailto:${CONTACT_EMAIL}`} className="text-sm text-muted-foreground hover:underline">
+                      {CONTACT_EMAIL}
+                    </a>
+                  </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       </div>
 
+      {isPublicBookingType(bookingData.session_type) && (
+        <>
+          <ChangeSessionDialog
+            open={changeOpen}
+            onOpenChange={setChangeOpen}
+            sessionId={publicBookingIdentifier ?? bookingData.session_id}
+            sessionType={bookingData.session_type}
+            currentStartAt={bookingData.start_at}
+            currentEndAt={bookingData.end_at}
+            onChanged={({ start_at, end_at }) => {
+              setBookingData((prev) =>
+                prev
+                  ? {
+                      ...prev,
+                      start_at,
+                      end_at,
+                      status: 'ACTIVE',
+                    }
+                  : prev
+              );
+            }}
+          />
+          <CancelBookingDialog
+            open={cancelOpen}
+            onOpenChange={setCancelOpen}
+            sessionId={publicBookingIdentifier ?? bookingData.session_id}
+            sessionLabel={sessionTypeLabel}
+            onCancelled={() => {
+              setBookingData((prev) =>
+                prev ? { ...prev, status: 'INACTIVE' } : prev
+              );
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }

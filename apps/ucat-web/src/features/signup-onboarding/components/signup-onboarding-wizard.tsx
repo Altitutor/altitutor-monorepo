@@ -1,131 +1,214 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useQueryClient } from "@tanstack/react-query";
-import { MARKETING_TOKENS } from "@altitutor/shared";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@altitutor/ui";
+  MARKETING_TOKENS,
+  readUcatObservedFirstTouchCookie,
+  type UcatAcquisitionSource,
+} from "@altitutor/shared";
 import { motion, useReducedMotion } from "motion/react";
 import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import { SignupStepIndicator } from "@/features/signup-onboarding/components/signup-step-indicator";
-import { patchSignupProgress } from "@/features/signup-onboarding/api/signup-progress";
-import { markSignupOnboardingTourPending, markSignupJustCompleted } from "@/features/signup-onboarding/lib/signup-tour-flag";
 import {
-  DEFAULT_TARGET_SCORE,
-  LOW_TARGET_SCORE_THRESHOLD,
-  MAX_TARGET_SCORE,
-  MIN_TARGET_SCORE,
-  SIGNUP_STEP,
-  snapTargetScore,
-  TARGET_SCORE_STEP,
-  ucatTestDateBounds,
-  ucatTestYearOptions,
-  validateTargetScoreValue,
-} from "@/features/signup-onboarding/lib/steps";
-import type { SignupOnboardingInitial, SignupOnboardingStep } from "@/features/signup-onboarding/types";
+  fetchSignupProgress,
+  patchSignupProgress,
+} from "@/features/signup-onboarding/api/signup-progress";
+import { markSignupJustCompleted } from "@/features/signup-onboarding/lib/signup-tour-flag";
+import { SIGNUP_STEP } from "@/features/signup-onboarding/lib/steps";
+import type {
+  SignupOnboardingInitial,
+  SignupOnboardingStep,
+} from "@/features/signup-onboarding/types";
 import { SignupCompleteDetailsStep } from "@/features/signup-onboarding/components/steps/details-step";
 import { SignupCompletePasswordStep } from "@/features/signup-onboarding/components/steps/password-step";
+import { SignupCompleteAcquisitionSourceStep } from "@/features/signup-onboarding/components/steps/acquisition-source-step";
+import {
+  SignupCompleteSamplerStep,
+  type UcatFamiliarity,
+} from "@/features/signup-onboarding/components/steps/sampler-step";
 import { SignupCompletePlanStep } from "@/features/signup-onboarding/components/steps/plan-step";
-import { patchStudyPlannerSettings } from "@/features/signup-onboarding/api/study-planner-settings";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
-import { useSections } from "@/features/progress/hooks/use-sections";
 import { NoiseOverlay } from "@/features/landing/components/marketing/noise-overlay";
+import { ThemeToggle } from "@/components/theme/theme-toggle";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
+import { parseSignupPlanIntent } from "@/features/auth/lib/signup-plan-intent";
+import {
+  SignupSuccessTransition,
+  type SignupSuccessJourney,
+  type SignupSuccessTransitionPhase,
+} from "@/features/signup-onboarding/components/signup-success-transition";
+import { fetchReferralGifts } from "@/features/subscription/api/referral-gifts";
+import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
+import { UCAT_GUIDED_SAMPLER_DECIDED } from "@/features/onboarding/lib/activation-milestones";
+import { navigateAfterAuth } from "@/features/auth/lib/navigate-after-auth";
+import {
+  pathWithReturnIntent,
+  safePostAuthReturnPath,
+} from "@/features/auth/lib/return-intent";
+import {
+  clearPasswordAuthHandoff,
+  hasPasswordAuthHandoff,
+} from "@/features/auth/lib/password-auth-handoff";
 
 const { typography: typo } = MARKETING_TOKENS;
+
+function PlanChoiceHandoff({
+  journey,
+  phase,
+  takingLonger,
+  error,
+  onRetry,
+  onComplete,
+}: {
+  journey: SignupSuccessJourney;
+  phase: SignupSuccessTransitionPhase;
+  takingLonger: boolean;
+  error: string | null;
+  onRetry: () => void;
+  onComplete: () => void;
+}) {
+  return (
+    <SignupSuccessTransition
+      journey={journey}
+      occasion="signup"
+      phase={phase}
+      isTakingLonger={takingLonger}
+      error={error}
+      onRetry={onRetry}
+      onComplete={onComplete}
+      preloadDashboard
+    />
+  );
+}
+
+const PLAN_HANDOFF_MINIMUM_MS = 2_400;
 
 type SignupOnboardingWizardProps = {
   initial: SignupOnboardingInitial;
 };
 
-function stepHeading(step: SignupOnboardingStep): { kicker: string; title: string; desc: string } {
+function stepHeading(
+  step: SignupOnboardingStep,
+  hasGift: boolean,
+): {
+  kicker: string;
+  title: string;
+  desc: string;
+} {
   switch (step) {
     case SIGNUP_STEP.DETAILS:
       return {
-        kicker: "Step 1 of 4",
+        kicker: "Step 1 of 5",
         title: "Your details",
         desc: "Tell us a bit about yourself to personalise your experience.",
       };
     case SIGNUP_STEP.PASSWORD:
       return {
-        kicker: "Step 2 of 4",
+        kicker: "Step 2 of 5",
         title: "Set your password",
         desc: "Choose a strong password to secure your account.",
       };
+    case SIGNUP_STEP.ACQUISITION_SOURCE:
+      return {
+        kicker: "Step 3 of 5",
+        title: "How did you first hear about us?",
+        desc: "This helps us understand which communities and recommendations are genuinely useful.",
+      };
     case SIGNUP_STEP.PLAN:
       return {
-        kicker: "Step 3 of 4",
-        title: "Choose your plan",
-        desc: "Start free or unlock unlimited access.",
+        kicker: "Step 5 of 5",
+        title: hasGift ? "Your gift is ready" : "Choose how to continue",
+        desc: hasGift
+          ? "Accept your gift or continue with UCAT Free."
+          : "Start with UCAT Free or unlock unlimited access.",
       };
-    case SIGNUP_STEP.TEST_DETAILS:
+    case SIGNUP_STEP.SAMPLER:
       return {
-        kicker: "Step 4 of 4",
-        title: "UCAT test details",
-        desc: "When are you sitting UCAT? This helps us personalise your study plan.",
-      };
-    case SIGNUP_STEP.TARGET_SCORES:
-      return {
-        kicker: "Step 4 of 4",
-        title: "Set your target scores",
-        desc: "Optional targets for sections 1–3. You can change these later in settings.",
+        kicker: "Step 4 of 5",
+        title: "Let’s get you ready for your first UCAT session",
+        desc: "Answer two questions from every section while we show you the exam controls. About 6 minutes.",
       };
     default:
       return { kicker: "", title: "", desc: "" };
   }
 }
 
-export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps) {
+export function SignupOnboardingWizard({
+  initial,
+}: SignupOnboardingWizardProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryClient = useQueryClient();
   const access = useUcatAccess();
-  const sections = useSections();
+  const { refetch: refetchOnboardingProgress } = useOnboardingProgress();
   const reduceMotion = useReducedMotion();
   const supabase = useMemo(() => getSupabaseBrowserClient(), []);
+  const [passwordAlreadyAuthenticated, setPasswordAlreadyAuthenticated] =
+    useState(false);
 
-  const [step, setStep] = useState<SignupOnboardingStep>(initial.step);
+  const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
+  const planIntent = useMemo(() => parseSignupPlanIntent(returnTo), [returnTo]);
+  const checkoutStatus = searchParams.get("checkout");
+  const checkoutReturnedSuccessfully = checkoutStatus === "success";
+  const samplerReturnedComplete = searchParams.get("sampler") === "complete";
+
+  useEffect(() => {
+    setPasswordAlreadyAuthenticated(hasPasswordAuthHandoff(initial.userId));
+  }, [initial.userId]);
+  const giftQuery = useQuery({
+    queryKey: ["ucat-referral-gifts"],
+    queryFn: fetchReferralGifts,
+  });
+
+  const [step, setStep] = useState<SignupOnboardingStep>(() =>
+    checkoutStatus === "canceled" || samplerReturnedComplete
+      ? SIGNUP_STEP.PLAN
+      : initial.step,
+  );
   const [direction, setDirection] = useState(1);
-  const [checkoutConfirming, setCheckoutConfirming] = useState(false);
-  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(null);
+  const [signupSuccessJourney, setSignupSuccessJourney] =
+    useState<SignupSuccessJourney | null>(() =>
+      checkoutReturnedSuccessfully ? "paid" : null,
+    );
+  const [signupSuccessPhase, setSignupSuccessPhase] =
+    useState<SignupSuccessTransitionPhase | null>(() =>
+      checkoutReturnedSuccessfully ? "confirming" : null,
+    );
+  const [signupSuccessTakingLonger, setSignupSuccessTakingLonger] =
+    useState(false);
+  const [signupSuccessError, setSignupSuccessError] = useState<string | null>(
+    null,
+  );
+  const [checkoutConfirmationAttempt, setCheckoutConfirmationAttempt] =
+    useState(0);
+  const [checkoutMessage, setCheckoutMessage] = useState<string | null>(() =>
+    checkoutStatus === "canceled"
+      ? "Checkout cancelled. Pick a plan or continue on Free."
+      : null,
+  );
+  const paidSignupCompletionStarted = useRef(false);
+  const postCompleteNavigationStarted = useRef(false);
+  const passwordSkipInFlight = useRef(false);
+  const planHandoffStartedAt = useRef<number | null>(
+    checkoutReturnedSuccessfully ? Date.now() : null,
+  );
+  const [details, setDetails] = useState({
+    email: initial.email,
+    pendingEmail: "",
+    firstName: initial.firstName,
+    lastName: initial.lastName,
+    phone: initial.phone,
+  });
+  const [familiarity, setFamiliarity] = useState<UcatFamiliarity | null>(null);
+  const [acquisitionSources, setAcquisitionSources] = useState<
+    UcatAcquisitionSource[]
+  >([]);
+  const [acquisitionOther, setAcquisitionOther] = useState("");
 
-  const [testYear, setTestYear] = useState<number | null>(initial.testYear);
-  const [testDate, setTestDate] = useState(initial.testDate ?? "");
-  const [dateUnsure, setDateUnsure] = useState(false);
-
-  const [s1, setS1] = useState(String(initial.targetScores.s1 ?? DEFAULT_TARGET_SCORE));
-  const [s2, setS2] = useState(String(initial.targetScores.s2 ?? DEFAULT_TARGET_SCORE));
-  const [s3, setS3] = useState(String(initial.targetScores.s3 ?? DEFAULT_TARGET_SCORE));
-  const [lowScoreDialogOpen, setLowScoreDialogOpen] = useState(false);
-
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-
-  const yearOptions = useMemo(() => ucatTestYearOptions(), []);
-
-  const sectionNames = useMemo(() => {
-    const byNumber = new Map<number, string>();
-    for (const section of sections.data ?? []) {
-      if (section.sectionNumber >= 1 && section.sectionNumber <= 3) {
-        byNumber.set(section.sectionNumber, section.name);
-      }
-    }
-    return {
-      s1: byNumber.get(1) ?? "Section 1",
-      s2: byNumber.get(2) ?? "Section 2",
-      s3: byNumber.get(3) ?? "Section 3",
-    };
-  }, [sections.data]);
 
   const goToStep = (next: SignupOnboardingStep, dir: number) => {
     setDirection(dir);
@@ -133,190 +216,286 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
     setError(null);
   };
 
-  const navigateAfterSignupComplete = async () => {
-    markSignupOnboardingTourPending();
+  const navigateAfterSignupComplete = useCallback(async () => {
+    if (postCompleteNavigationStarted.current) return;
+    postCompleteNavigationStarted.current = true;
     markSignupJustCompleted();
     await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     await queryClient.refetchQueries({ queryKey: ["ucat-access"] });
-    router.replace("/dashboard");
-  };
-
-  const handleTargetBlur = (value: string, setter: (next: string) => void) => {
-    if (!value.trim()) return;
-    const num = Number(value);
-    if (!Number.isFinite(num)) return;
-    setter(String(snapTargetScore(num)));
-  };
-
-  const totalTarget = useMemo(() => {
-    const vals = [s1, s2, s3].map((v) => (v.trim() ? Number(v) : 0));
-    if (vals.some((v) => !Number.isFinite(v))) return null;
-    return vals.reduce((a, b) => a + b, 0);
-  }, [s1, s2, s3]);
-
-  const showLowScoreWarning =
-    totalTarget !== null && totalTarget > 0 && totalTarget < LOW_TARGET_SCORE_THRESHOLD;
-
-  useEffect(() => {
-    const checkout = searchParams.get("checkout");
-    if (checkout === "canceled") {
-      setCheckoutMessage("Checkout cancelled — pick a plan or continue on Free.");
-      goToStep(SIGNUP_STEP.PLAN, -1);
-      router.replace("/signup/complete");
+    const refreshedProgress = await refetchOnboardingProgress();
+    if (!refreshedProgress.data?.[UCAT_GUIDED_SAMPLER_DECIDED]?.completed_at) {
+      router.replace(
+        pathWithReturnIntent("/signup/complete/sampler", returnTo, {
+          afterPlan: "1",
+          activation: "1",
+        }),
+      );
       return;
     }
-    if (checkout !== "success") return;
+    if (planHandoffStartedAt.current != null) {
+      const elapsed = Date.now() - planHandoffStartedAt.current;
+      const remaining = Math.max(0, PLAN_HANDOFF_MINIMUM_MS - elapsed);
+      if (remaining > 0) {
+        await new Promise((resolve) => window.setTimeout(resolve, remaining));
+      }
+    }
+    setSignupSuccessPhase("welcome");
+  }, [queryClient, refetchOnboardingProgress, returnTo, router]);
 
-    setCheckoutConfirming(true);
+  const completeFreeSignup = useCallback(async () => {
+    try {
+      await patchSignupProgress({ complete: true });
+      setSignupSuccessError(null);
+      postCompleteNavigationStarted.current = false;
+      await navigateAfterSignupComplete();
+    } catch (e) {
+      postCompleteNavigationStarted.current = false;
+      setSignupSuccessError(
+        e instanceof Error ? e.message : "Please try again.",
+      );
+    }
+  }, [navigateAfterSignupComplete]);
+
+  const completePaidSignup = useCallback(
+    async () => {
+      try {
+        await patchSignupProgress({ planComplete: true });
+        await patchSignupProgress({ complete: true });
+
+        setSignupSuccessError(null);
+        postCompleteNavigationStarted.current = false;
+        await navigateAfterSignupComplete();
+      } catch (e) {
+        paidSignupCompletionStarted.current = false;
+        postCompleteNavigationStarted.current = false;
+        setSignupSuccessError(
+          e instanceof Error ? e.message : "Please try again.",
+        );
+      }
+    },
+    [navigateAfterSignupComplete],
+  );
+
+  // App Router client cache can remount this page with a stale RSC `initial.step`
+  // (e.g. password) after the user had already advanced client-side to plan.
+  useEffect(() => {
+    if (checkoutReturnedSuccessfully || signupSuccessPhase) return;
+
+    let cancelled = false;
+    void fetchSignupProgress()
+      .then((progress) => {
+        if (cancelled) return;
+        if (progress.signupCompleted) {
+          void navigateAfterSignupComplete();
+          return;
+        }
+        setStep((current) =>
+          progress.step > current ? progress.step : current,
+        );
+      })
+      .catch(() => {
+        // Keep server-rendered initial step if progress fetch fails.
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    checkoutReturnedSuccessfully,
+    navigateAfterSignupComplete,
+    signupSuccessPhase,
+  ]);
+
+  useEffect(() => {
+    if (checkoutStatus === "canceled") {
+      setCheckoutMessage(
+        "Checkout cancelled. Pick a plan or continue on Free.",
+      );
+      goToStep(SIGNUP_STEP.PLAN, -1);
+      router.replace(pathWithReturnIntent("/signup/complete", returnTo));
+      return;
+    }
+    if (!checkoutReturnedSuccessfully || signupSuccessPhase !== "confirming") {
+      return;
+    }
+
+    router.prefetch("/dashboard");
+    router.prefetch("/signup/complete/sampler?afterPlan=1");
+    setSignupSuccessJourney("paid");
+    setSignupSuccessPhase((current) => current ?? "confirming");
     let attempts = 0;
+    void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
     const timer = window.setInterval(() => {
       attempts += 1;
       void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
-      if (attempts >= 15) {
-        window.clearInterval(timer);
-        setCheckoutConfirming(false);
-        setCheckoutMessage(
-          "We are still confirming your subscription. Please wait a moment and refresh.",
-        );
+      if (attempts >= 12) {
+        setSignupSuccessTakingLonger(true);
       }
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [searchParams, queryClient, router]);
+  }, [
+    checkoutReturnedSuccessfully,
+    checkoutStatus,
+    returnTo,
+    signupSuccessPhase,
+    queryClient,
+    router,
+  ]);
 
   useEffect(() => {
-    if (!checkoutConfirming || access.isLoading) return;
-    const isPaid =
-      access.onlineTier === "unlimited" ||
-      access.onlineTier === "unlimited_trial" ||
-      access.onlineTier === "pro";
-    if (!isPaid) return;
-
-    void (async () => {
-      try {
-        await patchSignupProgress({ planComplete: true });
-        await queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
-        setCheckoutConfirming(false);
-        goToStep(SIGNUP_STEP.TEST_DETAILS, 1);
-        router.replace("/signup/complete");
-      } catch (e) {
-        setCheckoutConfirming(false);
-        setError(e instanceof Error ? e.message : "Failed to confirm plan");
-      }
-    })();
-  }, [checkoutConfirming, access.isLoading, access.onlineTier, queryClient, router]);
-
-  const finishOnboarding = async (saveTargets: boolean) => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      if (saveTargets) {
-        for (const value of [s1, s2, s3]) {
-          const validationError = validateTargetScoreValue(value);
-          if (validationError) {
-            setError(validationError);
-            return;
-          }
-        }
-        const parsed = [s1, s2, s3].map((value) =>
-          value.trim() ? snapTargetScore(Number(value)) : null,
-        );
-        await patchStudyPlannerSettings({
-          targetScores: { s1: parsed[0], s2: parsed[1], s3: parsed[2] },
-        });
-      }
-      await patchSignupProgress({ complete: true });
-      await navigateAfterSignupComplete();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleSkipTestDetails = async () => {
-    setIsSubmitting(true);
-    setError(null);
-    try {
-      await patchSignupProgress({ complete: true });
-      await navigateAfterSignupComplete();
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Something went wrong.");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handleTestDetailsNext = async () => {
-    if (testYear == null) {
-      setError("Please select the year you expect to sit UCAT.");
+    if (
+      signupSuccessJourney !== "paid" ||
+      signupSuccessPhase !== "confirming" ||
+      access.isLoading ||
+      paidSignupCompletionStarted.current
+    ) {
       return;
     }
-    setIsSubmitting(true);
+    const isPaid =
+      access.onlineTier === "unlimited" ||
+      access.onlineTier === "unlimited_trial";
+    if (!isPaid) return;
+
+    paidSignupCompletionStarted.current = true;
+    void completePaidSignup();
+  }, [
+    signupSuccessJourney,
+    signupSuccessPhase,
+    checkoutConfirmationAttempt,
+    access.isLoading,
+    access.onlineTier,
+    completePaidSignup,
+    navigateAfterSignupComplete,
+  ]);
+
+  const goToDashboard = useCallback(() => {
+    // Soft router.replace races middleware when the access view briefly
+    // reports incomplete → /dashboard ↔ /signup/complete soft-nav storm.
+    navigateAfterAuth("/dashboard");
+  }, []);
+
+  const finishOnboarding = () => {
     setError(null);
-    try {
-      const dateToSave = dateUnsure || !testDate.trim() ? null : testDate.trim();
-      if (dateToSave) {
-        const bounds = ucatTestDateBounds(testYear);
-        if (dateToSave < bounds.min || dateToSave > bounds.max) {
-          setError(`Test date must be between ${bounds.min} and ${bounds.max}.`);
-          return;
-        }
-      }
-      await patchSignupProgress({ testYear, step: SIGNUP_STEP.TARGET_SCORES });
-      await patchStudyPlannerSettings({
-        testYear,
-        testDate: dateToSave,
-      });
-      goToStep(SIGNUP_STEP.TARGET_SCORES, 1);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Failed to save test details.");
-    } finally {
-      setIsSubmitting(false);
-    }
+    router.prefetch(returnTo);
+    setSignupSuccessJourney("free");
+    planHandoffStartedAt.current = Date.now();
+    setSignupSuccessTakingLonger(false);
+    setSignupSuccessError(null);
+    setSignupSuccessPhase("confirming");
+    void completeFreeSignup();
+  };
+
+  const finishPaidOnboarding = () => {
+    setError(null);
+    router.prefetch(returnTo);
+    setSignupSuccessJourney("paid");
+    planHandoffStartedAt.current = Date.now();
+    setSignupSuccessTakingLonger(false);
+    setSignupSuccessError(null);
+    setSignupSuccessPhase("confirming");
+    paidSignupCompletionStarted.current = true;
+    void completePaidSignup();
   };
 
   const handlePasswordComplete = async () => {
-    await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
-    goToStep(SIGNUP_STEP.PLAN, 1);
+    await patchSignupProgress({ step: SIGNUP_STEP.ACQUISITION_SOURCE });
+    goToStep(SIGNUP_STEP.ACQUISITION_SOURCE, 1);
   };
 
-  const handlePlanComplete = () => {
-    goToStep(SIGNUP_STEP.TEST_DETAILS, 1);
-  };
+  const handleAcquisitionComplete = async () => {
+    const observedFirstTouch = readUcatObservedFirstTouchCookie(
+      document.cookie,
+    );
+    await patchSignupProgress({
+      step: SIGNUP_STEP.SAMPLER,
+      acquisitionSources,
+      acquisitionOther: acquisitionOther.trim() || null,
+      observedFirstTouch,
+    });
 
-  const handleBegin = () => {
-    if (showLowScoreWarning) {
-      setLowScoreDialogOpen(true);
+    if (planIntent && giftQuery.isSuccess && !giftQuery.data.pendingGift) {
+      await patchSignupProgress({ step: SIGNUP_STEP.PLAN });
+      router.push(planIntent.checkoutPath);
       return;
     }
-    void finishOnboarding(true);
+    goToStep(SIGNUP_STEP.SAMPLER, 1);
   };
 
-  const heading = stepHeading(step);
-  const isWideStep = step === SIGNUP_STEP.PLAN;
+  const skipConfirmedPasswordStep = () => {
+    if (passwordSkipInFlight.current) return;
+    passwordSkipInFlight.current = true;
+    clearPasswordAuthHandoff();
+    setPasswordAlreadyAuthenticated(false);
+    void handlePasswordComplete();
+  };
 
-  if (checkoutConfirming) {
+  useEffect(() => {
+    if (passwordAlreadyAuthenticated && step === SIGNUP_STEP.PASSWORD) {
+      skipConfirmedPasswordStep();
+    }
+    if (passwordAlreadyAuthenticated && step > SIGNUP_STEP.PASSWORD) {
+      clearPasswordAuthHandoff();
+      setPasswordAlreadyAuthenticated(false);
+    }
+    // The step transition is intentionally driven only when these values change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [passwordAlreadyAuthenticated, step]);
+
+  const handlePlanComplete = () => {
+    finishOnboarding();
+  };
+
+  const handleCurrentPlanComplete = () => {
+    finishPaidOnboarding();
+  };
+
+  const pendingGift = giftQuery.data?.pendingGift ?? null;
+  const heading = stepHeading(step, Boolean(pendingGift));
+  const isWideStep = step === SIGNUP_STEP.PLAN || step === SIGNUP_STEP.SAMPLER;
+
+  if (signupSuccessJourney && signupSuccessPhase) {
     return (
-      <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
-        <NoiseOverlay />
-        <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
-          <p className={`text-marketing-cream/70 ${typo.secondarySans}`}>
-            Confirming your plan…
-          </p>
-        </main>
-      </div>
+      <PlanChoiceHandoff
+        journey={signupSuccessJourney}
+        phase={signupSuccessPhase}
+        takingLonger={signupSuccessTakingLonger}
+        error={signupSuccessError}
+        onRetry={() => {
+          setSignupSuccessError(null);
+          if (signupSuccessJourney === "free") {
+            void completeFreeSignup();
+            return;
+          }
+          if (checkoutReturnedSuccessfully) {
+            paidSignupCompletionStarted.current = false;
+            setSignupSuccessTakingLonger(false);
+            setCheckoutConfirmationAttempt((current) => current + 1);
+            void queryClient.invalidateQueries({ queryKey: ["ucat-access"] });
+          } else {
+            paidSignupCompletionStarted.current = true;
+            void completePaidSignup();
+          }
+        }}
+        onComplete={goToDashboard}
+      />
     );
   }
 
   return (
-    <div className="relative flex min-h-dvh flex-col bg-marketing-charcoal">
+    <div className="relative flex min-h-dvh flex-col bg-background text-foreground transition-colors">
       <NoiseOverlay />
+      <div className="fixed right-4 top-4 z-50 sm:right-6 sm:top-6">
+        <ThemeToggle />
+      </div>
 
       <main className="relative z-10 flex flex-1 flex-col items-center justify-center px-4 py-12">
         <motion.div
           layout={!reduceMotion}
-          transition={{ duration: reduceMotion ? 0 : 0.3, ease: [0.22, 1, 0.36, 1] }}
+          transition={{
+            duration: reduceMotion ? 0 : 0.3,
+            ease: [0.22, 1, 0.36, 1],
+          }}
           className={cn(
             "w-full transition-[max-width] duration-300",
             isWideStep ? "max-w-5xl" : "max-w-md",
@@ -328,16 +507,18 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
             <div className="space-y-6">
               <div>
                 <span
-                  className={`text-xs font-bold uppercase tracking-[0.2em] text-marketing-accent ${typo.dataMono}`}
+                  className={`text-xs font-bold uppercase tracking-[0.2em] text-primary dark:text-accent ${typo.dataMono}`}
                 >
                   {heading.kicker}
                 </span>
                 <h1
-                  className={`mt-2 text-3xl font-bold text-marketing-cream sm:text-4xl ${typo.headingSans}`}
+                  className={`mt-2 text-3xl font-bold text-foreground sm:text-4xl ${typo.headingSans}`}
                 >
                   {heading.title}
                 </h1>
-                <p className={`mt-2 text-marketing-cream/60 ${typo.secondarySans}`}>
+                <p
+                  className={`mt-2 text-muted-foreground ${typo.secondarySans}`}
+                >
                   {heading.desc}
                 </p>
               </div>
@@ -352,11 +533,18 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
 
               {step === SIGNUP_STEP.DETAILS ? (
                 <SignupCompleteDetailsStep
-                  email={initial.email}
-                  initialFirstName={initial.firstName}
-                  initialLastName={initial.lastName}
-                  initialPhone={initial.phone}
-                  onComplete={() => goToStep(SIGNUP_STEP.PASSWORD, 1)}
+                  confirmedEmail={initial.email}
+                  initialFirstName={details.firstName}
+                  initialLastName={details.lastName}
+                  initialPhone={details.phone}
+                  onComplete={(savedDetails) => {
+                    setDetails(savedDetails);
+                    if (passwordAlreadyAuthenticated) {
+                      skipConfirmedPasswordStep();
+                    } else {
+                      goToStep(SIGNUP_STEP.PASSWORD, 1);
+                    }
+                  }}
                   error={error}
                   setError={setError}
                 />
@@ -372,199 +560,38 @@ export function SignupOnboardingWizard({ initial }: SignupOnboardingWizardProps)
                 />
               ) : null}
 
+              {step === SIGNUP_STEP.ACQUISITION_SOURCE ? (
+                <SignupCompleteAcquisitionSourceStep
+                  selectedSources={acquisitionSources}
+                  otherSource={acquisitionOther}
+                  onSelectedSourcesChange={setAcquisitionSources}
+                  onOtherSourceChange={setAcquisitionOther}
+                  onComplete={handleAcquisitionComplete}
+                  error={error}
+                  setError={setError}
+                />
+              ) : null}
+
+              {step === SIGNUP_STEP.SAMPLER ? (
+                <SignupCompleteSamplerStep
+                  familiarity={familiarity}
+                  onFamiliarityChange={setFamiliarity}
+                  gift={pendingGift}
+                  returnTo={planIntent ? "/dashboard" : returnTo}
+                />
+              ) : null}
+
               {step === SIGNUP_STEP.PLAN ? (
-                <SignupCompletePlanStep onComplete={handlePlanComplete} />
-              ) : null}
-
-              {step === SIGNUP_STEP.TEST_DETAILS ? (
-                <div className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
-                  <fieldset className="space-y-3">
-                    <legend
-                      className={`text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
-                    >
-                      Which year will you sit UCAT?
-                    </legend>
-                    <div className="grid grid-cols-3 gap-2">
-                      {yearOptions.map((year) => (
-                        <button
-                          key={year}
-                          type="button"
-                          onClick={() => {
-                            setTestYear(year);
-                            setDateUnsure(false);
-                            if (testDate) {
-                              const y = testDate.slice(0, 4);
-                              if (y !== String(year)) setTestDate("");
-                            }
-                          }}
-                          className={cn(
-                            `rounded-xl border px-3 py-3 text-sm font-semibold transition-colors ${typo.secondarySans}`,
-                            testYear === year
-                              ? "border-marketing-accent/50 bg-marketing-accent/15 text-marketing-cream"
-                              : "border-white/10 bg-white/5 text-marketing-cream/70 hover:border-white/20",
-                          )}
-                        >
-                          {year}
-                        </button>
-                      ))}
-                    </div>
-                  </fieldset>
-
-                  {testYear != null ? (
-                    <div className="space-y-3">
-                      <label
-                        htmlFor="signup-test-date"
-                        className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
-                      >
-                        Test date{" "}
-                        <span className="text-marketing-cream/40">(optional)</span>
-                      </label>
-                      <input
-                        id="signup-test-date"
-                        type="date"
-                        min={ucatTestDateBounds(testYear).min}
-                        max={ucatTestDateBounds(testYear).max}
-                        value={testDate}
-                        disabled={dateUnsure || isSubmitting}
-                        onChange={(e) => {
-                          setTestDate(e.target.value);
-                          setDateUnsure(false);
-                        }}
-                        className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none focus:border-marketing-accent/50 disabled:opacity-40 ${typo.secondarySans}`}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDateUnsure((v) => !v);
-                          if (!dateUnsure) setTestDate("");
-                        }}
-                        className={`text-sm text-marketing-cream/50 underline-offset-4 hover:text-marketing-cream/80 hover:underline ${typo.secondarySans}`}
-                      >
-                        I&apos;m not sure yet
-                      </button>
-                    </div>
-                  ) : null}
-
-                  {error ? (
-                    <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void handleTestDetailsNext()}
-                    className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors hover:bg-marketing-accent/90 disabled:opacity-50 ${typo.headingSans}`}
-                  >
-                    {isSubmitting ? "Saving…" : "Next"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void handleSkipTestDetails()}
-                    className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-                  >
-                    Skip for now
-                  </button>
-                </div>
-              ) : null}
-
-              {step === SIGNUP_STEP.TARGET_SCORES ? (
-                <div className="space-y-4 rounded-3xl bg-white/5 p-8 ring-1 ring-white/10 backdrop-blur-sm">
-                  <div className="grid gap-3 sm:grid-cols-3">
-                    {(
-                      [
-                        ["s1", s1, setS1, sectionNames.s1],
-                        ["s2", s2, setS2, sectionNames.s2],
-                        ["s3", s3, setS3, sectionNames.s3],
-                      ] as const
-                    ).map(([key, value, setter, label]) => (
-                      <div key={key} className="space-y-1.5">
-                        <label
-                          htmlFor={`signup-target-${key}`}
-                          className={`block text-sm font-medium text-marketing-cream/80 ${typo.secondarySans}`}
-                        >
-                          {label}
-                        </label>
-                        <input
-                          id={`signup-target-${key}`}
-                          type="number"
-                          min={MIN_TARGET_SCORE}
-                          max={MAX_TARGET_SCORE}
-                          step={TARGET_SCORE_STEP}
-                          value={value}
-                          onChange={(e) => setter(e.target.value)}
-                          onBlur={() => handleTargetBlur(value, setter)}
-                          className={`w-full rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-marketing-cream outline-none focus:border-marketing-accent/50 ${typo.secondarySans}`}
-                        />
-                      </div>
-                    ))}
-                  </div>
-
-                  {showLowScoreWarning ? (
-                    <p
-                      className={`rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-200 ${typo.secondarySans}`}
-                    >
-                      A combined target below 1800 is unlikely to be competitive for
-                      medical interviews. You can still save these — consider aiming
-                      higher or revisiting in settings.
-                    </p>
-                  ) : null}
-
-                  {error ? (
-                    <p className={`rounded-xl bg-red-500/10 px-4 py-3 text-sm text-red-400 ${typo.secondarySans}`}>
-                      {error}
-                    </p>
-                  ) : null}
-
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={handleBegin}
-                    className={`w-full rounded-full bg-marketing-accent py-3.5 text-base font-semibold text-marketing-charcoal transition-colors hover:bg-marketing-accent/90 disabled:opacity-50 ${typo.headingSans}`}
-                  >
-                    {isSubmitting ? "Starting…" : "Begin"}
-                  </button>
-                  <button
-                    type="button"
-                    disabled={isSubmitting}
-                    onClick={() => void finishOnboarding(false)}
-                    className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-                  >
-                    Skip targets
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => goToStep(SIGNUP_STEP.TEST_DETAILS, -1)}
-                    className={`w-full text-sm text-marketing-cream/40 transition-colors hover:text-marketing-cream/70 ${typo.secondarySans}`}
-                  >
-                    ← Back
-                  </button>
-                </div>
+                <SignupCompletePlanStep
+                  onComplete={handlePlanComplete}
+                  onContinueCurrentPlan={handleCurrentPlanComplete}
+                  returnTo={planIntent ? "/dashboard" : returnTo}
+                />
               ) : null}
             </div>
           </AnimatedStepPanel>
         </motion.div>
       </main>
-
-      <AlertDialog open={lowScoreDialogOpen} onOpenChange={setLowScoreDialogOpen}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Targets look low</AlertDialogTitle>
-            <AlertDialogDescription>
-              A combined target below 1800 is unlikely to be competitive for medical
-              interviews. Continue anyway or adjust your targets first.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Adjust targets</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void finishOnboarding(true)}>
-              Continue anyway
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
 }

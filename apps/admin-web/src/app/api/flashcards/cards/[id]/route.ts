@@ -1,7 +1,12 @@
+import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
-import { hasClozeMarker } from '@altitutor/shared';
+import {
+  validateFlashcardContent,
+  type Flashcard,
+  type TablesUpdate,
+} from '@altitutor/shared';
 import { clampIndex, insertIdAtIndex, persistTopicFlashcardOrder } from '../../_lib';
 
 async function assertCardAccess(cardId: string) {
@@ -31,28 +36,43 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
   }
 
   const body = await request.json();
-  if (body.cloze_text !== undefined && !hasClozeMarker(body.cloze_text)) {
-    return NextResponse.json({ error: 'Flashcard text must contain a cloze marker' }, { status: 400 });
+  const { data: currentRow, error: currentRowError } = await supabaseAdmin
+    .from('flashcards')
+    .select('*')
+    .eq('id', params.id)
+    .single();
+  if (currentRowError || !currentRow) return NextResponse.json({ error: 'Flashcard not found' }, { status: 404 });
+  const existingCard = currentRow as unknown as Flashcard;
+  const cardType = body.card_type ?? existingCard.card_type;
+  const contentError = validateFlashcardContent({
+    cardType,
+    clozeText: body.cloze_text !== undefined ? body.cloze_text : existingCard.cloze_text,
+    imageFileId: body.image_file_id !== undefined ? body.image_file_id : existingCard.image_file_id,
+    occlusionData: body.occlusion_data !== undefined ? body.occlusion_data : existingCard.occlusion_data,
+  });
+  if (contentError) return NextResponse.json({ error: contentError }, { status: 400 });
+  if (cardType === 'image_occlusion' && body.image_file_id && body.image_file_id !== existingCard.image_file_id) {
+    const targetTopicId = body.topic_id ?? existingCard.topic_id;
+    const { data: imageFile } = await supabaseAdmin.from('files').select('id,bucket,storage_path,deleted_at').eq('id', body.image_file_id).maybeSingle();
+    if (!imageFile || imageFile.deleted_at || imageFile.bucket !== 'flashcard-images' || !imageFile.storage_path?.startsWith(`${targetTopicId}/`)) {
+      return NextResponse.json({ error: 'Source image is not accessible for this topic' }, { status: 400 });
+    }
   }
   if (body.topic_id !== undefined && !(await assertTopicAccess(body.topic_id))) {
     return NextResponse.json({ error: 'Topic not accessible' }, { status: 403 });
   }
 
-  const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
-  if (body.cloze_text !== undefined) updates.cloze_text = body.cloze_text;
+  const updates: TablesUpdate<'flashcards'> = { updated_at: new Date().toISOString() };
+  if (body.card_type !== undefined) updates.card_type = cardType;
+  if (body.cloze_text !== undefined || body.card_type !== undefined) updates.cloze_text = cardType === 'text_cloze' ? body.cloze_text ?? existingCard.cloze_text : null;
   if (body.extra !== undefined) updates.extra = body.extra || null;
   if (body.topic_id !== undefined) updates.topic_id = body.topic_id;
+  if (body.image_file_id !== undefined || body.card_type !== undefined) updates.image_file_id = cardType === 'image_occlusion' ? body.image_file_id ?? existingCard.image_file_id : null;
+  if (body.image_alt_text !== undefined || body.card_type !== undefined) updates.image_alt_text = cardType === 'image_occlusion' ? body.image_alt_text || null : null;
+  if (body.occlusion_data !== undefined || body.card_type !== undefined) updates.occlusion_data = cardType === 'image_occlusion' ? body.occlusion_data ?? existingCard.occlusion_data : null;
 
   if (body.index !== undefined || body.topic_id !== undefined) {
-    const { data: current, error: currentError } = await supabaseAdmin
-      .from('flashcards')
-      .select('*')
-      .eq('id', params.id)
-      .single();
-
-    if (currentError || !current) {
-      return NextResponse.json({ error: currentError?.message ?? 'Flashcard not found' }, { status: 404 });
-    }
+    const current = currentRow;
 
     const targetTopicId = String(body.topic_id ?? current.topic_id);
 
@@ -64,7 +84,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .neq('id', params.id)
       .order('index', { ascending: true });
 
-    if (siblingsError) return NextResponse.json({ error: siblingsError.message }, { status: 500 });
+    if (siblingsError) return captureApiErrorResponse(siblingsError, "/api/flashcards/cards/[id]", NextResponse.json({ error: siblingsError.message }, { status: 500 }));
 
     const targetIndex = clampIndex(body.index ?? current.index, (siblings?.length ?? 0) + 1);
     const orderedTargetIds = insertIdAtIndex((siblings ?? []).map((card) => card.id), params.id, targetIndex);
@@ -95,6 +115,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 
       await persistTopicFlashcardOrder(supabaseAdmin, targetTopicId, orderedTargetIds);
     } catch (orderError) {
+      captureApiError(orderError, "/api/flashcards/cards/[id]");
       const message = orderError instanceof Error ? orderError.message : 'Unable to reorder flashcards';
       return NextResponse.json({ error: message }, { status: 500 });
     }
@@ -105,7 +126,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
         .update(updates)
         .eq('id', params.id);
 
-      if (updateError) return NextResponse.json({ error: updateError.message }, { status: 500 });
+      if (updateError) return captureApiErrorResponse(updateError, "/api/flashcards/cards/[id]", NextResponse.json({ error: updateError.message }, { status: 500 }));
     }
 
     const { data, error } = await supabaseAdmin
@@ -114,7 +135,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
       .eq('id', params.id)
       .single();
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+    if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
     return NextResponse.json({ data });
   }
 
@@ -125,7 +146,7 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
     .select('*')
     .single();
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ data });
 }
 
@@ -140,6 +161,6 @@ export async function DELETE(_request: NextRequest, { params }: { params: { id: 
     .update({ deleted_at: new Date().toISOString() })
     .eq('id', params.id);
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return captureApiErrorResponse(error, "/api/flashcards/cards/[id]", NextResponse.json({ error: error.message }, { status: 500 }));
   return NextResponse.json({ success: true });
 }

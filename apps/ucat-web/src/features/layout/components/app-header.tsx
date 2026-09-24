@@ -12,6 +12,7 @@ import {
   UCAT_SURFACE_CARD,
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
+import { UCAT_PRODUCT_NAME } from "@/lib/ucat-brand";
 import { cn } from "@/lib/utils";
 
 export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
@@ -41,7 +42,7 @@ export function AppHeader({ onToggleNav }: { onToggleNav: () => void }) {
             href="/dashboard"
             className="text-sm font-semibold tracking-wide"
           >
-            Altitutor UCAT System
+            {UCAT_PRODUCT_NAME}
           </Link>
         </div>
 

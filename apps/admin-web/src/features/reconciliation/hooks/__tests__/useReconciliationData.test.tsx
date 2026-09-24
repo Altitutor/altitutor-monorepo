@@ -2,7 +2,13 @@ import { useReconciliationFinancialData } from '../useReconciliationData';
 import * as queries from '../../api/queries';
 import { renderHookWithQueryClient } from '@/shared/test-utils';
 import type { UseQueryResult } from '@tanstack/react-query';
-import type { UninvoicedSession, VoidInvoiceSession, UnpaidInvoice, StudentWithoutPaymentMethod } from '../../types';
+import type {
+  SessionBillingAdjustmentIssue,
+  StudentWithoutPaymentMethod,
+  UninvoicedSession,
+  UnpaidInvoice,
+  VoidInvoiceSession,
+} from '../../types';
 
 jest.mock('../../api/queries');
 
@@ -10,7 +16,7 @@ const mockQueries = queries as jest.Mocked<typeof queries>;
 
 const createMockQueryResult = <T,>(
   data: T,
-  overrides?: Partial<Pick<UseQueryResult<T, Error>, 'isLoading' | 'isError'>>
+  overrides?: Partial<Pick<UseQueryResult<T, Error>, 'isLoading' | 'isError'>>,
 ): UseQueryResult<T, Error> =>
   ({
     data,
@@ -48,8 +54,11 @@ describe('useReconciliationFinancialData', () => {
     mockQueries.useUninvoicedSessions.mockReturnValue(createMockQueryResult<UninvoicedSession[]>([]));
     mockQueries.useVoidInvoiceSessions.mockReturnValue(createMockQueryResult<VoidInvoiceSession[]>([]));
     mockQueries.useUnpaidInvoices.mockReturnValue(createMockQueryResult<UnpaidInvoice[]>([]));
+    mockQueries.useSessionBillingAdjustmentIssues.mockReturnValue(
+      createMockQueryResult<SessionBillingAdjustmentIssue[]>([]),
+    );
     mockQueries.useStudentsWithoutPaymentMethod.mockReturnValue(
-      createMockQueryResult<StudentWithoutPaymentMethod[]>([])
+      createMockQueryResult<StudentWithoutPaymentMethod[]>([]),
     );
   });
 
@@ -60,11 +69,12 @@ describe('useReconciliationFinancialData', () => {
     expect(result.current).toHaveProperty('voidInvoiceSessions');
     expect(result.current).toHaveProperty('unpaidInvoices');
     expect(result.current).toHaveProperty('studentsWithoutPaymentMethod');
+    expect(result.current).toHaveProperty('sessionBillingAdjustments');
   });
 
   it('should return isLoading true when any financial query is loading', () => {
     mockQueries.useUninvoicedSessions.mockReturnValue(
-      createMockQueryResult<UninvoicedSession[]>([], { isLoading: true })
+      createMockQueryResult<UninvoicedSession[]>([], { isLoading: true }),
     );
 
     const { result } = renderHookWithQueryClient(() => useReconciliationFinancialData());

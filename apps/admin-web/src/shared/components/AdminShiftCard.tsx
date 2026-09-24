@@ -6,7 +6,7 @@ import { Badge } from '@altitutor/ui';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import { formatTime, getDayOfWeek } from '@/shared/utils/datetime';
-import { cn } from '@/shared/utils';
+import { cn, clickableCardInteractiveCn } from '@/shared/utils';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 
 // Helper function to get initials from a name
@@ -85,10 +85,11 @@ export function AdminShiftCard({
     <div
       ref={cardRef}
       className={cn(
-        'relative border rounded-lg transition-colors h-full w-full overflow-hidden bg-card',
+        'group relative border rounded-lg transition-all h-full w-full overflow-hidden bg-card',
         shouldUseCompact ? 'p-1.5' : 'p-3',
         defaultBorderClass,
-        onClick ? 'hover:bg-muted/50 cursor-pointer' : ''
+        onClick ? 'cursor-pointer' : '',
+        onClick && clickableCardInteractiveCn
       )}
       style={{
         borderColor: adminShiftColorHex

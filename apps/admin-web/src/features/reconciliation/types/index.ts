@@ -73,7 +73,6 @@ export interface VoidInvoiceSession {
   updated_at: string;
 }
 
-
 // Students Without Classes (one row per subject the student is assigned to — students_subjects
 // and students_online_access_manual — with no active class for that subject)
 export interface StudentWithoutClasses {
@@ -135,33 +134,6 @@ export interface UnassignedClass {
   updated_at: string;
 }
 
-// Failed Delivery Messages
-export interface FailedDeliveryMessage {
-  message_id: string;
-  conversation_id: string;
-  direction: string;
-  body: string;
-  status: string;
-  status_updated_at: string | null;
-  error_code: number | null;
-  error_message: string | null;
-  message_sid: string | null;
-  from_number_e164: string | null;
-  to_number_e164: string;
-  created_at: string;
-  updated_at: string | null;
-  conversation_status: string;
-  assigned_staff_id: string | null;
-  conversation_last_message_at: string | null;
-  contact_name: string | null;
-  contact_phone: string;
-  contact_type: string;
-  student_id: string | null;
-  parent_id: string | null;
-  staff_id: string | null;
-  hours_since_failure: number | null;
-}
-
 // Students Without Payment Method
 export interface StudentWithoutPaymentMethod {
   student_id: string;
@@ -220,6 +192,27 @@ export interface UnpaidInvoice {
   stripe_invoice_number: string | null;
 }
 
+export interface SessionBillingAdjustmentIssue {
+  adjustment_id: string;
+  sessions_students_id: string;
+  student_id: string;
+  session_id: string;
+  session_start_at: string | null;
+  kind: 'credit_note' | 'session_charge' | 'restoration_charge';
+  status: 'pending' | 'processing' | 'retryable' | 'failed';
+  amount_cents: number | null;
+  currency: string;
+  reason_category: string;
+  reason_note: string | null;
+  attempt_count: number;
+  max_attempts: number;
+  next_attempt_at: string;
+  last_error: string | null;
+  issue: 'failed_adjustment' | 'blocked_by_failed_dependency' | 'overdue_adjustment' | 'retryable_adjustment';
+  created_at: string;
+  updated_at: string;
+}
+
 // Reconciliation Category Types
 export type ReconciliationCategory = 'financial' | 'scheduling' | 'communication';
 
@@ -245,7 +238,11 @@ export interface ProjectWithoutLead {
   target_date: string | null;
   created_at: string;
   updated_at: string;
-  creator?: { id: string; first_name: string | null; last_name: string | null } | null;
+  creator?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 }
 
 /** Row counts per reconciliation tab (for nav badges). */
@@ -270,10 +267,10 @@ export type ReconciliationItemType =
   | 'uninvoiced_sessions'
   | 'void_invoice_sessions'
   | 'unpaid_invoices'
+  | 'session_billing_adjustments'
   | 'unlogged_sessions'
   | 'unassigned_classes'
   | 'unassigned_tasks'
-  | 'failed_delivery_messages'
   | 'students_without_classes'
   | 'students_without_payment_method'
   | 'trial_students_not_signed_up'
@@ -288,7 +285,6 @@ export interface ReconciliationCategoryData {
     unlogged_sessions?: UnloggedSession[];
     unassigned_classes?: UnassignedClass[];
     unassigned_tasks?: UnassignedTask[];
-    failed_delivery_messages?: FailedDeliveryMessage[];
     students_without_classes?: StudentWithoutClasses[];
     students_without_payment_method?: StudentWithoutPaymentMethod[];
     trial_students_not_signed_up?: TrialStudentNotSignedUp[];
@@ -299,7 +295,6 @@ export interface ReconciliationCategoryData {
     unlogged_sessions: number;
     unassigned_classes: number;
     unassigned_tasks: number;
-    failed_delivery_messages: number;
     students_without_classes: number;
     students_without_payment_method: number;
     trial_students_not_signed_up: number;

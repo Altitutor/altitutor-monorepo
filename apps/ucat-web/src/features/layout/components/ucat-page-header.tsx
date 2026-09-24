@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { getBreadcrumbItems } from "@/features/layout/config/breadcrumbs";
 import { UCAT_HEADER_ICON_BUTTON } from "@/lib/ucat-surface-motion";
@@ -17,20 +18,28 @@ type UcatPageHeaderProps = {
   title: string;
   description?: string;
   backHref?: string;
+  /** Button back action (e.g. wizard step). Ignored when `backHref` is set. */
+  onBack?: () => void;
   backLabel?: string;
-  /** Override labels by segment index. E.g. { 2: mockName, 4: setName } for nested progress route. */
+  backDisabled?: boolean;
+  /** Override labels by filtered breadcrumb index (structural URL segments are omitted). */
   breadcrumbOverrides?: Record<number, string>;
   /** When set, replaces pathname-derived breadcrumbs. */
   breadcrumbItems?: UcatBreadcrumbItem[];
+  /** Trailing control aligned with the title row (e.g. view toggle). */
+  actions?: ReactNode;
 };
 
 export function UcatPageHeader({
   title,
   description,
   backHref,
+  onBack,
   backLabel,
+  backDisabled = false,
   breadcrumbOverrides,
   breadcrumbItems: customBreadcrumbItems,
+  actions,
 }: UcatPageHeaderProps) {
   const pathname = usePathname();
   const pathnameBreadcrumbs = getBreadcrumbItems(pathname).map((item) => ({
@@ -47,13 +56,25 @@ export function UcatPageHeader({
         })
       : pathnameBreadcrumbs);
 
+  const showBack = Boolean(backHref || onBack);
+  const backButtonClassName = cn(
+    UCAT_HEADER_ICON_BUTTON,
+    "group shrink-0 [&_svg]:size-5",
+  );
+  const backChevron = (
+    <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
+  );
+
   return (
     <div className="space-y-4">
       {breadcrumbItems.length > 0 ? (
         <nav aria-label="Breadcrumb">
           <ol className="flex flex-wrap items-center gap-1.5 text-sm text-muted-foreground">
             {breadcrumbItems.map((item, i) => (
-              <li key={`${item.label}-${i}`} className="flex items-center gap-1.5">
+              <li
+                key={`${item.label}-${i}`}
+                className="flex items-center gap-1.5"
+              >
                 {i > 0 ? (
                   <ChevronRight
                     className="h-4 w-4 shrink-0 text-muted-foreground/70 transition-opacity duration-150"
@@ -80,20 +101,31 @@ export function UcatPageHeader({
         </nav>
       ) : null}
       <div className="flex items-start gap-3">
-        {backHref ? (
-          <Button
-            variant="outline"
-            size="icon"
-            asChild
-            className={cn(
-              UCAT_HEADER_ICON_BUTTON,
-              "group shrink-0 [&_svg]:size-5",
-            )}
-          >
-            <Link href={backHref} aria-label={backLabel ?? "Go back"}>
-              <ChevronLeft className="h-5 w-5 transition-transform duration-200 ease-out group-hover:-translate-x-0.5" />
-            </Link>
-          </Button>
+        {showBack ? (
+          backHref ? (
+            <Button
+              variant="outline"
+              size="icon"
+              asChild
+              className={backButtonClassName}
+            >
+              <Link href={backHref} aria-label={backLabel ?? "Go back"}>
+                {backChevron}
+              </Link>
+            </Button>
+          ) : (
+            <Button
+              type="button"
+              variant="outline"
+              size="icon"
+              onClick={onBack}
+              disabled={backDisabled}
+              aria-label={backLabel ?? "Go back"}
+              className={backButtonClassName}
+            >
+              {backChevron}
+            </Button>
+          )
         ) : null}
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
@@ -103,6 +135,9 @@ export function UcatPageHeader({
             </p>
           ) : null}
         </div>
+        {actions ? (
+          <div className="shrink-0 self-center">{actions}</div>
+        ) : null}
       </div>
     </div>
   );

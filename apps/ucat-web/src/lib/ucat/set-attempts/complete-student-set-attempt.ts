@@ -1,60 +1,145 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Json } from "@altitutor/shared";
 import {
   computeMaxRawScore,
   computeRawScore,
-  scaleTo300_900,
+  estimateUcatSectionScore,
+  resolveSingleUcatScoringSection,
+  UCAT_SCORING_MODEL,
 } from "@altitutor/ucat-marking";
-import type { QuestionMeta } from "@altitutor/ucat-marking";
+import type { ScoringQuestion } from "@altitutor/ucat-marking";
+import {
+  compileResponseContract,
+  createResponseState,
+  type CandidateResponse,
+} from "@altitutor/ucat-response-contract";
 import { maybeGrantPracticeDayDiscount } from "@/lib/ucat/practice-day-discount";
+import { persistQuestionAttemptBatch } from "@/lib/ucat/question-attempts/persist-question-attempt-batch";
+import {
+  parseAttemptContentSnapshot,
+  snapshotToQuestionItem,
+} from "@/features/progress/lib/attempt-content-snapshot";
+import { responseDefinitionForQuestion } from "@/features/question-engine/lib/response-state";
 
 type AdminClient = SupabaseClient;
 
-type QuestionRow = {
-  id: string;
-  question_stem_id: string;
-  question_type: "multiple_choice" | "syllogism";
-};
-
-type OptionRow = {
+type QuestionAttemptForScoring = {
   id: string;
   question_id: string;
-  index: number;
-  is_answer: boolean;
+  answer_snapshot: Json | null;
+  content_snapshot?: Json | null;
+  student_id: string;
 };
 
-function buildQuestionMeta(
-  questions: QuestionRow[],
-  sectionByNameStemId: Map<string, string>,
-  optionsByQuestionId: Map<string, OptionRow[]>,
-): QuestionMeta[] {
-  return questions.map((q) => {
-    const sectionName =
-      sectionByNameStemId.get(q.question_stem_id) ?? "Unknown";
-    const options = (optionsByQuestionId.get(q.id) ?? [])
-      .sort((a, b) => a.index - b.index)
-      .map((o) => ({ id: o.id, index: o.index }));
-    const correctOption = (optionsByQuestionId.get(q.id) ?? []).find(
-      (o) => o.is_answer,
-    );
-    return {
-      id: q.id,
-      stemId: q.question_stem_id,
-      sectionName,
-      questionType: q.question_type,
-      correctOptionId: correctOption?.id ?? "",
-      options,
-    };
-  });
+export type FinalQuestionAttemptInput = {
+  questionId: string;
+  answerSnapshot?: Json | null;
+  isFlagged?: boolean;
+  wasTimed?: boolean;
+  mode?: "question" | "question_stem" | "set" | "mock" | "learn";
+};
+
+/**
+ * New attempts already carry an immutable server-generated question snapshot.
+ * Reading marking metadata from it avoids three catalogue round trips and also
+ * keeps the result stable if published content changes during an attempt.
+ */
+export function buildQuestionMetaFromAttemptSnapshots(
+  attempts: QuestionAttemptForScoring[],
+  expectedQuestionIds: Set<string>,
+): ScoringQuestion[] | null {
+  const attemptByQuestionId = new Map(
+    attempts.map((attempt) => [attempt.question_id, attempt]),
+  );
+  const questions: ScoringQuestion[] = [];
+
+  for (const questionId of expectedQuestionIds) {
+    const snapshot = attemptByQuestionId.get(questionId)?.content_snapshot;
+    if (
+      !snapshot ||
+      typeof snapshot !== "object" ||
+      Array.isArray(snapshot) ||
+      !Array.isArray((snapshot as Record<string, unknown>).answerOptions)
+    ) {
+      return null;
+    }
+    const parsed = parseAttemptContentSnapshot(snapshot);
+    if (!parsed || parsed.question.id !== questionId) return null;
+    const question = snapshotToQuestionItem(parsed, questions.length, "attempt");
+    questions.push({
+      definition: responseDefinitionForQuestion(question),
+      sectionName: question.sectionName,
+    });
+  }
+
+  return questions;
+}
+
+export async function persistFinalQuestionAttempts(
+  admin: AdminClient,
+  studentId: string,
+  setAttemptId: string,
+  answers: FinalQuestionAttemptInput[],
+): Promise<void> {
+  const finalAnswers = answers.filter((answer) => answer.questionId);
+  if (finalAnswers.length === 0) {
+    throw new Error("Set completion requires a final answer ledger");
+  }
+  await persistQuestionAttemptBatch(
+    admin,
+    studentId,
+    {
+      studentQuestionSetAttemptId: setAttemptId,
+      studentPracticeSessionId: null,
+      learningModuleBlockId: null,
+    },
+    finalAnswers.map((answer) => ({
+      ...answer,
+      submittedByStem: true,
+    })),
+  );
+}
+
+export function buildQuestionAttemptsForScoring(
+  questionMeta: ScoringQuestion[],
+  questionAttempts: QuestionAttemptForScoring[],
+): Map<string, CandidateResponse> {
+  const questionById = new Map(
+    questionMeta.map((question) => [question.definition.questionId, question]),
+  );
+  const responses = new Map<string, CandidateResponse>();
+  for (const attempt of questionAttempts) {
+    const question = questionById.get(attempt.question_id);
+    if (!question) continue;
+    const compiled = compileResponseContract(question.definition);
+    if (!compiled.ok) {
+      throw new Error(compiled.issues.map((issue) => issue.message).join(" "));
+    }
+    const restored = createResponseState(compiled.contract, attempt.answer_snapshot);
+    if (!restored.ok) {
+      throw new Error(restored.issues.map((issue) => issue.message).join(" "));
+    }
+    responses.set(attempt.question_id, restored.state);
+  }
+  return responses;
 }
 
 export async function completeStudentSetAttempt(
   admin: AdminClient,
   studentId: string,
   attemptId: string,
-): Promise<{ earnedDiscount: boolean; discountCents: number }> {
+  finalAnswers: FinalQuestionAttemptInput[],
+  options: { grantDiscount?: boolean } = {},
+): Promise<{
+  earnedDiscount: boolean;
+  discountCents: number;
+  newlyCompleted: boolean;
+}> {
   const { data: attempt, error: attemptError } = await admin
     .from("student_question_set_attempts")
-    .select("attempted_at, question_set_id, completed_at")
+    .select(
+      "attempted_at, question_set_id, completed_at, discarded_at, expired_at",
+    )
     .eq("id", attemptId)
     .eq("student_id", studentId)
     .maybeSingle();
@@ -66,7 +151,14 @@ export async function completeStudentSetAttempt(
     throw new Error("Set attempt not found");
   }
   if (attempt.completed_at) {
-    return { earnedDiscount: false, discountCents: 0 };
+    return {
+      earnedDiscount: false,
+      discountCents: 0,
+      newlyCompleted: false,
+    };
+  }
+  if (attempt.discarded_at || attempt.expired_at) {
+    throw new Error("Attempt is no longer active");
   }
 
   const attemptedAt = new Date(attempt.attempted_at);
@@ -76,10 +168,17 @@ export async function completeStudentSetAttempt(
     Math.floor((now.getTime() - attemptedAt.getTime()) / 1000),
   );
 
+  const questionSetId = attempt.question_set_id;
+  if (!questionSetId) {
+    throw new Error("Set attempt has no question set");
+  }
+
+  await persistFinalQuestionAttempts(admin, studentId, attemptId, finalAnswers);
+
   const { data: questionAttempts, error: questionAttemptsError } = await admin
     .from("student_question_attempts")
     .select(
-      "id, question_id, question_answer_option_id, answer_snapshot, student_id",
+      "id, question_id, answer_snapshot, content_snapshot, student_id",
     )
     .eq("student_question_set_attempt_id", attemptId)
     .eq("student_id", studentId);
@@ -88,152 +187,50 @@ export async function completeStudentSetAttempt(
     throw new Error(questionAttemptsError.message);
   }
 
-  const questionSetId = attempt.question_set_id;
-  if (!questionSetId) {
-    throw new Error("Set attempt has no question set");
-  }
-
-  const { data: setStems, error: setStemsError } = await admin
-    .from("question_stems_question_sets")
-    .select("question_stem_id")
-    .eq("question_set_id", questionSetId)
-    .order("index");
-
-  if (setStemsError) {
-    throw new Error(setStemsError.message);
-  }
-
-  const stemIds = [
-    ...new Set((setStems ?? []).map((s) => s.question_stem_id).filter(Boolean)),
-  ];
-
   let totalQuestions = 0;
   let rawScore = 0;
   let scaledScore: number | null = null;
+  let scoringModelVersion: string | null = null;
 
-  if (stemIds.length > 0) {
-    const { data: questions, error: questionsError } = await admin
-      .from("ucat_questions")
-      .select("id, question_stem_id, question_type")
-      .in("question_stem_id", stemIds)
-      .is("deleted_at", null);
+  const expectedQuestionIds = new Set(
+    finalAnswers
+      .map((answer) => answer.questionId)
+      .filter((id): id is string => Boolean(id)),
+  );
+  const questionMeta = buildQuestionMetaFromAttemptSnapshots(
+    (questionAttempts ?? []) as QuestionAttemptForScoring[],
+    expectedQuestionIds,
+  );
+  if (!questionMeta) {
+    throw new Error("Final question content snapshots are incomplete");
+  }
 
-    if (questionsError) {
-      throw new Error(questionsError.message);
-    }
+  totalQuestions = questionMeta.length;
 
-    const allQuestionIds = (questions ?? []).map((q) => q.id);
-    totalQuestions = allQuestionIds.length;
-
-    const { data: stems, error: stemsError } = await admin
-      .from("question_stems")
-      .select("id, section_id")
-      .in("id", stemIds);
-
-    if (stemsError) {
-      throw new Error(stemsError.message);
-    }
-
-    const sectionIds = [...new Set((stems ?? []).map((s) => s.section_id))];
-
-    const { data: sections, error: sectionsError } = await admin
-      .from("ucat_sections")
-      .select("id, name")
-      .in("id", sectionIds);
-
-    if (sectionsError) {
-      throw new Error(sectionsError.message);
-    }
-
-    const sectionById = new Map((sections ?? []).map((s) => [s.id, s.name]));
-    const sectionByNameStemId = new Map(
-      (stems ?? []).map((s) => [s.id, sectionById.get(s.section_id) ?? ""]),
+  if (questionMeta.length > 0) {
+    const responses = buildQuestionAttemptsForScoring(
+      questionMeta,
+      (questionAttempts ?? []) as QuestionAttemptForScoring[],
     );
-
-    const { data: options, error: optionsError } = await admin
-      .from("question_answer_options")
-      .select("id, question_id, index, is_answer")
-      .in("question_id", allQuestionIds);
-
-    if (optionsError) {
-      throw new Error(optionsError.message);
-    }
-
-    const optionsByQuestionId = new Map<string, OptionRow[]>();
-    for (const opt of options ?? []) {
-      const list = optionsByQuestionId.get(opt.question_id) ?? [];
-      list.push(opt);
-      optionsByQuestionId.set(opt.question_id, list);
-    }
-
-    const questionMeta = buildQuestionMeta(
-      questions ?? [],
-      sectionByNameStemId,
-      optionsByQuestionId,
-    );
-
-    const syllogismQuestionIds = new Set(
-      (questions ?? [])
-        .filter((q) => q.question_type === "syllogism")
-        .map((q) => q.id),
-    );
-
-    const attempts = (questionAttempts ?? []).flatMap((qa) => {
-      if (!syllogismQuestionIds.has(qa.question_id)) {
-        if (!qa.question_answer_option_id) return [];
-        return [
-          {
-            questionId: qa.question_id,
-            selectedOptionId: qa.question_answer_option_id as string,
-          },
-        ];
-      }
-
-      const snapshot = qa.answer_snapshot as
-        | {
-            type?: string;
-            answers?: { question_answer_option_id: string; answer: boolean }[];
-          }
-        | null
-        | undefined;
-
-      if (
-        !snapshot ||
-        snapshot.type !== "syllogism_v1" ||
-        !Array.isArray(snapshot.answers)
-      ) {
-        if (!qa.question_answer_option_id) return [];
-        return [
-          {
-            questionId: qa.question_id,
-            selectedOptionId: qa.question_answer_option_id as string,
-          },
-        ];
-      }
-
-      const chosen = snapshot.answers.find((a) => a.answer === true);
-      if (!chosen) {
-        return [];
-      }
-
-      return [
-        {
-          questionId: qa.question_id,
-          selectedOptionId: chosen.question_answer_option_id,
-        },
-      ];
-    });
 
     const { questionScores, totalRawScore } = computeRawScore({
-      attempts,
+      responses,
       questions: questionMeta,
     });
 
     rawScore = totalRawScore;
 
     const maxRawScore = computeMaxRawScore(questionMeta);
-    if (maxRawScore > 0) {
-      scaledScore = scaleTo300_900(rawScore, maxRawScore);
+    const scoringSection = resolveSingleUcatScoringSection(
+      questionMeta.map((question) => question.sectionName),
+    );
+    if (maxRawScore > 0 && scoringSection) {
+      scaledScore = estimateUcatSectionScore({
+        section: scoringSection,
+        rawScore,
+        maxRawScore,
+      }).scaledScore;
+      scoringModelVersion = UCAT_SCORING_MODEL.version;
     }
 
     const updates = questionAttempts.map((qa) => ({
@@ -255,27 +252,60 @@ export async function completeStudentSetAttempt(
     }
   }
 
-  const { error: updateSetError } = await admin
+  const { data: updatedSet, error: updateSetError } = await admin
     .from("student_question_set_attempts")
     .update({
       time_taken_seconds: timeTakenSeconds,
       completed_at: now.toISOString(),
       score_points: totalQuestions === 0 ? null : rawScore,
-      total_points: totalQuestions === 0 ? null : totalQuestions,
+      total_points:
+        totalQuestions === 0 ? null : computeMaxRawScore(questionMeta),
       scaled_score: scaledScore,
+      scoring_model_version: scoringModelVersion,
       engine_snapshot: null,
       current_segment_ends_at: null,
     })
     .eq("id", attemptId)
-    .eq("student_id", studentId);
+    .eq("student_id", studentId)
+    .is("completed_at", null)
+    .is("discarded_at", null)
+    .is("expired_at", null)
+    .select("id")
+    .maybeSingle();
 
   if (updateSetError) {
     throw new Error(updateSetError.message);
+  }
+  if (!updatedSet) {
+    const { data: terminal, error: terminalError } = await admin
+      .from("student_question_set_attempts")
+      .select("completed_at")
+      .eq("id", attemptId)
+      .eq("student_id", studentId)
+      .maybeSingle();
+    if (terminalError) throw new Error(terminalError.message);
+    if (terminal?.completed_at) {
+      return {
+        earnedDiscount: false,
+        discountCents: 0,
+        newlyCompleted: false,
+      };
+    }
+    throw new Error("Attempt is no longer active");
+  }
+
+  if (options.grantDiscount === false) {
+    return {
+      earnedDiscount: false,
+      discountCents: 0,
+      newlyCompleted: true,
+    };
   }
 
   const discount = await maybeGrantPracticeDayDiscount(admin, studentId);
   return {
     earnedDiscount: discount.earnedDiscount,
     discountCents: discount.discountCents,
+    newlyCompleted: true,
   };
 }

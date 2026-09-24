@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { addDays, startOfWeek, endOfWeek, format, differenceInMinutes, isSameDay } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useStudentSessions } from '../hooks/useSessions';
@@ -10,10 +10,25 @@ import { SessionModal } from './SessionModal';
 import { Button } from "@altitutor/ui";
 import { studentBtnOutline } from '@/shared/lib/student-visual';
 
-export function StudentSessionsCalendarView() {
+type StudentSessionsCalendarViewProps = {
+  linkedSessionId?: string | null;
+  onLinkedSessionHandled?: () => void;
+};
+
+export function StudentSessionsCalendarView({
+  linkedSessionId = null,
+  onLinkedSessionHandled,
+}: StudentSessionsCalendarViewProps = {}) {
   const [anchor, setAnchor] = useState<Date>(new Date());
   const [selectedSessionId, setSelectedSessionId] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (!linkedSessionId) return;
+    setSelectedSessionId(linkedSessionId);
+    setIsModalOpen(true);
+    onLinkedSessionHandled?.();
+  }, [linkedSessionId, onLinkedSessionHandled]);
   const weekStart = useMemo(() => startOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   const weekEnd = useMemo(() => endOfWeek(anchor, { weekStartsOn: 1 }), [anchor]);
   

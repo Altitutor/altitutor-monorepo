@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { MARKETING_TOKENS } from '@altitutor/shared';
-import { FeedbackDialog } from '@altitutor/ui';
+import { ContactDialog } from '@altitutor/ui';
 import { AuthPageHeader } from '@/features/auth/components/AuthPageHeader';
 import { TUTOR_APPLY_URL } from '@/shared/constants';
 import { cn } from '@/shared/utils';
@@ -73,10 +73,9 @@ export function LoginPageLayout({
         </div>
       </main>
 
-      <FeedbackDialog
+      <ContactDialog
         open={contactOpen}
         onOpenChange={setContactOpen}
-        kind="contact"
         appName="tutor-web"
       />
     </div>

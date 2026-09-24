@@ -11,13 +11,14 @@ async function fetchActivity(): Promise<UcatActivityResponse> {
 }
 
 /**
- * Lightweight server-aggregated daily activity for the heatmap. Returns at
+ * Lightweight server-aggregated daily activity for review calendars. Returns at
  * most ~365 small rows instead of every question/set attempt.
  */
-export function useUcatActivity() {
+export function useUcatActivity(enabled = true) {
   return useQuery({
     queryKey: ["ucat", "activity"],
     queryFn: fetchActivity,
     staleTime: 5 * 60 * 1000,
+    enabled,
   });
 }

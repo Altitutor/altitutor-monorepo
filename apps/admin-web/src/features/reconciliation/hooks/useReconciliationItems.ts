@@ -6,7 +6,6 @@ import type {
   UnloggedSession,
   UnassignedClass,
   UnassignedTask,
-  FailedDeliveryMessage,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
   TrialStudentNotSignedUp,
@@ -20,7 +19,6 @@ interface ReconciliationQueries {
   unloggedSessions: { data?: UnloggedSession[] };
   unassignedClasses: { data?: UnassignedClass[] };
   unassignedTasks: { data?: UnassignedTask[] };
-  failedDeliveryMessages: { data?: FailedDeliveryMessage[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
   trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
@@ -51,10 +49,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
       ...(queries.projectsWithoutLead?.data ?? []),
     ];
 
-    const communicationItems = [
-      ...(queries.failedDeliveryMessages.data ?? []),
-    ];
-
     const trialItems = [
       ...(queries.trialStudentsNotSignedUp.data ?? []),
     ];
@@ -62,13 +56,11 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     return {
       financialItems,
       schedulingItems,
-      communicationItems,
       trialItems,
       operationsItems,
       hasAnyItems:
         financialItems.length > 0 ||
         schedulingItems.length > 0 ||
-        communicationItems.length > 0 ||
         operationsItems.length > 0,
     };
   }, [
@@ -78,7 +70,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     queries.unloggedSessions.data,
     queries.unassignedClasses.data,
     queries.unassignedTasks.data,
-    queries.failedDeliveryMessages.data,
     queries.studentsWithoutClasses.data,
     queries.studentsWithoutPaymentMethod.data,
     queries.trialStudentsNotSignedUp.data,

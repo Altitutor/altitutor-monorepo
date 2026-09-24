@@ -1,73 +1,56 @@
 "use client";
 
-import { useMemo } from "react";
 import { motion } from "motion/react";
-import { Card, CardContent, CardHeader, CardTitle } from "@altitutor/ui";
+import { BookOpen } from "lucide-react";
 import { UcatPageHeader } from "@/features/layout";
-import { LearningCatalogPageSkeleton } from "@/features/learning/components/learning-catalog-page-skeleton";
-import { LearningModuleCatalogTree } from "@/features/learning/components/learning-module-catalog-tree";
-import { useLearningModules } from "@/features/learning/hooks/use-learning";
-import {
-  buildLearningModuleTree,
-  groupModulesBySection,
-} from "@/features/learning/lib/build-module-tree";
+import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
+import { UcatClickableCardLink } from "@/shared/components/ucat-clickable-card";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
+const SECTIONS = [1, 2, 3, 4] as const;
+
 export function LearningCatalogPage() {
-  const { data: modules, isLoading, error } = useLearningModules();
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
 
-  const sections = useMemo(() => {
-    const tree = buildLearningModuleTree(modules ?? []);
-    return groupModulesBySection(tree);
-  }, [modules]);
-
-  if (isLoading) {
-    return <LearningCatalogPageSkeleton />;
-  }
-
   return (
-    <motion.div
-      className="space-y-6"
-      variants={containerVariants}
-      initial="hidden"
-      animate="show"
-    >
-      <motion.div variants={itemVariants}>
+    <div className="space-y-6">
+      <div id="tour-learn-page">
         <UcatPageHeader
           title="Learn"
-          description="Browse learning modules and track your progress."
+          description="Choose an area to find your next learning module."
         />
+      </div>
+      <motion.div
+        data-tour="learn-options"
+        className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5"
+        variants={containerVariants}
+        initial="hidden"
+        animate="show"
+      >
+        <motion.div data-tour="learn-area-link" variants={itemVariants}>
+          <UcatClickableCardLink
+            href="/learn/general"
+            icon={BookOpen}
+            title="General"
+          />
+        </motion.div>
+        {SECTIONS.map((sectionNumber) => (
+          <motion.div
+            key={sectionNumber}
+            data-tour="learn-area-link"
+            variants={itemVariants}
+          >
+            <UcatClickableCardLink
+              href={`/learn/sections/${sectionNumber}`}
+              icon={BookOpen}
+              title={
+                SECTION_NUMBER_TO_NAME[sectionNumber] ??
+                `Section ${sectionNumber}`
+              }
+            />
+          </motion.div>
+        ))}
       </motion.div>
-
-      {error ? (
-        <motion.p variants={itemVariants} className="text-sm text-destructive">
-          Failed to load learning modules.
-        </motion.p>
-      ) : null}
-
-      {!error && sections.length === 0 ? (
-        <motion.div variants={itemVariants}>
-          <Card>
-            <CardContent className="py-8 text-center text-muted-foreground">
-              No learning modules are available yet.
-            </CardContent>
-          </Card>
-        </motion.div>
-      ) : null}
-
-      {sections.map((section) => (
-        <motion.div key={section.sectionId ?? "general"} variants={itemVariants}>
-          <Card>
-            <CardHeader>
-              <CardTitle>{section.sectionName}</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <LearningModuleCatalogTree nodes={section.nodes} />
-            </CardContent>
-          </Card>
-        </motion.div>
-      ))}
-    </motion.div>
+    </div>
   );
 }

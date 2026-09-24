@@ -1,16 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
   Input,
   Label,
 } from '@altitutor/ui';
+import { AdminDialogShell, SettingsDataTable, type SettingsDataTableColumn } from '@/shared/components';
 import {
   ucatPracticeDayDiscountConfigApi,
   type UcatPracticeDayDiscountConfigRow,
@@ -28,23 +24,28 @@ const CAP_LIMITS: Record<string, number> = {
   year: 365,
 };
 
-type EditableRow = UcatPracticeDayDiscountConfigRow & {
+type EditableDiscountRow = UcatPracticeDayDiscountConfigRow & {
+  intervalLabel: string;
   discountInput: string;
   maxDiscountsInput: string;
 };
 
-function toEditable(row: UcatPracticeDayDiscountConfigRow): EditableRow {
+function toEditable(row: UcatPracticeDayDiscountConfigRow): EditableDiscountRow {
   return {
     ...row,
+    intervalLabel: INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval,
     discountInput: String(row.discount_per_day_cents),
     maxDiscountsInput: String(row.max_discounts_per_period),
   };
 }
 
 export function UcatPracticeDayDiscountForm() {
-  const [rows, setRows] = useState<EditableRow[]>([]);
+  const [rows, setRows] = useState<EditableDiscountRow[]>([]);
+  const [editingRow, setEditingRow] = useState<EditableDiscountRow | null>(null);
+  const [discountInput, setDiscountInput] = useState('');
+  const [maxDiscountsInput, setMaxDiscountsInput] = useState('');
   const [loading, setLoading] = useState(true);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -64,112 +65,136 @@ export function UcatPracticeDayDiscountForm() {
     void load();
   }, [load]);
 
-  const updateRow = (id: string, patch: Partial<EditableRow>) => {
-    setRows((prev) => prev.map((row) => (row.id === id ? { ...row, ...patch } : row)));
-  };
+  useEffect(() => {
+    if (!editingRow) return;
+    setDiscountInput(editingRow.discountInput);
+    setMaxDiscountsInput(editingRow.maxDiscountsInput);
+    setError(null);
+  }, [editingRow]);
 
-  const handleSaveRow = async (row: EditableRow) => {
-    const discount = parseInt(row.discountInput, 10);
-    const maxDiscounts = parseInt(row.maxDiscountsInput, 10);
-    const capLimit = CAP_LIMITS[row.billing_interval] ?? 365;
+  const columns = useMemo<SettingsDataTableColumn<EditableDiscountRow>[]>(
+    () => [
+      {
+        key: 'billing_interval',
+        label: 'Interval',
+        render: (row) => <span className="font-medium">{row.intervalLabel}</span>,
+        sortValue: (row) => row.intervalLabel,
+        searchValue: (row) => row.intervalLabel,
+      },
+      {
+        key: 'discount_per_day_cents',
+        label: 'Discount/day',
+        render: (row) => <span className="font-mono tabular-nums">{row.discount_per_day_cents}c</span>,
+        sortValue: (row) => row.discount_per_day_cents,
+      },
+      {
+        key: 'max_discounts_per_period',
+        label: 'Max discounts',
+        render: (row) => <span className="font-mono tabular-nums">{row.max_discounts_per_period}</span>,
+        sortValue: (row) => row.max_discounts_per_period,
+      },
+      {
+        key: 'cap',
+        label: 'Cap',
+        render: (row) => <span className="text-muted-foreground">Max {CAP_LIMITS[row.billing_interval] ?? '-'}</span>,
+        sortValue: (row) => CAP_LIMITS[row.billing_interval] ?? 0,
+      },
+    ],
+    [],
+  );
+
+  async function handleSave() {
+    if (!editingRow) return;
+    const discount = parseInt(discountInput, 10);
+    const maxDiscounts = parseInt(maxDiscountsInput, 10);
+    const capLimit = CAP_LIMITS[editingRow.billing_interval] ?? 365;
 
     if (!Number.isFinite(discount) || discount < 0) {
-      setError('Discount per day (cents) must be 0 or greater');
+      setError('Discount per day must be 0 or greater');
       return;
     }
     if (!Number.isFinite(maxDiscounts) || maxDiscounts < 1 || maxDiscounts > capLimit) {
-      setError(`Max discounts for ${INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval} must be between 1 and ${capLimit}`);
+      setError(`Max discounts for ${editingRow.intervalLabel} must be between 1 and ${capLimit}`);
       return;
     }
 
-    setSavingId(row.id);
+    setSaving(true);
     setError(null);
     try {
-      await ucatPracticeDayDiscountConfigApi.update(row.id, {
+      await ucatPracticeDayDiscountConfigApi.update(editingRow.id, {
         discount_per_day_cents: discount,
         max_discounts_per_period: maxDiscounts,
       });
-      setRows((prev) =>
-        prev.map((r) =>
-          r.id === row.id
-            ? toEditable({
-                ...r,
-                discount_per_day_cents: discount,
-                max_discounts_per_period: maxDiscounts,
-              })
-            : r,
-        ),
-      );
+      await load();
+      setEditingRow(null);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to save discount config');
     } finally {
-      setSavingId(null);
+      setSaving(false);
     }
-  };
-
-  if (loading) {
-    return <p className="text-sm text-muted-foreground">Loading practice-day discounts…</p>;
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Practice-day discounts</CardTitle>
-        <CardDescription>
-          Discount amount per qualifying day and maximum discounts per billing period,
-          configured per interval (shared across Unlimited and Pro).
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        {rows.map((row) => (
-          <div
-            key={row.id}
-            className="grid gap-4 rounded-lg border p-4 sm:grid-cols-[1fr_1fr_1fr_auto]"
-          >
-            <div>
-              <p className="text-sm font-semibold">
-                {INTERVAL_LABELS[row.billing_interval] ?? row.billing_interval}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Cap max {CAP_LIMITS[row.billing_interval] ?? '—'}
-              </p>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`discount-${row.id}`}>Discount per day (cents)</Label>
-              <Input
-                id={`discount-${row.id}`}
-                type="number"
-                min={0}
-                value={row.discountInput}
-                onChange={(e) => updateRow(row.id, { discountInput: e.target.value })}
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor={`max-${row.id}`}>Max discounts per period</Label>
-              <Input
-                id={`max-${row.id}`}
-                type="number"
-                min={1}
-                max={CAP_LIMITS[row.billing_interval]}
-                value={row.maxDiscountsInput}
-                onChange={(e) => updateRow(row.id, { maxDiscountsInput: e.target.value })}
-              />
-            </div>
-            <div className="flex items-end">
-              <Button
-                type="button"
-                variant="outline"
-                disabled={savingId === row.id}
-                onClick={() => void handleSaveRow(row)}
-              >
-                {savingId === row.id ? 'Saving…' : 'Save'}
-              </Button>
-            </div>
-          </div>
-        ))}
+    <>
+      {error && !editingRow ? <p className="text-sm text-destructive">{error}</p> : null}
+      <SettingsDataTable
+        data={rows}
+        columns={columns}
+        getRowId={(row) => row.id}
+        filterKeys={[]}
+        searchPlaceholder="Search practice-day discounts..."
+        defaultSort={{ field: 'billing_interval', direction: 'asc' }}
+        isLoading={loading}
+        getActions={(row) => [
+          {
+            id: 'edit',
+            label: 'Edit',
+            onSelect: () => setEditingRow(row),
+          },
+        ]}
+      />
 
-        {error ? <p className="text-sm text-destructive">{error}</p> : null}
-      </CardContent>
-    </Card>
+      <AdminDialogShell
+        open={!!editingRow}
+        onClose={() => setEditingRow(null)}
+        title={editingRow ? `Edit ${editingRow.intervalLabel} discount` : 'Edit discount'}
+        subtitle="Discount amount per qualifying day and maximum discounts for this billing interval."
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={() => setEditingRow(null)} disabled={saving}>
+              Cancel
+            </Button>
+            <Button type="button" onClick={handleSave} disabled={saving}>
+              {saving ? 'Saving...' : 'Save discount'}
+            </Button>
+          </>
+        }
+      >
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="discount-per-day">Discount per day (cents)</Label>
+            <Input
+              id="discount-per-day"
+              type="number"
+              min={0}
+              value={discountInput}
+              onChange={(event) => setDiscountInput(event.target.value)}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="max-discounts">Max discounts per period</Label>
+            <Input
+              id="max-discounts"
+              type="number"
+              min={1}
+              max={editingRow ? CAP_LIMITS[editingRow.billing_interval] : undefined}
+              value={maxDiscountsInput}
+              onChange={(event) => setMaxDiscountsInput(event.target.value)}
+            />
+          </div>
+        </div>
+        {error && editingRow ? <p className="mt-4 text-sm text-destructive">{error}</p> : null}
+      </AdminDialogShell>
+    </>
   );
 }

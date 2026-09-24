@@ -15,11 +15,15 @@ import { tutorBtnOutline, tutorTableBodyRow, tutorToolbarProps } from '@/shared/
 
 export function SetsReconciliationTable({
   title,
+  description,
+  showCountBadge = true,
   dataKey,
   onEditSet,
   showTimeColumn = false,
 }: {
   title: string
+  description?: string
+  showCountBadge?: boolean
   dataKey: 'setsWithIncorrectQuestionCount' | 'setsWithIncorrectTiming' | 'setsWithMultipleSections'
   onEditSet: (setId: string) => void
   showTimeColumn?: boolean
@@ -107,6 +111,8 @@ export function SetsReconciliationTable({
   return (
     <ReconciliationTable<SetReconciliationRow>
       title={title}
+      description={description}
+      showCountBadge={showCountBadge}
       items={filteredItems}
       isLoading={isLoading}
       columnDefinitions={columnDefinitions}

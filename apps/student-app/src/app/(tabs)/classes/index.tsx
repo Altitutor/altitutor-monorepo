@@ -1,6 +1,7 @@
 import { useRouter } from 'expo-router';
 import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { expandProjectedClassScheduleRows } from '@altitutor/shared';
 
 import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SectionTitle, StudentScreen, TappableRow } from '@/components/student-ui';
 import { useStudentClasses } from '@/hooks/use-student-data';
@@ -21,12 +22,16 @@ export default function ClassesScreen() {
   const router = useRouter();
   const theme = useTheme();
   const classes = useStudentClasses();
+  const timetableEntries = useMemo(
+    () => expandProjectedClassScheduleRows(classes.data ?? []),
+    [classes.data],
+  );
   const byDay = useMemo(
     () => timetableDays.map((day) => ({
       day,
-      entries: (classes.data ?? []).filter((row) => row.day_of_week === day),
+      entries: timetableEntries.filter((row) => row.day_of_week === day),
     })),
-    [classes.data],
+    [timetableEntries],
   );
 
   return (
@@ -42,8 +47,8 @@ export default function ClassesScreen() {
       {classes.data?.map((row) => (
         <Card key={row.class_id}>
           <TappableRow
-            title={`${row.subject_year_level ? `Year ${row.subject_year_level} ` : ''}${row.subject_name ?? 'Class'}`}
-            detail={`${days[row.day_of_week ?? 0]} · ${row.start_time ?? '--:--'} - ${row.end_time ?? '--:--'}${row.room ? ` · ${row.room}` : ''}`}
+            title={row.short_name ?? `${row.subject_year_level ? `Year ${row.subject_year_level} ` : ''}${row.subject_name ?? 'Class'}`}
+            detail={row.schedule_summary_long ?? `${days[row.day_of_week ?? 0]} · ${row.start_time ?? '--:--'} - ${row.end_time ?? '--:--'}`}
             accent={row.subject_color}
             onPress={row.class_id ? () => router.push({ pathname: '/(tabs)/classes/[classId]', params: { classId: row.class_id! } }) : undefined}
           />
@@ -62,7 +67,7 @@ export default function ClassesScreen() {
                   <Text style={[styles.emptyDay, { color: theme.textSecondary }]}>No sessions</Text>
                 ) : entries.map((row) => (
                   <Pressable
-                    key={`timetable-${row.class_id}`}
+                    key={`timetable-${row.class_id}-${row.schedule_row_id}`}
                     onPress={row.class_id ? () => router.push({ pathname: '/(tabs)/classes/[classId]', params: { classId: row.class_id! } }) : undefined}
                     style={[styles.event, { backgroundColor: theme.backgroundSelected, borderLeftColor: row.subject_color ?? theme.accent }]}>
                     <Text style={[styles.eventTime, { color: theme.textSecondary }]}>

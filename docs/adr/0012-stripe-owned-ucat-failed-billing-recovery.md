@@ -1,0 +1,3 @@
+# Stripe-owned UCAT failed-billing recovery
+
+Recurring UCAT renewal failures enter a temporary Stripe `past_due` recovery state rather than immediately removing access. Stripe owns Smart Retry timing and the terminal transition; Altitutor mirrors the current invoice-scoped recovery state for messaging, grants paid entitlements while `past_due`, and downgrades to UCAT Free when Stripe reaches `canceled` or `unpaid`. The launch configuration is a maximum five-day recovery window with approximately three retries and **cancel subscription** as the terminal action. This avoids a competing app-side scheduler, prevents indefinite `unpaid` access or invoice accumulation, and preserves the student's account and learning history.

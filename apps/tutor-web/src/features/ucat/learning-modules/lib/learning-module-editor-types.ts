@@ -2,6 +2,7 @@ import { plainTextToProseMirror } from '@/features/ucat/shared/lib/rich-text'
 import type { UcatLearningModuleBlockType } from '@/features/ucat/learning-modules/types'
 
 export type DraftBlock = {
+  id: string | null
   clientId: string
   block_type: UcatLearningModuleBlockType
   require_completion_before_next: boolean
@@ -9,7 +10,7 @@ export type DraftBlock = {
   question_stem_id: string | null
   question_id: string | null
   file_id: string | null
-  skill_trainer_set_id: string | null
+  skill_trainer_id: string | null
 }
 
 export const BLOCK_TYPE_LABELS: Record<UcatLearningModuleBlockType, string> = {
@@ -18,11 +19,12 @@ export const BLOCK_TYPE_LABELS: Record<UcatLearningModuleBlockType, string> = {
   file: 'File',
   question_stem: 'Question stem',
   question: 'Question',
-  skill_trainer_set: 'Skill trainer set',
+  skill_trainer: 'Skill trainer',
 }
 
 export function newDraftBlock(type: UcatLearningModuleBlockType = 'text'): DraftBlock {
   return {
+    id: null,
     clientId: `block-${Date.now()}-${Math.random().toString(36).slice(2)}`,
     block_type: type,
     require_completion_before_next: true,
@@ -35,7 +37,7 @@ export function newDraftBlock(type: UcatLearningModuleBlockType = 'text'): Draft
     question_stem_id: null,
     question_id: null,
     file_id: null,
-    skill_trainer_set_id: null,
+    skill_trainer_id: null,
   }
 }
 
@@ -43,11 +45,19 @@ export function snapshotSettings(input: {
   kind: string
   title: string
   description: string
+  iconKey: string
+  estimatedMinutes: number | null
   sectionId: string | null
   parentId: string | null
   index: number
-  isPrivate: boolean
-  displayMode: string
+  accessScope: string
+  studyPlanPriority: string
+  studyPlanCategoryIds: string[]
+  studyPlanTagIds: string[]
 }): string {
-  return JSON.stringify(input)
+  return JSON.stringify({
+    ...input,
+    studyPlanCategoryIds: [...input.studyPlanCategoryIds].sort(),
+    studyPlanTagIds: [...input.studyPlanTagIds].sort(),
+  })
 }

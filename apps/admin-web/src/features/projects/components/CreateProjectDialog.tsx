@@ -5,11 +5,6 @@ import { useForm, type Resolver } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
   Form,
   Button,
   DropdownMenu,
@@ -17,7 +12,7 @@ import {
   DropdownMenuTrigger,
   type RichTextEditorRef,
 } from '@altitutor/ui';
-import { X, MoreVertical } from 'lucide-react';
+import { MoreVertical } from 'lucide-react';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
 import { useCreateProject } from '../api/mutations';
@@ -27,12 +22,8 @@ import { ProjectTitleField } from './fields/ProjectTitleField';
 import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
 import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
 import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
-import {
-  ExpandButton,
-  EXPANDABLE_DIALOG_TRANSITION,
-  EXPANDED_DIALOG_CONTENT_CLASS,
-} from '@/shared/components/expandable-dialog';
-import { cn } from '@/shared/utils';
+import { AdminDialogShell } from '@/shared/components';
+import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
 
 const formSchema = z.object({
   name: z.string().min(1, 'Name is required'),
@@ -40,6 +31,7 @@ const formSchema = z.object({
   status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
+  memberIds: z.array(z.string().uuid()).default([]),
   startDate: z.union([z.string(), z.null()]).default(null),
   targetDate: z.union([z.string(), z.null()]).default(null),
 });
@@ -65,12 +57,7 @@ export function CreateProjectDialog({
   const { data: currentStaff } = useCurrentStaff();
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
-  const [expanded, setExpanded] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-
-  useEffect(() => {
-    if (!isOpen) setExpanded(false);
-  }, [isOpen]);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
@@ -80,6 +67,7 @@ export function CreateProjectDialog({
       status: initialStatus,
       priority: (initialPriority ?? 0) as ProjectPriority,
       projectLeadId: initialProjectLeadId ?? null,
+      memberIds: [],
       startDate: null,
       targetDate: null,
     },
@@ -93,6 +81,7 @@ export function CreateProjectDialog({
       status: initialStatus,
       priority: (initialPriority ?? 0) as ProjectPriority,
       projectLeadId: initialProjectLeadId ?? null,
+      memberIds: [],
       startDate: null,
       targetDate: null,
     });
@@ -111,6 +100,7 @@ export function CreateProjectDialog({
         status: data.status,
         priority: data.priority,
         project_lead_id: data.projectLeadId || null,
+        memberIds: data.memberIds ?? [],
         start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
         target_date: data.targetDate ? new Date(data.targetDate).toISOString() : null,
         created_by: currentStaff?.id ?? null,
@@ -141,45 +131,53 @@ export function CreateProjectDialog({
   });
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent
-        className={cn(
-          'w-full md:max-w-4xl h-[90vh] flex flex-col p-0 gap-0 [&>button]:hidden',
-          EXPANDABLE_DIALOG_TRANSITION,
-          expanded && EXPANDED_DIALOG_CONTENT_CLASS
-        )}
+    <>
+      <AdminDialogShell
+        fillHeight
+        defaultExpanded
+        open={isOpen}
+        onClose={handleClose}
+        title="Create Project"
+        contentClassName="md:max-w-4xl"
+        bodyClassName="min-h-0 flex-1 overflow-hidden p-0"
+        headerActions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="icon">
+                <MoreVertical className="h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <RichTextTemplateMenuItems
+                getEditor={() => descriptionFieldRef.current?.getEditor() ?? null}
+                getCurrentContent={() => form.getValues('description') ?? null}
+                onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
+              />
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+        footer={
+          <>
+            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
+            <Button type="submit" form="create-project-form" disabled={createProject.isPending}>
+              {createProject.isPending ? 'Creating...' : 'Create Project'}
+            </Button>
+          </>
+        }
       >
         <Form {...form}>
-          <DialogHeader className="flex-shrink-0 px-6 py-4 border-b">
-            <div className="flex items-center justify-between gap-4 w-full">
-              <div className="flex items-center gap-3 flex-1">
-                <Button variant="outline" size="icon" onClick={handleClose} className="shrink-0">
-                  <X className="h-4 w-4" />
-                </Button>
-                <DialogTitle>Create Project</DialogTitle>
-              </div>
-              <ExpandButton expanded={expanded} onToggle={() => setExpanded((e) => !e)} />
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <RichTextTemplateMenuItems
-                    getEditor={() => descriptionFieldRef.current?.getEditor() ?? null}
-                    getCurrentContent={() => form.getValues('description') ?? null}
-                    onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
-                  />
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </DialogHeader>
-
-          <div className="flex-1 overflow-hidden min-h-0">
-            <div className="h-full flex">
-              <form onSubmit={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)} className="flex-1 flex min-h-0">
-                <div className="flex-1 min-w-0 border-r overflow-y-auto p-6 space-y-6">
+          <form
+            id="create-project-form"
+            onSubmit={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)}
+            className="flex h-full min-h-0 flex-1"
+          >
+            <EntityResizablePanels
+              id="create-project-panels"
+              main={(
+                <div
+                  className="h-full min-w-0 overflow-y-auto p-6 space-y-6"
+                  data-rich-text-toolbar-container
+                >
                   <ProjectTitleField
                     form={form}
                     onEnter={handleTitleEnter}
@@ -190,29 +188,22 @@ export function CreateProjectDialog({
                     descriptionRef={descriptionFieldRef}
                   />
                 </div>
-                <div className="w-80 flex-shrink-0 overflow-y-auto p-6">
+              )}
+              sidebar={(
+                <div className="hidden h-full w-full overflow-y-auto p-6 md:block">
                   <ProjectPropertiesFields form={form} />
                 </div>
-              </form>
-            </div>
-          </div>
-
-          <DialogFooter className="flex-shrink-0 px-6 py-4 border-t">
-            <div className="flex items-center gap-2 w-full justify-end">
-              <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-              <Button type="submit" onClick={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)} disabled={createProject.isPending}>
-                {createProject.isPending ? 'Creating...' : 'Create Project'}
-              </Button>
-            </div>
-          </DialogFooter>
+              )}
+            />
+          </form>
         </Form>
-      </DialogContent>
+      </AdminDialogShell>
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}
         onClose={() => setIsSaveDialogOpen(false)}
         initialContent={form.getValues('description') ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
-    </Dialog>
+    </>
   );
 }

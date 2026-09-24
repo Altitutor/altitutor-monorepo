@@ -1,0 +1,8 @@
+-- Migration-history bridge for the emergency production repair applied at
+-- this version. The identical, repository-authored schema change remains in
+-- 20260718163400_allow_legacy_ucat_attempt_lifecycle_updates.sql.
+--
+-- Production has already executed the repair under this version. Development
+-- will safely record this no-op before its already-applied 16:34 migration.
+-- Keeping both versions in Git allows `supabase db push --include-all` to
+-- reconcile both environments without falsifying either migration history.

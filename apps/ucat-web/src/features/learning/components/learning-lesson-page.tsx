@@ -3,12 +3,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { Json } from "@altitutor/shared";
-import { AnimatedStepPanel } from "@/features/signup-onboarding/components/animated-step-panel";
 import type { UcatBreadcrumbItem } from "@/features/layout/components/ucat-page-header";
 import { UcatPageHeader } from "@/features/layout";
-import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import {
   learningKeys,
   useLearningLesson,
@@ -16,9 +15,10 @@ import {
   useMarkBlockComplete,
   useMarkLessonComplete,
   useResetLessonProgress,
-  useStartLesson,
   useUpdateBlockProgress,
 } from "@/features/learning/hooks/use-learning";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { useStudyPlanCompanion } from "@/features/study-plan/context/study-plan-companion-context";
 import { LearnQuestionBlock } from "@/features/learning/components/learn-question-block";
 import { LearnSkillTrainerBlock } from "@/features/learning/components/learn-skill-trainer-block";
 import { LearningLessonContentsSidebar } from "@/features/learning/components/learning-lesson-contents-sidebar";
@@ -27,20 +27,29 @@ import {
   LearningMarkLessonIncompleteDialog,
 } from "@/features/learning/components/learning-lesson-progress-dialogs";
 import { LearningLessonPageSkeleton } from "@/features/learning/components/learning-lesson-page-skeleton";
+import { LearningTextBlock } from "@/features/learning/components/learning-text-block";
 import { formatBlockLabel } from "@/features/learning/lib/format-block-label";
 import { buildLessonAncestorPath } from "@/features/learning/lib/build-lesson-ancestors";
 import { getAdjacentLessons } from "@/features/learning/lib/flatten-lessons-for-nav";
+import { SECTION_NUMBER_TO_NAME } from "@/features/sets/lib/section-labels";
+import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallback";
 import type { LearningModuleBlockRow } from "@/features/learning/types";
+import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
 
 type LearningLessonPageProps = {
   lessonId: string;
+  sectionNumber: number | null;
+  studyPlanTaskId: string | null;
 };
 
 function getVideoEmbedUrl(url: string): string | null {
   try {
     const parsed = new URL(url);
-    if (parsed.hostname.includes("youtube.com") || parsed.hostname.includes("youtu.be")) {
+    if (
+      parsed.hostname.includes("youtube.com") ||
+      parsed.hostname.includes("youtu.be")
+    ) {
       const videoId = parsed.hostname.includes("youtu.be")
         ? parsed.pathname.slice(1)
         : parsed.searchParams.get("v");
@@ -54,54 +63,6 @@ function getVideoEmbedUrl(url: string): string | null {
   } catch {
     return null;
   }
-}
-
-function TextBlock({
-  block,
-  onScrolledToBottom,
-}: {
-  block: LearningModuleBlockRow;
-  onScrolledToBottom: () => void;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const reportedRef = useRef(false);
-  const onScrolledToBottomRef = useRef(onScrolledToBottom);
-  onScrolledToBottomRef.current = onScrolledToBottom;
-  const content = (block.content ?? {}) as Record<string, unknown>;
-  const body = content.body as Record<string, unknown> | undefined;
-
-  useEffect(() => {
-    reportedRef.current = false;
-  }, [block.id]);
-
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-
-    const handleScroll = () => {
-      if (reportedRef.current) return;
-      const { scrollTop, scrollHeight, clientHeight } = el;
-      if (scrollHeight <= clientHeight + 4) {
-        reportedRef.current = true;
-        onScrolledToBottomRef.current();
-        return;
-      }
-      if (scrollTop + clientHeight >= scrollHeight - 8) {
-        reportedRef.current = true;
-        onScrolledToBottomRef.current();
-      }
-    };
-
-    el.addEventListener("scroll", handleScroll);
-    handleScroll();
-    return () => el.removeEventListener("scroll", handleScroll);
-  }, [block.id]);
-
-  return (
-    <div ref={ref} className="max-h-[60vh] overflow-auto pr-2">
-      <RichContentBlock json={body ?? null} plainText="" />
-    </div>
-  );
 }
 
 function VideoBlock({
@@ -122,7 +83,9 @@ function VideoBlock({
   }, [block.id]);
 
   if (!embedUrl) {
-    return <p className="text-sm text-muted-foreground">Video URL not configured.</p>;
+    return (
+      <p className="text-sm text-muted-foreground">Video URL not configured.</p>
+    );
   }
 
   return (
@@ -153,7 +116,13 @@ function FileBlock({
   const onViewedRef = useRef(onViewed);
   onViewedRef.current = onViewed;
   const content = (block.content ?? {}) as { url?: string; label?: string };
-  const label = content.label ?? "Open file";
+  const label = content.label ?? "Lesson file";
+  const fileUrl = block.id
+    ? `/api/ucat/learning-modules/blocks/${encodeURIComponent(block.id)}/file`
+    : content.url;
+  const downloadUrl = fileUrl
+    ? `${fileUrl}${fileUrl.includes("?") ? "&" : "?"}download=1`
+    : null;
 
   useEffect(() => {
     reportedRef.current = false;
@@ -167,20 +136,23 @@ function FileBlock({
 
   return (
     <div className="space-y-3">
-      {content.url ? (
+      {fileUrl ? (
+        <div className="flex justify-end">
+          <Button asChild variant="outline" size="sm" onClick={markViewed}>
+            <a href={downloadUrl ?? fileUrl} target="_blank" rel="noreferrer">
+              <Download className="mr-2 h-4 w-4" />
+              download
+            </a>
+          </Button>
+        </div>
+      ) : null}
+      {fileUrl ? (
         <iframe
-          src={content.url}
+          src={fileUrl}
           title={label}
           className="h-[50vh] w-full rounded-lg border"
           onLoad={markViewed}
         />
-      ) : null}
-      {content.url ? (
-        <Button asChild variant="outline" onClick={markViewed}>
-          <a href={content.url} target="_blank" rel="noreferrer">
-            {label}
-          </a>
-        </Button>
       ) : (
         <p className="text-sm text-muted-foreground">File not configured.</p>
       )}
@@ -192,7 +164,10 @@ function LessonBlockContent({
   block,
   onBlockProgress,
   onSkillTrainerComplete,
-  onQuestionProgress,
+  questionBlockStarted,
+  questionBlockActive,
+  questionBlockComplete,
+  onActivateQuestionBlock,
 }: {
   block: LearningModuleBlockRow;
   onBlockProgress: (
@@ -201,34 +176,54 @@ function LessonBlockContent({
     interactionState?: Json,
   ) => void;
   onSkillTrainerComplete: (blockId: string) => void;
-  onQuestionProgress: () => void;
+  questionBlockStarted: boolean;
+  questionBlockActive: boolean;
+  questionBlockComplete: boolean;
+  onActivateQuestionBlock: () => void;
 }) {
   return (
     <>
       {block.block_type === "text" && block.id ? (
-        <TextBlock
+        <LearningTextBlock
           block={block}
-          onScrolledToBottom={() => onBlockProgress(block.id!, true)}
+          onViewed={() => onBlockProgress(block.id!, true)}
         />
       ) : null}
       {block.block_type === "video" && block.id ? (
         <VideoBlock
           block={block}
           onWatchProgress={(percent) =>
-            onBlockProgress(block.id!, percent >= 50, { videoWatchPercent: percent })
+            onBlockProgress(block.id!, percent >= 50, {
+              videoWatchPercent: percent,
+            })
           }
         />
       ) : null}
       {block.block_type === "file" && block.id ? (
         <FileBlock
           block={block}
-          onViewed={() => onBlockProgress(block.id!, true, { fileViewed: true })}
+          onViewed={() =>
+            onBlockProgress(block.id!, true, { fileViewed: true })
+          }
         />
       ) : null}
-      {block.block_type === "question_stem" || block.block_type === "question" ? (
-        <LearnQuestionBlock block={block} onProgressChange={onQuestionProgress} />
+      {block.block_type === "question_stem" ||
+      block.block_type === "question" ? (
+        <LearnQuestionBlock
+          block={block}
+          started={questionBlockStarted}
+          active={questionBlockActive}
+          completed={questionBlockComplete}
+          onActivate={onActivateQuestionBlock}
+          onProgressChange={() => {
+            if (!block.id) return;
+            onBlockProgress(block.id, true, {
+              completedFromQuestionEngine: true,
+            });
+          }}
+        />
       ) : null}
-      {block.block_type === "skill_trainer_set" && block.id ? (
+      {block.block_type === "skill_trainer" && block.id ? (
         <LearnSkillTrainerBlock
           block={block}
           onComplete={() => onSkillTrainerComplete(block.id!)}
@@ -238,55 +233,112 @@ function LessonBlockContent({
   );
 }
 
-export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
+export function LearningLessonPage({
+  lessonId,
+  sectionNumber,
+  studyPlanTaskId,
+}: LearningLessonPageProps) {
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useLearningLesson(lessonId);
+  const { data, isLoading, error } = useLearningLesson(
+    lessonId,
+    studyPlanTaskId,
+  );
   const { data: allModules } = useLearningModules();
-  const startLesson = useStartLesson(lessonId);
   const updateProgress = useUpdateBlockProgress(lessonId);
   const markBlockComplete = useMarkBlockComplete(lessonId);
   const markLessonComplete = useMarkLessonComplete(lessonId);
   const resetLessonProgress = useResetLessonProgress(lessonId);
   const { containerVariants, itemVariants } = useUcatStaggerMotion();
   const [activeIndex, setActiveIndex] = useState(0);
-  const [slideDirection, setSlideDirection] = useState(1);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [incompleteDialogOpen, setIncompleteDialogOpen] = useState(false);
+  const [activeQuestionBlockId, setActiveQuestionBlockId] = useState<
+    string | null
+  >(null);
+  const [startedQuestionBlockIds, setStartedQuestionBlockIds] = useState(
+    () => new Set<string>(),
+  );
   const blockRefs = useRef(new Map<string, HTMLDivElement>());
+  const { openQuotaLimit } = useQuotaLimitDialog();
+  const { reportActivityCompletion, setActivityComplete } =
+    useStudyPlanCompanion();
+  const previousLessonCompleteRef = useRef<boolean | null>(null);
 
   useEffect(() => {
     setActiveIndex(0);
-    setSlideDirection(1);
+    setActiveQuestionBlockId(null);
+    setStartedQuestionBlockIds(new Set());
+    previousLessonCompleteRef.current = null;
   }, [lessonId]);
 
   useEffect(() => {
-    startLesson.mutate();
-  }, [lessonId]); // eslint-disable-line react-hooks/exhaustive-deps
+    if (!(error instanceof QuotaExceededError)) return;
+    openQuotaLimit(error.payload, {
+      dismissAction: quotaRouteFallback("learn"),
+    });
+  }, [error, openQuotaLimit]);
+
+  useEffect(() => {
+    if (!data?.module.started_at) return;
+    void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
+    void queryClient.invalidateQueries({ queryKey: ["ucat-quota-usage"] });
+  }, [data?.module.started_at, queryClient]);
 
   const blocks = useMemo(() => data?.blocks ?? [], [data?.blocks]);
   const lesson = data?.module;
-  const displayMode = lesson?.display_mode ?? "stepped";
   const completionPercent = Number(lesson?.completion_percent ?? 0);
   const isLessonComplete =
     lesson?.completed_at != null || completionPercent >= 100;
 
-  const { prev: prevLesson, next: nextLesson } = useMemo(
+  useEffect(() => {
+    setActivityComplete(isLessonComplete);
+    return () => setActivityComplete(false);
+  }, [isLessonComplete, setActivityComplete]);
+
+  useEffect(() => {
+    if (!lesson) return;
+    const previous = previousLessonCompleteRef.current;
+    previousLessonCompleteRef.current = isLessonComplete;
+    if (previous !== false || !isLessonComplete) return;
+    reportActivityCompletion({
+      title: "Learning module complete",
+      detail: lesson.title ?? "Your module progress has been saved.",
+    });
+  }, [isLessonComplete, lesson, reportActivityCompletion]);
+
+  const { next: nextLesson } = useMemo(
     () => getAdjacentLessons(lessonId, allModules ?? []),
     [allModules, lessonId],
   );
 
+  const sectionHref =
+    sectionNumber == null
+      ? "/learn/general"
+      : `/learn/sections/${sectionNumber}`;
+  const sectionLabel =
+    lesson?.section_name ??
+    (sectionNumber == null
+      ? "General"
+      : (SECTION_NUMBER_TO_NAME[sectionNumber] ?? `Section ${sectionNumber}`));
+
   const breadcrumbItems = useMemo((): UcatBreadcrumbItem[] => {
-    const items: UcatBreadcrumbItem[] = [{ label: "Learn", href: "/learn" }];
+    const items: UcatBreadcrumbItem[] = [
+      { label: "Learn", href: "/learn" },
+      { label: sectionLabel, href: sectionHref },
+    ];
     for (const folder of buildLessonAncestorPath(lessonId, allModules ?? [])) {
       if (folder.title) {
-        items.push({ label: folder.title });
+        items.push({
+          label: folder.title,
+          href: `${sectionHref}#folder-${folder.id}`,
+        });
       }
     }
     if (lesson?.title) {
       items.push({ label: lesson.title });
     }
     return items;
-  }, [allModules, lesson?.title, lessonId]);
+  }, [allModules, lesson?.title, lessonId, sectionHref, sectionLabel]);
 
   const isBlockComplete = useCallback(
     (block: LearningModuleBlockRow) => block.block_completed_at != null,
@@ -304,25 +356,10 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
         const index = blocks.findIndex((item) => item.id === block.id);
         return {
           id: block.id ?? `block-${index}`,
-          label: formatBlockLabel(block, index >= 0 ? index : 0),
+          label: formatBlockLabel(block),
         };
       }),
     [blocks, incompleteBlocks],
-  );
-
-  const canAccessBlock = useCallback(
-    (index: number) => {
-      if (index === 0) return true;
-      for (let i = 0; i < index; i += 1) {
-        const prior = blocks[i];
-        if (!prior) return false;
-        if (prior.require_completion_before_next && !isBlockComplete(prior)) {
-          return false;
-        }
-      }
-      return true;
-    },
-    [blocks, isBlockComplete],
   );
 
   const handleBlockProgress = useCallback(
@@ -343,7 +380,9 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   );
 
   const refreshLessonProgress = useCallback(() => {
-    void queryClient.invalidateQueries({ queryKey: learningKeys.lesson(lessonId) });
+    void queryClient.invalidateQueries({
+      queryKey: learningKeys.lesson(lessonId),
+    });
     void queryClient.invalidateQueries({ queryKey: learningKeys.modules() });
   }, [queryClient, lessonId]);
 
@@ -358,17 +397,13 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
 
   const goToBlock = useCallback(
     (index: number) => {
-      setSlideDirection(index > activeIndex ? 1 : -1);
       setActiveIndex(index);
-
-      if (displayMode === "scroll") {
-        const block = blocks[index];
-        if (!block?.id) return;
-        const element = blockRefs.current.get(block.id);
-        element?.scrollIntoView({ behavior: "smooth", block: "start" });
-      }
+      const block = blocks[index];
+      if (!block?.id) return;
+      const element = blockRefs.current.get(block.id);
+      element?.scrollIntoView({ behavior: "smooth", block: "start" });
     },
-    [activeIndex, blocks, displayMode],
+    [blocks],
   );
 
   const handleMarkBlockComplete = useCallback(
@@ -380,30 +415,36 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
     [markBlockComplete, refreshLessonProgress],
   );
 
-  const setBlockRef = useCallback((blockId: string, element: HTMLDivElement | null) => {
-    if (element) {
-      blockRefs.current.set(blockId, element);
-      return;
-    }
-    blockRefs.current.delete(blockId);
-  }, []);
+  const setBlockRef = useCallback(
+    (blockId: string, element: HTMLDivElement | null) => {
+      if (element) {
+        blockRefs.current.set(blockId, element);
+        return;
+      }
+      blockRefs.current.delete(blockId);
+    },
+    [],
+  );
 
   const handleConfirmMarkComplete = useCallback(() => {
     markLessonComplete.mutate(undefined, {
       onSuccess: () => {
+        previousLessonCompleteRef.current = true;
+        reportActivityCompletion({
+          title: "Learning module complete",
+          detail: lesson?.title ?? "Your module progress has been saved.",
+        });
         setCompleteDialogOpen(false);
         setActiveIndex(0);
-        setSlideDirection(1);
       },
     });
-  }, [markLessonComplete]);
+  }, [lesson?.title, markLessonComplete, reportActivityCompletion]);
 
   const handleConfirmMarkIncomplete = useCallback(() => {
     resetLessonProgress.mutate(undefined, {
       onSuccess: () => {
         setIncompleteDialogOpen(false);
         setActiveIndex(0);
-        setSlideDirection(1);
       },
     });
   }, [resetLessonProgress]);
@@ -411,11 +452,16 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
   if (isLoading) {
     return <LearningLessonPageSkeleton />;
   }
+  if (error instanceof QuotaExceededError) {
+    return (
+      <p className="text-sm text-muted-foreground">
+        Learning module limit reached.
+      </p>
+    );
+  }
   if (error || !lesson) {
     return <p className="text-sm text-destructive">Lesson not found.</p>;
   }
-
-  const activeBlock = blocks[activeIndex];
 
   return (
     <motion.div
@@ -425,64 +471,57 @@ export function LearningLessonPage({ lessonId }: LearningLessonPageProps) {
       animate="show"
     >
       <div className="flex flex-col gap-6 lg:flex-row">
-        <motion.div className="min-w-0 flex-1 space-y-6" variants={itemVariants}>
-          <UcatPageHeader
-            title={lesson.title ?? "Lesson"}
-            description={lesson.description ?? undefined}
-            backHref="/learn"
-            backLabel="All modules"
-            breadcrumbItems={breadcrumbItems}
-          />
+        <div className="min-w-0 flex-1 space-y-6">
+          <motion.div id="tour-learning-content" variants={itemVariants}>
+            <UcatPageHeader
+              title={lesson.title ?? "Lesson"}
+              description={lesson.description ?? undefined}
+              backHref={sectionHref}
+              backLabel="All modules"
+              breadcrumbItems={breadcrumbItems}
+            />
+          </motion.div>
 
-          {displayMode === "stepped" ? (
-            <div className="min-h-[200px]">
-              {activeBlock ? (
-                <AnimatedStepPanel stepKey={activeIndex} direction={slideDirection}>
+          <motion.div className="space-y-10" variants={itemVariants}>
+            {blocks.map((block) =>
+              block.id ? (
+                <div
+                  key={block.id}
+                  ref={(element) => setBlockRef(block.id!, element)}
+                  className="scroll-mt-24"
+                >
                   <LessonBlockContent
-                    block={activeBlock}
+                    block={block}
                     onBlockProgress={handleBlockProgress}
                     onSkillTrainerComplete={handleSkillTrainerComplete}
-                    onQuestionProgress={refreshLessonProgress}
+                    questionBlockStarted={startedQuestionBlockIds.has(block.id)}
+                    questionBlockActive={activeQuestionBlockId === block.id}
+                    questionBlockComplete={isBlockComplete(block)}
+                    onActivateQuestionBlock={() => {
+                      setStartedQuestionBlockIds((current) =>
+                        new Set(current).add(block.id!),
+                      );
+                      setActiveQuestionBlockId(block.id!);
+                    }}
                   />
-                </AnimatedStepPanel>
-              ) : null}
-            </div>
-          ) : (
-            <div className="space-y-10">
-              {blocks.map((block) =>
-                block.id ? (
-                  <div
-                    key={block.id}
-                    ref={(element) => setBlockRef(block.id!, element)}
-                    className="scroll-mt-24"
-                  >
-                    <LessonBlockContent
-                      block={block}
-                      onBlockProgress={handleBlockProgress}
-                      onSkillTrainerComplete={handleSkillTrainerComplete}
-                      onQuestionProgress={refreshLessonProgress}
-                    />
-                  </div>
-                ) : null,
-              )}
-            </div>
-          )}
-        </motion.div>
+                </div>
+              ) : null,
+            )}
+          </motion.div>
+        </div>
 
-        <motion.div variants={itemVariants}>
+        <motion.div id="tour-learning-progress" variants={itemVariants}>
           <LearningLessonContentsSidebar
             blocks={blocks}
             activeIndex={activeIndex}
             completionPercent={completionPercent}
             isLessonComplete={isLessonComplete}
-            canAccessBlock={canAccessBlock}
             isBlockComplete={isBlockComplete}
             onSelectBlock={goToBlock}
             onMarkBlockComplete={handleMarkBlockComplete}
             onRequestMarkComplete={() => setCompleteDialogOpen(true)}
             onRequestMarkIncomplete={() => setIncompleteDialogOpen(true)}
             isResettingProgress={resetLessonProgress.isPending}
-            prevLesson={prevLesson}
             nextLesson={nextLesson}
           />
         </motion.div>

@@ -3,15 +3,17 @@
 import Link from "next/link";
 import {
   Badge,
-  Button,
   Card,
   CardContent,
   CardHeader,
   CardTitle,
   Skeleton,
 } from "@altitutor/ui";
-import { useQuotaLimitModal } from "@/features/ucat-access/context/quota-limit-context";
+import { Button } from "@/components/ui/button";
+import { useQuotaLimitDialog } from "@/features/ucat-access/context/upsell-dialog-context";
 import { useUpsellDialog } from "@/features/ucat-access/context/upsell-dialog-context";
+import { QuotaAreaInfoButton } from "@/features/ucat-access/components/quota-area-info-button";
+import { QuotaResetEntitlementPanel } from "@/features/ucat-access/components/quota-reset-entitlement-panel";
 import { QuotaProgressBar } from "@/features/ucat-access/components/quota-usage-card";
 import { useQuotaUsage } from "@/features/ucat-access/hooks/use-quota-usage";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
@@ -32,13 +34,11 @@ import { cn } from "@/lib/utils";
 export function DashboardFreeQuotaCard() {
   const access = useUcatAccess();
   const { data, isLoading, isError } = useQuotaUsage();
-  const { openQuotaLimit } = useQuotaLimitModal();
+  const { openQuotaLimit } = useQuotaLimitDialog();
   const { openPlanPicker } = useUpsellDialog();
 
   const accessIndicatesFree =
-    !access.isLoading &&
-    access.onlineTier === "free" &&
-    !access.isQuotaExempt;
+    !access.isLoading && access.onlineTier === "free" && !access.isQuotaExempt;
   const quotaIndicatesFree =
     !isLoading &&
     !isError &&
@@ -46,8 +46,7 @@ export function DashboardFreeQuotaCard() {
     !data.isQuotaExempt;
   const isFreeTier = accessIndicatesFree || quotaIndicatesFree;
 
-  const enabledAreas =
-    data?.areas.filter((entry) => !entry.disabled) ?? [];
+  const enabledAreas = data?.areas.filter((entry) => !entry.disabled) ?? [];
 
   if (!access.isLoading && !isLoading && !isFreeTier) {
     return null;
@@ -65,7 +64,6 @@ export function DashboardFreeQuotaCard() {
   if (areas.length === 0) return null;
 
   const anyAtLimit = areas.some((entry) => entry.atLimit);
-
   const handleUpsell = () => {
     const target = areas.find((entry) => entry.atLimit) ?? areas[0];
     if (target?.atLimit) {
@@ -81,7 +79,7 @@ export function DashboardFreeQuotaCard() {
     openPlanPicker({
       title: "Upgrade to UCAT Unlimited",
       description:
-        "Compare Free, Unlimited, and Pro plans with accountability pricing.",
+        "Compare UCAT Free and Unlimited with accountability pricing.",
     });
   };
 
@@ -120,7 +118,10 @@ export function DashboardFreeQuotaCard() {
           {areas.map((entry) => (
             <li key={entry.area} className="space-y-1.5">
               <div className="flex items-center justify-between gap-2 text-sm">
-                <span className="font-medium">{entry.label}</span>
+                <span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
+                  <span className="truncate">{entry.label}</span>
+                  <QuotaAreaInfoButton area={entry.area} label={entry.label} />
+                </span>
                 <span
                   className={cn(
                     "tabular-nums text-muted-foreground",
@@ -138,6 +139,10 @@ export function DashboardFreeQuotaCard() {
             </li>
           ))}
         </ul>
+        <QuotaResetEntitlementPanel
+          availableCount={data.quotaResetEntitlement.availableCount}
+          nextExpiresAt={data.quotaResetEntitlement.nextExpiresAt}
+        />
         <div className="flex flex-wrap gap-2 pt-1">
           <Button
             type="button"

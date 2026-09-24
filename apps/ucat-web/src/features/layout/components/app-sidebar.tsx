@@ -5,6 +5,7 @@ import { Badge } from "@altitutor/ui";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTheme } from "next-themes";
 import { ChevronDown } from "lucide-react";
 import { SidebarExpandablePanel } from "@/features/layout/components/sidebar-expandable-panel";
 import { useComingSoon } from "@/features/layout/context/coming-soon-context";
@@ -20,9 +21,8 @@ import {
   hasAccessForPath,
 } from "@/features/ucat-access/lib/route-access";
 import { isComingSoon } from "@/features/layout/config/coming-soon";
+import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { cn } from "@/lib/utils";
-
-const LOGO_SRC = "/images/logo-banner-dark.svg";
 
 type SidebarNavContentProps = {
   onCloseMobile: () => void;
@@ -36,7 +36,9 @@ function SidebarNavContent({
   logoId,
 }: SidebarNavContentProps) {
   const pathname = usePathname();
+  const { resolvedTheme } = useTheme();
   const access = useUcatAccess();
+  const studyPlan = useStudyPlan();
   const { showComingSoonModal } = useComingSoon();
   const { openInPersonUpsell } = useUpsellDialog();
   const [progressExpanded, setProgressExpanded] = useState(() =>
@@ -45,6 +47,10 @@ function SidebarNavContent({
   const [setsExpanded, setSetsExpanded] = useState(() =>
     pathname.startsWith("/sets"),
   );
+  const logoSrc =
+    resolvedTheme === "dark"
+      ? "/images/logo-banner-dark.svg"
+      : "/images/logo-banner-light.svg";
 
   useEffect(() => {
     if (pathname.startsWith("/progress")) {
@@ -69,7 +75,7 @@ function SidebarNavContent({
       {showLogo ? (
         <div className="shrink-0 p-3" id={logoId}>
           <Image
-            src={LOGO_SRC}
+            src={logoSrc}
             alt="Altitutor"
             width={140}
             height={32}
@@ -91,6 +97,12 @@ function SidebarNavContent({
                 </div>
               ) : null}
               {section.items.map((item) => {
+                if (
+                  item.href === "/study-plan" &&
+                  !studyPlan.data?.profile?.studyPlanEnabled
+                ) {
+                  return null;
+                }
                 const Icon = item.icon;
                 const active = pathname === item.href;
                 const comingSoon = isComingSoon(item.href);
@@ -114,7 +126,10 @@ function SidebarNavContent({
                     >
                       <Icon className="h-4 w-4 shrink-0" />
                       <span className="ml-3 flex-1">{item.label}</span>
-                      <Badge variant="secondary" className="shrink-0 text-[10px]">
+                      <Badge
+                        variant="secondary"
+                        className="shrink-0 text-[10px]"
+                      >
                         Coming soon
                       </Badge>
                     </button>
@@ -125,12 +140,12 @@ function SidebarNavContent({
                   const isProgressActive =
                     pathname === "/progress" ||
                     pathname.startsWith("/progress/sections/") ||
-                    pathname.startsWith("/progress/mocks") ||
-                    pathname.startsWith("/progress/mock-attempts");
+                    pathname.startsWith("/progress/mocks");
                   return (
                     <div key={item.href} className="space-y-0.5">
                       <Link
                         href={item.href}
+                        prefetch={false}
                         data-tour={tourId}
                         className={cn(
                           "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -180,6 +195,7 @@ function SidebarNavContent({
                               <Link
                                 key={num}
                                 href={`/progress/sections/${num}`}
+                                prefetch={false}
                                 className={cn(
                                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                                   secActive
@@ -194,11 +210,11 @@ function SidebarNavContent({
                           })}
                           <Link
                             href="/progress/mocks"
+                            prefetch={false}
                             className={cn(
                               "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                               pathname === "/progress/mocks" ||
-                                pathname.startsWith("/progress/mocks/sections/") ||
-                                pathname.startsWith("/progress/mock-attempts")
+                                pathname.startsWith("/progress/mocks/")
                                 ? "bg-sidebar-foreground/15 text-sidebar-foreground font-medium"
                                 : "text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground",
                             )}
@@ -217,8 +233,7 @@ function SidebarNavContent({
                   const blocked = !hasAccessForPath(item.href, access);
                   const isSetsActive =
                     pathname === "/sets" ||
-                    pathname.startsWith("/sets/sections/") ||
-                    pathname.startsWith("/sets/set-generator");
+                    pathname.startsWith("/sets/sections/");
                   const setsSections = [1, 2, 3, 4] as const;
 
                   if (blocked) {
@@ -254,6 +269,7 @@ function SidebarNavContent({
                     <div key={item.href} className="space-y-0.5">
                       <Link
                         href={item.href}
+                        prefetch={false}
                         data-tour={tourId}
                         className={cn(
                           "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -303,6 +319,7 @@ function SidebarNavContent({
                               <Link
                                 key={num}
                                 href={`/sets/sections/${num}`}
+                                prefetch={false}
                                 className={cn(
                                   "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
                                   secActive
@@ -315,18 +332,6 @@ function SidebarNavContent({
                               </Link>
                             );
                           })}
-                          <Link
-                            href="/sets/set-generator"
-                            className={cn(
-                              "flex items-center rounded-md px-2 py-1.5 text-sm transition-colors duration-150 ease-out",
-                              pathname === "/sets/set-generator"
-                                ? "bg-sidebar-foreground/15 text-sidebar-foreground font-medium"
-                                : "text-sidebar-foreground/80 hover:bg-sidebar-foreground/10 hover:text-sidebar-foreground",
-                            )}
-                            onClick={onCloseMobile}
-                          >
-                            Set Generator
-                          </Link>
                         </div>
                       </SidebarExpandablePanel>
                     </div>
@@ -370,6 +375,7 @@ function SidebarNavContent({
                     <Link
                       key={item.href}
                       href={item.href}
+                      prefetch={false}
                       data-tour={tourId}
                       className={cn(
                         "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -427,6 +433,7 @@ function SidebarNavContent({
               <Link
                 key={item.href}
                 href={item.href}
+                prefetch={false}
                 data-tour={tourId}
                 className={cn(
                   "flex items-center rounded-lg px-3 py-2.5 text-sm font-medium transition-colors duration-200 ease-out",
@@ -491,7 +498,8 @@ export function AppSidebar({
     if (dragStartYRef.current == null) return;
     const nextOffset = Math.max(
       0,
-      (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current,
+      (event.touches[0]?.clientY ?? dragStartYRef.current) -
+        dragStartYRef.current,
     );
     dragOffsetRef.current = nextOffset;
     setDragOffset(nextOffset);
@@ -508,58 +516,23 @@ export function AppSidebar({
 
   if (isMobile) {
     return (
-      <>
-        {mobileOpen ? (
-          <div
-            data-mobile-menu-overlay
-            className="fixed inset-0 z-[70] bg-black/60 transition-opacity duration-300 md:hidden"
-            onClick={onCloseMobile}
-          />
-        ) : null}
-
-        <div
-          className={cn(
-            "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-0 bg-sidebar text-sidebar-foreground shadow-2xl ring-1 ring-black/10 transition-transform duration-300 ease-out md:hidden",
-            dragOffset > 0 && "transition-none",
-            mobileOpen ? "translate-y-0" : "translate-y-full",
-          )}
-          style={
-            mobileOpen && dragOffset > 0
-              ? { transform: `translateY(${dragOffset}px)` }
-              : undefined
-          }
-        >
-          <div
-            className="flex h-14 shrink-0 touch-pan-y items-center px-4"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-          >
-            <div id="ucat-onboarding-welcome">
-              <Image
-                src={LOGO_SRC}
-                alt="Altitutor"
-                width={140}
-                height={32}
-                className="h-10 w-auto object-contain object-left"
-                priority
-              />
-            </div>
-          </div>
-          <div className="flex min-h-0 flex-1 flex-col">
-            <SidebarNavContent onCloseMobile={onCloseMobile} showLogo={false} />
-          </div>
-        </div>
-      </>
+      <AppSidebarMobileSheet
+        mobileOpen={mobileOpen}
+        dragOffset={dragOffset}
+        onCloseMobile={onCloseMobile}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+      />
     );
   }
 
   return (
     <aside
+      data-tour={!collapsed ? "app-navigation" : undefined}
       className={cn(
         "fixed left-0 top-0 z-40 h-dvh overflow-hidden transition-[transform,width] duration-200 ease-[cubic-bezier(0.32,0.72,0,1)]",
-        "rounded-r-ucatShell bg-sidebar text-sidebar-foreground shadow-lg",
+        "rounded-r-ucatShell border-r border-border bg-sidebar text-sidebar-foreground shadow-sm",
         !collapsed ? "w-[240px] translate-x-0" : "w-0 -translate-x-full",
       )}
     >
@@ -571,5 +544,74 @@ export function AppSidebar({
         />
       </div>
     </aside>
+  );
+}
+
+function AppSidebarMobileSheet({
+  mobileOpen,
+  dragOffset,
+  onCloseMobile,
+  onTouchStart,
+  onTouchMove,
+  onTouchEnd,
+}: {
+  mobileOpen: boolean;
+  dragOffset: number;
+  onCloseMobile: () => void;
+  onTouchStart: (event: React.TouchEvent<HTMLDivElement>) => void;
+  onTouchMove: (event: React.TouchEvent<HTMLDivElement>) => void;
+  onTouchEnd: () => void;
+}) {
+  const { resolvedTheme } = useTheme();
+  const logoSrc =
+    resolvedTheme === "dark"
+      ? "/images/logo-banner-dark.svg"
+      : "/images/logo-banner-light.svg";
+
+  return (
+    <>
+      {mobileOpen ? (
+        <div
+          data-mobile-menu-overlay
+          className="fixed inset-0 z-[70] bg-black/60 transition-opacity duration-300 md:hidden"
+          onClick={onCloseMobile}
+        />
+      ) : null}
+
+      <div
+        className={cn(
+          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl border-0 bg-sidebar text-sidebar-foreground shadow-2xl ring-1 ring-border transition-transform duration-300 ease-out md:hidden",
+          dragOffset > 0 && "transition-none",
+          mobileOpen ? "translate-y-0" : "translate-y-full",
+        )}
+        style={
+          mobileOpen && dragOffset > 0
+            ? { transform: `translateY(${dragOffset}px)` }
+            : undefined
+        }
+      >
+        <div
+          className="flex h-14 shrink-0 touch-pan-y items-center px-4"
+          onTouchStart={onTouchStart}
+          onTouchMove={onTouchMove}
+          onTouchEnd={onTouchEnd}
+          onTouchCancel={onTouchEnd}
+        >
+          <div id="ucat-onboarding-welcome">
+            <Image
+              src={logoSrc}
+              alt="Altitutor"
+              width={140}
+              height={32}
+              className="h-10 w-auto object-contain object-left"
+              priority
+            />
+          </div>
+        </div>
+        <div className="flex min-h-0 flex-1 flex-col">
+          <SidebarNavContent onCloseMobile={onCloseMobile} showLogo={false} />
+        </div>
+      </div>
+    </>
   );
 }

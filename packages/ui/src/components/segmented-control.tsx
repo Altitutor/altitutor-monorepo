@@ -14,6 +14,8 @@ export type SegmentedControlOption<T extends string> = {
   value: T
   label: string
   infoTooltip?: string
+  /** Optional count/status badge rendered after the label */
+  badge?: number | string | null
 }
 
 export type SegmentedControlProps<T extends string> = {
@@ -41,6 +43,59 @@ const INDICATOR_STYLE = {
 } as const
 
 const segmentTabPadding = 'inline-flex items-center justify-center gap-1.5 px-3 py-1.5'
+
+function SegmentBadge({
+  badge,
+  isActive,
+  isLight,
+}: {
+  badge: number | string
+  isActive: boolean
+  isLight: boolean
+}) {
+  const numeric = typeof badge === 'number' ? badge : Number(badge)
+  const isZero = Number.isFinite(numeric) && numeric === 0
+
+  return (
+    <span
+      className={cn(
+        'inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-semibold leading-none tabular-nums',
+        isZero
+          ? isLight
+            ? 'bg-black/10 text-black/55'
+            : 'bg-muted-foreground/15 text-muted-foreground'
+          : isActive
+            ? 'bg-destructive text-destructive-foreground'
+            : isLight
+              ? 'bg-red-600/90 text-white'
+              : 'bg-destructive/90 text-destructive-foreground',
+      )}
+    >
+      {badge}
+    </span>
+  )
+}
+
+function SegmentLabel({
+  label,
+  badge,
+  isActive,
+  isLight,
+}: {
+  label: string
+  badge?: number | string | null
+  isActive: boolean
+  isLight: boolean
+}) {
+  return (
+    <>
+      <span className="truncate">{label}</span>
+      {badge != null && badge !== '' ? (
+        <SegmentBadge badge={badge} isActive={isActive} isLight={isLight} />
+      ) : null}
+    </>
+  )
+}
 
 /**
  * Track uses `p-0.5` (0.125rem). Inner radius = outer − inset.
@@ -96,19 +151,35 @@ export function SegmentedControl<T extends string>({
     const container = containerRef.current
     const activeEl = segmentRefs.current.get(value)
     if (!container || !activeEl) {
-      setIndicator(null)
+      setIndicator((prev) => (prev === null ? prev : null))
       return
     }
 
     const containerRect = container.getBoundingClientRect()
     const activeRect = activeEl.getBoundingClientRect()
-    setIndicator({
+    const next = {
       left: activeRect.left - containerRect.left,
       top: activeRect.top - containerRect.top,
       width: activeRect.width,
       height: activeRect.height,
+    }
+    setIndicator((prev) => {
+      if (
+        prev &&
+        prev.left === next.left &&
+        prev.top === next.top &&
+        prev.width === next.width &&
+        prev.height === next.height
+      ) {
+        return prev
+      }
+      return next
     })
   }, [value])
+
+  const optionsKey = options
+    .map((option) => `${option.value}:${option.badge ?? ''}`)
+    .join('\0')
 
   useLayoutEffect(() => {
     updateIndicator()
@@ -127,7 +198,7 @@ export function SegmentedControl<T extends string>({
       resizeObserver.disconnect()
       window.removeEventListener('resize', updateIndicator)
     }
-  }, [updateIndicator, options])
+  }, [updateIndicator, optionsKey])
 
   const textSizeClass = size === 'sm' ? 'text-[10pt]' : 'text-xs'
   const radii = SEGMENTED_RADII[isLight ? 'light' : 'default']
@@ -202,7 +273,12 @@ export function SegmentedControl<T extends string>({
                     !isActive && (isLight ? 'hover:bg-black/5' : 'hover:bg-muted/80')
                   )}
                 >
-                  {option.label}
+                  <SegmentLabel
+                    label={option.label}
+                    badge={option.badge}
+                    isActive={isActive}
+                    isLight={isLight}
+                  />
                 </button>
                 <Tooltip delayDuration={0}>
                   <TooltipTrigger asChild>
@@ -253,7 +329,12 @@ export function SegmentedControl<T extends string>({
                     : 'text-foreground hover:bg-muted/80'
               )}
             >
-              {option.label}
+              <SegmentLabel
+                label={option.label}
+                badge={option.badge}
+                isActive={isActive}
+                isLight={isLight}
+              />
             </button>
           )
         })}

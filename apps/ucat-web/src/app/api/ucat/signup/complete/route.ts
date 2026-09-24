@@ -4,11 +4,22 @@ import { validateOptionalPhoneE164 } from "@altitutor/ui";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { isSupportedIanaTimeZone } from "@/lib/supported-timezones";
+import {
+  captureUcatReferral,
+  pendingReferralCodeFromUser,
+} from "@/lib/ucat/referrals/capture-referral";
+import {
+  UCAT_SIGNUP_CONSENT_VERSION,
+  UCAT_SIGNUP_CONSENT_WORDING,
+} from "@/features/communications/lib/communication-preferences";
 
 type StudentUpdate = Database["public"]["Tables"]["students"]["Update"];
 type StudentInsert = Database["public"]["Tables"]["students"]["Insert"];
 
 function dbErrorMessage(message: string): string {
+  if (message.includes("User has an active staff record")) {
+    return "This email is already linked to an Altitutor staff account. Please use a different email address for your student account.";
+  }
   if (message.includes("Invalid phone number format")) {
     return "Please enter a valid Australian mobile number.";
   }
@@ -220,7 +231,8 @@ export async function POST(request: NextRequest) {
         first_name: firstName,
         last_name: lastName,
         phone: hasPhoneField ? (normalizedPhone ?? null) : null,
-        status: "ACTIVE",
+        // Altitutor UCAT profile creation does not establish an in-person relationship.
+        status: null,
         timezone: timezone ?? "Australia/Adelaide",
         ucat_signup_step: 2,
       });
@@ -239,14 +251,24 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const { error: newsletterError } = await supabaseAdmin
-    .from("newsletter_subscribers")
-    .update({
-      student_id: studentId,
-      updated_at: new Date().toISOString(),
-    })
-    .ilike("email", email)
-    .is("student_id", null);
+  const [{ error: newsletterError }] = await Promise.all([
+    supabaseAdmin
+      .from("newsletter_subscribers")
+      .update({
+        auth_user_id: user.id,
+        student_id: studentId,
+        updated_at: new Date().toISOString(),
+      })
+      .ilike("email", email)
+      .is("student_id", null),
+    supabase.auth.updateUser({
+      data: {
+        first_name: firstName,
+        last_name: lastName,
+        pending_newsletter_opt_in: null,
+      },
+    }),
+  ]);
 
   if (newsletterError) {
     console.warn(
@@ -255,10 +277,61 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  // Sync name to Supabase auth metadata
-  await supabase.auth.updateUser({
-    data: { first_name: firstName, last_name: lastName },
-  });
+  const { data: verifiedConsent } = await supabaseAdmin
+    .from("newsletter_subscribers")
+    .select("consent_verified_at, unsubscribed_at")
+    .eq("auth_user_id", user.id)
+    .not("consent_verified_at", "is", null)
+    .is("unsubscribed_at", null)
+    .maybeSingle();
 
+  // Default opt-in for account holders (inferred consent). Subscribe may have
+  // already run; still initialise preferences here so student creation cannot
+  // race past topic flags.
+  const now = new Date().toISOString();
+  if (!verifiedConsent) {
+    const { error: subscriberError } = await supabaseAdmin
+      .from("newsletter_subscribers")
+      .upsert(
+        {
+          auth_user_id: user.id,
+          email,
+          source: "ucat_signup_complete",
+          student_id: studentId,
+          subscribed_at: now,
+          unsubscribed_at: null,
+          consent_version: UCAT_SIGNUP_CONSENT_VERSION,
+          consent_wording: UCAT_SIGNUP_CONSENT_WORDING,
+          consent_verified_at: now,
+          resend_audience_synced_at: null,
+          updated_at: now,
+        },
+        { onConflict: "email" },
+      );
+    if (subscriberError) {
+      console.warn(
+        "[signup complete] Failed to create newsletter subscriber:",
+        subscriberError,
+      );
+    }
+  }
+
+  const { error: preferencesError } = await supabaseAdmin
+    .from("ucat_communication_preferences")
+    .upsert({
+      student_id: studentId,
+      weekly_progress_and_guidance: true,
+      lessons_and_tips: true,
+      product_news: true,
+      offers_and_referrals: true,
+      updated_at: now,
+    });
+  if (preferencesError) {
+    console.warn(
+      "[signup complete] Failed to initialise communication preferences:",
+      preferencesError,
+    );
+  }
+  await captureUcatReferral(studentId, pendingReferralCodeFromUser(user));
   return NextResponse.json({ success: true });
 }

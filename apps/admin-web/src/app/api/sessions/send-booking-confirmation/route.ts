@@ -1,8 +1,9 @@
+import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
 import { supabaseAdmin } from '@/shared/lib/supabase/server/admin';
 import { sendEmail } from '@/shared/lib/email';
-import { getBookingConfirmationEmailTemplate } from '@/shared/lib/email-templates';
+import { buildBookingConfirmationEmail } from '@altitutor/email';
 import { getBookingConfirmationMessage } from '@/features/messages/api/systemTemplates';
 import { getBookingConfirmationUrl } from '@/shared/utils/invites';
 import { format } from 'date-fns';
@@ -20,9 +21,9 @@ export async function POST(request: NextRequest) {
     // Check if user is admin and get staff name for sender_name
     const { data: staffData, error: staffError } = await supabase
       .from('staff')
-      .select('role, first_name, last_name')
+      .select('id, role, first_name, last_name')
       .eq('user_id', user.id)
-      .single<{ role: string; first_name: string | null; last_name: string | null }>();
+      .single<{ id: string; role: string; first_name: string | null; last_name: string | null }>();
 
     if (staffError || !staffData || (staffData.role !== 'ADMINSTAFF' && staffData.role !== 'OFFICE_ADMIN')) {
       return NextResponse.json({ error: 'Forbidden: Admin access required' }, { status: 403 });
@@ -127,7 +128,19 @@ export async function POST(request: NextRequest) {
       effectiveRecipients = recipients.filter((r) => r.id === recipientId);
     }
 
-    const bookingUrl = getBookingConfirmationUrl(sessionId);
+    const { data: bookingToken, error: bookingTokenError } = await supabaseAdmin.rpc(
+      'issue_session_booking_public_token',
+      { p_session_id: sessionId }
+    );
+    if (bookingTokenError || typeof bookingToken !== 'string') {
+      captureApiError(bookingTokenError, "/api/sessions/send-booking-confirmation");
+      return NextResponse.json(
+        { error: bookingTokenError?.message || 'Failed to issue booking link' },
+        { status: 500 }
+      );
+    }
+
+    const bookingUrl = getBookingConfirmationUrl(bookingToken);
     const studentName = `${student.first_name} ${student.last_name}`;
 
     // Format session date and time
@@ -162,20 +175,20 @@ export async function POST(request: NextRequest) {
         if (!recipient.email) continue;
 
         try {
-          const emailHtml = customMessage
-            ? `<!DOCTYPE html><html><body style="font-family: sans-serif; padding: 20px;"><div style="white-space: pre-wrap;">${customMessage.replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\n/g, '<br>')}</div><p style="margin-top: 24px;"><a href="${bookingUrl}" style="display: inline-block; padding: 12px 24px; background-color: #0a2941; color: #fff; text-decoration: none; border-radius: 6px;">View Booking Confirmation</a></p><p style="margin-top: 16px; font-size: 14px; color: #6b7280;">${bookingUrl}</p></body></html>`
-            : getBookingConfirmationEmailTemplate({
-                firstName: recipient.first_name || 'there',
-                lastName: recipient.last_name || '',
-                bookingUrl,
-                sessionDate,
-                sessionTime,
-              });
+          const email = buildBookingConfirmationEmail({
+            recipientName: [recipient.first_name || 'there', recipient.last_name]
+              .filter(Boolean)
+              .join(' '),
+            studentName,
+            bookingUrl,
+            sessionDate,
+            sessionTime,
+            staffIntroduction: customMessage?.trim() || undefined,
+          });
 
           await sendEmail({
             to: recipient.email,
-            subject: `Booking Confirmation - ${studentName}`,
-            html: emailHtml,
+            email,
           });
           successCount++;
         } catch (error) {
@@ -370,6 +383,7 @@ export async function POST(request: NextRequest) {
       message: shouldSendEmail || shouldSendSms ? 'Booking confirmation sent successfully' : 'Booking confirmation link generated',
     }, { status: 200 });
   } catch (error) {
+    captureApiError(error, "/api/sessions/send-booking-confirmation");
     console.error('Unexpected error sending booking confirmation:', error);
     return NextResponse.json(
       { error: `Unexpected error: ${error instanceof Error ? error.message : 'Unknown error'}` },

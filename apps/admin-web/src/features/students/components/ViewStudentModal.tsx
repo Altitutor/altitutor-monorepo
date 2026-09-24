@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
+import { DuplicateStudentSuggestion } from '@/features/student-merges/components/DuplicateStudentSuggestion';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
 import { Button } from "@altitutor/ui";
@@ -33,6 +35,7 @@ import {
 } from './tabs';
 import { StudentSessionsTab } from './StudentSessionsTab';
 import { StudentBillingTab } from './StudentBillingTab';
+import { StudentOnlineTab } from './StudentOnlineTab';
 import { ViewSubjectModal } from '@/features/subjects/components';
 import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
 import { ViewParentModal } from './ViewParentModal';
@@ -40,14 +43,12 @@ import { ParentSearchPopover } from './ParentSearchPopover';
 import { Badge, useToast } from '@altitutor/ui';
 import { AddParentModal } from '@/features/parents/components/AddParentModal';
 import { StudentActivityTab } from '@/features/activity/components/tabs/StudentActivityTab';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { ViewStaffModal } from '@/features/staff/components/modal/ViewStaffModal';
 import { EnrollStudentModal } from '@/features/enrollments/components/EnrollStudentModal';
-import { studentsApi } from '../api/students';
 import { IssuePill } from '@/features/issues';
 import { classesApi } from '@/shared/api';
-import type { Tables, ClassWithExpandedSubject } from "@altitutor/shared";
+import { ONLINE_PRODUCT_NAMES, type Tables, type ClassWithExpandedSubject } from "@altitutor/shared";
 import { useStudentClasses } from '../hooks/useStudentClasses';
+import { currentEnrolledClassIds } from '../utils/classEnrollments';
 import {
   useStudentEditFlow,
   useStudentPasswordReset,
@@ -56,36 +57,50 @@ import {
   useStudentConversation,
   useAllParents,
   useStudentActions,
-  studentsKeys,
 } from '../hooks';
 import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
-import { useNestedModalEvents } from '@/shared/hooks/useNestedModalEvents';
+import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import { DiscontinueStudentConfirmDialog } from './DiscontinueStudentConfirmDialog';
+import { ReEnrollStudentConfirmDialog } from './ReEnrollStudentConfirmDialog';
+import { InPersonStatusBadge } from './InPersonStatusBadge';
+import { studentsApi } from '../api';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import {
+  invalidateStudentClassSurfaces,
+  invalidateStudentDetail,
+} from '@/shared/lib/query-invalidation';
 
 interface ViewStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
   studentId: string | null;
   onStudentUpdated: () => void;
+  defaultTab?: 'details' | 'online' | 'classes' | 'messages' | 'sessions' | 'billing' | 'activity';
 }
 
 export function ViewStudentModal({
   isOpen,
   onClose,
-  studentId,
-  onStudentUpdated
+  studentId: requestedStudentId,
+  onStudentUpdated,
+  defaultTab = 'details',
 }: ViewStudentModalProps) {
+  const studentId = useCanonicalStudentId(requestedStudentId, isOpen);
   const router = useRouter();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
   
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(studentId || '', isOpen && !!studentId);
   const student = studentDetails?.student || null;
   const studentSubjects = studentDetails?.subjects || [];
   const parents = studentDetails?.parents || [];
+  const onlineRelationships = studentDetails?.onlineRelationships || [];
+  const isInPerson = student?.status != null;
+  const isOnline = onlineRelationships.length > 0;
 
   // Business logic hooks
   const editFlow = useStudentEditFlow({
@@ -99,7 +114,7 @@ export function ViewStudentModal({
     studentId: studentId || '',
     onSuccess: () => {
       if (studentId) {
-        queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
+        void invalidateStudentDetail(queryClient, studentId);
       }
       editFlow.reset();
       onStudentUpdated();
@@ -119,36 +134,30 @@ export function ViewStudentModal({
   const allParents = allParentsData || [];
 
   // UI state
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState<string>(defaultTab);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
-  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
   
   // Modal states for new actions
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
+  const [isDiscontinuationLinkOpen, setIsDiscontinuationLinkOpen] = useState(false);
+  const [isDiscontinuing, setIsDiscontinuing] = useState(false);
+  const [isReEnrollDialogOpen, setIsReEnrollDialogOpen] = useState(false);
+  const [isReEnrolling, setIsReEnrolling] = useState(false);
 
   // Get student classes for enroll modal
   const { data: studentClasses = [] } = useStudentClasses(studentId || '');
   
-  // Nested modal state for sessions table interactions
-  const {
-    nestedSessionId,
-    nestedStaffId,
-    nestedStudentId,
-    setNestedSessionId,
-    setNestedStaffId,
-    setNestedStudentId,
-  } = useNestedModalEvents({ isOpen });
-
   // Reset edit states when modal closes
   useEffect(() => {
-    if (!isOpen) {
+    if (isOpen) {
+      setActiveTab(defaultTab);
+    } else {
       editFlow.cancelEdit();
-      setActiveTab('details');
       modals.reset();
     }
-  }, [isOpen]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [isOpen, defaultTab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
@@ -180,58 +189,6 @@ export function ViewStudentModal({
     }
   };
 
-  // Handle discontinue student. Returns true on success, false otherwise.
-  const handleDiscontinue = async (): Promise<boolean> => {
-    if (!student || !currentStaff) return false;
-
-    try {
-      setIsDiscontinuing(true);
-      const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
-
-      if (!result.success) {
-        if (result.error === 'Unenroll student from classes first') {
-          toast({
-            title: 'Cannot Discontinue',
-            description: 'Cannot discontinue student while still enrolled in classes. Please unenroll from all classes first.',
-            variant: 'destructive',
-          });
-        } else if (result.error === 'Student has future sessions') {
-          const sessionCount = result.sessions?.length || 0;
-          toast({
-            title: 'Cannot Discontinue',
-            description: `Student has ${sessionCount} future session${sessionCount !== 1 ? 's' : ''}. Please cancel or reschedule them first.`,
-            variant: 'destructive',
-          });
-        } else {
-          toast({
-            title: 'Cannot Discontinue',
-            description: result.error || 'Failed to discontinue student',
-            variant: 'destructive',
-          });
-        }
-        return false;
-      }
-
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(student.id) });
-      onStudentUpdated();
-      toast({
-        title: 'Success',
-        description: 'Student discontinued successfully.',
-      });
-      return true;
-    } catch (error) {
-      console.error('Failed to discontinue student:', error);
-      toast({
-        title: 'Discontinue failed',
-        description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
-        variant: 'destructive',
-      });
-      return false;
-    } finally {
-      setIsDiscontinuing(false);
-    }
-  };
-
   // Handle enrollment
   const handleEnroll = async (params: {
     studentId: string;
@@ -241,8 +198,7 @@ export function ViewStudentModal({
   }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
-      await queryClient.invalidateQueries({ queryKey: studentsKeys.detail(studentId || '') });
-      await queryClient.invalidateQueries({ queryKey: ['students', studentId, 'classes'] });
+      await invalidateStudentClassSurfaces(queryClient, studentId || '');
       setIsEnrollModalOpen(false);
       onStudentUpdated();
       toast({
@@ -293,6 +249,7 @@ export function ViewStudentModal({
     },
     passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
+    onBookTrialSession: modals.openBookTrialSession,
     onBookDraftingSession: modals.openBookDraftingSession,
     onBookSubsidyInterview: modals.openBookSubsidyInterview,
     onBookCheckIn: student
@@ -307,7 +264,9 @@ export function ViewStudentModal({
             ],
           })
       : undefined,
+    onSendDiscontinuationLink: () => setIsDiscontinuationLinkOpen(true),
     onDiscontinue: () => setIsDiscontinueDialogOpen(true),
+    onReEnroll: () => setIsReEnrollDialogOpen(true),
     onDelete: modals.openDeleteDialog,
   });
 
@@ -335,7 +294,7 @@ export function ViewStudentModal({
           ) : (
             <div className="flex flex-col h-full min-h-0">
               {/* Sticky Header */}
-              <div className="flex-shrink-0 border-b bg-background sticky top-0 z-10">
+              <div className="flex-shrink-0 border-b bg-card sticky top-0 z-10">
                 <SheetHeader className="px-6 pt-6 pb-4">
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex items-center gap-3 flex-1">
@@ -348,23 +307,19 @@ export function ViewStudentModal({
                         <X className="h-4 w-4" />
                       </Button>
                       <div className="flex-1">
+                        <DuplicateStudentSuggestion studentId={student.id} />
                         <SheetTitle>
                           {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
                         </SheetTitle>
                         <SheetDescription asChild className="text-lg font-medium text-foreground">
                           <div className="inline-flex items-center gap-2 flex-wrap">
                             {student.first_name} {student.last_name}
-                            <Badge
-                              variant={
-                                student.status === 'ACTIVE' ? 'success' :
-                                student.status === 'TRIAL' ? 'secondary' :
-                                student.status === 'DISCONTINUED' ? 'destructive' :
-                                'outline'
-                              }
-                              className="text-xs"
-                            >
-                              {student.status}
-                            </Badge>
+                            <InPersonStatusBadge status={student.status} className="text-xs" />
+                            {onlineRelationships.map((relationship) => (
+                              <Badge key={relationship.product} variant="outline" className="text-xs">
+                                {ONLINE_PRODUCT_NAMES[relationship.product as keyof typeof ONLINE_PRODUCT_NAMES]}
+                              </Badge>
+                            ))}
                             <IssuePill
                               entityType="student"
                               entityId={studentId}
@@ -391,10 +346,11 @@ export function ViewStudentModal({
                     onValueChange={setActiveTab}
                     options={[
                       { value: 'details', label: 'Details' },
-                      { value: 'classes', label: 'Classes' },
-                      { value: 'messages', label: 'Messages' },
+                      ...(isInPerson ? [{ value: 'classes', label: 'Classes' }] : []),
                       { value: 'sessions', label: 'Sessions' },
-                      { value: 'billing', label: 'Billing' },
+                      { value: 'messages', label: 'Messages' },
+                      ...(isOnline ? [{ value: 'online', label: 'Online' }] : []),
+                      ...(isInPerson ? [{ value: 'billing', label: 'Billing' }] : []),
                       { value: 'activity', label: 'Activity' },
                     ]}
                   />
@@ -438,14 +394,22 @@ export function ViewStudentModal({
                   </div>
                 </SegmentedTabPanelContent>
 
-                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-                  <div className="p-6">
-                    <ClassesTab
-                      student={student}
-                      onStudentUpdated={onStudentUpdated}
-                    />
-                  </div>
+                {isOnline ? (
+                  <SegmentedTabPanelContent when="online" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
+                    <div className="p-6">
+                      <StudentOnlineTab student={student} />
+                    </div>
+                  </SegmentedTabPanelContent>
+                ) : null}
+
+                {isInPerson ? (
+                <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  <ClassesTab
+                    student={student}
+                    onStudentUpdated={onStudentUpdated}
+                  />
                 </SegmentedTabPanelContent>
+                ) : null}
 
                 <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">
@@ -463,18 +427,18 @@ export function ViewStudentModal({
                   <div className="h-full p-6">
                     <StudentSessionsTab 
                       student={student} 
-                      onOpenSession={(sessionId) => {
-                        window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
-                      }}
+                      onOpenSession={entityModals.openSession}
                     />
                   </div>
                 </SegmentedTabPanelContent>
 
+                {isInPerson ? (
                 <SegmentedTabPanelContent when="billing" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     <StudentBillingTab student={student} />
                   </div>
                 </SegmentedTabPanelContent>
+                ) : null}
 
                 <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
@@ -542,6 +506,20 @@ export function ViewStudentModal({
           staffId={currentStaff.id}
           initialStudentId={studentId}
           allowPastSessions={true}
+        />
+      )}
+
+      {/* Book Trial Session Modal */}
+      {studentId && (
+        <BookSessionModal
+          isOpen={modals.isBookTrialSessionModalOpen}
+          onClose={modals.closeBookTrialSession}
+          sessionType="TRIAL_SESSION"
+          initialStudentId={studentId}
+          onBookingCreated={() => {
+            modals.closeBookTrialSession();
+            onStudentUpdated();
+          }}
         />
       )}
 
@@ -640,41 +618,82 @@ export function ViewStudentModal({
         </AlertDialog>
       )}
 
-      {/* Discontinue Confirmation Dialog */}
+      {/* Send Discontinuation Link Dialog */}
+      {student && (
+        <StudentExitRequestDialog
+          open={isDiscontinuationLinkOpen}
+          onOpenChange={setIsDiscontinuationLinkOpen}
+          studentId={student.id}
+          studentName={`${student.first_name} ${student.last_name}`}
+          studentPhone={student.phone}
+          workflowKey="student_discontinuation"
+          onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
+        />
+      )}
+
       {student && (
         <DiscontinueStudentConfirmDialog
           isOpen={isDiscontinueDialogOpen}
           onOpenChange={setIsDiscontinueDialogOpen}
           studentName={`${student.first_name} ${student.last_name}`}
-          onConfirm={handleDiscontinue}
           isDiscontinuing={isDiscontinuing}
+          onConfirm={async () => {
+            if (!currentStaff) return false;
+
+            try {
+              setIsDiscontinuing(true);
+              const result = await studentsApi.discontinueStudent(student.id, currentStaff.id);
+              if (!result.success) throw new Error(result.error);
+              await invalidateStudentDetail(queryClient, student.id);
+              onStudentUpdated();
+              toast({
+                title: 'Success',
+                description: 'Student discontinued successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Discontinue failed',
+                description: error instanceof Error ? error.message : 'There was an error discontinuing the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsDiscontinuing(false);
+            }
+          }}
         />
       )}
 
-      {/* Nested Session Modal */}
-      <SessionModal
-        isOpen={!!nestedSessionId}
-        sessionId={nestedSessionId}
-        onClose={() => setNestedSessionId(null)}
-      />
-
-      {/* Nested Staff Modal */}
-      {nestedStaffId && (
-        <ViewStaffModal
-          isOpen={!!nestedStaffId}
-          staffId={nestedStaffId}
-          onClose={() => setNestedStaffId(null)}
-          onStaffUpdated={onStudentUpdated}
-        />
-      )}
-
-      {/* Nested Student Modal */}
-      {nestedStudentId && (
-        <ViewStudentModal
-          isOpen={!!nestedStudentId}
-          studentId={nestedStudentId}
-          onClose={() => setNestedStudentId(null)}
-          onStudentUpdated={onStudentUpdated}
+      {/* Re-enroll Confirmation Dialog */}
+      {student && (
+        <ReEnrollStudentConfirmDialog
+          isOpen={isReEnrollDialogOpen}
+          onOpenChange={setIsReEnrollDialogOpen}
+          studentName={`${student.first_name} ${student.last_name}`}
+          isReEnrolling={isReEnrolling}
+          onConfirm={async () => {
+            try {
+              setIsReEnrolling(true);
+              await studentsApi.reEnrollStudent(student.id);
+              await invalidateStudentDetail(queryClient, student.id);
+              onStudentUpdated();
+              toast({
+                title: 'Success',
+                description: 'Student re-enrolled successfully.',
+              });
+              return true;
+            } catch (error) {
+              toast({
+                title: 'Re-enroll failed',
+                description: error instanceof Error ? error.message : 'There was an error re-enrolling the student. Please try again.',
+                variant: 'destructive',
+              });
+              return false;
+            } finally {
+              setIsReEnrolling(false);
+            }
+          }}
         />
       )}
 
@@ -686,7 +705,7 @@ export function ViewStudentModal({
           context="student"
           student={student}
           studentSubjects={studentSubjects}
-          enrolledClassIds={studentClasses.map(c => c.class.id)}
+          enrolledClassIds={currentEnrolledClassIds(studentClasses)}
           onFetchClasses={fetchClassesForEnrollment}
           onEnroll={handleEnroll}
           currentStaffId={currentStaff.id}

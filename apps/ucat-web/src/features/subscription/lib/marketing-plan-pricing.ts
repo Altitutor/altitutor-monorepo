@@ -5,28 +5,31 @@ import {
 
 export type MarketingPlanPricing = {
   /** Standard price for the billing period with no practice-day discounts. */
-  penaltyPeriodCents: number;
+  standardPeriodCents: number;
   /** Lowest price for the period if every day qualifies for a practice discount. */
   idealPeriodCents: number;
-  /** Penalty rate shown as a weekly amount. */
-  penaltyWeeklyCents: number;
+  /** Standard rate shown as a weekly amount. */
+  standardWeeklyCents: number;
   /** Ideal rate shown as a weekly amount. */
   idealWeeklyCents: number;
 };
 
 export function computeMarketingPlanPricing(
-  penaltyPeriodCents: number,
+  standardPeriodCents: number,
   interval: UcatBillingInterval,
   discountPerDayCents: number,
   maxDiscountsPerPeriod: number,
 ): MarketingPlanPricing {
   const maxDiscountCents = discountPerDayCents * maxDiscountsPerPeriod;
-  const idealPeriodCents = Math.max(0, penaltyPeriodCents - maxDiscountCents);
+  const idealPeriodCents = Math.max(0, standardPeriodCents - maxDiscountCents);
 
   return {
-    penaltyPeriodCents,
+    standardPeriodCents,
     idealPeriodCents,
-    penaltyWeeklyCents: periodCentsToPerWeekCents(penaltyPeriodCents, interval),
+    standardWeeklyCents: periodCentsToPerWeekCents(
+      standardPeriodCents,
+      interval,
+    ),
     idealWeeklyCents: periodCentsToPerWeekCents(idealPeriodCents, interval),
   };
 }

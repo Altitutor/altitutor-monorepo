@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import type { Database, Flashcard } from '@altitutor/shared';
 import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { getServiceRoleClient } from '@/shared/lib/supabase/service-role';
 
 type ServiceClient = SupabaseClient<Database>;
 
@@ -26,9 +27,24 @@ export async function listAccessibleFlashcards(topicId: string): Promise<Flashca
 
   if (error) throw error;
   const rows = (data ?? []) as unknown as Flashcard[];
-  return rows.filter((row): row is Flashcard =>
-    Boolean(row.id && row.topic_id && row.cloze_text && row.index != null),
+  const validRows = rows.filter((row): row is Flashcard => Boolean(row.id && row.topic_id && row.card_type && row.index != null));
+  const storagePaths = validRows.flatMap((row) => (
+    row.image_storage_path ? [row.image_storage_path] : []
+  ));
+  const serviceClient = getServiceRoleClient();
+  const { data: signedUrls } = storagePaths.length > 0
+    ? await serviceClient.storage.from('flashcard-images').createSignedUrls(storagePaths, 3600)
+    : { data: [] };
+  const signedUrlByPath = new Map(
+    (signedUrls ?? []).flatMap((signed) => (
+      signed.path ? [[signed.path, signed.signedUrl] as const] : []
+    )),
   );
+  return validRows.map((row) => (
+    row.image_storage_path
+      ? { ...row, image_url: signedUrlByPath.get(row.image_storage_path) ?? null }
+      : row
+  ));
 }
 
 export async function getAccessibleFlashcard(cardId: string): Promise<Flashcard | null> {
@@ -41,7 +57,7 @@ export async function getAccessibleFlashcard(cardId: string): Promise<Flashcard 
 
   if (error) throw error;
   const row = data as unknown as Flashcard | null;
-  if (!row?.id || !row.topic_id || !row.cloze_text || row.index == null) return null;
+  if (!row?.id || !row.topic_id || !row.card_type || row.index == null) return null;
   if (!(await assertTutorTopicAccess(row.topic_id))) return null;
   return row;
 }
@@ -59,35 +75,11 @@ export async function persistTopicFlashcardOrder(
 ) {
   if (orderedIds.length === 0) return;
 
-  const { data: existingIndexes, error: existingIndexesError } = await serviceClient
-    .from('flashcards')
-    .select('index')
-    .eq('topic_id', topicId)
-    .is('deleted_at', null);
-  if (existingIndexesError) throw existingIndexesError;
-
-  const parkingStart = Math.max(
-    orderedIds.length,
-    ...(existingIndexes ?? []).map((row) => row.index ?? 0),
-  ) + 1;
-
-  for (let i = 0; i < orderedIds.length; i += 1) {
-    const { error } = await serviceClient
-      .from('flashcards')
-      .update({ index: parkingStart + i })
-      .eq('id', orderedIds[i])
-      .eq('topic_id', topicId);
-    if (error) throw error;
-  }
-
-  for (let i = 0; i < orderedIds.length; i += 1) {
-    const { error } = await serviceClient
-      .from('flashcards')
-      .update({ index: i + 1 })
-      .eq('id', orderedIds[i])
-      .eq('topic_id', topicId);
-    if (error) throw error;
-  }
+  const { error } = await serviceClient.rpc('tutor_reorder_topic_flashcards', {
+    p_topic_id: topicId,
+    p_ordered_ids: orderedIds,
+  });
+  if (error) throw error;
 }
 
 export function insertIdAtIndex(ids: string[], id: string, index: number) {

@@ -10,6 +10,7 @@ import { useUndoStaffAbsences } from '@/features/sessions/hooks/useStaffAbsences
 import { useRemoveStaffFromSession } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 type StaffUndoTarget = {
   entityType: 'staff';
@@ -43,18 +44,19 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
   const undoStaffAbsenceMutation = useUndoStaffAbsences();
   const removeStaffMutation = useRemoveStaffFromSession();
   const queryClient = useQueryClient();
+  const entityModals = useEntityModals();
 
   const handleOpenSession = useCallback((sessionId: string) => {
     if (onOpenSession) {
       onOpenSession(sessionId);
     } else {
-      window.dispatchEvent(new CustomEvent('open-session-modal', { detail: { id: sessionId } }));
+      entityModals.openSession(sessionId);
     }
-  }, [onOpenSession]);
+  }, [entityModals, onOpenSession]);
 
   const handleOpenStudent = useCallback((studentId: string) => {
-    window.dispatchEvent(new CustomEvent('open-student-modal', { detail: { id: studentId } }));
-  }, []);
+    entityModals.openStudent(studentId);
+  }, [entityModals]);
 
   const handleUndoLogAbsenceStaff = useCallback((payload: {
     staffId: string;
@@ -86,7 +88,7 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
   }, []);
 
   return (
-    <div className="h-full flex flex-col space-y-4">
+    <div className="h-full min-h-0 flex flex-col space-y-4">
       <div className="flex items-center justify-between">
         <SegmentedControl
           value={viewMode}
@@ -109,12 +111,13 @@ export function StaffSessionsTab({ staff, onOpenSession }: StaffSessionsTabProps
       )}
 
       {viewMode === 'table' && (
-        <div className="flex-1 min-h-0 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-hidden">
           <SessionsTable
             staffId={staff.id}
             onOpenSession={handleOpenSession}
             onOpenStudent={handleOpenStudent}
             skipUrlSync={true}
+            fillHeight={true}
             attendanceView="staff"
             onUndoLogAbsenceStaff={handleUndoLogAbsenceStaff}
             onRemoveStaffFromSession={handleRemoveStaffFromSession}

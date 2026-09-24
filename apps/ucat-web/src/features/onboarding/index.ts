@@ -5,14 +5,30 @@ export { useOnboardingTour } from "@/features/onboarding/hooks/use-onboarding-to
 export {
   useOnboardingProgress,
   useCompleteOnboardingTour,
+  useResetAllOnboardingTours,
   useResetOnboardingTour,
 } from "@/features/onboarding/hooks/use-onboarding-progress";
 export {
+  buildQuestionEngineTutorialHref,
+  isQuestionEnginePath,
+} from "@/features/onboarding/lib/question-engine-tutorial-gate";
+export { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+export {
   ALL_UCAT_TOUR_IDS,
+  UCAT_DASHBOARD_TOUR,
+  UCAT_NEXTSTEP_DIM_ONLY_SELECTOR,
+  UCAT_NEXTSTEP_DIM_ONLY_TARGET,
   UCAT_NEXTSTEP_FIXED_VIEWPORT_ID,
-  UCAT_ONBOARDING_TOUR,
+  UCAT_LEARN_TOUR,
+  UCAT_MOCKS_TOUR,
   UCAT_PRACTICE_TOUR,
   UCAT_PROGRESS_TOUR,
+  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
+  UCAT_QUESTION_ENGINE_TOUR,
+  UCAT_SETS_TOUR,
+  UCAT_SKILL_TRAINER_TOUR,
+  UCAT_STUDY_PLAN_TOUR,
   UCAT_TOUR_REPLAY_OPTIONS,
-  getTourForPathname,
+  getAutoStartTourForPathname,
+  getFirstSelectorForTour,
 } from "@/features/onboarding/config/tour-steps";

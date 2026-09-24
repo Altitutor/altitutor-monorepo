@@ -8,10 +8,10 @@ import {
   useRemoveSubjectFromStudent,
   useAssignParentToStudent,
   useRemoveParentFromStudent,
-  studentsKeys,
 } from './useStudentsQuery';
 import { mapDetailsFormToStudentUpdate } from '../mappers/studentMappers';
 import type { DetailsFormData } from '../components/tabs';
+import { invalidateStudentDetail } from '@/shared/lib/query-invalidation';
 
 interface UseStudentMutationsProps {
   studentId: string;
@@ -76,8 +76,7 @@ export function useStudentMutations({
         await removeParentMutation.mutateAsync({ studentId, parentId });
       }
       
-      // Invalidate student details query
-      queryClient.invalidateQueries({ queryKey: studentsKeys.detailFull(studentId) });
+      void invalidateStudentDetail(queryClient, studentId);
       
       toast({
         title: 'Success',
