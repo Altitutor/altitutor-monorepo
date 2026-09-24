@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { Plus, Mail, Filter, Search, X } from 'lucide-react';
+import { Plus, Mail, Filter, Search, X, Check } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -238,13 +238,16 @@ export function ConversationList({
               {FILTER_OPTIONS.map((option) => (
                 <DropdownMenuItem
                   key={option.value}
-                  className={cn(activeFilter === option.value && 'bg-accent')}
+                  className="flex items-center justify-between"
                   onClick={() => {
                     setActiveFilter(option.value);
                     setIsFilterMenuOpen(false);
                   }}
                 >
-                  {option.label}
+                  <span>{option.label}</span>
+                  {activeFilter === option.value ? (
+                    <Check className="ml-2 h-4 w-4 shrink-0" />
+                  ) : null}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>
