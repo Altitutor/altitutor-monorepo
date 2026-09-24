@@ -7,8 +7,42 @@ import { useTutorLogStep6Data } from '../../hooks/useTutorLogStep6Data';
 import type { TutorTopicFileWithFileFields } from '@/features/topics/api/topics-files';
 import { ResourceFilePreviewDialog } from '@/features/resources/components/resource-file-preview-dialog';
 import type { TutorResourceFile } from '@/features/resources/lib/types';
+import { formatResourceTypeLabel } from '@altitutor/shared';
+import type { Enums } from '@altitutor/shared';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
+
+const RESOURCE_TYPE_ORDER: Enums<'resource_type'>[] = [
+  'NOTES',
+  'PRACTICE_QUESTIONS',
+  'TEST',
+  'VIDEO',
+  'EXAM',
+  'FLASHCARDS',
+  'REVISION_SHEET',
+  'CHEAT_SHEET',
+];
+
+function groupTopicFilesByType(
+  files: TutorTopicFileWithFileFields[],
+): Array<{ type: Enums<'resource_type'>; files: TutorTopicFileWithFileFields[] }> {
+  const byType = new Map<Enums<'resource_type'>, TutorTopicFileWithFileFields[]>();
+
+  for (const file of files) {
+    const list = byType.get(file.type) ?? [];
+    list.push(file);
+    byType.set(file.type, list);
+  }
+
+  for (const list of byType.values()) {
+    list.sort((a, b) => a.index - b.index);
+  }
+
+  return RESOURCE_TYPE_ORDER.filter((type) => (byType.get(type)?.length ?? 0) > 0).map((type) => ({
+    type,
+    files: byType.get(type)!,
+  }));
+}
 
 type TopicItem = {
   topicId: string;
@@ -79,52 +113,63 @@ export function Step6Files({ topics, topicFiles, onUpdate }: Step6FilesProps) {
 
           if (files.length === 0) return null;
 
+          const filesByType = groupTopicFilesByType(files);
+
           return (
             <div key={topic.topicId} className={tutorCardCn('p-4')}>
               <div className="mb-3 font-medium">{topicData?.name}</div>
-              <div className="space-y-2">
-                {files.map((file) => {
-                  const fileCode = file.code || '';
-                  const filename = file.filename?.trim() || 'Untitled file';
-                  const selected = isFileSelected(file.id);
+              <div className="space-y-4">
+                {filesByType.map(({ type, files: typeFiles }) => (
+                  <div key={type} className="space-y-2">
+                    <h4 className="text-sm font-semibold text-muted-foreground">
+                      {formatResourceTypeLabel(type)}
+                    </h4>
+                    <div className="space-y-2">
+                      {typeFiles.map((file) => {
+                        const fileCode = file.code || '';
+                        const filename = file.filename?.trim() || 'Untitled file';
+                        const selected = isFileSelected(file.id);
 
-                  return (
-                    <div
-                      key={file.id}
-                      role="button"
-                      tabIndex={0}
-                      aria-pressed={selected}
-                      onClick={() => handleToggleFile(file.id, topic.topicId, !selected)}
-                      onKeyDown={(event) => {
-                        if (event.key === 'Enter' || event.key === ' ') {
-                          event.preventDefault();
-                          handleToggleFile(file.id, topic.topicId, !selected);
-                        }
-                      }}
-                      className="flex cursor-pointer items-center gap-2 rounded-md py-1 hover:bg-muted/40"
-                    >
-                      <Checkbox checked={selected} tabIndex={-1} className="pointer-events-none" />
-                      <div className="min-w-0 flex-1">
-                        <span className="font-mono text-sm">{fileCode}</span>
-                        <span className="mx-2 text-muted-foreground">·</span>
-                        <span className="text-sm">{filename}</span>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className={cn(tutorBtnOutline, 'shrink-0')}
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setPreviewFile(toPreviewFile(file));
-                        }}
-                      >
-                        <Eye className="mr-1.5 h-4 w-4" />
-                        View
-                      </Button>
+                        return (
+                          <div
+                            key={file.id}
+                            role="button"
+                            tabIndex={0}
+                            aria-pressed={selected}
+                            onClick={() => handleToggleFile(file.id, topic.topicId, !selected)}
+                            onKeyDown={(event) => {
+                              if (event.key === 'Enter' || event.key === ' ') {
+                                event.preventDefault();
+                                handleToggleFile(file.id, topic.topicId, !selected);
+                              }
+                            }}
+                            className="flex cursor-pointer items-center gap-2 rounded-md py-1 hover:bg-muted/40"
+                          >
+                            <Checkbox checked={selected} tabIndex={-1} className="pointer-events-none" />
+                            <div className="min-w-0 flex-1">
+                              <span className="font-mono text-sm">{fileCode}</span>
+                              <span className="mx-2 text-muted-foreground">·</span>
+                              <span className="text-sm">{filename}</span>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className={cn(tutorBtnOutline, 'shrink-0')}
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                setPreviewFile(toPreviewFile(file));
+                              }}
+                            >
+                              <Eye className="mr-1.5 h-4 w-4" />
+                              View
+                            </Button>
+                          </div>
+                        );
+                      })}
                     </div>
-                  );
-                })}
+                  </div>
+                ))}
               </div>
             </div>
           );

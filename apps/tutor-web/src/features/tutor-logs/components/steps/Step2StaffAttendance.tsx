@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import { SearchableSelect } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Plus } from 'lucide-react';
@@ -21,51 +21,13 @@ import {
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 import type { TutorLogFormData } from '../../types';
+import { AttendanceToggle } from '../AttendanceToggle';
 
 type StaffTypeOption =
   | (typeof CLASS_STAFF_TYPE_OPTIONS)[number]
   | (typeof CHECK_IN_STAFF_TYPE_OPTIONS)[number];
 
 type StaffAttendanceItem = TutorLogFormData['staffAttendance'][number];
-
-function AttendanceToggle({
-  attended,
-  onChange,
-}: {
-  attended: boolean;
-  onChange: (attended: boolean) => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 overflow-hidden rounded-md border" role="group" aria-label="Attendance">
-      <button
-        type="button"
-        aria-pressed={attended}
-        onClick={() => onChange(true)}
-        className={cn(
-          'px-2.5 py-1 text-sm transition-colors',
-          attended
-            ? 'bg-green-50 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Attended
-      </button>
-      <button
-        type="button"
-        aria-pressed={!attended}
-        onClick={() => onChange(false)}
-        className={cn(
-          'border-l px-2.5 py-1 text-sm transition-colors',
-          !attended
-            ? 'bg-red-50 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Did not attend
-      </button>
-    </div>
-  );
-}
 
 function isClassStaffType(
   type: string | null | undefined
@@ -113,19 +75,6 @@ export function Step2StaffAttendance({
     },
     [currentStaffId, hasStudentsOrParents, isCheckIn]
   );
-
-  // Initialize form data if empty when staff data loads — default to planned attendance
-  useEffect(() => {
-    if (!isLoading && staffAttendance.length === 0 && sessionStaff.length > 0) {
-      const initialAttendance: StaffAttendanceItem[] = sessionStaff.map((ss) => ({
-        staffId: ss.staff_id,
-        attended: !ss.planned_absence,
-        type: resolveInitialType(ss.staff_id, ss.type),
-      }));
-      onUpdate(initialAttendance);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, staffAttendance.length, sessionStaff.length, currentStaffId, isCheckIn]);
 
   const handleAttendanceChange = (staffId: string, attended: boolean) => {
     const updated = staffAttendance.map((sa) =>
@@ -190,7 +139,6 @@ export function Step2StaffAttendance({
     }
     // Invalidate session data to refetch with new staff
     queryClient.invalidateQueries({ queryKey: sessionsKeys.detail(sessionId) });
-    handleAttendanceChange(staffId, true);
     setAvailableStaff([]);
   };
 
@@ -216,7 +164,8 @@ export function Step2StaffAttendance({
           {sessionStaff.map((ss) => {
             const staff = ss.staff;
             const attendance = getStaffAttendance(ss.staff_id);
-            const isAttended = attendance?.attended ?? !ss.planned_absence;
+            const attendanceValue = attendance?.attended ?? null;
+            const isAttended = attendanceValue === true;
             const type = attendance?.type ?? resolveInitialType(ss.staff_id, ss.type);
             const selectedOption =
               staffTypeOptions.find((o) => o.value === type) ?? staffTypeOptions[0];
@@ -235,7 +184,7 @@ export function Step2StaffAttendance({
                   )}
                 </div>
                 <AttendanceToggle
-                  attended={isAttended}
+                  value={attendanceValue}
                   onChange={(next) => handleAttendanceChange(ss.staff_id, next)}
                 />
                 {isAttended ? (

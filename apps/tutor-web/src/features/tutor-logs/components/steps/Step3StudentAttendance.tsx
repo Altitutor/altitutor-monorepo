@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { AccountClassBadge } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { SearchableSelect } from '@altitutor/ui';
@@ -13,10 +13,12 @@ import { sessionsApi } from '@/features/sessions/api/sessions';
 import { useQueryClient } from '@tanstack/react-query';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
+import { AttendanceToggle } from '../AttendanceToggle';
+import type { TutorLogAttendanceChoice } from '@altitutor/shared';
 
 type StudentAttendanceItem = {
   studentId: string;
-  attended: boolean;
+  attended: TutorLogAttendanceChoice;
 };
 
 type Step3StudentAttendanceProps = {
@@ -24,49 +26,6 @@ type Step3StudentAttendanceProps = {
   studentAttendance: StudentAttendanceItem[];
   onUpdate: (studentAttendance: StudentAttendanceItem[]) => void;
 };
-
-function AttendanceToggle({
-  attended,
-  disabled,
-  onChange,
-}: {
-  attended: boolean;
-  disabled?: boolean;
-  onChange: (attended: boolean) => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 overflow-hidden rounded-md border" role="group" aria-label="Attendance">
-      <button
-        type="button"
-        disabled={disabled}
-        aria-pressed={attended}
-        onClick={() => onChange(true)}
-        className={cn(
-          'px-2.5 py-1 text-sm transition-colors disabled:opacity-50',
-          attended
-            ? 'bg-green-50 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Attended
-      </button>
-      <button
-        type="button"
-        disabled={disabled}
-        aria-pressed={!attended}
-        onClick={() => onChange(false)}
-        className={cn(
-          'border-l px-2.5 py-1 text-sm transition-colors disabled:opacity-50',
-          !attended
-            ? 'bg-red-50 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Did not attend
-      </button>
-    </div>
-  );
-}
 
 export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate }: Step3StudentAttendanceProps) {
   const queryClient = useQueryClient();
@@ -76,18 +35,6 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
   const [searchResults, setSearchResults] = useState<Tables<'students'>[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [addingStudentId, setAddingStudentId] = useState<string | null>(null);
-
-  // Initialize form data if empty when data loads — default to planned attendance
-  useEffect(() => {
-    if (!isLoading && studentAttendance.length === 0 && sessionStudents.length > 0) {
-      const initialAttendance = sessionStudents.map((ss) => ({
-        studentId: ss.student_id,
-        attended: !ss.planned_absence,
-      }));
-      onUpdate(initialAttendance);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, studentAttendance.length, sessionStudents.length]);
 
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) => (sa.studentId === studentId ? { ...sa, attended } : sa));
@@ -145,8 +92,8 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
 
     const attendanceSnapshot = studentAttendance;
     const nextAttendance = attendanceSnapshot.find((sa) => sa.studentId === studentId)
-      ? attendanceSnapshot.map((sa) => (sa.studentId === studentId ? { ...sa, attended: true } : sa))
-      : [...attendanceSnapshot, { studentId, attended: true }];
+      ? attendanceSnapshot.map((sa) => (sa.studentId === studentId ? { ...sa, attended: null } : sa))
+      : [...attendanceSnapshot, { studentId, attended: null }];
 
     setAddingStudentId(studentId);
     setSearchResults([]);
@@ -212,7 +159,7 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
   return (
     <div className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        Confirm which students attended this session. Defaults match planned attendance.
+        Select Attended or Did not attend for each student on this session.
       </p>
 
       {sessionStudents.length > 0 && (
@@ -221,7 +168,7 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
           {sessionStudents.map((ss) => {
             const student = ss.student;
             const attendance = getStudentAttendance(ss.student_id);
-            const isAttended = attendance?.attended ?? !ss.planned_absence;
+            const attendanceValue = attendance?.attended ?? null;
             const isAdding = addingStudentId === ss.student_id;
 
             return (
@@ -239,7 +186,7 @@ export function Step3StudentAttendance({ sessionId, studentAttendance, onUpdate 
                   )}
                 </div>
                 <AttendanceToggle
-                  attended={isAttended}
+                  value={attendanceValue}
                   disabled={isAdding}
                   onChange={(next) => handleAttendanceChange(ss.student_id, next)}
                 />

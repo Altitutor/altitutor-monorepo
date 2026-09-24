@@ -3,7 +3,6 @@
 import { useMemo } from 'react';
 import {
   Button,
-  Checkbox,
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -23,47 +22,15 @@ import {
   buildSessionStudentItemsForTutorLog,
   TUTOR_LOG_DRAFT_SESSIONS_STUDENTS_ID,
 } from '../../utils/logSessionAttendanceRows';
-import { cn } from '@/shared/utils';
+import { AttendanceToggle } from '../AttendanceToggle';
+import type { TutorLogAttendanceChoice } from '@altitutor/shared';
 
-export type ParentAttendanceItem = { parentId: string; attended: boolean };
+export type ParentAttendanceItem = { parentId: string; attended: TutorLogAttendanceChoice };
 
-function AttendanceToggle({
-  attended,
-  onChange,
-}: {
-  attended: boolean;
-  onChange: (attended: boolean) => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 overflow-hidden rounded-md border" role="group" aria-label="Attendance">
-      <button
-        type="button"
-        aria-pressed={attended}
-        onClick={() => onChange(true)}
-        className={cn(
-          'px-2.5 py-1 text-sm transition-colors',
-          attended
-            ? 'bg-green-50 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Attended
-      </button>
-      <button
-        type="button"
-        aria-pressed={!attended}
-        onClick={() => onChange(false)}
-        className={cn(
-          'border-l px-2.5 py-1 text-sm transition-colors',
-          !attended
-            ? 'bg-red-50 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Did not attend
-      </button>
-    </div>
-  );
+function attendanceChoiceValue(
+  attendance: { attended: TutorLogAttendanceChoice } | undefined
+): boolean | null {
+  return attendance?.attended ?? null;
 }
 
 type Step3StudentAttendanceProps = {
@@ -132,7 +99,9 @@ export function Step3StudentAttendance({
   const actualStudentMap = useMemo(() => {
     const m: Record<string, { attended: boolean; was_trial?: boolean }> = {};
     for (const a of studentAttendance) {
-      m[a.studentId] = { attended: a.attended };
+      if (a.attended === true || a.attended === false) {
+        m[a.studentId] = { attended: a.attended };
+      }
     }
     return m;
   }, [studentAttendance]);
@@ -156,8 +125,8 @@ export function Step3StudentAttendance({
     !!onParentAttendanceUpdate &&
     (sessionParents.length > 0 || !!onAddParentToSession);
 
-  const getParentAttendance = (parentId: string) =>
-    parentAttendance.find((p) => p.parentId === parentId)?.attended ?? false;
+  const getParentAttendance = (parentId: string): boolean | null =>
+    parentAttendance.find((p) => p.parentId === parentId)?.attended ?? null;
 
   const setParentAttendance = (parentId: string, attended: boolean) => {
     if (!onParentAttendanceUpdate) return;
@@ -206,12 +175,13 @@ export function Step3StudentAttendance({
                 <TableBody>
                   {studentsProcessed.map((data) => {
                     const attendance = getStudentAttendance(data.student.id);
-                    const isAttended = attendance ? Boolean(attendance.attended) : !data.plannedAbsence;
+                    const attendanceValue = attendanceChoiceValue(attendance);
+                    const isAttended = attendanceValue === true;
                     const isDraftExtra = data.sessionsStudentsId === TUTOR_LOG_DRAFT_SESSIONS_STUDENTS_ID;
 
                     const actualAttendance = (
                       <AttendanceToggle
-                        attended={isAttended}
+                        value={attendanceValue}
                         onChange={(next) => handleAttendanceChange(data.student.id, next)}
                       />
                     );
@@ -392,19 +362,17 @@ export function Step3StudentAttendance({
                             <AttendanceCell status="attending" />
                           </TableCell>
                           <TableCell className="min-w-0 align-middle">
-                            <Checkbox
-                              id={`parent-${p.id}`}
-                              checked={getParentAttendance(p.id)}
-                              onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
+                            <AttendanceToggle
+                              value={getParentAttendance(p.id)}
+                              onChange={(next) => setParentAttendance(p.id, next)}
                             />
                           </TableCell>
                         </>
                       ) : (
                         <TableCell className="min-w-0 align-middle">
-                          <Checkbox
-                            id={`parent-${p.id}`}
-                            checked={getParentAttendance(p.id)}
-                            onCheckedChange={(checked) => setParentAttendance(p.id, checked === true)}
+                          <AttendanceToggle
+                            value={getParentAttendance(p.id)}
+                            onChange={(next) => setParentAttendance(p.id, next)}
                           />
                         </TableCell>
                       )}

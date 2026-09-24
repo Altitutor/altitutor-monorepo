@@ -20,8 +20,8 @@ export function Step9Confirmation({
 }: Step9ConfirmationProps) {
   const { session, studentsMap, staffMap, topicsMap, topicFilesMap } = useTutorLogStep9Data(formData);
 
-  const attendedStudents = formData.studentAttendance?.filter((sa) => sa.attended) || [];
-  const attendedStaff = formData.staffAttendance?.filter((sa) => sa.attended) || [];
+  const attendedStudents = formData.studentAttendance?.filter((sa) => sa.attended === true) || [];
+  const attendedStaff = formData.staffAttendance?.filter((sa) => sa.attended === true) || [];
 
   return (
     <div className="space-y-6">
