@@ -1,22 +1,31 @@
 import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
+import { useRouter } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import { OnboardingCard } from "@/features/onboarding/components/onboarding-card";
 import type { ContextualTourStep } from "@/features/onboarding/config/tour-steps";
 
 jest.mock("nextstepjs", () => ({ useNextStep: jest.fn() }), { virtual: true });
+jest.mock("next/navigation", () => ({ useRouter: jest.fn() }));
 
 const mockedUseNextStep = jest.mocked(useNextStep);
+const mockedUseRouter = jest.mocked(useRouter);
 
 describe("contextual tutorial coach", () => {
   const closeNextStep = jest.fn();
   const setCurrentStep = jest.fn();
   const skipTour = jest.fn();
+  const routerPush = jest.fn();
 
   beforeEach(() => {
+    window.sessionStorage.clear();
     closeNextStep.mockReset();
     setCurrentStep.mockReset();
     skipTour.mockReset();
+    routerPush.mockReset();
+    mockedUseRouter.mockReturnValue({
+      push: routerPush,
+    } as unknown as ReturnType<typeof useRouter>);
     jest.spyOn(window, "confirm").mockReturnValue(true);
     mockedUseNextStep.mockReturnValue({
       currentStep: 0,
@@ -169,6 +178,60 @@ describe("contextual tutorial coach", () => {
       screen.getByRole("button", { name: "Skip and show later" }),
     ).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+  });
+
+  it("exits a Settings replay without offering skip choices or changing completion", () => {
+    window.sessionStorage.setItem(
+      "ucat-contextual-tutorial-replay",
+      JSON.stringify({
+        tourId: "ucat-question-engine-intro",
+        returnTo: "/settings/app",
+      }),
+    );
+    mockedUseNextStep.mockReturnValue({
+      currentStep: 0,
+      currentTour: "ucat-question-engine-intro",
+      setCurrentStep,
+      closeNextStep,
+      startNextStep: jest.fn(),
+      isNextStepVisible: true,
+    });
+
+    render(
+      <OnboardingCard
+        step={{
+          icon: null,
+          title: "Question interface",
+          content: <p>Interface controls.</p>,
+          showControls: true,
+          showSkip: true,
+        }}
+        currentStep={0}
+        totalSteps={2}
+        nextStep={jest.fn()}
+        prevStep={jest.fn()}
+        skipTour={skipTour}
+        arrow={<span />}
+      />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Skip tutorial" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Exit tutorial" }));
+
+    expect(screen.getByRole("button", { name: "Exit" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Skip and show later" }),
+    ).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Skip and don't show again" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Exit" }));
+
+    expect(closeNextStep).toHaveBeenCalledTimes(1);
+    expect(skipTour).not.toHaveBeenCalled();
+    expect(routerPush).toHaveBeenCalledWith("/settings/app");
   });
 
   it("shows contextual feedback from controls without changing tutorial step", () => {

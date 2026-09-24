@@ -37,6 +37,8 @@
   _Avoid_: Account creation, In-person registration, first login
 
 - **Online product relationship** — A Student's relationship with one online SaaS product, such as Altitutor UCAT or the future Altitutor Student Online SaaS offering. Each product relationship has an independent lifecycle; using Altitutor Student Online as the portal included with in-person tutoring does not create an online SaaS relationship.
+- **Product account deletion** — A Student's request to end their account in one Product app. It closes that Online product relationship, removes that product's learning data, and removes their login only when no other relationship needs it, while the Student and their invoicing and attendance records remain. A later signup with the same email reopens that product on the same Student without restoring the deleted learning data.
+  _Avoid_: Deleting the Student, account deactivation
 - **StudentWeb portal access** — Permission for an authenticated identity linked to a Student identity to enter StudentWeb. It is intentionally broader than any one in-person relationship, Online product relationship, subscription, or entitlement. Which onboarding or landing experience StudentWeb presents may later depend on those relationships, but that classification is not part of the portal-access decision.
 - **Portal onboarding classification** — A future StudentWeb presentation decision that may distinguish in-person, online, UCAT-origin, or combined relationships after portal access is established. It must not be inferred in the session request boundary or used as an authorization substitute.
 - **Session request boundary** — The Next.js middleware/proxy responsibility that refreshes and verifies the Supabase session, propagates every auth cookie and required no-cache header, and performs only cookie-evidenced redirects. It does not query Postgres for portal roles, relationships, signup progress, or entitlements.
@@ -114,6 +116,16 @@
   _Avoid_: Discontinued by silence, assumed withdrawal
 
 ## UCAT acquisition and conversion
+
+- **Founder access pass** — An administrator-issued free introductory period on a new UCAT subscription. Redemption requires a payment card; the selected plan charges automatically after the free period unless cancelled. Previously redeemed no-card passes retain their original expiry terms.
+  _Avoid_: No-card gift, referral gift
+
+- **Founder offer redemption** — The confirmed grant of one administrator-issued access pass or application of one founder discount to a newly started subscription. Previewing a code or reserving a checkout place is not a redemption, and a redemption alone is not a Paid acquisition conversion.
+
+- **Founder checkout reservation** — A temporary hold on a capped founder offer while a Student completes payment checkout. The place remains held until checkout completes or is confirmed unable to complete.
+
+- **Founder discount** — An administrator-issued percentage reduction from the applicable eligible subscription price, retained while that subscription continues and lost when it ends. It does not freeze the underlying price and cannot be combined with another promotional discount.
+  _Avoid_: Lifetime price lock, permanent account discount
 
 - **Observed acquisition attribution** — The first measurable campaign context through which a Student reached Altitutor UCAT, such as a tagged Reddit link or business-card QR code. It is immutable first-touch evidence and remains distinct from what the Student remembers or reports.
   _Avoid_: Marketing source, latest touch, self-reported source
@@ -318,6 +330,9 @@
 
 ## Core tutoring sessions and billing
 
+- **Drafting session** — A subject-specific, one-to-one tutoring Session booked independently of a Class. Its Subject is selected at booking and stored directly on the Session.
+  _Avoid_: Drafting Class, subject-independent Drafting session
+
 - **Tutor log** — The single record of attendance, learning activity, and notes captured for one completed Session. It distinguishes the staff member who submitted it from the staff member on whose behalf it was recorded.
   _Avoid_: Attendance record, Session completion flag
 
@@ -429,6 +444,33 @@
 
 - **Flashcard review card** — One reviewable cloze marker generated from a flashcard. A flashcard with multiple cloze markers creates one review card per marker, and each review card has its own spaced-repetition state.
   _Avoid_: Flashcard side, front/back card, note
+
+- **Flashcard study preset** — An AdminStaff-managed, immutable-versioned set of scheduling rules assigned to a Subject and shared by that Subject's flashcard review cards. Students may override desired retention per preset; daily allowances remain Student-wide and are not part of a preset.
+  _Avoid_: Deck options, tutor settings, topic settings
+
+- **Flashcard study day** — The student's daily scheduling and limit window, running from 4:00am to 4:00am in the Student's saved timezone. Changing timezone affects future boundaries without rewriting earlier study days.
+  _Avoid_: Calendar day, UTC day, session
+
+- **Flashcard daily allowance** — One Student-wide pair of New and Review limits for a Flashcard study day, shared by every Subject and filtered study view. Learning and Relearning repetitions already in progress do not consume additional allowance.
+  _Avoid_: Subject allowance, preset allowance, Topic limit
+
+- **Flashcard scheduling state** — A review card's position in the spaced-repetition lifecycle: New before introduction, Learning during initial steps, Review after graduation, or Relearning during post-lapse steps.
+  _Avoid_: Queue, rating, mastery
+
+- **Flashcard sibling** — Another flashcard review card generated from the same Flashcard, such as a different cloze marker. Sibling relationships come from shared Flashcard identity, not Topic proximity.
+  _Avoid_: Related card, adjacent card
+
+- **Buried flashcard review card** — A review card temporarily withheld until the next Flashcard study day, either through sibling burying or an explicit Student action.
+  _Avoid_: Suspended card, deleted card
+
+- **Suspended flashcard review card** — A review card withheld indefinitely until a Student or AdminStaff explicitly resumes it.
+  _Avoid_: Buried card, deleted card, inaccessible card
+
+- **Leech review card** — A review card whose repeated Review-state lapses warrant a suggestion that the Student suspend or revisit it. Leech status never suspends a card automatically.
+  _Avoid_: Automatically suspended card, difficult card
+
+- **Flashcard review history** — The immutable sequence of committed answers and explicit scheduling operations for one Student and review card, including undone and reset events.
+  _Avoid_: Current review state, mutable audit row
 
 - **Due flashcard review** — A student study mode that shows only flashcard review cards whose spaced-repetition state is due. Student ratings update the review card's next due date and scheduling state.
   _Avoid_: Quizlet mode, browse mode
@@ -1286,7 +1328,7 @@
 - **Pending referral gift** — A referral gift that has not been accepted, rejected, or expired. It remains as a persistent actionable notification for seven days and cannot be dismissed; reading the notification does not resolve it.
   _Avoid_: Leaving gift pending, unread gift, dismissible offer
 
-- **Referral gift acceptance** — The recipient explicitly accepts a pending referral gift and starts a UCAT Unlimited subscription through checkout, with the gifted first week or month free. Acceptance requires a distinct Stripe customer and payment method from the referrer; the gift replaces the former trial offer.
+- **Referral gift acceptance** — The recipient applies a pending referral gift and confirms checkout to start a UCAT Unlimited subscription, with the gifted first week or month free. The gift duration is independent of the selected renewal interval, and the saved payment method is charged after that period unless cancelled. Acceptance requires a distinct Stripe customer and payment method from the referrer; the gift replaces the standard trial offer.
   _Avoid_: Start trial, redeem Pro gift, automatic acceptance
 
 - **Referral gift rejection** — The recipient explicitly declines a pending referral gift. Rejection is final and resolves its notification; the recipient receives one UCAT Free quota reset, and a Free referrer also receives one quota reset.

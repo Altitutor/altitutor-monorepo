@@ -230,4 +230,30 @@ describe("SignupForm", () => {
       screen.getByRole("button", { name: "Continue with code" }),
     ).toBeEnabled();
   });
+
+  it("keeps the founder gift in OTP return intent without routing straight to checkout", async () => {
+    signInWithOtp.mockResolvedValue({ error: null });
+    global.fetch = jest
+      .fn()
+      .mockResolvedValue({ ok: true, json: async () => ({ state: "new" }) });
+    render(<SignupForm redirectTo="/subscribe?offer=F-WELCOME" />);
+    expect(screen.getByText(/received a founder gift/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Email address"), {
+      target: { value: "founder@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Register" }));
+    await waitFor(() =>
+      expect(signInWithOtp).toHaveBeenCalledWith(
+        expect.objectContaining({
+          email: "founder@example.com",
+          options: expect.objectContaining({
+            data: expect.objectContaining({
+              pending_redirect: "/subscribe?offer=F-WELCOME",
+              pending_plan: null,
+            }),
+          }),
+        }),
+      ),
+    );
+  });
 });

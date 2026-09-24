@@ -1,5 +1,7 @@
 "use client";
 
+import { InvitationCodeEntry } from "@/features/founder-offers/components/invitation-code-entry";
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
 import { useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -17,13 +19,17 @@ import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutProvider } from "@stripe/react-stripe-js/checkout";
 import { useTheme } from "next-themes";
 import {
+  SegmentedControl,
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from "@altitutor/ui";
 import { Button } from "@/components/ui/button";
-import { createUcatCheckoutSession } from "@/features/subscription/api/create-checkout";
+import {
+  createUcatCheckoutSession,
+  CheckoutSetupRequiredError,
+} from "@/features/subscription/api/create-checkout";
 import { usePublicSubscriptionConfig } from "@/features/subscription/hooks/use-public-subscription-config";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
@@ -145,8 +151,12 @@ export function CheckoutPage() {
   const searchParams = useSearchParams();
   const { resolvedTheme } = useTheme();
   const tierParam = searchParams.get("tier");
-  const intervalParam = searchParams.get("interval");
+  const intervalParam = searchParams.get("interval") ?? "month";
   const contextParam = searchParams.get("context");
+  const founderCode = searchParams.get("offer") ?? undefined;
+  const [founderPercentOff, setFounderPercentOff] = useState<number | null>(
+    null,
+  );
   const referralGiftId = searchParams.get("gift") ?? undefined;
   const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
   const tier = isUcatPaidPlanTier(tierParam) ? tierParam : null;
@@ -163,8 +173,12 @@ export function CheckoutPage() {
   );
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [checkoutError, setCheckoutError] = useState<string | null>(null);
+  const [paymentReady, setPaymentReady] = useState(false);
   const [checkoutSubmitting, setCheckoutSubmitting] = useState(false);
+  const [changingInterval, setChangingInterval] = useState(false);
+  const [checkoutSetupRequired, setCheckoutSetupRequired] = useState(false);
   const [referralGiftApplied, setReferralGiftApplied] = useState(false);
+  const [offerTrialDays, setOfferTrialDays] = useState(0);
   const [standardTrialDays, setStandardTrialDays] = useState<number | null>(
     null,
   );
@@ -194,6 +208,7 @@ export function CheckoutPage() {
       interval,
       returnContext: context,
       referralGiftId,
+      founderCode,
       returnTo: returnTo !== "/dashboard" ? returnTo : undefined,
     })
       .then((session) => {
@@ -206,9 +221,12 @@ export function CheckoutPage() {
         setCheckoutSessionId(session.checkoutSessionId);
         setClientSecret(session.clientSecret);
         setReferralGiftApplied(session.referralGiftApplied);
+        setOfferTrialDays(session.offerTrialDays);
+        setFounderPercentOff(session.founderPercentOff);
         setStandardTrialDays(session.trialEligible ? session.trialDays : 0);
       })
       .catch((error: unknown) => {
+        setCheckoutSetupRequired(error instanceof CheckoutSetupRequiredError);
         setCheckoutError(
           error instanceof Error
             ? error.message
@@ -221,6 +239,7 @@ export function CheckoutPage() {
     context,
     interval,
     referralGiftId,
+    founderCode,
     returnTo,
     router,
     tier,
@@ -236,7 +255,8 @@ export function CheckoutPage() {
   const pricing =
     price && discount
       ? computeMarketingPlanPricing(
-          price.basePriceCents,
+          price.basePriceCents -
+            Math.round((price.basePriceCents * (founderPercentOff ?? 0)) / 100),
           interval,
           discount.discountPerDayCents,
           discount.maxDiscountsPerPeriod,
@@ -244,11 +264,16 @@ export function CheckoutPage() {
       : null;
   const features = UNLIMITED_FEATURES;
   const hasStandardTrial = (standardTrialDays ?? 0) > 0;
-  const freePeriodEndsAt = referralGiftApplied
-    ? addBillingInterval(checkoutStartedAtRef.current, interval)
-    : hasStandardTrial
-      ? addDays(checkoutStartedAtRef.current, standardTrialDays ?? 0)
-      : null;
+  const hasFreePeriod =
+    offerTrialDays > 0 || referralGiftApplied || hasStandardTrial;
+  const freePeriodEndsAt =
+    offerTrialDays > 0
+      ? addDays(checkoutStartedAtRef.current, offerTrialDays)
+      : referralGiftApplied
+        ? addBillingInterval(checkoutStartedAtRef.current, interval)
+        : hasStandardTrial
+          ? addDays(checkoutStartedAtRef.current, standardTrialDays ?? 0)
+          : null;
   const firstChargeAt =
     freePeriodEndsAt ??
     addBillingInterval(checkoutStartedAtRef.current, interval);
@@ -258,12 +283,62 @@ export function CheckoutPage() {
       : subDays(firstChargeAt, 3)
     : null;
 
+  const cancelCurrentCheckout = async () => {
+    const response = await fetch("/api/ucat/invitations", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel_checkout", checkoutSessionId }),
+    });
+    if (!response.ok) {
+      const body = await response.json();
+      throw new Error(body.error ?? "Could not change this checkout.");
+    }
+    setClientSecret(null);
+  };
+  const replaceOffer = (code: string | null) => {
+    rememberInvitation(code);
+    const params = new URLSearchParams(searchParams.toString());
+    if (code) params.set("offer", code);
+    else params.delete("offer");
+    params.delete("gift");
+    window.location.assign(`/checkout?${params.toString()}`);
+  };
+  const changeInterval = async (nextInterval: "week" | "month") => {
+    if (nextInterval === interval || changingInterval || checkoutSubmitting)
+      return;
+    setChangingInterval(true);
+    setClientSecret(null);
+    try {
+      await cancelCurrentCheckout();
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("interval", nextInterval);
+      window.location.assign(`/checkout?${params.toString()}`);
+    } catch (error) {
+      setCheckoutError(
+        error instanceof Error
+          ? error.message
+          : "Could not change billing interval.",
+      );
+      setChangingInterval(false);
+    }
+  };
+
   return (
     <div className="relative min-h-dvh bg-background text-foreground">
       <main className="relative z-10 mx-auto max-w-6xl px-4 py-8 sm:px-6 lg:py-12">
         <button
           type="button"
-          onClick={() => {
+          onClick={async () => {
+            try {
+              await cancelCurrentCheckout();
+            } catch (error) {
+              setCheckoutError(
+                error instanceof Error
+                  ? error.message
+                  : "Could not close checkout.",
+              );
+              return;
+            }
             trackSubscriptionJourneyEvent({
               eventType: "change_plan_clicked",
               journeyContext: context,
@@ -309,9 +384,35 @@ export function CheckoutPage() {
               ) : billingLoading ? (
                 <CheckoutFieldsSkeleton />
               ) : checkoutError ? (
-                <p className="rounded-xl bg-red-500/10 p-4 text-sm text-red-200">
-                  {checkoutError}
-                </p>
+                <div className="space-y-3 rounded-xl bg-destructive/10 p-4 text-sm">
+                  <p role="alert" className="text-destructive">
+                    {checkoutError}
+                  </p>
+                  <Button
+                    variant="outline"
+                    onClick={() => window.location.reload()}
+                  >
+                    Retry checkout
+                  </Button>
+                  {!checkoutSetupRequired && (
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        void cancelCurrentCheckout()
+                          .then(() => window.location.reload())
+                          .catch((error: unknown) =>
+                            setCheckoutError(
+                              error instanceof Error
+                                ? error.message
+                                : "Could not close checkout.",
+                            ),
+                          );
+                      }}
+                    >
+                      Cancel open checkout and restart
+                    </Button>
+                  )}
+                </div>
               ) : clientSecret ? (
                 <CheckoutProvider
                   stripe={stripePromise}
@@ -364,23 +465,66 @@ export function CheckoutPage() {
                     context={context}
                     checkoutSessionId={checkoutSessionId}
                     onSubmittingChange={setCheckoutSubmitting}
+                    onReadyChange={setPaymentReady}
                   />
                 </CheckoutProvider>
               ) : (
                 <CheckoutFieldsSkeleton />
               )}
             </div>
+            <div className="mt-5">
+              <InvitationCodeEntry
+                appearance="plain"
+                initialCode={founderCode}
+                disabled={
+                  checkoutSubmitting || changingInterval || !checkoutSessionId
+                }
+                onCodeApplied={async (code) => {
+                  await cancelCurrentCheckout();
+                  replaceOffer(code);
+                }}
+              />
+            </div>
           </section>
 
           <aside className="rounded-3xl border border-border bg-card p-6 text-card-foreground shadow-2xl sm:p-8 lg:sticky lg:top-8">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <p className="text-sm font-medium text-muted-foreground">
-                  Selected plan
-                </p>
-                <h2 className="mt-1 text-2xl font-bold">UCAT Unlimited</h2>
+            <div>
+              <p className="text-sm font-medium text-muted-foreground">
+                Selected plan
+              </p>
+              <div className="mt-1 flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-xl font-bold">UCAT Unlimited</h2>
+                <fieldset
+                  className="min-w-0 disabled:opacity-50"
+                  disabled={
+                    checkoutSubmitting ||
+                    changingInterval ||
+                    checkoutSetupRequired ||
+                    !checkoutSessionId
+                  }
+                >
+                  <SegmentedControl<UcatBillingInterval>
+                    aria-label="Billing interval"
+                    size="sm"
+                    value={interval}
+                    onValueChange={(value) => {
+                      if (value === "week" || value === "month")
+                        void changeInterval(value);
+                    }}
+                    options={[
+                      { value: "week" as const, label: "Weekly" },
+                      { value: "month" as const, label: "Monthly" },
+                    ].filter((option) =>
+                      isPlanCheckoutAvailable(config, tier, option.value),
+                    )}
+                  />
+                </fieldset>
               </div>
-              <Sparkles className="h-7 w-7 text-primary" />
+              {changingInterval && (
+                <p role="status" className="mt-2 text-xs text-muted-foreground">
+                  Updating billing interval…
+                </p>
+              )}
             </div>
             <ul className="mt-6 space-y-3 text-sm">
               {features.map((feature) => (
@@ -393,13 +537,61 @@ export function CheckoutPage() {
 
             <div className="my-6 h-px bg-border" />
 
+            {(founderCode || referralGiftApplied) &&
+            (founderPercentOff || offerTrialDays || referralGiftApplied) ? (
+              <div className="mb-4 space-y-2 text-sm" role="status">
+                <p className="font-semibold">
+                  {founderPercentOff
+                    ? `${founderPercentOff}% founder discount applied`
+                    : `${offerTrialDays || "Your"} ${offerTrialDays ? "free days" : "free period"} applied`}
+                </p>
+                {founderCode && (
+                  <p className="text-muted-foreground">Code: {founderCode}</p>
+                )}
+                {founderPercentOff ? (
+                  <p className="text-muted-foreground">
+                    Applies while this subscription stays active.
+                  </p>
+                ) : null}
+                {!referralGiftApplied ? (
+                  <button
+                    type="button"
+                    className="underline"
+                    disabled={checkoutSubmitting}
+                    onClick={() => {
+                      void cancelCurrentCheckout()
+                        .then(() => replaceOffer(null))
+                        .catch((error: unknown) =>
+                          setCheckoutError(
+                            error instanceof Error
+                              ? error.message
+                              : "Could not remove offer.",
+                          ),
+                        );
+                    }}
+                  >
+                    Remove code
+                  </button>
+                ) : null}
+              </div>
+            ) : null}
+
             {pricing ? (
               <div className="space-y-3 text-sm">
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">
-                    Standard {intervalNoun(interval)}ly price
+                    {founderPercentOff ? "Founder" : "Standard"}{" "}
+                    {intervalNoun(interval)}ly price
                   </span>
-                  <span className="font-semibold">
+                  <span className="flex items-center gap-2 font-semibold">
+                    {founderPercentOff && price ? (
+                      <s className="font-normal text-muted-foreground">
+                        {formatMoneyFromMinorUnits(
+                          price.basePriceCents,
+                          config.currency,
+                        )}
+                      </s>
+                    ) : null}
                     {formatMoneyFromMinorUnits(
                       pricing.standardPeriodCents,
                       config.currency,
@@ -450,10 +642,20 @@ export function CheckoutPage() {
                 </div>
                 <div className="flex justify-between gap-4">
                   <span className="text-muted-foreground">Due today</span>
-                  <span className="font-semibold">
+                  <span className="flex items-center gap-2 font-semibold">
+                    {standardTrialDays !== null &&
+                    price &&
+                    (founderPercentOff || hasFreePeriod) ? (
+                      <s className="font-normal text-muted-foreground">
+                        {formatMoneyFromMinorUnits(
+                          price.basePriceCents,
+                          config.currency,
+                        )}
+                      </s>
+                    ) : null}
                     {standardTrialDays === null
                       ? "—"
-                      : referralGiftApplied || hasStandardTrial
+                      : hasFreePeriod
                         ? formatMoneyFromMinorUnits(0, config.currency)
                         : formatMoneyFromMinorUnits(
                             pricing.standardPeriodCents,
@@ -464,14 +666,16 @@ export function CheckoutPage() {
               </div>
             ) : null}
 
-            {pricing ? (
+            {pricing && standardTrialDays !== null && !checkoutError ? (
               <div className="mt-6">
                 <p className="text-lg font-semibold">
-                  {referralGiftApplied
-                    ? `Your free ${intervalNoun(interval)}`
-                    : hasStandardTrial
-                      ? `Your ${standardTrialDays}-day free trial`
-                      : "What happens next"}
+                  {offerTrialDays > 0
+                    ? `Your ${offerTrialDays}-day free period`
+                    : referralGiftApplied
+                      ? `Your free ${intervalNoun(interval)}`
+                      : hasStandardTrial
+                        ? `Your ${standardTrialDays}-day free trial`
+                        : "What happens next"}
                 </p>
                 <ol className="mt-4 space-y-3 text-sm">
                   <li className="rounded-2xl border border-primary/40 bg-primary/[0.08] p-4 shadow-sm">
@@ -487,7 +691,7 @@ export function CheckoutPage() {
                       </span>
                     </div>
                     <p className="mt-3 text-xs leading-relaxed text-muted-foreground">
-                      {referralGiftApplied || hasStandardTrial
+                      {hasFreePeriod
                         ? "You pay nothing today and unlock full Altitutor UCAT access. Start earning practice discounts towards your first bill straight away."
                         : `You’re charged ${formatMoneyFromMinorUnits(pricing.standardPeriodCents, config.currency)} today and unlock full Altitutor UCAT access. Start earning practice discounts towards your next bill straight away.`}
                     </p>
@@ -573,18 +777,22 @@ export function CheckoutPage() {
               disabled={
                 configLoading ||
                 !clientSecret ||
+                !paymentReady ||
                 Boolean(checkoutError) ||
+                changingInterval ||
                 checkoutSubmitting
               }
               className="mt-6 h-14 w-full rounded-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
             >
               {checkoutSubmitting
                 ? "Confirming…"
-                : referralGiftApplied
-                  ? `Start my free ${intervalNoun(interval)}`
-                  : hasStandardTrial
-                    ? `Start my ${standardTrialDays}-day free trial`
-                    : "Subscribe to UCAT Unlimited"}
+                : offerTrialDays > 0
+                  ? `Start my ${offerTrialDays}-day free period`
+                  : referralGiftApplied
+                    ? `Start my free ${intervalNoun(interval)}`
+                    : hasStandardTrial
+                      ? `Start my ${standardTrialDays}-day free trial`
+                      : "Subscribe to UCAT Unlimited"}
               {!checkoutSubmitting ? (
                 <ArrowRight className="ml-2 h-4 w-4" />
               ) : null}

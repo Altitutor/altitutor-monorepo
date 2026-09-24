@@ -3,14 +3,6 @@ import { render, screen } from "@testing-library/react";
 import { ExamAttemptConflictDialog } from "@/features/exam-attempts/components/exam-attempt-conflict-dialog";
 import type { ActiveExamAttempt } from "@/lib/ucat/exam-attempt/types";
 
-jest.mock(
-  "@/features/onboarding/hooks/use-question-engine-tutorial-gate",
-  () => ({
-    buildQuestionEngineTutorialHref: (href: string) => href,
-    useQuestionEngineTutorialGate: () => ({ isBlocked: false }),
-  }),
-);
-
 const activeAttempt = {
   kind: "practice",
   attemptId: "practice-1",

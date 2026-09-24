@@ -74,6 +74,10 @@ Configure secrets through the normal deployment workflow:
 - `POSTHOG_HOST` (optional; defaults to the US ingest host)
 - `UCAT_WEB_URL`
 - `UCAT_LIFECYCLE_EMAILS_ENABLED` (keep `false` until the reviewed launch)
+- `UCAT_RESEND_CONTACT_SYNC_ENABLED` (`true` in production; keep `false` in
+  development when both environments share one Resend account)
+- `UCAT_EMAIL_ENVIRONMENT` (`development` or `production`; deployment derives
+  this automatically)
 - `UCAT_FOUNDER_SIGNATURE_URL` (optional override for the public signature asset)
 - `RESEND_TOPIC_WEEKLY_PROGRESS_ID`
 - `RESEND_TOPIC_LESSONS_ID`
@@ -89,7 +93,7 @@ In Resend:
 
 1. Authenticate the Altitutor sending domain (SPF and DKIM) and enable DMARC
    reporting before launch.
-2. Add the webhook endpoint
+2. Add the production webhook endpoint
    `/functions/v1/resend-webhooks`.
 3. Subscribe to delivered, delayed, failed, bounced, complained, suppressed,
    clicked and opened events.
@@ -100,6 +104,12 @@ In Resend:
    `ucat-resend-contact-sync` function projects Supabase consent into global
    Resend Contacts and Topics; Supabase remains canonical.
 
+When development and production share one Resend account, use the production
+webhook only and leave development contact sync disabled. Every UCAT
+application email is tagged with its environment, and the webhook accepts only
+UCAT events matching its configured environment. This prevents development
+bounces and unrelated SMTP traffic from suppressing production recipients.
+
 ## Campaign operations
 
 Use admin-web **Settings → UCAT email campaigns** for the permanent global
@@ -109,10 +119,10 @@ delivery health and authoring material product-news Broadcasts. Use PostHog for
 7/28-day practice retention, Unlimited conversion and accepted-referral
 outcomes. Do not use clicks or opens as the programme success metric.
 
-The greenfield optional lifecycle programme assigns each new opted-in student
-deterministically to treatment or a 10% holdout for the first eight weeks.
-Required account/billing mail and deliberate product-news Broadcasts are not
-held out.
+The initial lifecycle launch has no holdout because the early cohort is too
+small for a 10% group to produce useful evidence. The assignment schema remains
+available for a deliberately powered experiment later. Required account and
+billing mail are never held out.
 
 In Stripe Customer emails:
 

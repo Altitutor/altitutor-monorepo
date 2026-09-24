@@ -3,7 +3,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Calendar, BookOpen, Brain, CreditCard, Settings, ChevronDown } from 'lucide-react';
+import {
+  Home,
+  Calendar,
+  BookOpen,
+  Brain,
+  CreditCard,
+  Settings,
+  ChevronDown,
+  BadgePercent,
+  ReceiptText,
+  Repeat2,
+  WalletCards,
+} from 'lucide-react';
 import { Button, AnimatedHamburgerIcon } from '@altitutor/ui';
 import {
   getResourceSubjectHref,
@@ -21,6 +33,7 @@ import {
   STUDENT_NEXTSTEP_FIXED_VIEWPORT_ID,
   getNavTourAttr,
 } from '@/features/onboarding';
+import { useDueFlashcardCount } from '@/features/flashcards/hooks/useFlashcards';
 import { UcatResourcesNavigationDialog, useResourceSubjectNavItems } from '@/features/resources';
 import { getUcatSessionsUrl, isUcatSubject } from '@/features/resources/lib/ucat-resources';
 import type { LucideIcon } from 'lucide-react';
@@ -34,7 +47,7 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
 type NavLink = { title: string; href: string; icon: LucideIcon; confirmUcatNavigation?: boolean };
 
 type NavItem =
-  | { type?: 'link'; title: string; href: string; icon: LucideIcon }
+  | { type?: 'link'; title: string; href: string; icon: LucideIcon; badge?: number }
   | { type: 'dropdown'; title: string; href: string; icon: LucideIcon; children: NavLink[] };
 
 type NavLinkItem = { title: string; href: string; icon: LucideIcon };
@@ -67,6 +80,7 @@ function isDropdownChildActive(pathname: string, parentHref: string, childHref: 
 function getInitialOpenDropdowns(pathname: string): Record<string, boolean> {
   return {
     Resources: isResourcesNavSectionActive(pathname, { excludeFlashcards: true }),
+    Billing: pathname.startsWith('/billing'),
   };
 }
 
@@ -119,6 +133,14 @@ function renderDropdownChild(
     >
       {content}
     </Link>
+  );
+}
+
+function DueCountBadge({ count }: { count: number }) {
+  return (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand-lightBlue px-1.5 text-[11px] font-semibold tabular-nums text-brand-dark-bg">
+      {count}
+    </span>
   );
 }
 
@@ -232,11 +254,13 @@ function renderNavItem(
 
   const Icon = item.icon;
   const active = isNavLinkActive(pathname, item.href);
+  const badge = item.badge && item.badge > 0 ? item.badge : 0;
   return (
     <Link
       key={item.href}
       href={item.href}
       prefetch={false}
+      aria-label={badge > 0 ? `${item.title}, ${badge} due` : undefined}
       {...(includeTourAttr ? { 'data-tour': getNavTourAttr(item.href) } : {})}
       className={cn(
         'flex items-center gap-3 rounded-xl px-3 py-2 text-sm',
@@ -244,14 +268,23 @@ function renderNavItem(
         collapsed && 'justify-center px-0',
       )}
     >
-      <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
-      {!collapsed && <span className="overflow-hidden whitespace-nowrap">{item.title}</span>}
+      <span className="relative shrink-0">
+        <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
+        {collapsed && badge > 0 ? (
+          <span className="absolute -right-2 -top-2">
+            <DueCountBadge count={badge} />
+          </span>
+        ) : null}
+      </span>
+      {!collapsed && <span className="min-w-0 flex-1 overflow-hidden whitespace-nowrap">{item.title}</span>}
+      {!collapsed && badge > 0 ? <DueCountBadge count={badge} /> : null}
     </Link>
   );
 }
 
 function useStudentPrimaryNavItems(): NavItem[] {
   const { data: subjects } = useResourceSubjectNavItems();
+  const { data: dueCount = 0 } = useDueFlashcardCount();
 
   return useMemo(() => {
     const resourceChildren: NavLink[] = (subjects ?? []).map((subject) => {
@@ -275,10 +308,21 @@ function useStudentPrimaryNavItems(): NavItem[] {
         icon: BookOpen,
         children: resourceChildren,
       },
-      { title: 'Flashcards', href: '/resources/flashcards', icon: Brain },
-      { title: 'Billing', href: '/billing', icon: CreditCard },
+      { title: 'Flashcards', href: '/resources/flashcards', icon: Brain, badge: dueCount },
+      {
+        type: 'dropdown',
+        title: 'Billing',
+        href: '/billing',
+        icon: CreditCard,
+        children: [
+          { title: 'Invoices', href: '/billing/invoices', icon: ReceiptText },
+          { title: 'Payment methods', href: '/billing/payment-methods', icon: WalletCards },
+          { title: 'Subscriptions', href: '/billing/subscriptions', icon: Repeat2 },
+          { title: 'Subsidies', href: '/billing/subsidies', icon: BadgePercent },
+        ],
+      },
     ];
-  }, [subjects]);
+  }, [dueCount, subjects]);
 }
 
 function MobileMenu({
@@ -299,6 +343,9 @@ function MobileMenu({
   useEffect(() => {
     if (isResourcesNavSectionActive(pathname, { excludeFlashcards: true })) {
       setOpenDropdowns((prev) => ({ ...prev, Resources: true }));
+    }
+    if (pathname.startsWith('/billing')) {
+      setOpenDropdowns((prev) => ({ ...prev, Billing: true }));
     }
   }, [pathname]);
 
@@ -438,6 +485,9 @@ function SidebarNav({
   useEffect(() => {
     if (isResourcesNavSectionActive(pathname, { excludeFlashcards: true })) {
       setOpenDropdowns((prev) => ({ ...prev, Resources: true }));
+    }
+    if (pathname.startsWith('/billing')) {
+      setOpenDropdowns((prev) => ({ ...prev, Billing: true }));
     }
   }, [pathname]);
 

@@ -17,12 +17,12 @@ source "$SCRIPT_DIR/common.sh"
 ONLY_SECRET=""
 if [ "${1:-}" = "--only" ]; then
     ONLY_SECRET="${2:-}"
-    if [ "$ONLY_SECRET" != "CRON_SECRET" ]; then
-        echo "Only --only CRON_SECRET is supported for targeted deployment." >&2
+    if [ "$ONLY_SECRET" != "CRON_SECRET" ] && [ "$ONLY_SECRET" != "ADMIN_REPORTING_DATABASE_URL" ] && [ "$ONLY_SECRET" != "UCAT_LIFECYCLE_CRON_SECRET_KEY" ] && [ "$ONLY_SECRET" != "UCAT_WEB_URL" ]; then
+        echo "Targeted deployment supports CRON_SECRET, ADMIN_REPORTING_DATABASE_URL, UCAT_LIFECYCLE_CRON_SECRET_KEY, or UCAT_WEB_URL." >&2
         exit 1
     fi
 elif [ "$#" -gt 0 ]; then
-    echo "Usage: $0 [--only CRON_SECRET]" >&2
+    echo "Usage: $0 [--only CRON_SECRET|ADMIN_REPORTING_DATABASE_URL|UCAT_LIFECYCLE_CRON_SECRET_KEY|UCAT_WEB_URL]" >&2
     exit 1
 fi
 
@@ -65,8 +65,10 @@ check_command "vercel" "Install with: npm install -g vercel" || exit 1
 check_command "jq" "Install with: brew install jq" || exit 1
 check_env_file "$SECRETS_DIR/.env.development" || exit 1
 check_env_file "$SECRETS_DIR/.env.production" || exit 1
-ensure_env_secret "$SECRETS_DIR/.env.development" "CRON_SECRET" || exit 1
-ensure_env_secret "$SECRETS_DIR/.env.production" "CRON_SECRET" || exit 1
+if [ -z "$ONLY_SECRET" ] || [ "$ONLY_SECRET" = "CRON_SECRET" ]; then
+    ensure_env_secret "$SECRETS_DIR/.env.development" "CRON_SECRET" || exit 1
+    ensure_env_secret "$SECRETS_DIR/.env.production" "CRON_SECRET" || exit 1
+fi
 
 # Verify Vercel token is loaded
 if [ -n "$VERCEL_TOKEN" ]; then
@@ -257,6 +259,18 @@ deploy_public_analytics_secret() {
     deploy_vercel_secret "$secret_name" "$secret_value" "$VERCEL_UCAT_PROJECT" "$environment"
 }
 
+deploy_all_web_public_config() {
+    local config_name=$1
+    local config_value=$2
+    local environment=$3
+
+    deploy_vercel_secret "$config_name" "$config_value" "$VERCEL_ADMIN_PROJECT" "$environment"
+    deploy_vercel_secret "$config_name" "$config_value" "$VERCEL_MARKETING_PROJECT" "$environment"
+    deploy_vercel_secret "$config_name" "$config_value" "$VERCEL_STUDENT_PROJECT" "$environment"
+    deploy_vercel_secret "$config_name" "$config_value" "$VERCEL_TUTOR_PROJECT" "$environment"
+    deploy_vercel_secret "$config_name" "$config_value" "$VERCEL_UCAT_PROJECT" "$environment"
+}
+
 # ============================================================
 # Deploy Development Secrets (Preview Environment)
 # ============================================================
@@ -274,12 +288,21 @@ fi
 
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
-    if [ -n "$ONLY_SECRET" ] && [ "$key" != "$ONLY_SECRET" ]; then
-        continue
+    if [ -n "$ONLY_SECRET" ]; then
+        if [ "$ONLY_SECRET" = "UCAT_WEB_URL" ]; then
+            case "$key" in
+                UCAT_WEB_URL|NEXT_PUBLIC_UCAT_URL|NEXT_PUBLIC_UCAT_WEB_URL|NEXT_PUBLIC_UCAT_APP_ORIGIN) ;;
+                *) continue ;;
+            esac
+        elif [ "$key" != "$ONLY_SECRET" ]; then
+            continue
+        fi
     fi
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
     if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
         deploy_public_analytics_secret "$key" "$value" "preview"
+    elif [[ "$key" =~ ^NEXT_PUBLIC_UCAT_(URL|WEB_URL|APP_ORIGIN)$ ]]; then
+        deploy_all_web_public_config "$key" "$value" "preview"
     elif [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
@@ -297,12 +320,18 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "preview"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "preview"
+    # Restricted reporting credentials belong only to admin-web.
+    elif [[ "$key" == "ADMIN_REPORTING_DATABASE_URL" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "preview"
     # Deploy UCAT Codex OAuth encryption key where tokens are encrypted/decrypted
     elif [[ "$key" == "UCAT_CODEX_OAUTH_ENCRYPTION_KEY" ]]; then
         deploy_admin_and_tutor_web_server_secret "$key" "$value" "preview"
+    # Admin Web proxies lifecycle previews and dry runs to the Edge Function.
+    elif [[ "$key" == "UCAT_LIFECYCLE_CRON_SECRET_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "preview"
     # Deploy server-side email secrets used by app API routes
     elif [[ "$key" == "RESEND_API_KEY" ]]; then
         deploy_all_web_server_secret "$key" "$value" "preview"
@@ -332,12 +361,21 @@ fi
 
 # Combine base env vars with derived vars
 while IFS='=' read -r key value; do
-    if [ -n "$ONLY_SECRET" ] && [ "$key" != "$ONLY_SECRET" ]; then
-        continue
+    if [ -n "$ONLY_SECRET" ]; then
+        if [ "$ONLY_SECRET" = "UCAT_WEB_URL" ]; then
+            case "$key" in
+                UCAT_WEB_URL|NEXT_PUBLIC_UCAT_URL|NEXT_PUBLIC_UCAT_WEB_URL|NEXT_PUBLIC_UCAT_APP_ORIGIN) ;;
+                *) continue ;;
+            esac
+        elif [ "$key" != "$ONLY_SECRET" ]; then
+            continue
+        fi
     fi
     # Deploy NEXT_PUBLIC_* variables (including derived ones)
     if [[ "$key" =~ ^NEXT_PUBLIC_POSTHOG_ ]]; then
         deploy_public_analytics_secret "$key" "$value" "production"
+    elif [[ "$key" =~ ^NEXT_PUBLIC_UCAT_(URL|WEB_URL|APP_ORIGIN)$ ]]; then
+        deploy_all_web_public_config "$key" "$value" "production"
     elif [[ "$key" =~ ^NEXT_PUBLIC_ ]]; then
         deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
@@ -355,12 +393,18 @@ while IFS='=' read -r key value; do
         deploy_vercel_secret "$key" "$value" "$VERCEL_STUDENT_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_TUTOR_PROJECT" "production"
         deploy_vercel_secret "$key" "$value" "$VERCEL_UCAT_PROJECT" "production"
+    # Restricted reporting credentials belong only to admin-web.
+    elif [[ "$key" == "ADMIN_REPORTING_DATABASE_URL" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
     # Deploy tutor-web-only server secrets
     elif [[ "$key" == "OPENROUTER_API_KEY" ]]; then
         deploy_tutor_web_server_secret "$key" "$value" "production"
     # Deploy UCAT Codex OAuth encryption key where tokens are encrypted/decrypted
     elif [[ "$key" == "UCAT_CODEX_OAUTH_ENCRYPTION_KEY" ]]; then
         deploy_admin_and_tutor_web_server_secret "$key" "$value" "production"
+    # Admin Web proxies lifecycle previews and dry runs to the Edge Function.
+    elif [[ "$key" == "UCAT_LIFECYCLE_CRON_SECRET_KEY" ]]; then
+        deploy_vercel_secret "$key" "$value" "$VERCEL_ADMIN_PROJECT" "production"
     # Deploy server-side email secrets used by app API routes
     elif [[ "$key" == "RESEND_API_KEY" ]]; then
         deploy_all_web_server_secret "$key" "$value" "production"

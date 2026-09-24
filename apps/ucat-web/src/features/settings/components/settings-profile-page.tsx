@@ -21,6 +21,7 @@ import { useLeaveGuard } from "@/shared/hooks/use-leave-guard";
 import { motion } from "motion/react";
 import type { SocialAuthProvider } from "@/features/auth/lib/social-auth";
 import { ConnectedSignInMethods } from "@/features/settings/components/connected-sign-in-methods";
+import { DeleteProductAccount } from "@/features/account-deletion/components/delete-product-account";
 
 const SETTINGS_LEAVE_MESSAGE =
   "You have unsaved settings. Leave this page without saving?";
@@ -428,6 +429,22 @@ export function SettingsProfilePage({
           }
         />
       </motion.div>
+
+      {savedFirstName && savedLastName ? (
+        <motion.div
+          variants={itemVariants}
+          className={cn(
+            "rounded-ucatShell p-6 sm:p-8",
+            UCAT_SURFACE_CARD,
+            UCAT_SURFACE_MOTION,
+          )}
+        >
+          <DeleteProductAccount
+            firstName={savedFirstName}
+            lastName={savedLastName}
+          />
+        </motion.div>
+      ) : null}
 
       <AppShellBottomFloatingDock visible={isDirty}>
         <div className="flex flex-wrap items-center justify-end gap-2">

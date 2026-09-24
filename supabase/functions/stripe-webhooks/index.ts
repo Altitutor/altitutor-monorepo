@@ -1,3 +1,5 @@
+import { settleFounderCheckout, founderSubscriptionProperties, releaseUcatCheckoutHold } from "./shared/ucat-founder-offers.ts";
+import { releaseExpiredReferralCheckout } from "./shared/ucat-referral-checkout-expiry.ts";
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { retrievePaidInvoiceWithLines } from "./shared/invoice-retrieval.ts";
 import { serveWithSentry } from "../_shared/sentry.ts";
@@ -856,9 +858,11 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           fullInvoice,
         );
         if (!paidSync.ok && !("skipped" in paidSync && paidSync.skipped)) {
-          console.error(
-            "[webhook] subscription invoice sync (paid):",
-            paidSync,
+          // invoice.paid can precede checkout completion's customer mapping.
+          // Keep the event retryable so the invoice and paid-conversion event
+          // are persisted once that mapping is available.
+          throw new Error(
+            `Subscription invoice sync must retry: ${paidSync.reason}`,
           );
         }
         if (paidSync.ok) {
@@ -989,7 +993,11 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               priorPositiveSubscriptionPayments,
             );
           const billingReason = fullInvoice.billing_reason ?? null;
+          let founderProperties: Record<string, string | null> = {};
+          try { founderProperties = await founderSubscriptionProperties(stripe, paidSubscriptionContext.stripeSubscriptionId); }
+          catch (error) { console.error("[webhook] Could not enrich founder payment attribution", error); }
           const commonPaymentProperties = {
+            ...founderProperties,
             stripe_subscription_id:
               paidSubscriptionContext.stripeSubscriptionId,
             stripe_invoice_id: invoice.id,
@@ -1312,6 +1320,21 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
         return json({ received: true });
       }
 
+      case "checkout.session.expired": {
+        const session = event.data.object as { id: string; metadata?: Record<string, string> };
+        await releaseExpiredReferralCheckout(supabase, session);
+        await releaseUcatCheckoutHold(supabase, session);
+        if (session.metadata?.ucat_founder_redemption_id && session.metadata?.student_id) {
+          await settleFounderCheckout(supabase, {
+            redemptionId: session.metadata.ucat_founder_redemption_id,
+            studentId: session.metadata.student_id, sessionId: session.id, expired: true,
+            occurredAt: new Date(event.created * 1000).toISOString(),
+          });
+        }
+        await supabase.from("stripe_webhook_events").update({ processed: true, processed_at: new Date().toISOString() }).eq("stripe_event_id", event.id);
+        return json({ received: true });
+      }
+
       case "checkout.session.completed": {
         // UCAT subscription: provision access when checkout completes
         const session = event.data.object as {
@@ -1325,13 +1348,20 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
           currency?: string | null;
           metadata?: {
             student_id?: string;
+            ucat_checkout_hold_id?: string;
             ucat_plan_tier?: string;
             ucat_billing_interval?: string;
             ucat_checkout_context?: string;
             ucat_acquisition_benefit?: string;
             ucat_standard_trial_days?: string;
+            ucat_offer_trial_days?: string;
             ucat_referral_gift_id?: string;
             ucat_referral_gift_kind?: string;
+            ucat_founder_redemption_id?: string;
+            ucat_founder_offer_id?: string;
+            ucat_founder_code?: string;
+            ucat_founder_campaign?: string;
+            ucat_founder_kind?: string;
           };
         };
 
@@ -1429,12 +1459,31 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                 { onConflict: "student_id,subject_id" },
               );
             if (subscriptionUpsertError) throw subscriptionUpsertError;
+            await releaseUcatCheckoutHold(supabase, session);
 
             if (ACTIVE_SUBSCRIPTION_STATUSES.has(subscription.status)) {
               await resolveUcatBillingAccessEndedNotificationsForStudent(
                 supabase,
                 studentId,
               );
+            }
+
+            if (session.metadata?.ucat_founder_redemption_id) {
+              await settleFounderCheckout(supabase, {
+                redemptionId: session.metadata.ucat_founder_redemption_id, studentId,
+                sessionId: session.id, subscriptionId: subscription.id,
+                trialEndsAt: subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : undefined,
+                occurredAt: new Date(event.created * 1000).toISOString(),
+              });
+              await captureUcatSubscriptionPosthogEvent(supabase, {
+                eventName: "founder_offer_redeemed", providerEventId: session.id,
+                occurredAt: new Date(event.created * 1000).toISOString(), studentId,
+                properties: { offer_id: session.metadata.ucat_founder_offer_id ?? null,
+                  offer_code: session.metadata.ucat_founder_code ?? null,
+                  offer_campaign: session.metadata.ucat_founder_campaign ?? null,
+                  offer_kind: session.metadata.ucat_founder_kind ?? "discount", redemption_id: session.metadata.ucat_founder_redemption_id,
+                  access_ends_at: session.metadata.ucat_founder_kind === "access_pass" && subscription.trial_end ? new Date(subscription.trial_end * 1000).toISOString() : null },
+              });
             }
 
             const referralGiftKind =
@@ -1573,6 +1622,8 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
                     ? "standard_trial"
                     : "none"),
                 trial_days:
+                  session.metadata?.ucat_offer_trial_days ??
+                  subscription.metadata?.ucat_offer_trial_days ??
                   session.metadata?.ucat_standard_trial_days ??
                   subscription.metadata?.ucat_standard_trial_days ??
                   null,

@@ -319,8 +319,12 @@ export function SubscriptionBillingSection() {
 
   const pricing = useMemo(() => {
     if (!subscription) return null;
-    return computePracticeDiscountPricing(pricingConfig, subscription);
-  }, [pricingConfig, subscription]);
+    return computePracticeDiscountPricing(
+      pricingConfig,
+      subscription,
+      data?.founderPercentOff ?? 0,
+    );
+  }, [pricingConfig, subscription, data?.founderPercentOff]);
   const billSnapshot = useMemo(
     () =>
       pricing
@@ -661,6 +665,11 @@ export function SubscriptionBillingSection() {
                   ) : null}
                 </div>
                 <p className="text-sm text-muted-foreground">{nextBillLabel}</p>
+                {data?.founderPercentOff ? (
+                  <p className="text-sm text-muted-foreground">
+                    Includes your {data.founderPercentOff}% founder discount
+                  </p>
+                ) : null}
                 {!nextBillFreeFromReferral ? (
                   <p className="mt-1 text-sm text-muted-foreground">
                     {formatMoneyFromMinorUnits(

@@ -14,6 +14,16 @@ import { getAdelaideDateString } from './utils.ts';
 import { buildRestorationBillingContext, buildSessionCreditNoteCommand } from './session-billing-adjustment-policy.ts';
 import { buildCreditNoteNotificationEmail, deliverEdgeEmail } from '../../_shared/email.generated.ts';
 
+interface StoredCreditNoteCommand {
+  idempotencyKey: string;
+  params: ReturnType<typeof buildSessionCreditNoteCommand>['params'];
+  invoiceId: string;
+  studentId: string;
+  sourceInvoiceItemId: string;
+}
+
+class TerminalCreditNoteError extends Error {}
+
 interface SessionBillingAdjustment {
   id: string;
   sessions_students_id: string;
@@ -26,6 +36,10 @@ interface SessionBillingAdjustment {
   reason_note: string | null;
   created_by: string | null;
   idempotency_key: string;
+  attempt_count: number;
+  stripe_credit_note_request_version: number | null;
+  stripe_credit_note_command: StoredCreditNoteCommand | null;
+  stripe_credit_note_requested_at: string | null;
 }
 
 interface AdjustmentSessionStudent {
@@ -103,20 +117,11 @@ async function revalidateAdjustment(
   return data === adjustment.id;
 }
 
-async function issueCreditNote(
+async function planCreditNote(
   supabase: SupabaseClient,
   stripe: Stripe,
   adjustment: SessionBillingAdjustment,
-  notification: {
-    resendApiKey?: string;
-    billingByStudent: Record<string, {
-      invoice_email_to_student?: boolean;
-      invoice_email_to_parents?: boolean;
-    }>;
-    parentEmailsByStudent: Record<string, string[]>;
-    studentEmailById: Record<string, string | undefined>;
-  },
-) {
+): Promise<StoredCreditNoteCommand> {
   if (!adjustment.source_invoice_item_id || !adjustment.amount_cents) {
     throw new Error(
       'Credit adjustment is missing its source invoice line or amount',
@@ -209,14 +214,81 @@ async function issueCreditNote(
     reasonNote: adjustment.reason_note,
     createdByStaffId: adjustment.created_by,
   });
-  const creditNote = await stripe.creditNotes.create(
-    command.params,
-    { idempotencyKey: command.idempotencyKey },
-  );
+  return { ...command, invoiceId: invoice.id, studentId: invoice.student_id, sourceInvoiceItemId: invoiceItem.id };
+}
+
+async function prepareCreditNote(
+  supabase: SupabaseClient,
+  stripe: Stripe,
+  adjustment: SessionBillingAdjustment,
+): Promise<{ command: StoredCreditNoteCommand; requestedAt: string }> {
+  if (adjustment.stripe_credit_note_command && adjustment.stripe_credit_note_requested_at) {
+    return { command: adjustment.stripe_credit_note_command, requestedAt: adjustment.stripe_credit_note_requested_at };
+  }
+  // Older attempts may already have reached Stripe with a different request.
+  // Never reconstruct those parameters or silently allocate a replacement key.
+  if (adjustment.stripe_credit_note_request_version !== 1) {
+    throw new TerminalCreditNoteError('Credit retry has no original Stripe request; reconcile before retrying');
+  }
+  const planned = await planCreditNote(supabase, stripe, adjustment);
+  const { data, error } = await supabase.from('session_billing_adjustments')
+    .update({ stripe_credit_note_command: planned })
+    .eq('id', adjustment.id)
+    .eq('status', 'processing')
+    .is('stripe_credit_note_command', null)
+    .select('stripe_credit_note_command, stripe_credit_note_requested_at')
+    .maybeSingle();
+  if (error) throw error;
+  if (data?.stripe_credit_note_command && data.stripe_credit_note_requested_at) {
+    return { command: data.stripe_credit_note_command, requestedAt: data.stripe_credit_note_requested_at };
+  }
+  // Another worker may have saved first. Only its immutable request is safe.
+  const { data: stored, error: readError } = await supabase.from('session_billing_adjustments')
+    .select('stripe_credit_note_command, stripe_credit_note_requested_at, status')
+    .eq('id', adjustment.id).single();
+  if (readError) throw readError;
+  if (stored?.status !== 'processing' || !stored.stripe_credit_note_command || !stored.stripe_credit_note_requested_at) {
+    throw new Error('Credit adjustment lost its processing claim before its request was saved');
+  }
+  return { command: stored.stripe_credit_note_command, requestedAt: stored.stripe_credit_note_requested_at };
+}
+
+async function issueCreditNote(
+  supabase: SupabaseClient,
+  stripe: Stripe,
+  adjustment: SessionBillingAdjustment,
+  notification: {
+    resendApiKey?: string;
+    billingByStudent: Record<string, {
+      invoice_email_to_student?: boolean;
+      invoice_email_to_parents?: boolean;
+    }>;
+    parentEmailsByStudent: Record<string, string[]>;
+    studentEmailById: Record<string, string | undefined>;
+  },
+) {
+  const { command, requestedAt } = await prepareCreditNote(supabase, stripe, adjustment);
+  let creditNote: Stripe.CreditNote | undefined;
+  if (adjustment.stripe_credit_note_command) {
+    // Recover a successful create even when its response, local write or email
+    // failed. Stripe retains idempotency keys for only a limited time.
+    for await (const existing of stripe.creditNotes.list({ invoice: command.params.invoice, limit: 100 })) {
+      if (existing.metadata?.billing_adjustment_id === adjustment.id) {
+        if (existing.status === 'void') throw new TerminalCreditNoteError('Original credit note was voided; reconcile before retrying');
+        creditNote = existing;
+        break;
+      }
+    }
+    if (!creditNote && Date.now() - Date.parse(requestedAt) >= 23 * 60 * 60 * 1000) {
+      throw new TerminalCreditNoteError('Original credit request is outside the safe idempotency retry window; reconcile before retrying');
+    }
+  }
+  creditNote ??= await stripe.creditNotes.create(command.params, { idempotencyKey: command.idempotencyKey });
+  const remainsOnAccount = (command.params.credit_amount ?? 0) > 0;
 
   const { error: creditError } = await supabase.from('credit_notes').upsert(
     {
-      invoice_id: invoice.id,
+      invoice_id: command.invoiceId,
       stripe_credit_note_id: creditNote.id,
       amount_cents: creditNote.amount,
       currency: creditNote.currency,
@@ -226,8 +298,8 @@ async function issueCreditNote(
         ...(creditNote.metadata ?? {}),
         ...(creditNote.memo ? { memo: creditNote.memo } : {}),
       },
-      credit_amount_cents: invoice.status === 'paid' ? adjustment.amount_cents : null,
-      source_invoice_item_id: invoiceItem.id,
+      credit_amount_cents: command.params.credit_amount ?? null,
+      source_invoice_item_id: command.sourceInvoiceItemId,
       billing_adjustment_id: adjustment.id,
     },
     { onConflict: 'stripe_credit_note_id' },
@@ -235,16 +307,16 @@ async function issueCreditNote(
   if (creditError) throw creditError;
 
   if (notification.resendApiKey) {
-    const preferences = notification.billingByStudent[invoice.student_id];
+    const preferences = notification.billingByStudent[command.studentId];
     const recipients = [
-      ...(preferences?.invoice_email_to_student ? [notification.studentEmailById[invoice.student_id]] : []),
-      ...(preferences?.invoice_email_to_parents ? (notification.parentEmailsByStudent[invoice.student_id] ?? []) : []),
+      ...(preferences?.invoice_email_to_student ? [notification.studentEmailById[command.studentId]] : []),
+      ...(preferences?.invoice_email_to_parents ? (notification.parentEmailsByStudent[command.studentId] ?? []) : []),
     ].filter((email): email is string => Boolean(email));
     const uniqueRecipients = [...new Set(recipients)];
     const email = buildCreditNoteNotificationEmail({
       creditNoteNumber: creditNote.number ?? creditNote.id,
       amount: `${creditNote.currency.toUpperCase()} $${(creditNote.amount / 100).toFixed(2)}`,
-      remainsOnAccount: invoice.status === 'paid',
+      remainsOnAccount,
     });
     const failedRecipients: string[] = [];
 
@@ -290,6 +362,32 @@ export async function processSessionBillingAdjustments(
   const adjustments = (data ?? []) as SessionBillingAdjustment[];
   const result = { claimed: adjustments.length, succeeded: 0, failed: 0 };
   if (adjustments.length === 0) return result;
+
+  // Opt in before any preload or Stripe lookup. Old workers never write this
+  // marker, so a snapshot-free legacy attempt remains distinguishable from a
+  // new worker that failed before it could persist/send its request.
+  const unavailableAdjustments = new Set<string>();
+  for (const adjustment of adjustments) {
+    if (adjustment.kind !== 'credit_note' || adjustment.attempt_count !== 1 ||
+      adjustment.stripe_credit_note_request_version != null) continue;
+    try {
+      const { data: optedIn, error: optInError } = await supabase.from('session_billing_adjustments')
+        .update({ stripe_credit_note_request_version: 1 })
+        .eq('id', adjustment.id).eq('status', 'processing').eq('attempt_count', 1)
+        .is('stripe_credit_note_request_version', null)
+        .select('stripe_credit_note_request_version').maybeSingle();
+      if (optInError) throw optInError;
+      if (optedIn?.stripe_credit_note_request_version !== 1) {
+        throw new Error('Credit adjustment lost its first processing claim before protocol opt-in');
+      }
+      adjustment.stripe_credit_note_request_version = 1;
+    } catch (optInError) {
+      await recordAdjustmentFailure(supabase, adjustment, optInError);
+      unavailableAdjustments.add(adjustment.id);
+      result.failed += 1;
+    }
+  }
+  if (unavailableAdjustments.size === adjustments.length) return result;
 
   const chargeAdjustments = adjustments.filter((item) => item.kind !== 'credit_note');
   const sessionStudentIds = chargeAdjustments.map((item) => item.sessions_students_id);
@@ -350,8 +448,10 @@ export async function processSessionBillingAdjustments(
   const subsidies = await loadSubsidies(supabase);
 
   for (const adjustment of adjustments) {
+    if (unavailableAdjustments.has(adjustment.id)) continue;
     try {
-      if (!(await revalidateAdjustment(supabase, adjustment))) {
+      if (!(adjustment.kind === 'credit_note' && adjustment.stripe_credit_note_command) &&
+        !(await revalidateAdjustment(supabase, adjustment))) {
         await markSuperseded(supabase, adjustment.id);
         continue;
       }
@@ -416,27 +516,45 @@ export async function processSessionBillingAdjustments(
       await markSucceeded(supabase, adjustment.id);
       result.succeeded += 1;
     } catch (processingError) {
-      const message = processingError instanceof Error ? processingError.message : String(processingError);
-      const { error: failureError } = await supabase.rpc(
-        'fail_session_billing_adjustment',
-        {
-          p_adjustment_id: adjustment.id,
-          p_error: message,
-        },
-      );
-      if (failureError) {
-        console.error(
-          '[billing-runner] Failed to record adjustment failure:',
-          failureError,
-        );
-      }
-      console.error(
-        `[billing-runner] Session billing adjustment ${adjustment.id} failed:`,
-        message,
-      );
+      await recordAdjustmentFailure(supabase, adjustment, processingError);
       result.failed += 1;
     }
   }
 
   return result;
+}
+
+async function recordAdjustmentFailure(
+  supabase: SupabaseClient,
+  adjustment: SessionBillingAdjustment,
+  processingError: unknown,
+) {
+  const message = processingError instanceof Error ? processingError.message : String(processingError);
+  const terminal = adjustment.kind === 'credit_note' && isTerminalCreditNoteFailure(processingError);
+  const { error: failureError } = terminal
+    ? await supabase.from('session_billing_adjustments').update({
+      status: 'failed', last_error: message.slice(0, 4000), completed_at: new Date().toISOString(),
+    }).eq('id', adjustment.id).eq('status', 'processing')
+    : await supabase.rpc('fail_session_billing_adjustment', {
+      p_adjustment_id: adjustment.id,
+      p_error: message,
+    });
+  if (failureError) {
+    console.error(
+      '[billing-runner] Failed to record adjustment failure:',
+      failureError,
+    );
+  }
+  console.error(
+    `[billing-runner] Session billing adjustment ${adjustment.id} failed:`,
+    message,
+  );
+}
+
+function isTerminalCreditNoteFailure(error: unknown): boolean {
+  if (error instanceof TerminalCreditNoteError) return true;
+  if (!(error instanceof Stripe.errors.StripeError)) return false;
+  if (error.statusCode === 409 || error.statusCode === 429 || (error.statusCode ?? 0) >= 500 ||
+    error.code === 'lock_timeout' || error.code === 'rate_limit' || error.code === 'idempotency_key_in_use') return false;
+  return error instanceof Stripe.errors.StripeInvalidRequestError || error instanceof Stripe.errors.StripeIdempotencyError;
 }

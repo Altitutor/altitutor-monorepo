@@ -1,5 +1,8 @@
 "use client";
 
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
+import { usePendingInvitation } from "@/features/founder-offers/lib/use-pending-invitation";
+import { founderInvitationCode } from "@/features/founder-offers/lib/invitation-path";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -150,6 +153,7 @@ export function SignupOnboardingWizard({
     useState(false);
 
   const returnTo = safePostAuthReturnPath(searchParams.get("redirect"));
+  usePendingInvitation(founderInvitationCode(returnTo));
   const planIntent = useMemo(() => parseSignupPlanIntent(returnTo), [returnTo]);
   const checkoutStatus = searchParams.get("checkout");
   const checkoutReturnedSuccessfully = checkoutStatus === "success";
@@ -261,6 +265,7 @@ export function SignupOnboardingWizard({
       try {
         await patchSignupProgress({ planComplete: true });
         await patchSignupProgress({ complete: true });
+        rememberInvitation(null);
 
         setSignupSuccessError(null);
         postCompleteNavigationStarted.current = false;
@@ -450,8 +455,9 @@ export function SignupOnboardingWizard({
     finishPaidOnboarding();
   };
 
+  const [hasFounderGift, setHasFounderGift] = useState(false);
   const pendingGift = giftQuery.data?.pendingGift ?? null;
-  const heading = stepHeading(step, Boolean(pendingGift));
+  const heading = stepHeading(step, Boolean(pendingGift) || hasFounderGift);
   const isWideStep = step === SIGNUP_STEP.PLAN || step === SIGNUP_STEP.SAMPLER;
 
   if (signupSuccessJourney && signupSuccessPhase) {
@@ -583,6 +589,7 @@ export function SignupOnboardingWizard({
 
               {step === SIGNUP_STEP.PLAN ? (
                 <SignupCompletePlanStep
+                  onGiftReady={setHasFounderGift}
                   onComplete={handlePlanComplete}
                   onContinueCurrentPlan={handleCurrentPlanComplete}
                   returnTo={planIntent ? "/dashboard" : returnTo}

@@ -145,7 +145,7 @@ function TaskRow({
           <div className="flex flex-wrap items-center gap-2">
             <p
               className={cn(
-                "font-medium",
+                "text-sm font-medium",
                 (isDone || isSkipped) &&
                   "text-muted-foreground line-through decoration-muted-foreground/60",
               )}

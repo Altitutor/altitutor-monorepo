@@ -14,6 +14,7 @@ export function EditProjectDialog({ isOpen, onClose, projectId }: EditProjectDia
 
   return (
     <AdminDialogShell
+      dialogContentProps={{ onInteractOutside: (event) => event.preventDefault(), onEscapeKeyDown: (event) => event.preventDefault() }}
       hideHeader
       fillHeight
       defaultExpanded

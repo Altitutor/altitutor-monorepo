@@ -33,6 +33,26 @@ function snapshot(phase: ExamEngineSnapshot["phase"]): ExamEngineSnapshot {
 }
 
 describe("catchUpExpiredSegments", () => {
+  it("preserves canonical native answers when expired practice is recovered", () => {
+    const state = snapshot("question");
+    state.responseSnapshots = {
+      q1: {
+        type: "ucat_response_v1",
+        questionId: "q1",
+        answerScheme: "single_choice",
+        response: { kind: "single_select", selectedOptionId: "option-1" },
+      },
+    };
+    const result = catchUpExpiredSegments(
+      { ...setExam, sourceType: "questionStem", practiceSessionTimeLimitSeconds: 60 },
+      state,
+      new Date(Date.now() - 1000).toISOString(),
+      { practice: true },
+    );
+    expect(result.state.showTimeExpiredDialog).toBe(true);
+    expect(result.state.responseSnapshots).toEqual(state.responseSnapshots);
+  });
+
   it("finalizes a set when its question deadline expires", () => {
     const result = catchUpExpiredSegments(
       setExam,

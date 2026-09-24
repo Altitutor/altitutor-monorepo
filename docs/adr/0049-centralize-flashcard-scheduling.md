@@ -1,0 +1,3 @@
+# Centralize flashcard scheduling behind atomic study commands
+
+Flashcard scheduling is owned by one server-side module that returns an authoritative study snapshot and applies answer, undo, forget, suspend, resume, bury, and unbury commands through concurrency-checked database transactions. Flashcard study presets are versioned and assigned at Subject level, while daily New and Review allowances belong to the Student across all Subjects; this keeps filtered Subject and Topic study as views of one schedule instead of independent queues. Free flashcard study remains outside scheduling. This boundary was chosen so review history, FSRS state, limits, sibling burying, leeches, and mutation recovery cannot diverge across pages or clients.

@@ -1,13 +1,34 @@
 "use client";
 import { forwardRef, useImperativeHandle, useMemo, useState } from "react";
-import { Button, SegmentedControl, Textarea } from "@altitutor/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuCheckboxItem,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@altitutor/ui";
+import { Check, ChevronDown, Filter, MessageSquare } from "lucide-react";
 import { Composer } from "@/features/messages/components/Composer";
 import {
   MessageThread,
   type ThreadFeedEntry,
 } from "@/features/messages/components/MessageThread";
 import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
+import { ComposeModeControl, type ComposeMode } from "@/features/activity/components/ComposeModeControl";
 import { useStudentActivity } from "@/features/activity/hooks/useActivityEvents";
+import { useEntityActivityNoteComposer, activityKeys } from "@/features/activity/hooks";
+import {
+  communicationFilterOptions,
+  contactSourceId,
+  groupConversationSourceId,
+  sourcesAfterRecipientChange,
+  EMAIL_SOURCE_ID,
+  ACTIVITY_SOURCE_ID,
+} from "@/features/activity/lib/entityCommunication";
+import { NoteComposerWithTemplate } from "@/shared/components/NoteComposerWithTemplate";
+import { isTiptapContentEmpty } from "@/shared/utils/plainTextToTiptapJson";
+import { isMessageComposerSendShortcut } from "@/features/messages/utils/composerShortcut";
 import { useStudentInviteData } from "@/features/students/hooks/useStudentInviteData";
 import {
   getStudentRegistrationInviteMessageForClient,
@@ -23,19 +44,13 @@ import {
 import type { Journey } from "../lib/model";
 
 type Purpose = "registration_link" | "ucat_link" | "followup";
+
 export const JourneyCommunication = forwardRef<
   { prepare: (purpose: Purpose) => void },
   { journey: Journey; onRefresh: () => void }
 >(function JourneyCommunication({ journey, onRefresh }, ref) {
-  const [sources, setSources] = useState([
-    "events",
-    "student",
-    "parent",
-    "group",
-    "email",
-  ]);
-  const [channel, setChannel] = useState<"text" | "email">("text");
-  const [emailTo, setEmailTo] = useState(journey.enquiry_email ?? "");
+  const [mode, setMode] = useState<ComposeMode>("message");
+  const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
   const emails = useJourneyEmails(journey.id);
   const mailbox = useMailboxStatus();
   const [destination, setDestination] = useState("");
@@ -47,6 +62,11 @@ export const JourneyCommunication = forwardRef<
   const conversations = useMemo(() => context?.conversations ?? [], [context]);
   const messages = useJourneyMessages(conversations);
   const activity = useStudentActivity(journey.student_id);
+  const noteComposer = useEntityActivityNoteComposer({
+    targetType: "student",
+    targetId: journey.student_id ?? "",
+    activityQueryKey: activityKeys.student(journey.student_id ?? ""),
+  });
   const inviteQuery = useStudentInviteData(
     journey.student_id ?? "",
     "registration",
@@ -54,24 +74,64 @@ export const JourneyCommunication = forwardRef<
   );
   const invite = inviteQuery.data;
   const { data: staff } = useCurrentStaff();
-  const contacts = context?.contacts ?? [];
+  const contacts = useMemo(() => context?.contacts ?? [], [context?.contacts]);
   const selected =
     destination ||
     contacts.find((c) => c.kind === "parent")?.id ||
     contacts[0]?.id ||
     "";
   const contact = contacts.find((c) => c.id === selected);
+  const recipients = useMemo(
+    () => [
+      ...contacts.map((person) => ({
+        id: person.id,
+        label: person.label,
+        detail: person.phone_e164 || person.kind,
+      })),
+      ...conversations
+        .filter((conversation) => conversation.is_group_chat)
+        .map((conversation) => ({
+          id: conversation.id,
+          label: conversation.group_chat_name || "Existing group",
+          detail: "Group",
+        })),
+    ],
+    [contacts, conversations],
+  );
+  const selectedRecipient = recipients.find((recipient) => recipient.id === selected);
   const group = conversations.find((c) => c.id === selected && c.is_group_chat);
+  const filterOptions = communicationFilterOptions({
+    contacts: contacts.map((person) => ({
+      id: person.id,
+      kind: person.kind === "parent" ? "parent" as const : "student" as const,
+      label: person.label,
+      isCurrent: true,
+      detail: person.phone_e164 || person.kind,
+    })),
+    groups: conversations
+      .filter((conversation) => conversation.is_group_chat)
+      .map((conversation) => ({
+        id: conversation.id,
+        label: conversation.group_chat_name || "Group texts",
+      })),
+    includeEmail: true,
+  });
+  const sources = sourceOverride ?? filterOptions.map((option) => option.id);
   function sourceFor(id: string) {
-    const c = conversations.find((c) => c.id === id);
-    return c?.is_group_chat
-      ? "group"
-      : (contacts.find((p) => p.id === c?.contact_id)?.kind ?? "student");
+    const conversation = conversations.find((item) => item.id === id);
+    if (!conversation) return "unknown";
+    if (conversation.is_group_chat) return groupConversationSourceId(conversation.id);
+    return conversation.contact_id ? contactSourceId(conversation.contact_id) : "unknown";
+  }
+  function recipientSource(id: string) {
+    return conversations.some((conversation) => conversation.id === id && conversation.is_group_chat)
+      ? groupConversationSourceId(id)
+      : contactSourceId(id);
   }
   const visible = (messages.data?.pages.flatMap((p) => p.items) ?? []).filter(
     (m) => sources.includes(sourceFor(m.conversation_id)),
   );
-  const entries: ThreadFeedEntry[] = sources.includes("events")
+  const entries: ThreadFeedEntry[] = sources.includes(ACTIVITY_SOURCE_ID)
     ? (activity.data?.events ?? []).map((event) => ({
         id: `event:${event.id}`,
         at: event.effective_at,
@@ -83,7 +143,7 @@ export const JourneyCommunication = forwardRef<
         ),
       }))
     : [];
-  if (sources.includes("email"))
+  if (sources.includes(EMAIL_SOURCE_ID))
     for (const email of emails.data?.pages.flatMap((p) => p.items) ?? [])
       entries.push({
         id: `email:${email.id}`,
@@ -100,6 +160,7 @@ export const JourneyCommunication = forwardRef<
         ),
       });
   async function prepare(kind: Purpose) {
+    setMode("message");
     setError("");
     try {
       if (kind === "registration_link") {
@@ -148,44 +209,105 @@ export const JourneyCommunication = forwardRef<
     },
   }));
   return (
-    <div className="flex flex-col h-full min-h-0 gap-3">
-      <div
-        className="flex flex-wrap gap-1"
-        role="group"
-        aria-label="Feed sources"
-      >
-        {[
-          ["events", "Activity / events"],
-          ["student", "Student texts"],
-          ["parent", "Parent texts"],
-          ["group", "Group texts"],
-          ["email", "Emails"],
-        ].map(([value, label]) => (
-          <Button
-            key={value}
-            size="sm"
-            variant={sources.includes(value) ? "secondary" : "outline"}
-            aria-pressed={sources.includes(value)}
-            onClick={() =>
-              setSources((s) =>
-                s.includes(value)
-                  ? s.filter((v) => v !== value)
-                  : [...s, value],
-              )
-            }
-          >
-            {label}
-          </Button>
-        ))}
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b bg-background px-3 py-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {recipients.length > 0 ? (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" size="sm" className="h-7 max-w-full">
+                  <MessageSquare className="mr-1 h-3 w-3 shrink-0" />
+                  <span className="truncate text-xs">
+                    {selectedRecipient?.label ?? "Select phone"}
+                  </span>
+                  {selectedRecipient?.detail ? (
+                    <span className="ml-1 truncate text-xs text-muted-foreground">
+                      • {selectedRecipient.detail}
+                    </span>
+                  ) : null}
+                  <ChevronDown className="ml-1 h-3 w-3 shrink-0" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-72">
+                {recipients.map((recipient) => (
+                  <DropdownMenuItem
+                    key={recipient.id}
+                    onClick={() => {
+                      setDestination(recipient.id);
+                      setDraft("");
+                      setPurpose(undefined);
+                      setSourceOverride((current) =>
+                        sourcesAfterRecipientChange(
+                          current ?? sources,
+                          recipientSource(recipient.id),
+                        ),
+                      );
+                    }}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <MessageSquare className="h-4 w-4 shrink-0" />
+                      <div className="flex min-w-0 flex-1 flex-col">
+                        <span className="truncate text-sm font-medium">
+                          {recipient.label}
+                        </span>
+                        <span className="truncate text-xs text-muted-foreground">
+                          {recipient.detail}
+                        </span>
+                      </div>
+                    </div>
+                    {selected === recipient.id ? (
+                      <Check className="ml-2 h-4 w-4 shrink-0" />
+                    ) : null}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          ) : (
+            <span className="truncate text-xs text-muted-foreground">
+              No phone number
+            </span>
+          )}
+        </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" size="sm" className="h-7 shrink-0">
+              <Filter className="mr-1 h-3 w-3" />
+              <span className="text-xs">Filter</span>
+              <ChevronDown className="ml-1 h-3 w-3" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" className="w-56">
+            {filterOptions.map((option) => (
+              <DropdownMenuCheckboxItem
+                key={option.id}
+                checked={sources.includes(option.id)}
+                onCheckedChange={(checked) =>
+                  setSourceOverride((current) => {
+                    const base = current ?? sources;
+                    return checked
+                      ? base.includes(option.id)
+                        ? base
+                        : [...base, option.id]
+                      : base.filter((item) => item !== option.id);
+                  })
+                }
+                onSelect={(event) => event.preventDefault()}
+              >
+                {option.label}
+              </DropdownMenuCheckboxItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
-      {sources.includes("email") && !mailbox.data?.length && (
-        <p className="text-xs text-muted-foreground">
+      {sources.includes(EMAIL_SOURCE_ID) && !mailbox.data?.length && (
+        <p className="flex-shrink-0 px-3 py-2 text-xs text-muted-foreground">
           Microsoft 365 sync is awaiting configuration. Emails will appear here
           after connection.
         </p>
       )}
       {(error || contextError || messages.error || activity.error) && (
-        <p role="alert" className="text-destructive text-sm">
+        <p role="alert" className="flex-shrink-0 px-3 py-2 text-sm text-destructive">
           {error ||
             contextError?.message ||
             messages.error?.message ||
@@ -207,140 +329,65 @@ export const JourneyCommunication = forwardRef<
             if (emails.hasNextPage) void emails.fetchNextPage();
           },
           labelForConversation: (id) => {
-            const c = conversations.find((c) => c.id === id);
-            return c?.is_group_chat
-              ? (c.group_chat_name ?? "Existing group")
-              : `${contacts.find((p) => p.id === c?.contact_id)?.label ?? "Contact"} · ${sourceFor(id)} text`;
+            const conversation = conversations.find((item) => item.id === id);
+            if (!conversation) return undefined;
+            if (conversation.is_group_chat) return conversation.group_chat_name ?? "Group";
+            const person = contacts.find((item) => item.id === conversation.contact_id);
+            if (!person) return undefined;
+            return person.label;
           },
         }}
       />
-      <div className="border-t pt-3 space-y-2 shrink-0">
-        <div className="flex items-center gap-2">
-          <SegmentedControl
-            size="sm"
-            aria-label="Message channel"
-            value={channel}
-            onValueChange={setChannel}
-            options={[
-              { value: "text", label: "Text" },
-              { value: "email", label: "Email" },
-            ]}
-          />
-          <label className="text-sm flex-1">
-            Reply to
-            <select
-              aria-label="Reply conversation"
-              className="ml-2 rounded border bg-background p-1 max-w-full"
-              value={selected}
-              onChange={(e) => {
-                setDestination(e.target.value);
-                setDraft("");
-                setPurpose(undefined);
-              }}
-            >
-              {contacts.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.label} · {c.kind}
-                </option>
-              ))}
-              {conversations
-                .filter((c) => c.is_group_chat)
-                .map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.group_chat_name || "Existing group"}
-                  </option>
-                ))}
-            </select>
-          </label>
-        </div>
-        <div className="flex gap-2 flex-wrap">
-          {(
-            [
-              ["registration_link", "Registration link"],
-              ["ucat_link", "UCAT link"],
-              ["followup", "Follow up"],
-            ] as const
-          ).map(([key, label]) => (
-            <Button
-              size="sm"
-              variant="outline"
-              key={key}
-              onClick={() => void prepare(key)}
-            >
-              {label}
-            </Button>
-          ))}
-        </div>
-        {channel === "email" ? (
-          <div className="space-y-2">
-            <label className="text-sm">
-              Email recipient
-              <select
-                aria-label="Email recipient"
-                value={
-                  emailTo ||
-                  invite?.parents.find((p) => p.email)?.email ||
-                  contact?.email ||
-                  ""
-                }
-                onChange={(e) => setEmailTo(e.target.value)}
-                className="bg-background border p-1 ml-2"
-              >
-                {[
-                  ...new Set(
-                    [
-                      journey.enquiry_email,
-                      contact?.email,
-                      ...(invite?.parents.map((p) => p.email) ?? []),
-                    ].filter((s): s is string => Boolean(s)),
-                  ),
-                ].map((address) => (
-                  <option key={address}>{address}</option>
-                ))}
-              </select>
-            </label>
-            <Textarea
-              aria-label="Email draft"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
+      {mode === "note" ? (
+        <div
+          className="flex-shrink-0 border-t bg-background p-2"
+          onKeyDownCapture={(event) => {
+            if (!journey.student_id || !isMessageComposerSendShortcut(event) || isTiptapContentEmpty(noteComposer.content)) return;
+            event.preventDefault();
+            void noteComposer.onSubmit();
+          }}
+        >
+          {journey.student_id ? (
+            <NoteComposerWithTemplate
+              content={noteComposer.content}
+              onChange={noteComposer.onChange}
+              onSubmit={noteComposer.onSubmit}
+              isSubmitting={noteComposer.isSubmitting}
+              canPost={noteComposer.canPost}
+              modeControl={<ComposeModeControl value={mode} onValueChange={setMode} />}
             />
-            <Button variant="outline" asChild>
-              <a
-                href={`mailto:${encodeURIComponent(emailTo || invite?.parents.find((p) => p.email)?.email || contact?.email || "")}?subject=${encodeURIComponent(`Altitutor · ${journey.label}`)}&body=${encodeURIComponent(draft)}`}
-              >
-                Open email draft
-              </a>
-            </Button>
-            <p className="text-xs text-muted-foreground">
-              Send from admin@altitutor.com. The sent email appears after
-              mailbox synchronization.
-            </p>
-          </div>
-        ) : selected ? (
-          <Composer
-            key={selected}
-            contactId={contact?.id ?? null}
-            conversationId={group?.id}
-            groupChatId={group?.group_chat_id}
-            draft={draft}
-            onDraftChange={setDraft}
-            onDraftClear={() => setDraft("")}
-            onboarding={
-              purpose ? { journeyId: journey.id, purpose } : undefined
-            }
-            onQueued={() => {
-              setPurpose(undefined);
-              void messages.refetch();
-              onRefresh();
-            }}
-          />
-        ) : (
+          ) : (
+            <div className="flex items-center justify-between gap-2 p-2">
+              <p className="text-sm text-muted-foreground">Link a student before adding a note.</p>
+              <ComposeModeControl value={mode} onValueChange={setMode} />
+            </div>
+          )}
+        </div>
+      ) : selected ? (
+        <Composer
+          key={selected}
+          contactId={contact?.id ?? null}
+          conversationId={group?.id}
+          groupChatId={group?.group_chat_id}
+          draft={draft}
+          onDraftChange={setDraft}
+          onDraftClear={() => setDraft("")}
+          toolbarBeforeTemplate={<ComposeModeControl value={mode} onValueChange={setMode} />}
+          onboarding={purpose ? { journeyId: journey.id, purpose } : undefined}
+          onQueued={() => {
+            setPurpose(undefined);
+            void messages.refetch();
+            onRefresh();
+          }}
+        />
+      ) : (
+        <div className="flex flex-shrink-0 items-center justify-between gap-2 border-t p-4">
           <p className="text-sm text-muted-foreground">
-            Link a student or enquiry contact with a phone number to send a
-            text.
+            Link a student or enquiry contact with a phone number to send a text.
           </p>
-        )}
-      </div>
+          <ComposeModeControl value={mode} onValueChange={setMode} />
+        </div>
+      )}
     </div>
   );
 });

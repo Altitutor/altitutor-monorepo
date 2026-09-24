@@ -1,6 +1,7 @@
 import {
   getStudyPlanCompanionMode,
   isAlreadyOnSuggestedActivity,
+  shouldRefreshStudyPlanOnRouteChange,
 } from "@/features/study-plan/lib/companion-mode";
 
 describe("Study Plan companion route mode", () => {
@@ -60,6 +61,29 @@ describe("Study Plan companion route mode", () => {
     "/study-plan",
   ])("remains available on browsing route %s", (pathname) => {
     expect(getStudyPlanCompanionMode(pathname)).toBe("available");
+  });
+});
+
+describe("shouldRefreshStudyPlanOnRouteChange", () => {
+  it("does not refetch when moving between browse routes", () => {
+    expect(
+      shouldRefreshStudyPlanOnRouteChange("/dashboard", "/study-plan"),
+    ).toBe(false);
+    expect(
+      shouldRefreshStudyPlanOnRouteChange("/study-plan", "/dashboard"),
+    ).toBe(false);
+  });
+
+  it("refetches after leaving in-progress or hidden work", () => {
+    expect(
+      shouldRefreshStudyPlanOnRouteChange(
+        "/learn/module-1",
+        "/dashboard",
+      ),
+    ).toBe(true);
+    expect(
+      shouldRefreshStudyPlanOnRouteChange("/exam", "/dashboard"),
+    ).toBe(true);
   });
 });
 

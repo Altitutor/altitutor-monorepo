@@ -10,7 +10,7 @@ Connect using Supabase OAuth through the advertised protected-resource metadata.
 The shared consent page remains on tutor-web. Active ADMINSTAFF members explicitly
 check **Allow admin business access**; existing UCAT grants do not gain admin access.
 If Supabase reuses an existing OAuth consent, enable the already connected client at
-`https://<tutor-origin>/oauth/admin-access`, then retry the admin connection. That
+**Settings → AI connections** in admin-web (`/settings/ai-connections`), then retry the admin connection. The legacy `https://<tutor-origin>/oauth/admin-access` page remains available. That
 page also revokes admin access immediately. UCAT permissions remain separately
 checked by the UCAT endpoint. Deactivating staff denies subsequent admin requests.
 
@@ -22,6 +22,31 @@ configure a strong password for this role through your approved deployment proce
 and supply its connection URL as the **server-only** `ADMIN_REPORTING_DATABASE_URL`
 in admin-web. Never use `postgres`, `service_role`, or another privileged identity:
 the executor verifies its database role and rejects misconfiguration.
+
+Keep this value in the existing local secrets source of truth:
+
+- `secrets/.env.production`: production project's reader connection; deployed to
+  admin-web's Vercel Production environment.
+- `secrets/.env.development`: development project's separate reader connection;
+  deployed to admin-web's Vercel Preview environment.
+
+These files are ignored by Git. Use the exact key `ADMIN_REPORTING_DATABASE_URL`
+without a `NEXT_PUBLIC_` prefix. The role must have a password set in the matching
+Supabase project; the migration intentionally does not embed a password. This is
+separate from `SUPABASE_DB_PASSWORD`, which belongs to the migration administrator.
+
+From the repository root, deploy only this secret with:
+
+```bash
+bash secrets/scripts/deploy-vercel.sh --only ADMIN_REPORTING_DATABASE_URL
+```
+
+This reads both environment files, skips empty values, and uploads the key only to
+admin-web. The normal `deploy-all.sh` flow also includes it through `deploy-vercel.sh`.
+Neither route sets the database role's password. Redeploy admin-web after uploading
+so a new deployment receives the value. It is not a Supabase Edge Function secret or
+a GitHub Actions secret. To verify, call `query_admin_reporting` with `SELECT 1 AS ok`,
+then query an approved dataset. Discovery alone does not exercise the connection.
 
 Use the project's direct connection or supported pooler connection for the dedicated
 role. Postgres.js runs without prepared statements and closes each bounded connection.
@@ -102,10 +127,14 @@ Task estimates are XS–XL sizes, not hours. Tutor visibility is editable and ta
 effect immediately. Daily notes are shared per calendar date. Notes on tasks, issues
 and projects retain the existing plural target namespaces used by their UI.
 
-Stale revisions and active document editor locks reject agent edits. Re-read and
-reconcile; do not overwrite an intervening staff change automatically. Staff UI writes
-use the same operations RPC. Each mounted editor retains its first observed revision; unrelated cache refreshes cannot advance that baseline. Its own acknowledged saves advance it, and autosaves are serialized. After a conflict, reopen the editor to accept the current record. This deliberately errs toward rejecting a stale edit. Changes from
-other existing database writers also advance revisions through database triggers.
+Task, issue, project and document editors acquire an exclusive, expiring server lease.
+Agent changes acquire a short lease inside their transaction and fail while a staff
+editor holds one, including when that editor belongs to the same person. Re-read and
+reconcile after a rejection; do not overwrite an intervening staff change automatically.
+Agent changes retain their read revision to protect the gap between reading and their
+short write transaction. Staff editors instead save explicitly with their session token;
+no revision number is needed from the staff editor. Direct table writes cannot bypass
+an active lease. Database revisions and attributed history remain available.
 `get_admin_change_history` returns attributed before/after records, including project
 membership changes. History is separate from business Lifecycle events.
 
@@ -130,3 +159,13 @@ after the default shared build output produced a missing `_document` error. The
 final admin build also passed. Standards and Spec reviews have no outstanding
 findings. Hosted OAuth and production connection configuration remain deployment
 smoke checks.
+
+### Managing connected applications
+
+Admin-web **Settings → AI connections** shows the current administrator’s OAuth
+applications and their independent admin-access grants. The page provides the MCP
+URL for the current deployment and setup instructions. Revoking admin access leaves
+the OAuth application connected. Disconnecting removes the admin grant first, then
+revokes the OAuth grant; if OAuth revocation fails, the page reports the partial
+success and permits retrying. Reconnection requires authorisation and a new explicit
+admin grant. These controls do not affect other administrators’ grants.

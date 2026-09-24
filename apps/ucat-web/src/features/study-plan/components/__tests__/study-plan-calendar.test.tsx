@@ -120,6 +120,24 @@ describe("StudyPlanCalendar", () => {
     );
   });
 
+  it("shows outstanding tasks from an earlier day as carried over today", () => {
+    const currentPlan = plan();
+    currentPlan.tasks = [
+      task("earlier", "2026-08-21"),
+      task("future", "2026-08-23"),
+    ];
+    currentPlan.todayTasks = [];
+
+    render(<StudyPlanCalendar plan={currentPlan} summaryCards={<div />} />);
+
+    expect(screen.getByText("Carried over")).toBeInTheDocument();
+    expect(
+      screen.getByText("This task is still outstanding from Friday 21 August."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Task earlier")).toBeInTheDocument();
+    expect(screen.queryByText("Task future")).not.toBeInTheDocument();
+  });
+
   it("shows one day-level alert only when the selected pressure-packed day exceeds 60 minutes", () => {
     const warning = {
       preparationWarning:

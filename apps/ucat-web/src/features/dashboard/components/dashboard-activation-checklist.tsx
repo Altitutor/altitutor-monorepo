@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card, CardContent, Skeleton } from "@altitutor/ui";
 import { ArrowRight, Check, Circle, ListChecks } from "lucide-react";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
-import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import { useQuestionEngineTutorialStatus } from "@/features/onboarding/hooks/use-question-engine-tutorial-status";
 import {
   UCAT_GUIDED_SAMPLER_DECIDED,
   UCAT_REFERRAL_SHARED,
@@ -14,7 +14,7 @@ import {
 import {
   buildQuestionEngineTutorialHref,
   isQuestionEngineTutorialSatisfied,
-} from "@/features/onboarding/lib/question-engine-tutorial-gate";
+} from "@/features/onboarding/lib/question-engine-tutorial";
 import { useProgressAttempts } from "@/features/progress/hooks/use-progress-attempts";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
 import { ReferralDialog } from "@/features/subscription/components/referral-dialog";
@@ -39,8 +39,8 @@ type ChecklistItem = {
 export function DashboardActivationChecklist() {
   const [referralOpen, setReferralOpen] = useState(false);
   const progress = useOnboardingProgress();
-  const { isLoading: tutorialGateLoading, tutorialKind } =
-    useQuestionEngineTutorialGate();
+  const { isLoading: tutorialStatusLoading, tutorialKind } =
+    useQuestionEngineTutorialStatus();
   const planQuery = useStudyPlan();
   const attemptsQuery = useProgressAttempts({
     source: "all",
@@ -51,7 +51,7 @@ export function DashboardActivationChecklist() {
 
   if (
     progress.isLoading ||
-    tutorialGateLoading ||
+    tutorialStatusLoading ||
     planQuery.isLoading ||
     attemptsQuery.isLoading
   ) {

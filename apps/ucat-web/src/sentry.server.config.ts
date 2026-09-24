@@ -1,3 +1,4 @@
+import { filterMobileAuthTelemetry } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { resolveServerSentryEnvironment } from "@altitutor/shared";
 import { filterExpectedUcatWebError } from "@/lib/sentry/before-send";
@@ -15,5 +16,7 @@ Sentry.init({
   }),
   sendDefaultPii: false,
   beforeSend: filterExpectedUcatWebError,
+  beforeSendTransaction: filterMobileAuthTelemetry,
+  beforeBreadcrumb: filterMobileAuthTelemetry,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
 });

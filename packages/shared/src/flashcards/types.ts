@@ -1,3 +1,5 @@
+export const DEFAULT_FLASHCARD_STUDY_PRESET_ID = 'f5000000-0000-4000-8000-000000000001';
+
 export type FlashcardTopic = {
   id: string;
   topic_id: string;
@@ -50,7 +52,30 @@ export type FlashcardReviewCard = {
   state: 'New' | 'Learning' | 'Review' | 'Relearning';
   last_reviewed_at: string | null;
   last_rating: FlashcardRating | null;
+  revision: number;
+  buried_until: string | null;
+  buried_reason: 'manual' | 'sibling' | null;
+  suspended_at: string | null;
+  leech_at: string | null;
+  retrievability?: number;
   rating_previews?: Record<FlashcardRating, FlashcardRatingPreview>;
+  rating_preview_seed?: string;
+  answer_log_id?: string;
+  buried_sibling_ids?: string[];
+  study_day_ends_at?: string;
+  leech_suggested?: boolean;
+  learn_ahead_minutes?: number;
+  topic_code?: string | null;
+  topic_name?: string | null;
+  subject_short_name?: string | null;
+  note_links?: FlashcardNoteLink[];
+};
+
+export type FlashcardNoteLink = {
+  id: string;
+  label: string;
+  href: string;
+  is_solution: boolean;
 };
 
 export type FlashcardType = 'text_cloze' | 'image_occlusion';
@@ -102,6 +127,38 @@ export type FlashcardRating = 'again' | 'hard' | 'good' | 'easy';
 export type FlashcardRatingPreview = {
   due_at: string;
   label: string;
+};
+
+export type RateFlashcardCommand = {
+  reviewCardId: string;
+  rating: FlashcardRating;
+  requestId: string;
+  expectedRevision: number;
+  durationMs: number;
+  previewSeed: string;
+  answeredAt: string;
+};
+
+export type FlashcardSubjectStudySummary = {
+  id: string;
+  name: string;
+  shortName: string | null;
+  topicIds: string[];
+  total: number;
+  new: number;
+  learning: number;
+  review: number;
+};
+
+export type FlashcardStudySnapshot = {
+  cards: FlashcardReviewCard[];
+  counts: { new: number; learning: number; relearning: number; review: number; total: number };
+  held: { buried: number; suspended: number; newLimit: number; reviewLimit: number; newBlockedByReviews: number; futureLearning: number };
+  nextDueAt: string | null;
+  timezone: string;
+  timezoneConfirmationRequired: boolean;
+  catalogTotal: number;
+  subjects: FlashcardSubjectStudySummary[];
 };
 
 export type FlashcardImportRow = {

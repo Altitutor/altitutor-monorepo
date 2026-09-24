@@ -2,18 +2,18 @@ import React from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { DashboardActivationChecklist } from "@/features/dashboard/components/dashboard-activation-checklist";
 import { useOnboardingProgress } from "@/features/onboarding/hooks/use-onboarding-progress";
-import { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+import { useQuestionEngineTutorialStatus } from "@/features/onboarding/hooks/use-question-engine-tutorial-status";
 import { useProgressAttempts } from "@/features/progress/hooks/use-progress-attempts";
 import { useStudyPlan } from "@/features/study-plan/hooks/use-study-plan";
-import type { QuestionEngineTutorialKind } from "@/features/onboarding/lib/question-engine-tutorial-gate";
+import type { QuestionEngineTutorialKind } from "@/features/onboarding/lib/question-engine-tutorial";
 
 jest.mock("@/features/onboarding/hooks/use-onboarding-progress", () => ({
   useOnboardingProgress: jest.fn(),
 }));
 jest.mock(
-  "@/features/onboarding/hooks/use-question-engine-tutorial-gate",
+  "@/features/onboarding/hooks/use-question-engine-tutorial-status",
   () => ({
-    useQuestionEngineTutorialGate: jest.fn(),
+    useQuestionEngineTutorialStatus: jest.fn(),
   }),
 );
 jest.mock("@/features/progress/hooks/use-progress-attempts", () => ({
@@ -32,8 +32,8 @@ jest.mock("@/features/subscription/components/referral-dialog", () => ({
 }));
 
 const mockedUseOnboardingProgress = jest.mocked(useOnboardingProgress);
-const mockedUseQuestionEngineTutorialGate = jest.mocked(
-  useQuestionEngineTutorialGate,
+const mockedUseQuestionEngineTutorialStatus = jest.mocked(
+  useQuestionEngineTutorialStatus,
 );
 const mockedUseProgressAttempts = jest.mocked(useProgressAttempts);
 const mockedUseStudyPlan = jest.mocked(useStudyPlan);
@@ -51,10 +51,10 @@ function mockChecklist({
     isLoading: false,
     isCompleted: (tourId: string) => completed.includes(tourId),
   } as ReturnType<typeof useOnboardingProgress>);
-  mockedUseQuestionEngineTutorialGate.mockReturnValue({
+  mockedUseQuestionEngineTutorialStatus.mockReturnValue({
     isLoading: false,
     tutorialKind,
-  } as ReturnType<typeof useQuestionEngineTutorialGate>);
+  } as ReturnType<typeof useQuestionEngineTutorialStatus>);
   mockedUseStudyPlan.mockReturnValue({
     isLoading: false,
     data: { profile: { testYear: 2026, targetScore: 2100 } },

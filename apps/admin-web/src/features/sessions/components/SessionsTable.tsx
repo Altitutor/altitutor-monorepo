@@ -44,6 +44,7 @@ const SESSION_TYPES = [
 type SessionsTableProps = {
   studentId?: string;
   staffId?: string;
+  parentId?: string;
   classId?: string;
   adminShiftId?: string;
   limit?: number;
@@ -84,11 +85,13 @@ type SessionsTableProps = {
   }) => void;
   onRemoveStudentFromSession?: (sessionId: string, studentId: string, studentName: string, sessionShortName?: string) => void;
   onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
+  onRemoveParentFromSession?: (sessionId: string, sessionShortName?: string) => void;
 };
 
 export function SessionsTable({
   studentId,
   staffId,
+  parentId,
   classId,
   adminShiftId,
   limit,
@@ -115,6 +118,7 @@ export function SessionsTable({
   onUndoLogAbsenceStaff,
   onRemoveStudentFromSession,
   onRemoveStaffFromSession,
+  onRemoveParentFromSession,
 }: SessionsTableProps) {
   const isStudentAttendanceView = attendanceView === 'student';
   const isStaffAttendanceView = attendanceView === 'staff';
@@ -182,6 +186,7 @@ export function SessionsTable({
   } = useSessionsTable({
     studentId,
     staffId,
+    parentId,
     classId,
     adminShiftId,
     limit,
@@ -500,6 +505,7 @@ export function SessionsTable({
                   onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
                   onRemoveStudentFromSession={onRemoveStudentFromSession}
                   onRemoveStaffFromSession={onRemoveStaffFromSession}
+                  onRemoveParentFromSession={onRemoveParentFromSession}
                   modals={modals}
                   currentStaff={currentStaff}
                   onSessionClick={handleSessionClick}

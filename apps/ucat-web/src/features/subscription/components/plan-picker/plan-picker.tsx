@@ -1,6 +1,11 @@
 "use client";
 
+import { FounderAccessStatus } from "@/features/founder-offers/components/founder-access-status";
+import { InvitationCodeEntry } from "@/features/founder-offers/components/invitation-code-entry";
 import type { ReactNode } from "react";
+import { useRouter } from "next/navigation";
+import { usePendingInvitation } from "@/features/founder-offers/lib/use-pending-invitation";
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
 import { useMemo } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -26,6 +31,9 @@ const { typography: typo } = MARKETING_TOKENS;
 const ALL_PLAN_PICKER_TIERS: PlanPickerTier[] = ["free", "unlimited"];
 
 type PlanPickerProps = {
+  invitationCode?: string;
+  onInvitationSelected?: (code: string) => void;
+  showInvitationEntry?: boolean;
   variant?: "page" | "dialog" | "onboarding";
   className?: string;
   onContinueFree?: () => void;
@@ -94,6 +102,9 @@ function PlanPickerCard({
 
 export function PlanPicker({
   variant = "page",
+  invitationCode,
+  onInvitationSelected,
+  showInvitationEntry = true,
   className,
   onContinueFree,
   onContinueCurrentPlan,
@@ -113,7 +124,10 @@ export function PlanPicker({
     selectorTheme ?? (surfaceTheme === "marketing" ? "light" : "app");
   const animateCards = variant === "dialog";
 
+  const router = useRouter();
+  const [selectedCode, setSelectedCode] = usePendingInvitation(invitationCode);
   const picker = usePlanPicker({
+    invitationCode: selectedCode ?? undefined,
     onContinueFree,
     onContinueCurrentPlan,
     onCheckoutStart,
@@ -232,6 +246,34 @@ export function PlanPicker({
         animate: "show" as const,
       }
     : {};
+
+  if (selectedCode && audience === "app" && !isOnPaid && showInvitationEntry) {
+    return (
+      <div className={className}>
+        <h2 className="mb-6 text-3xl font-semibold">Your gift is ready</h2>
+        <InvitationCodeEntry
+          initialCode={selectedCode}
+          presentation="gift"
+          onDeclined={() => {
+            rememberInvitation(null);
+            setSelectedCode(null);
+            onContinueFree?.();
+          }}
+          onCodeApplied={(code) => {
+            const params = new URLSearchParams({
+              tier: "unlimited",
+              interval: "month",
+              context: checkoutReturnContext,
+              offer: code,
+            });
+            if (postCheckoutReturnTo)
+              params.set("redirect", postCheckoutReturnTo);
+            router.push(`/checkout?${params.toString()}`);
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={className}>
@@ -509,9 +551,7 @@ export function PlanPicker({
             <PlanPickerCta
               variant="proAccent"
               surfaceTheme={surfaceTheme}
-              isCurrentPlan={
-                unlimitedIsCurrentPlan && !isDowngradeScheduled
-              }
+              isCurrentPlan={unlimitedIsCurrentPlan && !isDowngradeScheduled}
               currentPlanActionable={currentPaidPlanActionable}
               isDowngrade={unlimitedIsDowngrade}
               disabled={
@@ -553,6 +593,15 @@ export function PlanPicker({
           </PlanPickerCard>
         ) : null}
       </Grid>
+      {audience === "app" && !isOnPaid && showInvitationEntry ? (
+        <div className="mx-auto mt-6 max-w-xl">
+          <FounderAccessStatus />
+          <InvitationCodeEntry
+            initialCode={invitationCode}
+            onCodeApplied={onInvitationSelected ?? setSelectedCode}
+          />
+        </div>
+      ) : null}
 
       {audience === "app" ? (
         <PlanCancellationDialog

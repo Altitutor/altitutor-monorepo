@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CardComponentProps } from "nextstepjs";
+import { useRouter } from "next/navigation";
 import { useNextStep } from "nextstepjs";
 import {
   AlertDialog,
@@ -22,14 +23,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  UCAT_QUESTION_ENGINE_CONTROLS_TOUR,
-  UCAT_QUESTION_ENGINE_TOUR,
-} from "@/features/onboarding/config/tour-catalog";
-import {
   TUTORIAL_FEEDBACK_EVENT,
   TUTORIAL_SKIP_REQUEST_EVENT,
   type TutorialFeedback,
 } from "@/features/onboarding/lib/tutorial-events";
+import { clearTutorialResume } from "@/features/onboarding/lib/tutorial-resume";
+import {
+  clearTutorialReplay,
+  readTutorialReplay,
+} from "@/features/onboarding/lib/tutorial-replay";
 import {
   ucatOnboardingTours,
   type ContextualTourStep,
@@ -56,6 +58,7 @@ export function OnboardingCard({
   prevStep,
   skipTour,
 }: CardComponentProps) {
+  const router = useRouter();
   const { currentTour, closeNextStep, setCurrentStep } = useNextStep();
   const [skipConfirmationOpen, setSkipConfirmationOpen] = useState(false);
   const [tutorialFeedback, setTutorialFeedback] = useState<
@@ -80,12 +83,9 @@ export function OnboardingCard({
   // while a route or optional step changes.
   const safeStep = step as ContextualTourStep | undefined;
   if (!safeStep || typeof document === "undefined") return null;
+  const replay = readTutorialReplay(currentTour);
 
   const isFirst = currentStep === 0;
-  const isQuestionEngineTour =
-    currentTour === UCAT_QUESTION_ENGINE_TOUR ||
-    currentTour === UCAT_QUESTION_ENGINE_CONTROLS_TOUR;
-
   const configuredSteps = ucatOnboardingTours.find(
     (tour) => tour.tour === currentTour,
   )?.steps as ContextualTourStep[] | undefined;
@@ -146,6 +146,10 @@ export function OnboardingCard({
   };
 
   const requestLeave = () => {
+    if (replay) {
+      setSkipConfirmationOpen(true);
+      return;
+    }
     if (isDisplayedLast) {
       nextStep();
       return;
@@ -161,6 +165,15 @@ export function OnboardingCard({
   const skipTourPermanently = () => {
     setSkipConfirmationOpen(false);
     skipTour?.();
+  };
+
+  const exitReplay = () => {
+    if (!replay || !currentTour) return;
+    setSkipConfirmationOpen(false);
+    clearTutorialResume(currentTour);
+    clearTutorialReplay(currentTour);
+    closeNextStep();
+    router.push(replay.returnTo);
   };
 
   return createPortal(
@@ -222,7 +235,9 @@ export function OnboardingCard({
               type="button"
               onClick={requestLeave}
               aria-label={
-                isDisplayedLast ? "Finish tutorial" : "Exit tutorial"
+                isDisplayedLast && !replay
+                  ? "Finish tutorial"
+                  : "Exit tutorial"
               }
               className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
             >
@@ -274,7 +289,7 @@ export function OnboardingCard({
           ) : null}
 
           <div className="mt-5 flex items-center gap-2">
-            {safeStep.showSkip && skipTour ? (
+            {safeStep.showSkip && skipTour && !replay ? (
               <Button
                 type="button"
                 variant="ghost"
@@ -332,22 +347,38 @@ export function OnboardingCard({
           <AlertDialogHeader>
             <AlertDialogTitle>Leave this tutorial?</AlertDialogTitle>
             <AlertDialogDescription>
-              {isQuestionEngineTour
-                ? "Skip and show later keeps this walkthrough for another visit. Skip and don't show again marks it done so your intended attempt can begin. You can replay it later from Settings."
+              {replay
+                ? "Exit this replay and return to App settings. Your tutorial completion will not change."
                 : "Skip and show later keeps this walkthrough for another visit. Skip and don't show again marks it done. You can replay it later from Settings."}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col gap-2 sm:flex-col sm:space-x-0">
-            <Button
-              type="button"
-              className={UCAT_DIALOG_PRIMARY_ACTION}
-              onClick={skipTourPermanently}
-            >
-              Skip and don&apos;t show again
-            </Button>
-            <Button type="button" variant="outline" onClick={postponeTour}>
-              Skip and show later
-            </Button>
+            {replay ? (
+              <Button
+                type="button"
+                className={UCAT_DIALOG_PRIMARY_ACTION}
+                onClick={exitReplay}
+              >
+                Exit
+              </Button>
+            ) : (
+              <>
+                <Button
+                  type="button"
+                  className={UCAT_DIALOG_PRIMARY_ACTION}
+                  onClick={skipTourPermanently}
+                >
+                  Skip and don&apos;t show again
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={postponeTour}
+                >
+                  Skip and show later
+                </Button>
+              </>
+            )}
             <AlertDialogCancel>Cancel</AlertDialogCancel>
           </AlertDialogFooter>
         </AlertDialogContent>

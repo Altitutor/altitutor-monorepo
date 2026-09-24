@@ -94,7 +94,7 @@ describe("QuestionContent placement restoration", () => {
     });
   });
 
-  it("assigns a Yes token with mouse pointer dragging", () => {
+    it("assigns a Yes token with mouse pointer dragging", () => {
     const onChangePlacementSnapshot = jest.fn();
     render(
       <QuestionContent
@@ -109,6 +109,63 @@ describe("QuestionContent placement restoration", () => {
     expect(onChangePlacementSnapshot).toHaveBeenLastCalledWith({
       "statement-1": "yes",
     });
+  });
+
+  it("does not assign a token by clicking the drop box", () => {
+    const onChangePlacementSnapshot = jest.fn();
+    render(
+      <QuestionContent
+        question={question}
+        onSelectOption={() => undefined}
+        onChangePlacementSnapshot={onChangePlacementSnapshot}
+      />,
+    );
+
+    fireEvent.click(screen.getAllByLabelText("Drop Yes or No here")[0]!);
+
+    expect(onChangePlacementSnapshot).not.toHaveBeenCalled();
+    expect(
+      screen.getAllByLabelText("Drop Yes or No here")[0],
+    ).not.toHaveTextContent("Yes");
+  });
+
+  it("assigns a Yes token with mouse dragging when placement is drag-only", () => {
+    const onChangePlacementSnapshot = jest.fn();
+    const onPlacementClickAttempt = jest.fn();
+    render(
+      <QuestionContent
+        question={question}
+        onSelectOption={() => undefined}
+        onChangePlacementSnapshot={onChangePlacementSnapshot}
+        placementDragOnly
+        onPlacementClickAttempt={onPlacementClickAttempt}
+      />,
+    );
+
+    dragYesTokenOntoFirstStatement({ pointerType: "mouse" });
+
+    expect(onChangePlacementSnapshot).toHaveBeenLastCalledWith({
+      "statement-1": "yes",
+    });
+    expect(onPlacementClickAttempt).not.toHaveBeenCalled();
+  });
+
+  it("sets a native HTML5 drag image that shows the Yes token", () => {
+    render(
+      <QuestionContent question={question} onSelectOption={() => undefined} />,
+    );
+
+    const setDragImage = jest.fn();
+    fireEvent.dragStart(screen.getByRole("button", { name: "Yes" }), {
+      dataTransfer: {
+        ...dataTransfer({}),
+        setDragImage,
+      },
+    });
+
+    expect(setDragImage).toHaveBeenCalled();
+    const image = setDragImage.mock.calls[0]?.[0] as HTMLElement;
+    expect(image).toHaveTextContent("Yes");
   });
 
   it("moves a Yes token preview with the pointer during a drag", () => {
@@ -137,6 +194,18 @@ describe("QuestionContent placement restoration", () => {
     const preview = screen.getByTestId("placement-drag-preview");
     expect(preview).toHaveTextContent("Yes");
     expect(preview).toHaveStyle({ left: "180px", top: "90px" });
+  });
+
+  it("prevents text selection on draggable placement controls", () => {
+    const { container } = render(
+      <QuestionContent question={question} onSelectOption={() => undefined} />,
+    );
+
+    const dragSources = container.querySelectorAll('[draggable="true"]');
+    expect(dragSources).not.toHaveLength(0);
+    dragSources.forEach((source) => {
+      expect(source).toHaveClass("select-none");
+    });
   });
 
   it("renders Most/Least as physical once-only placement for a canonical drag question", () => {
@@ -193,6 +262,31 @@ describe("QuestionContent placement restoration", () => {
 
     expect(onChange).toHaveBeenLastCalledWith({ "action-a": "least" });
     expect(leastTarget).toHaveTextContent("Action A");
+  });
+
+  it("prevents text selection while dragging options into token boxes", () => {
+    const mostLeastQuestion: QuestionItem = {
+      ...question,
+      id: "most-least-no-selection",
+      answerScheme: "situational_judgement_most_least",
+      sectionDisplayColumns: 2,
+      options: [
+        { id: "action-a", index: 0, text: "Action A", answerKeyValue: "most" },
+        { id: "action-b", index: 1, text: "Action B", answerKeyValue: null },
+      ],
+    };
+    const { container } = render(
+      <QuestionContent
+        question={mostLeastQuestion}
+        onSelectOption={() => undefined}
+      />,
+    );
+
+    const dragSources = container.querySelectorAll('[draggable="true"]');
+    expect(dragSources).not.toHaveLength(0);
+    dragSources.forEach((source) => {
+      expect(source).toHaveClass("select-none");
+    });
   });
 
   it("does not update its parent from inside the placement state updater", () => {

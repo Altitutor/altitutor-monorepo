@@ -36,8 +36,6 @@ SELECT public.create_tutor_log(
   p_logged_for_staff_id => '00000000-0000-0000-0000-000000000014'
 ) AS payload;
 
-SELECT diag((SELECT payload::text FROM check_in_log_result));
-
 SELECT is(
   (SELECT payload ->> 'success' FROM check_in_log_result),
   'true',

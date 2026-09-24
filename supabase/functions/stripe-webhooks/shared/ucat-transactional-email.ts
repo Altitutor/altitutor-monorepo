@@ -4,6 +4,7 @@ import {
   renderUcatEmail,
   renderUcatEmailButton,
   renderUcatEmailPanel,
+  UCAT_EMAIL_ENVIRONMENT,
   UCAT_EMAIL_SENDERS,
 } from "../../_shared/ucat-email.ts";
 
@@ -15,6 +16,7 @@ export {
   escapeEmailHtml,
   renderUcatEmailButton,
   renderUcatEmailPanel,
+  UCAT_EMAIL_ENVIRONMENT,
 };
 
 export function renderUcatTransactionalEmail(input: {

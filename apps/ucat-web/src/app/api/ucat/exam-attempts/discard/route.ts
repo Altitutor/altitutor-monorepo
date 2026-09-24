@@ -19,10 +19,16 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const body = (await request.json()) as {
+  const body = (await request.json().catch(() => null)) as {
     kind?: ExamAttemptKind;
     attemptId?: string;
-  };
+  } | null;
+  if (!body) {
+    return NextResponse.json(
+      { error: "Invalid request body" },
+      { status: 400 },
+    );
+  }
   if (
     !body.kind ||
     !body.attemptId ||

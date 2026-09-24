@@ -1,3 +1,4 @@
+import { deleteWorkItem } from '@/features/work-item-editing/api';
 import { mutateWorkItem } from '@/features/admin-mcp/client/operations';
 import type { Tables, Database } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
@@ -194,14 +195,5 @@ export const tasksApi = {
   /**
    * Delete a task
    */
-  delete: async (taskId: string): Promise<void> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-    
-    const { error } = await supabase
-      .from('tasks')
-      .delete()
-      .eq('id', taskId);
-
-    if (error) throw error;
-  },
+  delete: async (taskId: string): Promise<void> => deleteWorkItem('task', taskId),
 };

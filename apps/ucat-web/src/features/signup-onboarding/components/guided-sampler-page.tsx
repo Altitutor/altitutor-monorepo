@@ -1882,7 +1882,6 @@ export function GuidedSamplerPage() {
           tutorialCalculatorDraggable
           tutorialSequential
           tutorialHidePrevious
-          tutorialPlacementDragOnly
           tutorialPrimaryActionLabel={showCorrectNext ? "Next" : "Submit"}
           tutorialHidePrimaryAction={
             currentQuestionIsCorrect && !showCorrectNext

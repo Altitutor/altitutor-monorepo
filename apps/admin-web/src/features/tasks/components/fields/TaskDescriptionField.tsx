@@ -43,7 +43,7 @@ export function TaskDescriptionField({
               ref={effectiveRef}
               content={field.value || ''}
               onChange={field.onChange}
-              onChangeDebounceMs={200}
+              onChangeDebounceMs={0}
               placeholder="Add task description..."
               className="min-h-0"
               context="tasks"

@@ -1,3 +1,13 @@
+import { addMonths, addWeeks, differenceInCalendarDays } from "date-fns";
+import { captureUcatReferral } from "@/lib/ucat/referrals/capture-referral";
+import {
+  findFounderOffer,
+  founderHistory,
+  founderCoupon,
+  claimFounderOffer,
+  type FounderRedemption,
+  type FounderOffer,
+} from "@/lib/ucat/founder-offers/server";
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
@@ -16,9 +26,6 @@ import {
 } from "@/lib/ucat/subscription-plan";
 import { isStandardUcatTrialEligible } from "@/lib/ucat/subscription-trial";
 import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
-
-const REFERRAL_GIFT_COUPON_ID = "ucat-referral-unlimited-gift";
-const REFERRAL_GIFT_COUPON_NAME = "UCAT gift — first period free";
 
 type ReferralGiftCheckout = {
   id: string;
@@ -77,37 +84,6 @@ async function loadReferralTrialContext(
     hasAcceptedRecipientGift: Boolean(acceptedResult.data),
     hasReferralAccessGift: Boolean(accessGiftResult.data),
   };
-}
-
-async function getOrCreateReferralGiftCoupon(
-  stripe: Stripe,
-): Promise<Stripe.Coupon> {
-  try {
-    return await stripe.coupons.retrieve(REFERRAL_GIFT_COUPON_ID);
-  } catch (error: unknown) {
-    const stripeError = error as { code?: string; statusCode?: number };
-    if (
-      stripeError.code !== "resource_missing" &&
-      stripeError.statusCode !== 404
-    ) {
-      throw error;
-    }
-  }
-
-  try {
-    return await stripe.coupons.create({
-      id: REFERRAL_GIFT_COUPON_ID,
-      name: REFERRAL_GIFT_COUPON_NAME,
-      percent_off: 100,
-      duration: "once",
-      metadata: { source: "ucat_referral_gift", tier: "unlimited" },
-    });
-  } catch (error: unknown) {
-    if ((error as { code?: string }).code === "resource_already_exists") {
-      return stripe.coupons.retrieve(REFERRAL_GIFT_COUPON_ID);
-    }
-    throw error;
-  }
 }
 
 async function resolveReferralGift(
@@ -266,10 +242,77 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  const referralGift = requestedSelection.referralGiftId
-    ? await resolveReferralGift(student.id, requestedSelection.referralGiftId)
+  let founderOffer: FounderOffer | null = null;
+  let hasFounderPass = false;
+  let requestedGiftId = requestedSelection.referralGiftId;
+  try {
+    const history = await founderHistory(student.id);
+    hasFounderPass = history.some((row) => row.kind === "access_pass");
+    if (requestedSelection.referralGiftId && hasFounderPass) {
+      return NextResponse.json(
+        {
+          error:
+            "Referral gifts cannot be combined with a founder access pass.",
+        },
+        { status: 409 },
+      );
+    }
+    if (requestedSelection.founderCode) {
+      const found = await findFounderOffer(requestedSelection.founderCode);
+      if (found) {
+        if (requestedSelection.referralGiftId)
+          throw new Error("Choose one promotional offer.");
+        founderOffer = found;
+      } else {
+        if (requestedGiftId) throw new Error("Choose one promotional offer.");
+        if (hasFounderPass)
+          throw new Error(
+            "Referral gifts cannot be combined with a founder free period.",
+          );
+        await captureUcatReferral(student.id, requestedSelection.founderCode);
+        const { data: referral, error } = await supabaseAdmin
+          .from("ucat_referrals")
+          .select("id, ucat_referral_codes(code)")
+          .eq("referred_student_id", student.id)
+          .maybeSingle();
+        if (error) throw error;
+        if (
+          !referral ||
+          referral.ucat_referral_codes?.code !== requestedSelection.founderCode
+        )
+          throw new Error(
+            "This referral code is not available to your account.",
+          );
+        requestedGiftId = referral.id;
+      }
+    }
+    const pending = history.find((row) => row.status === "reserved");
+    if (
+      pending &&
+      (!founderOffer ||
+        pending.offer_id !== founderOffer.id ||
+        pending.billing_interval !== requestedSelection.interval)
+    ) {
+      throw new Error(
+        "Cancel your open founder checkout before choosing another offer or billing interval.",
+      );
+    }
+  } catch (error) {
+    return NextResponse.json(
+      {
+        error:
+          error instanceof Error
+            ? error.message
+            : "Could not confirm offer eligibility.",
+      },
+      { status: 409 },
+    );
+  }
+
+  const referralGift = requestedGiftId
+    ? await resolveReferralGift(student.id, requestedGiftId)
     : null;
-  if (requestedSelection.referralGiftId && !referralGift) {
+  if (requestedGiftId && !referralGift) {
     return NextResponse.json(
       { error: "This referral gift is no longer available." },
       { status: 409 },
@@ -295,7 +338,7 @@ export async function POST(request: NextRequest) {
         { status: 500 },
       );
     }
-    if (referralTrialContext.hasPendingRecipientGift) {
+    if (referralTrialContext.hasPendingRecipientGift && !founderOffer) {
       return NextResponse.json(
         {
           error:
@@ -307,14 +350,11 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  const selection: UcatCheckoutRequest = referralGift
-    ? {
-        tier: "unlimited",
-        interval: referralGift.interval,
-        returnContext,
-        referralGiftId: referralGift.id,
-      }
-    : requestedSelection;
+  // A gift changes the introductory period, never the selected renewal interval.
+  const selection: UcatCheckoutRequest = {
+    ...requestedSelection,
+    referralGiftId: referralGift?.id,
+  };
 
   const planPrice = await getUcatPlanPrice(
     supabaseAdmin,
@@ -342,6 +382,72 @@ export async function POST(request: NextRequest) {
     );
   }
 
+  const { data: checkoutHold, error: holdError } = await supabaseAdmin.rpc(
+    "reserve_ucat_checkout",
+    {
+      p_student_id: student.id,
+      p_selection_key: JSON.stringify([
+        selection.interval,
+        returnContext,
+        selection.returnTo ?? null,
+        referralGift?.id ?? null,
+        founderOffer?.id ?? null,
+      ]),
+      p_referral: Boolean(referralGift),
+    },
+  );
+  if (holdError || !checkoutHold)
+    return NextResponse.json(
+      { error: holdError?.message ?? "Could not prepare checkout." },
+      { status: 409 },
+    );
+  if (checkoutHold.checkout_session_id) {
+    try {
+      const previous = await stripe.checkout.sessions.retrieve(
+        checkoutHold.checkout_session_id,
+      );
+      if (previous.status === "open" && previous.client_secret) {
+        return NextResponse.json({
+          clientSecret: previous.client_secret,
+          checkoutSessionId: previous.id,
+          referralGiftApplied: Boolean(
+            previous.metadata?.ucat_referral_gift_id,
+          ),
+          trialEligible: Boolean(previous.metadata?.ucat_standard_trial_days),
+          trialDays: Number(previous.metadata?.ucat_standard_trial_days ?? 0),
+          founderPercentOff: founderOffer?.percent_off ?? null,
+          offerTrialDays: Number(previous.metadata?.ucat_offer_trial_days ?? 0),
+        });
+      }
+      if (previous.status === "expired") {
+        await supabaseAdmin
+          .from("ucat_checkout_holds")
+          .delete()
+          .eq("id", checkoutHold.id);
+        await supabaseAdmin
+          .from("ucat_founder_redemptions")
+          .update({ status: "expired" })
+          .eq("checkout_session_id", previous.id)
+          .eq("status", "reserved");
+      }
+      return NextResponse.json(
+        {
+          error:
+            previous.status === "complete"
+              ? "Your purchase is being confirmed."
+              : "Your checkout expired. Please try again.",
+        },
+        { status: 409 },
+      );
+    } catch (error) {
+      captureApiError(error, "/api/ucat/checkout");
+      return NextResponse.json(
+        { error: "Could not recover checkout. Please retry." },
+        { status: 503 },
+      );
+    }
+  }
+
   const configuredTrialDays = configResult.data?.trial_days ?? 5;
   const trialDays = Number.isInteger(configuredTrialDays)
     ? Math.max(0, Math.min(730, configuredTrialDays))
@@ -351,6 +457,9 @@ export async function POST(request: NextRequest) {
   );
   const trialEligible =
     !referralGift &&
+    !founderOffer &&
+    !hasFounderPass &&
+    !checkoutHold.suppress_trial &&
     trialDays > 0 &&
     isStandardUcatTrialEligible({
       trialConsumedAt: student.ucat_unlimited_trial_consumed_at,
@@ -359,17 +468,53 @@ export async function POST(request: NextRequest) {
       hasReferralAccessGift: referralTrialContext.hasReferralAccessGift,
     });
 
+  const giftStart = new Date(checkoutHold.created_at);
+  const freePeriodEnd =
+    founderOffer?.kind === "access_pass"
+      ? (founderOffer.duration_unit === "month" ? addMonths : addWeeks)(
+          giftStart,
+          founderOffer.duration_count ?? 1,
+        )
+      : referralGift
+        ? (referralGift.interval === "month" ? addMonths : addWeeks)(
+            giftStart,
+            1,
+          )
+        : null;
+  const offerTrialDays = freePeriodEnd
+    ? differenceInCalendarDays(freePeriodEnd, giftStart)
+    : 0;
+  if (offerTrialDays > 730) {
+    await supabaseAdmin
+      .from("ucat_checkout_holds")
+      .delete()
+      .eq("id", checkoutHold.id)
+      .is("checkout_session_id", null);
+    return NextResponse.json(
+      {
+        error:
+          "This offer exceeds the maximum free period of 730 days. Please request a shorter invitation.",
+      },
+      { status: 409 },
+    );
+  }
+
   const origin = request.headers.get("origin") ?? request.nextUrl.origin;
   const metadata: Stripe.MetadataParam = {
     student_id: student.id,
+    ucat_checkout_hold_id: checkoutHold.id,
     ucat_plan_tier: selection.tier,
     ucat_billing_interval: selection.interval,
     ucat_checkout_context: returnContext,
     ucat_acquisition_benefit: referralGift
       ? "referral_gift"
-      : trialEligible
-        ? "standard_trial"
-        : "none",
+      : founderOffer
+        ? founderOffer.kind === "access_pass"
+          ? "founder_access"
+          : "founder_discount"
+        : trialEligible
+          ? "standard_trial"
+          : "none",
   };
   if (referralGift) {
     metadata.ucat_referral_gift_id = referralGift.id;
@@ -384,6 +529,10 @@ export async function POST(request: NextRequest) {
 
   const subscriptionData: Stripe.Checkout.SessionCreateParams.SubscriptionData =
     { metadata };
+  if (offerTrialDays) {
+    subscriptionData.trial_period_days = offerTrialDays;
+    metadata.ucat_offer_trial_days = String(offerTrialDays);
+  }
   if (trialEligible) {
     subscriptionData.trial_period_days = trialDays;
     metadata.ucat_standard_trial_days = String(trialDays);
@@ -391,6 +540,8 @@ export async function POST(request: NextRequest) {
 
   const sessionParams: Stripe.Checkout.SessionCreateParams = {
     mode: "subscription",
+    expires_at:
+      Math.floor(Date.parse(checkoutHold.created_at) / 1000) + 60 * 60,
     ui_mode: "custom",
     wallet_options: { link: { display: "never" } },
     line_items: [{ price: priceId, quantity: 1 }],
@@ -401,31 +552,116 @@ export async function POST(request: NextRequest) {
     return_url: new URL(checkoutReturnPath, origin).toString(),
   };
 
-  if (referralGift) {
-    const coupon = await getOrCreateReferralGiftCoupon(stripe);
-    sessionParams.discounts = [{ coupon: coupon.id }];
-  }
-
   const billing = student.students_billing;
   if (billing?.stripe_customer_id) {
     sessionParams.customer = billing.stripe_customer_id;
     delete sessionParams.customer_email;
   }
 
-  try {
-    const session = await stripe.checkout.sessions.create(
-      sessionParams,
-      referralGift
-        ? {
-            idempotencyKey: `ucat-referral-gift:${referralGift.kind}:${referralGift.id}`,
+  let founderClaim: FounderRedemption | null = null;
+  if (founderOffer) {
+    try {
+      const coupon =
+        founderOffer.kind === "discount"
+          ? await founderCoupon(stripe, founderOffer)
+          : null;
+      founderClaim = await claimFounderOffer(
+        student.id,
+        founderOffer.code,
+        selection.interval,
+      );
+      if (founderClaim.checkout_session_id) {
+        const prior = await stripe.checkout.sessions.retrieve(
+          founderClaim.checkout_session_id,
+        );
+        if (prior.status !== "open" || !prior.client_secret) {
+          if (prior.status === "expired") {
+            await supabaseAdmin
+              .from("ucat_founder_redemptions")
+              .update({ status: "expired" })
+              .eq("id", founderClaim.id)
+              .eq("status", "reserved");
           }
-        : undefined,
-    );
+          throw new Error(
+            prior.status === "complete"
+              ? "Your purchase is being confirmed."
+              : "Your checkout expired. Please try again.",
+          );
+        }
+        return NextResponse.json({
+          clientSecret: prior.client_secret,
+          checkoutSessionId: prior.id,
+          referralGiftApplied: false,
+          trialEligible: prior.metadata?.ucat_standard_trial_days !== undefined,
+          trialDays: Number(prior.metadata?.ucat_standard_trial_days ?? 0),
+          founderPercentOff: founderOffer.percent_off,
+          offerTrialDays: Number(prior.metadata?.ucat_offer_trial_days ?? 0),
+        });
+      }
+      metadata.ucat_founder_redemption_id = founderClaim.id;
+      metadata.ucat_founder_offer_id = founderOffer.id;
+      metadata.ucat_founder_code = founderOffer.code;
+      metadata.ucat_founder_campaign = founderOffer.campaign;
+      metadata.ucat_founder_kind = founderOffer.kind;
+      if (coupon) sessionParams.discounts = [{ coupon: coupon.id }];
+      // Stable across retries. Expiry releases the reserved place through Stripe's webhook.
+      sessionParams.expires_at =
+        Math.floor(Date.parse(checkoutHold.created_at) / 1000) + 60 * 60;
+    } catch (error) {
+      await supabaseAdmin
+        .from("ucat_checkout_holds")
+        .delete()
+        .eq("id", checkoutHold.id)
+        .is("checkout_session_id", null);
+      if (
+        error instanceof Error &&
+        error.message ===
+          "Cancel your open checkout before starting a free access pass."
+      ) {
+        return NextResponse.json(
+          {
+            code: "CHECKOUT_SETUP_REQUIRED",
+            error:
+              "Invitation checkout is temporarily unavailable. Please try again later.",
+          },
+          { status: 503 },
+        );
+      }
+      return NextResponse.json(
+        {
+          error:
+            error instanceof Error
+              ? error.message
+              : "Could not apply founder discount.",
+        },
+        { status: 409 },
+      );
+    }
+  }
+
+  try {
+    const session = await stripe.checkout.sessions.create(sessionParams, {
+      idempotencyKey: `ucat-checkout:${checkoutHold.id}`,
+    });
     if (!session.client_secret) {
       return NextResponse.json(
         { error: "Failed to initialize checkout" },
         { status: 500 },
       );
+    }
+
+    const { error: holdSaveError } = await supabaseAdmin
+      .from("ucat_checkout_holds")
+      .update({ checkout_session_id: session.id })
+      .eq("id", checkoutHold.id);
+    if (holdSaveError) throw holdSaveError;
+
+    if (founderClaim) {
+      const { error } = await supabaseAdmin
+        .from("ucat_founder_redemptions")
+        .update({ checkout_session_id: session.id })
+        .eq("id", founderClaim.id);
+      if (error) throw error;
     }
 
     if (referralGift?.kind === "recipient") {
@@ -463,7 +699,7 @@ export async function POST(request: NextRequest) {
       stripe_checkout_session_id: session.id,
       metadata: {
         acquisition_benefit: metadata.ucat_acquisition_benefit,
-        trial_days: trialEligible ? trialDays : 0,
+        trial_days: offerTrialDays || (trialEligible ? trialDays : 0),
       },
     });
 
@@ -471,10 +707,28 @@ export async function POST(request: NextRequest) {
       clientSecret: session.client_secret,
       checkoutSessionId: session.id,
       referralGiftApplied: Boolean(referralGift),
+      founderPercentOff: founderOffer?.percent_off ?? null,
+      offerTrialDays,
       trialEligible,
       trialDays: trialEligible ? trialDays : 0,
     });
   } catch (error: unknown) {
+    // Definitive validation failures created no session; network/5xx failures
+    // retain the hold so retrying uses the same Stripe idempotency key.
+    if (error instanceof Stripe.errors.StripeInvalidRequestError) {
+      await supabaseAdmin
+        .from("ucat_checkout_holds")
+        .delete()
+        .eq("id", checkoutHold.id)
+        .is("checkout_session_id", null);
+      if (founderClaim)
+        await supabaseAdmin
+          .from("ucat_founder_redemptions")
+          .update({ status: "expired" })
+          .eq("id", founderClaim.id)
+          .eq("status", "reserved")
+          .is("checkout_session_id", null);
+    }
     captureApiError(error, "/api/ucat/checkout");
     console.error(
       "[ucat checkout] Stripe error:",

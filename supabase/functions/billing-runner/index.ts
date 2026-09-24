@@ -25,7 +25,7 @@ import {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-admin-token',
 };
 
 const BILLING_RUNNER_LOCK_NAME = 'billing-runner';
@@ -312,7 +312,9 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       .select('id, start_at, end_at, subject_id, class_id, billing_type')
       .gte('start_at', startIso)
       .lte('start_at', endIso)
-      .not('billing_type', 'is', null); // Only billable sessions
+      .not('billing_type', 'is', null)
+      .eq('status', 'ACTIVE')
+      .is('calendar_tombstone_until', null);
     if (sessErr) throw sessErr;
 
     if (!sessions?.length) {
@@ -429,7 +431,8 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     // Load subject pricing overrides
     const subjectIds = Array.from(
       new Set(
-        uninvoicedSessions.map((s: { subject_id?: string | null }) => s.subject_id).filter(Boolean),
+        uninvoicedSessions.map((s: { subject_id?: string | null }) => s.subject_id)
+          .filter((id): id is string => Boolean(id)),
       ),
     );
     const { overridesBySubjectAndBilling, pricingOverrides } = await loadPricingOverrides(
@@ -438,13 +441,20 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
     );
 
     // Load subjects for display names
-    const subjectById = await loadSubjects(supabase, subjectIds);
+    const loadedSubjects = await loadSubjects(supabase, subjectIds);
+    const subjectById = Object.fromEntries(
+      Object.entries(loadedSubjects).map(([id, subject]) => [id, {
+        name: subject.name ?? undefined,
+        curriculum: subject.curriculum ?? undefined,
+        year_level: subject.year_level ?? undefined,
+      }]),
+    );
 
     // Load classes for class name display
     const classIds = Array.from(
       new Set(
         uninvoicedSessions.map((s: { class_id?: string | null }) => s.class_id)
-          .filter(Boolean),
+          .filter((id): id is string => Boolean(id)),
       ),
     );
     const classById = await loadClasses(supabase, classIds);
@@ -480,7 +490,7 @@ serveWithSentry('billing-runner', async (req: Request, sentry) => {
       const studentSessions = [
         {
           session,
-          subject,
+          subject: { long_name: subject.name, short_name: subject.name },
           sessions_students_id: row.id,
           student_id: row.student_id,
         },

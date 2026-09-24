@@ -221,7 +221,7 @@ const STATUS_ROWS: Extract<ComparisonRow, { kind: "status" }>[] = [
 ];
 
 const GRID_COLS =
-  "grid-cols-[minmax(11rem,1.35fr)_repeat(3,minmax(7rem,1fr))]";
+  "grid-cols-[minmax(0,1.2fr)_repeat(3,minmax(0,1fr))] sm:grid-cols-[minmax(11rem,1.35fr)_repeat(3,minmax(7rem,1fr))]";
 
 function formatMoney(cents: number, currency: string): string {
   return new Intl.NumberFormat("en-AU", {
@@ -236,20 +236,20 @@ function StatusIcon({ status }: { status: StatusValue }) {
   switch (status) {
     case "yes":
       return (
-        <span className="inline-flex size-8 items-center justify-center rounded-full bg-marketing-primary text-white">
-          <Check className="size-4" strokeWidth={2.5} aria-hidden />
+        <span className="inline-flex size-7 items-center justify-center rounded-full bg-marketing-primary text-white sm:size-8">
+          <Check className="size-3.5 sm:size-4" strokeWidth={2.5} aria-hidden />
         </span>
       );
     case "partial":
       return (
-        <span className="inline-flex size-8 items-center justify-center rounded-full bg-amber-500 text-white">
-          <Minus className="size-4" strokeWidth={2.5} aria-hidden />
+        <span className="inline-flex size-7 items-center justify-center rounded-full bg-amber-500 text-white sm:size-8">
+          <Minus className="size-3.5 sm:size-4" strokeWidth={2.5} aria-hidden />
         </span>
       );
     case "no":
       return (
-        <span className="inline-flex size-8 items-center justify-center rounded-full bg-marketing-charcoal/[0.06] text-marketing-charcoal/35">
-          <X className="size-4" strokeWidth={2.5} aria-hidden />
+        <span className="inline-flex size-7 items-center justify-center rounded-full bg-marketing-charcoal/[0.06] text-marketing-charcoal/35 sm:size-8">
+          <X className="size-3.5 sm:size-4" strokeWidth={2.5} aria-hidden />
         </span>
       );
     default: {
@@ -417,48 +417,57 @@ export function UcatLandingComparison() {
         </div>
 
         <TooltipProvider delayDuration={150}>
-          <div className="mt-14 overflow-x-auto pb-2">
-            <div className="relative min-w-[42rem]">
+          <div className="mt-14">
+            <div className="relative">
               {/* Continuous highlight behind the Altitutor UCAT column */}
               <div
                 aria-hidden
-                className={`pointer-events-none absolute inset-0 z-0 grid ${GRID_COLS} gap-x-2 px-2 sm:gap-x-3`}
+                className={`pointer-events-none absolute inset-0 z-0 grid ${GRID_COLS} gap-x-1 px-1 sm:gap-x-3 sm:px-2`}
               >
                 <div />
-                <div className="-mx-1 rounded-[1.75rem] border border-marketing-accent/70 bg-marketing-cream/40 sm:-mx-1.5" />
+                <div className="-mx-0.5 rounded-[1.25rem] border border-marketing-accent/70 bg-marketing-cream/40 sm:-mx-1.5 sm:rounded-[1.75rem]" />
                 <div />
                 <div />
               </div>
 
               <div
-                className={`relative z-10 grid ${GRID_COLS} gap-x-2 px-2 sm:gap-x-3`}
+                className={`relative z-10 grid ${GRID_COLS} gap-x-1 px-1 sm:gap-x-3 sm:px-2`}
               >
-                <div aria-hidden className="min-h-16" />
+                <div aria-hidden className="min-h-12 sm:min-h-16" />
                 {COMPETITORS.map((competitor) => (
                   <div
                     key={competitor.key}
-                    className="flex min-h-16 flex-col items-center justify-end px-2 pb-5 pt-5 text-center"
+                    className="flex min-h-12 flex-col items-center justify-end px-1 pb-3 pt-4 text-center sm:min-h-16 sm:px-2 sm:pb-5 sm:pt-5"
                   >
                     <p
-                      className={`text-sm font-semibold leading-snug sm:text-base ${typo.headingSans} ${
+                      className={`text-[11px] font-semibold leading-snug sm:text-base ${typo.headingSans} ${
                         competitor.highlight
                           ? "text-marketing-primary"
                           : "text-marketing-charcoal"
                       }`}
                     >
-                      {competitor.name}
+                      {competitor.key === "altitutor" ? (
+                        <>
+                          <span className="sm:hidden">Altitutor</span>
+                          <span className="hidden sm:inline">
+                            {competitor.name}
+                          </span>
+                        </>
+                      ) : (
+                        competitor.name
+                      )}
                     </p>
                   </div>
                 ))}
 
                 {rows.map((row) => (
                   <div key={row.id} className="contents">
-                    <div className="flex items-center gap-3 border-t border-marketing-charcoal/[0.08] py-4 pr-2 sm:py-5">
+                    <div className="flex items-center gap-3 border-t border-marketing-charcoal/[0.08] py-3 pr-1.5 sm:py-5 sm:pr-2">
                       <span className="hidden size-9 shrink-0 items-center justify-center rounded-full bg-marketing-charcoal/[0.05] text-marketing-charcoal/45 sm:inline-flex">
                         <row.icon className="size-4" aria-hidden />
                       </span>
                       <span
-                        className={`text-sm font-medium text-marketing-charcoal sm:text-[15px] ${typo.secondarySans}`}
+                        className={`text-[11px] font-medium leading-snug text-marketing-charcoal sm:text-[15px] ${typo.secondarySans}`}
                       >
                         {row.label}
                       </span>
@@ -472,7 +481,7 @@ export function UcatLandingComparison() {
                         return (
                           <div
                             key={competitor.key}
-                            className="flex items-center justify-center border-t border-marketing-charcoal/[0.08] px-2 py-4 sm:py-5"
+                            className="flex items-center justify-center border-t border-marketing-charcoal/[0.08] px-1 py-3 sm:px-2 sm:py-5"
                           >
                             <DetailTooltip
                               label={`${competitor.name} · ${row.label}`}
@@ -480,7 +489,7 @@ export function UcatLandingComparison() {
                             >
                               <span className="inline-flex flex-col items-center gap-0.5 text-center">
                                 <span
-                                  className={`inline-flex flex-wrap items-center justify-center gap-x-1.5 text-sm font-semibold tabular-nums sm:text-base ${typo.headingSans}`}
+                                  className={`inline-flex flex-col items-center gap-y-0.5 text-[11px] font-semibold tabular-nums sm:flex-row sm:flex-wrap sm:justify-center sm:gap-x-1.5 sm:text-base ${typo.headingSans}`}
                                 >
                                   {cell.originalValue ? (
                                     <span
@@ -505,7 +514,7 @@ export function UcatLandingComparison() {
                                 </span>
                                 {cell.subtext ? (
                                   <span
-                                    className={`max-w-[7.5rem] text-[10px] leading-snug text-marketing-charcoal/45 ${typo.secondarySans}`}
+                                    className={`max-w-[4.5rem] text-[9px] leading-snug text-marketing-charcoal/45 sm:max-w-[7.5rem] sm:text-[10px] ${typo.secondarySans}`}
                                   >
                                     {cell.subtext}
                                   </span>
@@ -520,7 +529,7 @@ export function UcatLandingComparison() {
                       return (
                         <div
                           key={competitor.key}
-                          className="flex items-center justify-center border-t border-marketing-charcoal/[0.08] py-4 sm:py-5"
+                          className="flex items-center justify-center border-t border-marketing-charcoal/[0.08] py-3 sm:py-5"
                         >
                           <DetailTooltip
                             label={`${competitor.name} · ${row.label}`}

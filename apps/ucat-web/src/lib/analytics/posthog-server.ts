@@ -1,4 +1,5 @@
 import "server-only";
+import { founderOfferProperties } from "./founder-offer-properties";
 
 import { waitUntil } from "@vercel/functions";
 import { PostHog } from "posthog-node";
@@ -38,7 +39,14 @@ export async function captureUcatLearningActivityCompleted(
   const client = postHogClient(token);
 
   try {
-    client.capture(buildUcatLearningActivityCompletedEvent(input));
+    const event = buildUcatLearningActivityCompletedEvent(input);
+    client.capture({
+      ...event,
+      properties: {
+        ...event.properties,
+        ...(await founderOfferProperties(input.userId)),
+      },
+    });
     await client.flush();
   } catch (error) {
     console.error(
@@ -57,7 +65,14 @@ export async function captureUcatActivationCompleted(
 
   const client = postHogClient(token);
   try {
-    client.capture(buildUcatActivationCompletedEvent(input));
+    const event = buildUcatActivationCompletedEvent(input);
+    client.capture({
+      ...event,
+      properties: {
+        ...event.properties,
+        ...(await founderOfferProperties(input.userId)),
+      },
+    });
     await client.flush();
   } catch (error) {
     console.error(
@@ -82,7 +97,14 @@ export async function captureUcatSignupCompleted(
 
   const client = postHogClient(token);
   try {
-    client.capture(buildUcatSignupCompletedEvent(input));
+    const event = buildUcatSignupCompletedEvent(input);
+    client.capture({
+      ...event,
+      properties: {
+        ...event.properties,
+        ...(await founderOfferProperties(input.userId)),
+      },
+    });
     await client.flush();
   } catch (error) {
     console.error(
@@ -111,3 +133,46 @@ export function captureUcatLearningActivityCompletedInBackground(
 export type { UcatLearningActivityCompletedInput } from "./ucat-retention-event";
 export type { UcatActivationCompletedInput } from "./ucat-activation-event";
 export type { UcatSignupCompletedInput } from "./ucat-signup-event";
+
+/** Server-confirmed offer outcome; repeat delivery uses the same insert ID. */
+export function captureUcatOfferEventInBackground(input: {
+  authUserId: string;
+  event: string;
+  properties: Record<string, string | number | boolean | null>;
+  dedupeKey: string;
+}): void {
+  const token = process.env.NEXT_PUBLIC_POSTHOG_PROJECT_TOKEN;
+  if (!token) return;
+  waitUntil(
+    (async () => {
+      const client = postHogClient(token);
+      try {
+        client.capture({
+          distinctId: input.authUserId,
+          event: input.event,
+          properties: {
+            app: "ucat-web",
+            product: "ucat",
+            ...input.properties,
+            $insert_id: input.dedupeKey,
+          },
+        });
+        client.identify({
+          distinctId: input.authUserId,
+          properties: {
+            [`${input.properties.offer_kind === "access_pass" ? "founder_access" : "founder_discount"}_campaign`]:
+              input.properties.offer_campaign,
+            [`${input.properties.offer_kind === "access_pass" ? "founder_access" : "founder_discount"}_code`]:
+              input.properties.offer_code,
+          },
+        });
+        await client.flush();
+      } catch (error) {
+        console.error(
+          "[posthog] Offer event failed",
+          error instanceof Error ? error.message : "Unknown error",
+        );
+      }
+    })(),
+  );
+}

@@ -12,6 +12,10 @@ import {
 } from "lucide-react";
 import clsx from "clsx";
 import { DemoCursor, DemoStage, DEMO_EASE } from "./demo-stage";
+import {
+  getScaledElementCenter,
+  useDemoScale,
+} from "./scale-to-fit-frame";
 
 type SimulatorQuestion = {
   number: number;
@@ -83,18 +87,6 @@ function formatClock(totalSeconds: number): string {
   return `${mins}:${String(secs).padStart(2, "0")}`;
 }
 
-function getElementCenter(
-  stage: HTMLElement,
-  target: HTMLElement,
-): { left: number; top: number } {
-  const stageRect = stage.getBoundingClientRect();
-  const targetRect = target.getBoundingClientRect();
-  return {
-    left: targetRect.left - stageRect.left + targetRect.width / 2 - 4,
-    top: targetRect.top - stageRect.top + targetRect.height / 2 - 2,
-  };
-}
-
 function appendClickRipple(
   timeline: gsap.core.Timeline,
   cursor: HTMLDivElement,
@@ -113,6 +105,9 @@ function appendClickRipple(
 }
 
 export function UcatSimulatorPreview({ bleed = false }: { bleed?: boolean }) {
+  const coordinateScale = useDemoScale();
+  const scaleRef = useRef(coordinateScale);
+  scaleRef.current = coordinateScale;
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const nextButtonRef = useRef<HTMLSpanElement>(null);
@@ -181,11 +176,15 @@ export function UcatSimulatorPreview({ bleed = false }: { bleed?: boolean }) {
         timeline.to(cursor, {
           left: () => {
             const option = optionRefs.current[item.correctIndex];
-            return option ? getElementCenter(stage, option).left : 140;
+            return option
+              ? getScaledElementCenter(stage, option, scaleRef.current).left
+              : 140;
           },
           top: () => {
             const option = optionRefs.current[item.correctIndex];
-            return option ? getElementCenter(stage, option).top : 200;
+            return option
+              ? getScaledElementCenter(stage, option, scaleRef.current).top
+              : 200;
           },
           opacity: 1,
           duration: 0.6,
@@ -206,11 +205,15 @@ export function UcatSimulatorPreview({ bleed = false }: { bleed?: boolean }) {
           timeline.to(cursor, {
             left: () => {
               const next = nextButtonRef.current;
-              return next ? getElementCenter(stage, next).left : 300;
+              return next
+                ? getScaledElementCenter(stage, next, scaleRef.current).left
+                : 300;
             },
             top: () => {
               const next = nextButtonRef.current;
-              return next ? getElementCenter(stage, next).top : 380;
+              return next
+                ? getScaledElementCenter(stage, next, scaleRef.current).top
+                : 380;
             },
             duration: 0.55,
             ease: DEMO_GSAP_EASE,

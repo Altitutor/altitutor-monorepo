@@ -146,7 +146,7 @@ function SessionModalContent({ isOpen, sessionId: initialSessionId, onClose }: S
         type: data.type as TablesUpdate<'sessions'>['type'],
         start_at: new Date(startAtLocal).toISOString(),
         end_at: new Date(endAtLocal).toISOString(),
-        subject_id: data.type === 'CLASS' ? (data.subjectId ?? null) : null,
+        subject_id: data.type === 'CLASS' || data.type === 'DRAFTING' ? (data.subjectId ?? null) : null,
         class_id: data.type === 'CLASS' ? (data.classId ?? null) : null,
       };
       await updateSessionMutation.mutateAsync({ id: sessionId, data: update });

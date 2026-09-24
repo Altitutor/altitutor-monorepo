@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
+import { createContext, useContext, useEffect, useState, type ComponentPropsWithoutRef, type ReactNode } from 'react';
 import {
   Button,
   Dialog,
@@ -18,6 +18,17 @@ import {
   EXPANDED_DIALOG_CONTENT_CLASS,
 } from '@/shared/components/expandable-dialog';
 import { cn } from '@/shared/utils';
+
+type AdminDialogExpandContextValue = {
+  expanded: boolean;
+  setExpanded: (expanded: boolean) => void;
+};
+
+const AdminDialogExpandContext = createContext<AdminDialogExpandContextValue | null>(null);
+
+export function useAdminDialogExpand() {
+  return useContext(AdminDialogExpandContext);
+}
 
 export function AdminDialogShell({
   open,
@@ -90,6 +101,7 @@ export function AdminDialogShell({
         )}
         {...dialogContentProps}
       >
+        <AdminDialogExpandContext.Provider value={{ expanded, setExpanded }}>
         {hideHeader ? <DialogTitle className="sr-only">{title}</DialogTitle> : null}
         {!hideHeader ? (
           <DialogHeader className="shrink-0 border-b bg-card">
@@ -130,6 +142,7 @@ export function AdminDialogShell({
         {footer ? (
           <DialogFooter className="shrink-0 border-t bg-card px-6 py-4 sm:justify-end">{footer}</DialogFooter>
         ) : null}
+        </AdminDialogExpandContext.Provider>
       </DialogContent>
     </Dialog>
   );

@@ -94,6 +94,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
       schedule_summary_long: cls.schedule_summary_long,
       schedule_summary_short: cls.schedule_summary_short,
       schedule_timezone: cls.schedule_timezone ?? 'Australia/Adelaide',
+      schedule_projected_on: null,
       schedule_weekdays: cls.schedule_weekdays ?? [],
       billing_type: 'CLASS',
       billing_type_effective_from: cls.session_start_date!,

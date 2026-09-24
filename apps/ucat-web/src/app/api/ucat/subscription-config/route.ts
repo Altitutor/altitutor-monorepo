@@ -7,6 +7,10 @@ import type {
 import { mapQuotaConfigRow } from "@/lib/ucat/quota/config";
 import { isUcatBillingInterval, isUcatPaidPlanTier } from "@altitutor/shared";
 
+// Admin pricing changes must reach the next response, rather than remaining
+// frozen in Next's route/data cache until the next deployment.
+export const dynamic = "force-dynamic";
+
 /**
  * GET /api/ucat/subscription-config
  * Public marketing fields for the subscribe page (no Stripe secrets).

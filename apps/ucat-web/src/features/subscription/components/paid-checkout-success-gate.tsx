@@ -1,6 +1,7 @@
 "use client";
 
-import {
+import { rememberInvitation } from "@/features/founder-offers/lib/pending-invitation";
+import React, {
   useCallback,
   useEffect,
   useRef,
@@ -41,7 +42,6 @@ export function PaidCheckoutSuccessGate({
   const [isTakingLonger, setIsTakingLonger] = useState(false);
   const [accessError, setAccessError] = useState<string | null>(null);
   const transitionStartedAt = useRef(active ? Date.now() : 0);
-  const confirmationStarted = useRef(false);
 
   useEffect(() => {
     if (!active || phase !== "confirming") return;
@@ -87,13 +87,12 @@ export function PaidCheckoutSuccessGate({
     if (
       phase !== "confirming" ||
       access.isLoading ||
-      !isPaidOnlineTier(access.onlineTier) ||
-      confirmationStarted.current
+      !isPaidOnlineTier(access.onlineTier)
     ) {
       return;
     }
 
-    confirmationStarted.current = true;
+    rememberInvitation(null);
     const minimumAnimationMs = reduceMotion ? 350 : 2_800;
     const elapsed = Date.now() - transitionStartedAt.current;
     const timer = window.setTimeout(

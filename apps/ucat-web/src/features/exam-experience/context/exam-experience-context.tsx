@@ -22,7 +22,7 @@ import { Button } from "@/components/ui/button";
 import { discardExamAttempt } from "@/features/exam-attempts/api/exam-attempts-api";
 import { useActiveExamAttempt } from "@/features/exam-attempts/context/active-exam-attempt-context";
 import { useExamAttemptExitSync } from "@/features/exam-attempts/context/exam-attempt-exit-sync-context";
-import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial-gate";
+import { isQuestionEngineTutorialPath } from "@/features/onboarding/lib/question-engine-tutorial";
 import type { PracticeEngineLiveStats } from "@/features/question-engine/components/question-engine-page";
 import { UCAT_DIALOG_PRIMARY_ACTION } from "@/lib/ucat-surface-motion";
 

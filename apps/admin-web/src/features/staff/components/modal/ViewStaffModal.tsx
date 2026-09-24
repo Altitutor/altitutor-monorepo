@@ -11,11 +11,10 @@ import { useSubjects } from '@/features/subjects';
 import { StaffDetailsTab, StaffDetailsFormData } from './tabs/StaffDetailsTab';
 import { ClassesTab } from './tabs/ClassesTab';
 import { StaffSessionsTab } from './tabs/StaffSessionsTab';
-import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import { SubjectSearchPopover, ViewSubjectModal } from '@/features/subjects/components';
 import { StaffFiles } from '../StaffFiles';
 import { useQueryClient } from '@tanstack/react-query';
-import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 import { StaffPayTierTab } from './tabs/StaffPayTierTab';
 import { LogStaffAbsenceDialog } from '@/features/sessions/components';
 import {
@@ -37,7 +36,6 @@ import {
   useStaffPasswordReset,
   useStaffMutations,
   useStaffModals,
-  useStaffConversation,
 } from '../../hooks';
 import { IssuePill } from '@/features/issues';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
@@ -94,11 +92,6 @@ export function ViewStaffModal({
   });
 
   const modals = useStaffModals();
-
-  const conversationId = useStaffConversation({
-    staffId: staffId,
-    enabled: isOpen && !!staffId,
-  });
 
   // Centralized action handlers
   const staffActions = useStaffActions({
@@ -248,10 +241,9 @@ export function ViewStaffModal({
                       { value: 'details', label: 'Details' },
                       { value: 'classes', label: 'Classes' },
                       { value: 'pay-tier', label: 'Pay tier' },
-                      { value: 'messages', label: 'Messages' },
+                      { value: 'activity', label: 'Activity' },
                       { value: 'sessions', label: 'Sessions' },
                       { value: 'files', label: 'Files' },
-                      { value: 'activity', label: 'Activity' },
                     ]}
                   />
                 </div>
@@ -304,18 +296,6 @@ export function ViewStaffModal({
                   </div>
                 </SegmentedTabPanelContent>
 
-                <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
-                  <div className="h-full p-6">
-                    <MessagesTabContent 
-                      conversationId={conversationId}
-                      title={`${staffMember.first_name} ${staffMember.last_name}`}
-                      onClose={onClose}
-                      relatedId={staffId || undefined}
-                      relatedType="staff"
-                    />
-                  </div>
-                </SegmentedTabPanelContent>
-
                 <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">
                     {staffMember && (
@@ -333,12 +313,14 @@ export function ViewStaffModal({
                   </div>
                 </SegmentedTabPanelContent>
 
-                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-                  <div className="p-6">
-                    {staffId && (
-                      <StaffActivityTab staffId={staffId} isOpen={isOpen} />
-                    )}
-                  </div>
+                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  {staffId && staffMember && (
+                    <EntityCommunicationPanel
+                      entityType="staff"
+                      entityId={staffId}
+                      enabled={isOpen}
+                    />
+                  )}
                 </SegmentedTabPanelContent>
               </div>
             </div>

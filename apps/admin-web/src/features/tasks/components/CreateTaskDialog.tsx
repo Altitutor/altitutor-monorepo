@@ -171,6 +171,7 @@ export function CreateTaskDialog({
   return (
     <>
       <AdminDialogShell
+      dialogContentProps={{ onInteractOutside: (event) => event.preventDefault(), onEscapeKeyDown: (event) => event.preventDefault() }}
         fillHeight
         defaultExpanded
         open={isOpen}

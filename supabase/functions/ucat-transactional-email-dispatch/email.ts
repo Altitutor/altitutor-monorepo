@@ -4,6 +4,7 @@ import {
   renderUcatEmail,
   renderUcatEmailButton,
   renderUcatEmailPanel,
+  UCAT_EMAIL_ENVIRONMENT,
   UCAT_EMAIL_SENDERS,
   type UcatEmailSender,
 } from "../_shared/ucat-email.ts";
@@ -80,7 +81,9 @@ function publicInterestKindLabel(kind: string): string {
 }
 
 function adminDetailRow(label: string, content: string): string {
-  return `<p style="margin:0 0 12px;color:#394650;font-size:15px;line-height:1.7"><strong class="email-strong" style="color:#1a1a1a">${escapeEmailHtml(label)}</strong><br>${escapeEmailHtml(content)}</p>`;
+  return `<p style="margin:0 0 12px;color:#394650;font-size:15px;line-height:1.7"><strong class="email-strong" style="color:#1a1a1a">${
+    escapeEmailHtml(label)
+  }</strong><br>${escapeEmailHtml(content)}</p>`;
 }
 
 function render(input: {
@@ -107,6 +110,7 @@ function render(input: {
     replyTo: sender.replyTo,
     tags: [
       { name: "product", value: "ucat" },
+      { name: "environment", value: UCAT_EMAIL_ENVIRONMENT },
       { name: "category", value: "transactional" },
       {
         name: "template",
@@ -246,11 +250,13 @@ export function renderTransactionalEmail(
         row,
         sender: "formal",
         subject: `New ${kindLabel} · ${submitterName}`,
-        previewText: `${submitterName} submitted a ${kindLabel.toLowerCase()} from the UCAT landing page.`,
+        previewText:
+          `${submitterName} submitted a ${kindLabel.toLowerCase()} from the UCAT landing page.`,
         heading: "New landing page enquiry",
         bodyHtml: paragraph(
           "A new enquiry was submitted through the Altitutor UCAT landing page.",
-        ) + detailPanel + paragraph("Reply to this email to contact the student directly."),
+        ) + detailPanel +
+          paragraph("Reply to this email to contact the student directly."),
         text: [
           "New landing page enquiry",
           "",

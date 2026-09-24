@@ -1,5 +1,6 @@
 import { captureApiError } from "@/lib/sentry/capture-api-error";
 import { NextRequest, NextResponse } from "next/server";
+import { parseNotificationInboxPatch } from "@/features/notifications/lib/inbox-patch";
 import { getSupabaseServerClient } from "@/lib/supabase/server";
 import { supabaseAdmin } from "@/lib/supabase/admin";
 import { expireStaleExamAttempts } from "@/lib/ucat/exam-attempt/service";
@@ -110,9 +111,10 @@ export async function PATCH(request: NextRequest) {
   if ("response" in resolved) return resolved.response;
 
   let body: {
-    notificationIds?: string[];
-    markAllRead?: boolean;
-    dismiss?: boolean;
+    notificationIds?: unknown;
+    markAllRead?: unknown;
+    markUnread?: unknown;
+    dismiss?: unknown;
   };
   try {
     body = (await request.json()) as typeof body;
@@ -120,35 +122,21 @@ export async function PATCH(request: NextRequest) {
     return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
   }
 
-  const ids = Array.from(
-    new Set(
-      (body.notificationIds ?? []).filter((id) => typeof id === "string"),
-    ),
-  ).slice(0, MAX_NOTIFICATIONS);
-
-  if (!body.markAllRead && ids.length === 0) {
-    return NextResponse.json(
-      { error: "No notifications selected" },
-      { status: 400 },
-    );
+  const parsed = parseNotificationInboxPatch(body);
+  if (!parsed.ok) {
+    return NextResponse.json({ error: parsed.error }, { status: 400 });
   }
 
   const now = new Date().toISOString();
+  const patch = parsed.patch;
 
-  if (body.dismiss) {
-    if (body.markAllRead) {
-      return NextResponse.json(
-        { error: "Cannot dismiss all notifications" },
-        { status: 400 },
-      );
-    }
-
+  if (patch.type === "dismiss") {
     const { error: dismissError } = await supabaseAdmin!
       .from("notifications")
       .update({ dismissed_at: now, updated_at: now })
       .eq("student_id", resolved.studentId)
       .eq("app_scope", "ucat_web")
-      .in("id", ids)
+      .in("id", patch.ids)
       .is("dismissed_at", null);
 
     if (dismissError) {
@@ -168,7 +156,7 @@ export async function PATCH(request: NextRequest) {
       .update({ read_at: now, updated_at: now })
       .eq("student_id", resolved.studentId)
       .eq("app_scope", "ucat_web")
-      .in("id", ids)
+      .in("id", patch.ids)
       .is("read_at", null);
 
     if (readError) {
@@ -177,6 +165,28 @@ export async function PATCH(request: NextRequest) {
         readError,
       );
       captureApiError(readError, "/api/ucat/notifications");
+      return NextResponse.json(
+        { error: "Failed to update notifications" },
+        { status: 500 },
+      );
+    }
+
+    return NextResponse.json({ success: true });
+  }
+
+  if (patch.type === "unread") {
+    const { error } = await supabaseAdmin!
+      .from("notifications")
+      .update({ read_at: null, updated_at: now })
+      .eq("student_id", resolved.studentId)
+      .eq("app_scope", "ucat_web")
+      .in("id", patch.ids)
+      .is("dismissed_at", null)
+      .is("resolved_at", null);
+
+    if (error) {
+      console.error("[ucat notifications] Failed to mark inbox unread", error);
+      captureApiError(error, "/api/ucat/notifications");
       return NextResponse.json(
         { error: "Failed to update notifications" },
         { status: 500 },
@@ -198,8 +208,8 @@ export async function PATCH(request: NextRequest) {
     .is("dismissed_at", null)
     .is("resolved_at", null);
 
-  if (!body.markAllRead) {
-    update = update.in("id", ids);
+  if (patch.type !== "readAll") {
+    update = update.in("id", patch.ids);
   }
 
   const { error } = await update;

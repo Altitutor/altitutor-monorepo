@@ -1,5 +1,6 @@
+import { useEffect } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import type { FlashcardRating } from '@altitutor/shared';
+import type { RateFlashcardCommand } from '@altitutor/shared';
 import { flashcardsApi } from '../api/flashcards';
 
 export function useFlashcardTopic(topicId: string | null) {
@@ -24,23 +25,37 @@ export function useFlashcardReviewCards(topicId: string | null, mode: 'due' | 'a
   });
 }
 
-export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
-  const topicIdsKey = topicIds?.join(',') ?? 'all';
+export const dueFlashcardCountQueryKey = ['flashcards', 'due-count'] as const;
+
+export function useDueFlashcardCount() {
   return useQuery({
-    queryKey: ['flashcards', 'review-cards', 'due-all', topicIdsKey],
-    queryFn: () => flashcardsApi.listDueReviewCards(topicIds ?? undefined),
+    queryKey: dueFlashcardCountQueryKey,
+    queryFn: () => flashcardsApi.getDueReviewCount(),
+    staleTime: 30_000,
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 }
 
-export function useRateFlashcardReviewCard(topicId: string, mode: 'due' | 'all') {
+export function useDueFlashcardReviewCards(topicIds?: string[] | null) {
   const queryClient = useQueryClient();
+  const topicIdsKey = topicIds === undefined ? 'all' : topicIds === null ? 'idle' : topicIds.join(',');
+  const query = useQuery({
+    queryKey: ['flashcards', 'review-cards', 'due-all', topicIdsKey],
+    queryFn: () => flashcardsApi.listDueReviewCards(topicIds && topicIds.length > 0 ? topicIds : undefined),
+    enabled: topicIds === undefined || (topicIds !== null && topicIds.length > 0),
+    refetchOnWindowFocus: false,
+  });
+  useEffect(() => {
+    if (topicIds === undefined && query.data) {
+      queryClient.setQueryData(dueFlashcardCountQueryKey, query.data.counts.total);
+    }
+  }, [query.data, queryClient, topicIds]);
+  return query;
+}
+
+export function useRateFlashcardReviewCard(_topicId: string, _mode: 'due' | 'all') {
   return useMutation({
-    mutationFn: ({ reviewCardId, rating }: { reviewCardId: string; rating: FlashcardRating }) =>
-      flashcardsApi.rateReviewCard(reviewCardId, rating),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', topicId, mode] });
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'review-cards', 'due-all'] });
-      await queryClient.invalidateQueries({ queryKey: ['flashcards', 'topic', topicId] });
-    },
+    mutationFn: (command: RateFlashcardCommand) => flashcardsApi.rateReviewCard(command),
   });
 }

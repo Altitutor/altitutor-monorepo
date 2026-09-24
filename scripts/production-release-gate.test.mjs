@@ -47,6 +47,18 @@ const emailDispatchSecretSyncPath = new URL(
   "../supabase/scripts/sync-ucat-email-dispatch-secret.sql",
   import.meta.url,
 );
+const lifecycleEmailConfigSyncPath = new URL(
+  "../supabase/scripts/sync-ucat-lifecycle-email-config.sql",
+  import.meta.url,
+);
+const deploySupabaseSecretsPath = new URL(
+  "../secrets/scripts/deploy-supabase.sh",
+  import.meta.url,
+);
+const deployVercelSecretsPath = new URL(
+  "../secrets/scripts/deploy-vercel.sh",
+  import.meta.url,
+);
 
 test("new Supabase API objects declare explicit privilege contracts", async () => {
   const violations = await auditMigrationDirectory(
@@ -130,6 +142,57 @@ test("production deploys synchronize transactional email authentication", async 
   assert.match(workflow, /sync-ucat-email-dispatch-secret\.sql/u);
   assert.match(secretSync, /vault\.update_secret/u);
   assert.match(secretSync, /vault\.create_secret/u);
+});
+
+test("production deploys synchronize and schedule UCAT lifecycle email configuration", async () => {
+  const [workflow, configSync, deploySupabase, deployVercel] =
+    await Promise.all([
+      readFile(workflowPath, "utf8"),
+      readFile(lifecycleEmailConfigSyncPath, "utf8"),
+      readFile(deploySupabaseSecretsPath, "utf8"),
+      readFile(deployVercelSecretsPath, "utf8"),
+    ]);
+
+  for (const name of [
+    "UCAT_LIFECYCLE_CRON_SECRET_KEY",
+    "UCAT_LIFECYCLE_EMAILS_ENABLED",
+    "UCAT_RESEND_CONTACT_SYNC_ENABLED",
+    "RESEND_WEBHOOK_SECRET",
+    "RESEND_TOPIC_WEEKLY_PROGRESS_ID",
+    "RESEND_TOPIC_LESSONS_ID",
+    "RESEND_TOPIC_PRODUCT_NEWS_ID",
+    "RESEND_TOPIC_OFFERS_ID",
+    "UCAT_WEB_URL",
+  ]) {
+    assert.match(
+      workflow,
+      new RegExp(`${name}: \\$\\{\\{ secrets\\.${name} \\}\\}`, "u"),
+    );
+  }
+  assert.match(
+    workflow,
+    /Require production UCAT lifecycle email configuration/u,
+  );
+  assert.match(workflow, /sync-ucat-lifecycle-email-config\.sql/u);
+  assert.match(configSync, /vault\.update_secret/u);
+  assert.match(configSync, /vault\.create_secret/u);
+  assert.match(configSync, /'ucat-lifecycle-emails',\s*'17 \* \* \* \*'/u);
+  assert.match(configSync, /'ucat-resend-contact-sync',\s*'37 \* \* \* \*'/u);
+  assert.match(
+    configSync,
+    /current_setting\('app\.ucat_contact_sync_enabled'\)::BOOLEAN/u,
+  );
+  for (const name of [
+    "UCAT_LIFECYCLE_CRON_SECRET_KEY",
+    "UCAT_LIFECYCLE_EMAILS_ENABLED",
+    "UCAT_RESEND_CONTACT_SYNC_ENABLED",
+    "RESEND_WEBHOOK_SECRET",
+    "RESEND_TOPIC_\*",
+    "UCAT_WEB_URL",
+  ]) {
+    assert.match(deploySupabase, new RegExp(name, "u"));
+  }
+  assert.match(deployVercel, /UCAT_LIFECYCLE_CRON_SECRET_KEY/u);
 });
 
 test("release verification is parallel, branch-scoped, and independently cached", async () => {
@@ -494,17 +557,19 @@ test("admin E2E keeps role redirects inside the local test boundary", async () =
   );
 });
 
-test("student E2E provides a test Stripe publishable key", async () => {
-  const config = await readFile(
-    new URL("../apps/student-web/playwright.config.ts", import.meta.url),
-    "utf8",
-  );
+test("Stripe checkout E2E provides a test publishable key", async () => {
+  for (const app of ["student-web", "ucat-web"]) {
+    const config = await readFile(
+      new URL(`../apps/${app}/playwright.config.ts`, import.meta.url),
+      "utf8",
+    );
 
-  assert.match(
-    config,
-    /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*["']pk_test_[^"']+["']/u,
-    "the production-mode student build must initialize Stripe with a test key",
-  );
+    assert.match(
+      config,
+      /NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY:\s*["']pk_test_[^"']+["']/u,
+      `the production-mode ${app} build must initialize Stripe with a test key`,
+    );
+  }
 });
 
 test("the main release gate runs every web app browser suite", async () => {
@@ -563,4 +628,28 @@ test("the native student app has an executable unit-test baseline", async () => 
 
   assert.equal(packageJson.scripts.test, "tsx --test src/**/*.test.ts");
   assert.equal(packageJson.devDependencies.tsx, "^4.20.6");
+});
+
+test("the UCAT native app instruments Sentry and keeps store submit manual", async () => {
+  const [packageJson, appConfig, workflow] = await Promise.all([
+    readFile(new URL("../apps/ucat-app/package.json", import.meta.url), "utf8"),
+    readFile(new URL("../apps/ucat-app/app.json", import.meta.url), "utf8"),
+    readFile(
+      new URL("../.github/workflows/eas-ucat-app.yml", import.meta.url),
+      "utf8",
+    ),
+  ]);
+  const parsedPackage = JSON.parse(packageJson);
+  const parsedApp = JSON.parse(appConfig);
+
+  assert.equal(parsedPackage.dependencies["@sentry/react-native"], "~7.11.0");
+  assert.match(JSON.stringify(parsedApp.expo.plugins), /@sentry\/react-native/u);
+  assert.match(workflow, /^on:\n  workflow_dispatch:/mu);
+  assert.doesNotMatch(workflow, /^  push:/mu);
+  assert.match(workflow, /default: false/u);
+  assert.match(workflow, /--auto-submit/u);
+  assert.match(
+    workflow,
+    /Store submit is only allowed for the production profile/u,
+  );
 });

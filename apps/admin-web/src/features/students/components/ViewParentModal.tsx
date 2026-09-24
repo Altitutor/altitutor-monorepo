@@ -17,13 +17,13 @@ import {
   AlertDialogTitle,
 } from "@altitutor/ui";
 import { Loader2, X } from "lucide-react";
-import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import { ViewStudentModal } from './ViewStudentModal';
 import { ParentDetailsTab, ParentDetailsFormData } from './tabs/ParentDetailsTab';
+import { ParentSessionsTab } from './ParentSessionsTab';
 import { useStudents } from '../hooks/useStudentsQuery';
 import { StudentSearchPopover } from './StudentSearchPopover';
 import { useQueryClient } from '@tanstack/react-query';
-import { ParentActivityTab } from '@/features/activity/components/tabs/ParentActivityTab';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { getErrorMessage } from '@/shared/utils';
 import { useRouter } from 'next/navigation';
@@ -32,17 +32,17 @@ import {
   useParentEditFlow,
   useParentMutations,
   useParentModals,
-  useParentConversation,
 } from '@/features/parents/hooks';
 import { IssuePill } from '@/features/issues';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useEntityModals } from '@/shared/contexts/EntityModalContext';
 
 interface ViewParentModalProps {
   isOpen: boolean;
   onClose: () => void;
   parentId: string | null;
   onParentUpdated?: () => void;
-  defaultTab?: string; // Keep for backwards compatibility but won't use it
+  defaultTab?: string;
 }
 
 export function ViewParentModal({
@@ -50,6 +50,7 @@ export function ViewParentModal({
   onClose,
   parentId,
   onParentUpdated,
+  defaultTab,
 }: ViewParentModalProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -79,11 +80,6 @@ export function ViewParentModal({
 
   const modals = useParentModals();
 
-  const conversationId = useParentConversation({
-    parentId: parentId,
-    enabled: isOpen && !!parentId,
-  });
-
   // UI state
   const [activeTab, setActiveTab] = useState('details');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -93,6 +89,7 @@ export function ViewParentModal({
   const deleteParentMutation = useDeleteParent();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
+  const entityModals = useEntityModals();
 
   // Reset modals when modal closes
   useEffect(() => {
@@ -100,9 +97,13 @@ export function ViewParentModal({
       editFlow.cancelEdit();
       modals.reset();
       setActiveTab('details');
+      return;
+    }
+    if (defaultTab === 'messages' || defaultTab === 'activity') {
+      setActiveTab('activity');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen]);
+  }, [isOpen, defaultTab]);
 
   // Handle details submit
   const handleDetailsSubmit = async (data: ParentDetailsFormData) => {
@@ -229,7 +230,7 @@ export function ViewParentModal({
                     onValueChange={setActiveTab}
                     options={[
                       { value: 'details', label: 'Details' },
-                      { value: 'messages', label: 'Messages' },
+                      { value: 'sessions', label: 'Sessions' },
                       { value: 'activity', label: 'Activity' },
                     ]}
                   />
@@ -265,24 +266,23 @@ export function ViewParentModal({
                   </div>
                 </SegmentedTabPanelContent>
 
-                <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
-                  <div className="h-full px-6 pb-6 pt-0">
-                    <MessagesTabContent 
-                      conversationId={conversationId}
-                      title={`${parent.first_name} ${parent.last_name}`}
-                      onClose={onClose}
-                      relatedId={parentId || undefined}
-                      relatedType="parent"
+                <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  <div className="h-full p-6">
+                    <ParentSessionsTab
+                      parent={parent}
+                      onOpenSession={entityModals.openSession}
                     />
                   </div>
                 </SegmentedTabPanelContent>
 
-                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
-                  <div className="p-6">
-                    {parentId && (
-                      <ParentActivityTab parentId={parentId} isOpen={isOpen} />
-                    )}
-                  </div>
+                <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
+                  {parentId && (
+                    <EntityCommunicationPanel
+                      entityType="parent"
+                      entityId={parentId}
+                      enabled={isOpen}
+                    />
+                  )}
                 </SegmentedTabPanelContent>
               </div>
             </div>

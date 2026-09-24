@@ -1,10 +1,25 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
-import { useForm, type UseFormReturn, type Resolver } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
+import {
+  EditorCloseConfirmDialog,
+  EditorControls,
+  EditorFooterActions,
+  EditorNotices,
+  EditorViewSwitchConfirmDialog,
+  WorkItemDialogHeaderActions,
+  WorkItemEditableContext,
+} from "@/features/work-item-editing/EditorControls";
+import {
+  projectFromRecord,
+  projectToRecord,
+} from "@/features/work-item-editing/fields";
+
+import { useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   DialogTitle,
   DialogDescription,
@@ -21,47 +36,37 @@ import {
   Separator,
   Input,
   type RichTextEditorRef,
-  type JSONContent,
-} from '@altitutor/ui';
-import { X, ArrowLeft, Loader2, FileText, Plus } from 'lucide-react';
-import { ExpandButton } from '@/shared/components/expandable-dialog';
-import { AutoSaveStatus } from '@/shared/components/AutoSaveStatus';
-import { useProject } from '../api/queries';
-import { useUpdateProject, useDeleteProject } from '../api/mutations';
-import type { ProjectFormData, ProjectStatus } from '../types';
-import { memberIdsFromProject } from '../utils/projectMembers';
-import { ProjectTitleField } from './fields/ProjectTitleField';
-import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
-import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
-import { useProjectAutoSave } from '../hooks/useProjectAutoSave';
-import { useProjectActions } from '../hooks/useProjectActions';
-import { LinkedTasksSection } from '@/features/tasks/components/LinkedTasksSection';
-import { useNotes } from '@/features/notes/api/queries';
-import { useCreateNote } from '@/features/notes/hooks/useNoteMutations';
-import { EditDocumentDialog } from '@/features/notes/components/EditDocumentDialog';
-import { ActivityFeed } from '@/features/activity/components/ActivityFeed';
-import { useProjectActivity } from '@/features/activity/hooks';
-import { useNotes as useEntityNotes } from '@/shared/hooks/useNotes';
-import { ProjectNotes } from './ProjectNotes';
-import { ProjectPropertyPills } from './fields/ProjectPropertyPills';
-import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
-import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
-import { EntitySidebarCard, EntitySidebarCards } from '@/shared/components/EntitySidebarCard';
-
-const VALID_PROJECT_STATUSES: ProjectStatus[] = ['backlog', 'planned', 'in_progress', 'completed'];
-
-function normalizeProjectStatus(status: string | null | undefined): ProjectStatus {
-  if (status && VALID_PROJECT_STATUSES.includes(status as ProjectStatus)) {
-    return status as ProjectStatus;
-  }
-  return 'backlog';
-}
+} from "@altitutor/ui";
+import { X, ArrowLeft, Loader2, FileText, Plus } from "lucide-react";
+import { useProject } from "../api/queries";
+import type { ProjectFormData } from "../types";
+import { ProjectTitleField } from "./fields/ProjectTitleField";
+import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
+import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
+import { useProjectActions } from "../hooks/useProjectActions";
+import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
+import { useNotes } from "@/features/notes/api/queries";
+import { useCreateNote } from "@/features/notes/hooks/useNoteMutations";
+import { EditDocumentDialog } from "@/features/notes/components/EditDocumentDialog";
+import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
+import { useProjectActivity } from "@/features/activity/hooks";
+import { useNotes as useEntityNotes } from "@/shared/hooks/useNotes";
+import { ProjectNotes } from "./ProjectNotes";
+import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
+import { EntityResizablePanels } from "@/shared/components/EntityResizablePanels";
+import {
+  EntitySidebarCard,
+  EntitySidebarCards,
+} from "@/shared/components/EntitySidebarCard";
 
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
-  status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
+  name: z.string().min(1, "Name is required"),
+  description: z
+    .union([z.record(z.unknown()), z.string(), z.null()])
+    .optional(),
+  status: z.enum(["backlog", "planned", "in_progress", "completed"]),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
   memberIds: z.array(z.string().uuid()).default([]),
@@ -69,34 +74,11 @@ const formSchema = z.object({
   targetDate: z.union([z.string(), z.null()]).default(null),
 });
 
-interface AutoSaveManagerProps {
-  form: UseFormReturn<ProjectFormData>;
-  projectId: string;
-  project: { id: string } | undefined;
-  isInitialized: boolean;
-  isLoading: boolean;
-  onSave: (updates: Partial<ProjectFormData>) => Promise<void>;
-}
-
-function AutoSaveManager({ form, projectId, project, isInitialized, isLoading, onSave }: AutoSaveManagerProps) {
-  useProjectAutoSave({
-    form,
-    projectId,
-    project,
-    isInitialized,
-    isUpdatingFromServer: isLoading,
-    onSave,
-  });
-  return null;
-}
-
 export interface ProjectDetailViewProps {
   projectId: string;
   enabled?: boolean;
   onClose: () => void;
-  variant: 'dialog' | 'page';
-  expanded?: boolean;
-  onExpandedChange?: (expanded: boolean) => void;
+  variant: "dialog" | "page";
 }
 
 export function ProjectDetailView({
@@ -104,27 +86,29 @@ export function ProjectDetailView({
   enabled = true,
   onClose,
   variant,
-  expanded = false,
-  onExpandedChange,
 }: ProjectDetailViewProps) {
   const router = useRouter();
   const { data: project, isLoading } = useProject(projectId, enabled);
   const { data: projectNotes = [] } = useNotes(
     { projectId: projectId && projectId.trim() ? projectId : undefined },
-    enabled
+    enabled,
   );
-  const { data: progressNotesData = [] } = useEntityNotes('projects', projectId, enabled);
-  const updateProject = useUpdateProject(enabled ? projectId : false);
-  const deleteProject = useDeleteProject();
+  const { data: progressNotesData = [] } = useEntityNotes(
+    "projects",
+    projectId,
+    enabled,
+  );
   const createNote = useCreateNote();
-  const lastResetProjectIdRef = useRef<string | null>(null);
-  const [isInitialized, setIsInitialized] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(null);
+  const [selectedDocumentId, setSelectedDocumentId] = useState<string | null>(
+    null,
+  );
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
-  const [documentInitialMode, setDocumentInitialMode] = useState<'view' | 'edit'>('view');
-  const [newDocumentTitle, setNewDocumentTitle] = useState('');
+  const [documentInitialMode, setDocumentInitialMode] = useState<
+    "view" | "edit"
+  >("view");
+  const [newDocumentTitle, setNewDocumentTitle] = useState("");
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
   const {
@@ -136,9 +120,9 @@ export function ProjectDetailView({
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
     defaultValues: {
-      name: '',
+      name: "",
       description: null,
-      status: 'backlog',
+      status: "backlog",
       priority: 0,
       projectLeadId: null,
       memberIds: [],
@@ -147,76 +131,33 @@ export function ProjectDetailView({
     },
   });
 
-  useEffect(() => {
-    if (project && enabled && !isLoading && project.id !== lastResetProjectIdRef.current) {
-      form.reset({
-        name: project.name,
-        description: (project.description as JSONContent | null) ?? null,
-        status: normalizeProjectStatus(project.status),
-        priority: (project.priority ?? 0) as ProjectFormData['priority'],
-        projectLeadId: project.project_lead_id || null,
-        memberIds: memberIdsFromProject(project.members, project.project_lead_id),
-        startDate: project.start_date ? new Date(project.start_date).toISOString().split('T')[0] : null,
-        targetDate: project.target_date ? new Date(project.target_date).toISOString().split('T')[0] : null,
-      });
-      lastResetProjectIdRef.current = project.id;
-      setIsInitialized(true);
-    }
-  }, [project, enabled, isLoading, form]);
+  const editor = useWorkItemEditor({
+    kind: "project",
+    id: projectId,
+    enabled,
+    form,
+    fromRecord: projectFromRecord,
+    toRecord: projectToRecord,
+    onClose,
+  });
 
-  useEffect(() => {
-    if (!enabled) {
-      lastResetProjectIdRef.current = null;
-      setIsInitialized(false);
-    }
-  }, [enabled]);
 
   const handleTitleEnter = useCallback(() => {
     const editor = descriptionFieldRef.current?.getEditor();
-    if (editor && editor.commands && typeof editor.commands.focus === 'function') {
+    if (
+      editor &&
+      editor.commands &&
+      typeof editor.commands.focus === "function"
+    ) {
       editor.commands.focus();
     }
   }, []);
 
-  const handleAutoSave = useCallback(async (updates: Partial<ProjectFormData>) => {
-    try {
-      const formattedUpdates: Record<string, unknown> = {};
-      if (updates.name !== undefined) formattedUpdates.name = updates.name;
-      if (updates.description !== undefined) formattedUpdates.description = updates.description;
-      if (updates.priority !== undefined) formattedUpdates.priority = updates.priority;
-      if (updates.projectLeadId !== undefined) {
-        formattedUpdates.project_lead_id = updates.projectLeadId;
-      }
-      if (updates.memberIds !== undefined) {
-        formattedUpdates.member_ids = updates.memberIds;
-      }
-      if (updates.startDate !== undefined) {
-        formattedUpdates.start_date = updates.startDate ? new Date(updates.startDate).toISOString() : null;
-      }
-      if (updates.targetDate !== undefined) {
-        formattedUpdates.target_date = updates.targetDate ? new Date(updates.targetDate).toISOString() : null;
-      }
-      if (updates.status !== undefined) {
-        formattedUpdates.status = normalizeProjectStatus(updates.status);
-      }
-
-      if (Object.keys(formattedUpdates).length === 0) return;
-
-      await updateProject.mutateAsync({
-        id: projectId,
-        updates: formattedUpdates as import('../types').ProjectUpdateInput,
-      });
-    } catch (error) {
-      console.error('Failed to auto-save project:', error);
-    }
-  }, [projectId, updateProject]);
-
   const handleDelete = async () => {
     try {
-      await deleteProject.mutateAsync(projectId);
-      onClose();
+      await editor.remove();
     } catch (error) {
-      console.error('Failed to delete project:', error);
+      console.error("Failed to delete project:", error);
     }
   };
 
@@ -224,34 +165,40 @@ export function ProjectDetailView({
     async (title: string) => {
       try {
         const created = await createNote.mutateAsync({
-          title: title.trim() || 'Untitled',
-          content: '',
+          title: title.trim() || "Untitled",
+          content: "",
           folder_id: null,
           project_id: projectId,
         });
-        setNewDocumentTitle('');
-        setDocumentInitialMode('edit');
+        setNewDocumentTitle("");
+        setDocumentInitialMode("edit");
         setSelectedDocumentId(created.id);
         setIsDocumentDialogOpen(true);
       } catch (error) {
-        console.error('Failed to create document:', error);
+        console.error("Failed to create document:", error);
       }
     },
-    [projectId, createNote]
+    [projectId, createNote],
   );
 
   const projectActions = useProjectActions({
     projectId,
     onOpenInPage:
-      variant === 'dialog'
+      variant === "dialog"
         ? () => {
-            router.push(`/projects/${projectId}`);
-            onClose();
+            editor.requestClose(() => {
+              router.push(`/projects/${projectId}`);
+              onClose();
+            });
           }
         : undefined,
   });
 
-  const title = isLoading ? 'Loading...' : variant === 'page' ? 'Project Details' : 'Edit Project';
+  const title = isLoading
+    ? "Loading..."
+    : variant === "page"
+      ? "Project Details"
+      : "Edit Project";
 
   const documentsList = (
     <div className="space-y-0.5">
@@ -261,7 +208,7 @@ export function ProjectDetailView({
           key={doc.id}
           className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 text-left text-sm"
           onClick={() => {
-            setDocumentInitialMode('view');
+            setDocumentInitialMode("view");
             setSelectedDocumentId(doc.id);
             setIsDocumentDialogOpen(true);
           }}
@@ -280,7 +227,7 @@ export function ProjectDetailView({
           value={newDocumentTitle}
           onChange={(e) => setNewDocumentTitle(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter') {
+            if (e.key === "Enter") {
               e.preventDefault();
               handleAddDocument(newDocumentTitle);
             }
@@ -312,19 +259,20 @@ export function ProjectDetailView({
           <div className="flex items-center justify-between gap-4 w-full">
             <div className="flex items-center gap-3 flex-1">
               <Button
-                variant={variant === 'page' ? 'ghost' : 'outline'}
+                variant={variant === "page" ? "ghost" : "outline"}
                 size="icon"
-                onClick={onClose}
-                className={variant === 'page' ? 'shrink-0 border' : 'shrink-0'}
+                aria-label="Close"
+                  onClick={() => editor.requestClose()}
+                className={variant === "page" ? "shrink-0 border" : "shrink-0"}
               >
-                {variant === 'page' ? (
+                {variant === "page" ? (
                   <ArrowLeft className="h-4 w-4" />
                 ) : (
                   <X className="h-4 w-4" />
                 )}
               </Button>
               <div className="flex-1">
-                {variant === 'dialog' ? (
+                {variant === "dialog" ? (
                   <>
                     <DialogTitle>{title}</DialogTitle>
                     <DialogDescription className="sr-only">
@@ -338,132 +286,176 @@ export function ProjectDetailView({
             </div>
 
             <div className="flex items-center gap-2">
-              <AutoSaveStatus isPending={updateProject.isPending} isError={updateProject.isError} />
-              {variant === 'dialog' && onExpandedChange && (
-                <ExpandButton expanded={expanded} onToggle={() => onExpandedChange(!expanded)} />
+              {variant === "dialog" ? (
+                <WorkItemDialogHeaderActions
+                  editor={editor}
+                  actions={
+                    <ActionsMenu
+                      type="project"
+                      entityId={projectId}
+                      onOpenInPage={projectActions.onOpenInPage}
+                      onDelete={() => {
+                        if (editor.editable) setIsDeleteDialogOpen(true);
+                      }}
+                      richTextTemplateConfig={{
+                        getEditor: () =>
+                          editor.editable
+                            ? descriptionFieldRef.current?.getEditor() ?? null
+                            : null,
+                        getCurrentContent: () =>
+                          form.getValues("description") ?? null,
+                        onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                      }}
+                    />
+                  }
+                />
+              ) : (
+                <EditorControls editor={editor} />
               )}
-              <ActionsMenu
-                type="project"
-                entityId={projectId}
-                onOpenInPage={projectActions.onOpenInPage}
-                onDelete={() => setIsDeleteDialogOpen(true)}
-                richTextTemplateConfig={{
-                  getEditor: () => descriptionFieldRef.current?.getEditor() ?? null,
-                  getCurrentContent: () => form.getValues('description') ?? null,
-                  onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
-                }}
-              />
             </div>
           </div>
         </div>
 
+        <EditorNotices editor={editor} />
         <div className="min-h-0 flex-1 overflow-hidden">
-          {isLoading ? (
+          {isLoading || !editor.session ? (
             <div className="p-6">Loading project data...</div>
           ) : !project ? (
             <div className="p-6">Project not found</div>
           ) : (
-            <Form {...form}>
-              <form className="h-full min-h-0 flex min-w-0 overflow-hidden" onSubmit={(e) => e.preventDefault()}>
-                <AutoSaveManager
-                  form={form}
-                  projectId={projectId}
-                  project={project}
-                  isInitialized={isInitialized}
-                  isLoading={isLoading}
-                  onSave={handleAutoSave}
-                />
+            <WorkItemEditableContext.Provider value={editor.editable}>
+              <Form {...form}>
+                <form
+                  className="h-full min-h-0 flex min-w-0 overflow-hidden"
+                  onSubmit={(e) => e.preventDefault()}
+                >
+                  <fieldset disabled={!editor.editable} className="contents">
+                    <EntityResizablePanels
+                      id={`project-${projectId}-panels`}
+                      main={
+                        <div
+                          className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
+                          data-rich-text-toolbar-container
+                        >
+                          <div className="p-6 space-y-6">
+                            <ProjectPropertyPills
+                              form={form}
+                              enabled={enabled}
+                              knownMembers={project.members}
+                            />
 
-                <EntityResizablePanels
-                  id={`project-${projectId}-panels`}
-                  main={(
-                    <div
-                      className="h-full min-h-0 min-w-0 overflow-y-auto overscroll-contain"
-                      data-rich-text-toolbar-container
-                    >
-                  <div className="p-6 space-y-6">
-                    <ProjectPropertyPills form={form} enabled={enabled} knownMembers={project.members} />
+                            <ProjectTitleField
+                              form={form}
+                              onEnter={handleTitleEnter}
+                              titleRef={titleFieldRef}
+                            />
+                            <ProjectDescriptionField
+                              form={form}
+                              descriptionRef={descriptionFieldRef}
+                            />
 
-                    <ProjectTitleField
-                      form={form}
-                      onEnter={handleTitleEnter}
-                      titleRef={titleFieldRef}
+                            <Separator />
+                            <LinkedTasksSection projectId={projectId} />
+
+                            <Separator />
+                            <ProjectNotes
+                              projectId={projectId}
+                              notes={progressNotesData}
+                              onNoteAdded={() => {}}
+                            />
+
+                            <Separator />
+                            <div className="space-y-4">
+                              <h3 className="text-lg font-semibold">
+                                Activity
+                              </h3>
+                              <ActivityFeed
+                                data={projectActivity}
+                                isLoading={isProjectActivityLoading}
+                                error={projectActivityError}
+                              />
+                            </div>
+
+                            <div className="space-y-4 md:hidden">
+                              <Separator />
+                              <h3 className="text-lg font-semibold">
+                                Documents
+                              </h3>
+                              {documentsList}
+                            </div>
+                          </div>
+                        </div>
+                      }
+                      sidebar={
+                        <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
+                          <EntitySidebarCards
+                            defaultOpen={["properties", "documents"]}
+                          >
+                            <EntitySidebarCard
+                              value="properties"
+                              title="Properties"
+                            >
+                              <ProjectPropertiesFields
+                                form={form}
+                                knownMembers={project.members}
+                              />
+                            </EntitySidebarCard>
+                            <EntitySidebarCard
+                              value="documents"
+                              title="Documents"
+                            >
+                              {documentsList}
+                            </EntitySidebarCard>
+                          </EntitySidebarCards>
+                        </div>
+                      }
                     />
-                    <ProjectDescriptionField
-                      form={form}
-                      descriptionRef={descriptionFieldRef}
-                    />
-
-                    <Separator />
-                    <LinkedTasksSection projectId={projectId} />
-
-                    <Separator />
-                    <ProjectNotes
-                      projectId={projectId}
-                      notes={progressNotesData}
-                      onNoteAdded={() => {}}
-                    />
-
-                    <Separator />
-                    <div className="space-y-4">
-                      <h3 className="text-lg font-semibold">Activity</h3>
-                      <ActivityFeed
-                        data={projectActivity}
-                        isLoading={isProjectActivityLoading}
-                        error={projectActivityError}
-                      />
-                    </div>
-
-                    <div className="space-y-4 md:hidden">
-                      <Separator />
-                      <h3 className="text-lg font-semibold">Documents</h3>
-                      {documentsList}
-                    </div>
-                  </div>
-                    </div>
-                  )}
-
-                  sidebar={(
-                    <div className="hidden h-full min-h-0 w-full flex-col overflow-hidden md:flex">
-                      <EntitySidebarCards defaultOpen={['properties', 'documents']}>
-                        <EntitySidebarCard value="properties" title="Properties">
-                          <ProjectPropertiesFields form={form} knownMembers={project.members} />
-                        </EntitySidebarCard>
-                        <EntitySidebarCard value="documents" title="Documents">
-                          {documentsList}
-                        </EntitySidebarCard>
-                      </EntitySidebarCards>
-                    </div>
-                  )}
-                />
-              </form>
-            </Form>
+                  </fieldset>
+                </form>
+              </Form>
+            </WorkItemEditableContext.Provider>
           )}
         </div>
+        {variant === "dialog" ? (
+          <div className="shrink-0 border-t bg-card px-6 py-4">
+            <EditorFooterActions editor={editor} />
+          </div>
+        ) : null}
       </div>
 
-      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+      {variant === "dialog" ? (
+        <>
+          <EditorCloseConfirmDialog editor={editor} />
+          <EditorViewSwitchConfirmDialog editor={editor} />
+        </>
+      ) : null}
+
+      <AlertDialog
+        open={isDeleteDialogOpen}
+        onOpenChange={setIsDeleteDialogOpen}
+      >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the project.
+              This action cannot be undone. This will permanently delete the
+              project.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDelete}
-              disabled={deleteProject.isPending}
+              disabled={!editor.editable || editor.deleting}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              {deleteProject.isPending ? (
+              {editor.deleting ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Deleting...
                 </>
               ) : (
-                'Delete'
+                "Delete"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -472,7 +464,7 @@ export function ProjectDetailView({
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}
         onClose={() => setIsSaveDialogOpen(false)}
-        initialContent={form.getValues('description') ?? null}
+        initialContent={form.getValues("description") ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
 
@@ -481,7 +473,7 @@ export function ProjectDetailView({
         onClose={() => {
           setIsDocumentDialogOpen(false);
           setSelectedDocumentId(null);
-          setDocumentInitialMode('view');
+          setDocumentInitialMode("view");
         }}
         noteId={selectedDocumentId}
         initialMode={documentInitialMode}

@@ -10,7 +10,7 @@ Practice, set, and mock attempts used separate engine routes even though the stu
 
 ## Decision
 
-Use parameterless `/exam` as the single fullscreen experience for the student's active Practice session, set attempt, or mock attempt. Launch actions complete tutorial, access, and quota preflight before creating or resuming an attempt; `/exam` then resolves that server-owned active attempt. Mode-specific engine routes are removed rather than retained as compatibility adapters. `/exam/tutorial` remains separate because the tutorial is not an attempt, and embedded lesson or session-assigned stem activities remain in their parent pages.
+Use parameterless `/exam` as the single fullscreen experience for the student's active Practice session, set attempt, or mock attempt. Launch actions complete access and quota preflight before creating or resuming an attempt; `/exam` then resolves that server-owned active attempt. The question-interface tutorial remains optional onboarding available from the Dashboard and Settings and never gates creating, resuming, or opening an attempt. Mode-specific engine routes are removed rather than retained as compatibility adapters. `/exam/tutorial` remains separate because the tutorial is not an attempt, and embedded lesson or session-assigned stem activities remain in their parent pages.
 
 ## Consequences
 

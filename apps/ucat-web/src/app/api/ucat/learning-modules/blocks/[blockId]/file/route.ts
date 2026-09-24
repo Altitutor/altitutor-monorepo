@@ -71,7 +71,9 @@ export async function GET(request: NextRequest, context: RouteContext) {
     );
   }
 
-  const response = NextResponse.redirect(signed.signedUrl);
+  const response = request.nextUrl.searchParams.get("format") === "json"
+    ? NextResponse.json({ url: signed.signedUrl })
+    : NextResponse.redirect(signed.signedUrl);
   response.headers.set("Cache-Control", "no-store");
   return response;
 }

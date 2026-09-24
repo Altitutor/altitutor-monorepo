@@ -123,12 +123,17 @@ Environment-specific values such as:
 - `OPENROUTER_API_KEY` (tutor-web UCAT AI generation)
 - `SENTRY_ORG` and `SENTRY_AUTH_TOKEN` (shared Sentry build credentials)
 - `{APP}_SENTRY_DSN` and `{APP}_SENTRY_PROJECT` for each independently
-  deployed web app, such as `UCAT_WEB_SENTRY_DSN`
+  deployed web app, such as `UCAT_WEB_SENTRY_DSN`, plus `UCAT_APP_SENTRY_DSN`
+  / `UCAT_APP_SENTRY_PROJECT` for the UCAT native app
 - `SUPABASE_SENTRY_DSN` for the dedicated Deno project used by Supabase Edge
   Functions (the same project DSN can be used in both environment files)
 - UCAT social provider credentials (`SUPABASE_AUTH_EXTERNAL_GOOGLE_*` and
   `SUPABASE_AUTH_EXTERNAL_APPLE_*`) plus `AUTH_GOOGLE_ENABLED` and
   `AUTH_APPLE_ENABLED`
+- UCAT email configuration: `UCAT_EMAIL_DISPATCH_SECRET_KEY`,
+  `UCAT_LIFECYCLE_CRON_SECRET_KEY`, `UCAT_LIFECYCLE_EMAILS_ENABLED`,
+  `UCAT_RESEND_CONTACT_SYNC_ENABLED`, `RESEND_WEBHOOK_SECRET`,
+  `RESEND_TOPIC_*`, and `UCAT_WEB_URL`
 
 ## Where Secrets Go
 
@@ -162,6 +167,12 @@ Vercel-only runtime secrets such as `OPENROUTER_API_KEY` are skipped here.
   applied to hosted Supabase Auth by CI
 - `CRON_SECRET` is generated once when missing and sent only to
   `altitutor-ucat-web` for authenticated Preview and Production cron routes
+- `UCAT_LIFECYCLE_CRON_SECRET_KEY` is sent only to `altitutor-admin-web`,
+  whose authenticated server routes proxy lifecycle previews and dry runs
+- `UCAT_WEB_URL` is expanded into the public aliases consumed by admin,
+  marketing, student, tutor, and UCAT web links. Development defaults to
+  `https://ucat.development.altitutor.com`; production defaults to
+  `https://ucat.altitutor.com`
 
 Projects currently deployed by the script:
 
@@ -171,16 +182,23 @@ Projects currently deployed by the script:
 - `altitutor-tutor-web` (`apps/tutor-web`)
 - `altitutor-ucat-web` (`apps/ucat-web`)
 
-### EAS (`apps/student-app`)
+### EAS (`apps/student-app`, `apps/ucat-app`)
 
 - Development + preview: `EXPO_PUBLIC_*` derived from `.env.development`
 - Production: `EXPO_PUBLIC_*` derived from `.env.production`
+
+`ucat-app` is skipped until `app.json` contains `expo.extra.eas.projectId`
+(`cd apps/ucat-app && eas init`).
 
 Variables:
 
 - `EXPO_PUBLIC_SUPABASE_URL` (from `SUPABASE_PROJECT_REF`)
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY` (from `SUPABASE_PUBLISHABLE_KEY`)
 - `EXPO_PUBLIC_STUDENT_WEB_URL` (from `NEXT_PUBLIC_STUDENT_URL` / `EXPO_PUBLIC_STUDENT_WEB_URL`, or defaults)
+- `EXPO_PUBLIC_UCAT_WEB_URL` (from `NEXT_PUBLIC_UCAT_URL` / `EXPO_PUBLIC_UCAT_WEB_URL`, or defaults)
+- `EXPO_PUBLIC_SENTRY_DSN` (from `UCAT_APP_SENTRY_DSN`, ucat-app only)
+- `EXPO_PUBLIC_SENTRY_ENVIRONMENT` (`development`, `preview`, or `production`)
+- `SENTRY_ORG`, `SENTRY_PROJECT`, and `SENTRY_AUTH_TOKEN` for native source-map upload (ucat-app only)
 
 Mapping:
 
@@ -200,6 +218,14 @@ From `.env.shared` plus the matching environment file. Deployed keys include:
 - `STRIPE_SECRET_KEY`
 - `STRIPE_WEBHOOK_SECRET`
 - `RESEND_API_KEY`
+- `RESEND_WEBHOOK_SECRET`
+- `RESEND_TOPIC_*`
+- `UCAT_EMAIL_DISPATCH_SECRET_KEY`
+- `UCAT_LIFECYCLE_CRON_SECRET_KEY`
+- `UCAT_LIFECYCLE_EMAILS_ENABLED`
+- `UCAT_RESEND_CONTACT_SYNC_ENABLED`
+- `UCAT_WEB_URL`
+- `UCAT_FOUNDER_SIGNATURE_URL` when configured
 - `SUPABASE_SENTRY_DSN` → `SENTRY_DSN`
 - `SENTRY_ENVIRONMENT`, derived automatically as `development` or `production`
 
@@ -267,7 +293,7 @@ Excludes `NEXT_PUBLIC_*` (those go to Vercel).
 
 ### Vercel (`deploy-vercel.sh`)
 
-Deploys `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT projects. Other `NEXT_PUBLIC_*` variables go to the existing application projects. `OPENROUTER_API_KEY` goes to tutor-web, and `RESEND_API_KEY` goes to all application web projects.
+Deploys `NEXT_PUBLIC_POSTHOG_*` only to the public marketing, student, and UCAT projects. UCAT URL aliases go to every web project; other `NEXT_PUBLIC_*` variables go to the existing application projects. `OPENROUTER_API_KEY` goes to tutor-web, `RESEND_API_KEY` goes to all application web projects, and `UCAT_LIFECYCLE_CRON_SECRET_KEY` goes only to admin-web.
 
 ### EAS (`deploy-eas.sh`)
 
@@ -275,7 +301,7 @@ Deploys derived `EXPO_PUBLIC_*` values only.
 
 ### Supabase (`deploy-supabase.sh`)
 
-Deploys `TWILIO_*`, `IMESSAGE_*`, `CONNECTOR_SECRET`, `PRINT_CONNECTOR_SECRET`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, and `RESEND_API_KEY`.
+Deploys `TWILIO_*`, `IMESSAGE_*`, `CONNECTOR_SECRET`, `PRINT_CONNECTOR_SECRET`, Stripe secrets, Resend secrets/topic IDs, and UCAT email runtime configuration.
 
 Edit the patterns in each script if naming conventions change.
 
@@ -303,6 +329,10 @@ vercel env ls --project altitutor-ucat-web
 
 ```bash
 cd apps/student-app
+eas env:list --environment development
+eas env:list --environment preview
+eas env:list --environment production
+cd ../ucat-app
 eas env:list --environment development
 eas env:list --environment preview
 eas env:list --environment production
@@ -336,3 +366,19 @@ Use CLI login, or set `VERCEL_TOKEN` / `EXPO_TOKEN` in `.env.shared`.
 ### Secrets not updating
 
 Redeploy the Vercel app or re-run the GitHub Actions workflow after changing secrets.
+
+## Admin MCP reporting connection
+
+Store `ADMIN_REPORTING_DATABASE_URL` in `.env.production` and, when testing development,
+`.env.development`, using each project's dedicated `admin_reporting_reader` login.
+This is separate from the administrator's `SUPABASE_DB_PASSWORD`.
+
+```bash
+# From the repository root; uploads this key only, to admin-web only.
+bash secrets/scripts/deploy-vercel.sh --only ADMIN_REPORTING_DATABASE_URL
+```
+
+Production maps to Vercel Production; development maps to Vercel Preview. Empty values
+are skipped. Redeploy admin-web afterward. The normal all-secrets deployment includes
+this key too. Password provisioning and verification are described in
+[Admin MCP setup](../docs/admin-mcp.md). Never commit the populated connection string.

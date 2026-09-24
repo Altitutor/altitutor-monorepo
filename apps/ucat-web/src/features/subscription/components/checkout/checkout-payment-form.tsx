@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   ExpressCheckoutElement,
   PaymentElement,
@@ -18,6 +18,7 @@ type CheckoutPaymentFormProps = {
     | "practice_session"
     | "referral_gift";
   checkoutSessionId: string | null;
+  onReadyChange?: (ready: boolean) => void;
   onSubmittingChange?: (submitting: boolean) => void;
 };
 
@@ -27,15 +28,25 @@ export function CheckoutPaymentForm({
   context,
   checkoutSessionId,
   onSubmittingChange,
+  onReadyChange,
 }: CheckoutPaymentFormProps) {
   const checkoutState = useCheckout();
+  const [paymentReady, setPaymentReady] = useState(false);
+  const inFlight = useRef(false);
+  useEffect(() => {
+    onReadyChange?.(checkoutState.type === "success" && paymentReady);
+    return () => onReadyChange?.(false);
+  }, [checkoutState.type, paymentReady, onReadyChange]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasExpressPaymentMethod, setHasExpressPaymentMethod] = useState(false);
 
   if (checkoutState.type === "loading") {
     return (
-      <div className="animate-pulse space-y-5" aria-label="Loading payment fields">
+      <div
+        className="animate-pulse space-y-5"
+        aria-label="Loading payment fields"
+      >
         <div className="h-4 w-20 rounded bg-muted" />
         <div className="h-12 rounded-xl bg-muted" />
         <div className="grid grid-cols-2 gap-3">
@@ -65,6 +76,7 @@ export function CheckoutPaymentForm({
     });
   };
   const handleError = (message: string) => {
+    inFlight.current = false;
     setSubmitting(false);
     onSubmittingChange?.(false);
     setError(message);
@@ -79,13 +91,22 @@ export function CheckoutPaymentForm({
   };
 
   const submit = async () => {
-    if (submitting) return;
+    if (!paymentReady || inFlight.current || submitting) return;
+    inFlight.current = true;
     setSubmitting(true);
     onSubmittingChange?.(true);
     setError(null);
     trackSubmission();
-    const result = await checkout.confirm({ redirect: "always" });
-    if (result.type === "error") handleError(result.error.message);
+    try {
+      const result = await checkout.confirm({ redirect: "always" });
+      if (result.type === "error") handleError(result.error.message);
+    } catch (reason) {
+      handleError(
+        reason instanceof Error
+          ? reason.message
+          : "Payment could not be confirmed. Please try again.",
+      );
+    }
   };
 
   return (
@@ -119,6 +140,8 @@ export function CheckoutPaymentForm({
           );
         }}
         onConfirm={(event) => {
+          if (inFlight.current) return;
+          inFlight.current = true;
           setSubmitting(true);
           onSubmittingChange?.(true);
           trackSubmission();
@@ -129,7 +152,14 @@ export function CheckoutPaymentForm({
             })
             .then((result) => {
               if (result.type === "error") handleError(result.error.message);
-            });
+            })
+            .catch((reason: unknown) =>
+              handleError(
+                reason instanceof Error
+                  ? reason.message
+                  : "Payment could not be confirmed. Please try again.",
+              ),
+            );
         }}
       />
       {hasExpressPaymentMethod ? (
@@ -140,6 +170,13 @@ export function CheckoutPaymentForm({
         </div>
       ) : null}
       <PaymentElement
+        onReady={() => setPaymentReady(true)}
+        onLoadError={() => {
+          setPaymentReady(false);
+          handleError(
+            "Payment fields could not load. Please refresh and try again.",
+          );
+        }}
         options={{
           layout: "accordion",
           fields: {

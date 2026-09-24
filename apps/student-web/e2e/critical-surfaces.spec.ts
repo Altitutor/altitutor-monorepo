@@ -62,12 +62,12 @@ test("a student can reach classes, resources, and billing @compat", async ({
   const surfaces = [
     ["/classes", "My Schedule"],
     ["/resources", "Resources"],
-    ["/billing", "Billing & Payments"],
+    ["/billing/payment-methods", "Billing & Payments"],
   ] as const;
   for (const [path, heading] of surfaces) {
     await test.step(path, async () => {
       const billingPrewarmFinished =
-        path === "/billing"
+        path === "/billing/payment-methods"
           ? page.waitForResponse((response) =>
               new URL(response.url()).pathname.endsWith(
                 "/functions/v1/payment-methods",

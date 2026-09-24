@@ -209,7 +209,7 @@ const billingTour: Tour = {
       content: (
         <p>
           Update your payment method, review invoices, and check subscriptions
-          on this page.
+          from the Billing menu.
         </p>
       ),
       selector: '#tour-billing-header',
@@ -253,7 +253,7 @@ export const STUDENT_TOUR_REPLAY_OPTIONS = [
     label: 'Flashcards',
     href: '/resources/flashcards',
   },
-  { tourId: STUDENT_BILLING_TOUR, label: 'Billing', href: '/billing' },
+  { tourId: STUDENT_BILLING_TOUR, label: 'Billing', href: '/billing/payment-methods' },
 ] as const;
 
 const PATHNAME_TO_TOUR: Record<string, string> = {
@@ -261,7 +261,7 @@ const PATHNAME_TO_TOUR: Record<string, string> = {
   '/classes': STUDENT_CLASSES_TOUR,
   '/resources': STUDENT_RESOURCES_TOUR,
   '/resources/flashcards': STUDENT_FLASHCARDS_TOUR,
-  '/billing': STUDENT_BILLING_TOUR,
+  '/billing/payment-methods': STUDENT_BILLING_TOUR,
 };
 
 /**

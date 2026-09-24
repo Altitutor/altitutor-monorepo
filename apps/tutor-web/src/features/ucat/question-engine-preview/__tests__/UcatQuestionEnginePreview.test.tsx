@@ -47,6 +47,29 @@ describe('UcatQuestionEnginePreview', () => {
     expect(mostTarget).toHaveTextContent('Action A')
   })
 
+  it('does not assign a Yes token by clicking the drop box', () => {
+    render(
+      <UcatQuestionEnginePreview
+        question={{
+          id: 'binary-preview',
+          sectionDisplayColumns: 1,
+          stemText: 'Facts',
+          questionText: 'Place Yes or No.',
+          responseType: 'drag_and_drop',
+          answerScheme: 'decision_making_binary_placement',
+          options: [
+            { id: 'statement-1', index: 0, text: 'Statement one', answerKeyValue: 'yes' },
+            { id: 'statement-2', index: 1, text: 'Statement two', answerKeyValue: 'no' },
+          ],
+        }}
+      />,
+    )
+
+    const target = screen.getAllByLabelText('Drop Yes or No here')[0]!
+    fireEvent.click(target)
+    expect(target).not.toHaveTextContent('Yes')
+  })
+
   it('shows the unkeyed middle action as not placed in read-only feedback', () => {
     render(
       <UcatQuestionEnginePreview

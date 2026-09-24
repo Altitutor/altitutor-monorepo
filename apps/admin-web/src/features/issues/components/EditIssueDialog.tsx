@@ -15,6 +15,7 @@ export function EditIssueDialog({ isOpen, onClose, issueId, onIssueUpdated }: Ed
 
   return (
     <AdminDialogShell
+      dialogContentProps={{ onInteractOutside: (event) => event.preventDefault(), onEscapeKeyDown: (event) => event.preventDefault() }}
       hideHeader
       fillHeight
       defaultExpanded

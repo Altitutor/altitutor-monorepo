@@ -1,181 +1,52 @@
 'use client';
 
-import { useMemo } from 'react';
-import { SearchableSelect, Button } from '@altitutor/ui';
-import { formatDate, cn } from '@/shared/utils';
-import { calculateFirstSessionDate } from '@/shared/utils/schedule';
-import { getMidnightAdelaide } from '@/shared/utils/enrollment';
+import { SearchableSelect } from '@altitutor/ui';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
-import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
+import { useClassTransferSessions, sessionCalendarDate, sessionDateLabel } from '../../hooks/useClassTransferSessions';
 
 interface ChangeClassStep2SelectDateProps {
-  changeoverDate: string;
-  onDateChange: (date: string) => void;
-  studentId: string;
-  selectedStudent: Tables<'students'>;
+  lastOldClassDate: string;
+  firstNewClassDate: string;
+  onLastDateChange: (date: string) => void;
+  onFirstDateChange: (date: string) => void;
   selectedNewClass: ClassWithExpandedSubject | undefined;
   oldClass: Tables<'classes'>;
-  oldClassSubject?: Tables<'subjects'>;
-  oldClassStaff?: Tables<'staff'>[];
 }
 
 export function ChangeClassStep2SelectDate({
-  changeoverDate,
-  onDateChange,
-  studentId,
-  selectedStudent,
-  selectedNewClass,
-  oldClass,
-  oldClassSubject,
-  oldClassStaff,
+  lastOldClassDate, firstNewClassDate, onLastDateChange, onFirstDateChange, selectedNewClass, oldClass,
 }: ChangeClassStep2SelectDateProps) {
-  // Get student name
-  const studentName = `${selectedStudent.first_name} ${selectedStudent.last_name}`;
-
-  // Get subject name
-  const subjectName = oldClassSubject
-    ? (oldClassSubject?.long_name ?? '')
-    : 'choose subject';
-
-  // Get old class name
-  const oldClassName = oldClass && oldClassSubject
-    ? (oldClass.long_name?.trim() ?? '')
-    : 'choose class';
-
-  // Get new class name
-  const newClassName = selectedNewClass
-    ? (selectedNewClass.long_name?.trim() ?? '')
-    : 'choose class';
-
-  // Generate list of future session dates for the new class (next 16 weeks worth)
-  const futureSessionDates = useMemo(() => {
-    if (!selectedNewClass || selectedNewClass.day_of_week === null || selectedNewClass.day_of_week === undefined) {
-      return [];
-    }
-
-    const today = getMidnightAdelaide(new Date());
-    const firstSession = calculateFirstSessionDate(
-      { ...selectedNewClass, start_time: selectedNewClass.start_time || '09:00' },
-      today
-    );
-
-    const dates: Array<{ id: string; label: string }> = [];
-    const currentDate = new Date(firstSession);
-    
-    // Generate dates for the next 16 weeks (16 sessions)
-    for (let i = 0; i < 16; i++) {
-      const dateStr = currentDate.toISOString().split('T')[0];
-      const formattedDate = formatDate(currentDate);
-      dates.push({
-        id: dateStr,
-        label: formattedDate,
-      });
-      
-      // Move to next week (add 7 days)
-      currentDate.setDate(currentDate.getDate() + 7);
-    }
-
-    return dates;
-  }, [selectedNewClass]);
-
-  const isSubjectChosen = subjectName !== 'choose subject';
-  const isOldClassChosen = oldClassName !== 'choose class';
-  const isNewClassChosen = newClassName !== 'choose class';
-  const isDateChosen = !!changeoverDate && changeoverDate.trim() !== '' && futureSessionDates.length > 0;
-
+  const { data: sessions = [], isLoading, error } = useClassTransferSessions(oldClass.id, selectedNewClass?.id);
+  const options = (classId: string, timezone: string) => [...new Map(sessions
+    .filter(session => session.class_id === classId)
+    .map(session => [sessionCalendarDate(session.start_at, timezone), {
+      id: sessionCalendarDate(session.start_at, timezone), label: sessionDateLabel(session.start_at, timezone),
+    }])).values()];
+  const oldDates = options(oldClass.id, oldClass.schedule_timezone);
+  const newDates = selectedNewClass ? options(selectedNewClass.id, selectedNewClass.schedule_timezone) : [];
   return (
-    <div className="flex flex-col flex-1 min-h-0 space-y-4">
-      {/* Info Card */}
-      <div className="mb-4 p-4 bg-muted rounded-lg space-y-3">
-        <p className="text-sm font-medium">
-          Change{' '}
-          <span className={cn(
-            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
-            "bg-primary/10 text-primary border-primary/20"
-          )}>
-            {studentName}
-          </span>
-          {'\'s '}
-          <span className={cn(
-            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
-            isSubjectChosen
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-          )}>
-            {subjectName}
-          </span>
-          {' class from '}
-          <span className={cn(
-            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
-            isOldClassChosen
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-          )}>
-            {oldClassName}
-          </span>
-          {' to '}
-          <span className={cn(
-            "inline-flex items-center px-2 py-1 rounded-md font-semibold border",
-            isNewClassChosen
-              ? "bg-primary/10 text-primary border-primary/20"
-              : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-          )}>
-            {newClassName}
-          </span>
-          {' starting on '}
-          <span className="inline-flex items-center">
-            {futureSessionDates.length > 0 ? (
-              <SearchableSelect<{ id: string; label: string }>
-                items={futureSessionDates}
-                value={changeoverDate ? futureSessionDates.find((d) => d.id === changeoverDate) ?? null : null}
-                onValueChange={(v) => v && onDateChange(v.id)}
-                getItemId={(item) => item.id}
-                getItemLabel={(item) => item.label}
-                placeholder="Select session date"
-                trigger={
-                  <Button
-                    variant="outline"
-                    className={cn(
-                      "h-8 text-sm font-semibold w-auto min-w-[180px] justify-start font-normal",
-                      isDateChosen
-                        ? "bg-primary/10 text-primary border-primary/20"
-                        : "bg-muted-foreground/10 text-muted-foreground border-muted-foreground/20"
-                    )}
-                  >
-                    {changeoverDate ? futureSessionDates.find((d) => d.id === changeoverDate)?.label ?? changeoverDate : 'Select session date'}
-                  </Button>
-                }
-              />
-            ) : (
-              <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
-                choose class
-              </span>
-            )}
-          </span>
-        </p>
-        {selectedNewClass && futureSessionDates.length > 0 && (
-          <p className="text-xs text-muted-foreground">
-            Student will be unenrolled from the old class and enrolled in the new class on this date
-          </p>
-        )}
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">Choose the final lesson to keep in the old class and the first lesson in the new class. Both selected dates are included.</p>
+      {isLoading && <p role="status">Loading class sessions…</p>}
+      {error && <p role="alert">Unable to load class sessions. Please close and retry.</p>}
+      <div className="space-y-2">
+        <p id="last-old-class-label" className="font-medium">Last date in old class</p>
+        <p className="text-sm text-muted-foreground">{oldClass.long_name}</p>
+        <SearchableSelect items={oldDates} value={oldDates.find(date => date.id === lastOldClassDate) ?? null}
+          onValueChange={date => date && onLastDateChange(date.id)} getItemId={date => date.id} getItemLabel={date => date.label}
+          placeholder="Select final old-class session" ariaLabel="Last date in old class" />
       </div>
-
-      {/* Week Calendar View */}
-      {selectedNewClass && (
-        <div className="mt-4">
-          <EnrollmentWeekCalendar
-            studentId={studentId}
-            selectedStudent={selectedStudent}
-            enrollmentDate={changeoverDate}
-            selectedClass={selectedNewClass}
-            oldClass={oldClass}
-            oldClassSubject={oldClassSubject}
-            oldClassStaff={oldClassStaff}
-            isChangeClassMode={true}
-            onEnrollmentDateChange={onDateChange}
-          />
-        </div>
+      <div className="space-y-2">
+        <p id="first-new-class-label" className="font-medium">First date in new class</p>
+        <p className="text-sm text-muted-foreground">{selectedNewClass?.long_name}</p>
+        <SearchableSelect items={newDates} value={newDates.find(date => date.id === firstNewClassDate) ?? null}
+          onValueChange={date => date && onFirstDateChange(date.id)} getItemId={date => date.id} getItemLabel={date => date.label}
+          placeholder="Select first new-class session" ariaLabel="First date in new class" />
+      </div>
+      {lastOldClassDate && firstNewClassDate && lastOldClassDate >= firstNewClassDate && (
+        <p role="alert" className="text-sm text-destructive">The first new-class date must be after the final old-class date.</p>
       )}
+      {!isLoading && !error && (!oldDates.length || !newDates.length) && <p role="alert">Both classes need scheduled sessions before this transfer can be confirmed.</p>}
     </div>
   );
 }

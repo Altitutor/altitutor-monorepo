@@ -10,9 +10,8 @@ export {
 } from "@/features/onboarding/hooks/use-onboarding-progress";
 export {
   buildQuestionEngineTutorialHref,
-  isQuestionEnginePath,
-} from "@/features/onboarding/lib/question-engine-tutorial-gate";
-export { useQuestionEngineTutorialGate } from "@/features/onboarding/hooks/use-question-engine-tutorial-gate";
+} from "@/features/onboarding/lib/question-engine-tutorial";
+export { useQuestionEngineTutorialStatus } from "@/features/onboarding/hooks/use-question-engine-tutorial-status";
 export {
   ALL_UCAT_TOUR_IDS,
   UCAT_DASHBOARD_TOUR,
