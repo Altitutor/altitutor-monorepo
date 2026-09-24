@@ -36,6 +36,7 @@ import {
 import { StudentSessionsTab } from './StudentSessionsTab';
 import { StudentBillingTab } from './StudentBillingTab';
 import { StudentOnlineTab } from './StudentOnlineTab';
+import { StudentFiles } from './StudentFiles';
 import { ViewSubjectModal } from '@/features/subjects/components';
 import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import { resolveCombinedActivityTab } from '@/features/activity/lib/entityCommunication';
@@ -74,7 +75,7 @@ interface ViewStudentModalProps {
   onClose: () => void;
   studentId: string | null;
   onStudentUpdated: () => void;
-  defaultTab?: 'details' | 'online' | 'classes' | 'messages' | 'sessions' | 'billing' | 'activity';
+  defaultTab?: 'details' | 'online' | 'classes' | 'messages' | 'sessions' | 'files' | 'billing' | 'activity';
 }
 
 export function ViewStudentModal({
@@ -342,6 +343,7 @@ export function ViewStudentModal({
                       { value: 'details', label: 'Details' },
                       ...(isInPerson ? [{ value: 'classes', label: 'Classes' }] : []),
                       { value: 'sessions', label: 'Sessions' },
+                      { value: 'files', label: 'Files' },
                       { value: 'activity', label: 'Activity' },
                       ...(isOnline ? [{ value: 'online', label: 'Online' }] : []),
                       ...(isInPerson ? [{ value: 'billing', label: 'Billing' }] : []),
@@ -403,6 +405,12 @@ export function ViewStudentModal({
                   />
                 </SegmentedTabPanelContent>
                 ) : null}
+
+                <SegmentedTabPanelContent when="files" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
+                  <div className="p-6">
+                    {studentId && <StudentFiles studentId={studentId} />}
+                  </div>
+                </SegmentedTabPanelContent>
 
                 <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="absolute inset-0 overflow-hidden flex flex-col">
                   <div className="h-full p-6">

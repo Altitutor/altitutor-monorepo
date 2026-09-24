@@ -31,6 +31,7 @@ import {
 } from '@/features/students/components/tabs';
 import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
+import { StudentFiles } from '@/features/students/components/StudentFiles';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
 import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
@@ -276,6 +277,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           { value: 'classes', label: 'Classes' },
           { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
+          { value: 'files', label: 'Files' },
           { value: 'billing', label: 'Billing' },
         ]}
       >
@@ -339,6 +341,10 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
         <SegmentedTabPanelContent when="sessions" activeTab={activeTab} className="space-y-6">
           <StudentSessionsTab student={student} />
+        </SegmentedTabPanelContent>
+
+        <SegmentedTabPanelContent when="files" activeTab={activeTab} className="space-y-6">
+          <StudentFiles studentId={id} />
         </SegmentedTabPanelContent>
 
         <SegmentedTabPanelContent when="billing" activeTab={activeTab} className="space-y-6">
