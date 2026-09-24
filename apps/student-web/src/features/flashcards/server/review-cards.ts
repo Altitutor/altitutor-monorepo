@@ -28,6 +28,35 @@ function stripLastExtension(filename: string): string {
   return lastDot > 0 ? filename.slice(0, lastDot) : filename;
 }
 
+const REVIEW_CARD_PAGE_SIZE = 1000;
+
+async function loadReviewCards(
+  userClient: ReturnType<typeof createClient>,
+  topicId: string | null,
+  topicIds: string[] | undefined,
+): Promise<{ data: FlashcardReviewCard[]; error: { message: string } | null }> {
+  const rows: FlashcardReviewCard[] = [];
+  const seenIds = new Set<string>();
+  for (let offset = 0; ; offset += REVIEW_CARD_PAGE_SIZE) {
+    let query = userClient
+      .from('vstudent_flashcard_review_cards')
+      .select('*')
+      .order('flashcard_index', { ascending: true })
+      .order('cloze_index', { ascending: true })
+      .order('id', { ascending: true });
+    if (topicId) query = query.eq('topic_id', topicId);
+    else if (topicIds?.length) query = query.in('topic_id', topicIds);
+    const { data, error } = await query.range(offset, offset + REVIEW_CARD_PAGE_SIZE - 1);
+    if (error) return { data: [], error };
+    const page = (data ?? []) as unknown as FlashcardReviewCard[];
+    if (page.some((row) => seenIds.has(row.id))) break;
+    for (const row of page) seenIds.add(row.id);
+    rows.push(...page);
+    if (page.length < REVIEW_CARD_PAGE_SIZE) break;
+  }
+  return { data: rows, error: null };
+}
+
 export async function GET(request: NextRequest) {
   const topicId = request.nextUrl.searchParams.get('topicId');
   const topicIds = request.nextUrl.searchParams
@@ -47,22 +76,9 @@ export async function GET(request: NextRequest) {
   const { data: studentId, error: studentError } = await userClient.rpc('current_student_id');
   if (studentError || !studentId) return NextResponse.json({ error: 'student_not_found' }, { status: 403 });
 
-  let query = userClient
-    .from('vstudent_flashcard_review_cards')
-    .select('*')
-    .order('flashcard_index', { ascending: true })
-    .order('cloze_index', { ascending: true });
-
-  if (topicId) {
-    query = query.eq('topic_id', topicId);
-  } else if (topicIds?.length) {
-    query = query.in('topic_id', topicIds);
-  }
-
-  const { data, error } = await query;
+  const { data: rawRows, error } = await loadReviewCards(userClient, topicId, topicIds);
   if (error) return captureApiErrorResponse(error, "/api/flashcards/review-cards", NextResponse.json({ error: error.message }, { status: 500 }));
   const now = new Date();
-  const rawRows = (data ?? []) as unknown as FlashcardReviewCard[];
   const adminClient = getServerSupabaseAdmin();
   const { data: preferences, error: preferencesError } = await adminClient.from('student_flashcard_preferences')
     .select('new_cards_per_study_day, review_cards_per_study_day, timezone, timezone_confirmed_at, pending_timezone, pending_timezone_effective_at').eq('student_id', studentId).maybeSingle();
