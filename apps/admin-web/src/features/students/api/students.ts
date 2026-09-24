@@ -1,4 +1,11 @@
-import type { Tables, TablesInsert, TablesUpdate, Database, ClassWithExpandedSubject } from '@altitutor/shared';
+import {
+  buildPersonFieldOrFilters,
+  type Tables,
+  type TablesInsert,
+  type TablesUpdate,
+  type Database,
+  type ClassWithExpandedSubject,
+} from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
@@ -729,11 +736,18 @@ export const studentsApi = {
   searchAllStudents: async (query: string, limit = 100): Promise<Tables<'students'>[]> => {
     const trimmed = query.trim();
     if (!trimmed) return [];
-    const pattern = `%${trimmed}%`;
-    const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>)
+    let request = (getSupabaseClient() as SupabaseClient<Database>)
       .from('students')
-      .select('*')
-      .or(`first_name.ilike.${pattern},last_name.ilike.${pattern},email.ilike.${pattern},phone.ilike.${pattern}`)
+      .select('*');
+    for (const orFilter of buildPersonFieldOrFilters(trimmed, [
+      'first_name',
+      'last_name',
+      'email',
+      'phone',
+    ])) {
+      request = request.or(orFilter);
+    }
+    const { data, error } = await request
       .order('last_name', { ascending: true })
       .order('first_name', { ascending: true })
       .limit(limit);
