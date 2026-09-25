@@ -38,3 +38,12 @@ export const NAV_ITEMS = [
   { href: "/about/", label: "About" },
   { href: "/about/contact/", label: "Contact" },
 ];
+
+export const COURSE_LINKS = [
+  ["/classes/", "All courses"],
+  ["/classes/weekly-classes/", "Weekly subject tutoring"],
+  ["/classes/english-assignment-drafting/", "English drafting"],
+  ["/classes/examprep/", "Exam preparation"],
+  ["/classes/ucatprep/", "UCAT preparation"],
+  ["/classes/medical-interview-preparation/", "Medical interviews"],
+] as const;

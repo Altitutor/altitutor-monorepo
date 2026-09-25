@@ -7,7 +7,6 @@ import legacyRedirects from "../legacy-redirects.json";
 
 const EXTRA_APP_PATHS = new Set([
   "/ucat/",
-  "/online-learning/",
   "/sentry-example-page/",
   "/sitemap.xml",
   "/robots.txt",
