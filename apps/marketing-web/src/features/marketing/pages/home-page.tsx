@@ -122,9 +122,6 @@ export function HomePage() {
         data-nav-label="Courses"
       >
         <SectionTitle eyebrow="Courses">
-          A little support.
-          <br />
-          <em>A lot of possibility.</em>
         </SectionTitle>
         <div className={styles.pathways}>
           {pathways.map((item) => (

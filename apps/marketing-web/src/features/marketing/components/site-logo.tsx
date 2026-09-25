@@ -1,8 +1,8 @@
 export type SiteLogoVariant = "light" | "dark";
 
 const logoSrc: Record<SiteLogoVariant, string> = {
-  light: "/images/logo-banner-light.svg",
-  dark: "/images/logo-banner-dark.svg",
+  light: "/images/logo-banner-light.svg?v=4",
+  dark: "/images/logo-banner-dark.svg?v=4",
 };
 
 type SiteLogoProps = {
