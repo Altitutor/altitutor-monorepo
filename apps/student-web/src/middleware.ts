@@ -8,7 +8,6 @@ import {
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
-import { getMarketingLandingUrl } from "@/shared/lib/marketing-home-url";
 
 const SESSION_DEADLINE_MS = 10_000;
 const JWT_CLOCK_SKEW_RETRY_MS = 1_000;
@@ -49,6 +48,14 @@ function field(error: unknown, key: string) {
   if (typeof error !== "object" || error === null) return null;
   const value = (error as Record<string, unknown>)[key];
   return typeof value === "string" || typeof value === "number" ? String(value) : null;
+}
+
+function loginRedirect(origin: string, pathname: string, search: string) {
+  const loginUrl = new URL("/login", origin);
+  if (pathname !== "/") {
+    loginUrl.searchParams.set("next", `${pathname}${search}`);
+  }
+  return NextResponse.redirect(loginUrl);
 }
 
 function applyMetadata(response: NextResponse, cookies: CookieToSet[], headers: Record<string, string>) {
@@ -107,8 +114,7 @@ function captureRecoveredClockSkew(startedAt: number) {
 /** Version-neutral auth core. Next 16 only needs this exported as `proxy`. */
 export async function handleAuthRequest(request: NextRequest) {
   const startedAt = Date.now();
-  const { pathname, search, origin, host } = request.nextUrl;
-  const marketingLandingUrl = getMarketingLandingUrl(host);
+  const { pathname, search, origin } = request.nextUrl;
   if (request.method === "OPTIONS") return forwardRequest(request, null);
 
   if (pathname.startsWith("/auth/callback&")) {
@@ -178,17 +184,8 @@ export async function handleAuthRequest(request: NextRequest) {
       );
     } catch (error) {
       if (isUnauthenticatedSessionError(error)) {
-        if (pathname === "/") {
-          return applyMetadata(
-            NextResponse.redirect(marketingLandingUrl),
-            cookies,
-            responseHeaders,
-          );
-        }
-        const loginUrl = new URL("/login", origin);
-        loginUrl.searchParams.set("next", `${pathname}${search}`);
         return applyMetadata(
-          NextResponse.redirect(loginUrl),
+          loginRedirect(origin, pathname, search),
           cookies,
           responseHeaders,
         );
@@ -201,12 +198,11 @@ export async function handleAuthRequest(request: NextRequest) {
     }
     const userId = claims.data?.claims?.sub;
     if (missingSession || !userId) {
-      if (pathname === "/") {
-        return applyMetadata(NextResponse.redirect(marketingLandingUrl), cookies, responseHeaders);
-      }
-      const loginUrl = new URL("/login", origin);
-      loginUrl.searchParams.set("next", `${pathname}${search}`);
-      return applyMetadata(NextResponse.redirect(loginUrl), cookies, responseHeaders);
+      return applyMetadata(
+        loginRedirect(origin, pathname, search),
+        cookies,
+        responseHeaders,
+      );
     }
     if (pathname === "/") {
       return applyMetadata(NextResponse.redirect(new URL("/dashboard", origin)), cookies, responseHeaders);
