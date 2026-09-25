@@ -18,6 +18,7 @@ import {
 import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { IN_PERSON_COURSES, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import motion from "./magnetic-button.module.css";
+import { SiteLogo } from "./site-logo";
 import styles from "../marketing.module.css";
 
 const groups = [
@@ -190,6 +191,15 @@ export function Navigation() {
     trigger.current?.focus();
   }
 
+  const logoVariant =
+    pathname === "/" &&
+    !scrolled &&
+    !menuOpen &&
+    !menuClosing &&
+    !dropdown
+      ? "dark"
+      : "light";
+
   return (
     <>
       <a href="#main-content" className={styles.skipLink}>
@@ -248,8 +258,11 @@ export function Navigation() {
       >
         <div className={styles.navigationRow}>
           <Link href="/" className={styles.brand} aria-label="Altitutor home">
-            alti<span>tutor</span>
-            <i aria-hidden="true">.</i>
+            <SiteLogo
+              variant={logoVariant}
+              className={styles.brandLogo}
+              priority
+            />
           </Link>
           <nav className={styles.desktopLinks} aria-label="Primary navigation">
             {groups.map(({ href, label }, index) => {

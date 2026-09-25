@@ -14,6 +14,7 @@ import { COURSE_LINKS, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import { PageMotion } from "./page-motion";
 import { SectionNavigation } from "./section-navigation";
 import { Navigation } from "./navigation";
+import { SiteLogo } from "./site-logo";
 import styles from "../marketing.module.css";
 
 const companyLinks = [
@@ -40,15 +41,30 @@ export function SiteFrame({ children }: { children: ReactNode }) {
       <SectionNavigation />
       <footer className={styles.footer}>
         <div className={styles.footerTop}>
-          <div>
+          <div className={styles.footerBrandColumn}>
             <Link href="/" className={styles.footerBrand}>
-              altitutor.
+              <SiteLogo variant="dark" className={styles.footerLogo} />
             </Link>
             <p>
               <HeartHandshake size={22} aria-hidden="true" />
               A mission-driven non-profit providing accessible education for all
               students.
             </p>
+            <div className={styles.footerContact}>
+              <address>
+                Level 1, 17A Solomon St
+                <br />
+                Adelaide SA 5000
+              </address>
+              <a href="mailto:admin@altitutor.com">
+                admin@altitutor.com
+                <ArrowUpRight size={13} aria-hidden="true" />
+              </a>
+              <a href="sms:+61483849842">
+                0483 849 842
+                <ArrowUpRight size={13} aria-hidden="true" />
+              </a>
+            </div>
           </div>
           <div>
             <h2>In person courses</h2>
@@ -75,13 +91,6 @@ export function SiteFrame({ children }: { children: ReactNode }) {
                 {label}
               </Link>
             ))}
-            <address>
-              Level 1, 17A Solomon St
-              <br />
-              Adelaide SA 5000
-            </address>
-            <a href="mailto:admin@altitutor.com">admin@altitutor.com</a>
-            <a href="sms:+61483849842">0483 849 842</a>
           </div>
         </div>
         <div className={styles.footerBottom}>
