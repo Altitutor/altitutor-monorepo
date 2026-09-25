@@ -14,6 +14,7 @@ const nextConfig = {
   trailingSlash: true,
   transpilePackages: ["@altitutor/shared", "@altitutor/ui"],
   images: {
+    formats: ["image/avif", "image/webp"],
     remotePatterns: [
       {
         protocol: "https",
@@ -63,11 +64,29 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Specific crop URLs must be listed before the uploads wildcard.
+      ...(legacyRedirects.imageRedirects ?? []).map(
+        ([source, destination]) => ({
+          source,
+          destination,
+          permanent: true,
+        }),
+      ),
       {
         source: "/wp-content/uploads/:path*",
         destination: "/images/content/:path*",
         permanent: true,
       },
+      ...["/cart/", "/checkout/"].map((source) => ({
+        source,
+        destination: legacyRedirects.trialBookingUrl,
+        permanent: true,
+      })),
+      ...["/my-account/", "/activate/"].map((source) => ({
+        source,
+        destination: legacyRedirects.studentLoginUrl,
+        permanent: true,
+      })),
       {
         source: "/sitemap_index.xml",
         destination: "/sitemap.xml",

@@ -20,6 +20,7 @@ import { TestimonialsPage } from "@/features/marketing/pages/testimonials-page";
 import { InformationPage } from "@/features/marketing/pages/information-page";
 import legacyRedirects from "@/lib/legacy-redirects.json";
 import { coursePaths } from "@/features/marketing/content";
+import { JsonLd } from "@/features/marketing/components/json-ld";
 
 type PageProps = { params: { slug?: string[] } };
 
@@ -73,14 +74,7 @@ export default function MarketingRoute({ params }: PageProps) {
   const schema = getPageSchema(page);
   return (
     <SiteFrame>
-      {schema ? (
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{
-            __html: JSON.stringify(schema).replace(/</g, "\\u003c"),
-          }}
-        />
-      ) : null}
+      {schema ? <JsonLd data={schema} /> : null}
       <PageContent path={page.path} title={page.title} />
     </SiteFrame>
   );

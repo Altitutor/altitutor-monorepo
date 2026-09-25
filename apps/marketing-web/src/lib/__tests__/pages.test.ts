@@ -2,6 +2,7 @@ import {
   createMetadata,
   getAllMarketingPages,
   getMarketingPage,
+  getPageSchema,
   getSitemapPages,
 } from "../pages";
 import legacyRedirects from "../legacy-redirects.json";
@@ -37,6 +38,24 @@ describe("native marketing content", () => {
   it("keeps production copy free of executable legacy markup", () => {
     expect(JSON.stringify(content)).not.toMatch(
       /<script|<iframe|elementor-widget|jquery/i,
+    );
+  });
+  it("drops the WordPress search action and the duplicated home crumb", () => {
+    const schema = getPageSchema(getMarketingPage("/")!);
+    const graph = schema?.["@graph"] as Array<Record<string, unknown>>;
+    const website = graph.find((node) => node["@type"] === "WebSite");
+    const crumbs = graph.find((node) => node["@type"] === "BreadcrumbList");
+    const organization = graph.find((node) => node["@type"] === "Organization");
+    expect(website?.potentialAction).toBeUndefined();
+    expect(crumbs?.itemListElement).toHaveLength(1);
+    expect(organization?.address).toMatchObject({
+      streetAddress: "31 Craighill Rd",
+      postalCode: "5064",
+    });
+  });
+  it("does not build retired shop routes", () => {
+    expect(getAllMarketingPages().map((page) => page.path)).not.toEqual(
+      expect.arrayContaining(["/cart/", "/checkout/", "/my-account/", "/activate/"]),
     );
   });
 });

@@ -1,4 +1,3 @@
-@import url("https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400;1,500;1,600&family=IBM+Plex+Mono:wght@400;500;600&family=Outfit:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap");
 @import "@altitutor/ui/styles/quiet-scrollbars.css";
 
 @tailwind base;
@@ -7,10 +6,10 @@
 
 :root {
   color-scheme: light;
-  --marketing-font-heading: "Plus Jakarta Sans", sans-serif;
-  --marketing-font-body: "Outfit", sans-serif;
-  --marketing-font-editorial: "Cormorant Garamond", Georgia, serif;
-  --marketing-font-label: "IBM Plex Mono", monospace;
+  --marketing-font-heading: var(--font-heading), sans-serif;
+  --marketing-font-body: var(--font-body), sans-serif;
+  --marketing-font-editorial: var(--font-editorial), Georgia, serif;
+  --marketing-font-label: var(--font-label), monospace;
   --marketing-primary: 10 41 65;
   --marketing-charcoal: 26 26 26;
   --marketing-cream: 242 240 233;
@@ -47,12 +46,22 @@ body {
   font-family: var(--marketing-font-body);
 }
 
+.noiseOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.05;
+}
+
 .marketing-product-ui {
   color-scheme: light;
   /* Slightly larger base so rem-based Tailwind type reads better in demos */
   font-size: 16.5px;
   font-family:
-    "Plus Jakarta Sans",
+    var(--marketing-font-heading),
     Inter,
     ui-sans-serif,
     system-ui,
