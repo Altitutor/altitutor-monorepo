@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, useMemo, useId } from 'react';
-import { useAvailableSenders, useConversationList } from '../api/queries';
+import { useConversationList } from '../api/queries';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQueryClient } from '@tanstack/react-query';
 import { formatContactName } from '../utils/formatContactName';
@@ -11,11 +11,8 @@ import {
   Badge,
   DropdownMenu,
   DropdownMenuContent,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
+  DropdownMenuItem,
   DropdownMenuTrigger,
-  SearchableSelectInline,
 } from '@altitutor/ui';
 import { Plus, Mail, Filter, Search, X } from 'lucide-react';
 import { cn } from '@/shared/utils';
@@ -54,10 +51,8 @@ export function ConversationList({
     listFilter: activeFilter,
     ownedNumberFilter: selectedOwnedNumberId,
     setListFilter: setActiveFilter,
-    setOwnedNumberFilter: onOwnedNumberFilterChange,
   } = useMessagingListFilters(filterScope);
   const { data } = useConversationList(selectedOwnedNumberId);
-  const { data: senders = [] } = useAvailableSenders();
   const qc = useQueryClient();
   const [searchTerm, setSearchTerm] = useState('');
   const [isNewConversationDialogOpen, setIsNewConversationDialogOpen] = useState(false);
@@ -193,26 +188,7 @@ export function ConversationList({
     }
   }, [activeFilter]);
 
-  const selectedFilterOption =
-    FILTER_OPTIONS.find((o) => o.value === activeFilter) ?? FILTER_OPTIONS[0];
-  const selectedSenderOption = useMemo(
-    () => senders.find((sender) => sender.id === selectedOwnedNumberId) ?? null,
-    [senders, selectedOwnedNumberId]
-  );
-
-  const senderOptions = useMemo(
-    () =>
-      senders.map((sender) => ({
-        id: sender.id,
-        label:
-          sender.sender_type === 'ALPHANUMERIC'
-            ? (sender.alphanumeric_sender_id || sender.label || 'Unknown sender')
-            : (sender.phone_e164 || sender.label || 'Unknown sender'),
-      })),
-    [senders]
-  );
-
-  const hasAnyFiltersApplied = activeFilter !== 'all' || Boolean(selectedOwnedNumberId);
+  const hasAnyFiltersApplied = activeFilter !== 'all';
 
   const handleNewConversation = async (conversationId: string) => {
     // Get contactId from conversation
@@ -258,54 +234,19 @@ export function ConversationList({
                 <span className="text-xs">{activeFilterLabel}</span>
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-[240px]">
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  Filter
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[220px] p-0">
-                  <SearchableSelectInline<{ value: FilterOption; label: string }>
-                    items={FILTER_OPTIONS}
-                    value={selectedFilterOption}
-                    onValueChange={(v) => {
-                      if (!v) return;
-                      setActiveFilter(v.value);
-                      setIsFilterMenuOpen(false);
-                    }}
-                    getItemId={(item) => item.value}
-                    getItemLabel={(item) => item.label}
-                    searchPlaceholder="Search filters..."
-                    emptyMessage="No filters found"
-                  />
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  From number
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-[300px] p-0">
-                  <SearchableSelectInline<{ id: string; label: string }>
-                    items={senderOptions}
-                    value={selectedSenderOption ? {
-                      id: selectedSenderOption.id,
-                      label:
-                        selectedSenderOption.sender_type === 'ALPHANUMERIC'
-                          ? (selectedSenderOption.alphanumeric_sender_id || selectedSenderOption.label || 'Unknown sender')
-                          : (selectedSenderOption.phone_e164 || selectedSenderOption.label || 'Unknown sender'),
-                    } : null}
-                    onValueChange={(option) => {
-                      onOwnedNumberFilterChange(option?.id ?? null);
-                      setIsFilterMenuOpen(false);
-                    }}
-                    getItemId={(item) => item.id}
-                    getItemLabel={(item) => item.label}
-                    searchPlaceholder="Search numbers..."
-                    emptyMessage="No numbers found"
-                    allowClear
-                    clearLabel="All numbers"
-                  />
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+            <DropdownMenuContent align="end" className="w-[180px]">
+              {FILTER_OPTIONS.map((option) => (
+                <DropdownMenuItem
+                  key={option.value}
+                  className={cn(activeFilter === option.value && 'bg-accent')}
+                  onClick={() => {
+                    setActiveFilter(option.value);
+                    setIsFilterMenuOpen(false);
+                  }}
+                >
+                  {option.label}
+                </DropdownMenuItem>
+              ))}
             </DropdownMenuContent>
           </DropdownMenu>
           {hasAnyFiltersApplied && (
@@ -314,10 +255,7 @@ export function ConversationList({
               variant="ghost"
               className="h-9 w-9 flex-shrink-0"
               title="Clear filters"
-              onClick={() => {
-                setActiveFilter('all');
-                onOwnedNumberFilterChange(null);
-              }}
+              onClick={() => setActiveFilter('all')}
             >
               <X className="h-4 w-4" />
             </Button>

@@ -35,3 +35,6 @@ export const MARKETING_HOME_URL = isDev ? 'http://localhost:3003' : 'https://alt
 export const TUTOR_APPLY_URL = isDev
   ? 'http://localhost:3003/about/apply/'
   : 'https://altitutor.com/about/apply/';
+
+// Venue information
+export const VENUE_ADDRESS = 'Level 1 / 17A Solomon St, Adelaide SA 5000, Australia';

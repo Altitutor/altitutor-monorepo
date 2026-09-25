@@ -29,16 +29,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import { StaffDetailsTab, StaffDetailsFormData } from '@/features/staff/components/modal/tabs/StaffDetailsTab';
 import { ClassesTab } from '@/features/staff/components/modal/tabs/ClassesTab';
 import { StaffSessionsTab } from '@/features/staff/components/modal/tabs/StaffSessionsTab';
-import { MessagesTabContent } from '@/features/messages/components/MessagesTabContent';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import { SubjectSearchPopover } from '@/features/subjects/components';
-import { StaffActivityTab } from '@/features/activity/components/tabs/StaffActivityTab';
 import { StaffFiles } from '@/features/staff/components/StaffFiles';
 import {
   useStaffEditFlow,
   useStaffPasswordReset,
   useStaffMutations,
   useStaffModals,
-  useStaffConversation,
 } from '@/features/staff/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
 import { useEntityModals } from '@/shared/contexts/EntityModalContext';
@@ -76,11 +74,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   });
 
   const modals = useStaffModals();
-
-  const conversationId = useStaffConversation({
-    staffId: id,
-    enabled: !!id,
-  });
 
   // Centralized action handlers
   const staffActions = useStaffActions({
@@ -209,10 +202,9 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         options={[
           { value: 'details', label: 'Details' },
           { value: 'classes', label: 'Classes' },
+          { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
-          { value: 'messages', label: 'Messages' },
-          { value: 'activity', label: 'Activity' },
         ]}
       >
         <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
@@ -279,20 +271,13 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           <StaffFiles staffId={id} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="messages" activeTab={activeTab} className="space-y-6">
-          <div className="h-[calc(100dvh-400px)]">
-            <MessagesTabContent 
-              conversationId={conversationId}
-              title={`${staffMember.first_name} ${staffMember.last_name}`}
-              onClose={() => router.push('/staff')}
-              relatedId={id}
-              relatedType="staff"
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
+          <div className="h-[calc(100dvh-280px)] min-h-[420px]">
+            <EntityCommunicationPanel
+              entityType="staff"
+              entityId={id}
             />
           </div>
-        </SegmentedTabPanelContent>
-
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
-          <StaffActivityTab staffId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 

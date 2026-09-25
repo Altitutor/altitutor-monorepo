@@ -1,4 +1,5 @@
 import { BookingConfirmationCalendar } from '../BookingConfirmationCalendar';
+import { UNAVAILABLE_STAFF_WARNING } from '../StaffSelector';
 import { formatStudentDisplay } from '../../utils/bookingHelpers';
 import { formatSlotDateTime } from '../../utils/dateTimeHelpers';
 import type { Tables } from '@altitutor/shared';
@@ -144,6 +145,14 @@ export function ConfirmationStep({
             <div className="text-sm">{durationMinutes} minutes</div>
           </PropertyFormRow>
         </PropertyForm>
+        {selectedStaff && !selectedSlot.availableStaffIds.includes(selectedStaff.id) && (
+          <p
+            role="status"
+            className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+          >
+            {UNAVAILABLE_STAFF_WARNING}
+          </p>
+        )}
       </div>
 
       {/* Calendar View */}

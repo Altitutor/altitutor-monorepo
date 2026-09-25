@@ -17,6 +17,7 @@ export interface UseSessionsTableProps {
   // External props
   studentId?: string;
   staffId?: string;
+  parentId?: string;
   classId?: string;
   adminShiftId?: string;
   limit?: number;
@@ -77,6 +78,7 @@ export interface UseSessionsTableReturn {
 export function useSessionsTable({
   studentId,
   staffId,
+  parentId,
   classId,
   adminShiftId,
   limit,
@@ -151,6 +153,7 @@ export function useSessionsTable({
     search: search,
     studentId: apiStudentId,
     staffId: apiStaffId,
+    parentId,
     classId,
     adminShiftId,
     types: typeFilters.length > 0 ? typeFilters : undefined,

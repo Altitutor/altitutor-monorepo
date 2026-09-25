@@ -93,6 +93,7 @@ export interface SessionsTableRowProps {
     sessionShortName?: string,
   ) => void;
   onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
+  onRemoveParentFromSession?: (sessionId: string, sessionShortName?: string) => void;
   modals: UseSessionsTableModalsReturn;
   currentStaff: { id: string } | null | undefined;
   onSessionClick: (id: string) => void;
@@ -134,6 +135,7 @@ export function SessionsTableRow({
   onUndoLogAbsenceStaff,
   onRemoveStudentFromSession,
   onRemoveStaffFromSession,
+  onRemoveParentFromSession,
   modals,
   currentStaff,
   onSessionClick,
@@ -419,6 +421,7 @@ export function SessionsTableRow({
             onOpenStaff={onOpenStaff}
             onUndoLogAbsenceStaff={onUndoLogAbsenceStaff}
             onRemoveStaffFromSession={onRemoveStaffFromSession}
+            onRemoveParentFromSession={onRemoveParentFromSession}
             modals={modals}
             onCopySessionId={onCopySessionId}
             router={router}
@@ -643,6 +646,7 @@ interface SessionsTableRowDefaultActionsProps {
     sessionShortName: string;
   }) => void;
   onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
+  onRemoveParentFromSession?: (sessionId: string, sessionShortName?: string) => void;
   modals: UseSessionsTableModalsReturn;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
   router: { push: (path: string) => void };
@@ -659,6 +663,7 @@ function SessionsTableRowDefaultActions({
   getClassShortDisplayName,
   onUndoLogAbsenceStaff,
   onRemoveStaffFromSession,
+  onRemoveParentFromSession,
   modals,
   onCopySessionId,
   router,
@@ -766,6 +771,21 @@ function SessionsTableRowDefaultActions({
                 } else {
                   toast({ description: removeStaffReason, variant: 'destructive' });
                 }
+              }}
+            >
+              <Trash2 className="h-4 w-4 mr-2" />
+              Remove from session
+            </DropdownMenuItem>
+          </>
+        )}
+        {onRemoveParentFromSession && (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              className="!text-destructive focus:!text-destructive focus:bg-destructive/10 hover:!text-destructive hover:bg-destructive/10 dark:!text-destructive dark:focus:!text-destructive dark:hover:!text-destructive dark:focus:bg-destructive/10 dark:hover:bg-destructive/10"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemoveParentFromSession(session.id, sessionShortName);
               }}
             >
               <Trash2 className="h-4 w-4 mr-2" />

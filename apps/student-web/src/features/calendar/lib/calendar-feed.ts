@@ -1,5 +1,6 @@
 import { Buffer } from "node:buffer";
 import type { Database } from "@altitutor/shared";
+import { VENUE_ADDRESS } from "@/shared/constants";
 
 type SessionType = Database["public"]["Enums"]["session_type"];
 export type CalendarSessionStatus = "ACTIVE" | "INACTIVE";
@@ -48,14 +49,20 @@ function formatUtc(value: string): string {
 }
 
 /**
+ * Bump when a property is added to every event (for example LOCATION) so
+ * already-subscribed clients replace existing VEVENTs.
+ */
+const CALENDAR_SEQUENCE_EPOCH = 1;
+
+/**
  * Clients (especially Google Calendar) require SEQUENCE to increase when
  * scheduling properties change. Derive a monotonic integer from the session's
  * revision time so reschedules replace the prior VEVENT for the same UID.
  */
 export function getCalendarEventSequence(modifiedAt: string): number {
   const ms = new Date(modifiedAt).getTime();
-  if (Number.isNaN(ms)) return 0;
-  return Math.floor(ms / 1000);
+  if (Number.isNaN(ms)) return CALENDAR_SEQUENCE_EPOCH;
+  return Math.floor(ms / 1000) + CALENDAR_SEQUENCE_EPOCH;
 }
 
 function foldLine(line: string): string[] {
@@ -138,6 +145,7 @@ export function buildStudentCalendarFeed(
       `DTSTART:${formatUtc(session.startAt)}`,
       `DTEND:${formatUtc(session.endAt)}`,
       `SUMMARY:${escapeText(getCalendarEventTitle(session))}`,
+      `LOCATION:${escapeText(VENUE_ADDRESS)}`,
       `DESCRIPTION:${escapeText(`View session details: ${detailsUrl.toString()}`)}`,
       `URL:${escapeText(detailsUrl.toString())}`,
       `STATUS:${cancelled ? "CANCELLED" : "CONFIRMED"}`,

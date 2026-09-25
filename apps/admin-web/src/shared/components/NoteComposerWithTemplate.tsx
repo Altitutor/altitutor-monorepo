@@ -1,6 +1,7 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, type ReactNode } from 'react';
+import { FileText } from 'lucide-react';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import type { Tables, Json } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
@@ -20,6 +21,8 @@ interface NoteComposerWithTemplateProps {
   minHeight?: string;
   className?: string;
   floatingToolbar?: boolean;
+  /** When set, this control sits in the bottom toolbar, to the left of the template button. */
+  modeControl?: ReactNode;
 }
 
 export function NoteComposerWithTemplate({
@@ -32,6 +35,7 @@ export function NoteComposerWithTemplate({
   minHeight = '80px',
   className,
   floatingToolbar = false,
+  modeControl,
 }: NoteComposerWithTemplateProps) {
   const editorRef = useRef<NotesEditorWithMentionsRef | null>(null);
   const { data: templates = [], isLoading: isTemplatesLoading } = useRichTextTemplates();
@@ -45,68 +49,100 @@ export function NoteComposerWithTemplate({
     );
   };
 
-  return (
-    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
-      <div className="flex items-start gap-2">
-        <div className="min-w-0 flex-1">
-          <NotesEditorWithMentions
-            ref={editorRef}
-            content={content}
-            onChange={onChange}
-            placeholder={placeholder}
-            disabled={isSubmitting || !canPost}
-            minHeight={minHeight}
-            floatingToolbar={floatingToolbar}
-          />
-        </div>
-        <SearchableSelect<Tables<'rich_text_templates'>>
-          items={templates}
-          value={null}
-          onValueChange={handleTemplateSelect}
-          getItemId={(template) => template.id}
-          getItemLabel={(template) => template.name}
-          getItemValue={(template) =>
-            `${template.name} ${extractTextFromNoteContent(template.content as Json)}`
-          }
-          searchPlaceholder="Search templates..."
-          emptyMessage={isTemplatesLoading ? 'Loading templates...' : 'No templates found'}
-          loading={isTemplatesLoading}
-          showChevron={false}
-          trigger={
-            <Button
-              type="button"
-              size="sm"
-              variant="outline"
-              className="mt-1 shrink-0"
-              disabled={isSubmitting || !canPost}
-            >
-              Template
-            </Button>
-          }
-          renderItem={(template) => (
-            <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
-              <span className="truncate font-medium">{template.name}</span>
-              <span className="truncate text-xs text-muted-foreground">
-                {extractTextFromNoteContent(template.content as Json) || '(empty)'}
-              </span>
-            </div>
-          )}
-        />
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-xs text-muted-foreground">
-          {isSubmitting ? 'Posting...' : ''}
-        </span>
+  const templateSelect = (
+    <SearchableSelect<Tables<'rich_text_templates'>>
+      items={templates}
+      value={null}
+      onValueChange={handleTemplateSelect}
+      getItemId={(template) => template.id}
+      getItemLabel={(template) => template.name}
+      getItemValue={(template) =>
+        `${template.name} ${extractTextFromNoteContent(template.content as Json)}`
+      }
+      searchPlaceholder="Search templates..."
+      emptyMessage={isTemplatesLoading ? 'Loading templates...' : 'No templates found'}
+      loading={isTemplatesLoading}
+      showChevron={false}
+      trigger={
         <Button
           type="button"
-          onClick={() => void onSubmit()}
-          disabled={isEmpty || isSubmitting || !canPost}
           size="sm"
-          variant="default"
+          variant="outline"
+          className={modeControl ? 'h-10 shrink-0' : 'mt-1 shrink-0'}
+          disabled={isSubmitting || !canPost}
         >
-          Post
+          {modeControl ? <FileText className="mr-2 h-4 w-4" /> : null}
+          Template
         </Button>
+      }
+      renderItem={(template) => (
+        <div className="flex min-w-0 flex-col gap-0.5 py-0.5">
+          <span className="truncate font-medium">{template.name}</span>
+          <span className="truncate text-xs text-muted-foreground">
+            {extractTextFromNoteContent(template.content as Json) || '(empty)'}
+          </span>
+        </div>
+      )}
+    />
+  );
+
+  return (
+    <div className={className ? `space-y-2 ${className}` : 'space-y-2'}>
+      {modeControl ? (
+        <NotesEditorWithMentions
+          ref={editorRef}
+          content={content}
+          onChange={onChange}
+          placeholder={placeholder}
+          disabled={isSubmitting || !canPost}
+          minHeight={minHeight}
+          floatingToolbar={floatingToolbar}
+        />
+      ) : (
+        <div className="flex items-start gap-2">
+          <div className="min-w-0 flex-1">
+            <NotesEditorWithMentions
+              ref={editorRef}
+              content={content}
+              onChange={onChange}
+              placeholder={placeholder}
+              disabled={isSubmitting || !canPost}
+              minHeight={minHeight}
+              floatingToolbar={floatingToolbar}
+            />
+          </div>
+          {templateSelect}
+        </div>
+      )}
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex min-w-0 items-center gap-2">
+          {modeControl ? (
+            <>
+              {modeControl}
+              {templateSelect}
+            </>
+          ) : (
+            <span className="text-xs text-muted-foreground">
+              {isSubmitting ? 'Posting...' : ''}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-2">
+          {modeControl && isSubmitting ? (
+            <span className="text-xs text-muted-foreground">Posting...</span>
+          ) : null}
+          <Button
+            type="button"
+            onClick={() => void onSubmit()}
+            disabled={isEmpty || isSubmitting || !canPost}
+            size="sm"
+            variant="default"
+            className={modeControl ? 'h-10' : undefined}
+          >
+            Post
+          </Button>
+        </div>
       </div>
     </div>
   );

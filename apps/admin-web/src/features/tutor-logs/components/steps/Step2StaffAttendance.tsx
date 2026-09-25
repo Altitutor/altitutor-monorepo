@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -36,7 +36,7 @@ import {
   toCheckInStaffRole,
 } from '@altitutor/shared/pay-tiers';
 import type { TutorLogFormData } from '../../types';
-import { cn } from '@/shared/utils';
+import { AttendanceToggle } from '../AttendanceToggle';
 
 type StaffTypeOption =
   | (typeof CLASS_STAFF_TYPE_OPTIONS)[number]
@@ -55,45 +55,6 @@ type Step2StaffAttendanceProps = {
   /** Use SearchableSelect-based add (meeting log flow). Default: legacy search input + cards. */
   addStaffVariant?: 'legacy' | 'search';
 };
-
-function AttendanceToggle({
-  attended,
-  onChange,
-}: {
-  attended: boolean;
-  onChange: (attended: boolean) => void;
-}) {
-  return (
-    <div className="inline-flex shrink-0 overflow-hidden rounded-md border" role="group" aria-label="Attendance">
-      <button
-        type="button"
-        aria-pressed={attended}
-        onClick={() => onChange(true)}
-        className={cn(
-          'px-2.5 py-1 text-sm transition-colors',
-          attended
-            ? 'bg-green-50 font-medium text-green-700 dark:bg-green-900/30 dark:text-green-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Attended
-      </button>
-      <button
-        type="button"
-        aria-pressed={!attended}
-        onClick={() => onChange(false)}
-        className={cn(
-          'border-l px-2.5 py-1 text-sm transition-colors',
-          !attended
-            ? 'bg-red-50 font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400'
-            : 'bg-background text-muted-foreground hover:bg-muted/60'
-        )}
-      >
-        Did not attend
-      </button>
-    </div>
-  );
-}
 
 function isClassStaffType(
   type: string | null | undefined
@@ -135,7 +96,9 @@ export function Step2StaffAttendance({
   const actualStaffMap = useMemo(() => {
     const m: Record<string, { attended: boolean; type?: string }> = {};
     for (const a of staffAttendance) {
-      m[a.staffId] = { attended: a.attended, type: a.type };
+      if (a.attended === true || a.attended === false) {
+        m[a.staffId] = { attended: a.attended, type: a.type };
+      }
     }
     return m;
   }, [staffAttendance]);
@@ -157,19 +120,6 @@ export function Step2StaffAttendance({
     if (isClassStaffType(sessionsStaffType)) return sessionsStaffType;
     return 'SECONDARY_TUTOR';
   };
-
-  // Initialize form data if empty
-  useEffect(() => {
-    if (staffAttendance.length === 0 && staffProcessed.length > 0) {
-      const initialAttendance = staffProcessed.map((row) => ({
-        staffId: row.staff.id,
-        attended: !row.plannedAbsence,
-        type: resolveInitialType(row.staff.id, row.sessionsStaffType),
-      }));
-      onUpdate(initialAttendance);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [staffProcessed.length, currentStaffId, isCheckIn]);
 
   const handleAttendanceChange = (staffId: string, attended: boolean) => {
     const updated = staffAttendance.map((sa) =>
@@ -230,7 +180,6 @@ export function Step2StaffAttendance({
       queryClient.invalidateQueries({
         queryKey: [...sessionsKeys.detail(sessionId), 'forLogging'],
       });
-      handleAttendanceChange(staffId, true);
     }
     setShowAddStaff(false);
     setSearchTerm('');
@@ -277,7 +226,8 @@ export function Step2StaffAttendance({
             <TableBody>
               {staffProcessed.map((data) => {
                 const attendance = getStaffAttendance(data.staff.id);
-                const isAttended = attendance?.attended ?? !data.plannedAbsence;
+                const attendanceValue = attendance?.attended ?? null;
+                const isAttended = attendanceValue === true;
                 const type =
                   attendance?.type ?? resolveInitialType(data.staff.id, data.sessionsStaffType);
                 const selectedOption =
@@ -286,7 +236,7 @@ export function Step2StaffAttendance({
                 const actualCell = (
                   <div className="flex flex-wrap items-center gap-2 min-w-0">
                     <AttendanceToggle
-                      attended={isAttended}
+                      value={attendanceValue}
                       onChange={(next) => handleAttendanceChange(data.staff.id, next)}
                     />
                     {isAttended ? (

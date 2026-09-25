@@ -36,3 +36,4 @@ export * from "./session-billing/adjustment";
 // Client hooks and pay-tiers: import via subpaths `@altitutor/shared/hooks` and
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.
 export * from './ucat-founder-offers';
+export * from './tutor-log/attendance-form';

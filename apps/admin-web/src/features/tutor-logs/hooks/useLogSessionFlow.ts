@@ -10,7 +10,11 @@ import {
   getLogSessionTotalSteps,
   calculateInitialStep,
   canProceedToNextLogStep,
+  getLogSessionStepBlockers,
+  normalizeTutorLogFormDataForSubmit,
   resolveLogSessionWizardFlow,
+  type LogSessionAttendanceContext,
+  type LogSessionMemberLabels,
   type LogSessionWizardFlow,
 } from '../utils/logSessionHelpers';
 
@@ -57,6 +61,7 @@ export interface UseLogSessionFlowReturn {
   handleRemoveStaffFromSession: (staffId: string) => Promise<void>;
   handleRemoveStudentFromSession: (studentId: string) => Promise<void>;
   canGoNext: boolean;
+  stepBlockers: string[];
 }
 
 export function useLogSessionFlow({
@@ -87,6 +92,7 @@ export function useLogSessionFlow({
   );
   const [submissionState, setSubmissionState] = useState<SubmissionState>('idle');
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [stepBlockers, setStepBlockers] = useState<string[]>([]);
 
   const { data: selectedStaff } = useStaffById(selectedStaffId);
 
@@ -121,8 +127,11 @@ export function useLogSessionFlow({
       );
       return;
     }
-    const next = sessionParents.map((p) => ({ parentId: p.id, attended: false }));
-    setFormData((fd) => ({ ...fd, parentAttendance: next }));
+    const parentIds = new Set(sessionParents.map((p) => p.id));
+    setFormData((fd) => ({
+      ...fd,
+      parentAttendance: (fd.parentAttendance ?? []).filter((row) => parentIds.has(row.parentId)),
+    }));
   }, [selectedSession, sessionParents, sessionParentIdsKey]);
 
   useEffect(() => {
@@ -150,6 +159,7 @@ export function useLogSessionFlow({
       setFormData(initialSessionId ? { sessionId: initialSessionId } : {});
       setSubmissionState('idle');
       setSubmissionError(null);
+      setStepBlockers([]);
     }
   }, [isOpen, currentStaffId, initialSessionId, initialStaffId, initialStep]);
 
@@ -157,10 +167,61 @@ export function useLogSessionFlow({
     setFormData((prev) => ({ ...prev, ...updates }));
   }, []);
 
+  const attendanceContext = useMemo((): LogSessionAttendanceContext | undefined => {
+    if (!selectedSession) return undefined;
+    return {
+      staffIds: sessionStaff.map((s) => s.id),
+      studentIds: sessionStudents.map((s) => s.id),
+      parentIds: sessionParents.map((p) => p.id),
+      sessionType: selectedSession.type,
+    };
+  }, [selectedSession, sessionStaff, sessionStudents, sessionParents]);
+
+  const memberLabels = useMemo((): LogSessionMemberLabels => {
+    return {
+      staffNames: Object.fromEntries(
+        sessionStaff.map((s) => [s.id, `${s.first_name} ${s.last_name}`.trim()])
+      ),
+      studentNames: Object.fromEntries(
+        sessionStudents.map((s) => [s.id, `${s.first_name} ${s.last_name}`.trim()])
+      ),
+      parentNames: Object.fromEntries(
+        sessionParents.map((p) => [p.id, `${p.first_name} ${p.last_name}`.trim()])
+      ),
+    };
+  }, [sessionStaff, sessionStudents, sessionParents]);
+
+  useEffect(() => {
+    setStepBlockers([]);
+  }, [currentStep, formData, selectedStaffId]);
+
   const handleNext = useCallback(() => {
+    const blockers = getLogSessionStepBlockers(
+      currentStep,
+      !!adminMode,
+      wizardFlow,
+      formData,
+      selectedStaffId,
+      attendanceContext,
+      memberLabels
+    );
+    if (blockers.length > 0) {
+      setStepBlockers(blockers);
+      return;
+    }
+    setStepBlockers([]);
     if (currentStep >= totalSteps - 1) return;
     setCurrentStep(currentStep + 1);
-  }, [currentStep, totalSteps]);
+  }, [
+    currentStep,
+    totalSteps,
+    adminMode,
+    wizardFlow,
+    formData,
+    selectedStaffId,
+    attendanceContext,
+    memberLabels,
+  ]);
 
   const handlePrevious = useCallback(() => {
     if (currentStep <= 0) return;
@@ -170,14 +231,24 @@ export function useLogSessionFlow({
   const handleSubmit = useCallback(async () => {
     if (!formData.sessionId) return;
 
-    const base = {
-      ...(formData as TutorLogFormData),
-      parentAttendance: formData.parentAttendance ?? [],
-    };
-    const data: TutorLogFormData =
-      wizardFlow === 'meeting'
-        ? { ...base, topics: [], topicFiles: [] }
-        : base;
+    setStepBlockers([]);
+
+    let data: TutorLogFormData;
+    try {
+      const base = normalizeTutorLogFormDataForSubmit({
+        ...(formData as TutorLogFormData),
+        parentAttendance: formData.parentAttendance ?? [],
+      });
+      data =
+        wizardFlow === 'meeting'
+          ? { ...base, topics: [], topicFiles: [] }
+          : base;
+    } catch (error: unknown) {
+      setStepBlockers([
+        error instanceof Error ? error.message : 'Complete attendance before submitting.',
+      ]);
+      return;
+    }
 
     const submitPayload = { data, loggedForStaffId: selectedStaffId };
 
@@ -261,9 +332,10 @@ export function useLogSessionFlow({
       wizardFlow,
       formData,
       selectedStaffId,
-      selectedSession
+      selectedSession,
+      attendanceContext
     );
-  }, [currentStep, adminMode, wizardFlow, formData, selectedStaffId, selectedSession]);
+  }, [currentStep, adminMode, wizardFlow, formData, selectedStaffId, selectedSession, attendanceContext]);
 
   return {
     currentStep,
@@ -295,5 +367,6 @@ export function useLogSessionFlow({
     handleRemoveStaffFromSession,
     handleRemoveStudentFromSession,
     canGoNext,
+    stepBlockers,
   };
 }

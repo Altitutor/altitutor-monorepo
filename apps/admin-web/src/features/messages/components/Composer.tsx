@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, type ReactNode } from 'react';
 import { useSendMessage, useMarkRead } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
@@ -22,6 +22,7 @@ import { useContactClasses } from '../hooks/useContactClasses';
 import { useVariableReplacement } from '../hooks/useVariableReplacement';
 import { ComposerVariablesDropdown } from './ComposerVariablesDropdown';
 import { ComposerSenderSelector } from './ComposerSenderSelector';
+import { isMessageComposerSendShortcut } from '../utils/composerShortcut';
 
 interface Props {
   onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
@@ -36,6 +37,8 @@ interface Props {
   draft?: string;
   onDraftChange?: (draft: string) => void;
   onDraftClear?: () => void;
+  /** Sits immediately before the template button in the bottom toolbar. */
+  toolbarBeforeTemplate?: ReactNode;
 }
 
 export function Composer({
@@ -50,7 +53,8 @@ export function Composer({
   onBeforeSend,
   draft,
   onDraftChange,
-  onDraftClear
+  onDraftClear,
+  toolbarBeforeTemplate,
 }: Props) {
   // Use controlled draft if provided, otherwise fall back to internal state
   const [internalText, setInternalText] = useState('');
@@ -485,16 +489,13 @@ export function Composer({
               isDragging && isIMessageSender ? 'border-primary border-2' : ''
             }`}
             placeholder={isIMessageSender ? "Message (or drag files here)" : "Message"}
+            title="Enter for a new line. Command+Enter or Ctrl+Enter to send."
             value={text}
             onChange={(e) => handleTextChange(e.target.value)}
             onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
+              if (isMessageComposerSendShortcut(e)) {
                 e.preventDefault();
-                onSend();
-              }
-              // For SMS, prevent line breaks (Shift+Enter does nothing)
-              if (e.key === 'Enter' && e.shiftKey && !isIMessageSender) {
-                e.preventDefault();
+                void onSend();
               }
             }}
             rows={1}
@@ -514,6 +515,7 @@ export function Composer({
         <div ref={buttonRowRef} className="flex items-center justify-between gap-2 min-w-0">
           {/* Left side: Template, Attachments, Phone buttons */}
           <div className="flex items-center gap-2 flex-shrink min-w-0">
+            {toolbarBeforeTemplate}
             {/* Template button */}
             <div className="relative flex-shrink-0">
               <MessageTemplatesPicker 

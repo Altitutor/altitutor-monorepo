@@ -52,6 +52,9 @@ describe("student calendar feed", () => {
     );
     expect(unfoldedFeed).toContain("STATUS:CONFIRMED");
     expect(unfoldedFeed).toContain(
+      "LOCATION:Level 1 / 17A Solomon St\\, Adelaide SA 5000\\, Australia",
+    );
+    expect(unfoldedFeed).toContain(
       "https://student.altitutor.com/classes?session=55fceebe-f6a3-4fa8-af26-7407671e05cc",
     );
     expect(feed.endsWith("\r\n")).toBe(true);

@@ -1,15 +1,15 @@
-import type { Tables } from '@altitutor/shared';
+import type { Tables, TutorLogAttendanceChoice } from '@altitutor/shared';
 
 export type TutorLogFormData = {
   sessionId: string;
   staffAttendance: {
     staffId: string;
-    attended: boolean;
+    attended: TutorLogAttendanceChoice;
     type: 'MAIN_TUTOR' | 'SECONDARY_TUTOR' | 'TRIAL_TUTOR' | 'CHECK_IN_HOST' | 'CHECK_IN_RECEIVER';
   }[];
   studentAttendance: {
     studentId: string;
-    attended: boolean;
+    attended: TutorLogAttendanceChoice;
   }[];
   topics: {
     topicId: string;
