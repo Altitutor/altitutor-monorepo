@@ -22,15 +22,26 @@ export function SectionNavigation() {
       main.querySelectorAll<HTMLElement>("h1, h2"),
     ).filter(
       (heading) =>
-        !heading.closest('[role="dialog"], dialog, [aria-hidden="true"]'),
+        !heading.closest(
+          '[role="dialog"], dialog, [aria-hidden="true"], .marketing-product-ui',
+        ),
     );
     const seen = new Set<HTMLElement>();
     const targets = headings.flatMap((heading, index) => {
       const target = heading.closest<HTMLElement>("section") ?? heading;
-      // Legal pages have multiple headings inside one section.
-      const element = seen.has(target) ? heading : target;
+      const eyebrow = heading.previousElementSibling;
+      const eyebrowLabel =
+        eyebrow instanceof HTMLElement && eyebrow.tagName === "P"
+          ? eyebrow.textContent?.replace(/\s+/g, " ").trim()
+          : "";
+      const alreadySeen = seen.has(target);
       seen.add(target);
-      const label = heading.textContent?.replace(/\s+/g, " ").trim();
+      if (alreadySeen && !eyebrowLabel) return [];
+      const element = alreadySeen ? heading : target;
+      const label =
+        (!alreadySeen ? element.dataset.navLabel : "")?.replace(/\s+/g, " ").trim() ||
+        eyebrowLabel ||
+        heading.textContent?.replace(/\s+/g, " ").trim();
       if (!label) return [];
       if (!element.id) element.id = `section-${index + 1}`;
       return [{ element, id: element.id, label }];

@@ -43,8 +43,8 @@ export const ONLINE_COURSES = [
 ] as const;
 
 export const COURSE_LINKS = [
-  ["/classes/", "All in person courses"],
   ...IN_PERSON_COURSES,
+  ["/classes/", "All in person courses"],
 ] as const;
 
 export const NAV_ITEMS = [

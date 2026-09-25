@@ -45,13 +45,10 @@ export function SiteFrame({ children }: { children: ReactNode }) {
               altitutor.
             </Link>
             <p>
+              <HeartHandshake size={22} aria-hidden="true" />
               A mission-driven non-profit providing accessible education for all
               students.
             </p>
-            <span className={styles.footerMission}>
-              <HeartHandshake size={18} aria-hidden="true" /> Not-for-profit.
-              For our students.
-            </span>
           </div>
           <div>
             <h2>In person courses</h2>
@@ -60,15 +57,13 @@ export function SiteFrame({ children }: { children: ReactNode }) {
                 {label}
               </Link>
             ))}
-          </div>
-          <div>
             <h2>Online courses</h2>
-            <Link href="/online-courses/">All online courses</Link>
             {ONLINE_COURSES.map(([href, label]) => (
               <Link href={href} key={href}>
                 {label}
               </Link>
             ))}
+            <Link href="/online-courses/">All online courses</Link>
             <Link href={PRODUCT_LINKS.studentLogin}>
               Student sign in <ArrowUpRight size={13} aria-hidden="true" />
             </Link>
@@ -99,7 +94,14 @@ export function SiteFrame({ children }: { children: ReactNode }) {
           </div>
           <div className={styles.socialLinks}>
             {socialLinks.map(([label, href, Icon]) => (
-              <a href={href} key={label} aria-label={label} title={label}>
+              <a
+                href={href}
+                key={label}
+                aria-label={label}
+                title={label}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Icon size={18} aria-hidden="true" />
               </a>
             ))}

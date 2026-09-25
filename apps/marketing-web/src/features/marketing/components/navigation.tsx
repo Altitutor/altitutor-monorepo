@@ -32,7 +32,7 @@ const links = [
 const courseDetails = {
   "/classes/weekly-classes/": {
     icon: BookOpen,
-    description: "Build understanding, week by week.",
+    description: "Mathematics, Science, English. SACE and IB. Y1-12.",
   },
   "/classes/examprep/": {
     icon: ListChecks,
@@ -113,6 +113,9 @@ export function Navigation() {
     return () => document.removeEventListener("pointerdown", dismiss);
   }, [dropdown]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuClosing, setMenuClosing] = useState(false);
+  const menuOpenRef = useRef(false);
+  menuOpenRef.current = menuOpen;
   const [scrolled, setScrolled] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
 
@@ -126,6 +129,28 @@ export function Navigation() {
   useEffect(() => {
     setMenuOpen(false);
   }, [pathname]);
+
+  useEffect(() => {
+    const mobile = window.matchMedia("(max-width: 800px)");
+    let timer = 0;
+    const closeIfDesktop = () => {
+      if (mobile.matches || !menuOpenRef.current) return;
+      menuOpenRef.current = false;
+      setMenuClosing(true);
+      requestAnimationFrame(() => {
+        setMenuOpen(false);
+        window.clearTimeout(timer);
+        timer = window.setTimeout(() => setMenuClosing(false), 420);
+      });
+    };
+    mobile.addEventListener("change", closeIfDesktop);
+    window.addEventListener("resize", closeIfDesktop);
+    return () => {
+      mobile.removeEventListener("change", closeIfDesktop);
+      window.removeEventListener("resize", closeIfDesktop);
+      window.clearTimeout(timer);
+    };
+  }, []);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -143,10 +168,6 @@ export function Navigation() {
     siblings.forEach((node) => {
       node.inert = true;
     });
-    const desktop = window.matchMedia("(min-width: 801px)");
-    const dismiss = () => {
-      if (desktop.matches) setMenuOpen(false);
-    };
     const outside = (event: PointerEvent) => {
       if (
         event.target instanceof Node &&
@@ -154,14 +175,12 @@ export function Navigation() {
       )
         closeMenu();
     };
-    desktop.addEventListener("change", dismiss);
     document.addEventListener("pointerdown", outside);
     return () => {
       document.body.style.overflow = previousOverflow;
       siblings.forEach((node, index) => {
         node.inert = previousInert[index];
       });
-      desktop.removeEventListener("change", dismiss);
       document.removeEventListener("pointerdown", outside);
     };
   }, [menuOpen]);
@@ -176,6 +195,9 @@ export function Navigation() {
       <a href="#main-content" className={styles.skipLink}>
         Skip to content
       </a>
+      {menuOpen || menuClosing ? (
+        <div className={styles.menuBackdrop} data-open={menuOpen} />
+      ) : null}
       <header
         ref={header}
         onPointerLeave={() => {
@@ -221,7 +243,8 @@ export function Navigation() {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null))
             setDropdown(null);
         }}
-        className={`${styles.navigation} ${scrolled ? styles.navigationScrolled : pathname === "/" ? styles.navigationOverHero : ""} ${menuOpen || dropdown ? styles.navigationExpanded : ""}`}
+        className={`${styles.navigation} ${scrolled ? styles.navigationScrolled : pathname === "/" ? styles.navigationOverHero : ""} ${menuOpen || menuClosing || dropdown ? styles.navigationExpanded : ""}`}
+        data-menu-closing={menuClosing || undefined}
       >
         <div className={styles.navigationRow}>
           <Link href="/" className={styles.brand} aria-label="Altitutor home">
@@ -315,26 +338,6 @@ export function Navigation() {
               aria-label={group.label}
               className={styles.courseCards}
             >
-              <Link
-                href={group.href}
-                className={`${styles.courseMenuCard} ${styles.allCoursesCard}`}
-                onClick={() => setDropdown(null)}
-              >
-                <GraduationCap size={24} aria-hidden="true" />
-                <span className={styles.courseCardTitle}>
-                  All {group.label.toLowerCase()}
-                </span>
-                <span className={styles.courseCardDescription}>
-                  {selectedGroup === 0
-                    ? "Find your next step in Adelaide."
-                    : "Find your way to learn online."}
-                </span>
-                <ArrowUpRight
-                  className={styles.courseCardArrow}
-                  size={17}
-                  aria-hidden="true"
-                />
-              </Link>
               {group.items.map(([href, title]) => {
                 const { icon: Icon, description } = courseDetails[href];
                 return (
@@ -357,12 +360,33 @@ export function Navigation() {
                   </Link>
                 );
               })}
+              <Link
+                href={group.href}
+                className={`${styles.courseMenuCard} ${styles.allCoursesCard}`}
+                onClick={() => setDropdown(null)}
+              >
+                <GraduationCap size={24} aria-hidden="true" />
+                <span className={styles.courseCardTitle}>
+                  All {group.label.toLowerCase()}
+                </span>
+                <span className={styles.courseCardDescription}>
+                  {selectedGroup === 0
+                    ? "Find your next step in Adelaide."
+                    : "Find your way to learn online."}
+                </span>
+                <ArrowUpRight
+                  className={styles.courseCardArrow}
+                  size={17}
+                  aria-hidden="true"
+                />
+              </Link>
             </nav>
           </div>
         </div>
         <div
           className={styles.mobileExpansion}
           data-open={menuOpen}
+          data-closing={menuClosing || undefined}
           ref={(node) => {
             if (node) node.inert = !menuOpen;
           }}

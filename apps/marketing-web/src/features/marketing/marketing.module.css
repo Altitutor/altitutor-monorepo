@@ -277,6 +277,9 @@
   border-bottom: 1px solid #0a294124;
   font-size: 1.35rem;
 }
+.mobileMenu nav > a:last-child {
+  border-bottom: 0;
+}
 .skipLink {
   position: fixed;
   top: -90px;
@@ -575,7 +578,7 @@
 }
 .footerTop {
   display: grid;
-  grid-template-columns: 1.25fr 1fr 1fr 1fr;
+  grid-template-columns: 1.25fr 1fr 1fr;
   gap: 36px;
 }
 .footerBrand {
@@ -585,9 +588,16 @@
   letter-spacing: -0.07em;
 }
 .footerTop > div > p {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
   font-size: 1.3rem;
   line-height: 1.5;
   margin-top: 20px;
+}
+.footerTop > div > p svg {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
 }
 .footerTop h2 {
   font-family: var(--marketing-font-label);
@@ -612,13 +622,9 @@
   font-size: 0.85rem;
   color: #b6c9d3;
 }
-.footerMission {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  font-size: 0.78rem;
-  color: #b4cbd5;
-  margin-top: 28px;
+.footerTop h2 + h2,
+.footerTop h2:not(:first-child) {
+  margin-top: 36px;
 }
 .footerBottom {
   display: flex;
@@ -1429,9 +1435,6 @@
   .footerTop > div:first-child {
     grid-column: 1 / -1;
   }
-  .footerMission {
-    margin-top: 15px;
-  }
 }
 @media (max-width: 520px) {
   .container {
@@ -1614,7 +1617,15 @@
   color: #c4e1e8;
 }
 .mountainHero .lede {
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 10px;
   color: #f2f0e9e6;
+}
+.mountainHero .lede svg {
+  flex: 0 0 auto;
+  margin-top: 0.2em;
 }
 .mountainHero .eyebrow {
   color: #d1e0e4;
@@ -1685,7 +1696,6 @@
   color: var(--primary);
 }
 .homeStats strong span {
-  color: #709baa;
   font-size: 0.65em;
 }
 .homeStats p {
@@ -1708,18 +1718,15 @@
   color: #c4e1e8;
 }
 .socialLinks a {
-  width: 38px;
-  height: 38px;
   display: grid;
   place-items: center;
-  border: 1px solid #ffffff25;
-  border-radius: 50%;
+  color: inherit;
   transition:
     transform 0.2s,
-    background 0.2s;
+    opacity 0.2s;
 }
 .socialLinks a:hover {
-  background: #ffffff15;
+  opacity: 0.72;
   transform: translateY(-3px);
 }
 .footerBottom .socialLinks {
@@ -1823,9 +1830,6 @@
   .desktopLinks {
     gap: 16px;
   }
-  .footerTop {
-    grid-template-columns: repeat(2, 1fr);
-  }
 }
 @media (max-width: 540px) {
   .footerTop {
@@ -1840,8 +1844,49 @@
   gap: 24px;
   width: 100%;
 }
+.menuBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 45%);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.menuBackdrop[data-open="true"] {
+  opacity: 1;
+  animation: menuBackdropIn 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@keyframes menuBackdropIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .mobileExpansion {
   display: none;
+}
+.mobileExpansion[data-open="true"],
+.mobileExpansion[data-closing="true"] {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 420ms;
+}
+.mobileExpansion[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+  transition:
+    grid-template-rows 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 0s linear 0s;
+}
+.mobileMenu {
+  min-height: 0;
+  overflow: hidden;
 }
 @media (max-width: 800px) {
   .navigation {
@@ -1872,19 +1917,17 @@
     grid-template-rows: 1fr;
     visibility: visible;
   }
-  .mobileMenu {
-    min-height: 0;
-    overflow: hidden;
-  }
   .mobileMenu nav {
     max-height: calc(100dvh - 140px);
     overflow-y: auto;
-    margin: 14px 0 16px;
+    margin: 14px 0 6px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .mobileExpansion {
+  .mobileExpansion,
+  .menuBackdrop {
     transition: none;
+    animation: none;
   }
 }
 
@@ -1896,6 +1939,19 @@
   }
   .navigationRow {
     min-height: 44px;
+  }
+  .navigation[data-menu-closing] {
+    top: 16px;
+    min-height: 60px;
+    width: calc(100% - 32px);
+    padding: 8px 16px;
+    border-radius: 30px;
+  }
+  .navigation[data-menu-closing] .desktopLinks {
+    display: none;
+  }
+  .navigation[data-menu-closing] .menuButton {
+    display: inline-flex;
   }
 }
 .navigationExpanded {

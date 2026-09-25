@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, HeartHandshake } from "lucide-react";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content } from "../content";
 import {
@@ -51,6 +51,7 @@ export function HomePage() {
     <>
       <section
         className={`${styles.hero} ${styles.centerHero} ${styles.mountainHero}`}
+        data-nav-label="Altitutor"
       >
         <div className={styles.mountainBackdrop}>
           <Image
@@ -64,14 +65,14 @@ export function HomePage() {
         </div>
         <div className={styles.container}>
           <Link href="/ucat/" className={styles.announcement}>
-            <span>Explore</span> Meet Altitutor UCAT online{" "}
+            <span>New</span> Meet Altitutor UCAT online{" "}
             <ArrowRight size={15} aria-hidden="true" />
           </Link>
-          <Eyebrow>Adelaide tutoring · Year 1–12 · SACE · IB · UCAT</Eyebrow>
           <h1>
-            Want better results?<em>We can help.</em>
+            Want better results?<em>Altitutor can help.</em>
           </h1>
           <p className={styles.lede}>
+            <HeartHandshake size={22} aria-hidden="true" />
             A mission-driven non-profit providing accessible education for all
             students.
           </p>
@@ -118,8 +119,9 @@ export function HomePage() {
       <section
         id="find-your-course"
         className={`${styles.container} ${styles.section}`}
+        data-nav-label="Courses"
       >
-        <SectionTitle eyebrow="Find your way forward">
+        <SectionTitle eyebrow="Courses">
           A little support.
           <br />
           <em>A lot of possibility.</em>
@@ -150,10 +152,10 @@ export function HomePage() {
           <ArrowRight size={17} aria-hidden="true" />
         </Link>
       </section>
-      <section className={styles.mission}>
+      <section className={styles.mission} data-nav-label="Our mission">
         <div className={`${styles.container} ${styles.split}`}>
           <div className={styles.sectionHeading}>
-            <Eyebrow>Education with a purpose</Eyebrow>
+            <Eyebrow>Our mission</Eyebrow>
             <h2>
               A different way
               <br />
@@ -166,9 +168,12 @@ export function HomePage() {
           <Copy block={home("18f6dd8")} />
         </div>
       </section>
-      <section className={`${styles.container} ${styles.section}`}>
+      <section
+        className={`${styles.container} ${styles.section}`}
+        data-nav-label="Why choose us"
+      >
         <div className={styles.split}>
-          <SectionTitle eyebrow="More than your weekly lesson">
+          <SectionTitle eyebrow="Why choose us">
             Good teaching.
             <br />
             <em>Support around it.</em>
@@ -183,6 +188,7 @@ export function HomePage() {
       <section
         id="how-it-works"
         className={`${styles.processSection} ${styles.section}`}
+        data-nav-label="How it works"
       >
         <div className={`${styles.container} ${styles.split}`}>
           <div className={styles.processIntro}>
@@ -217,7 +223,10 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      <section className={`${styles.container} ${styles.section}`}>
+      <section
+        className={`${styles.container} ${styles.section}`}
+        data-nav-label="Student stories"
+      >
         <SectionTitle eyebrow="Student stories">
           See what our students
           <br />
@@ -246,7 +255,7 @@ export function HomePage() {
           <ArrowRight size={17} aria-hidden="true" />
         </Link>
       </section>
-      <TrialCTA />
+      <TrialCTA eyebrow="Free trial session" />
     </>
   );
 }
