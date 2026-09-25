@@ -1,0 +1,185 @@
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Plus } from "lucide-react";
+import type { ReactNode } from "react";
+import type { ContentBlock, ContentItem } from "../content";
+import { PRODUCT_LINKS } from "@/lib/site";
+import styles from "../marketing.module.css";
+
+export function Copy({
+  block,
+  html,
+  className = "",
+}: {
+  block?: ContentBlock;
+  html?: string;
+  className?: string;
+}) {
+  // Only the checked-in, allowlisted production content extractor supplies HTML.
+  return (
+    <div
+      className={`${styles.copy} ${className}`}
+      dangerouslySetInnerHTML={{ __html: html ?? block?.html ?? "" }}
+    />
+  );
+}
+
+export function Eyebrow({ children }: { children: ReactNode }) {
+  return <p className={styles.eyebrow}>{children}</p>;
+}
+
+export function Button({
+  href,
+  children,
+  secondary = false,
+}: {
+  href: string;
+  children: ReactNode;
+  secondary?: boolean;
+}) {
+  return (
+    <Link
+      href={href}
+      className={`${styles.button} ${secondary ? styles.secondaryButton : ""}`}
+    >
+      {children}
+      <ArrowRight size={17} aria-hidden="true" />
+    </Link>
+  );
+}
+
+export function SectionTitle({
+  eyebrow,
+  children,
+}: {
+  eyebrow: string;
+  children: ReactNode;
+}) {
+  return (
+    <div className={styles.sectionHeading}>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2>{children}</h2>
+    </div>
+  );
+}
+
+export function ContentCard({
+  block,
+  number,
+}: {
+  block: ContentBlock;
+  number?: number;
+}) {
+  return (
+    <article className={styles.contentCard}>
+      {number !== undefined ? (
+        <span className={styles.number}>{String(number).padStart(2, "0")}</span>
+      ) : null}
+      <h3>{block.title}</h3>
+      <Copy block={block} />
+    </article>
+  );
+}
+
+export function ResourceImage({
+  src,
+  alt,
+  priority = false,
+  className = "",
+}: {
+  src: string;
+  alt: string;
+  priority?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={`${styles.resourceImage} ${className}`}>
+      <Image
+        src={src}
+        alt={alt}
+        width={900}
+        height={760}
+        sizes="(max-width: 700px) 90vw, 45vw"
+        priority={priority}
+      />
+    </div>
+  );
+}
+
+export function Questions({ items }: { items: ContentItem[] }) {
+  return (
+    <div className={styles.questions}>
+      {items.map((item) => (
+        <details key={item.title}>
+          <summary>
+            {item.title}
+            <Plus size={20} aria-hidden="true" />
+          </summary>
+          <Copy html={item.html} />
+        </details>
+      ))}
+    </div>
+  );
+}
+
+export function Quotes({ items }: { items: ContentItem[] }) {
+  return (
+    <div className={styles.quotes}>
+      {items.map((item, index) => (
+        <figure key={`${item.title}-${index}`} className={styles.quote}>
+          <span className={styles.quoteMark} aria-hidden="true">
+            “
+          </span>
+          <blockquote>
+            <Copy html={item.html} />
+          </blockquote>
+          <figcaption>
+            <span className={styles.avatar} aria-hidden="true">
+              {item.title.charAt(0)}
+            </span>
+            <div>
+              <strong>{item.title}</strong>
+              <span>{item.role}</span>
+            </div>
+          </figcaption>
+        </figure>
+      ))}
+    </div>
+  );
+}
+
+export function TrialCTA() {
+  return (
+    <section className={styles.cta}>
+      <Eyebrow>Your next step</Eyebrow>
+      <h2>
+        Start with a conversation.
+        <br />
+        <em>Find your way forward.</em>
+      </h2>
+      <p>
+        Meet your tutor, ask questions and try a lesson. Your first trial
+        session is free.
+      </p>
+      <div className={styles.actions}>
+        <Button href={PRODUCT_LINKS.trialBooking}>Book a free trial</Button>
+        <Button href="/classes/" secondary>
+          Explore our courses
+        </Button>
+      </div>
+    </section>
+  );
+}
+
+export function PageLinks({ links }: { links: Array<[string, string]> }) {
+  return (
+    <nav className={styles.pageLinks} aria-label="On this page">
+      {links.map(([href, label]) => (
+        <a key={href} href={href}>
+          {label}
+          <span aria-hidden="true">↗</span>
+        </a>
+      ))}
+    </nav>
+  );
+}

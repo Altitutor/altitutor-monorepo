@@ -1,5 +1,6 @@
 module.exports = {
-  extends: ["next/core-web-vitals"],
+  root: true,
+  extends: ["../../.eslintrc.js"],
   env: {
     jest: true,
   },

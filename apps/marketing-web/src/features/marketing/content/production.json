@@ -1,0 +1,3422 @@
+{
+  "/terms-of-service/": [],
+  "/activate/": [],
+  "/new-tutor-registration/": [
+    {
+      "id": "ef7bd52",
+      "kind": "heading",
+      "title": "NEW TUTOR REGISTRATION"
+    }
+  ],
+  "/classes/english-assignment-drafting/": [
+    {
+      "id": "2a09c38",
+      "kind": "heading",
+      "title": "Y11-12 ENGLISH DRAFTING"
+    },
+    {
+      "id": "5003d9e",
+      "kind": "text-editor",
+      "html": "<p>Whether you’re stuck on <strong>writing your assignment</strong> or want <strong>drafting</strong>, we can help.</p><p>Designed to improve the coherence, fluency and analysis of your writing. This drafting service allows you to obtain extensive and comprehensive feedback on your assignments from high-achieving tutors. </p>"
+    },
+    {
+      "id": "cd717f6",
+      "kind": "icon-list",
+      "html": "<ul><li><b>When:</b> At the date and time of your choice</li><li><b>Where:</b> Altitutor; Level 1, 17A Solomon St, Adelaide SA 5000</li><li><b>Cost:</b> $50/hr, which equates to $75 for a 90 minute session</li></ul>"
+    },
+    {
+      "id": "541d4f9",
+      "kind": "button",
+      "title": "More info",
+      "href": "#More_info"
+    },
+    {
+      "id": "68cf7de",
+      "kind": "button",
+      "title": "Book a trial session",
+      "href": "#book-trial"
+    },
+    {
+      "id": "f71c087",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-EngLit-notes-4-768x1092.png",
+      "alt": ""
+    },
+    {
+      "id": "e940357",
+      "kind": "heading",
+      "title": "Why draft with us?"
+    },
+    {
+      "id": "dbb3971",
+      "kind": "icon-box",
+      "title": "Experienced tutors",
+      "html": "<p> Our tutors achieved top grades in their assessments, and know how you can too! </p>"
+    },
+    {
+      "id": "dbcc2b6",
+      "kind": "icon-box",
+      "title": "Comprehensive writing guides",
+      "html": "<p> Don't know how to structure your assignment? Don't worry, we've got you. We have a range of comprehensive writing guides for each type of assessment. </p>"
+    },
+    {
+      "id": "23ecdac",
+      "kind": "icon-box",
+      "title": "Multiple revisions",
+      "html": "<p> We understand that it is difficult to write strong and engaging essays. We offer multiple revisions on your work so that you can achieve the best possible outcome. </p>"
+    },
+    {
+      "id": "d08eac7",
+      "kind": "icon-box",
+      "title": "Help writing or drafting",
+      "html": "<p> If you haven't yet finished your assignment, one of our tutors can sit with you and help you write. If you've already finished and want help getting the best grade you possibly can, one of our tutors will sit with you and suggest improvements. </p>"
+    },
+    {
+      "id": "ef83a4d",
+      "kind": "heading",
+      "title": "Course information"
+    },
+    {
+      "id": "66394ca",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=altitutor&t=m&z=16&output=embed&iwloc=near"
+    },
+    {
+      "id": "c98a4c6",
+      "kind": "text-editor",
+      "html": "<h3><strong>Location</strong></h3> <p>Sessions will take place at the <b>Altitutor office</b>, which is located on <b>Level 1, 17A Solomon St Adelaide SA 5000</b></p>"
+    },
+    {
+      "id": "190249b",
+      "kind": "icon-box",
+      "title": "Cancellations",
+      "html": "<p> If you <b>can't make it </b>to a session for any reason, simply <b>let us know</b> <i>at least 24 hours</i> <i>before</i> the session. We <b><i>don't charge</i></b> any <b>late or cancellation fees</b> if the absence is informed at <i>least 24 hours before the session</i>, or in the case or <b>medical</b> or <b>family emergency</b>. </p>"
+    },
+    {
+      "id": "855fce7",
+      "kind": "icon-box",
+      "title": "Subjects covered",
+      "html": "<p> SACE English Literary Studies<br /> SACE English <br /> SACE Essential English <br /> SACE English as an Additional Language <br /> </p>"
+    },
+    {
+      "id": "e263351",
+      "kind": "icon-box",
+      "title": "Cost",
+      "html": "<p> Our session cost is $50/hr, which is equivalent to $75 for each 90 minute session. This will be billed while booking your drafting session. <br /> <br /> If you cannot afford these fees, we provide subsidies for students in disadvantaged circumstances, so they can study for free or a reduced fee.<a href=\"/about/subsidy/\"> Click here to find out more and apply.</a> </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "dd9a759",
+      "kind": "heading",
+      "title": "Our method"
+    },
+    {
+      "id": "cad668a",
+      "kind": "icon-box",
+      "title": "Email your draft",
+      "html": "<p> In order to maximise our time during the sessions, it would be best that you email your draft, alongside the assignment's task sheet, at least a day beforehand. </p>"
+    },
+    {
+      "id": "c50bcf5",
+      "kind": "icon-box",
+      "title": "Tutor will review it",
+      "html": "<p> Before the session, the tutor will review your work and make detailed feedback, ready to discuss with you. </p>"
+    },
+    {
+      "id": "152a653",
+      "kind": "icon-box",
+      "title": "During the session",
+      "html": "<p> During the session, the tutor sits with you and reads over your work. Then, they will discuss ways on how to improve the quality of your work. Tutors will make grammatical corrections and discuss ways on how to improve the organisation, fluency, substance and analysis of your writing. </p>"
+    },
+    {
+      "id": "8fd662e",
+      "kind": "heading",
+      "title": "Our resources"
+    },
+    {
+      "id": "30cfe76",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-EngLit-notes-4-600x853.png",
+      "alt": "SACE EngLit notes 4"
+    },
+    {
+      "id": "9aeb65a",
+      "kind": "text-editor",
+      "html": "<h3><strong>Assignment guides</strong></h3><p>Our guides take you through <strong>each sentence</strong> of your assignment, show you <strong>what to write</strong>, and give <strong>example sentences</strong> and <strong>wording</strong> for you to use. </p>"
+    },
+    {
+      "id": "670d491",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-EngLit-notes-4-768x1092.png",
+      "alt": ""
+    },
+    {
+      "id": "eb7744c",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-EngLit-draft-1-600x589.png",
+      "alt": "SACE EngLit draft 1"
+    },
+    {
+      "id": "acf91d0",
+      "kind": "text-editor",
+      "html": "<h3><strong>Assignment drafts</strong></h3><p>Each comprehensive <strong>assignment draft</strong> includes <strong>comments</strong> about every sentence which needs to be changed to <strong>improve its quality </strong>(and hence your grade!). Drafts also come with a <strong>checklist</strong> of what to <strong>add, change</strong> and <strong>keep</strong> from your <strong>assignment,</strong> so you know <strong>exactly what to do</strong>.</p>"
+    },
+    {
+      "id": "15732c2",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-EngLit-draft-1-768x754.png",
+      "alt": ""
+    },
+    {
+      "id": "f4b6a37",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-English-LIt-Exemplar-600x851.png",
+      "alt": "SACE English LIt Exemplar"
+    },
+    {
+      "id": "b439e20",
+      "kind": "text-editor",
+      "html": "<h3><strong>Assignment exemplars</strong></h3><p>Each draft comes with an <strong>exemplar</strong> of a <strong>similar assignment</strong>, which has itself received an <strong>A+ grade</strong> when it was <strong>submitted</strong>.</p>"
+    },
+    {
+      "id": "de46fa8",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-English-LIt-Exemplar-768x1089.png",
+      "alt": ""
+    },
+    {
+      "id": "e908cf0",
+      "kind": "heading",
+      "title": "See what our students have to say"
+    },
+    {
+      "id": "692f315",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Emily",
+          "html": "“Samantha was amazing throughout the year. She really sat down and took the time to thoroughly go through all my work with her to make sure everything was perfect, and it really paid off!”",
+          "role": "Student, General English"
+        },
+        {
+          "title": "Sophie",
+          "html": "“Samantha was always clear with her feedback and what needed to be changed, was very thorough with english drafting and was very quick as well”",
+          "role": "Student, General English"
+        },
+        {
+          "title": "Neha",
+          "html": "“Samantha basically saved my entire English external essay 😅 Even though I only had one lesson with her, she helped me so much in improving my essay to an A+ standard. She was very knowledgeable in the area and explained her critique of my work well so I was able to understand ways in which my text was lacking. Her feedback was a lot better and detailed than my teachers.”",
+          "role": "Student, General English"
+        },
+        {
+          "title": "Anonymous",
+          "html": "I had an amazing experience with Samantha as my tutor for English as an Additional Language. Every lesson she sat with me and patiently explained new vocabularies and more complex sentence structures, which helped me learn a lot and speak English with greater confidence. Not only did my grades improve significantly, but I also gained valuable writing and speaking skills. Samantha is a very kind-hearted and supportive tutor who even takes extra time to discuss my career goals and help me achieve my personal best. I am incredibly grateful for her guidance throughout the year!",
+          "role": "Student, English as an Additional Language"
+        },
+        {
+          "title": "Anonymous",
+          "html": "I found Samantha's assistance really helpful, and her explanations were clear and insightful. She was excellent at addressing my questions directly and gave me useful feedback that improved my work. One area for improvement could be that one time where the drafting viewpoint was not what I initially asked for, however, she was wonderful to respond so quickly and draft it again for me the way in wish I wanted. Thanks for your support!",
+          "role": "Student, English General"
+        },
+        {
+          "title": "Anonymous",
+          "html": "Very supportive and creative. Sessions are always so productive and she assists me in creating timelines to effectively complete work as well.",
+          "role": "Student, English General"
+        }
+      ]
+    },
+    {
+      "id": "dc13f06",
+      "kind": "heading",
+      "title": "How to get started"
+    },
+    {
+      "id": "883dc8f",
+      "kind": "text-editor",
+      "html": "<p>We offer a <strong>free 1-on-1 trial</strong> <strong>session</strong> with one of our tutors <em>before</em> your first <strong>draft,</strong> so you can <strong>ask us any questions</strong> about our program or<strong> how things work</strong>.</p><p>If you decide to register with us after the trial session, you will receive an <strong>online account</strong> which you can use to <strong>book drafting sessions</strong>.</p>"
+    },
+    {
+      "id": "4f6c016",
+      "kind": "text-editor",
+      "html": "<p>Once you’ve registered following the trial session, here’s how it works:</p> <ol> <li><strong>Book</strong> a <strong>drafting time</strong> using the <strong>booking tool</strong> below</li> <li>You will receive an <strong>email</strong> and <strong>text confirmation</strong> of the <strong>time</strong> when we receive and process your booking</li> <li><em>Before</em> the date of the session, <strong>email</strong> your draft and the task sheet of your assessment to <strong>english@altitutor.com</strong> so our <strong>English tutors</strong> can have a look at it <em>before</em> seeing you </li> <li>Come to <strong>Altitutor</strong> (Level 1, 17A Solomon St Adelaide SA 5000) at the time of your session, and our <strong>English tutors</strong> will sit with you to either <strong>help you write your assignment</strong>, or <strong>draft your assignment</strong> which has already been written</li> </ol>"
+    },
+    {
+      "id": "b580283",
+      "kind": "heading",
+      "title": "Interested? Book a free trial session now."
+    },
+    {
+      "id": "df36a77",
+      "kind": "button",
+      "title": "Book now",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    }
+  ],
+  "/new-admin-registration/": [],
+  "/classes/medical-interview-preparation/": [
+    {
+      "id": "b668a14",
+      "kind": "heading",
+      "title": "MEDICINE INTERVIEW COURSE"
+    },
+    {
+      "id": "8c99759",
+      "kind": "text-editor",
+      "html": "<p>Our interview preparation course covers the <b>whole process of the medical interview</b>, from <b>question approach</b> to <b>professional presentation</b>. Our course was developed with guidance from <b>actual interviewers</b> working for the University of Adelaide, and includes <b>real interview scenarios</b> and plenty of <b>practice interviews.</b></p>"
+    },
+    {
+      "id": "6daec7d",
+      "kind": "icon-list",
+      "html": "<ul><li><b>Duration:</b> <b>8:30 AM to 12:30 PM (Morning Session), 1:30 PM to 5:30 PM (Afternoon Session)</b><br />Daily from the 16th of November to the 24th of November</li><li><b>Where:</b> Altitutor; Level 1, 17A Solomon St, Adelaide SA 5000</li><li><b>Cost:</b> $40/hr, which equates to $160/day.</li></ul>"
+    },
+    {
+      "id": "ad90586",
+      "kind": "button",
+      "title": "More info",
+      "href": "#More-info"
+    },
+    {
+      "id": "695d172",
+      "kind": "button",
+      "title": "Enrol",
+      "href": "#enrol"
+    },
+    {
+      "id": "c92423f",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Pre-course-prep-1-768x1097.png",
+      "alt": ""
+    },
+    {
+      "id": "b430c45",
+      "kind": "heading",
+      "title": "Why study with us?"
+    },
+    {
+      "id": "c2e44ca",
+      "kind": "icon-box",
+      "title": "Talks and interviews from real doctors",
+      "html": "<p> Part of the interview involves knowing <b>what doctors do</b> on a day-to-day basis. That's why we have different <b>doctors</b> coming in to share their<b> experiences</b>, and <b>personal tips</b> to perform well in the interview. </p>"
+    },
+    {
+      "id": "551e94a",
+      "kind": "icon-box",
+      "title": "11 Mock interviews",
+      "html": "<p> <i><b>Each day </b></i>of the course, every student participates in a <b>full length mock interview</b>. You are then given <b>individual</b>, 1-on-1 <b>feedback</b> with the examiners for how you answered each question and <b>how to improve</b>. </p>"
+    },
+    {
+      "id": "24d5a4e",
+      "kind": "icon-box",
+      "title": "Support for all students",
+      "html": "<p> We hate how<b> lucrative</b> medicine interview tutoring is. If the only thing restricting you from joining our course is the cost, <b>let us know</b> and we'll <b>subsidise</b> either part or all of the cost for you. <a href=\"/about/subsidy/\">Click here to find out more about our subsidy program.</a> </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "1e6719f",
+      "kind": "icon-box",
+      "title": "Tutors you can trust",
+      "html": "<p> All of our <b>medicine interview tutors</b> are either currently studying in medical school or working as a doctor, meaning we know the questions and interview process <b>back to front. </b></p>"
+    },
+    {
+      "id": "548a205",
+      "kind": "icon-box",
+      "title": "Personalised focus on improving YOUR answers",
+      "html": "<p> Before the course starts, we give you a document which outlines the entire interview process and all question types, allowing you to think about your answers beforehand. The course focuses on refining and improving your answers until you're ready for the real interview. </p>"
+    },
+    {
+      "id": "21e3183",
+      "kind": "icon-box",
+      "title": "Supporting a good cause",
+      "html": "<p> Our medicine interview course is <b><i>completely</i> not-for-profit</b>, meaning that <b>all money</b> we have left after paying tutors and resources is <b>donated to a charity</b> which the students choose at the end of the programme. <a href=\"/about/\">Click here to find out more about the charities we support.</a> </p>",
+      "href": "/about/"
+    },
+    {
+      "id": "7267cdd",
+      "kind": "heading",
+      "title": "Course information"
+    },
+    {
+      "id": "0a7c600",
+      "kind": "icon-box",
+      "title": "Cost",
+      "html": "<p> Our medicine interview sessions <b>cost</b> $40/hr, which is equivalent to $160 for each day (4 hour sessions). This will be <b>billed in advance</b> with an <b>invoice</b> added to your <b>Altitutor account</b>, to be paid via credit card or direct debit. <br /><br /> If you <b>cannot afford</b> these fees, we provide <b>subsidies</b> for students in <b>disadvantaged circumstances</b>, so they can <b>study for free</b> or a <b>reduced fee</b>. <a href=\"/about/subsidy/\">Click here to find out more and apply.</a> <br /><br /> We hate how <b>lucrative</b> medicine interview tutoring is. And <b>we're not just saying that</b> - to put our money where our mouth is, our medicine interview course is <b><i>completely</i> not-for-profit</b>, meaning that <b>all money</b> we have left after paying for tutors and resources is <b>donated to a charity</b> which the students choose at the end of the programme. </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "aa2c732",
+      "kind": "icon-box",
+      "title": "Attire",
+      "html": "<p> For all sessions, please <b>dress how you would </b>for the <b>real interview</b> - some of our interviewers are <b>doctors</b> and it is important to be <b>respectful</b> to them. <br /><br /> Suggested dress code is <b>smart casual</b> / <b>formal</b>. </p>"
+    },
+    {
+      "id": "24b4a9c",
+      "kind": "icon-box",
+      "title": "Pre-reading",
+      "html": "<p> <i>Before</i> the interview course starts, you will be given a document outlining the <b>interview format</b> and <b>question types</b> - you are expected to <b>think about answers</b> to the given questions and <b>personal experiences</b> you can use, so we can <b>refine</b> them during the course. </p>"
+    },
+    {
+      "id": "dbd1248",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=altitutor&t=m&z=16&output=embed&iwloc=near"
+    },
+    {
+      "id": "14055d4",
+      "kind": "text-editor",
+      "html": "<h3><strong>Location</strong></h3> <p>Sessions will take place at the <b>Altitutor office</b>, which is located on <b>Level 1, 17A Solomon St Adelaide SA 5000</b></p>"
+    },
+    {
+      "id": "1de539a",
+      "kind": "heading",
+      "title": "Our method"
+    },
+    {
+      "id": "bbf5e31",
+      "kind": "icon-box",
+      "title": "Step 1: Learn",
+      "html": "<p> We start by going through the format of the interview and what types of questions are asked. Students also receive talks from doctors in different specialties and have the chance to answer questions. This allows them to gain insight into the life of a doctor, and hence answer questions about doctors in a more genuine manner. </p>"
+    },
+    {
+      "id": "c99ebfa",
+      "kind": "icon-box",
+      "title": "Step 2: Prepare",
+      "html": "<p> Students then brainstorm personal experiences, which we refine and shape for each answer together. Each student gets a chance to answer interview questions one by one in front of everyone, and have their answers reviewed and critiqued. </p>"
+    },
+    {
+      "id": "8cbda68",
+      "kind": "icon-box",
+      "title": "Step 3: Stimulate",
+      "html": "<p> Each day, we conduct a full-length practice interview for each student. Each student receives individual, 1-on-1, spoken and written feedback so you can track your improvement over the course. </p>"
+    },
+    {
+      "id": "f1fd4e7",
+      "kind": "heading",
+      "title": "Our resources"
+    },
+    {
+      "id": "04c0db6",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Pre-course-prep-1-600x857.png",
+      "alt": "Pre-course prep"
+    },
+    {
+      "id": "b9e93c9",
+      "kind": "text-editor",
+      "html": "<h3><strong>Information sheets</strong></h3><p>Each <strong>information sheet</strong> outlines one part of the interview, including: <strong>interview format</strong>, <strong>about</strong> the Adelaide University Medical <strong>course</strong>, <strong>talk notes from a Doctor</strong> and <strong>scenario question framework </strong>– these can be used to shape your answers.</p>"
+    },
+    {
+      "id": "7743f51",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Pre-course-prep-1-600x857.png",
+      "alt": "Pre-course prep"
+    },
+    {
+      "id": "4f668c7",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Questions-600x847.png",
+      "alt": "Questions"
+    },
+    {
+      "id": "4a32b49",
+      "kind": "text-editor",
+      "html": "<h3><strong>Past interview questions</strong></h3><p>You will be provided with a document which contains all of the <strong>past interview questions</strong> we have, including added <strong>prompts</strong> <strong>from interviewers</strong> and example <strong>answers</strong> to each.</p>"
+    },
+    {
+      "id": "3a10a44",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Questions-600x847.png",
+      "alt": "Questions"
+    },
+    {
+      "id": "0018070",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Sample-feedback-1-600x847.png",
+      "alt": "Sample feedback"
+    },
+    {
+      "id": "28318b9",
+      "kind": "text-editor",
+      "html": "<h3><strong>Mock interview feedback</strong></h3><p>Each mock interview comes with <strong>written feedback</strong> about what you need to<strong> improve</strong> in <strong>each question</strong> of the interview, as well as <strong>general feedback</strong> and <strong>further tips</strong>.</p>"
+    },
+    {
+      "id": "ddae1a4",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Sample-feedback-1-600x847.png",
+      "alt": "Sample feedback"
+    }
+  ],
+  "/privacy-policy/": [
+    {
+      "id": "a96583b",
+      "kind": "heading",
+      "title": "PRIVACY POLICY"
+    },
+    {
+      "id": "00e8aa9",
+      "kind": "text-editor",
+      "html": "<h3>Last updated: 30th November, 2021</h3><p>This Privacy Policy describes Our policies and procedures on the collection, use and disclosure of Your information when You use the Service and tells You about Your privacy rights and how the law protects You.</p><p>We use Your Personal data to provide and improve the Service. By using the Service, You agree to the collection and use of information in accordance with this Privacy Policy. </p><h3><b>Interpretation and Definitions</b></h3><h3><strong>Interpretation</strong></h3><p>The words of which the initial letter is capitalized have meanings defined under the following conditions. The following definitions shall have the same meaning regardless of whether they appear in singular or in plural.</p><h3><strong>Definitions</strong></h3><p>For the purposes of this Privacy Policy:</p><ul><li><p><strong>Account</strong> means a unique account created for You to access our Service or parts of our Service.</p></li><li><p><strong>Company</strong> (referred to as either “the Company”, “We”, “Us” or “Our” in this Agreement) refers to Altitutor Pty Ltd, 31 Craighill Rd, SA 5064.</p></li><li><p><strong>Cookies</strong> are small files that are placed on Your computer, mobile device or any other device by a website, containing the details of Your browsing history on that website among its many uses.</p></li><li><p><strong>Country</strong> refers to: South Australia, Australia</p></li><li><p><strong>Device</strong> means any device that can access the Service such as a computer, a cellphone or a digital tablet.</p></li><li><p><strong>Personal Data</strong> is any information that relates to an identified or identifiable individual.</p></li><li><p><strong>Service</strong> refers to the Website.</p></li><li><p><strong>Service Provider</strong> means any natural or legal person who processes the data on behalf of the Company. It refers to third-party companies or individuals employed by the Company to facilitate the Service, to provide the Service on behalf of the Company, to perform services related to the Service or to assist the Company in analyzing how the Service is used.</p></li><li><p><strong>Third-party Social Media Service</strong> refers to any website or any social network website through which a User can log in or create an account to use the Service.</p></li><li><p><strong>Usage Data</strong> refers to data collected automatically, either generated by the use of the Service or from the Service infrastructure itself (for example, the duration of a page visit).</p></li><li><p><strong>Website</strong> refers to Altitutor, accessible from <a href=\"https://altitutor.com\">https://altitutor.com/</a></p></li><li><p><strong>You</strong> means the individual accessing or using the Service, or the company, or other legal entity on behalf of which such individual is accessing or using the Service, as applicable.</p></li></ul><h3><b>Collecting and Using Your Personal Data</b></h3><h3><strong>Types of Data Collected</strong></h3><h3><strong>Personal Data</strong></h3><p>While using Our Service, We may ask You to provide Us with certain personally identifiable information that can be used to contact or identify You. Personally identifiable information may include, but is not limited to:</p><ul><li><p>Email address</p></li><li><p>First name and last name</p></li><li><p>Phone number</p></li><li><p>Address, State, Postcode, City</p></li><li><p>Usage Data</p></li></ul><h3><strong>Usage Data</strong></h3><p>Usage Data is collected automatically when using the Service.</p><p>Usage Data may include information such as Your Device’s Internet Protocol address (e.g. IP address), browser type, browser version, the pages of our Service that You visit, the time and date of Your visit, the time spent on those pages, unique device identifiers and other diagnostic data.</p><p>When You access the Service by or through a mobile device, We may collect certain information automatically, including, but not limited to, the type of mobile device You use, Your mobile device unique ID, the IP address of Your mobile device, Your mobile operating system, the type of mobile Internet browser You use, unique device identifiers and other diagnostic data.</p><p>We may also collect information that Your browser sends whenever You visit our Service or when You access the Service by or through a mobile device.</p><h3><b>Tracking Technologies and Cookies</b></h3><p>We use Cookies and similar tracking technologies to track the activity on Our Service and store certain information. Tracking technologies used are beacons, tags, and scripts to collect and track information and to improve and analyze Our Service.</p><p>You can instruct Your browser to refuse all Cookies or to indicate when a Cookie is being sent. However, if You do not accept Cookies, You may not be able to use some parts of our Service.</p><p>Cookies can be “Persistent” or “Session” Cookies. Persistent Cookies remain on your personal computer or mobile device when You go offline, while Session Cookies are deleted as soon as You close your web browser. </p><p>We use both session and persistent Cookies for the purposes set out below:</p><ul><li><p><strong>Necessary / Essential Cookies</strong></p><p>Type: Session Cookies</p><p>Administered by: Us</p><p>Purpose: These Cookies are essential to provide You with services available through the Website and to enable You to use some of its features. They help to authenticate users and prevent fraudulent use of user accounts. Without these Cookies, the services that You have asked for cannot be provided, and We only use these Cookies to provide You with those services.</p></li><li><p><strong>Cookies Policy / Notice Acceptance Cookies</strong></p><p>Type: Persistent Cookies</p><p>Administered by: Us</p><p>Purpose: These Cookies identify if users have accepted the use of cookies on the Website.</p></li><li><p><strong>Functionality Cookies</strong></p><p>Type: Persistent Cookies</p><p>Administered by: Us</p><p>Purpose: These Cookies allow us to remember choices You make when You use the Website, such as remembering your login details or language preference. The purpose of these Cookies is to provide You with a more personal experience and to avoid You having to re-enter your preferences every time You use the Website.</p></li></ul><p>For more information about the cookies we use and your choices regarding cookies, please visit our Cookies Policy or the Cookies section of our Privacy Policy.</p><h3><strong>Use of Your Personal Data</strong></h3><p>The Company may use Personal Data for the following purposes:</p><ul><li><strong>To provide and maintain our Service</strong>, including to monitor the usage of our Service.</li><li><strong>To manage Your Account:</strong> to manage Your registration as a user of the Service. The Personal Data You provide can give You access to different functionalities of the Service that are available to You as a registered user.</li><li><strong>For the performance of a contract:</strong> the development, compliance and undertaking of the purchase contract for the products, items or services You have purchased or of any other contract with Us through the Service.</li><li><strong>To contact You:</strong> To contact You by email, telephone calls, SMS, or other equivalent forms of electronic communication, such as a mobile application’s push notifications regarding updates or informative communications related to the functionalities, products or contracted services, including the security updates, when necessary or reasonable for their implementation.</li><li><strong>To provide You</strong> with news, special offers and general information about other goods, services and events which we offer that are similar to those that you have already purchased or enquired about unless You have opted not to receive such information.</li><li><strong>To manage Your requests:</strong> To attend and manage Your requests to Us.</li></ul><p>We may share your personal information in the following situations:</p><ul><li><strong>For Business transfers:</strong> We may share or transfer Your personal information in connection with, or during negotiations of, any merger, sale of Company assets, financing, or acquisition of all or a portion of our business to another company.</li><li><strong>With Business partners:</strong> We may share Your information with Our business partners to offer You certain products, services or promotions.</li></ul><h3><b>Retention of Your Personal Data</b></h3><p>The Company will retain Your Personal Data only for as long as is necessary for the purposes set out in this Privacy Policy. We will retain and use Your Personal Data to the extent necessary to comply with our legal obligations (for example, if we are required to retain your data to comply with applicable laws), resolve disputes, and enforce our legal agreements and policies.</p><p>The Company will also retain Usage Data for internal analysis purposes. Usage Data is generally retained for a shorter period of time, except when this data is used to strengthen the security or to improve the functionality of Our Service, or We are legally obligated to retain this data for longer time periods.</p><h3><b>Transfer of Your Personal Data</b></h3><p>Your information, including Personal Data, is processed at the Company’s operating offices and in any other places where the parties involved in the processing are located. It means that this information may be transferred to — and maintained on — computers located outside of Your state, province, country or other governmental jurisdiction where the data protection laws may differ than those from Your jurisdiction.</p><p>Your consent to this Privacy Policy followed by Your submission of such information represents Your agreement to that transfer.</p><p>The Company will take all steps reasonably necessary to ensure that Your data is treated securely and in accordance with this Privacy Policy and no transfer of Your Personal Data will take place to an organization or a country unless there are adequate controls in place including the security of Your data and other personal information.</p><h3><b>Disclosure of Your Personal Data</b></h3><h3><strong>Business Transactions</strong></h3><p>If the Company is involved in a merger, acquisition or asset sale, Your Personal Data may be transferred. We will provide notice before Your Personal Data is transferred and becomes subject to a different Privacy Policy.</p><h3><strong>Law enforcement</strong></h3><p>Under certain circumstances, the Company may be required to disclose Your Personal Data if required to do so by law or in response to valid requests by public authorities (e.g. a court or a government agency).</p><h3><strong>Other legal requirements</strong></h3><p>The Company may disclose Your Personal Data in the good faith belief that such action is necessary to:</p><ul><li>Comply with a legal obligation</li><li>Protect and defend the rights or property of the Company</li><li>Prevent or investigate possible wrongdoing in connection with the Service</li><li>Protect the personal safety of Users of the Service or the public</li><li>Protect against legal liability</li></ul><h3><b>Security of Your Personal Data</b></h3><p>The security of Your Personal Data is important to Us, but remember that no method of transmission over the Internet, or method of electronic storage is 100% secure. While We strive to use commercially acceptable means to protect Your Personal Data, We cannot guarantee its absolute security.</p><h3><b>Links to Other Websites</b></h3><p>Our Service may contain links to other websites that are not operated by Us. If You click on a third party link, You will be directed to that third party’s site. We strongly advise You to review the Privacy Policy of every site You visit.</p><p>We have no control over and assume no responsibility for the content, privacy policies or practices of any third party sites or services.</p><h3><b>Changes to this Privacy Policy</b></h3><p>We may update our Privacy Policy from time to time. We will notify You of any changes by posting the new Privacy Policy on this page.</p><p>We will let You know via email and/or a prominent notice on Our Service, prior to the change becoming effective and update the “Last updated” date at the top of this Privacy Policy.</p><p>You are advised to review this Privacy Policy periodically for any changes. Changes to this Privacy Policy are effective when they are posted on this page.</p><h3><b>Contact Us</b></h3><p>If you have any questions about this Privacy Policy, You can contact us:</p><ul><li><p>By email: support@altitutor.com</p></li><li><p>By visiting this page on our website: <a href=\"/about/contact/\">https://altitutor.com/contact/</a></p></li></ul>",
+      "href": "/about/contact/"
+    }
+  ],
+  "/cart/": [
+    {
+      "id": "52878e4",
+      "kind": "heading",
+      "title": "CART"
+    }
+  ],
+  "/new-student-registration/": [
+    {
+      "id": "71a19e2",
+      "kind": "heading",
+      "title": "NEW STUDENT REGISTRATION"
+    },
+    {
+      "id": "241034f",
+      "kind": "text-editor",
+      "html": "<p>Please click on the button below to register on the Altitutor Student Portal.</p>"
+    },
+    {
+      "id": "3f38c07",
+      "kind": "button",
+      "title": "Student portal",
+      "href": "https://student.altitutor.com/new-student-registration/"
+    }
+  ],
+  "/": [
+    {
+      "id": "475d483",
+      "kind": "animated-headline",
+      "title": "Want to achieve better results? We can help. tutor you. help. draft your work."
+    },
+    {
+      "id": "38600ea",
+      "kind": "icon-box",
+      "title": "WEEKLY TUITION",
+      "html": "<p> Whether you're struggling to pass or want to achieve top scores, our weekly classes ensure students not only improve their results, but find the content they're learning easy. We offer weekly classes for year 7-10 Maths and Science, SACE Stage 1 and 2 and IB Maths, Physics, Chemistry and Biology. </p>",
+      "href": "/classes/weekly-classes/"
+    },
+    {
+      "id": "8475d86",
+      "kind": "button",
+      "title": "Weekly tuition",
+      "href": "/classes/weekly-classes/"
+    },
+    {
+      "id": "335161b",
+      "kind": "icon-box",
+      "title": "UCAT PREP",
+      "html": "<p> Whatever stage you're at in your preparation, we've got you covered. Our UCAT course starts with us teaching you strategies to recognise and solve question types, and finishes with you confidently smashing through sections in the appropriate time. </p>",
+      "href": "/classes/examprep/"
+    },
+    {
+      "id": "bc75a89",
+      "kind": "button",
+      "title": "UCAT course",
+      "href": "/classes/ucatprep/"
+    },
+    {
+      "id": "d36aa0c",
+      "kind": "icon-box",
+      "title": "ENGLISH DRAFTING",
+      "html": "<p> If you need help with making your essays stronger, this is the place for you! We offer 1-on-1 tutoring sessions where our English tutors will provide comprehensive feedback on the structure, readability, fluency and analysis of your assignment. What are you waiting for? Let's start! </p>",
+      "href": "/classes/english-assignment-drafting/"
+    },
+    {
+      "id": "48dfabf",
+      "kind": "button",
+      "title": "English drafting",
+      "href": "/classes/english-assignment-drafting/"
+    },
+    {
+      "id": "550d242",
+      "kind": "heading",
+      "title": "A different way to do tuition."
+    },
+    {
+      "id": "18f6dd8",
+      "kind": "text-editor",
+      "html": "<p>Altitutor is a <strong>not-for-profit</strong><strong> tutoring company</strong>, started with a vision not only to provide <strong>better</strong> <strong>tutoring</strong>, but also make it <strong>more accessible</strong> to those who cannot afford it.</p><p>From years of experience doing both private and company tutoring, we found that <strong>individual tutors</strong> <strong>(including ourselves!) often struggled with providing a complete education</strong> for students, while <strong>tutoring with larger companies lacked personalised learning</strong>. </p><p>We took all of this experience and <strong>developed a tutoring model</strong> which both provides a <strong>complete curriculum</strong> and <strong>tailors learning to individual students.</strong> </p><p>And thats not all. <strong>All of our company profits</strong> go back into <strong>providing free tuition for students</strong> in <strong>difficult circumstances,</strong> so by learning with us, you’re <strong>supporting a student</strong> who needs it.</p>"
+    },
+    {
+      "id": "4909d86",
+      "kind": "icon-box",
+      "title": "Free homework help class",
+      "html": "<p> All of our students may come to our 3 hour homework help class <b> at no extra cost</b>, where they can ask our knowledgable tutors questions or get help <b>writing your assignments</b>. We'll even <b>draft your assignments in person for free</b>. </p>"
+    },
+    {
+      "id": "bbc3db2",
+      "kind": "icon-box",
+      "title": "Tutors you can trust with your learning",
+      "html": "<p> As <b>top achieving students</b> studying at universities around Adelaide, we know the SACE courses <b>back to front</b>, and have <b>strategies</b> and <b>techniques</b> for <b>approaching assessments</b> which are not found in textbooks. </p>"
+    },
+    {
+      "id": "88e7edc",
+      "kind": "icon-box",
+      "title": "24/7 guidance and resource access",
+      "html": "<p> Our students get <b><i>unlimited</i> access</b> to our <b>question helpline</b>, where they can ask tutors any questions they have. Students also get free access to our <b>online resources</b>, which include <b>notes</b>, <b>practice questions</b>, <b>video lessons</b> and <b>full length exams</b>. </p>"
+    },
+    {
+      "id": "bd33a23",
+      "kind": "icon-box",
+      "title": "A personalised learning experience",
+      "html": "<p> Students are sorted into <b>small classes</b> based on <b>learning ability</b>, meaning all students in a class are at the <b>same level</b>. Group learning allows student to not only <b>learn from their own mistakes</b>, but also other students'. </p>"
+    },
+    {
+      "id": "3dbb535",
+      "kind": "heading",
+      "title": "How it works"
+    },
+    {
+      "id": "22ba66d",
+      "kind": "text-editor",
+      "html": "<p>We offer a <em><strong>free</strong></em> 1 hour <strong>trial session</strong> for <strong>new students</strong>, during which one of our <strong>tutors</strong> will meet with you to discuss <strong>availability</strong> and <strong>logistics.</strong> This allows you to get a <strong>sample of our tutoring</strong>, so you can decide whether or not you would like to <strong>continue with us</strong>.</p> <p>Click on the <strong>courses</strong> button below for <strong>more information</strong> on each of the <strong>courses</strong> we offer.</p> <p>Our sessions are held at our office on Level 1, 17A Solomon St, Adelaide</p>"
+    },
+    {
+      "id": "91da997",
+      "kind": "button",
+      "title": "Courses",
+      "href": "/classes/"
+    },
+    {
+      "id": "93da1cc",
+      "kind": "button",
+      "title": "Book a trial session",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    },
+    {
+      "id": "be28622",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=Altitutor&t=m&z=16&output=embed&iwloc=near"
+    },
+    {
+      "id": "27683c5",
+      "kind": "text-editor",
+      "html": "<p>Our <strong>subsidy program</strong> is <strong>integrated</strong> tightly into our regular tuition program, meaning all students on subsidies experience the exact <strong>same teaching</strong> that our regular students receive.</p>"
+    },
+    {
+      "id": "4b948c6",
+      "kind": "text-editor",
+      "html": "<h3><strong>01.</strong></h3><p>You use the link above to <strong>book a trial session</strong> with one of our tutors.</p><p>During the <strong>trial session</strong>, our tutors explain <strong>how our programmes work</strong> and we organise <strong>availability.</strong></p>"
+    },
+    {
+      "id": "044a70c",
+      "kind": "text-editor",
+      "html": "<h3><strong>02.</strong></h3><p>You study <strong>1-on-1</strong> with our tutors for a few sessions to <strong>catch up</strong> to the level of one of our <strong>classes.</strong> After these sessions, you get <strong>integrated</strong> into an <strong>appropriate</strong> class, with other students at your <strong>learning ability</strong>.</p>"
+    },
+    {
+      "id": "d46edbb",
+      "kind": "text-editor",
+      "html": "<h3><strong>03.</strong></h3><p>In class each week, your tutor <strong>teaches you content</strong> <strong>ahead of your school</strong>, using notes, practice questions and practice exams.</p><p>Because you’ve already learnt the content with us, learning content at <strong>school</strong> become <strong>easy,</strong> and you can focus on <strong>remembering</strong> the content rather than trying to <strong>learn</strong> it for the first time.</p>"
+    },
+    {
+      "id": "15badb1",
+      "kind": "text-editor",
+      "html": "<h3><strong>04.</strong></h3><p>At any time, you can access our <strong>online resources</strong> for free, which include <strong>notes</strong>, <strong>practice</strong> <strong>questions</strong>, <strong>tests</strong> and <strong>exams</strong> for every topic.</p><p>Whenever you have an assignment or struggle with content in school, you come to our <strong><em>free</em></strong> <strong>homework help session</strong>. During this time, our <strong>friendly tutors</strong> help you with <strong>schoolwork</strong> and <strong>draft your assignments</strong>, for free!</p>"
+    },
+    {
+      "id": "47753a1",
+      "kind": "text-editor",
+      "html": "<p>Students who want tutoring but cannot afford it apply for our <strong>tuition subsidy program</strong>.</p><p>Is this you? <a href=\"/about/subsidy/\"><strong>Click here</strong></a> to find out about our <strong>subsidy programme</strong>.</p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "a4a328d",
+      "kind": "text-editor",
+      "html": "<p>We <strong>interview</strong> applicants, to work out <strong>how much</strong> (if anything) they can afford to <strong>pay.</strong> Students who receive the <strong>scholarship</strong> are integrated into our <strong>classes</strong> as normal.</p>"
+    },
+    {
+      "id": "e969e77",
+      "kind": "animated-headline",
+      "title": "asdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdfasdf"
+    },
+    {
+      "id": "859534a",
+      "kind": "text-editor",
+      "html": "<h3><strong>05.</strong></h3><p>The money you pay for each session is used to <strong>pay for tuition</strong> for our students in our <strong>subsidy programme</strong>.</p>"
+    },
+    {
+      "id": "768877f",
+      "kind": "heading",
+      "title": "See what our students have to say"
+    },
+    {
+      "id": "68bcaf8",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Vyvian",
+          "html": "I had gone through several tutors for my medicine interview prep with little to no progress, and Matt was by far the best. He was very patient and thorough, and well prepared with scenarios to practice through each session. Matt structured each session well, explaining concepts in an easily digestible manner so I was able to build my understanding of the interview and develop and hone my skills. This greatly increased my confidence in answering the questions, and thanks to him I now have an offer in medicine!",
+          "role": "Student, Medicine interview course"
+        },
+        {
+          "title": "Neha",
+          "html": "The weekly lessons with Sarah really improved my understanding of the subject and definitely helped me to succeed in achieving great marks. Sarah was so friendly and easy to approach which made me feel comfortable in asking questions to which I received very helpful replies.",
+          "role": "Student, Stage 2 Mathematical Methods"
+        },
+        {
+          "title": "James",
+          "html": "All of my biology lessons with Josh were enjoyable. Josh focuses on getting through theory so more time is able to spent doing practice questions. I found this a useful method as from when I started biology tuition my grades improved. He was very thorough when going through my assignments and provided relevant feedback and criticism. Josh is bright, engaging and friendly.",
+          "role": "Student, Stage 2 Biology"
+        },
+        {
+          "title": "Kim",
+          "html": "Classes were fun and we for the most part pushed through content well. Lessons felt like a breath of air amidst a very stressful year which made it easier to learn. This isn't about Gooi specifically but having tutors close to our age was really nice in comparison to having people who are older cause you guys were relatable and made us feel comfortable in classes. It was \"study group with friends\" sort of vibe.",
+          "role": "Student, Stage 2 Chemistry"
+        },
+        {
+          "title": "Dhwani",
+          "html": "Kevin made chemistry very easy for me to understand! He used his ipad to draw out diagrams and explained everything in a manner that was very easy to understand. Kevin has a very friendly personality which meant that i could easily approach him and ask him anything i had concerns about.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "d5bc7a7",
+      "kind": "text-editor",
+      "html": "<p><strong>Find out what our students think about us</strong></p>"
+    },
+    {
+      "id": "dc90a1d",
+      "kind": "button",
+      "title": "Reviews",
+      "href": "/about/testimonials/"
+    },
+    {
+      "id": "411ec3f",
+      "kind": "counter",
+      "title": "",
+      "value": "94%"
+    },
+    {
+      "id": "19ebe95",
+      "kind": "text-editor",
+      "html": "<p>Of our graduating year 12s receive a <strong>university offer</strong> for their <strong>top preference</strong>.</p>"
+    },
+    {
+      "id": "7f3ff04",
+      "kind": "counter",
+      "title": "",
+      "value": "96%"
+    },
+    {
+      "id": "207f253",
+      "kind": "text-editor",
+      "html": "<p>Of our students <strong>improve their grade</strong> by <strong>at least one grade band</strong> within one term of studying with us</p>"
+    },
+    {
+      "id": "52fb120",
+      "kind": "counter",
+      "title": "",
+      "value": "4.91/5"
+    },
+    {
+      "id": "dd6d4c1",
+      "kind": "text-editor",
+      "html": "<p>Average <strong>tutor rating</strong></p>"
+    },
+    {
+      "id": "d7f5c3a",
+      "kind": "counter",
+      "title": "",
+      "value": "4.63/5"
+    },
+    {
+      "id": "1d9e88f",
+      "kind": "text-editor",
+      "html": "<p>Average <strong>course rating</strong></p>"
+    },
+    {
+      "id": "a77e23b",
+      "kind": "text-editor",
+      "html": "<p><strong>See how our previous students performed</strong></p>"
+    },
+    {
+      "id": "b40b24b",
+      "kind": "button",
+      "title": "Results",
+      "href": "/about/testimonials/"
+    },
+    {
+      "id": "ffc1c72",
+      "kind": "heading",
+      "title": "Interested? Discover the courses we have to offer."
+    },
+    {
+      "id": "5e087af",
+      "kind": "button",
+      "title": "Courses",
+      "href": "/classes/"
+    }
+  ],
+  "/checkout/": [
+    {
+      "id": "91ae105",
+      "kind": "heading",
+      "title": "PAYMENT"
+    }
+  ],
+  "/my-account/": [
+    {
+      "id": "a9311cf",
+      "kind": "heading",
+      "title": "MY ACCOUNT"
+    }
+  ],
+  "/classes/": [
+    {
+      "id": "5f73627",
+      "kind": "heading",
+      "title": "COURSES"
+    },
+    {
+      "id": "2c34ace",
+      "kind": "heading",
+      "title": "Want to achieve better results?"
+    },
+    {
+      "id": "614bb01",
+      "kind": "text-editor",
+      "html": "<p>We get it. Different students have different needs. That’s why we offer a wide range of programmes, tailored to each student’s individual needs. To begin, choose an option below.</p>"
+    },
+    {
+      "id": "ae081b3",
+      "kind": "button",
+      "title": "I'm looking for help with school subjects",
+      "href": "#school"
+    },
+    {
+      "id": "44e0e89",
+      "kind": "button",
+      "title": "I'm looking for help with the UCAT or medical interviews",
+      "href": "#medicine"
+    },
+    {
+      "id": "5a8129f",
+      "kind": "flip-box",
+      "title": "Weekly subject tutoring",
+      "html": "Our weekly tuition classes are designed for two purposes. To <b>improve your grades</b> and to <b>make learning your school curriculum significantly easier</b>.",
+      "detailTitle": "Make your learning easier.",
+      "detailHtml": "Every week, our classes go over the content a <b>few weeks ahead</b> of your school curriculum using <b>comprehensive notes and practice tests</b>. Then, when you go through that same content in school, <b>you've already learnt it with us</b>. It's like relearning the content from last year!",
+      "href": "/classes/weekly-classes/"
+    },
+    {
+      "id": "9de86c7",
+      "kind": "flip-box",
+      "title": "Exam preparation courses",
+      "html": "<b>Year 12 exams are scary.</b> We know. That's why our exam preparation courses <b>alleviate the stress</b> by making sure that <b>you know the content back to front.</b>",
+      "detailTitle": "Ace your exams with us.",
+      "detailHtml": "Our exam preparation courses go through the syllabus using <b>real exam questions</b>, rather than just notes. We do a <b>practice exam</b> every other session while simultaneously re-teaching you the content, so you get to <b>see your own scores improve</b> over the course.",
+      "href": "/classes/examprep/"
+    },
+    {
+      "id": "756a704",
+      "kind": "flip-box",
+      "title": "English drafting",
+      "html": "We know that writing is not easy. That's why <b>we are here to help</b>. Our English tutors are here to ensure that your assignment is <b>compelling, engaging and rich in analysis</b>.",
+      "detailTitle": "Ace your English assignments with us",
+      "detailHtml": "Our 1-on-1 tutoring sessions allows us to work with you so that you can <b>improve your assignment</b>. Our English tutors will look over your assignment <b>before the lesson</b>, then go through your assignment <b>together</b> with you during the lesson.",
+      "href": "/classes/english-assignment-drafting/"
+    },
+    {
+      "id": "bf85413",
+      "kind": "heading",
+      "title": "Not sure which course to pick? Select the statement which best describes your learning needs from the list below."
+    },
+    {
+      "id": "d7994e0",
+      "kind": "accordion",
+      "items": [
+        {
+          "title": "I'm struggling with my schoolwork.",
+          "html": "<p>Whatever your reason, our <a href=\"/classes/weekly-classes/\">weekly tuition classes</a> are for you. We’ve found that tuition companies tend to just put enrolled students into whatever class they can, depending on availability and convenience. This often makes the student feel even more behind, as the other students of that class would already be ahead because of previous tuition. If you’re struggling with schoolwork, our first point is to find out why – whether that’s accumulated missed knowledge, school absence, or a teacher which doesn’t benefit your learning style. One of our tutors will then do one-on-one sessions with you until you’re at the level of one of our classes, no matter how long that takes. </p><p><a href=\"/classes/weekly-classes/\">Weekly tuition</a></p>"
+        },
+        {
+          "title": "I want to achieve top scores.",
+          "html": "<h3>Whether you want to get into a top course such as Medicine or Dentistry, or if you’re just a perfectionist, our<a href=\"/classes/weekly-classes/\"> weekly classes</a> will ensure you get the best scores you possibly can. Do you already understand all of the content, but small, silly mistakes are holding you back from the top grade band? Our tutors were all top achieving students who had to face and overcome this problem, and we have our own personal strategies to ensure you minimise the marks you lose for any reason. We don’t put high achieving students with students who are just aiming to pass – then it would no different to school. All of our classes are sorted by learning ability, which means we group students who are all aiming for perfect scores so we can strive for perfection together.</h3><p><a href=\"/classes/weekly-classes/\">Weekly tuition</a></p>"
+        },
+        {
+          "title": "I don't want regular guidance, but I want to ace my final exams.",
+          "html": "<p>If you’re not interested in regular tuition, our <a href=\"/examprep\">exam preparation courses</a> condense and entire year’s worth of learning into a 10-14 day course. At the beginning of each course, we do a practice exam so you can see you areas of weakness and what to improve on. Each day, we go through a different topic, meaning you can choose which days you want to come to and which to skip – and the best part is you only pay for what you come to. The last session is a final practice exam – so you can see firsthand how much your score improved.</p><p><a href=\"/classes/examprep/\">Exam preparation courses</a></p>"
+        },
+        {
+          "title": "I only want help with summative tests.",
+          "html": "<p>Since our weekly classes are learning a few weeks ahead of the school curriculum, we have plenty of time to prepare for summative assessments. Students who only want help with test preparation, only come to our class sessions when we are doing assessment preparation.</p><p><a href=\"/classes/weekly-classes/\">Weekly classes</a></p>"
+        },
+        {
+          "title": "I want drafting for my maths folio / science practicals + SHE tasks.",
+          "html": "<p>Our SACE stage 2 students in our <a href=\"/classes/weekly-classes/\">weekly classes</a> get free in-person assignment drafting for all of their summative assignments for that subject. They also get free access to a weekly homework help class for help writing assignments.</p><p><a href=\"/classes/weekly-classes/\">Weekly tuition</a></p>"
+        },
+        {
+          "title": "I want help writing my English assignments",
+          "html": "<p>As part of our English drafting programme, one of our English tutors can sit with you and guide you as you write your assignment, including helpful guides with what to put in each section.</p><p><a href=\"/classes/english-assignment-drafting/\">English drafting</a>.</p>"
+        },
+        {
+          "title": "I want my English assignments drafted",
+          "html": "<p>Not a problem – click here:</p><p><a href=\"/classes/english-assignment-drafting/\">English drafting</a>.</p>"
+        }
+      ],
+      "href": "/classes/english-assignment-drafting/"
+    },
+    {
+      "id": "f6b201b",
+      "kind": "heading",
+      "title": "Applying for medicine?"
+    },
+    {
+      "id": "e2e92f2",
+      "kind": "text-editor",
+      "html": "<p>Getting into medicine is a <strong>daunting process</strong>, and <strong>we’re here to help</strong>. If you’re not sure where to start, read our <strong>medicine admissions guide,</strong> which outlines the entry requirements, process and how to apply. If you’re still confused, contact us and <strong>one of our tutors would be happy to meet with you</strong> to <strong>answer any questions you have</strong> about the application process, <strong>absolutely free of charge.</strong> Ready to prepare? Select the stage of the application process which you are up to below:</p>"
+    },
+    {
+      "id": "48362bd",
+      "kind": "flip-box",
+      "title": "UCAT preparation",
+      "html": "Run by tutors who have scored <b>among the best UCAT scores in the country</b>, we're giving you the <b>techniques</b> used by current <b>medical students</b> who have had to sit through the UCAT themselves.",
+      "detailTitle": "Top strategies from top scorers.",
+      "detailHtml": "If you're new to the UCAT, our course starts with an <b>introduction</b> to the <b>question types</b> and equips you with <b>strategies</b> to solve each one. We then gradually improve your <b>timing</b> until you're able to solve questions at the <b>pace</b> of the real UCAT. Teaching is done using our <b>online system</b>, which contains thousands of <b>practice questions</b>, organised into <b>practice sets</b> and <b>full timed exams</b> to simulate the timing of the real UCAT.",
+      "href": "/classes/ucatprep/"
+    },
+    {
+      "id": "2701993",
+      "kind": "flip-box",
+      "title": "Medical interview course",
+      "html": "Run by <b>tutors who have been through the interview process ourselves</b>, we know how scary this can be. Having each <b>received first round offers to multiple medical schools around Australia</b>, we have strategies guaranteed to <b>improve your interview performance.</b>",
+      "detailTitle": "So, you want to be a doctor.",
+      "detailHtml": "Our interview preparation course covers the <b>whole process of the medical interview</b>, from <b>question approach</b> to <b>professional presentation</b>. Our course was developed with guidance from <b>actual interviewers</b> working for the University of Adelaide, and includes <b>real interview scenarios</b> and plenty of <b>practice interviews.</b>",
+      "href": "/classes/medical-interview-preparation/"
+    },
+    {
+      "id": "33d4ce6",
+      "kind": "heading",
+      "title": "Interested? Book a free trial session now."
+    },
+    {
+      "id": "6b896c5",
+      "kind": "button",
+      "title": "Book now",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    }
+  ],
+  "/about/apply/": [
+    {
+      "id": "7218c43",
+      "kind": "heading",
+      "title": "WORK WITH US"
+    },
+    {
+      "id": "f0b1a3c",
+      "kind": "heading",
+      "title": "Want to work with us?"
+    },
+    {
+      "id": "f14c735",
+      "kind": "text-editor",
+      "html": "<p>Due to our small class sizes, we are always looking for more tutors to work with us. Read below for the different roles we have available. </p>"
+    },
+    {
+      "id": "ad82d23",
+      "kind": "icon-box",
+      "title": "Tutors",
+      "html": "<p> Tutors have a number of weekly classes that theyare responsible for. This includes teaching every week and making sure all of our students feel comfortable with the material. You will be provided with all of the resources you need to teach, and an iPad so you can use our screens. <b>Requirements: </b>We believe that being able to teach content is much more important than having a perfect ATAR. If you would like to apply but aren't sure about your academic scores, contact us anyway and we will arrange for an interview. </p>"
+    },
+    {
+      "id": "4864a3b",
+      "kind": "icon-box",
+      "title": "Resource tutors",
+      "html": "<p> Resource tutors do not teach classes themselves, but instead are responsible for: - Writing notes, practice questions, tests and exams - Filming video lessons - Keeping current notes up to date with changing syllabuses - Answering student questions on the question helpline <br /><br /> Resource tutors have more flexible hours, as they can write/update notes whenever they want. Pay is based on hours of work done, which is self-logged so we are looking for honest applicants. <br /><br /> <b>Requirements:</b> Good knowledge of the course you are making resources for. Resources tutors must teach classes for at least one term before becoming a resource tutor. </p>"
+    },
+    {
+      "id": "8fa295e",
+      "kind": "icon-box",
+      "title": "Marketing team",
+      "html": "<p> Our marketing team is responsible for: - Managing our social media accounts with our media team - Reaching out to schools and potential partners - Organising partnerships with restaurants for our weekly staff lunches 😋 - Communication with potential students - Organising meetings with parents <b>Requirements:</b> Creativity and a passion for marketing 🙂 </p>"
+    },
+    {
+      "id": "a6fdef1",
+      "kind": "icon-box",
+      "title": "Admin staff",
+      "html": "<p> Altitutor's admin staff are vital to the smooth running of our office. Our admin staff are responsible for too many things to list here, but some of the more important responsibilities include: <br />- Handling new student applications <br />- Communication with students and parents <br />- Organising meetings <br />- Handling student invoices and paying bills <br />- Printing and distributing resources to classes <br />- Opening and locking up every day <br />- Organising our events and student parties<br /><br /> <b>Requirements:</b> Responsible individuals who have good problem solving skills. Brownie points if you can make good coffee 🙂 </p>"
+    },
+    {
+      "id": "36fc63f",
+      "kind": "icon-box",
+      "title": "Media team",
+      "html": "<p> Our media people are responsible for: <br />- Formatting our paper and online resources <br />- Designing/drawing graphics for our notes <br />- Managing and updating website design <br />- Managing our social media accounts<br />- Editing and filming our videos <br /><br /> <b>Requirements:</b> No formal experience needed, but bonus points for experience with graphic design and/or web design </p>"
+    },
+    {
+      "id": "5a3a758",
+      "kind": "icon-box",
+      "title": "IT team",
+      "html": "<p> Our IT people are responsible for: <br />- Maintaining and updating our website and apps <br />- Updating our online UCAT question banks <br />- Managing our servers and computers in office <br />- Managing our cloud services, email and filesystems <br /><br /> <b>Requirements:</b> No formal experience needed, but bonus points for experience with server management, software development, web development and/or video editing </p>"
+    },
+    {
+      "id": "210af9d",
+      "kind": "heading",
+      "title": "What you get."
+    },
+    {
+      "id": "0561ecf",
+      "kind": "text-editor",
+      "html": "<p>You’ll get to join a team of passionate, driven people who want nothing more than to see our students improve their scores. Oh, and you’ll also get paid well – because we like to reward the people who work with us to maintain the high standard of tuition we demand.</p>"
+    },
+    {
+      "id": "a686d77",
+      "kind": "heading",
+      "title": "How to apply?"
+    },
+    {
+      "id": "622cea6",
+      "kind": "text-editor",
+      "html": "<p>Please contact Altitutor with your resume via email:<br /><br />admin@altitutor.com</p>"
+    }
+  ],
+  "/classes/weekly-classes/": [
+    {
+      "id": "2a09c38",
+      "kind": "heading",
+      "title": "WEEKLY SUBJECT TUTORING"
+    },
+    {
+      "id": "5003d9e",
+      "kind": "text-editor",
+      "html": "<p>Designed to make school subjects easier for students, our weekly tuition programs teach students class content ahead of their learning in class. Our tutors prepare them for every assessment task, with plenty of time to practice. </p>"
+    },
+    {
+      "id": "cd717f6",
+      "kind": "icon-list",
+      "html": "<ul><li><b>When:</b> Weekdays after school, Saturdays and Sundays</li><li><b>Where:</b> Altitutor; Level 1, 17A Solomon St, Adelaide SA 5000</li><li><b>Cost:</b> $50/hr, which equates to $75 for a 90 minute session</li></ul>"
+    },
+    {
+      "id": "541d4f9",
+      "kind": "button",
+      "title": "More info",
+      "href": "#More_info"
+    },
+    {
+      "id": "68cf7de",
+      "kind": "button",
+      "title": "Book a trial session",
+      "href": "#book-trial"
+    },
+    {
+      "id": "f71c087",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-notes-1-768x1093.png",
+      "alt": ""
+    },
+    {
+      "id": "e940357",
+      "kind": "heading",
+      "title": "Why study with us?"
+    },
+    {
+      "id": "dbcc2b6",
+      "kind": "icon-box",
+      "title": "Tutors you can trust",
+      "html": "<p> As <b>teachers</b> or <b>top achieving students</b> at universities around Adelaide, we know the courses <b>back to front</b>, and have proven strategies </p>"
+    },
+    {
+      "id": "1f44b21",
+      "kind": "icon-box",
+      "title": "Free homework help class",
+      "html": "<p> All of our students may come to our 3 hour homework help class <b> at no extra cost</b>, where they can ask our knowledgable tutors questions or get help <b>writing your assignments</b>. We'll even <b>draft your assignments in person for free</b>. </p>"
+    },
+    {
+      "id": "f07d60c",
+      "kind": "icon-box",
+      "title": "Comprehensive resources",
+      "html": "<p> Our resources cover every part of the course, and aim to save students time while effectively preparing them for assessments. Students receive <b>free</b> access to our student portal, which contains all of our online resources. </p>"
+    },
+    {
+      "id": "23ecdac",
+      "kind": "icon-box",
+      "title": "A personalised learning experience",
+      "html": "<p> Students are sorted into classes based on <b>learning ability</b>, meaning their classmates will <b>help them learn</b> rather than restrict them. </p>"
+    },
+    {
+      "id": "d08eac7",
+      "kind": "icon-box",
+      "title": "24/7 access to guidance",
+      "html": "<p> All of our weekly students get unlimited access to our question helpline, where students can ask tutors questions during the week. </p>"
+    },
+    {
+      "id": "4e996a8",
+      "kind": "icon-box",
+      "title": "Plenty of time to prepare",
+      "html": "<p> Our classes teach you the curriculum content ahead of your school, giving us get heaps of time to prepare for tests and assessments. </p>"
+    },
+    {
+      "id": "ef83a4d",
+      "kind": "heading",
+      "title": "Course information"
+    },
+    {
+      "id": "2aec9c8",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=altitutor&t=m&z=16&output=embed&iwloc=near"
+    },
+    {
+      "id": "3e27bcd",
+      "kind": "text-editor",
+      "html": "<h3><strong>Location</strong></h3> <p>Sessions will take place at the <b>Altitutor office</b>, which is located on <b>Level 1, 17A Solomon St Adelaide SA 5000</b></p>"
+    },
+    {
+      "id": "7aa07ae",
+      "kind": "icon-box",
+      "title": "Cancellations",
+      "html": "<p> If you <b>can't make it </b>to a session for any reason, simply <b>let us know</b> <i>at least 24 hours</i> <i>before</i> the session. We <b><i>don't charge</i></b> any <b>late or cancellation fees</b> if the absence is informed at <i>least 24 hours before the session</i>, or in the case or <b>medical</b> or <b>family emergency</b>. </p>"
+    },
+    {
+      "id": "eda9cc2",
+      "kind": "icon-box",
+      "title": "Cost",
+      "html": "<p> Our <b>session cost</b> is $50/hr, which is equivalent to $75 for each 1.5<b> hour session</b>. This will be <b>billed in advance</b> with an invoice on your <b>Altitutor account</b> at the start of each week, to be paid via credit card or direct debit. <br /> <br /> If you <b>cannot afford</b> these fees, we provide <b>subsidies</b> for students in <b>disadvantaged circumstances</b>, so they can study for <i><b>free</b></i> or a <b><i>reduced fee</i></b>.<a href=\"/about/subsidy/\"> <b>Click here to find out more and apply.</b></a><b> </b> </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "8b44db7",
+      "kind": "icon-box",
+      "title": "Subjects offered",
+      "html": "<p> <b>Primary</b> <li>Year 1-6 Mathematics for the South Australian curriculum</li> <li>Year 1-6 Science for the South Australian curriculum</li> <li>Year 1-6 English for the South Australian curriculum</li> <b>PreSACE (Middle school)</b> <li>Year 7-10 Mathematics for the South Australian curriculum</li> <li>Year 7-10 Science for the South Australian curriculum</li> <li>Year 7-10 English for the South Australian curriculum</li> <b>SACE Mathematics</b> <li>SACE Stage 1/2 Specialist Mathematics</li> <li>SACE Stage 1/2 Mathematical Methods</li> <li>SACE Stage 2 General Maths</li> <b>SACE Sciences</b> <li>SACE Stage 1/2 Physics</li> <li>SACE Stage 1/2 Chemistry</li> <li>SACE Stage 1/2 Biology</li> <b>International Baccalaureate (IB)</b> <li>IB HL/SL Physics</li> <li>IB HL/SL Biology</li> <li>IB HL/SL Chemistry</li> <li>IB HL/SL Mathematics AI</li> <li>IB HL/SL Mathematics AA</li> <li>IB HL/SL Economics</li> <b>Looking for English? <a href=\"/classes/english-assignment-drafting/\"> click here</a></b> </p>",
+      "href": "/classes/english-assignment-drafting/"
+    },
+    {
+      "id": "7f0cee2",
+      "kind": "heading",
+      "title": "Our method"
+    },
+    {
+      "id": "3759bc2",
+      "kind": "text-editor",
+      "html": "<p>Students attend a <strong>teaching lesson</strong> each week for <strong>each subject </strong>they study with us, in which we teach them course content ahead of school. They can also come to our optional <strong>homework help class</strong> to get additional help with assessments or assignments drafting.</p>"
+    },
+    {
+      "id": "1e8b9ce",
+      "kind": "icon-box",
+      "title": "01. Revision and consolidation",
+      "html": "<p> At the beginning of each session, students complete a revision sheet / do flashcards for all of the content they have learned up to that lesson. We do this so students don't have to relearn any of the content before their exams - because they already know it! </p>"
+    },
+    {
+      "id": "ab146b0",
+      "kind": "icon-box",
+      "title": "02. Learning ahead",
+      "html": "<p> Students are provided with with comprehensive notes and practice questions, and taught the content ahead of their school. This method aims to make learning at school easier, so they can focus on their assessments. </p>"
+    },
+    {
+      "id": "546e795",
+      "kind": "icon-box",
+      "title": "03. Assessment preparation",
+      "html": "<p> Once we finish each topic, we complete a topic test together with the students so they can learn assessment strategies from their tutor. We do a test for every lesson after that until the student feels confident with that topic, and only then will we move on to the next topic. </p>"
+    },
+    {
+      "id": "ad25a6d",
+      "kind": "icon-box",
+      "title": "04. Homework help session",
+      "html": "<p> If students need additional assessment preparation, we can give you even more practice tests during our free 3-hour homework help session. We'll also draft your assignments in person for free! </p>"
+    },
+    {
+      "id": "25f384b",
+      "kind": "heading",
+      "title": "Our resources"
+    },
+    {
+      "id": "88a17dd",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-notes-2-600x845.png",
+      "alt": "SACE Chemistry notes 2"
+    },
+    {
+      "id": "8974965",
+      "kind": "text-editor",
+      "html": "<h3><strong>Study notes</strong></h3><p>Designed so that you’re only writing in the most <strong>high yield content</strong>, our <strong>study notes</strong> save time learning material so we can spend <strong>more time</strong> doing <strong>practice tests</strong> together.</p>"
+    },
+    {
+      "id": "7699c59",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-notes-2-600x845.png",
+      "alt": "SACE Chemistry notes 2"
+    },
+    {
+      "id": "88b27bc",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Anki-iphone-ipad-600x447.png",
+      "alt": "Anki iphone-ipad"
+    },
+    {
+      "id": "1f74e79",
+      "kind": "text-editor",
+      "html": "<h3><strong>Flashcard system</strong></h3> <p>Our <strong>flashcard system</strong> schedules your study for you, making you study <strong>concepts you struggle</strong> <strong>with</strong> <em><strong>more often</strong></em>. This means you won’t need to relearn content before the exam – you’ll already know it.</p>"
+    },
+    {
+      "id": "6af4487",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Anki-iphone-ipad-600x447.png",
+      "alt": "Anki iphone-ipad"
+    },
+    {
+      "id": "0af5ac0",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-PQ-1-600x851.png",
+      "alt": "SACE Chemistry PQ 1"
+    },
+    {
+      "id": "b355889",
+      "kind": "text-editor",
+      "html": "<h3><strong>Practice questions</strong></h3><p>Our <strong>focused practice questions</strong> contain a <strong>compilation</strong> of <strong>past test</strong> and <strong>exam questions</strong> from <strong>each subtopic</strong> – so you can improve at each subtopic individually.</p>"
+    },
+    {
+      "id": "b1a23e8",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-PQ-1-600x851.png",
+      "alt": "SACE Chemistry PQ 1"
+    },
+    {
+      "id": "0956a70",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-600x847.png",
+      "alt": "SACE Chemistry exam 1"
+    },
+    {
+      "id": "c7979a8",
+      "kind": "text-editor",
+      "html": "<h3><strong>Practice tests</strong></h3><p>Our <strong>full-length practice tests </strong>are created to be <strong>as</strong> <strong>close as possible</strong> to your school tests – and you’ll have access to as many as you need both in class and at home.</p>"
+    },
+    {
+      "id": "4251e16",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-test-1-600x850.png",
+      "alt": "SACE Chemistry test 1"
+    },
+    {
+      "id": "cd947d6",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/website-resources-ipad-iphone.psd-600x443.png",
+      "alt": "website resources ipad + iphone.psd"
+    },
+    {
+      "id": "0b5b627",
+      "kind": "text-editor",
+      "html": "<h3><strong>Online resources</strong></h3><p>Our online<strong> resources</strong> include our <strong>study notes</strong>, <strong>practice questions</strong> and <strong>practice tests</strong>, as well as <strong>video lessons</strong> which teach you through each subtopic – and you can access them on <strong>any device</strong>!</p>"
+    },
+    {
+      "id": "eb64ad4",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/website-resources-ipad-iphone.psd-600x443.png",
+      "alt": "website resources ipad + iphone.psd"
+    },
+    {
+      "id": "dc13f06",
+      "kind": "heading",
+      "title": "How to get started"
+    },
+    {
+      "id": "4f6c016",
+      "kind": "text-editor",
+      "html": "<ol><li><strong>Book a trial session</strong> with us at a time convenient for you. It is best if you come to this session with a <strong>topic</strong> you want go to through, or <strong>questions</strong> you’re stuck with.</li><li><strong>One of our tutors</strong> will <strong>meet with you</strong> at the specified time</li><li>During the <strong>trial session</strong>, our tutor will go through any <strong>questions</strong> you have with the subject, as well as explain the <strong>details</strong> of how tutoring would work if you were to continue with us.</li><li>You will be given an <strong>information sheet</strong> with a <strong>link to sign up</strong> during the <strong>trial session</strong> – if you would like to <strong>continue with tutoring</strong>, simply use this link to <strong>sign up</strong> and select your <strong>available times</strong></li><li>We will <strong>contact you</strong> with your <strong>weekly class time</strong></li></ol>"
+    },
+    {
+      "id": "6b00b50",
+      "kind": "heading",
+      "title": "Interested? Book a free trial session now."
+    },
+    {
+      "id": "bf62435",
+      "kind": "button",
+      "title": "Book now",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    }
+  ],
+  "/classes/ucatprep/": [
+    {
+      "id": "498c411",
+      "kind": "heading",
+      "title": "UCAT PREPARATION COURSE"
+    },
+    {
+      "id": "dc1769d",
+      "kind": "text-editor",
+      "html": "<p>Whatever <strong>stage</strong> you’re at in your preparation, we’ve <strong>got you covered</strong>. Our <strong>UCAT course</strong> starts with us <strong>teaching you strategies</strong> to <strong>recognise</strong> and <strong>solve</strong> question types, and finishes with you <strong>confidently smashing through sections</strong> in the <strong>appropriate time</strong>.</p>"
+    },
+    {
+      "id": "35533a4",
+      "kind": "icon-list",
+      "html": "<ul><li><b>Timing:</b> Weekly sessions on Sunday from 9:30am-12:30pm.</li><li><b>Where:</b> Altitutor; Level 2, 100 Currie St, Adelaide SA 5000</li><li><b>Cost:</b> $30 per hour, which equates to $90 per 3-hour session.</li></ul>"
+    },
+    {
+      "id": "e9d4065",
+      "kind": "button",
+      "title": "More info",
+      "href": "#More-info"
+    },
+    {
+      "id": "614f2a2",
+      "kind": "button",
+      "title": "Enrol",
+      "href": "#enrol"
+    },
+    {
+      "id": "b57a2d5",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-QR-online-13-inch-MBP-768x455.png",
+      "alt": ""
+    },
+    {
+      "id": "423bbb8",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-paper.png",
+      "alt": ""
+    },
+    {
+      "id": "5f6d6af",
+      "kind": "heading",
+      "title": "Why study with us?"
+    },
+    {
+      "id": "457a85a",
+      "kind": "text-editor",
+      "html": "<p>Before you read this section, or consider joining our UCAT course or any other UCAT course, consider this: <strong>the most important factor in scoring well in the UCAT is NOT tutoring or any UCAT course, no matter how they are marketed to you</strong>. The key to scoring well in the UCAT is <strong>consistent</strong>, <strong>effective practice</strong> over <strong>time</strong>, which can only be done by <strong>you individually</strong>. If you’re not putting in work every day to <strong>practice</strong> and <strong>improve</strong>, no UCAT course or tutoring is going to help you.</p>"
+    },
+    {
+      "id": "13f0153",
+      "kind": "icon-box",
+      "title": "Online question bank access",
+      "html": "<p> Our <b>online question system</b> contains thousands of questions organised into <b>untimed practice sets, timed practice sets </b>and<b> full length exams </b>which we use to teach you during the sessions. </p>"
+    },
+    {
+      "id": "0d27bf9",
+      "kind": "icon-box",
+      "title": "A personalised learning experience",
+      "html": "<p> What we teach depends on <b>where you're at</b> in your preparation - each session is organised into<b> small groups</b> based on ability, so whether you need to <b>learn strategies</b> or <b>smash through exams</b>, we've got you covered. </p>"
+    },
+    {
+      "id": "e7fb5ff",
+      "kind": "icon-box",
+      "title": "Tutors you can trust",
+      "html": "<p> All of our <b>UCAT tutors</b> achieved among the <b>top UCAT scores </b>in the country (minimum 98th percentile) and are currently <b>studying in medical school</b> themselves, meaning we know the questions and strategies <b>back to front</b>. </p>"
+    },
+    {
+      "id": "7f244c8",
+      "kind": "icon-box",
+      "title": "24/7 access to guidance",
+      "html": "<p> The key to scoring well in the UCAT is <b>consistent, effective practice</b> over <b>time</b>, which can only be done by<b> you individually</b>. All of our weekly students get <b>unlimited access</b> to our <b>question helpline</b>, where students can get <b>study tips</b> and <b>strategies</b> from our tutors throughout the week. </p>"
+    },
+    {
+      "id": "a727b6f",
+      "kind": "icon-box",
+      "title": "Support for all students",
+      "html": "<p> We hate how<b> lucrative</b> UCAT tutoring is. If the only thing restricting you from joining our sessions is the cost, <b>let us know</b> and we'll <b>subsidise</b> either part or all of the cost for you. </p>"
+    },
+    {
+      "id": "61d6eea",
+      "kind": "icon-box",
+      "title": "Supporting a good cause",
+      "html": "<p> Our UCAT course is <b><i>completely</i> not-for-profit</b>, meaning that <b>all money</b> we have left after paying tutors and resources is <b>donated to a charity</b> which the students choose at the end of the programme. </p>"
+    },
+    {
+      "id": "41afe97",
+      "kind": "heading",
+      "title": "Course information"
+    },
+    {
+      "id": "80b251d",
+      "kind": "icon-box",
+      "title": "Cost",
+      "html": "<p> Our UCAT sessions <b>cost</b> $30/hr, which is equivalent to $90 for each 180 minute session. This will be <b>billed in advance</b> with an <b>invoice</b> added to your <b>Altitutor account</b> at the <b>start of each week</b>, to be paid via credit card or direct debit. <br /><br /> If you <b>cannot afford</b> these fees, we provide <b>subsidies</b> for students in <b>disadvantaged circumstances</b>, so they can <b>study for free</b> or a <b>reduced fee</b>. <a href=\"/about/subsidy/\">Click here to find out more and apply.</a> <br /><br /> We hate how <b>lucrative</b> UCAT tutoring is. And <b>we're not just saying that</b> - to put our money where our mouth is, our UCAT course is <b><i>completely</i> not-for-profit</b>, meaning that <b>all money</b> we have left after paying for tutors and resources is <b>donated to a charity</b> which the students choose at the end of the program. </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "891f235",
+      "kind": "icon-box",
+      "title": "Cancellations",
+      "html": "<p> If you <b>can't make it </b>to a session for any reason, simply <b>let us know</b> <i>at least 24 hours</i> <i>before</i> the session. We <b><i>don't charge</i></b> any <b>late or cancellation fees</b> if the absence is informed at <i>least 24 hours before the session</i>, or in the case or <b>medical</b> or <b>family emergency</b>. </p>"
+    },
+    {
+      "id": "f740788",
+      "kind": "icon-box",
+      "title": "Online question bank",
+      "html": "<p> Our <b>online question bank</b> contains thousands of <b>practice questions</b> organised into: <br /><b>1. Full length untimed practice sets <br />2. Full length timed practice sets <br />3. Full length timed exams</b> <br /><br /> This is reflective of how our <b>UCAT course</b> is taught - we will start with <b>untimed sets</b> as you <b>learn</b> how to solve questions, then <b>improve timing</b> using progressively faster <b>timed sets</b>. During the <b>final weeks</b> of preparation, we do as many <b>practice exams as</b> possible so you can <b>track your improvement.</b> <br /><br /> Student are free to <b>access</b> the online system <b>during the week</b> in between lessons. </p>"
+    },
+    {
+      "id": "cdd4f75",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=altitutor&t=m&z=16&output=embed&iwloc=near"
+    },
+    {
+      "id": "bef73b3",
+      "kind": "text-editor",
+      "html": "<h3><strong>Location</strong></h3> <p>Sessions will take place at the <b>Altitutor office</b>, which is located on <b>Level 1, 17A Solomon St Adelaide SA 5000</b></p>"
+    },
+    {
+      "id": "ef316be",
+      "kind": "heading",
+      "title": "Our method"
+    },
+    {
+      "id": "f508d6c",
+      "kind": "icon-box",
+      "title": "Consistent revision",
+      "html": "<p> The key to UCAT success is not tutoring, or any UCAT course (including ours) - success is more attributed to consistent revision so you can improve over time. During each session, we assess each student's progress during the week, and give them tips to guide their at-home study. </p>"
+    },
+    {
+      "id": "8f40c13",
+      "kind": "icon-box",
+      "title": "Personalised help",
+      "html": "<p> Our UCAT sessions are organised into small groups based on which stage the student is up to. If you need to learn how to do questions, a tutor will sit with you and go through strategies. If your timing needs to improve, we'll sit with you and go through practice questions until you get faster. </p>"
+    },
+    {
+      "id": "755988d",
+      "kind": "icon-box",
+      "title": "Step 1: Learn",
+      "html": "<p> We start by going through questions slowly with students, one section at a time, so you can learn how to recognise and solve each question type. This stage is completely untimed, so students can work at their own pace and ask as many questions as they want. </p>"
+    },
+    {
+      "id": "1343682",
+      "kind": "icon-box",
+      "title": "Step 2: Prepare",
+      "html": "<p> In stage 2, we introduce timing to each section, starting with whatever timing the students have and then slowly speeding them up until they can complete each section in the required time. </p>"
+    },
+    {
+      "id": "60402da",
+      "kind": "icon-box",
+      "title": "Step 3: Assess",
+      "html": "<p> In the final stage, we go through an exam every week, and then score and rank students against their peers so they can track their improvement in the final weeks leading up to their UCAT test. </p>"
+    },
+    {
+      "id": "329305f",
+      "kind": "heading",
+      "title": "Our resources"
+    },
+    {
+      "id": "aacd1dd",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-paper-600x848.png",
+      "alt": "UCAT paper"
+    },
+    {
+      "id": "6e4780f",
+      "kind": "text-editor",
+      "html": "<h3><strong>Untimed practice sets</strong></h3><p>Designed to help you learn strategies to solve the questions, our <strong>untimed practice sets</strong> each aim to teach a <strong>specific aspect</strong> of each section.</p>"
+    },
+    {
+      "id": "f88d6e5",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-paper-600x848.png",
+      "alt": "UCAT paper"
+    },
+    {
+      "id": "b8be553",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-QR-online-13-inch-MBP-1-600x356.png",
+      "alt": "UCAT QR online 13-inch MBP"
+    },
+    {
+      "id": "52a832e",
+      "kind": "text-editor",
+      "html": "<h3><strong>Timed practice sets</strong></h3><p><strong>Timed practice sets</strong> are done via our <strong>online system</strong> and aim to gradually <strong>improve question timing</strong> until you’re able to do questions at the pace of the <strong>real UCAT</strong>.</p>"
+    },
+    {
+      "id": "78beda3",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-QR-online-13-inch-MBP-1-600x356.png",
+      "alt": "UCAT QR online 13-inch MBP"
+    },
+    {
+      "id": "b570d52",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-QR-online-24-inch-iMac-600x509.png",
+      "alt": "UCAT QR online 24-inch iMac"
+    },
+    {
+      "id": "ae99ef7",
+      "kind": "text-editor",
+      "html": "<h3><strong>Full-length exams</strong></h3><p>Written to be as <strong>close</strong> to <strong>past UCAT tests</strong> as possible, our <strong>full length exams</strong> help <strong>simulate</strong> the real thing, so you feel more comfortable in your actual test.</p>"
+    },
+    {
+      "id": "02831fe",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/UCAT-QR-online-24-inch-iMac-600x509.png",
+      "alt": "UCAT QR online 24-inch iMac"
+    },
+    {
+      "id": "afbdd72",
+      "kind": "heading",
+      "title": "How to get started."
+    },
+    {
+      "id": "75cd541",
+      "kind": "text-editor",
+      "html": "<ol><li><strong>Book a trial session</strong> with us at a time convenient for you. </li><li><strong>One of our UCAT tutors</strong> will <strong>meet with you</strong> at the specified time.</li><li>During the <strong>trial session</strong>, our tutor will assess where you are in your preparation journey, and explain how the UCAT works if you need it.</li><li>You will be given an <strong>information sheet</strong> with a <strong>link to sign up</strong> during the <strong>trial session</strong> – if you would like to <strong>continue with tutoring</strong>, simply use this link to <strong>sign up</strong></li><li>Once you are registered, you will be given a regular session time to sign up.</li></ol>"
+    },
+    {
+      "id": "5f6a0b8",
+      "kind": "heading",
+      "title": "Interested? Book a free trial session now."
+    },
+    {
+      "id": "4500ca8",
+      "kind": "button",
+      "title": "Book now",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    }
+  ],
+  "/about/subsidy/": [
+    {
+      "id": "170ed74",
+      "kind": "heading",
+      "title": "TUITION SUBSIDY PROGRAM"
+    },
+    {
+      "id": "3074430",
+      "kind": "heading",
+      "title": "Can't afford tuition? Not a problem."
+    },
+    {
+      "id": "df24ab3",
+      "kind": "text-editor",
+      "html": "<p>Something which is <b>very close to all of our hearts</b> is the <b>unfair advantage</b> money can give you when it comes to <b>University admissions,</b> particularly for more competitive courses such as Medicine and Dentistry. That’s not to say we think it’s completely based on money, just that <b>a lot of tuition programs for the UCAT or medicine admissions are very expensive.</b></p><p>To combat this, we’ve tried to make our programs<b> as cheap as possible</b>, and on an<b> “only pay for what you come to”</b> basis to alleviate the feeling of wasted funds. But if you still cannot afford our fees, we offer a <b>subsidy program</b> which means you may be able to <b>study with us for free</b>, or at a<b> reduced cost.</b></p>"
+    },
+    {
+      "id": "78a7f07",
+      "kind": "heading",
+      "title": "How it works"
+    },
+    {
+      "id": "1c95c56",
+      "kind": "text-editor",
+      "html": "<ol><li>You apply for a <strong>subsidy</strong> using the form below.</li><li>We <strong>contact applicants</strong> and organise a time for an <strong>interview.</strong></li><li>You meet with us for an <strong>interview</strong>, so we can get to know you and so you can tell us about your <strong>situation</strong>. </li><li>During the subsidy interview, we figure out <strong>how much</strong> (if anything) you can afford pay for tutoring, and we register you as a <strong>new student</strong> with the <strong>subsidised fee</strong>.</li></ol>"
+    },
+    {
+      "id": "b5442c0",
+      "kind": "heading",
+      "title": "Application form"
+    },
+    {
+      "id": "6d7097b",
+      "kind": "text-editor",
+      "html": "<p>If you would like to apply for a subsidy, please email us at admin@altitutor.com with the following information:</p><ul><li>Student’s name</li><li>Student year level</li><li>Subject(s) applying for</li><li>Reason for subsidy application</li><li>Your contact details (phone number preferred)</li></ul>"
+    },
+    {
+      "id": "1b30edd",
+      "kind": "heading",
+      "title": "Still have questions? Get in touch."
+    },
+    {
+      "id": "a67fb63",
+      "kind": "button",
+      "title": "Contact",
+      "href": "/about/contact/"
+    }
+  ],
+  "/about/testimonials/": [
+    {
+      "id": "94096f8",
+      "kind": "heading",
+      "title": "Results and Testimonials"
+    },
+    {
+      "id": "cf47bec",
+      "kind": "heading",
+      "title": "Results"
+    },
+    {
+      "id": "24797af",
+      "kind": "text-editor",
+      "html": "<p>We are so <strong>proud</strong> of how our previous <strong>graduating Year 12s</strong> have done!</p><p>Please note that the results shown here are not necessarily indicative of how you will perform if you study with us – every student is different and you should only compare your grades with the grades you’ve gotten in the past 🙂</p>"
+    },
+    {
+      "id": "9c6393d",
+      "kind": "heading",
+      "title": "2023 results"
+    },
+    {
+      "id": "679d6c0",
+      "kind": "counter",
+      "title": "Student subjects",
+      "value": "236"
+    },
+    {
+      "id": "cf59253",
+      "kind": "counter",
+      "title": "Received an offer for their top preference",
+      "value": "98.1%"
+    },
+    {
+      "id": "f7fc7b8",
+      "kind": "counter",
+      "title": "Average (raw) ATAR",
+      "value": "98.32"
+    },
+    {
+      "id": "46e71f7",
+      "kind": "counter",
+      "title": "Top (raw) ATAR",
+      "value": "99.95"
+    },
+    {
+      "id": "89b9512",
+      "kind": "counter",
+      "title": "",
+      "value": "4.8/5"
+    },
+    {
+      "id": "ad4a461",
+      "kind": "heading",
+      "title": "Average tutor rating"
+    },
+    {
+      "id": "cf4ff7a",
+      "kind": "counter",
+      "title": "",
+      "value": "4.63/5"
+    },
+    {
+      "id": "64d95f8",
+      "kind": "heading",
+      "title": "Average course rating"
+    },
+    {
+      "id": "b317366",
+      "kind": "heading",
+      "title": "2022 results"
+    },
+    {
+      "id": "81f6ff5",
+      "kind": "counter",
+      "title": "Student subjects",
+      "value": "126"
+    },
+    {
+      "id": "865b4a9",
+      "kind": "counter",
+      "title": "Received an offer for their top preference",
+      "value": "94.8%"
+    },
+    {
+      "id": "00feacc",
+      "kind": "counter",
+      "title": "Average (raw) ATAR",
+      "value": "97.1"
+    },
+    {
+      "id": "bb8f712",
+      "kind": "counter",
+      "title": "Top (raw) ATAR",
+      "value": "99.95"
+    },
+    {
+      "id": "58d7d3f",
+      "kind": "counter",
+      "title": "",
+      "value": "4.95/5"
+    },
+    {
+      "id": "e1c61c0",
+      "kind": "heading",
+      "title": "Average tutor rating"
+    },
+    {
+      "id": "ada31fc",
+      "kind": "counter",
+      "title": "",
+      "value": "4.75/5"
+    },
+    {
+      "id": "7e123ae",
+      "kind": "heading",
+      "title": "Average course rating"
+    },
+    {
+      "id": "c1a5fab",
+      "kind": "heading",
+      "title": "2021 results"
+    },
+    {
+      "id": "41998a7",
+      "kind": "counter",
+      "title": "Student subjects",
+      "value": "77"
+    },
+    {
+      "id": "88ec94f",
+      "kind": "counter",
+      "title": "Received an offer for their top preference",
+      "value": "93.3%"
+    },
+    {
+      "id": "a35205a",
+      "kind": "counter",
+      "title": "Average (raw) ATAR",
+      "value": "96.5"
+    },
+    {
+      "id": "3f509e7",
+      "kind": "counter",
+      "title": "Top (raw) ATAR",
+      "value": "99.95"
+    },
+    {
+      "id": "bf39768",
+      "kind": "counter",
+      "title": "",
+      "value": "4.84/5"
+    },
+    {
+      "id": "09e0120",
+      "kind": "heading",
+      "title": "Average tutor rating"
+    },
+    {
+      "id": "bda910d",
+      "kind": "counter",
+      "title": "",
+      "value": "4.9/5"
+    },
+    {
+      "id": "77c25c3",
+      "kind": "heading",
+      "title": "Average course rating"
+    },
+    {
+      "id": "9cf8212",
+      "kind": "heading",
+      "title": "2020 results"
+    },
+    {
+      "id": "6d0f6cf",
+      "kind": "counter",
+      "title": "Student subjects",
+      "value": "34"
+    },
+    {
+      "id": "cb80721",
+      "kind": "counter",
+      "title": "Received an offer for their top preference",
+      "value": "96.1%"
+    },
+    {
+      "id": "c6bf3a2",
+      "kind": "counter",
+      "title": "Average (raw) ATAR",
+      "value": "93.2"
+    },
+    {
+      "id": "9f78082",
+      "kind": "counter",
+      "title": "Top (raw) ATAR",
+      "value": "99.6"
+    },
+    {
+      "id": "e218701",
+      "kind": "counter",
+      "title": "",
+      "value": "4.91/5"
+    },
+    {
+      "id": "6f0dc59",
+      "kind": "heading",
+      "title": "Average tutor rating"
+    },
+    {
+      "id": "1d4df5a",
+      "kind": "counter",
+      "title": "",
+      "value": "4.83/5"
+    },
+    {
+      "id": "e124941",
+      "kind": "heading",
+      "title": "Average course rating"
+    },
+    {
+      "id": "8774f44",
+      "kind": "accordion",
+      "items": [
+        {
+          "title": "How our statistics are calculated",
+          "html": "<p>A <strong>student subject</strong> means that students studying multiple subjects are counted multiple times. For example, if we have 3 students, where one of them is studying 2 subjects, then that would be 4 student subjects. <strong>Student subjects</strong> do not include our exam revision courses, UCAT or medicine interview course.</p><p>Recorded <strong>ATARs</strong> and <strong>subject scores</strong> are <em>not</em> accounting for maths and sciences bonus points.</p><p>Average <strong>tutor rating</strong> and average <strong>course rating </strong>are calculated <strong>per student</strong>, and not per year. For example, if we have 3 ratings in 2020 of 5 and 2 ratings in 2021 of 4/5, we calculate the average using (5+5+5+4+4)/5.</p><p><strong>Top preference</strong> refers to the course which the student ranked first in their <strong>SATAC application</strong>. We <em>do not</em> count <strong>interstate applications</strong> in this statistic.</p><p>The statistics for the <strong>current year</strong> are based on the responses we have received <strong>so far</strong> from our graduating students, and will continue to be updated.</p>"
+        }
+      ]
+    },
+    {
+      "id": "8a3d6ad",
+      "kind": "heading",
+      "title": "Testimonials"
+    },
+    {
+      "id": "9aaac8f",
+      "kind": "text-editor",
+      "html": "<p>Students have a lot of <strong>nice things</strong> to say about <strong>our tutors</strong>.</p><p>In accordance with our <strong>honesty and integrity values</strong>, here is a list of <strong>all of the reviews</strong> we have, no matter how good or bad they are. Please note that it will probably take a few weeks for us to put your review up, if you can’t find it on the wall.</p><p>If you’re one of our<strong> current students</strong> and have been studying with us for <strong>more than a term</strong>, write us a <strong>review</strong> and <strong>consent for us to display it</strong> to receive your <strong>next lesson free</strong> 🙂</p>"
+    },
+    {
+      "id": "a7b52c2",
+      "kind": "button",
+      "title": "Write a review",
+      "href": "#review"
+    },
+    {
+      "id": "abadcc6",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Anonymous",
+          "html": "The tuition received from Matt was of extreme high quality and in comparison to previous grades from past years, the grades after I received tuition increased.",
+          "role": "Student, Stage 2 Physics"
+        }
+      ]
+    },
+    {
+      "id": "cab25cb",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "James",
+          "html": "Kevin clearly explains content making it easy to understand. He has helped me become more disciplined in my study practices in that I should be answering practice questions each week.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "79df227",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Bao",
+          "html": "My tutor provides sufficient practice questions and practice tests. He explains different way of doing questions when I'm confused and welcomes me to ask any questions I have.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "f34e809",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Pranaay",
+          "html": "Was a very informative and supportive tutor. I found the process of teaching to be extremely helpful, instilling useful techniques which could be applied throughout my studies. Additionally, the notes provided were summarised and understandable and served as a reference point during times of misunderstanding. I found that Matt was also extremely supportive and compassionate, spending extra time to speak about things related to other subjects, and generally wanting the best for his students.",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "9d98302",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Matthew",
+          "html": "Matt was very knowledgeable about the subjects and made comprehending the course information easy.",
+          "role": "Student, Stage 2 Methods, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "c1b8e0d",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Christabelle",
+          "html": "Matt has been a great help throughout years 11 and 12. His teaching style was very clear and his thorough explanations and detailed notes have allowed me to understand the course more easily. Additionally, he was very easy to approach and was always willing to answer any questions that I had about a subject or school in general. This support he provided has helped me improve my grades greatly :)) Thanks, Matt for teaching me and for all the encouragement and advice you have given throughout year 12!! :))",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "88c1754",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Ricky",
+          "html": "Vincent is a quality tutor and in my opinion one of the best. He is easy to understand, very professional. Although he teaches me maths, he has been able to answer my questions in a wide range of other subjects. Grade A tutor overall!",
+          "role": "Student, Pre-SACE Mathematics"
+        }
+      ]
+    },
+    {
+      "id": "4db85e2",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Sandy",
+          "html": "Lessons with Vincent have been beneficial throughout my senior year. He was always willing to help out and ensure that my work and understanding of the course is up to standard. Vincent had made each lesson fun and always encouraged me to work harder, which allowed me to learn comfortably. Vincent was an outstanding tutor, very enthusiastic with excellent communication skills. I highly recommended for any Year, 12 students.",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "3e7f3e9",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Joanna",
+          "html": "I’ve had several tutors throughout my academic life and Vincent has been one of the best. i had Vincent tutor me in stage 2 chemistry and he helped me to gain the grades that i wanted. he was both insightful and thorough in lessons and provided relevant worksheets that allowed me to advance my knowledge. he put in a lot of effort both in and out of lessons to ensure that i was prepared for future tests and assignments",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "c36a8d6",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Sarah",
+          "html": "Matthew was really good at providing detailed responses to all of my questions. He also provided loads of great and useful sources to practice with before tests and exams.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "965b1c3",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Vyvian",
+          "html": "I had gone through several tutors for my medicine interview prep with little to no progress, and Matt was by far the best. He was very patient and thorough, and well prepared with scenarios to practice through each session. Matt structured each session well, explaining concepts in an easily digestible manner so I was able to build my understanding of the interview and develop and hone my skills. This greatly increased my confidence in answering the questions, and thanks to him I now have an offer in medicine!",
+          "role": "Student, Medicine interview course"
+        }
+      ]
+    },
+    {
+      "id": "f56beb6",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Teresa",
+          "html": "Before tutoring with Vincent, I had set myself goals for biology as it was a subject I had really struggled with. During the school year and tutoring with Vincent, he has helped me not only enjoy the subject but helped me achieve higher grades than my goals had anticipated",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "a5cfb3d",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Nanjie",
+          "html": "During my time in year 12, Matt really helped me getting through Year 12 methods where I was really struggling to understand concepts at school. Matt would choose ways that made me understand the concept alot easier. I had Matt for a few session on Chemistry as well and believed that he was able to clearly and effectively explain the concepts and guide me through any questions and confusion I had.",
+          "role": "Student, Stage 2 Methods, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "ab28148",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Chrishelle",
+          "html": "Vincent has tutored me through year 12 for the subjects biology and chemistry. He has been so helpful and really pushed me to receive the marks i wanted. Vincent provides various learning resources such as PowerPoints, worksheets and his own handwritten notes and is always super organised - very professional!! Not only has Vincent tutored me, he has been such an amazing friend by always supporting and encouraging me to do my best. I highly recommend Vincent to any student!!!!",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "ad49afa",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Anonymous",
+          "html": "Matt's tuition was catered towards my needs and schedule which was very helpful during my very busy year of year 12.",
+          "role": "Student, Stage 2 Physics and Mathematical Methods"
+        }
+      ]
+    },
+    {
+      "id": "6a76bb5",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Mylinh",
+          "html": "Tutor classes with Vincent has helped me expand my knowledge profoundly. His consistent support and focus on ensuring my work was always up to standard was also really helpful. Vincent made the learning experience interesting and enjoyable even when the course was extremely content heavy.",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "c2945a5",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "James",
+          "html": "I felt like I was honestly learning more at Altitutor than I was in school. Altitutor helped me a lot with my test preparation and understanding.",
+          "role": "Student, Stage 2 Methods, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "879e5eb",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Soumik",
+          "html": "Matt was very patient and made sure that I understood whatever I was learning perfectly. Overall he was very kind and nice to talk with as a tutor. Would recommend 100%",
+          "role": "Student, Stage 2 Methods, Stage 2 Physics"
+        }
+      ]
+    },
+    {
+      "id": "552a2db",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "James",
+          "html": "Kevin clearly explained content and made it easy to understand. He has helped me become more disciplined in my study practices in that I should be answering practice questions each week. I also received support for all my assignments.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "3e2d931",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Krshna",
+          "html": "Tristan goes through all the work quickly and effectively",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "9d10228",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Krshna",
+          "html": "Tristan goes through all the work quickly and effectively. I think the speed of going through the content was really good.",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "02032f7",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Vyvian",
+          "html": "I had gone through several tutors for my medicine interview prep with little to no progress, and Matt was by far the best. He was very patient and thorough, and well prepared with scenarios to practice through each session. Matt structured each session well, explaining concepts in an easily digestible manner so I was able to build my understanding of the interview and develop and hone my skills. This greatly increased my confidence in answering the questions, and thanks to him I now have an offer in medicine!",
+          "role": "Student, Medicine interview course"
+        }
+      ]
+    },
+    {
+      "id": "0d1748e",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Michael",
+          "html": "Matthew is a brilliant tutor and has vastly improved my understanding in Mathematical Methods. His method of teaching is more fast-paced yet very easy to pick up for a student. I would recommend Matthew for anyone looking to excel and rebuild their confidence in mathematics.",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "3a70572",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Ruben",
+          "html": "Extremely happy with my tutoring",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "2111ffe",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Ruben",
+          "html": "Extremely happy with my tutoring",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "bc39967",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Angus",
+          "html": "Elyssa was good at conveying her method of figuring out questions and she was able to quickly run through a large chunk of a topic that I might be struggling on. She could possible try to look at other methods of figuring out a question in case a student doesnt understand her original method, but her method usually was what I needed.",
+          "role": "Student, Stage 2 Specialist Mathematics"
+        }
+      ]
+    },
+    {
+      "id": "cf2d34a",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Justin",
+          "html": "Kevin was a great tutor. He explained things in Chemistry in a digestible way and overall is very knowledgable.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "d1b5e21",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Justin",
+          "html": "Joshua was very smart and good at making hard questions. Has a deep understanding of the medicine interview.",
+          "role": "Student, Medicine interview course"
+        }
+      ]
+    },
+    {
+      "id": "c6d9a1a",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Hamish",
+          "html": "Matt was a great tutor, not only a very good teacher, but also an all around great bloke",
+          "role": "Student, Stage 2 Mathematical Methods"
+        }
+      ]
+    },
+    {
+      "id": "b3018f8",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Sophie",
+          "html": "Josh was a good tutor! made the environment always comfortable to ask questions and clarification, explained concepts well",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "392423e",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Sophie",
+          "html": "Samantha was always clear with her feedback and what needed to be changed, was very thorough with english drafting and was very quick as well",
+          "role": "Student, Stage 2 English"
+        }
+      ]
+    },
+    {
+      "id": "b7be9be",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Sean",
+          "html": "Kevin understands the chemistry syllabus and questions thoroughly. Continue to improve on your confidence in tutoring in front of a group.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "2d8034a",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Kim Kim",
+          "html": "Classes were fun and we for the most part pushed through content well. Lessons felt like a breath of air amidst a very stressful year which made it easier to learn. This isn't about Gooi specifically but having tutors close to our age was really nice in comparison to having people who are older cause you guys were relatable and made us feel comfortable in classes. It was \"study group with friends\" sort of vibe.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "3040d54",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Neha",
+          "html": "The weekly lessons with Sarah really improved my understanding of the subject and definitely helped me to succeed in achieving great marks. Sarah was so friendly and easy to approach which made me feel comfortable in asking questions to which I received very helpful replies.",
+          "role": "Student, Stage 2 Mathematical Methods"
+        }
+      ]
+    },
+    {
+      "id": "b67c732",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Neha",
+          "html": "Samantha basically saved my entire English external essay 😅 Even though I only had one lesson with her, she helped me so much in improving my essay to an A+ standard. She was very knowledgeable in the area and explained her critique of my work well so I was able to understand ways in which my text was lacking. Her feedback was a lot better and detailed than my teachers.",
+          "role": "Student, Stage 2 English"
+        }
+      ]
+    },
+    {
+      "id": "473f389",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Neha",
+          "html": "Matt was also very active in helping me throughout all my subjects which definitely improved my knowledge and made me feel a lot more confident in my school work. The additional resources provided by Matt were very useful.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "af0c668",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "John",
+          "html": "Matt's method of teaching matched very well with the way that I learn.",
+          "role": "Student, Stage 2 Physics"
+        }
+      ]
+    },
+    {
+      "id": "e415fa5",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Jay",
+          "html": "Matt was a really engaging and amazing teacher. Helped me understand a lot of concepts and theory in such a short Amount of time to prepare me for my exam",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "0f952b5",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Christabelle",
+          "html": "Matt is a very patient and understanding tutor who tries to get to know the students which allow for him to provide a more targeted based learning. In my case, I'm not usually very confident in my answers so I tend to shy away from answering even if it's correct or I always end up second guessing my answers and end up writing the wrong answer. But Matt helped me gain more confidence in my answers and understanding which in the long run was very helpful during year 13 :)) He also helped in targeting my weaknesses and also helped in refining my answering methods during exams and test which was very beneficial to successfully completing the subject. Thanks Matt for teaching me again this year!!",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "4766bc0",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Christabelle",
+          "html": "Tristan is a very approachable tutor who is able to explain concepts well but sometimes your big brain kinda went too fast and you'd jump to an answer that I didn't understand but because you are very approachable it was easy to question and ask for help!! Thanks Tristan for tutoring me :))",
+          "role": "Student, Stage 2 Mathematical Methods"
+        }
+      ]
+    },
+    {
+      "id": "93b1cce",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Christabelle",
+          "html": "Although everything was very good there were times where Justin would explain stuff in a very complex way that was kinda hard to understand on the first time around. But eventually we got there. Thanks for tutoring me Justin :))",
+          "role": "Student, Stage 2 Physics"
+        }
+      ]
+    },
+    {
+      "id": "2aad0f5",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Emily",
+          "html": "I loved Sarah’s style of teaching and how she was so patience to answering any question you had. She explained new and old concepts very well and was very dedicated to helping us out.",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "2ceaa21",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Emily",
+          "html": "Gooi’s great at developing problem solving skills, and it helped me whenever I was answering chemistry questions that I was stuck on. He way very patient when explaining and very thorough, he was a great help throughout the year.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "fc6a30d",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Emily",
+          "html": "Samantha was amazing throughout the year. She really sat down and took the time to thoroughly go through all my work with her to make sure everything was perfect, and it really paid off!",
+          "role": "Student, Stage 2 English"
+        }
+      ]
+    },
+    {
+      "id": "a469a7a",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Keya",
+          "html": "I learned so much from Matt regarding the interview process. He was very thorough with the preparation and I felt more confident in my preparation after my lessons. Throughout the preparation Kevin provided critical feedback but also postives which was very encouraging and helped me build on my responses. He was also very encouraging. Provided examples and helped with building responses. Provided insight through multiple perspectives which was critical in building my responses.",
+          "role": "Student, Medicine interview course"
+        }
+      ]
+    },
+    {
+      "id": "c0c6277",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Dhwani",
+          "html": "Kevin made chemistry very easy for me to understand! He used his ipad to draw out diagrams and explained everything in a manner that was very easy to understand. Kevin has a very friendly personality which meant that i could easily approach him and ask him anything i had concerns about.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "8a9a298",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Dhwani",
+          "html": "I LOVED HIS DIAGRAMS!! and the easy he explained everything related to biology! Like for some reason Matt's explanation just stuck with me and helped me many times when i was confused with the topic.",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "c638bdd",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Jinit",
+          "html": "Kevin is an excellent tutor who knows everything in Chem well enough to answer my questions.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "9ab5192",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Jinit",
+          "html": "Jono, Tristan and Matt are exceptional tutors with very sound knowledge! There's no criticism for the tutors, however for methods I would like to have a smaller class like Chem (which only had 2 other people). This would increase the productivity of the entire class.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "7aae554",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Shamiama",
+          "html": "Matt teaches in an immensely clear and detailed manner, in efforts of ensuring that all of his students understand the content fully within the given timeframe. Matt repeats the concepts multiple times if needed and uses diagrams to support his teaching. Matt uses subject specific terminology and modifies his teaching method to abide by the unique and varied learning styles of each student. Matt’s in-depth teaching allows students to understand how to score full marks in tests and avoid repeating mistakes. Matt is also an extremely nice tutor who is easy to talk to and very devoted to his work.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "eec93cc",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Patrick",
+          "html": "Matt knew the Methods course inside out. We covered everything we needed to know, from the fundamentals to advanced and extended content. His teaching methods of clearly communicating key information in booklets and then testing us with 'exam style' questions were extremely effective and easy to follow. As a result, Methods became relatively simple for me. Also, if you ever need advice or to talk about different pathways into your desired course (especially Medicine, Dentistry or Oral Health), Matt is the man!",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "6e270a5",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Youna",
+          "html": "Gooi was awesome and had lot of fun while learning. Even though sometimes it was hard to read his hand writing hahaha. But we love Gooi💞💞 So it was alright.",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "b93e319",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "James",
+          "html": "Kevin is a fantastic tutor. Kevin has an excellent teaching style and ensured I understood the concept before moving onto the next. He always followed up on how I did with assessment tasks and provided useful feedback and criticism. Kevin is bright, engaging and friendly.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "988c0c2",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "James",
+          "html": "All of my biology lessons with Josh were enjoyable. Josh focuses on getting through theory so more time is able to spent doing practice questions. I found this a useful method as from when I started biology tuition my grades improved. He was very thorough when going through my assignments and provided relevant feedback and criticism. Josh is bright, engaging and friendly.",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "243ba40",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Hannah",
+          "html": "Kevin is a fun, engaging tutor who knows the chem content extremely well. He is very helpful in answering any questions and explains difficult concepts in a simple but effective manner.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "2fa62e8",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Hannah",
+          "html": "Anna was able to go through hard questions I was struggling with in school and in sessions and helped me understand how to work through them effectively. She also explained complex physics concepts in a simple manner to me and persisted in allowing me to understand concepts even if it took a long time",
+          "role": "Student, Stage 2 Physics"
+        }
+      ]
+    },
+    {
+      "id": "2b0903f",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Zahra",
+          "html": "Josh taught the content depth and explained what we need to write in the test. He explained everything in very simple terms and made the content easy to understand.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "9abde93",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Anesha",
+          "html": "Justin explained concepts super clearly and provided diagrams and resources that were very helpful for both bio and chem!",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "151e6c1",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Anesha",
+          "html": "Kevin broke down very complex chem concepts into ideas that were much easier to understand!",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "f95f73b",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Clara",
+          "html": "Of course the first lesson with the tutors was awkward but as we got close I was able to ask questions, talk about life, and tips on year 12 which really made me feel like I was being supported. All of them are sooo nice and cute to the point I did not want to leave tutoring 🙁",
+          "role": "Student, Stage 2 English"
+        }
+      ]
+    },
+    {
+      "id": "a304f6d",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Zahra",
+          "html": "Josh taught the content depth and explained what we need to write in the test. He explained everything in very simple terms and made the content easy to understand.",
+          "role": "Student, Stage 2 Chemistry"
+        }
+      ]
+    },
+    {
+      "id": "5f3da2d",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Michael",
+          "html": "Alex was very patient and always happy to help me with any difficult questions I am having. He is always happy to help and frequently checks and offers help to all his students.",
+          "role": "Student, Stage 2 Methods"
+        }
+      ]
+    },
+    {
+      "id": "2f6bd7b",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Michael",
+          "html": "It was very easy to understand Justin's teaching. He goes through all the practice test questions with me and suggests various worksheets and practice tests to work on to improve my learning. He also frequently checks if I am doing alright with my work or if I need any assistance.",
+          "role": "Student, Stage 2 Biology"
+        }
+      ]
+    },
+    {
+      "id": "e013c19",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Yit",
+          "html": "Elyssa was friendly, nice to talk to, good at explaining concepts",
+          "role": "Student, Stage 2 Specialist Maths"
+        }
+      ]
+    },
+    {
+      "id": "d35d994",
+      "kind": "testimonial-carousel",
+      "items": [
+        {
+          "title": "Anesha",
+          "html": "The training course was super helpful in prepping me with the communication skills and also ability to clearly describe my experiences during my interview. I have accepted an offer for medicine at Adelaide uni and got to where I am with the guidance and support from the course!",
+          "role": "Student, Medicine interview course"
+        }
+      ]
+    },
+    {
+      "id": "54cca14",
+      "kind": "heading",
+      "title": "Write us a review"
+    },
+    {
+      "id": "34760bf",
+      "kind": "text-editor",
+      "html": "<p><strong>Testimonials</strong> can only be written by our <strong>current</strong> or <strong>past students</strong>.</p><p>If you are a <strong>current student</strong> and you would like to <strong>write a review</strong> to be shown on this page, go to <strong>my account</strong>, then click on the <strong>review my tutor(s) </strong>button. </p>"
+    },
+    {
+      "id": "201a1ea",
+      "kind": "heading",
+      "title": "Interested? Discover the courses we have to offer."
+    },
+    {
+      "id": "d5525de",
+      "kind": "button",
+      "title": "Courses",
+      "href": "/classes/"
+    }
+  ],
+  "/resources/": [
+    {
+      "id": "36dde8f",
+      "kind": "heading",
+      "title": "ONLINE RESOURCES"
+    },
+    {
+      "id": "29b2be3",
+      "kind": "text-editor",
+      "html": "Our<strong> online resources</strong> comprehensively cover<strong> each topic</strong> for <strong>all subjects</strong> we offer courses for. Our students receive<strong> printed copies</strong> of these resources during each lesson, however they are also available here if they wish to <strong>revise outside of class time</strong>."
+    },
+    {
+      "id": "5634180",
+      "kind": "heading",
+      "title": "Our resources"
+    },
+    {
+      "id": "0ba09f9",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-notes-2-727x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "97992da",
+      "kind": "text-editor",
+      "html": "<h3><strong>Study notes</strong></h3><p>Designed so that you’re only writing in the most <strong>high yield content</strong>, our <strong>study notes</strong> save time learning material so we can spend <strong>more time</strong> doing <strong>practice tests</strong> together.</p>"
+    },
+    {
+      "id": "ce86acd",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-notes-2-727x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "0d2b10c",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Anki-iphone-ipad-1024x763.png",
+      "alt": ""
+    },
+    {
+      "id": "6321170",
+      "kind": "text-editor",
+      "html": "<h3><strong>Flashcard system</strong></h3> <p>Our <strong>flashcard system</strong> schedules your study for you, making you study <strong>concepts you struggle</strong> <strong>with</strong> <em><strong>more often</strong></em>. This means you won’t need to relearn content before the exam – you’ll already know it.</p>"
+    },
+    {
+      "id": "b73c327",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/Anki-iphone-ipad-768x572.png",
+      "alt": ""
+    },
+    {
+      "id": "72842ac",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-PQ-1-722x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "dae87de",
+      "kind": "text-editor",
+      "html": "<h3><strong>Practice questions</strong></h3><p>Our <strong>focused practice questions</strong> contain a <strong>compilation</strong> of <strong>past test</strong> and <strong>exam questions</strong> from <strong>each subtopic</strong> – so you can improve at each subtopic individually.</p>"
+    },
+    {
+      "id": "3f3ce0c",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-PQ-1-722x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "b6cf2a5",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-725x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "c41382a",
+      "kind": "text-editor",
+      "html": "<h3><strong>Practice tests</strong></h3><p>Our <strong>full-length practice tests </strong>are created to be <strong>as</strong> <strong>close as possible</strong> to your school tests – and you’ll have access to as many as you need both in class and at home.</p>"
+    },
+    {
+      "id": "dc36384",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-test-1-723x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "48e413b",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-725x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "5b4a042",
+      "kind": "text-editor",
+      "html": "<h3><strong>Practice exams</strong></h3><p>Our <strong>full-length practice exams </strong>are created to be <strong>as</strong> <strong>close as possible</strong> to the <strong><em>real</em> SACE exams</strong>, so you know exactly what it the exam will be like before you go in. Additionally, we have the <strong>actual SACE past papers</strong> for your final exam practice.</p>"
+    },
+    {
+      "id": "e3cbd65",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-725x1024.png",
+      "alt": ""
+    },
+    {
+      "id": "eb0ab92",
+      "kind": "image-box",
+      "title": "Altitutor student dashboard",
+      "html": "<p>All of our in-person students get access to the Altitutor student portal, which allows them to access our online resources, ask questions in the subject help groups and contact tutors for at-home support. <a href=\"https://student.altitutor.com\"> Click here to access the student portal</a></p>",
+      "image": "/wp-content/uploads/2022/09/Screen-Shot-2022-09-28-at-9.42.43-am.png",
+      "alt": "",
+      "href": "https://student.altitutor.com"
+    },
+    {
+      "id": "8715926",
+      "kind": "image-box",
+      "title": "Video lessons",
+      "html": "<p>The video lessons teach through the notes for each subtopic, so you can learn indepedently at home.</p>",
+      "image": "/wp-content/uploads/2022/09/Screen-Shot-2022-09-28-at-9.50.09-am.png",
+      "alt": ""
+    },
+    {
+      "id": "71a3a3a",
+      "kind": "image-box",
+      "title": "Notes and tests",
+      "html": "<p>Our notes, practice questions, tests and solutions are available for access via the portal, if students want to check their solutions.</p>",
+      "image": "/wp-content/uploads/2022/09/Screen-Shot-2022-09-28-at-9.50.38-am.png",
+      "alt": ""
+    },
+    {
+      "id": "580f969",
+      "kind": "image-box",
+      "title": "At-home support from tutors",
+      "html": "<p>Students can message tutors for help with any questions they have during their independent study.</p>",
+      "image": "/wp-content/uploads/2022/09/Screen-Shot-2022-09-28-at-9.46.23-am.png",
+      "alt": ""
+    },
+    {
+      "id": "fadc5c9",
+      "kind": "heading",
+      "title": "Current students"
+    },
+    {
+      "id": "562dd27",
+      "kind": "text-editor",
+      "html": "<p>All of our <strong>in-person students</strong> get access to the <strong>Altitutor student portal</strong>, which allows them to:</p>"
+    },
+    {
+      "id": "29e1651",
+      "kind": "text-editor",
+      "html": "<ul><li>Access our <strong>online resources</strong></li><li>Ask questions in the <strong>subject help groups</strong></li><li><strong>Contact tutors</strong> for <strong>at-home support</strong> or questions</li><li>Check their <strong>session times</strong></li><li>See <strong>announcements</strong></li><li><strong>Message</strong> the other students in their <strong>class groups</strong></li></ul>"
+    },
+    {
+      "id": "a95042e",
+      "kind": "text-editor",
+      "html": "<p>If you are a <strong>current student</strong>, click on the button below to go to the <strong>Altitutor student portal</strong>.</p>"
+    },
+    {
+      "id": "ddc265e",
+      "kind": "button",
+      "title": "Student portal",
+      "href": "https://student.altitutor.com/"
+    },
+    {
+      "id": "e66f93f",
+      "kind": "heading",
+      "title": "Online-only access"
+    },
+    {
+      "id": "36b5fcc",
+      "kind": "text-editor",
+      "html": "<p>Each of our <strong>online courses</strong> is also available for purchase for <strong>online-only access</strong>. Purchase of an <strong>online course</strong> includes:</p>"
+    },
+    {
+      "id": "913e56d",
+      "kind": "text-editor",
+      "html": "<ul><li>Access to the <strong>online resources </strong>for the rest of the year</li><li>Access to the associated <strong>subject help group</strong>, for at-home support and any questions you have</li><li>Access to <b>online support</b> from our <b>tutors</b></li></ul>"
+    },
+    {
+      "id": "f9fbad1",
+      "kind": "text-editor",
+      "html": "<p>If you would like <strong>online-only access</strong>, please click on the button below to browse the available courses on the <strong>Altitutor student portal</strong>. </p>"
+    },
+    {
+      "id": "0653b84",
+      "kind": "button",
+      "title": "Online-only access",
+      "href": "https://student.altitutor.com/"
+    },
+    {
+      "id": "878df03",
+      "kind": "heading",
+      "title": "Want to become a student? Book a free trial session now."
+    },
+    {
+      "id": "d044924",
+      "kind": "button",
+      "title": "Book now",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    }
+  ],
+  "/classes/examprep/": [
+    {
+      "id": "4167958",
+      "kind": "heading",
+      "title": "SACE EXAM PREPARATION COURSES"
+    },
+    {
+      "id": "8b1456d",
+      "kind": "text-editor",
+      "html": "<p>Our exam preparation courses are designed specifically to help students achieve the best score they can in their SACE Stage 2 final examinations. They consist of intensive sessions run over the course of weeks leading up to the exam. Each course gives a review of the entire subject’s content, highlighting critical areas which may have been forgotten, then focuses heavily on strategies and shortcuts for solving exam-style questions.</p>"
+    },
+    {
+      "id": "aca5a8c",
+      "kind": "icon-list",
+      "html": "<ul><li><b>Duration:</b> Weekly sessions, commencing around the start of term 3 holidays.</li><li><b>Where:</b> Altitutor; Level 1, 17A Solomon St, Adelaide SA 5000.</li><li><b>Cost:</b> $30/hr, which equates to $90 per 3-hour session.</li></ul>"
+    },
+    {
+      "id": "0545784",
+      "kind": "button",
+      "title": "More info",
+      "href": "#more-info"
+    },
+    {
+      "id": "afa3ee0",
+      "kind": "button",
+      "title": "Enrol",
+      "href": "#enrol"
+    },
+    {
+      "id": "5737dfd",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-768x1084.png",
+      "alt": ""
+    },
+    {
+      "id": "dee4d83",
+      "kind": "heading",
+      "title": "Why revise with us?"
+    },
+    {
+      "id": "72a234e",
+      "kind": "icon-box",
+      "title": "Tutors you can trust",
+      "html": "<p> As <b>top achieving students</b> studying Medicine at universities around Adelaide, we <b>know the courses back to front</b>, and have strategies and techniques which are not found in textbooks. </p>"
+    },
+    {
+      "id": "98efbdd",
+      "kind": "icon-box",
+      "title": "Summary notes",
+      "html": "<p> <b>Summary sheets</b> (sciences): Each topic is re-taught with one of our summary sheets, which is an A4 sheet which outlines everything you need to know from that topic. <b>Cheat sheets</b> (maths): We provide cheat sheets for each topic, as a template for you to write your own. </p>"
+    },
+    {
+      "id": "c3dca62",
+      "kind": "icon-box",
+      "title": "Practice exams provided",
+      "html": "<p> Each exam session, we do a practice exam under the guidance of tutors. This allows students to see what they know well and what they need to revise more. All practice exams are provided by us. </p>"
+    },
+    {
+      "id": "12c4e2f",
+      "kind": "icon-box",
+      "title": "Personalised help",
+      "html": "<p> The content we cover in each session is dictated by YOU and what you need help revising. Whether that's re-teaching content or smashing through exams, sessions will be tailored to prepare each and every student for the exam. </p>"
+    },
+    {
+      "id": "5ff6ae9",
+      "kind": "icon-box",
+      "title": "24/7 access to guidance",
+      "html": "<p> From the start of the course all the way up to their exam, students who attend our course get <b>24/7 support</b> from our tutors to answer any questions problems they have. </p>"
+    },
+    {
+      "id": "d592d51",
+      "kind": "icon-box",
+      "title": "Workshops",
+      "html": "<p> Each workshop session, tables are set up with one topic on each table - each table has summary sheets and practice questions, and a tutor to help you out. Students are free to move between tables depending on which topic they need to revise. </p>"
+    },
+    {
+      "id": "3ccbf8a",
+      "kind": "heading",
+      "title": "Course information"
+    },
+    {
+      "id": "98b8b7d",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=altitutor&t=m&z=16&output=embed&iwloc=near"
+    },
+    {
+      "id": "fdd7bd1",
+      "kind": "text-editor",
+      "html": "<h3><strong>Location</strong></h3> <p>Sessions will take place at the <b>Altitutor office</b>, which is located on <b>Level 1, 17A Solomon St Adelaide SA 5000</b></p>"
+    },
+    {
+      "id": "149bac3",
+      "kind": "icon-box",
+      "title": "Cost",
+      "html": "<p> Our <b>session cost</b> is $50/hr, which is equivalent to $75 for each 1.5<b> hour session</b>. This will be <b>billed in advance</b> with an invoice on your <b>Altitutor account</b> at the start of each week, to be paid via credit card or direct debit. <br /> <br /> If you <b>cannot afford</b> these fees, we provide <b>subsidies</b> for students in <b>disadvantaged circumstances</b>, so they can study for <i><b>free</b></i> or a <b><i>reduced fee</i></b>.<a href=\"/about/subsidy/\"> <b>Click here to find out more and apply.</b></a><b> </b> </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "2a734c2",
+      "kind": "icon-box",
+      "title": "Exam sessions",
+      "html": "<p> The course timetable outlines what is covered each day of the course, and changes from year to year. We will provide you with a copy during your trial session, which you can book using the link at the bottom of the page. </p>"
+    },
+    {
+      "id": "a17fa2d",
+      "kind": "icon-box",
+      "title": "Cancellations",
+      "html": "<p> If you <b>can't make it </b>to a session for any reason, simply <b>let us know</b> <i>at least 24 hours</i> <i>before</i> the session. We <b><i>don't charge</i></b> any <b>late or cancellation fees</b> if the absence is informed at <i>least 24 hours before the session</i>, or in the case or <b>medical</b> or <b>family emergency</b>. </p>"
+    },
+    {
+      "id": "e4a96f8",
+      "kind": "icon-box",
+      "title": "Subjects offered",
+      "html": "<p> <li>SACE Stage 2 Specialist Mathematics</li><li>SACE Stage 2 Mathematical Methods</li><li>SACE Stage 2 Physics</li><li>SACE Stage 2 Chemistry</li><li>SACE Stage 2 Biology</li> </p>"
+    },
+    {
+      "id": "78e1e96",
+      "kind": "heading",
+      "title": "Our method"
+    },
+    {
+      "id": "dec5930",
+      "kind": "icon-box",
+      "title": "Exam session",
+      "html": "<p> Students do a practice exam with guidance of tutors, which reveals what you know well and what you need to revise more. </p>"
+    },
+    {
+      "id": "a3d0871",
+      "kind": "icon-box",
+      "title": "Workshop sessions",
+      "html": "<p> Our tables are set up with one topic on each table - each table has summary sheets and practice questions, and a tutor to help you out. Students are free to move between tables depending on which topic you need to revise. </p>"
+    },
+    {
+      "id": "dad2c68",
+      "kind": "icon-box",
+      "title": "Final exam practice",
+      "html": "<p> Towards the end of the course, exams will be done under timed closed book conditions to simulate the real exam. </p>"
+    },
+    {
+      "id": "888d4d4",
+      "kind": "heading",
+      "title": "Our resources"
+    },
+    {
+      "id": "e4c8951",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-summary-sheet-1-600x850.png",
+      "alt": "SACE Chemistry summary sheet 1"
+    },
+    {
+      "id": "6160f76",
+      "kind": "text-editor",
+      "html": "<h3><strong>Summary sheets</strong></h3><p>For <strong>science subjects</strong>, our <strong>summary sheets</strong> outline <strong>everything you need to know</strong> about a each topic in <strong><em>one</em> double sided A4 page</strong>, so you’re not wasting time sorting through your notes. For maths subjects, we have template <strong>cheat sheets</strong> for each topic.</p>"
+    },
+    {
+      "id": "8e5f612",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-summary-sheet-1-768x1088.png",
+      "alt": ""
+    },
+    {
+      "id": "1d715f2",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-PQ-1-600x851.png",
+      "alt": "SACE Chemistry PQ 1"
+    },
+    {
+      "id": "dd2c679",
+      "kind": "text-editor",
+      "html": "<h3><strong>Focused practice questions</strong></h3><p>Our <strong>focused practice questions</strong> contain a <strong>compilation</strong> of <strong>past test</strong> and <strong>exam questions</strong> from each topic – you are free to use these during <strong>workshop sessions</strong> when you want to <strong>focus on one topic</strong>.</p>"
+    },
+    {
+      "id": "2d06874",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/11/SACE-Chemistry-PQ-1-768x1089.png",
+      "alt": ""
+    },
+    {
+      "id": "1deea6f",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-600x847.png",
+      "alt": "SACE Chemistry exam 1"
+    },
+    {
+      "id": "50fc9dd",
+      "kind": "text-editor",
+      "html": "<h3><strong>Practice exams</strong></h3><p>Our <strong>full-length practice exams </strong>are created to be <strong>as</strong> <strong>close as possible</strong> to the <strong><em>real</em> SACE exams</strong>, so you know exactly what it the exam will be like before you go in. Additionally, we have the <strong>actual SACE past papers</strong> for your final exam practice.</p>"
+    },
+    {
+      "id": "57c07ff",
+      "kind": "image",
+      "image": "/wp-content/uploads/2021/12/SACE-Chemistry-exam-1-768x1084.png",
+      "alt": ""
+    },
+    {
+      "id": "7f75791",
+      "kind": "heading",
+      "title": "How to get started"
+    },
+    {
+      "id": "a89476e",
+      "kind": "text-editor",
+      "html": "<ol> <li><strong>Book a trial session</strong> with us at a time convenient for you</li> <li><strong>One of our tutors</strong> will <strong>meet with you</strong> at the specified time</li> <li>During the <strong>trial session</strong>, our tutor will go through any <strong>questions</strong> you have with the subject, as well as explain the <b>details of the exam course</b></li> <li>You will be given an <strong>information sheet</strong> with a <strong>link to sign up</strong> during the <strong>trial session</strong> – if you would like to <strong>join the exam course</strong>, simply use this link to <strong>sign up</strong></li> <li>We will <strong>contact you</strong> when exam courses start with your <strong>exam course time</strong></li> </ol>"
+    },
+    {
+      "id": "c1aaec2",
+      "kind": "heading",
+      "title": "Interested? Book a free trial session now."
+    },
+    {
+      "id": "6509f06",
+      "kind": "button",
+      "title": "Book now",
+      "href": "https://student.altitutor.com/booking/trial-session/"
+    }
+  ],
+  "/about/": [
+    {
+      "id": "fca4827",
+      "kind": "heading",
+      "title": "About us"
+    },
+    {
+      "id": "9423a48",
+      "kind": "text-editor",
+      "html": "<p>Altitutor was founded by a group of <strong>tutors</strong>, who wanted <b>a better way to do tuition.</b></p><p>We found that <b>individual tutors</b> (including ourselves!) often struggled with providing a<b> complete education </b>for students, while tutoring with<b> larger companies lacked personalised learning</b>. That’s why we developed a teaching model which we believe provides <b>the best of both worlds</b>.</p><p>We were also unhappy with how <strong>families</strong> with <strong>less money</strong> were often <strong>unable to afford tutoring</strong>, potentially stopping their <strong>children</strong> from getting into the <strong>courses</strong> they want to.</p>"
+    },
+    {
+      "id": "a423ec7",
+      "kind": "heading",
+      "title": "Our values"
+    },
+    {
+      "id": "998c6ba",
+      "kind": "text-editor",
+      "html": "<p>Tutoring is <strong>ridiculously lucrative</strong>. We know. </p><p><strong>Altitutor</strong> doesn’t want to be just another tutoring company which makes bucketloads of money. We want to make a real, tangible <strong>change</strong> in the lives of the <strong>students</strong> we encounter – and we’re not just saying that. To put our <b>money where our mouth is</b>, our company is completely <strong>not-for-profit</strong>, meaning all of our revenue goes back into teaching students who can’t afford it.</p>"
+    },
+    {
+      "id": "b64b029",
+      "kind": "icon-box",
+      "title": "Fairness and equality",
+      "html": "<p> Altitutor is a <b>not-for-profit company</b> with the primary mission to provide <b>education</b> to students who<b> cannot afford it</b>. Our <a href=\"/about/subsidy/\"> <b>subsidy program</b></a> allows students who need it to study with us for <b>free</b> or at a <b>reduced cost</b>. Subsidy students receive the same <b>resources</b> and <b>quality of education</b> as any of our other students. Click here to apply for our <a href=\"/about/subsidy/\"> <b>tuition subsidy program</b></a> </p>",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "9af0661",
+      "kind": "icon-box",
+      "title": "Transparency",
+      "html": "<p> As a parent, we want you to know you're getting <b>exactly what you pay for</b>. That's why we have a <b>booking tool </b>for parents to organise a <b>meeting</b> with their child's tutor(s) at <b>any time</b> during the week, to have a chat about questions or concerns. </p>"
+    },
+    {
+      "id": "9159ff8",
+      "kind": "heading",
+      "title": "Need support? Apply for our subsidy program."
+    },
+    {
+      "id": "8e9b16e",
+      "kind": "button",
+      "title": "Subsidy",
+      "href": "/about/subsidy/"
+    },
+    {
+      "id": "41b01c4",
+      "kind": "icon-box",
+      "title": "Student enjoyment",
+      "html": "<p> We want students to <b>enjoy</b> lessons enough that they actually <b>want</b> to come to tutoring. This includes<b> initiatives</b> such as <b>no homework</b> - we're so confident in our<b> teaching programs</b> that for <b><i>most</i> students</b>, we don't need to set any <b>extra work </b>to do at home. Of course, for students who are motivated enough to WANT to do extra work, we have plenty of <b>additional resources </b>available. We also have <b>free snacks</b> and drinks during lessons 🙂 </p>"
+    },
+    {
+      "id": "bf261c7",
+      "kind": "icon-box",
+      "title": "Community",
+      "html": "<p> On top of getting our students to achieve <b>good scores</b>, we aim to build a <b>community</b> of <b>engaged learners</b>, who can help and <b>learn from each other</b> while having <b>fun</b> together. <br /><br /> On our part, this includes <b>initiatives</b> such as getting students to <b>help</b> and <b>teach each other</b>, <b>hiring</b> our students as <b>staff members</b> once they graduate, and end-of-year <b>student parties</b>. <br /><br /> Our past students have made <b>lifelong friends</b> at Altitutor 🙂 </p>"
+    },
+    {
+      "id": "e8c1ee3",
+      "kind": "heading",
+      "title": "Find out what our students think about us."
+    },
+    {
+      "id": "c5bbc71",
+      "kind": "button",
+      "title": "Reviews",
+      "href": "/about/testimonials/"
+    },
+    {
+      "id": "46c5b05",
+      "kind": "heading",
+      "title": "Our teaching method"
+    },
+    {
+      "id": "c90b9f5",
+      "kind": "text-editor",
+      "html": "<p>A question we get asked a lot is <em><strong>“why would I choose you over other tuition companies or private tutors?” </strong></em></p><p>As much as we can list the <strong>features of our program</strong> and try to convince you to choose us, <strong>the best way </strong>for you to decide is to <strong><a href=\"https://student.altitutor.com/booking/trial-session\">book a free trial session</a> </strong>with us. This gives you the best chance to get a sample of <strong>how we teach</strong>, and decide whether you would like to continue with us. </p><p>That being said, here are our <strong>teaching methods</strong>: </p>",
+      "href": "https://student.altitutor.com/booking/trial-session"
+    },
+    {
+      "id": "7e7ad5b",
+      "kind": "icon-list",
+      "html": "<ul><li><b>1.5 hour sessions:</b> From our experience 1.5 hour sessions mean students maximise their time learning content without students getting bored.</li><li><b>Small class sizes:</b> Our classes only contain students of the same level and learning ability, allowing students to teach and learn from each other.</li><li><b>Proven study methods:</b> The methods we use we teach you are the same ones our tutors and past students used to achieve the excellent scores they did.</li><li><b>2 tutor sessions:</b> Group tutoring sessions allow students to not only learn from their own mistakes, but others' as well. By introducing a second tutor, students still receive individual help with any questions they are struggling with during the lesson.</li><li><b>Comprehensive resources:</b> All of our resources have already been created for you, so students can do as many practice tests or exams as they need.</li></ul>"
+    },
+    {
+      "id": "3c5fd46",
+      "kind": "heading",
+      "title": "In class"
+    },
+    {
+      "id": "23fbbe2",
+      "kind": "text-editor",
+      "html": "<p>Students attend a <strong>teaching lesson</strong> each week for <strong>each subject </strong>they study with us, in which we teach them course content ahead of school. </p>"
+    },
+    {
+      "id": "db71db1",
+      "kind": "icon-box",
+      "title": "01. Revision and consolidation",
+      "html": "<p> At the beginning of each session, students complete a revision sheet / do flashcards for all of the content they have learned up to that lesson. We do this so students don't have to relearn any of the content before their exams - because they already know it! </p>"
+    },
+    {
+      "id": "7b7691b",
+      "kind": "icon-box",
+      "title": "02. Learning ahead",
+      "html": "<p> Students are provided with with comprehensive notes and practice questions, and taught the content ahead of their school. This method aims to make learning at school easier, so they can focus on their assessments. </p>"
+    },
+    {
+      "id": "696bce9",
+      "kind": "icon-box",
+      "title": "03. Assessment preparation",
+      "html": "<p> Once we finish each topic, we complete a topic test together with the students so they can learn assessment strategies from their tutor. We do a test for every lesson after that until the student feels confident with that topic, and only then will we move on to the next topic. </p>"
+    },
+    {
+      "id": "3cf391a",
+      "kind": "heading",
+      "title": "Out of class"
+    },
+    {
+      "id": "1f50fc0",
+      "kind": "text-editor",
+      "html": "<p>Our <b>support</b> doesn’t stop when you leave our office. Any student studying with us continues to <strong>receive guidance</strong> on whatever help they need during the week.</p>"
+    },
+    {
+      "id": "c48c5f3",
+      "kind": "icon-box",
+      "title": "Homework help session",
+      "html": "<p> If students need additional help with schoolwork, they can come to our 3-hour homework help class for free! This may include: <b>- Assessment preparation:</b> we can give you even more practice tests for any upcoming assessments you have. <b>- Assignment drafting:</b> one of our tutors can help you write your assignment, or draft an assignment you've already written <b>- Catchup on missed lessons:</b> if you're struggling with a particular concept or need to catch up </p>"
+    },
+    {
+      "id": "b86f312",
+      "kind": "icon-box",
+      "title": "24/7 access to guidance",
+      "html": "<p> All of our weekly students get unlimited access to our question helpline, where students can ask tutors questions during the week.​ </p>"
+    },
+    {
+      "id": "8c6ca79",
+      "kind": "icon-box",
+      "title": "Online resource access",
+      "html": "<p> Our online resources comprehensively cover every aspect of the subject, including notes, video lessons, flashcards, practice questions, tests and exams. All of our students get free access to the online resources for the course(s) they are studying with us. </p>"
+    },
+    {
+      "id": "6d92baf",
+      "kind": "heading",
+      "title": "Interested? Discover the courses we have to offer."
+    },
+    {
+      "id": "4703664",
+      "kind": "button",
+      "title": "Courses",
+      "href": "/classes/"
+    },
+    {
+      "id": "da6745c",
+      "kind": "heading",
+      "title": "Our team"
+    },
+    {
+      "id": "61c3580",
+      "kind": "text-editor",
+      "html": "<p><strong>Our team</strong> is made up of <strong>passionate, driven</strong> people who want not only to see our students <strong>improve their scores</strong>, but to create a <strong>community</strong> of young learners who will eventually join our team to <strong>teach</strong> the <strong>next generation</strong>.</p><p>We are always looking for <strong>more tutors</strong> and <strong>administration staff</strong> to join us and we would love to have <strong>you</strong> on board. To find our more about the <strong>company roles</strong> we have and positions available, <a href=\"/about/apply/\">click here</a>. </p>",
+      "href": "/about/apply/"
+    },
+    {
+      "id": "0561ecf",
+      "kind": "text-editor",
+      "html": "<p><strong>Our team</strong> is made up of <strong>passionate, driven</strong> people who want not only to see our students <strong>improve their scores</strong>, but to create a <strong>community</strong> of young learners who will eventually join our team to <strong>teach</strong> the <strong>next generation</strong>.</p><p>We are always looking for <strong>more tutors</strong> and <strong>administration staff</strong> to join us and we would love to have <strong>you</strong> on board. To find our more about the <strong>company roles</strong> we have and positions available, <a href=\"/about/apply/\">click here</a>. </p>",
+      "href": "/about/apply/"
+    },
+    {
+      "id": "3b2d88d",
+      "kind": "flip-box",
+      "title": "Matthew Chua",
+      "html": "<b>MATHEMATICAL METHODS COURSE MANAGER</b> <b>Tutor</b>: Mathematical Methods, Specialist Mathematics, Physics, Chemistry, Biology, UCAT",
+      "detailTitle": "Matthew Chua",
+      "detailHtml": "Hi, my name is Matt and I love walking alongside students as they improve both their understanding and their scores. Outside of Altitutor I also work as a doctor at the Queen Elizabeth Hospital, but in my spare time, I enjoy landscape photography and fingerstyle guitar.",
+      "image": "/wp-content/uploads/2023/11/DSC07785-1-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "9f20f4f",
+      "kind": "flip-box",
+      "title": "Lara Nguyen",
+      "html": "<b>ADMINISTRATIVE ASSISTANT</b> Social Media, Marketing and Staff Management",
+      "detailTitle": "Lara Nguyen",
+      "detailHtml": "Hi I’m Lara, a ‘23 SACE graduate currently studying Law and Commerce! I’m an admin who occasionally tutors as a side quest 😁 I'm a huge foodie, and my hobbies include photography, gymming and volleyball. I also enjoy late night walks and hanging out with friends.",
+      "image": "/wp-content/uploads/2026/03/square-image-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "503781f",
+      "kind": "flip-box",
+      "title": "Tim Naylor",
+      "html": "<b>IB BIOLOGY COURSE MANAGER</b> <b>Tutor</b>: IB Biology, IB Chemistry, IB Mathematics AA",
+      "detailTitle": "Tim Naylor",
+      "detailHtml": "Hi! I'm Tim and I'm an IB grad from Nov 2021. I love cooking and eating spicy food, but have a very low spice tolerance so you'll probably see my crying over my lunch. I’ve been online tutoring for just over a year before joining Altitutor and I’m super excited to share my passion for Bio, Chem and Maths with you all 🙂",
+      "image": "/wp-content/uploads/2021/12/Profile-Picture-cropped-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "f142c65",
+      "kind": "flip-box",
+      "title": "Joshua Gooi",
+      "html": "<b>UCAT COURSE MANAGER</b><b>Tutor</b>: Biology, Chemistry, UCAT, Mathematical Methods",
+      "detailTitle": "Joshua Gooi",
+      "detailHtml": "Hi, my name is Joshua but people call me Gooi. I'm really cute and petite, and I am a precious little small bean and everyone loves me. I would love to be your maths tutor because that is my strongest subject!",
+      "image": "/wp-content/uploads/2021/12/Gooi-photo-cropped-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "a30ab3e",
+      "kind": "flip-box",
+      "title": "Kevin Ling",
+      "html": "<b>CHEMISTRY COURSE MANAGER</b> <b>Tutor</b>: Biology, Chemistry, UCAT, Mathematical Methods",
+      "detailTitle": "Kevin Ling",
+      "detailHtml": "Hello! My name is Kevin. I mainly teach Chemistry but am more than happy to help with Methods, Biology and whatever you come in with to homework help. I study Medicine at the University of Adelaide and enjoy food, meeting new people and playing basketball.",
+      "image": "/wp-content/uploads/2021/12/Screen-Shot-2021-12-18-at-10.56.55-am-300x252.png",
+      "alt": ""
+    },
+    {
+      "id": "7d94953",
+      "kind": "flip-box",
+      "title": "Shardul Mulye",
+      "html": "<b>PRESACE COURSE MANAGER</b> <b>Tutor</b>: Mathematical Methods, Biology, Physics, UCAT",
+      "detailTitle": "Shardul Mulye",
+      "detailHtml": "Hey there, my name is Shardul and I'm currently studying medicine at Adelaide University. Through tutoring for several years, I've developed a thorough yet simple approach to helping students achieve their goals in their academics. My passion for tutoring stems from students being able to achieve what they had hoped for and becoming successful in their post high-school journey.",
+      "image": "/wp-content/uploads/2022/09/Shardul-cropped-300x300.jpeg",
+      "alt": ""
+    },
+    {
+      "id": "c89c5b7",
+      "kind": "flip-box",
+      "title": "Ed Nitschke",
+      "html": "<b>Tutor</b>: Mathematical Methods, Chemistry, Pre-SACE Maths",
+      "detailTitle": "Ed Nitschke",
+      "detailHtml": "Hi! I’m Ed, a 2023 SACE graduate pursuing a Bachelor of Clinical Science/Doctor of Medicine at Flinders University. My journey with Altitutor began as a student in 2022 and 2023, where I received invaluable support from my tutors. Inspired by their guidance, I decided to join the Altitutor team to give back and help other students succeed. I am passionate about teaching chemistry, methods, and biology. When I'm not tutoring, I enjoy playing tennis and watching movies with friends.",
+      "image": "/wp-content/uploads/2024/07/alti-pfp-e1719818033985-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "ed37a56",
+      "kind": "flip-box",
+      "title": "Alexander Wabnitz",
+      "html": "<b>Tutor</b>: Specialist Mathematics, Mathematical Methods, Pre-SACE Mathematics, Pre-SACE Science",
+      "detailTitle": "Alexander Wabnitz",
+      "detailHtml": "Hey! I'm Alex. I'm studying a Bachelor of Advanced Mathematical Sciences at Adelaide Uni. In my spare time, I enjoy playing piano or competing in competitive tournaments for some of my favourite tabletop games. I tutor Maths. It’s been my favourite subject for most of my life.",
+      "image": "/wp-content/uploads/2021/12/Alex-photo-cropped-150x150.jpg",
+      "alt": ""
+    },
+    {
+      "id": "843fe79",
+      "kind": "flip-box",
+      "title": "Melshuel George",
+      "html": "<b>Tutor</b>: English, Biology, Pre-SACE Science",
+      "detailTitle": "Melshuel George",
+      "detailHtml": "Hi I’m Melsh and I’m studying Medicine at the University of Adelaide. I graduated from SACE in 2024 and I currently tutor English and Science. I really enjoy badminton, going to the gym, and watching medical dramas!",
+      "image": "/wp-content/uploads/2025/06/DSC00149-150x150.jpeg",
+      "alt": ""
+    },
+    {
+      "id": "531d623",
+      "kind": "flip-box",
+      "title": "Maddie Parker",
+      "html": "<b>Tutor</b>: Biology, English, AIF",
+      "detailTitle": "",
+      "detailHtml": "Hi! I’m Maddie, a 2024 SACE graduate now studying medicine at the University of Adelaide. In my spare time, I enjoy hitting the gym, playing netball, listening to music and reading.",
+      "image": "/wp-content/uploads/2025/06/maddie-image-min-scaled-e1749283909374-150x150.jpeg",
+      "alt": ""
+    },
+    {
+      "id": "25c83d1",
+      "kind": "flip-box",
+      "title": "An Do",
+      "html": "<b>ADMINISTRATIVE STAFF</b> <b>Tutor</b>: General Maths, Pre-SACE",
+      "detailTitle": "An Do",
+      "detailHtml": "Bio coming soon 🙂"
+    },
+    {
+      "id": "9cbbd88",
+      "kind": "flip-box",
+      "title": "Syme Aftab",
+      "html": "<b>Tutor</b>: Mathematical Methods, Chemistry, Physics",
+      "detailTitle": "Syme Aftab",
+      "detailHtml": "Hi there! I'm Syme, and I’m studying Medicine at Flinders Uni. I teach Maths, Science (Biology, Chemistry &amp; Physics), alongside UCAT. Outside of work and study, I enjoy playing piano and badminton. I’m a big fan of the outdoors too, so I love hiking, nature walks and scenic drives!",
+      "image": "/wp-content/uploads/2023/05/Screenshot-2023-05-27-at-10.01.01-am-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "9c867d1",
+      "kind": "flip-box",
+      "title": "Elliot Koh",
+      "html": "<b>SOFTWARE DEVELOPMENT</b> <b>Tutor</b>: Pre-SACE Maths, Pre-SACE English",
+      "detailTitle": "Elliot Koh",
+      "detailHtml": "Hi! I'm Elliot. I'm studying Bachelor of Computer Science (Advanced) at the University of Adelaide. I enjoy making custom mechanical keyboards, coding, playing video games, listening to music, playing basketball, and even have my own clothing brand Project Binks!",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "d73c46c",
+      "kind": "flip-box",
+      "title": "Josh Lee",
+      "html": "<b>Tutor</b>: UCAT, Chemistry, Mathematical Methods, Chemistry, Physics, Biology",
+      "detailTitle": "Josh Lee",
+      "detailHtml": "Hi! My name is Josh and I am a 2025 SACE graduate currently studying medicine at Adelaide University. Having gone through the struggles of high school myself, I would love to help others with their schoolwork to make it just that bit easier!! When I'm not studying (which is most of the time), I really enjoy playing tennis and watching sport.",
+      "image": "/wp-content/uploads/2026/03/Josh-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "b7d2ca0",
+      "kind": "flip-box",
+      "title": "Darshil Jang",
+      "html": "<b>Tutor</b>: Specialist Mathematics, Mathematical Methods, English, Pre-SACE Science",
+      "detailTitle": "Darshil Jang",
+      "detailHtml": "Hey! I am Darshil and I am studying Medicine at Adelaide University. I graduated from SACE in 2024, and a fun fact about me is that I have resided in more than 3 cities in the past 3 years!",
+      "image": "/wp-content/uploads/2026/03/Darshil-300x300.jpg",
+      "alt": ""
+    },
+    {
+      "id": "075ae91",
+      "kind": "flip-box",
+      "title": "RJ He",
+      "html": "<b>Tutor</b>: Mathematical Methods, Chemistry, Biology, English",
+      "detailTitle": "RJ He",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "37198b8",
+      "kind": "flip-box",
+      "title": "Alessia D'Angelis",
+      "html": "<b>Tutor</b>: Physics, Specialist Mathematics, Mathematical Methods, Chemistry, Pre-SACE Maths",
+      "detailTitle": "Alessia D'Angelis",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "b6102f0",
+      "kind": "flip-box",
+      "title": "Huanzhen Lin",
+      "html": "<b>Tutor</b>: Pre-SACE Science, Pre-SACE Mathematics",
+      "detailTitle": "Huanzhen Lin",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "aacdfb1",
+      "kind": "flip-box",
+      "title": "Navya Shah",
+      "html": "<b>Tutor</b>: Biology, Mathematical Methods, Pre-SACE Mathematics",
+      "detailTitle": "Navya Shah",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "66f488a",
+      "kind": "flip-box",
+      "title": "Ryan George",
+      "html": "<b>Tutor</b>: UCAT, Chemistry, Biology, Pre-SACE Science",
+      "detailTitle": "Ryan George",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "cea39ee",
+      "kind": "flip-box",
+      "title": "Christian Kriek",
+      "html": "<b>ADMINISTRATIVE STAFF</b>",
+      "detailTitle": "Christian Kriek",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "aa8323e",
+      "kind": "flip-box",
+      "title": "Jayden Tran",
+      "html": "<b>Tutor</b>: Mathematical Methods, Pre-SACE Maths",
+      "detailTitle": "Jayden Tran",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "ae6c022",
+      "kind": "flip-box",
+      "title": "Minah Cho",
+      "html": "<b>Tutor</b>: UCAT",
+      "detailTitle": "Minah Cho",
+      "detailHtml": "Bio coming soon 🙂",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "13d752b",
+      "kind": "flip-box",
+      "title": "You",
+      "html": "<b>Join our team today! </b>",
+      "detailTitle": "",
+      "detailHtml": "",
+      "image": "/wp-content/uploads/2023/12/Square-logo-transparent-300x300.png",
+      "alt": ""
+    },
+    {
+      "id": "32f06d7",
+      "kind": "heading",
+      "title": "Want to join our team?"
+    },
+    {
+      "id": "a3b5423",
+      "kind": "button",
+      "title": "Work with us",
+      "href": "/about/apply/"
+    },
+    {
+      "id": "3938139",
+      "kind": "heading",
+      "title": "Charities we support"
+    },
+    {
+      "id": "93b0a58",
+      "kind": "text-editor",
+      "html": "<p>A significant portion of our revenue each term is <strong>donated to a charity</strong> which our students vote for from this list. These are all <strong>causes</strong> <strong>we believe in</strong>, and we encourage you to <strong>check them out</strong> for yourself!</p>"
+    },
+    {
+      "id": "13bc160",
+      "kind": "call-to-action",
+      "title": "The Salvation Army Red Shield Appeal",
+      "html": "The Red Shield Appeal provides services shelter for the homeless, assists families in crisis through practical support, and guides people with addictions through to a clean, healthy lifestyle.",
+      "image": "/wp-content/uploads/2021/05/RedShieldAppeal_2020_landing_page-2_resized_1600w-1024x574.jpg",
+      "href": "https://www.salvationarmy.org.au/red-shield-appeal/"
+    },
+    {
+      "id": "ac81f5e",
+      "kind": "call-to-action",
+      "title": "Alongsiders international",
+      "html": "Alongsiders is a movement which equips young people to walk alongside those who walk alone: to love, welcome and encourage the most vulnerable children in their own communities.",
+      "image": "/wp-content/uploads/2023/07/4c7dde0f-cfca-43e7-8474-ac66f0914481-768x432.jpeg",
+      "href": "https://www.alongsiders.org"
+    },
+    {
+      "id": "51a58aa",
+      "kind": "call-to-action",
+      "title": "Cancer Council",
+      "html": "The Cancer Council works across every aspect of every cancer from research to prevention and support, including information, counselling, practical and emotional support for people affected by cancer.",
+      "image": "/wp-content/uploads/2021/05/Cancer_Council_website-1024x683.jpg",
+      "href": "https://www.cancer.org.au"
+    },
+    {
+      "id": "f63b348",
+      "kind": "call-to-action",
+      "title": "CBM Australia",
+      "html": "CBM Australia's mission is to transform the lives of people with disabilities in the world's poorest communities by providing vital medical care, education, and support services.",
+      "image": "/wp-content/uploads/2023/07/07_Kyle_EyeTest_Spotlight-1024x597.png",
+      "href": "https://www.cbm.org.au"
+    },
+    {
+      "id": "ed6c49f",
+      "kind": "call-to-action",
+      "title": "Cambodian Harvest",
+      "html": "Alongsiders is a movement which equips young people to walk alongside those who walk alone: to love, welcome and encourage the most vulnerable children in their own communities.",
+      "image": "/wp-content/uploads/2023/07/DSC08633-768x512.jpeg",
+      "href": "https://cambodianharvestv3.webnode.page"
+    },
+    {
+      "id": "b106262",
+      "kind": "call-to-action",
+      "title": "Soddo Christian Hospital",
+      "html": "Soddo Christian Hospital is a nonprofit facility in Ethiopia, providing vital medical services to underserved communities. Support their mission to improve healthcare and save lives.",
+      "image": "/wp-content/uploads/2023/08/soddo-about-proclaim-the-gospel-uai-1800x771-1-768x329.jpg",
+      "href": "https://cambodianharvestv3.webnode.page"
+    },
+    {
+      "id": "21b7b82",
+      "kind": "heading",
+      "title": "Still have questions? Get in touch."
+    },
+    {
+      "id": "24d24ec",
+      "kind": "button",
+      "title": "Contact",
+      "href": "/about/contact/"
+    }
+  ],
+  "/about/contact/": [
+    {
+      "id": "6ea88e8",
+      "kind": "heading",
+      "title": "CONTACT US"
+    },
+    {
+      "id": "5dd6df15",
+      "kind": "heading",
+      "title": "Our details"
+    },
+    {
+      "id": "2cc856f5",
+      "kind": "text-editor",
+      "html": "<p>If you have any further questions, or would like to organise to meet with us, please contact us by SMS or email.</p>"
+    },
+    {
+      "id": "7f9c823b",
+      "kind": "icon-list",
+      "html": "<ul><li>admin@altitutor.com</li><li>0483 849 842</li><li>Level 1, 17A Solomon St, Adelaide SA 5000</li></ul>",
+      "href": "https://goo.gl/maps/yxNZ5sNQer5k58Sp8"
+    },
+    {
+      "id": "3dc4ef37",
+      "kind": "google_maps",
+      "href": "https://maps.google.com/maps?q=Altitutor&t=m&z=15&output=embed&iwloc=near"
+    }
+  ]
+}
