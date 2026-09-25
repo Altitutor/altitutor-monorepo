@@ -51,6 +51,14 @@
 .site a {
   text-decoration: none;
 }
+:where(.site) a {
+  transition: transform 450ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+@media (hover: hover) {
+  :where(.site) a:hover {
+    transform: translateY(-1px);
+  }
+}
 .site :is(a, button, summary):focus-visible {
   outline: 3px solid #467c94;
   outline-offset: 5px;
@@ -227,12 +235,28 @@
   display: flex;
   gap: 16px;
   align-items: center;
-  background: var(--accent-blue);
+  background: rgb(255 255 255 / 4%);
   color: var(--primary);
+  border: 1px solid rgb(10 41 65 / 18%);
   border-radius: 99px;
   padding: 10px 20px;
   font-size: 0.85rem;
   font-weight: 600;
+  backdrop-filter: blur(8px);
+  transition:
+    background 0.3s,
+    color 0.3s,
+    border-color 0.3s;
+}
+.navigationOverHero .navTrial {
+  color: #f2f0e9;
+  border-color: #ffffff66;
+}
+.navigationScrolled .navTrial,
+.navigationExpanded .navTrial {
+  background: rgb(var(--marketing-primary));
+  color: white;
+  border-color: transparent;
 }
 .menuButton {
   display: none;
@@ -244,7 +268,6 @@
 .mobileMenu nav {
   display: flex;
   flex-direction: column;
-  margin-bottom: 30px;
 }
 .mobileMenu nav a {
   display: flex;
@@ -253,14 +276,6 @@
   padding: 13px 0;
   border-bottom: 1px solid #0a294124;
   font-size: 1.35rem;
-}
-.mobileMenu .button {
-  display: flex;
-}
-.mobileLogin {
-  display: block;
-  text-align: center;
-  margin-top: 20px;
 }
 .skipLink {
   position: fixed;
@@ -305,7 +320,7 @@
   position: relative;
   padding: 30px;
   border: 1px solid var(--hairline);
-  border-radius: 26px;
+  border-radius: 30px;
   background: #ffffff70;
 }
 .pathway:first-child {
@@ -348,7 +363,7 @@
   background: var(--ink);
   color: var(--cream);
   padding: 90px 0;
-  border-radius: 40px;
+  border-radius: 30px;
   margin: 0 24px;
 }
 .mission .eyebrow {
@@ -455,7 +470,7 @@
 .subsidyNote {
   padding: 25px;
   background: #ffffff80;
-  border-radius: 20px;
+  border-radius: 30px;
   margin-top: 30px;
   font-size: 0.95rem;
 }
@@ -472,7 +487,7 @@
 .statValue {
   display: block;
   color: var(--primary);
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--marketing-font-editorial);
   font-size: clamp(3rem, 5vw, 5rem);
   font-style: italic;
   font-weight: 500;
@@ -498,7 +513,7 @@
   break-inside: avoid;
   background: #fff9;
   border: 1px solid var(--hairline);
-  border-radius: 22px;
+  border-radius: 30px;
   padding: 28px;
   margin-bottom: 22px !important;
 }
@@ -507,9 +522,9 @@
 }
 .quoteMark {
   display: block;
-  font:
-    4rem/0.8 "Cormorant Garamond",
-    serif;
+  font-family: var(--marketing-font-editorial);
+  font-size: 4rem;
+  line-height: 0.8;
   color: #729cae;
   margin-bottom: 12px;
 }
@@ -556,7 +571,7 @@
   padding: 65px max(32px, calc((100vw - 1240px) / 2)) 26px;
   background: #1a1a1a;
   color: #e6edef;
-  border-radius: 48px 48px 0 0;
+  border-radius: 30px 30px 0 0;
 }
 .footerTop {
   display: grid;
@@ -660,20 +675,20 @@
   transform: rotate(3deg);
   padding: 25px;
   background: #e5e9e4;
-  border-radius: 40% 40% 24px 24px;
+  border-radius: 40% 40% 30px 30px;
 }
 .portraitComposition img {
   height: 240px;
   width: 100%;
   object-fit: cover;
-  border-radius: 18px;
+  border-radius: 30px;
 }
 .portraitComposition img:nth-child(2) {
   margin-top: 55px;
 }
 .portraitComposition p {
   grid-column: 1 / -1;
-  font-family: "Cormorant Garamond", serif;
+  font-family: var(--marketing-font-editorial);
   font-size: 1.8rem;
   font-style: italic;
   text-align: center;
@@ -693,7 +708,7 @@
   margin-top: 45px;
 }
 .teaching > div {
-  border-radius: 24px;
+  border-radius: 30px;
   background: #fff7;
   padding: 32px;
 }
@@ -712,7 +727,7 @@
 }
 .teamCard {
   border: 1px solid var(--hairline);
-  border-radius: 22px;
+  border-radius: 30px;
   overflow: hidden;
   background: #fff6;
 }
@@ -730,9 +745,10 @@
   place-items: center;
   width: 100%;
   height: 100%;
-  font:
-    italic 5rem "Cormorant Garamond",
-    serif;
+  font-family: var(--marketing-font-editorial);
+  font-size: 5rem;
+  font-style: italic;
+  line-height: 1;
   color: #658395;
 }
 .teamCard > div:last-child {
@@ -766,7 +782,7 @@
 .charity {
   background: #fff7;
   border: 1px solid var(--hairline);
-  border-radius: 22px;
+  border-radius: 30px;
   overflow: hidden;
 }
 .charity img {
@@ -798,7 +814,7 @@
   background: var(--ink);
   color: #f2f0e9;
   padding: 45px;
-  border-radius: 26px;
+  border-radius: 30px;
 }
 .contactDetails .eyebrow {
   color: var(--accent-blue);
@@ -836,7 +852,7 @@
 .mapPanel {
   background: #e7e7df;
   border: 1px solid var(--hairline);
-  border-radius: 26px;
+  border-radius: 30px;
   overflow: hidden;
   display: flex;
   flex-direction: column;
@@ -888,7 +904,7 @@
   padding: 35px;
   background: #e8e9e2;
   border: 1px solid var(--hairline);
-  border-radius: 28px;
+  border-radius: 30px;
   overflow: hidden;
 }
 .resourceImage img {
@@ -951,7 +967,7 @@
 .accessCards > article {
   padding: 36px;
   border: 1px solid var(--hairline);
-  border-radius: 26px;
+  border-radius: 30px;
   background: #fff6;
 }
 .accessCards h2 {
@@ -971,7 +987,7 @@
   gap: 50px;
   padding: 36px;
   border: 1px solid var(--hairline);
-  border-radius: 28px;
+  border-radius: 30px;
   background: #fff6;
   align-items: start;
 }
@@ -1040,7 +1056,7 @@
 }
 .courseHero .resourceImage {
   background: #e1e5de;
-  border-radius: 150px 150px 28px 28px;
+  border-radius: 150px 150px 30px 30px;
   padding: 40px;
 }
 .courseHero .resourceImage img {
@@ -1115,7 +1131,7 @@
 }
 .courseResource .resourceImage {
   padding: 16px;
-  border-radius: 18px;
+  border-radius: 30px;
 }
 .courseResource .resourceImage img {
   height: 190px;
@@ -1148,7 +1164,7 @@
 }
 .application {
   padding: 40px;
-  border-radius: 26px;
+  border-radius: 30px;
   background: var(--ink);
   color: var(--cream);
 }
@@ -1310,7 +1326,7 @@
   }
   .mission {
     margin-inline: 12px;
-    border-radius: 28px;
+    border-radius: 30px;
     padding-block: 60px;
   }
   .mission .container {
@@ -1535,7 +1551,7 @@
   }
   .footer {
     padding-inline: 24px;
-    border-radius: 28px 28px 0 0;
+    border-radius: 30px 30px 0 0;
   }
   .footerTop {
     grid-template-columns: 1fr;
@@ -1556,6 +1572,9 @@
     animation: none !important;
     scroll-behavior: auto !important;
   }
+  .site a:hover {
+    transform: none;
+  }
 }
 
 /* Home: the mountain landscape from the retired online-learning landing. */
@@ -1567,7 +1586,7 @@
   overflow: hidden;
   background: var(--ink);
   color: #f2f0e9;
-  border-radius: 0;
+  border-radius: 0 0 30px 30px;
   padding-block: 165px 85px;
 }
 .mountainImage {
@@ -1600,9 +1619,9 @@
 .mountainHero .eyebrow {
   color: #d1e0e4;
 }
-.mountainHero .button {
-  background: rgb(var(--marketing-primary));
-  color: white !important;
+.mountainHero .button:not(.secondaryButton) {
+  background: var(--accent-blue);
+  color: var(--primary) !important;
 }
 .mountainHero .secondaryButton {
   background: #ffffff0a;
@@ -1610,8 +1629,8 @@
   border-color: #ffffff66;
   backdrop-filter: blur(8px);
 }
-.mountainHero .button:hover {
-  background: #153e5d;
+.mountainHero .button:not(.secondaryButton):hover {
+  background: #7eabbb;
 }
 .mountainHero .secondaryButton:hover {
   background: #ffffff24;
@@ -1732,7 +1751,7 @@
     min-height: 740px;
     min-height: min(850px, 100svh);
     padding-block: 128px 65px;
-    border-radius: 0;
+    border-radius: 0 0 30px 30px;
   }
   .homeStats {
     gap: 24px;
@@ -1817,7 +1836,7 @@
   border: 1px solid #ffffff99;
   background: rgb(255 255 255 / 93%);
   color: var(--ink);
-  border-radius: 20px;
+  border-radius: 30px;
   box-shadow: 0 20px 50px #0002;
   backdrop-filter: blur(var(--marketing-glass-blur));
 }
@@ -1902,12 +1921,9 @@
     overflow: hidden;
   }
   .mobileMenu nav {
-    max-height: calc(100dvh - 250px);
+    max-height: calc(100dvh - 140px);
     overflow-y: auto;
-    margin: 14px 0 20px;
-  }
-  .mobileLogin {
-    margin-bottom: 16px;
+    margin: 14px 0 16px;
   }
 }
 @media (prefers-reduced-motion: reduce) {
