@@ -45,7 +45,7 @@ function largestStudyPlanSectionGapBody(section: {
   name: string;
   gap: number;
 }): string {
-  return `${section.name} still has the largest section gap at ${section.gap} points below its Study plan target, so today’s work keeps focus there.`;
+  return `${section.name} has the largest section gap, ${section.gap} points below its Study plan target.`;
 }
 
 function buildBoundedOutlookInsight({
@@ -74,7 +74,7 @@ function buildBoundedOutlookInsight({
   if (gap) {
     return {
       ruleId: "dashboard_trajectory.bounded_outlook_section_gap",
-      title: `${gap.name} still has the largest section gap`,
+      title: `${gap.name} has the largest section gap`,
       body: `It's ${gap.gap} points below its Study plan target. Start with today's next step and keep practising.`,
     };
   }
@@ -143,7 +143,8 @@ export function buildDashboardTrajectoryInsight({
           body: `Your score projection shows the next ${state.forecastHorizonDays} days. We'll judge exam-day progress once your test is inside that window. Keep following today's work.`,
         },
       });
-    case "on_track":
+    case "on_track": {
+      const gap = positiveSectionGap(weakestSection);
       return {
         ruleId: recentImprovement
           ? "dashboard_trajectory.on_track_improving"
@@ -151,13 +152,15 @@ export function buildDashboardTrajectoryInsight({
         title: recentImprovement
           ? `Your estimate is up ${recentImprovement} points`
           : "Even your low-end projection meets your target",
-        body: weakestSection
-          ? largestStudyPlanSectionGapBody(weakestSection)
+        body: gap
+          ? largestStudyPlanSectionGapBody(gap)
           : studyPlanEnabled
             ? "Keep following today’s Study plan so more practice can confirm that you’re on track."
             : "Keep using your next steps to practice more and confirm that you’re on track.",
       };
-    case "within_reach":
+    }
+    case "within_reach": {
+      const gap = positiveSectionGap(weakestSection);
       return {
         ruleId: recentImprovement
           ? "dashboard_trajectory.within_reach_improving"
@@ -165,10 +168,11 @@ export function buildDashboardTrajectoryInsight({
         title: recentImprovement
           ? `You’re trending upward by ${recentImprovement} points`
           : "Your target sits inside your projected score range",
-        body: weakestSection
-          ? `${weakestSection.name} is ${weakestSection.gap} points below its section target. Today’s work is designed to make that estimate more reliable.`
-          : "Today’s work is designed to lift your projected score and narrow the range.",
+        body: gap
+          ? `${gap.name} is ${gap.gap} points below its section target.`
+          : "More timed practice will lift your projected score and narrow the range.",
       };
+    }
     case "needs_adjustment":
       if (
         state.projectedAtTest &&
