@@ -1,3 +1,4 @@
+import editorial from "./editorial-overrides.json";
 import production from "./production.json";
 
 export type ContentItem = { title: string; html: string; role?: string };
@@ -18,7 +19,14 @@ export type ContentBlock = {
 const pages: Record<string, ContentBlock[]> = production;
 
 export function pageContent(path: string): ContentBlock[] {
-  return pages[path] ?? [];
+  const overrides: Record<
+    string,
+    Record<string, Partial<ContentBlock>>
+  > = editorial;
+  return (pages[path] ?? []).map((block) => ({
+    ...block,
+    ...overrides[path]?.[block.id],
+  }));
 }
 
 /** IDs identify original production copy; page components own its presentation. */

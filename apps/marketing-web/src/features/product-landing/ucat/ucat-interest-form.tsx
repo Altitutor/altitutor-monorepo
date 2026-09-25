@@ -1,8 +1,7 @@
 "use client";
 
 import { useRef, useState, type FormEvent } from "react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
-import { UCAT_BODY_DESCRIPTION_CLASS, UCAT_SUPPORTING_TEXT_CLASS } from "./ucat-landing-section-eyebrow";
+import { MARKETING_BODY_DESCRIPTION_CLASS, MARKETING_SUPPORTING_TEXT_CLASS } from "@/features/marketing/section-styles";
 import {
   PhoneInput,
   isPhoneCountryCodeOnly,
@@ -13,13 +12,13 @@ import { motion, useReducedMotion } from "motion/react";
 import { ArrowRight, CheckCircle2, Loader2 } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
-import { MagneticButton } from "./magnetic-button";
+import { MagneticButton } from "@/features/marketing/components/magnetic-button";
 import {
   type UcatInterestKind,
   isSupportedAccessKind,
 } from "./ucat-interest-kind";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const supportedAccessFormHeightClass = "min-h-[32rem]";
 const waitlistFormHeightClass = "min-h-[24rem]";
@@ -126,7 +125,7 @@ function InterestFormSuccess({
         initial={reduceMotion ? false : { opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={reduceMotion ? { duration: 0 } : { delay: 0.26, duration: 0.35 }}
-        className={`mt-3 max-w-sm ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+        className={`mt-3 max-w-sm ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
       >
         {resolvedSuccessBody}
       </motion.p>
@@ -138,7 +137,7 @@ function InterestFormSuccess({
         className="mt-8 w-full max-w-sm"
       >
         <p
-          className={`mb-4 ${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+          className={`mb-4 ${MARKETING_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
         >
           {isSupportedAccess
             ? "While we process your application, you can start preparing with free UCAT access."
@@ -321,7 +320,7 @@ export function UcatInterestForm({
         Website
         <input name="website" tabIndex={-1} autoComplete="off" />
       </label>
-      <p className={`${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}>
+      <p className={`${MARKETING_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}>
         By submitting, you are consenting to Altitutor contacting you about this{" "}
         {isSupportedAccess ? "application" : "waitlist"}.
       </p>

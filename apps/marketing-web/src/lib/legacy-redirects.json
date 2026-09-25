@@ -2,7 +2,7 @@
   "trialBookingUrl": "https://student.altitutor.com/booking/trial-session",
   "pageRedirects": {
     "/weekly-classes/": "/classes/weekly-classes/",
-    "/english-assignment-drafting/": "/classes/english-assignment-drafting/",
+    "/english-assignment-drafting/": "/classes/assignment-drafting/",
     "/medical-interview-preparation/": "/classes/medical-interview-preparation/",
     "/examprep/": "/classes/examprep/",
     "/courses/examprep/": "/classes/examprep/",
@@ -10,7 +10,9 @@
     "/contact/": "/about/contact/",
     "/subsidy/": "/about/subsidy/",
     "/contact-us/": "/about/contact/",
-    "/testimonials/": "/about/testimonials/"
+    "/testimonials/": "/about/testimonials/",
+    "/resources/": "/online-courses/sace-ib-resources/",
+    "/classes/english-assignment-drafting/": "/classes/assignment-drafting/"
   },
   "trialBookingPaths": [
     "/shop/",

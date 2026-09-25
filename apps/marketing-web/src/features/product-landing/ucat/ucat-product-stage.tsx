@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +22,7 @@ import {
   ScaleToFitFrame,
 } from "./scale-to-fit-frame";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const galleryItems = [
   { id: "learning", label: "Guided learning" },
@@ -272,7 +271,7 @@ export function UcatProductStage() {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a2941] via-[#0a2941]/60 to-[#0a2941]/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-marketing-primary via-marketing-primary/60 to-marketing-primary/10" />
       </div>
 
       {/* Cream notch: continuous with hero cream — no top shadow/seam */}

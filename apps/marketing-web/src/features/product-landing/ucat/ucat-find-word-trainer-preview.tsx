@@ -110,7 +110,7 @@ function KeywordDragGhost({
   return (
     <span
       ref={ghostRef}
-      className="pointer-events-none absolute left-0 top-0 z-40 rounded-md border border-[#0a2941]/30 bg-white px-3 py-2 text-sm font-medium shadow-md opacity-0"
+      className="pointer-events-none absolute left-0 top-0 z-40 rounded-md border border-marketing-primary/30 bg-white px-3 py-2 text-sm font-medium shadow-md opacity-0"
     >
       {label}
     </span>
@@ -172,7 +172,7 @@ function TrainerScoreBar({
     streak >= 15 ? 4 : streak >= 10 ? 3 : streak >= 5 ? 2 : 1;
 
   return (
-    <div className="flex flex-nowrap items-center justify-between gap-1.5 overflow-visible rounded-xl border border-[#0a2941]/20 bg-gradient-to-r from-[#0a2941]/5 via-white to-[#0a2941]/5 px-2 py-2 shadow-sm sm:gap-3 sm:px-3">
+    <div className="flex flex-nowrap items-center justify-between gap-1.5 overflow-visible rounded-xl border border-marketing-primary/20 bg-gradient-to-r from-marketing-primary/5 via-white to-marketing-primary/5 px-2 py-2 shadow-sm sm:gap-3 sm:px-3">
       <div className="flex min-w-0 flex-nowrap items-center gap-1.5 overflow-visible sm:gap-2">
         <span className="inline-flex items-center gap-1.5 rounded-full border border-black/10 bg-white/80 px-3 py-1.5 text-sm shadow-sm backdrop-blur-sm">
           <Clock3 className="size-3.5 shrink-0 text-black/45" aria-hidden />
@@ -373,7 +373,7 @@ export function MarketingFindWordTrainerPreview({ animate }: { animate: boolean 
   return (
     <div
       ref={stageRef}
-      className="ucat-product-ui pointer-events-none relative min-w-0 select-none overflow-hidden text-[#1a1a1a]"
+      className="marketing-product-ui pointer-events-none relative min-w-0 select-none overflow-hidden text-marketing-charcoal"
       aria-hidden
     >
       <div className="space-y-2.5">

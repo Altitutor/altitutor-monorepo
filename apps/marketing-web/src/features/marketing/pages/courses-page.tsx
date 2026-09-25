@@ -26,15 +26,15 @@ const pathways = [
   },
   {
     id: "756a704",
-    href: "/classes/english-assignment-drafting/",
+    href: "/classes/assignment-drafting/",
     image: "/images/marketing/english-draft.png",
-    label: "English drafting",
+    label: "Assignment drafting",
   },
   {
     id: "48362bd",
     href: "/classes/ucatprep/",
     image: "/images/marketing/ucat-qr-online.png",
-    label: "UCAT preparation",
+    label: "In person UCAT tutoring",
   },
   {
     id: "2701993",
@@ -77,7 +77,7 @@ export function CoursesPage() {
       <section
         className={`${styles.container} ${styles.hero} ${styles.editorialHero}`}
       >
-        <Eyebrow>Our courses</Eyebrow>
+        <Eyebrow>In person courses · Adelaide</Eyebrow>
         <h1>
           Different goals.<em>Your kind of support.</em>
         </h1>

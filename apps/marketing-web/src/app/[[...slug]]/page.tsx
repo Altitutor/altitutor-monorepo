@@ -1,12 +1,12 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import {
   createMetadata,
   getAllMarketingPages,
   getMarketingPage,
   getPageSchema,
   pathFromSlug,
-} from "@/lib/wordpress";
+} from "@/lib/pages";
 import { SiteFrame } from "@/features/marketing/components/site-frame";
 import { HomePage } from "@/features/marketing/pages/home-page";
 import { AboutPage } from "@/features/marketing/pages/about-page";
@@ -18,6 +18,7 @@ import { SubsidyPage } from "@/features/marketing/pages/subsidy-page";
 import { CareersPage } from "@/features/marketing/pages/careers-page";
 import { TestimonialsPage } from "@/features/marketing/pages/testimonials-page";
 import { InformationPage } from "@/features/marketing/pages/information-page";
+import legacyRedirects from "@/lib/legacy-redirects.json";
 import { coursePaths } from "@/features/marketing/content";
 
 type PageProps = { params: { slug?: string[] } };
@@ -64,7 +65,10 @@ function PageContent({ path, title }: { path: string; title: string }) {
 }
 
 export default function MarketingRoute({ params }: PageProps) {
-  const page = getMarketingPage(pathFromSlug(params.slug));
+  const path = pathFromSlug(params.slug);
+  const redirects: Record<string, string> = legacyRedirects.pageRedirects;
+  if (redirects[path]) permanentRedirect(redirects[path]);
+  const page = getMarketingPage(path);
   if (!page) notFound();
   const schema = getPageSchema(page);
   return (

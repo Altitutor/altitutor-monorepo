@@ -18,13 +18,12 @@ removed; its mountain hero image and three headline statistics now appear on the
 
 ## Production content
 
-The source is `src/content/wordpress-pages.json`, matching the production branch
-at the time of this change. The content extractor removes WordPress layout,
-scripts and decorative markup while retaining paragraphs, lists, tutor bios,
-reviews, results, course information, images and links. It does not generate copy.
-
-Run `python3 scripts/extract-marketing-content.py` to regenerate the semantic
-content in `src/features/marketing/content/production.json`.
+Production copy now lives in `src/features/marketing/content/production.json`,
+with explicitly approved changes in `editorial-overrides.json`. Native metadata
+and structured data live in `src/content/pages.json`. The obsolete WordPress
+HTML export, renderer, styles, plugin assets and one-off importer have been removed.
+Referenced media lives in `public/images/content`; old upload URLs permanently
+redirect there. Existing page and sitemap redirects remain for search continuity.
 
 Hero and navigation copy were redesigned. Duplicate responsive images and the
 old placeholder headline were removed. The old homepage instruction to click a
@@ -106,3 +105,55 @@ browser journeys) were not completed. Shared local database state was not reset.
 Browser checks cover the desktop mountain hero, mobile layouts at 390 and 320px,
 white navigation on scroll, menu open/close/Escape, focus restoration and menu
 navigation. No browser console errors were observed in these flows.
+
+
+## Shared theme and course navigation — September 25 follow-up
+
+All published marketing pages, including UCAT, now use the same SiteFrame,
+navigation, footer, colour variables, font roles and motion/button primitives.
+The primary dark surface is charcoal. UCAT-specific entrance/count animations
+and its separate navigation/footer/scroll rail are removed. Interactive product
+demonstrations retain their functional behaviour and exam/status colours where
+those explain the actual interface. The magnetic fill/scale button treatment is
+shared and supports keyboard focus and reduced motion.
+
+The homepage mountain image has a darker overlay and square bottom corners.
+Navigation and mobile dialog share the same translucent white and blur tokens.
+Top-level course links navigate to their directories; separate desktop disclosure
+buttons reveal child links. Mobile navigation lists those groups directly.
+
+New canonical routes:
+- `/online-courses/`: online course directory.
+- `/online-courses/sace-ib-resources/`: renamed resources page, with focused title,
+  description, H1 and canonical/social metadata.
+- `/classes/assignment-drafting/`: recontextualised assignment-writing feedback.
+
+Old resources/drafting URLs redirect permanently, and the sitemap uses the new
+canonical URLs. Explicit copy changes live in `editorial-overrides.json`, keeping
+the production archive intact. Existing prices, session logistics and testimonials
+are retained. The preserved-content audit now checks 498 passages including these
+approved editorial changes.
+
+Validation: marketing lint, typecheck, unit tests, legacy-script regressions and
+production build pass. Browser checks cover desktop course disclosures, mobile
+course groups, shared UCAT typography, and renamed routes. No changes were made
+to other apps' working files.
+
+## Latest polish
+
+The homepage uses the deployed online-learning image treatment (70% image/gradient
+layer over charcoal). Primary buttons are navy; dark cards remain charcoal.
+The mobile header itself expands with a reversible grid transition, retaining the
+same logo, trigger and background throughout. Inert content, focus trapping,
+Escape, focus restoration and reduced-motion support remain in place.
+Course templates retain their existing section navigation; other pages use the
+shared right-hand section chips. Analytics loads after hydration in a separate
+chunk; the hero is excluded from entrance animations to avoid delaying LCP.
+
+Latest validation: production build, lint (zero warnings), TypeScript and four
+native-content/metadata tests pass. The content audit verifies 498 passages on
+14 routes. Browser checks cover the mountain treatment, navy CTA, section chips,
+preserved course navigation and the mobile menu at 320 CSS pixels. Initial JS on
+the main page group decreased from 379 kB to 308 kB; online directory/resources
+pages are 176 kB. Removed 79.75 MB of legacy assets and retained approximately
+23 MB of referenced media under native paths (roughly 54 MB net reduction).

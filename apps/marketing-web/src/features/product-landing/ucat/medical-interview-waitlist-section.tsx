@@ -1,14 +1,13 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
-  UCAT_BODY_DESCRIPTION_CLASS,
-  UCAT_SECTION_HEADING_CLASS,
-} from "./ucat-landing-section-eyebrow";
+  MARKETING_BODY_DESCRIPTION_CLASS,
+  MARKETING_SECTION_HEADING_CLASS,
+} from "@/features/marketing/section-styles";
 import { UcatInterestForm } from "./ucat-interest-form";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 function ClientOnly({
   children,
@@ -33,11 +32,11 @@ export function MedicalInterviewWaitlistSection() {
       className="relative z-10 bg-marketing-cream px-4 py-16 sm:px-8 sm:py-20"
     >
       <div className="mx-auto max-w-xl">
-        <h2 className={`${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}>
+        <h2 className={`${MARKETING_SECTION_HEADING_CLASS} ${typo.headingSans}`}>
           How to get started
         </h2>
         <p
-          className={`mt-5 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+          className={`mt-5 ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
         >
           Join the waitlist and we will contact you to schedule a trial session.
         </p>

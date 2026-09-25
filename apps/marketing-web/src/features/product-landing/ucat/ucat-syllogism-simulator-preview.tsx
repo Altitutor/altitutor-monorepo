@@ -322,7 +322,7 @@ export function UcatSyllogismSimulatorPreview({
               className={clsx(
                 "inline-flex items-center gap-1 rounded-md transition-shadow",
                 highlightedControl === "calculator" &&
-                  "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                  "ring-2 ring-white ring-offset-2 ring-offset-marketing-primary",
               )}
             >
               <Calculator className="size-4" aria-hidden />
@@ -337,7 +337,7 @@ export function UcatSyllogismSimulatorPreview({
               className={clsx(
                 "inline-flex items-center gap-1 rounded-md transition-shadow",
                 highlightedControl === "flag" &&
-                  "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                  "ring-2 ring-white ring-offset-2 ring-offset-marketing-primary",
               )}
             >
               <Flag className="size-4" aria-hidden />
@@ -357,7 +357,7 @@ export function UcatSyllogismSimulatorPreview({
                 data-tour="question-engine-navigator"
                 className={clsx(
                   highlightedControl === "navigator" &&
-                    "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                    "ring-2 ring-white ring-offset-2 ring-offset-marketing-primary",
                 )}
                 icon={<Navigation className="size-4" />}
               >

@@ -266,7 +266,7 @@ export function UcatAttemptReviewPreview() {
                   key={index}
                   data-demo-review-bar={isReviewBar ? reviewIndex : undefined}
                   className={`relative flex min-w-0 flex-1 items-end rounded-sm px-0.5 pt-1 ${
-                    selected ? "bg-[#0a2941]/15" : "bg-[#e8eaed]"
+                    selected ? "bg-marketing-primary/15" : "bg-[#e8eaed]"
                   }`}
                 >
                   <span
@@ -348,7 +348,7 @@ export function UcatAttemptReviewPreview() {
           </section>
 
           <aside className="space-y-3.5">
-            <section className="rounded-[1.15rem] bg-gradient-to-br from-[#0a2941] to-[#163a52] p-5 text-white shadow-sm">
+            <section className="rounded-[1.15rem] bg-gradient-to-br from-marketing-primary to-[#163a52] p-5 text-white shadow-sm">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[#b8d2da]">
                 <Sparkles className="size-3.5" aria-hidden /> Question insight
               </div>
@@ -387,13 +387,13 @@ export function UcatAttemptReviewPreview() {
               </div>
             </section>
             <div className="flex flex-wrap gap-2">
-              <span className="rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs font-medium text-[#0a2941]">
+              <span className="rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs font-medium text-marketing-primary">
                 Decision Making
               </span>
-              <span className="rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs font-medium text-[#0a2941]">
+              <span className="rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs font-medium text-marketing-primary">
                 {question.categoryName}
               </span>
-              <span className="inline-flex items-center gap-1 rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs font-medium text-[#0a2941]">
+              <span className="inline-flex items-center gap-1 rounded-full bg-[#e8eaed] px-3 py-1.5 text-xs font-medium text-marketing-primary">
                 <Flag className="size-3" aria-hidden /> Timed set
               </span>
             </div>

@@ -6,8 +6,8 @@ const publicSurfaces = [
     heading: /UCAT Prep\?.*Planned for you\./i,
   },
   {
-    path: "/online-learning/",
-    heading: /Altitutor Student Portal.*Moves with you\./i,
+    path: "/",
+    heading: /Want better results\?.*We can help\./i,
   },
 ] as const;
 

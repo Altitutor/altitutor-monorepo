@@ -18,7 +18,7 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "altitutor.com",
-        pathname: "/wp-content/uploads/**",
+        pathname: "/images/content/**",
       },
       {
         protocol: "https",
@@ -50,7 +50,7 @@ const nextConfig = {
         ],
       },
       {
-        source: "/wp-content/:path*",
+        source: "/images/:path*",
         headers: [
           {
             key: "Cache-Control",
@@ -63,6 +63,11 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: "/wp-content/uploads/:path*",
+        destination: "/images/content/:path*",
+        permanent: true,
+      },
       {
         source: "/sitemap_index.xml",
         destination: "/sitemap.xml",

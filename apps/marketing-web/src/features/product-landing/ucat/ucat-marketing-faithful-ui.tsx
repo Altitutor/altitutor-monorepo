@@ -46,7 +46,7 @@ import {
 } from "./scale-to-fit-frame";
 
 const FLOATING_INSIGHT_CARD =
-  "rounded-2xl border border-black/10 bg-white/[0.97] text-[#1a1a1a] shadow-[0_18px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.07] backdrop-blur-xl";
+  "rounded-2xl border border-black/10 bg-white/[0.97] text-marketing-charcoal shadow-[0_18px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.07] backdrop-blur-xl";
 
 const CARD_CHROME =
   "rounded-[1.25rem] bg-white shadow-sm ring-1 ring-black/[0.055]";
@@ -145,9 +145,9 @@ function ScalePill({
 
   const pillClass = clsx(
     "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums shadow-sm ring-1",
-    interactive && "transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0a2941]/30",
+    interactive && "transition-transform hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-marketing-primary/30",
     tone === "estimate"
-      ? "border border-[#0a2941]/20 bg-[#0a2941] text-white ring-white"
+      ? "border border-marketing-primary/20 bg-marketing-primary text-white ring-white"
       : "border border-amber-950/15 bg-amber-400 text-slate-950 ring-white/60",
   );
 
@@ -171,12 +171,12 @@ function ScalePill({
           <TooltipTrigger asChild>{pillInner}</TooltipTrigger>
           <TooltipContent
             side="top"
-            className="max-w-56 border border-black/10 bg-white px-3 py-2 text-left text-[#1a1a1a] shadow-lg"
+            className="max-w-56 border border-black/10 bg-white px-3 py-2 text-left text-marketing-charcoal shadow-lg"
           >
-            <p className="font-medium text-[#1a1a1a]">{tooltipTitle}</p>
+            <p className="font-medium text-marketing-charcoal">{tooltipTitle}</p>
             <p className="mt-1 text-black/55">{tooltipBody}</p>
             {tooltipDetail ? (
-              <p className="mt-1.5 font-medium tabular-nums text-[#1a1a1a]">
+              <p className="mt-1.5 font-medium tabular-nums text-marketing-charcoal">
                 {tooltipDetail}
               </p>
             ) : null}
@@ -244,7 +244,7 @@ export function MarketingScoreScale({
         style={{ left: `${gapLeft}%`, width: `${gapWidth}%` }}
       >
         <motion.div
-          className="h-full origin-left rounded-full bg-[#0a2941]/35"
+          className="h-full origin-left rounded-full bg-marketing-primary/35"
           initial={animate ? { scaleX: 0 } : false}
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.5, delay: delay + 0.12, ease: DEMO_EASE }}
@@ -336,7 +336,7 @@ export function MarketingPercentileCurve({
           y1="12"
           x2={markerX}
           y2={baseline}
-          stroke="#0a2941"
+          stroke="rgb(var(--marketing-primary))"
           strokeWidth="2"
           initial={animate ? { opacity: 0 } : false}
           animate={{ opacity: 1 }}
@@ -344,7 +344,7 @@ export function MarketingPercentileCurve({
         />
         <motion.polygon
           points={`${markerX},18 ${markerX - 6},28 ${markerX + 6},28`}
-          fill="#0a2941"
+          fill="rgb(var(--marketing-primary))"
           initial={animate ? { opacity: 0, y: 4 } : false}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, type: "spring", stiffness: 320, damping: 24 }}
@@ -516,7 +516,7 @@ export function MarketingInteractivePercentileCard({
             );
           }}
           onBlur={() => setExploredScore(null)}
-          className="mt-2 aspect-[4/1] h-auto w-full cursor-crosshair overflow-visible rounded-md outline-none focus-visible:ring-2 focus-visible:ring-[#0a2941]/25 focus-visible:ring-offset-2"
+          className="mt-2 aspect-[4/1] h-auto w-full cursor-crosshair overflow-visible rounded-md outline-none focus-visible:ring-2 focus-visible:ring-marketing-primary/25 focus-visible:ring-offset-2"
         >
           <defs>
             <clipPath id={clipId}>
@@ -526,14 +526,14 @@ export function MarketingInteractivePercentileCard({
           <path d={bellCurve.areaPath} className="fill-black/[0.08]" />
           <path
             d={bellCurve.areaPath}
-            className="fill-[#0a2941]/20"
+            className="fill-marketing-primary/20"
             clipPath={`url(#${clipId})`}
           />
           <path
             d={bellCurve.linePath}
             fill="none"
             vectorEffect="non-scaling-stroke"
-            className="stroke-[#0a2941]/70"
+            className="stroke-marketing-primary/70"
             strokeWidth="2"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -553,7 +553,7 @@ export function MarketingInteractivePercentileCard({
             y1={markerY}
             y2={chartBaseline}
             vectorEffect="non-scaling-stroke"
-            className="stroke-[#1a1a1a]"
+            className="stroke-marketing-charcoal"
             strokeWidth="1.5"
             strokeDasharray="4 4"
           />
@@ -561,7 +561,7 @@ export function MarketingInteractivePercentileCard({
             cx={markerX}
             cy={markerY}
             r="5"
-            className="fill-[#1a1a1a] stroke-white"
+            className="fill-marketing-charcoal stroke-white"
             strokeWidth="2"
           />
         </svg>
@@ -609,7 +609,7 @@ export function MarketingTrajectoryChart({
         )}
       >
         <div
-          className="absolute inset-x-0 top-[22%] border-t border-dashed border-[#0a2941]/35"
+          className="absolute inset-x-0 top-[22%] border-t border-dashed border-marketing-primary/35"
           aria-hidden
         />
         <span className="absolute left-3 top-[calc(22%-1.35rem)] rounded-full border border-amber-950/15 bg-amber-400 px-2.5 py-1 text-[10px] font-semibold text-slate-950 shadow-[0_6px_18px_rgba(245,158,11,0.28)] ring-1 ring-white/60">
@@ -632,7 +632,7 @@ export function MarketingTrajectoryChart({
           <motion.path
             d="M48 198 C120 192 170 176 230 168 S350 138 410 128"
             fill="none"
-            stroke="#0a2941"
+            stroke="rgb(var(--marketing-primary))"
             strokeWidth="4"
             strokeLinecap="round"
             initial={animate ? { pathLength: 0 } : false}
@@ -642,7 +642,7 @@ export function MarketingTrajectoryChart({
           <motion.path
             d="M410 128 C510 108 620 68 760 42"
             fill="none"
-            stroke="#92b9c6"
+            stroke="rgb(var(--marketing-accent))"
             strokeWidth="4"
             strokeLinecap="round"
             strokeDasharray="10 8"
@@ -652,7 +652,7 @@ export function MarketingTrajectoryChart({
           />
           <motion.path
             d="M410 128 C500 112 620 58 760 22 L760 92 C620 108 500 136 410 128 Z"
-            fill="#92b9c6"
+            fill="rgb(var(--marketing-accent))"
             initial={animate ? { opacity: 0 } : false}
             animate={{ opacity: 0.22 }}
             transition={{ duration: 0.9, delay: 0.12 }}
@@ -661,7 +661,7 @@ export function MarketingTrajectoryChart({
             cx="410"
             cy="128"
             r="6"
-            fill="#0a2941"
+            fill="rgb(var(--marketing-primary))"
             stroke="white"
             strokeWidth="2.5"
             initial={animate ? { scale: 0, opacity: 0 } : false}
@@ -688,7 +688,7 @@ export function MarketingTrajectoryChart({
 function clickableCardClass(selected: boolean) {
   return clsx(
     CLICKABLE_CARD_BASE,
-    selected && "border-[#0a2941]/30 bg-[#0a2941]/[0.04] ring-[#0a2941]/15",
+    selected && "border-marketing-primary/30 bg-marketing-primary/[0.04] ring-marketing-primary/15",
   );
 }
 
@@ -850,7 +850,7 @@ export function MarketingPracticeTimingCards({ animate }: { animate: boolean }) 
             step={25}
             value={pacing}
             readOnly
-            className="pointer-events-none w-full accent-[#0a2941]"
+            className="pointer-events-none w-full accent-marketing-primary"
             aria-hidden
           />
           <div className="mt-2 grid grid-cols-8">
@@ -859,13 +859,13 @@ export function MarketingPracticeTimingCards({ animate }: { animate: boolean }) 
                 key={pace}
                 className={clsx(
                   "flex flex-col items-center gap-1 text-[10px] text-black/45",
-                  pace === pacing && "font-semibold text-[#0a2941]",
+                  pace === pacing && "font-semibold text-marketing-primary",
                 )}
               >
                 <span
                   className={clsx(
                     "h-2 w-px bg-black/15",
-                    pace === pacing && "h-3 bg-[#0a2941]",
+                    pace === pacing && "h-3 bg-marketing-primary",
                   )}
                 />
                 {formatSpeedPercentAsMultiplier(pace)}
@@ -914,7 +914,7 @@ export function MarketingPracticePacingPanel({ animate }: { animate: boolean }) 
           step={25}
           value={pacing}
           readOnly
-          className="pointer-events-none w-full accent-[#0a2941]"
+          className="pointer-events-none w-full accent-marketing-primary"
           aria-hidden
         />
         <div className="mt-2 grid grid-cols-8">
@@ -923,13 +923,13 @@ export function MarketingPracticePacingPanel({ animate }: { animate: boolean }) 
               key={pace}
               className={clsx(
                 "flex flex-col items-center gap-1 text-[10px] text-black/45",
-                pace === pacing && "font-semibold text-[#0a2941]",
+                pace === pacing && "font-semibold text-marketing-primary",
               )}
             >
               <span
                 className={clsx(
                   "h-2 w-px bg-black/15",
-                  pace === pacing && "h-3 bg-[#0a2941]",
+                  pace === pacing && "h-3 bg-marketing-primary",
                 )}
               />
               {formatSpeedPercentAsMultiplier(pace)}
@@ -962,10 +962,10 @@ export function MarketingExamCalculator({ animate: _animate }: { animate: boolea
   return (
     <div className="relative mx-auto flex w-full max-w-[min(340px,100%)] justify-center py-2">
       <div className="pointer-events-none absolute left-2 top-2 z-10 flex items-center gap-1 sm:hidden">
-        <span className="rounded-full bg-[#0a2941] px-2.5 py-1 text-[11px] font-semibold text-white shadow-md">
+        <span className="rounded-full bg-marketing-primary px-2.5 py-1 text-[11px] font-semibold text-white shadow-md">
           Try me
         </span>
-        <svg viewBox="0 0 24 24" className="size-4 text-[#0a2941]" aria-hidden>
+        <svg viewBox="0 0 24 24" className="size-4 text-marketing-primary" aria-hidden>
           <path
             d="M4 12 H16 M12 8 L16 12 L12 16"
             fill="none"
@@ -1014,7 +1014,7 @@ export function MarketingReviewScoreBreakdown({ animate }: { animate: boolean })
           >
             <div className="flex items-center justify-between gap-3">
               <p className="text-sm font-semibold">{row.name}</p>
-              <p className="text-sm font-semibold tabular-nums text-[#0a2941]">
+              <p className="text-sm font-semibold tabular-nums text-marketing-primary">
                 {row.score}
               </p>
             </div>
@@ -1042,7 +1042,7 @@ export function MarketingReviewExplanation({ animate }: { animate: boolean }) {
   return (
     <Card
       className={clsx(
-        "overflow-hidden border-[#0a2941]/15 bg-gradient-to-br from-[#0a2941]/[0.06] via-white to-white",
+        "overflow-hidden border-marketing-primary/15 bg-gradient-to-br from-marketing-primary/[0.06] via-white to-white",
         animate && "animate-in fade-in duration-300",
       )}
     >
@@ -1192,7 +1192,7 @@ export function MarketingLearnModuleSidebar({ animate }: { animate: boolean }) {
               className={clsx(
                 "flex items-center gap-2 rounded-lg px-3 py-2.5 text-sm",
                 active
-                  ? "bg-[#0a2941]/8 font-semibold text-[#0a2941]"
+                  ? "bg-marketing-primary/8 font-semibold text-marketing-primary"
                   : "text-black/60",
               )}
               layout
@@ -1201,9 +1201,9 @@ export function MarketingLearnModuleSidebar({ animate }: { animate: boolean }) {
                 className={clsx(
                   "flex size-5 shrink-0 items-center justify-center rounded-full text-[10px] font-bold",
                   done
-                    ? "bg-[#0a2941] text-white"
+                    ? "bg-marketing-primary text-white"
                     : active
-                      ? "bg-[#0a2941]/15 text-[#0a2941]"
+                      ? "bg-marketing-primary/15 text-marketing-primary"
                       : "bg-black/[0.06] text-black/35",
                 )}
                 key={`${label}-${done ? "done" : "todo"}`}
@@ -1278,7 +1278,7 @@ export function MarketingLearnEmbeddedQuestion({ animate }: { animate: boolean }
             className={clsx(
               "rounded-xl border px-3 py-2.5 text-sm",
               index === 1
-                ? "border-[#0a2941]/25 bg-[#0a2941]/5 font-semibold text-[#0a2941]"
+                ? "border-marketing-primary/25 bg-marketing-primary/5 font-semibold text-marketing-primary"
                 : "border-black/[0.08] text-black/60",
             )}
             initial={animate ? { opacity: 0, y: 6 } : false}
@@ -1333,7 +1333,7 @@ export function MarketingSkillTrainerPanel({ animate }: { animate: boolean }) {
               className={clsx(
                 "flex-1 rounded-lg py-2.5 text-center text-sm font-semibold",
                 index === 2
-                  ? "bg-[#0a2941] text-white"
+                  ? "bg-marketing-primary text-white"
                   : "bg-black/[0.05] text-black/55",
               )}
             >
@@ -1351,7 +1351,7 @@ export function MarketingProgressEstimatePanel({ animate }: { animate: boolean }
     <div className={clsx(CARD_CHROME, "p-4 sm:p-5")}>
       <p className="text-sm text-black/50">Current estimate</p>
       <motion.p
-        className="mt-1 text-4xl font-bold tracking-tight text-[#0a2941] tabular-nums"
+        className="mt-1 text-4xl font-bold tracking-tight text-marketing-primary tabular-nums"
         initial={animate ? { opacity: 0, y: 8 } : false}
         animate={{ opacity: 1, y: 0 }}
         transition={{ ease: DEMO_EASE }}
@@ -1392,7 +1392,7 @@ export function MarketingProgressEstimatePanel({ animate }: { animate: boolean }
           <div key={section.name}>
             <div className="flex items-center justify-between gap-2 text-sm">
               <span className="font-medium">{section.name}</span>
-              <span className="font-semibold tabular-nums text-[#0a2941]">
+              <span className="font-semibold tabular-nums text-marketing-primary">
                 {section.estimate}
               </span>
             </div>
@@ -1436,7 +1436,7 @@ export function MarketingStudyPlanTasks({ animate }: { animate: boolean }) {
                   ? "bg-violet-500/15 text-violet-700"
                   : task.type === "review"
                     ? "bg-emerald-500/15 text-emerald-700"
-                    : "bg-[#0a2941]/10 text-[#0a2941]",
+                    : "bg-marketing-primary/10 text-marketing-primary",
               )}
             >
               {task.minutes}m
@@ -1632,9 +1632,9 @@ export function MarketingStudyPlanCardSnapshot({ animate }: { animate: boolean }
   const intensityFill: Record<0 | 1 | 2 | 3 | 4, string> = {
     0: "bg-black/[0.04]",
     1: "bg-[#c5dce5]",
-    2: "bg-[#92b9c6]",
+    2: "bg-marketing-accent",
     3: "bg-[#355d72]",
-    4: "bg-[#0a2941]",
+    4: "bg-marketing-primary",
   };
 
   const [selectedDate, setSelectedDate] =
@@ -1725,15 +1725,15 @@ export function MarketingStudyPlanCardSnapshot({ animate }: { animate: boolean }
                     {selected && animate ? (
                       <motion.span
                         layoutId="study-plan-card-selected-day"
-                        className="pointer-events-none absolute inset-0 rounded-[22%] ring-2 ring-[#0a2941] ring-offset-1"
+                        className="pointer-events-none absolute inset-0 rounded-[22%] ring-2 ring-marketing-primary ring-offset-1"
                         transition={{ duration: 0.55, ease: DEMO_EASE }}
                       />
                     ) : selected ? (
-                      <span className="pointer-events-none absolute inset-0 rounded-[22%] ring-2 ring-[#0a2941] ring-offset-1" />
+                      <span className="pointer-events-none absolute inset-0 rounded-[22%] ring-2 ring-marketing-primary ring-offset-1" />
                     ) : null}
                     {isTest ? (
                       <Target
-                        className="absolute bottom-0 size-2 text-[#0a2941]"
+                        className="absolute bottom-0 size-2 text-marketing-primary"
                         aria-hidden
                       />
                     ) : null}
@@ -1762,7 +1762,7 @@ export function MarketingStudyPlanCardSnapshot({ animate }: { animate: boolean }
             </div>
             <motion.span
               key={`${selectedDate}-minutes`}
-              className="rounded-full bg-[#e8eaed] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-[#0a2941]"
+              className="rounded-full bg-[#e8eaed] px-2 py-0.5 text-[10px] font-semibold tabular-nums text-marketing-primary"
               initial={animate ? { opacity: 0, scale: 0.92 } : false}
               animate={{ opacity: 1, scale: 1 }}
               transition={{ duration: 0.35, ease: DEMO_EASE }}
@@ -1785,7 +1785,7 @@ export function MarketingStudyPlanCardSnapshot({ animate }: { animate: boolean }
                   variants={demoItemVariants}
                   className="flex items-start gap-2.5 rounded-xl border border-black/[0.06] bg-[#f6f7f9] px-2.5 py-2"
                 >
-                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-[#0a2941] ring-1 ring-black/[0.05]">
+                  <span className="grid size-8 shrink-0 place-items-center rounded-lg bg-white text-marketing-primary ring-1 ring-black/[0.05]">
                     <Icon className="size-3.5" aria-hidden />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -2071,7 +2071,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
           onMouseLeave={() => setHoverPoint(null)}
           onKeyDown={handleKeyDown}
           onBlur={() => setHoverPoint(null)}
-          className="absolute inset-0 z-10 size-full cursor-crosshair outline-none focus-visible:ring-2 focus-visible:ring-[#0a2941]/25 focus-visible:ring-offset-2"
+          className="absolute inset-0 z-10 size-full cursor-crosshair outline-none focus-visible:ring-2 focus-visible:ring-marketing-primary/25 focus-visible:ring-offset-2"
           preserveAspectRatio="xMidYMid meet"
         >
           <defs>
@@ -2095,7 +2095,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
 
           <motion.path
             d={conePath}
-            fill="#92b9c6"
+            fill="rgb(var(--marketing-accent))"
             initial={animate ? { opacity: 0 } : false}
             animate={{ opacity: 0.22 }}
             transition={{ duration: 0.9, delay: 0.12 }}
@@ -2103,7 +2103,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
           <motion.path
             d={fullPath}
             fill="none"
-            stroke="#0a2941"
+            stroke="rgb(var(--marketing-primary))"
             strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -2116,7 +2116,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
           <motion.path
             d={fullPath}
             fill="none"
-            stroke="#92b9c6"
+            stroke="rgb(var(--marketing-accent))"
             strokeWidth="4"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -2131,7 +2131,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
             cx={TRAJECTORY_CURRENT_X}
             cy={currentY}
             r="6"
-            fill="#0a2941"
+            fill="rgb(var(--marketing-primary))"
             stroke="white"
             strokeWidth="2.5"
             initial={animate ? { scale: 0, opacity: 0 } : false}
@@ -2150,7 +2150,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
                 x={TRAJECTORY_CURRENT_X}
                 y={currentY - 14}
                 textAnchor="middle"
-                className="fill-[#0a2941] text-[13px] font-semibold"
+                className="fill-marketing-primary text-[13px] font-semibold"
                 style={{ fontFamily: "inherit" }}
               >
                 {formatTrajectoryScore(TRAJECTORY_CURRENT)}
@@ -2175,7 +2175,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
                 y1={hoverPoint.y}
                 y2={TRAJECTORY_CHART_BOTTOM + 10}
                 vectorEffect="non-scaling-stroke"
-                stroke="#0a2941"
+                stroke="rgb(var(--marketing-primary))"
                 strokeWidth="1.5"
                 strokeDasharray="4 4"
                 strokeOpacity="0.55"
@@ -2184,7 +2184,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
                 cx={hoverPoint.x}
                 cy={hoverPoint.y}
                 r="5"
-                fill={hoverPoint.kind === "historical" ? "#0a2941" : "#92b9c6"}
+                fill={hoverPoint.kind === "historical" ? "rgb(var(--marketing-primary))" : "rgb(var(--marketing-accent))"}
                 stroke="white"
                 strokeWidth="2"
               />
@@ -2194,7 +2194,7 @@ export function MarketingProgressCardSnapshot({ animate }: { animate: boolean })
                 textAnchor="middle"
                 className={`text-[12px] font-semibold ${
                   hoverPoint.kind === "historical"
-                    ? "fill-[#0a2941]"
+                    ? "fill-marketing-primary"
                     : "fill-[#4f7f92]"
                 }`}
                 style={{ fontFamily: "inherit" }}

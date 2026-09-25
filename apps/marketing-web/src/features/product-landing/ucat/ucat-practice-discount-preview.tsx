@@ -1,9 +1,8 @@
 "use client";
 
 import { Check, Flame } from "lucide-react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const PERIOD_SAVED = "$21";
 
@@ -16,7 +15,7 @@ const WEEK_DAYS = [
 
 export function UcatPracticeDiscountPreview() {
   return (
-    <div className="ucat-product-ui w-full min-w-0" aria-hidden>
+    <div className="marketing-product-ui w-full min-w-0" aria-hidden>
       <p
         className={`mt-0.5 flex items-center gap-1.5 text-xl font-semibold tabular-nums tracking-tight text-marketing-charcoal ${typo.headingSans}`}
       >

@@ -21,7 +21,7 @@ const MedicalInterviewWaitlistSection = dynamic(() =>
 const courseHeadings: Record<string, [string, string]> = {
   "/classes/weekly-classes/": ["Weekly tutoring.", "Get ahead. Stay ahead."],
   "/classes/english-assignment-drafting/": [
-    "English drafting.",
+    "Assignment drafting.",
     "Find your words.",
   ],
   "/classes/examprep/": ["SACE exam preparation.", "Go in ready."],

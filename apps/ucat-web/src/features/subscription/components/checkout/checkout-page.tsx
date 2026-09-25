@@ -11,6 +11,7 @@ import {
   Check,
   Info,
   LockKeyhole,
+  Loader2,
   Mail,
   Sparkles,
 } from "lucide-react";
@@ -42,6 +43,7 @@ import {
   isPlanCheckoutAvailable,
 } from "@/features/subscription/types/public-subscription-config";
 import { CheckoutPaymentForm } from "@/features/subscription/components/checkout/checkout-payment-form";
+import { getCheckoutSubmitPresentation } from "@/features/subscription/components/checkout/checkout-submit-presentation";
 import {
   isUcatBillingInterval,
   isUcatPaidPlanTier,
@@ -282,6 +284,17 @@ export function CheckoutPage() {
       ? checkoutStartedAtRef.current
       : subDays(firstChargeAt, 3)
     : null;
+  const paymentLoading = configLoading || !clientSecret || !paymentReady;
+  const checkoutSubmitPresentation = getCheckoutSubmitPresentation({
+    checkoutSubmitting,
+    checkoutError,
+    paymentLoading,
+    offerTrialDays,
+    referralGiftApplied,
+    hasStandardTrial,
+    standardTrialDays,
+    interval,
+  });
 
   const cancelCurrentCheckout = async () => {
     const response = await fetch("/api/ucat/invitations", {
@@ -775,28 +788,29 @@ export function CheckoutPage() {
               type="submit"
               form="ucat-checkout-payment-form"
               disabled={
-                configLoading ||
-                !clientSecret ||
-                !paymentReady ||
+                paymentLoading ||
                 Boolean(checkoutError) ||
                 changingInterval ||
                 checkoutSubmitting
               }
               className="mt-6 h-14 w-full rounded-full bg-primary text-base font-semibold text-primary-foreground hover:bg-primary/90"
             >
-              {checkoutSubmitting
-                ? "Confirming…"
-                : offerTrialDays > 0
-                  ? `Start my ${offerTrialDays}-day free period`
-                  : referralGiftApplied
-                    ? `Start my free ${intervalNoun(interval)}`
-                    : hasStandardTrial
-                      ? `Start my ${standardTrialDays}-day free trial`
-                      : "Subscribe to UCAT Unlimited"}
-              {!checkoutSubmitting ? (
+              {checkoutSubmitPresentation.label}
+              {paymentLoading && !checkoutError ? (
+                <Loader2 className="ml-2 h-4 w-4 animate-spin" aria-hidden />
+              ) : !checkoutSubmitting && !checkoutError ? (
                 <ArrowRight className="ml-2 h-4 w-4" />
               ) : null}
             </Button>
+            {checkoutSubmitPresentation.status ? (
+              <p
+                role="status"
+                aria-live="polite"
+                className="mt-3 text-center text-sm text-muted-foreground"
+              >
+                {checkoutSubmitPresentation.status}
+              </p>
+            ) : null}
             <p className="mt-3 flex items-center justify-center gap-1.5 text-center text-xs text-muted-foreground">
               <LockKeyhole className="h-3.5 w-3.5 shrink-0" /> Cancel anytime.
               Payment details are securely processed by Stripe.

@@ -246,9 +246,9 @@ export function MarketingLearnGuidedWalkthroughPreview({
                 role="dialog"
                 aria-label={step.title}
               >
-                <div className="absolute inset-x-4 top-0 h-0.5 overflow-hidden rounded-full bg-[#0a2941]/10">
+                <div className="absolute inset-x-4 top-0 h-0.5 overflow-hidden rounded-full bg-marketing-primary/10">
                   <motion.div
-                    className="h-full rounded-full bg-[#0a2941]"
+                    className="h-full rounded-full bg-marketing-primary"
                     animate={{ width: `${progressPct}%` }}
                     transition={{ duration: 0.3, ease: DEMO_EASE }}
                   />
@@ -264,11 +264,11 @@ export function MarketingLearnGuidedWalkthroughPreview({
                     className="pt-2"
                   >
                     <div className="flex items-start gap-2.5">
-                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-[#0a2941]/10 text-[#0a2941]">
+                      <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-marketing-primary/10 text-marketing-primary">
                         <StepIcon className="size-4" aria-hidden />
                       </span>
                       <div className="min-w-0 flex-1">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-[#0a2941]">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.14em] text-marketing-primary">
                           Step {stepIndex + 1} of {WALKTHROUGH_TOTAL_STEPS}
                         </p>
                         <h4 className="mt-0.5 text-base font-semibold leading-snug tracking-tight">
@@ -280,7 +280,7 @@ export function MarketingLearnGuidedWalkthroughPreview({
                       {step.body}
                     </p>
                     {"calculationLines" in step ? (
-                      <div className="mt-3 space-y-1.5 rounded-lg bg-[#0a2941]/[0.07] px-3 py-2.5 font-mono text-[12px] font-semibold text-[#0a2941]">
+                      <div className="mt-3 space-y-1.5 rounded-lg bg-marketing-primary/[0.07] px-3 py-2.5 font-mono text-[12px] font-semibold text-marketing-primary">
                         {step.calculationLines.map((line) => (
                           <p key={line}>{line}</p>
                         ))}
@@ -289,7 +289,7 @@ export function MarketingLearnGuidedWalkthroughPreview({
                         </p>
                       </div>
                     ) : null}
-                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-[#0a2941]/[0.07] px-2.5 py-2 text-[12px] font-medium text-[#0a2941]">
+                    <div className="mt-3 flex items-center gap-2 rounded-lg bg-marketing-primary/[0.07] px-2.5 py-2 text-[12px] font-medium text-marketing-primary">
                       <MousePointer2
                         className="size-3.5 shrink-0 motion-safe:animate-pulse"
                         aria-hidden
@@ -297,7 +297,7 @@ export function MarketingLearnGuidedWalkthroughPreview({
                       Use the highlighted control to continue
                     </div>
                     <div className="mt-3 flex items-center justify-end gap-2">
-                      <span className="rounded-md bg-[#0a2941] px-2.5 py-1 text-[12px] font-medium text-white">
+                      <span className="rounded-md bg-marketing-primary px-2.5 py-1 text-[12px] font-medium text-white">
                         Next
                       </span>
                     </div>

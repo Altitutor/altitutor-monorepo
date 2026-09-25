@@ -12,7 +12,7 @@ export function DemoStage({
 }) {
   return (
     <div
-      className={`ucat-product-ui pointer-events-none relative h-full overflow-hidden bg-[#f6f7f9] text-[#1a1a1a] select-none ${className}`}
+      className={`marketing-product-ui pointer-events-none relative h-full overflow-hidden bg-[#f6f7f9] text-marketing-charcoal select-none ${className}`}
       aria-hidden
     >
       {children}
@@ -37,14 +37,14 @@ export function DemoCursor({
       <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden>
         <path
           d="M5 3l14 8.5-6.2 1.6L10.2 21 5 3z"
-          fill="#0a2941"
+          fill="rgb(var(--marketing-primary))"
           stroke="#fff"
           strokeWidth="1.25"
           strokeLinejoin="round"
         />
       </svg>
       <span
-        className="absolute left-3 top-3 size-3 rounded-full bg-[#0a2941]/25 opacity-0"
+        className="absolute left-3 top-3 size-3 rounded-full bg-marketing-primary/25 opacity-0"
         data-demo-cursor-ripple
       />
     </div>

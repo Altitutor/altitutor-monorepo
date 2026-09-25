@@ -8,6 +8,12 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        "marketing-heading": ["var(--marketing-font-heading)"],
+        "marketing-body": ["var(--marketing-font-body)"],
+        "marketing-editorial": ["var(--marketing-font-editorial)"],
+        "marketing-label": ["var(--marketing-font-label)"],
+      },
       borderRadius: {
         lg: "var(--radius)",
         md: "calc(var(--radius) - 2px)",
@@ -44,10 +50,10 @@ module.exports = {
           foreground: "hsl(var(--destructive-foreground))",
         },
         marketing: {
-          primary: "#0a2941",
-          accent: "#92b9c6",
-          cream: "#F2F0E9",
-          charcoal: "#1A1A1A",
+          primary: "rgb(var(--marketing-primary) / <alpha-value>)",
+          accent: "rgb(var(--marketing-accent) / <alpha-value>)",
+          cream: "rgb(var(--marketing-cream) / <alpha-value>)",
+          charcoal: "rgb(var(--marketing-charcoal) / <alpha-value>)",
         },
       },
       keyframes: {

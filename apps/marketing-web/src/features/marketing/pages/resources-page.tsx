@@ -27,9 +27,9 @@ export function ResourcesPage() {
         className={`${styles.container} ${styles.hero} ${styles.split} ${styles.resourceHero}`}
       >
         <div>
-          <Eyebrow>Online resources</Eyebrow>
+          <Eyebrow>Online SACE & IB resources</Eyebrow>
           <h1>
-            The lesson ends.<em>The learning doesn’t.</em>
+            SACE & IB resources.<em>Learn on your terms.</em>
           </h1>
           <Copy block={resource("29b2be3")} />
           <div className={styles.actions}>

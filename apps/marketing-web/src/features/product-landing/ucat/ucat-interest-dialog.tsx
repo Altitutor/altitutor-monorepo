@@ -9,13 +9,12 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@altitutor/ui";
-import { MARKETING_TOKENS } from "@altitutor/shared";
-import { UCAT_BODY_DESCRIPTION_CLASS } from "./ucat-landing-section-eyebrow";
+import { MARKETING_BODY_DESCRIPTION_CLASS } from "@/features/marketing/section-styles";
 import { ArrowRight } from "lucide-react";
 import { UcatInterestForm } from "./ucat-interest-form";
 import type { UcatInterestKind } from "./ucat-interest-kind";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 const BOTTOM_SHEET_DISMISS_DRAG_PX = 96;
 
 type UcatInterestDialogProps = {
@@ -85,7 +84,7 @@ export function UcatInterestDialog({
           type="button"
           className={
             triggerClassName ??
-            "inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-charcoal"
+            "inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-primary/90"
           }
         >
           {triggerLabel}
@@ -125,7 +124,7 @@ export function UcatInterestDialog({
                 {title}
               </DialogTitle>
               <DialogDescription
-                className={`mt-4 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-4 ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 {description}
               </DialogDescription>

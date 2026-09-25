@@ -44,8 +44,8 @@ function FaithfulPreview({
     <div
       className={
         interactive
-          ? "ucat-product-ui pointer-events-auto w-full min-w-0 max-w-full text-[#1a1a1a]"
-          : "ucat-product-ui pointer-events-none w-full min-w-0 max-w-full select-none text-[#1a1a1a]"
+          ? "marketing-product-ui pointer-events-auto w-full min-w-0 max-w-full text-marketing-charcoal"
+          : "marketing-product-ui pointer-events-none w-full min-w-0 max-w-full select-none text-marketing-charcoal"
       }
       aria-hidden={!interactive}
     >

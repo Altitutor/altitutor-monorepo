@@ -12,8 +12,12 @@ import sys
 from urllib.request import urlopen
 
 ROOT = Path(__file__).resolve().parents[1]
-Parser = runpy.run_path(str(ROOT / 'scripts/extract-marketing-content.py'))['Parser']
+Parser = runpy.run_path(str(ROOT / 'scripts/html_parser.py'))['Parser']
 CONTENT = json.loads((ROOT / 'src/features/marketing/content/production.json').read_text())
+OVERRIDES = json.loads((ROOT / 'src/features/marketing/content/editorial-overrides.json').read_text())
+for path, blocks in CONTENT.items():
+    for block in blocks:
+        block.update(OVERRIDES.get(path, {}).get(block['id'], {}))
 BASE = sys.argv[1] if len(sys.argv) > 1 else 'http://127.0.0.1:3013'
 PATHS = ['/', '/about/', '/about/contact/', '/classes/', '/resources/', '/about/subsidy/', '/about/apply/', '/about/testimonials/', '/privacy-policy/'] + [p for p in CONTENT if p.startswith('/classes/') and p != '/classes/']
 # These are navigation labels, not student, course, policy or company copy.

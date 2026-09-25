@@ -4,6 +4,7 @@ import { ArrowRight, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ContentBlock, ContentItem } from "../content";
 import { PRODUCT_LINKS } from "@/lib/site";
+import motion from "./magnetic-button.module.css";
 import styles from "../marketing.module.css";
 
 export function Copy({
@@ -15,11 +16,21 @@ export function Copy({
   html?: string;
   className?: string;
 }) {
-  // Only the checked-in, allowlisted production content extractor supplies HTML.
+  // Only checked-in, allowlisted marketing content supplies HTML.
   return (
     <div
       className={`${styles.copy} ${className}`}
-      dangerouslySetInnerHTML={{ __html: html ?? block?.html ?? "" }}
+      dangerouslySetInnerHTML={{
+        __html: (html ?? block?.html ?? "")
+          .replaceAll(
+            'href="/resources/"',
+            'href="/online-courses/sace-ib-resources/"',
+          )
+          .replaceAll(
+            'href="/classes/english-assignment-drafting/"',
+            'href="/classes/assignment-drafting/"',
+          ),
+      }}
     />
   );
 }
@@ -40,7 +51,7 @@ export function Button({
   return (
     <Link
       href={href}
-      className={`${styles.button} ${secondary ? styles.secondaryButton : ""}`}
+      className={`${motion.magnetic} ${styles.button} ${secondary ? styles.secondaryButton : ""}`}
     >
       {children}
       <ArrowRight size={17} aria-hidden="true" />

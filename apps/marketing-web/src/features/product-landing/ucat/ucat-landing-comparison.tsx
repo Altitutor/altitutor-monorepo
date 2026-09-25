@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
-  MARKETING_TOKENS,
   maxPracticeDayDiscountCents,
   type UcatBillingInterval,
 } from "@altitutor/shared";
@@ -26,13 +25,13 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import {
-  UCAT_SECTION_EYEBROW_CLASS,
-  UCAT_SECTION_PADDING_CLASS,
-  UCAT_SECTION_DESCRIPTION_CLASS,
-  UCAT_SECTION_HEADING_CLASS,
-} from "./ucat-landing-section-eyebrow";
+  MARKETING_SECTION_EYEBROW_CLASS,
+  MARKETING_SECTION_PADDING_CLASS,
+  MARKETING_SECTION_DESCRIPTION_CLASS,
+  MARKETING_SECTION_HEADING_CLASS,
+} from "@/features/marketing/section-styles";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 type CompetitorKey = "altitutor" | "medentry" | "medify";
 type StatusValue = "yes" | "partial" | "no";
@@ -395,22 +394,22 @@ export function UcatLandingComparison() {
   return (
     <section
       id="comparison"
-      className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}
+      className={`bg-white ${MARKETING_SECTION_PADDING_CLASS}`}
     >
       <div className="mx-auto max-w-6xl">
         <div className="mx-auto max-w-3xl text-center">
           <p
-            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
+            className={`${MARKETING_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Comparison
           </p>
           <h2
-            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
+            className={`mt-4 ${MARKETING_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             How Altitutor UCAT compares
           </h2>
           <p
-            className={`mx-auto mt-5 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+            className={`mx-auto mt-5 max-w-2xl ${MARKETING_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             See how Altitutor UCAT stacks up against other platforms.
           </p>

@@ -41,7 +41,7 @@ const KEYBOARD_SHORTCUTS = [
 
 function KeyCap({ label }: { label: string }) {
   return (
-    <span className="inline-flex min-w-[2rem] items-center justify-center rounded-md border border-black/10 bg-[#f6f7f9] px-2 py-1 text-xs font-semibold text-[#0a2941] shadow-[0_1px_0_rgba(0,0,0,0.06)]">
+    <span className="inline-flex min-w-[2rem] items-center justify-center rounded-md border border-black/10 bg-[#f6f7f9] px-2 py-1 text-xs font-semibold text-marketing-primary shadow-[0_1px_0_rgba(0,0,0,0.06)]">
       {label}
     </span>
   );
@@ -69,7 +69,7 @@ function ShortcutRow({
       className={clsx(
         "flex h-[52px] items-center justify-between gap-6 px-2",
         emphasis === "center"
-          ? "text-[#0a2941]"
+          ? "text-marketing-primary"
           : "text-black/40",
       )}
     >
@@ -121,11 +121,11 @@ export function MarketingKeyboardShortcutsPreview({ animate }: { animate: boolea
         style={{ height: SHORTCUT_ROW_HEIGHT * 3 }}
       >
         <div
-          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-14 bg-gradient-to-b from-[#F2F0E9] via-[#F2F0E9]/95 to-transparent"
+          className="pointer-events-none absolute inset-x-0 top-0 z-10 h-14 bg-gradient-to-b from-marketing-cream via-marketing-cream/95 to-transparent"
           aria-hidden
         />
         <div
-          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-[#F2F0E9] via-[#F2F0E9]/95 to-transparent"
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-10 h-14 bg-gradient-to-t from-marketing-cream via-marketing-cream/95 to-transparent"
           aria-hidden
         />
         <motion.div
@@ -172,7 +172,7 @@ function StudySetupToggle({ enabled }: { enabled: boolean }) {
     <span
       className={clsx(
         "relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors",
-        enabled ? "bg-[#0a2941]" : "bg-black/25",
+        enabled ? "bg-marketing-primary" : "bg-black/25",
       )}
       aria-hidden
     >
@@ -220,15 +220,15 @@ export function MarketingStudyPlanSetupPreview({ animate }: { animate: boolean }
                 <span
                   className={clsx(
                     "flex size-8 items-center justify-center rounded-full text-sm font-bold transition-all",
-                    active && "scale-105 bg-[#0a2941] text-white",
-                    complete && "bg-[#0a2941]/15 text-[#0a2941]",
+                    active && "scale-105 bg-marketing-primary text-white",
+                    complete && "bg-marketing-primary/15 text-marketing-primary",
                     !active && !complete && "bg-black/[0.06] text-black/35",
                   )}
                 >
                   {complete ? <Check className="size-3.5" aria-hidden /> : step}
                 </span>
                 {step < 3 ? (
-                  <span className="h-px w-10 bg-[#0a2941]/40" aria-hidden />
+                  <span className="h-px w-10 bg-marketing-primary/40" aria-hidden />
                 ) : null}
               </div>
             );
@@ -236,10 +236,10 @@ export function MarketingStudyPlanSetupPreview({ animate }: { animate: boolean }
         </div>
 
         <div className="mb-5">
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-[#0a2941]">
+          <p className="text-xs font-bold uppercase tracking-[0.2em] text-marketing-primary">
             Study plan setup · 3 of 3
           </p>
-          <h4 className="mt-2 text-2xl font-bold tracking-tight text-[#0a2941]">
+          <h4 className="mt-2 text-2xl font-bold tracking-tight text-marketing-primary">
             When could you realistically study?
           </h4>
         </div>
@@ -257,7 +257,7 @@ export function MarketingStudyPlanSetupPreview({ animate }: { animate: boolean }
               >
                 <div className="flex min-w-0 flex-1 items-center gap-3">
                   <StudySetupToggle enabled={enabled} />
-                  <span className="text-sm text-[#0a2941]">{day.label}</span>
+                  <span className="text-sm text-marketing-primary">{day.label}</span>
                 </div>
                 <span className="text-xs text-black/45">
                   {enabled ? "Available" : "Rest day"}
@@ -347,7 +347,7 @@ export function MarketingStudyOrbPreview({ animate }: { animate: boolean }) {
           <div className="flex flex-col">
             <div className="flex w-full shrink-0 items-start justify-between gap-4 border-b border-black/[0.06] px-4 py-3.5">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-[#0a2941]">
+                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-marketing-primary">
                   Suggested next step
                 </p>
                 <h2 className="mt-0.5 font-semibold">Your Study plan</h2>
@@ -362,7 +362,7 @@ export function MarketingStudyOrbPreview({ animate }: { animate: boolean }) {
 
             <div className="h-1 shrink-0 bg-black/[0.06]">
               <motion.div
-                className="h-full rounded-r-full bg-[#0a2941]"
+                className="h-full rounded-r-full bg-marketing-primary"
                 initial={false}
                 animate={{ width: `${progressPercent}%` }}
                 transition={{ duration: 0.45, ease: DEMO_EASE }}
@@ -377,14 +377,14 @@ export function MarketingStudyOrbPreview({ animate }: { animate: boolean }) {
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -5 }}
                   transition={{ duration: 0.18, ease: DEMO_EASE }}
-                  className="rounded-xl border border-[#0a2941]/20 bg-[#0a2941]/[0.06] p-3.5"
+                  className="rounded-xl border border-marketing-primary/20 bg-marketing-primary/[0.06] p-3.5"
                 >
                   <div className="flex items-start gap-3">
-                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-[#0a2941]/12 text-[#0a2941]">
+                    <span className="flex size-8 shrink-0 items-center justify-center rounded-full bg-marketing-primary/12 text-marketing-primary">
                       <StudyOrbTaskIcon taskType={task.taskType} className="size-3.5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-[#0a2941]">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.13em] text-marketing-primary">
                         {task.eyebrow} · {task.activityTypeLabel}
                       </p>
                       <p className="mt-1 text-sm font-semibold leading-snug">
@@ -401,7 +401,7 @@ export function MarketingStudyOrbPreview({ animate }: { animate: boolean }) {
                   </div>
                   <button
                     type="button"
-                    className="mt-3 w-full rounded-xl bg-[#0a2941] px-4 py-2 text-sm font-semibold text-white"
+                    className="mt-3 w-full rounded-xl bg-marketing-primary px-4 py-2 text-sm font-semibold text-white"
                   >
                     Start
                   </button>
@@ -428,7 +428,7 @@ export function MarketingStudyOrbPreview({ animate }: { animate: boolean }) {
         </div>
 
         <div className="absolute bottom-0 right-0 flex h-14 w-14 items-center justify-center overflow-hidden rounded-full border border-black/[0.08] bg-white/95 shadow-[0_18px_55px_rgba(0,0,0,0.18)] ring-1 ring-black/[0.03] backdrop-blur-xl">
-          <span className="relative flex size-11 items-center justify-center rounded-full bg-[#0a2941]/10 text-[#0a2941]">
+          <span className="relative flex size-11 items-center justify-center rounded-full bg-marketing-primary/10 text-marketing-primary">
             <Sparkles className="size-5" aria-hidden />
           </span>
         </div>
@@ -571,7 +571,7 @@ function MarketingModuleDirectoryPreview({
               className="flex items-center gap-3 px-4"
               style={{ height: MODULE_ROW_HEIGHT }}
             >
-              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#0a2941]/10 text-[#0a2941]">
+              <span className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-marketing-primary/10 text-marketing-primary">
                 <BookOpen className="size-4" aria-hidden />
               </span>
               <div className="min-w-0 flex-1">
@@ -583,7 +583,7 @@ function MarketingModuleDirectoryPreview({
                       "mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold",
                       highlightRemediation
                         ? "bg-amber-400/15 text-amber-800"
-                        : "bg-[#0a2941]/10 text-[#0a2941]",
+                        : "bg-marketing-primary/10 text-marketing-primary",
                     )}
                   >
                     {module.tag}
@@ -594,7 +594,7 @@ function MarketingModuleDirectoryPreview({
                 <div className="w-16 shrink-0">
                   <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
                     <div
-                      className="h-full rounded-full bg-[#0a2941]"
+                      className="h-full rounded-full bg-marketing-primary"
                       style={{ width: `${module.progress}%` }}
                     />
                   </div>
@@ -698,7 +698,7 @@ function CircularSeatDiagram({ highlight }: { highlight: "leon-slot" | "full-slo
 
   return (
     <div className="relative mx-auto size-36" aria-hidden>
-      <div className="absolute inset-4 rounded-full border border-dashed border-[#0a2941]/20" />
+      <div className="absolute inset-4 rounded-full border border-dashed border-marketing-primary/20" />
       {seats.map((seat) => {
         const radians = (seat.angle * Math.PI) / 180;
         const x = 50 + Math.cos(radians) * 38;
@@ -716,7 +716,7 @@ function CircularSeatDiagram({ highlight }: { highlight: "leon-slot" | "full-slo
             className={clsx(
               "absolute flex size-11 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full border text-[10px] font-semibold",
               isLeonBlock
-                ? "border-[#0a2941]/30 bg-[#0a2941]/10 text-[#0a2941]"
+                ? "border-marketing-primary/30 bg-marketing-primary/10 text-marketing-primary"
                 : "border-black/[0.08] bg-white text-black/45",
             )}
             style={{ left: `${x}%`, top: `${y}%` }}
@@ -750,7 +750,7 @@ export function MarketingLearnWorkedExamplePreview({ animate }: { animate: boole
         <h4 className="mt-2 text-lg font-semibold tracking-tight">
           Circular seating constraints
         </h4>
-        <blockquote className="mt-3 rounded-lg border-l-4 border-[#92b9c6] bg-[#eef0f3] p-3 text-sm leading-relaxed text-black/60">
+        <blockquote className="mt-3 rounded-lg border-l-4 border-marketing-accent bg-[#eef0f3] p-3 text-sm leading-relaxed text-black/60">
           <p>{WORKED_EXAMPLE_PUZZLE.intro}</p>
           <ul className="mt-2 list-disc space-y-1 pl-4">
             {WORKED_EXAMPLE_PUZZLE.rules.map((rule) => (
@@ -766,7 +766,7 @@ export function MarketingLearnWorkedExamplePreview({ animate }: { animate: boole
                 key={option}
                 className={clsx(
                   index === WORKED_EXAMPLE_PUZZLE.correctIndex &&
-                    "font-semibold text-[#0a2941]",
+                    "font-semibold text-marketing-primary",
                 )}
               >
                 {String.fromCharCode(65 + index)}. {option}
@@ -784,11 +784,11 @@ export function MarketingLearnWorkedExamplePreview({ animate }: { animate: boole
                 className={clsx(
                   "rounded-lg border px-3 py-2.5 text-sm transition-colors duration-300",
                   index === stepIndex
-                    ? "border-[#0a2941]/20 bg-[#0a2941]/[0.05]"
+                    ? "border-marketing-primary/20 bg-marketing-primary/[0.05]"
                     : "border-black/[0.06] bg-white text-black/55",
                 )}
               >
-                <p className="font-semibold text-[#0a2941]">
+                <p className="font-semibold text-marketing-primary">
                   Step {index + 1}. {workedStep.title}
                 </p>
                 <p className="mt-1 leading-relaxed">{workedStep.body}</p>
@@ -821,7 +821,7 @@ export function MarketingPracticeDiscountPreview({ animate }: { animate: boolean
       <div className={clsx(CARD_CHROME, "w-full max-w-md p-5 sm:p-6")}>
         <div className="flex items-start justify-between gap-3">
           <p className="text-sm font-semibold">Practice streak</p>
-          <span className="shrink-0 rounded-full bg-[#0a2941]/10 px-2.5 py-0.5 text-[10px] font-semibold text-[#0a2941]">
+          <span className="shrink-0 rounded-full bg-marketing-primary/10 px-2.5 py-0.5 text-[10px] font-semibold text-marketing-primary">
             UCAT Unlimited
           </span>
         </div>
@@ -880,7 +880,7 @@ export function MarketingPracticeDiscountPreview({ animate }: { animate: boolean
           </div>
           <div className="h-1.5 overflow-hidden rounded-full bg-black/[0.06]">
             <motion.div
-              className="h-full rounded-full bg-[#0a2941]"
+              className="h-full rounded-full bg-marketing-primary"
               initial={animate ? { width: "0%" } : false}
               animate={{ width: "67%" }}
               transition={{ duration: 0.6, ease: DEMO_EASE }}
@@ -945,10 +945,10 @@ export function MarketingSectionStrengthsPreview({ animate }: { animate: boolean
                 stroke="currentColor"
                 strokeWidth="4"
                 strokeDasharray={`${2 * Math.PI * 20 * (DM_ACCURACY / 100)} ${2 * Math.PI * 20}`}
-                className="text-[#0a2941]"
+                className="text-marketing-primary"
               />
             </svg>
-            <span className="absolute text-xs font-bold tabular-nums text-[#0a2941]">
+            <span className="absolute text-xs font-bold tabular-nums text-marketing-primary">
               {DM_ACCURACY}%
             </span>
           </div>
@@ -1031,7 +1031,7 @@ export function MarketingReviewExplanationDmPreview({ animate }: { animate: bool
       </div>
       <Card
         className={clsx(
-          "overflow-hidden border-[#0a2941]/15 bg-gradient-to-br from-[#0a2941]/[0.06] via-white to-white",
+          "overflow-hidden border-marketing-primary/15 bg-gradient-to-br from-marketing-primary/[0.06] via-white to-white",
           animate && "animate-in fade-in duration-300",
         )}
       >
@@ -1139,7 +1139,7 @@ export function MarketingReviewTimingInteractivePreview({
         </p>
         <a
           href="#"
-          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-[#0a2941] underline-offset-4 hover:underline"
+          className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-marketing-primary underline-offset-4 hover:underline"
           onClick={(event) => event.preventDefault()}
         >
           Review percentage-change method

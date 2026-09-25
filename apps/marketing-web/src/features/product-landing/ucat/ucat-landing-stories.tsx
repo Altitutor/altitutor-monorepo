@@ -1,5 +1,4 @@
 import Image from "next/image";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   GraduationCap,
   HandHeart,
@@ -8,21 +7,21 @@ import {
 } from "lucide-react";
 import { UcatInterestDialog } from "./ucat-interest-dialog";
 import {
-  UCAT_SECTION_EYEBROW_CLASS,
-  UCAT_CONTENT_WIDTH_CLASS,
-  UCAT_SECTION_PADDING_CLASS,
-  UCAT_SECTION_DESCRIPTION_CLASS,
-  UCAT_BODY_DESCRIPTION_CLASS,
-  UCAT_SECTION_HEADING_CLASS,
-  UCAT_SECTION_HEADING_DARK_CLASS,
-  UCAT_CARD_TITLE_CLASS,
-  UCAT_CARD_TITLE_DARK_CLASS,
-  UCAT_DARK_BODY_DESCRIPTION_CLASS,
-  UCAT_STUDENT_QUOTE_CLASS,
-  UCAT_STUDENT_METADATA_CLASS,
-} from "./ucat-landing-section-eyebrow";
+  MARKETING_SECTION_EYEBROW_CLASS,
+  MARKETING_CONTENT_WIDTH_CLASS,
+  MARKETING_SECTION_PADDING_CLASS,
+  MARKETING_SECTION_DESCRIPTION_CLASS,
+  MARKETING_BODY_DESCRIPTION_CLASS,
+  MARKETING_SECTION_HEADING_CLASS,
+  MARKETING_SECTION_HEADING_DARK_CLASS,
+  MARKETING_CARD_TITLE_CLASS,
+  MARKETING_CARD_TITLE_DARK_CLASS,
+  MARKETING_DARK_BODY_DESCRIPTION_CLASS,
+  MARKETING_STUDENT_QUOTE_CLASS,
+  MARKETING_STUDENT_METADATA_CLASS,
+} from "@/features/marketing/section-styles";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const MATT_SIGNATURE_MASK = {
   WebkitMaskImage: "url(/assets/ucat/matt-signature.png)",
@@ -63,26 +62,26 @@ export function UcatLandingStories() {
   return (
     <section
       id="mission"
-      className={`overflow-hidden bg-white ${UCAT_SECTION_PADDING_CLASS}`}
+      className={`overflow-hidden bg-white ${MARKETING_SECTION_PADDING_CLASS}`}
     >
-      <div className={UCAT_CONTENT_WIDTH_CLASS}>
+      <div className={MARKETING_CONTENT_WIDTH_CLASS}>
         <div className="grid gap-12 lg:grid-cols-[0.85fr_1.15fr] lg:items-center">
           <div>
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-marketing-primary/10 text-marketing-primary">
               <HeartHandshake className="h-6 w-6" aria-hidden />
             </div>
             <p
-              className={`mt-7 ${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
+              className={`mt-7 ${MARKETING_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
             >
               Our mission
             </p>
             <h2
-              className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
+              className={`mt-4 ${MARKETING_SECTION_HEADING_CLASS} ${typo.headingSans}`}
             >
               Your preparation can help another student access theirs.
             </h2>
             <p
-              className={`mt-6 ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+              className={`mt-6 ${MARKETING_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
             >
               Altitutor runs as a not-for-profit education company. Revenue from
               paid plans helps us provide free and subsidised educational
@@ -100,7 +99,7 @@ export function UcatLandingStories() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <article className="rounded-[2rem] bg-marketing-primary p-7 text-marketing-cream sm:p-8">
+            <article className="rounded-[2rem] bg-marketing-charcoal p-7 text-marketing-cream sm:p-8">
               <Stethoscope
                 className="h-6 w-6 text-marketing-accent"
                 aria-hidden
@@ -108,11 +107,11 @@ export function UcatLandingStories() {
               <p className={`mt-8 text-4xl font-semibold ${typo.headingSans}`}>
                 2017
               </p>
-              <h3 className={`mt-2 ${UCAT_CARD_TITLE_DARK_CLASS} ${typo.headingSans}`}>
+              <h3 className={`mt-2 ${MARKETING_CARD_TITLE_DARK_CLASS} ${typo.headingSans}`}>
                 Where teaching began
               </h3>
               <p
-                className={`mt-3 ${UCAT_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-3 ${MARKETING_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Our first Year 12 cohort has now finished university, with
                 former students working as doctors, dentists, and other
@@ -130,12 +129,12 @@ export function UcatLandingStories() {
                 Hundreds
               </p>
               <h3
-                className={`mt-2 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
+                className={`mt-2 ${MARKETING_CARD_TITLE_CLASS} ${typo.headingSans}`}
               >
                 of students supported
               </h3>
               <p
-                className={`mt-3 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-3 ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Through free and subsidised education provided by Altitutor over
                 more than seven years.
@@ -147,12 +146,12 @@ export function UcatLandingStories() {
         <div className="mt-24">
           <div className="mx-auto max-w-3xl text-center">
             <p
-              className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
+              className={`${MARKETING_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
             >
               Altitutor students
             </p>
             <h2
-              className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
+              className={`mt-4 ${MARKETING_SECTION_HEADING_CLASS} ${typo.headingSans}`}
             >
               Students have trusted us with the path into medicine since 2017.
             </h2>
@@ -180,7 +179,7 @@ export function UcatLandingStories() {
                       {student.name}
                     </h3>
                     <p
-                      className={`mt-0.5 ${UCAT_STUDENT_METADATA_CLASS} ${typo.dataMono}`}
+                      className={`mt-0.5 ${MARKETING_STUDENT_METADATA_CLASS} ${typo.dataMono}`}
                     >
                       {student.detail}
                     </p>
@@ -192,12 +191,12 @@ export function UcatLandingStories() {
                     aria-hidden
                   />
                   <p
-                    className={`${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                    className={`${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
                   >
                     {student.outcome}
                   </p>
                 </div>
-                <p className={`mt-4 ${UCAT_STUDENT_QUOTE_CLASS} ${typo.secondarySans}`}>
+                <p className={`mt-4 ${MARKETING_STUDENT_QUOTE_CLASS} ${typo.secondarySans}`}>
                   {student.comment}
                 </p>
               </article>
@@ -221,12 +220,12 @@ export function UcatLandingStories() {
           </div>
           <div className="p-8 sm:p-12 lg:p-16">
             <h2
-              className={`mt-4 ${UCAT_SECTION_HEADING_DARK_CLASS} ${typo.headingSans}`}
+              className={`mt-4 ${MARKETING_SECTION_HEADING_DARK_CLASS} ${typo.headingSans}`}
             >
               Built by people who have travelled the path.
             </h2>
             <div
-              className={`mt-6 space-y-4 ${UCAT_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+              className={`mt-6 space-y-4 ${MARKETING_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
             >
               <p>
                 Hi, I&apos;m Matt - I&apos;m a doctor working across a few hospitals in South

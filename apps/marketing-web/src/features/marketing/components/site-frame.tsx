@@ -10,8 +10,9 @@ import {
   Twitter,
   Music2,
 } from "lucide-react";
-import { COURSE_LINKS, PRODUCT_LINKS } from "@/lib/site";
+import { COURSE_LINKS, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import { PageMotion } from "./page-motion";
+import { SectionNavigation } from "./section-navigation";
 import { Navigation } from "./navigation";
 import styles from "../marketing.module.css";
 
@@ -36,6 +37,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
     <div className={styles.site}>
       <Navigation />
       <PageMotion>{children}</PageMotion>
+      <SectionNavigation />
       <footer className={styles.footer}>
         <div className={styles.footerTop}>
           <div>
@@ -52,14 +54,21 @@ export function SiteFrame({ children }: { children: ReactNode }) {
             </span>
           </div>
           <div>
-            <h2>Learn with us</h2>
+            <h2>In person courses</h2>
             {COURSE_LINKS.map(([href, label]) => (
               <Link key={href} href={href}>
                 {label}
               </Link>
             ))}
-            <Link href="/ucat/">Online UCAT preparation</Link>
-            <Link href="/resources/">Online resources</Link>
+          </div>
+          <div>
+            <h2>Online courses</h2>
+            <Link href="/online-courses/">All online courses</Link>
+            {ONLINE_COURSES.map(([href, label]) => (
+              <Link href={href} key={href}>
+                {label}
+              </Link>
+            ))}
             <Link href={PRODUCT_LINKS.studentLogin}>
               Student sign in <ArrowUpRight size={13} aria-hidden="true" />
             </Link>

@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, HeartHandshake } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content } from "../content";
 import {
@@ -32,8 +32,8 @@ const pathways = [
   },
   {
     id: "d36aa0c",
-    title: "English drafting",
-    href: "/classes/english-assignment-drafting/",
+    title: "Assignment drafting",
+    href: "/classes/assignment-drafting/",
     image: "/images/marketing/english-draft.png",
     label: "Get help with your writing",
   },
@@ -52,14 +52,16 @@ export function HomePage() {
       <section
         className={`${styles.hero} ${styles.centerHero} ${styles.mountainHero}`}
       >
-        <Image
-          src="/images/landing/background-alt-scaled.jpg"
-          alt=""
-          fill
-          priority
-          sizes="100vw"
-          className={styles.mountainImage}
-        />
+        <div className={styles.mountainBackdrop}>
+          <Image
+            src="/images/landing/background-alt-scaled.jpg"
+            alt=""
+            fill
+            priority
+            sizes="100vw"
+            className={styles.mountainImage}
+          />
+        </div>
         <div className={styles.container}>
           <Link href="/ucat/" className={styles.announcement}>
             <span>Explore</span> Meet Altitutor UCAT online{" "}
@@ -79,10 +81,6 @@ export function HomePage() {
               Find your course
             </Button>
           </div>
-          <p className={styles.heroNote}>
-            <HeartHandshake size={17} aria-hidden="true" /> Not-for-profit
-            tutoring. A little more opportunity for everyone.
-          </p>
         </div>
       </section>
       <section

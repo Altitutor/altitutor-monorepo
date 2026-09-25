@@ -35,7 +35,11 @@ export function PageMotion({ children }: { children: ReactNode }) {
     );
     root.current
       .querySelectorAll("section > div, section > h2, section > p")
-      .forEach((element) => observer.observe(element));
+      .forEach((element) => {
+        // Never delay visible hero content or animate its image during LCP.
+        if (element.getBoundingClientRect().top >= window.innerHeight)
+          observer.observe(element);
+      });
     const stop = () => {
       observer.disconnect();
       animations.forEach((animation) => animation.cancel());
