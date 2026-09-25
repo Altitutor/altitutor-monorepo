@@ -28,6 +28,7 @@ describe('booking step ids', () => {
 
   it('skips identity and contact for a signed-in subsidy booking, and skips the form when none is published', () => {
     expect(subsidyBookingStepIds({ signedIn: false, hasSubsidyForm: true })).toEqual([
+      'intro',
       'identity',
       'time',
       'contact',

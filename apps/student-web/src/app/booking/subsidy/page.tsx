@@ -15,7 +15,9 @@ import {
 import { subsidyBookingStepIds, type SubsidyBookingStepId } from '@/features/bookings/lib/booking-steps';
 import { useMinAdvanceBookingDays, useSessionDurationMinutes } from '@/features/bookings/hooks/useBookingSettings';
 import { posthogIdentityHeaders } from '@/shared/lib/analytics/posthog';
+import { studentCardCn } from '@/shared/lib/student-visual';
 import { formatSubjectDisplay, getSubjectColorStyle, cn } from '@/shared/utils';
+import { clickableCardHoverCn } from '@altitutor/ui';
 import type { Tables } from '@altitutor/shared';
 import type { UseFormReturn } from 'react-hook-form';
 
@@ -58,6 +60,7 @@ export default function BookSubsidyPage() {
   const [subsidyAnswers, setSubsidyAnswers] = useState<FormAnswerPayload | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [showStudentExistsError, setShowStudentExistsError] = useState(false);
+  const [identityChoice, setIdentityChoice] = useState<'student' | 'new' | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -173,7 +176,26 @@ export default function BookSubsidyPage() {
   const advance = () => setCurrentStep((step) => Math.min(step + 1, stepIds.length - 1));
 
   const handleNext = () => {
-    if (stepId === 'identity') return;
+    if (stepId === 'intro') {
+      advance();
+      return;
+    }
+    if (stepId === 'identity') {
+      if (identityChoice === 'student') {
+        router.push('/login?next=/booking/subsidy');
+        return;
+      }
+      if (identityChoice === 'new') {
+        advance();
+        return;
+      }
+      toast({
+        title: 'Choose an option',
+        description: 'Select whether you are already an Altitutor student.',
+        variant: 'destructive',
+      });
+      return;
+    }
     if (stepId === 'time') {
       if (!selectedSlot) {
         toast({ title: 'Please select a time', description: 'You must select a time slot before continuing', variant: 'destructive' });
@@ -211,28 +233,56 @@ export default function BookSubsidyPage() {
   const yearLevel = signedIn ? student?.year_level : contactData?.year_level;
 
   const steps = stepIds.map((id) => {
+    if (id === 'intro') {
+      return {
+        id,
+        title: 'How it works',
+        component: (
+          <div className="space-y-6">
+            <p className="text-base text-foreground">
+              Altitutor is a nonprofit, and we use all of our revenue to support students who need it.
+            </p>
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">How it works</h2>
+              <ol className="list-decimal list-inside space-y-2 text-foreground">
+                <li>Tell us about your circumstances in this form.</li>
+                <li>Book a subsidy interview.</li>
+                <li>We will meet with you to discuss your circumstances.</li>
+              </ol>
+            </div>
+            <div className="space-y-4">
+              <h2 className="text-lg font-semibold text-foreground">What to bring</h2>
+              <p className="text-foreground">
+                You don&apos;t need to bring anything, but at least one parent should be there if possible.
+              </p>
+            </div>
+          </div>
+        ),
+      };
+    }
     if (id === 'identity') {
       return {
         id,
         title: 'Start',
         component: (
           <div className="grid gap-4 sm:grid-cols-2">
-            <button
-              type="button"
-              className="rounded-lg border p-6 text-left hover:border-primary"
-              onClick={() => router.push('/login?next=/booking/subsidy')}
-            >
-              <h2 className="text-lg font-semibold">I am already an Altitutor student</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Sign in, then book the interview for your account.</p>
-            </button>
-            <button
-              type="button"
-              className="rounded-lg border p-6 text-left hover:border-primary"
-              onClick={() => setCurrentStep(1)}
-            >
-              <h2 className="text-lg font-semibold">I am not an Altitutor student</h2>
-              <p className="mt-2 text-sm text-muted-foreground">Continue as a new student and book a subsidy interview.</p>
-            </button>
+            {([
+              ['student', 'I am already an Altitutor student', 'Sign in, then book the interview for your account.'],
+              ['new', 'I am not an Altitutor student', 'Continue as a new student and book a subsidy interview.'],
+            ] as const).map(([value, title, description]) => (
+              <button
+                key={value}
+                type="button"
+                className={cn(
+                  studentCardCn('p-6 text-left', clickableCardHoverCn),
+                  identityChoice === value && 'bg-muted/50 ring-2 ring-foreground/15',
+                )}
+                onClick={() => setIdentityChoice(value)}
+              >
+                <h2 className="text-lg font-semibold">{title}</h2>
+                <p className="mt-2 text-sm text-muted-foreground">{description}</p>
+              </button>
+            ))}
           </div>
         ),
       };
@@ -371,7 +421,9 @@ export default function BookSubsidyPage() {
         onBack={() => setCurrentStep((step) => Math.max(0, step - 1))}
         onConfirm={stepId === 'confirm' ? handleConfirmBooking : undefined}
         isSubmitting={isSubmitting}
-        canProceed={stepId === 'time' ? !!selectedSlot : true}
+        canProceed={
+          stepId === 'identity' ? identityChoice !== null : stepId === 'time' ? !!selectedSlot : true
+        }
         selectedSlot={selectedSlot}
         showSlotSummary={stepId === 'contact'}
       />

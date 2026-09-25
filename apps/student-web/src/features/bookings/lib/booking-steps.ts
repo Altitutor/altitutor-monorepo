@@ -20,7 +20,7 @@ export function trialBookingStepIds(input: {
   ];
 }
 
-export type SubsidyBookingStepId = 'identity' | 'time' | 'contact' | 'application' | 'confirm';
+export type SubsidyBookingStepId = 'intro' | 'identity' | 'time' | 'contact' | 'application' | 'confirm';
 
 export function subsidyBookingStepIds(input: {
   signedIn: boolean;
@@ -34,6 +34,7 @@ export function subsidyBookingStepIds(input: {
     ];
   }
   return [
+    'intro',
     'identity',
     'time',
     'contact',
