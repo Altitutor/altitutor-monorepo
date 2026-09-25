@@ -2,8 +2,13 @@
 import { useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/features/auth";
+import { cn } from "@/lib/utils";
 
-export function FounderAccessStatus() {
+export function FounderAccessStatus({
+  tone = "theme",
+}: {
+  tone?: "theme" | "marketing";
+}) {
   const { user } = useAuth();
   const client = useQueryClient();
   const { data } = useQuery({
@@ -32,7 +37,14 @@ export function FounderAccessStatus() {
   if (!data?.accessEndsAt || Date.parse(data.accessEndsAt) <= Date.now())
     return null;
   return (
-    <p className="mb-4 rounded-xl border bg-card p-4 text-sm text-card-foreground">
+    <p
+      className={cn(
+        "mb-4 rounded-xl border p-4 text-sm",
+        tone === "marketing"
+          ? "border-marketing-charcoal/10 bg-white text-marketing-charcoal dark:border-marketing-charcoal/10 dark:bg-white dark:text-marketing-charcoal"
+          : "bg-card text-card-foreground",
+      )}
+    >
       Your founder access pass gives you Unlimited until{" "}
       <strong>
         {new Date(data.accessEndsAt).toLocaleDateString("en-AU", {

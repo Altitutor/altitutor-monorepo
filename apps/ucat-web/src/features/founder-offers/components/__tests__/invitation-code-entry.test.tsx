@@ -66,6 +66,19 @@ it("keeps gift acceptance explicit after the sampler without granting access", a
   await waitFor(() => expect(apply).toHaveBeenCalledWith(offer.code));
   expect(fetch).toHaveBeenCalledTimes(1);
 });
+it("hides Continue with Free when decline is turned off", async () => {
+  render(
+    <InvitationCodeEntry
+      initialCode={offer.code}
+      presentation="gift"
+      showDecline={false}
+    />,
+  );
+  await screen.findByRole("button", { name: "Accept gift" });
+  expect(
+    screen.queryByRole("button", { name: "Continue with Free" }),
+  ).not.toBeInTheDocument();
+});
 it("Continue with Free does not apply or redeem the invitation", async () => {
   const declined = jest.fn();
   const apply = jest.fn();
