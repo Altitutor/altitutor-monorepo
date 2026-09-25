@@ -155,12 +155,15 @@ export function InvoicesTable() {
                       invoiceCurrency: invoice.currency,
                       creditBalanceCents: creditBalance.balance_cents,
                       creditCurrency: creditBalance.currency,
+                      isFirstInCurrency: invoice.is_first_in_currency,
                     })
                   : {
                       creditAppliedCents: 0,
+                      balanceAddedCents: 0,
                       payableCents: invoice.full_amount_cents,
                     };
                 const hasCreditApplied = payment.creditAppliedCents > 0;
+                const hasBalanceAdded = payment.balanceAddedCents > 0;
 
                 return (
                   <TableRow
@@ -181,7 +184,7 @@ export function InvoicesTable() {
                       </div>
                     </TableCell>
                     <TableCell className="font-medium">
-                      {hasCreditApplied ? (
+                      {hasCreditApplied || hasBalanceAdded ? (
                         <div className="flex flex-col items-start gap-0.5">
                           <span className="text-xs line-through">
                             {formatAmount(invoice.full_amount_cents)}
@@ -190,7 +193,7 @@ export function InvoicesTable() {
                             {formatAmount(payment.payableCents)}
                           </span>
                           <span className="text-xs font-normal">
-                            Credit applied
+                            {hasBalanceAdded ? "Balance added" : "Credit applied"}
                           </span>
                         </div>
                       ) : (

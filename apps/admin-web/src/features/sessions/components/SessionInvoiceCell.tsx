@@ -71,9 +71,23 @@ export function SessionInvoiceCell({
     );
   }
 
+  const balanceAdjusted = preview.creditAppliedCents > 0 || preview.balanceAddedCents > 0;
+
   return (
     <div className="flex flex-wrap items-center gap-1.5 text-xs">
-      <span className="font-medium">{formatCurrency(preview.amountCents, preview.currency)}</span>
+      <span className="inline-flex flex-col">
+        {balanceAdjusted && (
+          <span className="text-muted-foreground line-through">
+            {formatCurrency(preview.fullAmountCents, preview.currency)}
+          </span>
+        )}
+        <span className="font-medium">{formatCurrency(preview.amountCents, preview.currency)}</span>
+        {balanceAdjusted && (
+          <span className="text-muted-foreground">
+            {preview.balanceAddedCents > 0 ? 'Balance added' : 'Credit applied'}
+          </span>
+        )}
+      </span>
       <span className="text-muted-foreground">
         {preview.action === 'bill' ? 'Bills' : 'Sends'} {preview.billingDate}
       </span>

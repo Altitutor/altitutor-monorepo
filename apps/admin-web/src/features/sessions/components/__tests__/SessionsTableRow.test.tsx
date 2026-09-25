@@ -188,6 +188,9 @@ describe('SessionsTableRow - invoice column', () => {
       invoicePreviewsBySessionId: {
         'session-1': {
           amountCents: 10208,
+          fullAmountCents: 10208,
+          creditAppliedCents: 0,
+          balanceAddedCents: 0,
           currency: 'aud',
           billingDate: '31 Dec',
           action: 'bill',
@@ -199,6 +202,61 @@ describe('SessionsTableRow - invoice column', () => {
 
     expect(screen.getByText('$102.08')).toBeInTheDocument();
     expect(screen.getByText('Bills 31 Dec')).toBeInTheDocument();
+    expect(screen.queryByText('Credit applied')).not.toBeInTheDocument();
+  });
+
+  it('shows the credit-adjusted upcoming amount', () => {
+    mockUseInvoiceSessionMutation.mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useInvoiceSessionMutation>);
+
+    const props = createBaseProps({
+      invoicePreviewsBySessionId: {
+        'session-1': {
+          amountCents: 6000,
+          fullAmountCents: 10000,
+          creditAppliedCents: 4000,
+          balanceAddedCents: 0,
+          currency: 'aud',
+          billingDate: '31 Dec',
+          action: 'bill',
+        },
+      },
+    });
+
+    renderRow(props);
+
+    expect(screen.getByText('$100.00')).toHaveClass('line-through');
+    expect(screen.getByText('$60.00')).toBeInTheDocument();
+    expect(screen.getByText('Credit applied')).toBeInTheDocument();
+  });
+
+  it('shows a positive customer balance added to the upcoming amount', () => {
+    mockUseInvoiceSessionMutation.mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useInvoiceSessionMutation>);
+
+    const props = createBaseProps({
+      invoicePreviewsBySessionId: {
+        'session-1': {
+          amountCents: 12000,
+          fullAmountCents: 10000,
+          creditAppliedCents: 0,
+          balanceAddedCents: 2000,
+          currency: 'aud',
+          billingDate: '31 Dec',
+          action: 'bill',
+        },
+      },
+    });
+
+    renderRow(props);
+
+    expect(screen.getByText('$100.00')).toHaveClass('line-through');
+    expect(screen.getByText('$120.00')).toBeInTheDocument();
+    expect(screen.getByText('Balance added')).toBeInTheDocument();
   });
 
   it('shows invoice number, amount, and status in one clickable link', async () => {

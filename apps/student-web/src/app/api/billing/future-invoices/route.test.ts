@@ -84,6 +84,7 @@ describe("GET /api/billing/future-invoices", () => {
         full_amount_cents: 8_000,
         prior_charge_cents: 0,
         currency: "aud",
+        is_first_in_currency: true,
       },
     ]);
 
