@@ -1806,50 +1806,6 @@
   }
 }
 
-/* Course navigation uses links for destinations and separate disclosure controls. */
-.navGroup {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-}
-.navDisclosure {
-  display: inline-flex;
-  padding: 8px 4px;
-  border: 0;
-  color: inherit;
-  background: none;
-  border-radius: 50%;
-}
-.navDisclosure svg {
-  transition: transform 0.2s;
-}
-.navDisclosure[aria-expanded="true"] svg {
-  transform: rotate(180deg);
-}
-.navDropdown {
-  position: absolute;
-  top: calc(100% + 17px);
-  left: -20px;
-  min-width: 255px;
-  padding: 12px;
-  border: 1px solid #ffffff99;
-  background: rgb(255 255 255 / 93%);
-  color: var(--ink);
-  border-radius: 30px;
-  box-shadow: 0 20px 50px #0002;
-  backdrop-filter: blur(var(--marketing-glass-blur));
-}
-.navDropdown a {
-  display: block;
-  padding: 10px 12px;
-  border-radius: 10px;
-  opacity: 1;
-}
-.navDropdown a:hover,
-.navDropdown a:focus-visible {
-  background: rgb(var(--marketing-cream));
-}
 .mobileCourseGroup {
   border-bottom: 1px solid var(--hairline);
   padding-bottom: 12px;
@@ -1929,5 +1885,119 @@
 @media (prefers-reduced-motion: reduce) {
   .mobileExpansion {
     transition: none;
+  }
+}
+
+/* Desktop and mobile disclosures grow inside the same glass header. */
+@media (min-width: 801px) {
+  .navigation {
+    display: block;
+    border-radius: 33px;
+  }
+  .navigationRow {
+    min-height: 44px;
+  }
+}
+.navigationExpanded {
+  background: var(--marketing-glass);
+  color: var(--ink);
+  backdrop-filter: blur(var(--marketing-glass-blur));
+  border-color: rgb(255 255 255 / 65%);
+  box-shadow: 0 8px 32px #0a294114;
+}
+.desktopExpansion {
+  display: grid;
+  grid-template-rows: 0fr;
+  visibility: hidden;
+  transition:
+    grid-template-rows 420ms cubic-bezier(0.22, 1, 0.36, 1),
+    visibility 420ms;
+}
+.desktopExpansion[data-open="true"] {
+  grid-template-rows: 1fr;
+  visibility: visible;
+}
+.desktopPanelClip {
+  min-height: 0;
+  overflow: hidden;
+}
+.courseCards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  padding: 20px 0 12px;
+}
+.courseMenuCard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 20px;
+  border: 1px solid rgb(10 41 65 / 8%);
+  border-radius: 20px;
+  background: rgb(255 255 255 / 42%);
+  color: var(--primary);
+  transition:
+    background 0.2s,
+    border-color 0.2s;
+}
+.courseMenuCard:hover,
+.courseMenuCard:focus-visible {
+  background: rgb(255 255 255 / 85%);
+  border-color: rgb(10 41 65 / 25%);
+}
+.courseMenuCard > svg:first-child {
+  margin-bottom: 6px;
+}
+.courseCardTitle {
+  font-size: 0.94rem;
+  font-weight: 600;
+}
+.courseCardDescription {
+  font-size: 0.8rem;
+  color: var(--muted-ink);
+}
+.courseCardArrow {
+  position: absolute;
+  right: 20px;
+  top: 22px;
+}
+.allCoursesCard {
+  background: rgb(var(--marketing-accent) / 30%);
+}
+@media (max-width: 800px) {
+  .desktopExpansion {
+    display: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .desktopExpansion {
+    transition: none;
+  }
+}
+
+.courseTrigger {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.courseChevron {
+  transition: transform 300ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.courseTrigger[aria-expanded="true"] .courseChevron {
+  transform: rotate(90deg);
+}
+.desktopExpansion[data-open="true"] .courseCards {
+  animation: coursePanelEnter 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+@keyframes coursePanelEnter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
   }
 }

@@ -2,8 +2,20 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
-import { ArrowUpRight, ChevronDown, Menu, X } from "lucide-react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import {
+  ArrowUpRight,
+  BookOpen,
+  GraduationCap,
+  Library,
+  ListChecks,
+  MessageCircle,
+  Monitor,
+  NotebookPen,
+  Stethoscope,
+  ChevronRight,
+} from "lucide-react";
+import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { IN_PERSON_COURSES, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
 import motion from "./magnetic-button.module.css";
 import styles from "../marketing.module.css";
@@ -17,10 +29,74 @@ const links = [
   ["/about/contact/", "Contact"],
 ] as const;
 
+const courseDetails = {
+  "/classes/weekly-classes/": {
+    icon: BookOpen,
+    description: "Build understanding, week by week.",
+  },
+  "/classes/examprep/": {
+    icon: ListChecks,
+    description: "Walk into your exams prepared.",
+  },
+  "/classes/assignment-drafting/": {
+    icon: NotebookPen,
+    description: "Turn your ideas into stronger work.",
+  },
+  "/classes/ucatprep/": {
+    icon: Stethoscope,
+    description: "Prepare for the UCAT with a tutor.",
+  },
+  "/classes/medical-interview-preparation/": {
+    icon: MessageCircle,
+    description: "Practise for your medical interview.",
+  },
+  "/online-courses/sace-ib-resources/": {
+    icon: Library,
+    description: "Study notes, resources and practice.",
+  },
+  "/ucat/": {
+    icon: Monitor,
+    description: "Your personalised UCAT study plan.",
+  },
+} as const;
+
 export function Navigation() {
   const pathname = usePathname();
   const [dropdown, setDropdown] = useState<string | null>(null);
   const header = useRef<HTMLElement>(null);
+  const [selectedGroup, setSelectedGroup] = useState(0);
+  const group = groups[selectedGroup];
+  const panel = useRef<HTMLDivElement>(null);
+  const previousPanelHeight = useRef<number | null>(null);
+  const desktopOpen = dropdown !== null;
+
+  useLayoutEffect(() => {
+    const element = panel.current;
+    const from = previousPanelHeight.current;
+    previousPanelHeight.current = null;
+    if (
+      !element ||
+      from === null ||
+      !desktopOpen ||
+      window.matchMedia("(prefers-reduced-motion: reduce)").matches
+    )
+      return;
+    const animation = element.animate(
+      [
+        { height: `${from}px` },
+        { height: `${element.getBoundingClientRect().height}px` },
+      ],
+      { duration: 360, easing: "cubic-bezier(.22,1,.36,1)" },
+    );
+    return () => animation.cancel();
+  }, [selectedGroup, desktopOpen]);
+  function expandGroup(index: number) {
+    if (index !== selectedGroup && desktopOpen)
+      previousPanelHeight.current =
+        panel.current?.getBoundingClientRect().height ?? null;
+    setSelectedGroup(index);
+    setDropdown(`course-navigation-${index}`);
+  }
   useEffect(() => {
     setDropdown(null);
   }, [pathname]);
@@ -102,6 +178,14 @@ export function Navigation() {
       </a>
       <header
         ref={header}
+        onPointerLeave={() => {
+          if (
+            !header.current
+              ?.querySelector("[data-desktop-panel]")
+              ?.contains(document.activeElement)
+          )
+            setDropdown(null);
+        }}
         onKeyDown={(event) => {
           if (menuOpen && event.key === "Escape") closeMenu();
           if (menuOpen && event.key === "Tab") {
@@ -126,8 +210,8 @@ export function Navigation() {
           }
           if (event.key === "Escape" && dropdown) {
             header.current
-              ?.querySelector<HTMLButtonElement>(
-                `[aria-controls="${dropdown}"]`,
+              ?.querySelector<HTMLAnchorElement>(
+                `[data-course-trigger="${dropdown}"]`,
               )
               ?.focus();
             setDropdown(null);
@@ -137,7 +221,7 @@ export function Navigation() {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null))
             setDropdown(null);
         }}
-        className={`${styles.navigation} ${scrolled ? styles.navigationScrolled : pathname === "/" ? styles.navigationOverHero : ""} ${menuOpen ? styles.navigationExpanded : ""}`}
+        className={`${styles.navigation} ${scrolled ? styles.navigationScrolled : pathname === "/" ? styles.navigationOverHero : ""} ${menuOpen || dropdown ? styles.navigationExpanded : ""}`}
       >
         <div className={styles.navigationRow}>
           <Link href="/" className={styles.brand} aria-label="Altitutor home">
@@ -145,45 +229,49 @@ export function Navigation() {
             <i aria-hidden="true">.</i>
           </Link>
           <nav className={styles.desktopLinks} aria-label="Primary navigation">
-            {groups.map(({ href, label, items }, index) => {
+            {groups.map(({ href, label }, index) => {
               const id = `course-navigation-${index}`;
               return (
-                <div className={styles.navGroup} key={href}>
-                  <Link
-                    href={href}
-                    aria-current={pathname === href ? "page" : undefined}
-                  >
-                    {label}
-                  </Link>
-                  <button
-                    className={styles.navDisclosure}
-                    aria-label={`Show ${label.toLowerCase()}`}
-                    aria-expanded={dropdown === id}
-                    aria-controls={id}
-                    onClick={() => setDropdown(dropdown === id ? null : id)}
-                  >
-                    <ChevronDown size={14} aria-hidden="true" />
-                  </button>
-                  {dropdown === id ? (
-                    <div id={id} className={styles.navDropdown}>
-                      {items.map(([childHref, childLabel]) => (
-                        <Link
-                          key={childHref}
-                          href={childHref}
-                          onClick={() => setDropdown(null)}
-                        >
-                          {childLabel}
-                        </Link>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
+                <Link
+                  key={href}
+                  href={href}
+                  aria-current={pathname === href ? "page" : undefined}
+                  aria-expanded={dropdown === id}
+                  aria-controls="desktop-course-navigation"
+                  data-course-trigger={id}
+                  className={styles.courseTrigger}
+                  onPointerEnter={() => expandGroup(index)}
+                  onFocus={() => expandGroup(index)}
+                  onClick={() => setDropdown(null)}
+                  onKeyDown={(event) => {
+                    if (event.key === "ArrowDown") {
+                      event.preventDefault();
+                      expandGroup(index);
+                      requestAnimationFrame(() =>
+                        header.current
+                          ?.querySelector<HTMLElement>(
+                            "#desktop-course-navigation a",
+                          )
+                          ?.focus(),
+                      );
+                    }
+                  }}
+                >
+                  {label}
+                  <ChevronRight
+                    size={14}
+                    className={styles.courseChevron}
+                    aria-hidden="true"
+                  />
+                </Link>
               );
             })}
             {links.map(([href, label]) => (
               <Link
                 href={href}
                 key={href}
+                onPointerEnter={() => setDropdown(null)}
+                onFocus={() => setDropdown(null)}
                 aria-current={pathname === href ? "page" : undefined}
               >
                 {label}
@@ -206,8 +294,70 @@ export function Navigation() {
               onClick={() => setMenuOpen(!menuOpen)}
               ref={trigger}
             >
-              {menuOpen ? <X size={22} /> : <Menu size={22} />}
+              <span aria-hidden="true">
+                <AnimatedHamburgerIcon isOpen={menuOpen} />
+              </span>
             </button>
+          </div>
+        </div>
+        <div
+          className={styles.desktopExpansion}
+          data-open={Boolean(dropdown)}
+          data-desktop-panel
+          ref={(node) => {
+            if (node) node.inert = !dropdown;
+          }}
+        >
+          <div className={styles.desktopPanelClip} ref={panel}>
+            <nav
+              key={group.href}
+              id="desktop-course-navigation"
+              aria-label={group.label}
+              className={styles.courseCards}
+            >
+              <Link
+                href={group.href}
+                className={`${styles.courseMenuCard} ${styles.allCoursesCard}`}
+                onClick={() => setDropdown(null)}
+              >
+                <GraduationCap size={24} aria-hidden="true" />
+                <span className={styles.courseCardTitle}>
+                  All {group.label.toLowerCase()}
+                </span>
+                <span className={styles.courseCardDescription}>
+                  {selectedGroup === 0
+                    ? "Find your next step in Adelaide."
+                    : "Find your way to learn online."}
+                </span>
+                <ArrowUpRight
+                  className={styles.courseCardArrow}
+                  size={17}
+                  aria-hidden="true"
+                />
+              </Link>
+              {group.items.map(([href, title]) => {
+                const { icon: Icon, description } = courseDetails[href];
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    className={styles.courseMenuCard}
+                    onClick={() => setDropdown(null)}
+                  >
+                    <Icon size={24} aria-hidden="true" />
+                    <span className={styles.courseCardTitle}>{title}</span>
+                    <span className={styles.courseCardDescription}>
+                      {description}
+                    </span>
+                    <ArrowUpRight
+                      className={styles.courseCardArrow}
+                      size={17}
+                      aria-hidden="true"
+                    />
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
         </div>
         <div
