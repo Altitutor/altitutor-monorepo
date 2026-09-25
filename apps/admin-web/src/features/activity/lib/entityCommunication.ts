@@ -1,6 +1,17 @@
 export const ACTIVITY_SOURCE_ID = 'events';
 export const EMAIL_SOURCE_ID = 'email';
 
+/** Thread order for activity cards mixed with messages. */
+export type CommunicationTimeSort = 'logged' | 'effective';
+
+export function communicationActivityAt(
+  event: { recorded_at: string; effective_at: string },
+  sort: CommunicationTimeSort,
+): string {
+  if (sort === 'effective') return event.effective_at || event.recorded_at;
+  return event.recorded_at;
+}
+
 export type CommunicationEntityType = 'student' | 'staff' | 'parent';
 export type CommunicationContactKind = 'student' | 'staff' | 'parent';
 

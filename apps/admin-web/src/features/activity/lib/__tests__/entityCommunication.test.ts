@@ -1,4 +1,5 @@
 import {
+  communicationActivityAt,
   contactSourceId,
   defaultCommunicationSources,
   defaultRecipientId,
@@ -74,5 +75,14 @@ describe('entity communication defaults', () => {
         contactSourceId(parent.id),
       ),
     ).toEqual(['events', 'email', contactSourceId(parent.id)]);
+  });
+
+  it('places activity by when it was logged unless effective time is selected', () => {
+    const event = {
+      recorded_at: '2026-09-25T23:12:34.000Z',
+      effective_at: '2026-09-19T14:30:00.000Z',
+    };
+    expect(communicationActivityAt(event, 'logged')).toBe(event.recorded_at);
+    expect(communicationActivityAt(event, 'effective')).toBe(event.effective_at);
   });
 });

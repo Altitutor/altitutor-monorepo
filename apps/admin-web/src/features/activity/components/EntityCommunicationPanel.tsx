@@ -8,9 +8,11 @@ import {
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { Check, ChevronDown, Filter, MessageSquare } from 'lucide-react';
+import { ArrowUpDown, Check, ChevronDown, Filter, MessageSquare } from 'lucide-react';
 import { Composer } from '@/features/messages/components/Composer';
 import {
   MessageThread,
@@ -41,6 +43,7 @@ import {
 } from '../hooks/useEntityCommunication';
 import {
   ACTIVITY_SOURCE_ID,
+  communicationActivityAt,
   communicationFilterOptions,
   contactSourceId,
   defaultCommunicationSources,
@@ -49,6 +52,7 @@ import {
   messageSourceId,
   sourcesAfterRecipientChange,
   type CommunicationEntityType,
+  type CommunicationTimeSort,
 } from '../lib/entityCommunication';
 
 interface EntityCommunicationPanelProps {
@@ -76,6 +80,7 @@ export function EntityCommunicationPanel({
 }: EntityCommunicationPanelProps) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<ComposeMode>('message');
+  const [timeSort, setTimeSort] = useState<CommunicationTimeSort>('logged');
   const [sourceOverride, setSourceOverride] = useState<string[] | null>(null);
   const [destination, setDestination] = useState<string | null>(null);
   const context = useEntityCommunicationContext(entityType, entityId, enabled);
@@ -172,10 +177,11 @@ export function EntityCommunicationPanel({
   const entries: ThreadFeedEntry[] = sources.includes(ACTIVITY_SOURCE_ID)
     ? (activity.data?.events ?? []).map((event) => ({
         id: `event:${event.id}`,
-        at: event.effective_at,
+        at: communicationActivityAt(event, timeSort),
         content: (
           <ActivityFeed
             chronological
+            timeBasis={timeSort}
             data={{ ...activity.data!, events: [event] }}
             onOpenFormResponse={openFormResponse}
           />
@@ -260,36 +266,58 @@ export function EntityCommunicationPanel({
             <span className="truncate text-xs text-muted-foreground">No phone number</span>
           )}
         </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" className="h-7 shrink-0">
-              <Filter className="mr-1 h-3 w-3" />
-              <span className="text-xs">Filter</span>
-              <ChevronDown className="ml-1 h-3 w-3" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64">
-            {filterOptions.map((option) => (
-              <DropdownMenuCheckboxItem
-                key={option.id}
-                checked={sources.includes(option.id)}
-                onCheckedChange={(checked) =>
-                  setSourceOverride((current) => {
-                    const base = current ?? sources;
-                    return checked
-                      ? base.includes(option.id)
-                        ? base
-                        : [...base, option.id]
-                      : base.filter((item) => item !== option.id);
-                  })
-                }
-                onSelect={(event) => event.preventDefault()}
+        <div className="flex shrink-0 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 shrink-0">
+                <ArrowUpDown className="mr-1 h-3 w-3" />
+                <span className="text-xs">Sort</span>
+                <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuRadioGroup
+                value={timeSort}
+                onValueChange={(value) => {
+                  if (value === 'logged' || value === 'effective') setTimeSort(value);
+                }}
               >
-                {option.label}
-              </DropdownMenuCheckboxItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+                <DropdownMenuRadioItem value="logged">Time logged</DropdownMenuRadioItem>
+                <DropdownMenuRadioItem value="effective">Effective time</DropdownMenuRadioItem>
+              </DropdownMenuRadioGroup>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" className="h-7 shrink-0">
+                <Filter className="mr-1 h-3 w-3" />
+                <span className="text-xs">Filter</span>
+                <ChevronDown className="ml-1 h-3 w-3" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              {filterOptions.map((option) => (
+                <DropdownMenuCheckboxItem
+                  key={option.id}
+                  checked={sources.includes(option.id)}
+                  onCheckedChange={(checked) =>
+                    setSourceOverride((current) => {
+                      const base = current ?? sources;
+                      return checked
+                        ? base.includes(option.id)
+                          ? base
+                          : [...base, option.id]
+                        : base.filter((item) => item !== option.id);
+                    })
+                  }
+                  onSelect={(event) => event.preventDefault()}
+                >
+                  {option.label}
+                </DropdownMenuCheckboxItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
       </div>
 
       {errorMessage ? (
@@ -306,7 +334,7 @@ export function EntityCommunicationPanel({
         <MessageThread
           hideAddIssueHover
           feed={{
-            key: `${entityType}:${entityId}`,
+            key: `${entityType}:${entityId}:${timeSort}`,
             messages: visible,
             entries,
             hasMore: Boolean(messages.hasNextPage || activity.hasNextPage),

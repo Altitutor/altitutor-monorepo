@@ -387,8 +387,12 @@ describe('lifecycle activity mapper', () => {
 
     expect(mapActivityEventsToDisplay(response).map((event) => event.id)).toEqual(['2', '1']);
     expect(mapActivityEventsToDisplay(response, { chronological: true }).map((event) => event.id)).toEqual(['1', '2']);
+    expect(mapActivityEventsToDisplay(response, { timeBasis: 'effective' }).map((event) => event.id)).toEqual(['1', '2']);
     expect(mapActivityEventToDisplay(response.events[0]).performedAt).toBe(
       '2026-08-30T10:00:00.000Z'
+    );
+    expect(mapActivityEventToDisplay(response.events[0], undefined, 'effective').performedAt).toBe(
+      '2026-08-31T10:00:00.000Z'
     );
   });
 });
