@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import {
   Cormorant_Garamond,
   IBM_Plex_Mono,
@@ -46,6 +46,12 @@ export const metadata: Metadata = {
   publisher: SITE_NAME,
 };
 
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+};
+
 export default function RootLayout({
   children,
 }: {
@@ -57,17 +63,6 @@ export default function RootLayout({
       className={`${heading.variable} ${body.variable} ${editorial.variable} ${label.variable}`}
     >
       <body>
-        <svg className="noiseOverlay" aria-hidden="true">
-          <filter id="marketing-noise">
-            <feTurbulence
-              type="fractalNoise"
-              baseFrequency="0.8"
-              numOctaves="4"
-              stitchTiles="stitch"
-            />
-          </filter>
-          <rect width="100%" height="100%" filter="url(#marketing-noise)" />
-        </svg>
         <MarketingPostHogProvider>{children}</MarketingPostHogProvider>
       </body>
     </html>

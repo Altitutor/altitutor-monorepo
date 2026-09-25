@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { UcatExamActionButton, UcatExamShell } from "@altitutor/ui";
 import { gsap } from "gsap";
 import {
@@ -114,7 +115,7 @@ export function UcatSimulatorPreview({ bleed = false }: { bleed?: boolean }) {
   const optionRefs = useRef<(HTMLLabelElement | null)[]>([]);
   const timerRef = useRef({ seconds: QUESTIONS[0]!.timeRemainingSeconds });
 
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const { reduceMotion: prefersReducedMotion } = useFaithfulMotion();
   const [questionIndex, setQuestionIndex] = useState(0);
   const [selectedOption, setSelectedOption] = useState<number | null>(null);
   const [timeRemaining, setTimeRemaining] = useState(
@@ -122,17 +123,6 @@ export function UcatSimulatorPreview({ bleed = false }: { bleed?: boolean }) {
   );
 
   const question = QUESTIONS[questionIndex]!;
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncPreference = () => {
-      setPrefersReducedMotion(mediaQuery.matches);
-    };
-
-    syncPreference();
-    mediaQuery.addEventListener("change", syncPreference);
-    return () => mediaQuery.removeEventListener("change", syncPreference);
-  }, []);
 
   useEffect(() => {
     if (prefersReducedMotion) {

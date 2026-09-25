@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { gsap } from "gsap";
 import { Check, Flag, Sparkles, X } from "lucide-react";
 import { DemoCursor, DemoStage, demoItemVariants } from "./demo-stage";
@@ -176,7 +177,7 @@ function moveCursorTo(
 }
 
 export function UcatAttemptReviewPreview() {
-  const reduceMotion = useReducedMotion();
+  const { reduceMotion } = useFaithfulMotion();
   const coordinateScale = useDemoScale();
   const scaleRef = useRef(coordinateScale);
   scaleRef.current = coordinateScale;

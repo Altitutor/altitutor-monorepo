@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { Flame, Sparkles } from "lucide-react";
 import {
   DemoStage,
@@ -287,7 +288,7 @@ function ScoreInsightCard({
 }
 
 export function UcatProgressPlanPreview() {
-  const reduceMotion = useReducedMotion();
+  const { reduceMotion } = useFaithfulMotion();
   const animate = !reduceMotion;
 
   return (

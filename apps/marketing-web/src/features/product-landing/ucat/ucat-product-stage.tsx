@@ -23,6 +23,7 @@ import {
 } from "./scale-to-fit-frame";
 
 import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
+import { PreviewActivityBoundary, usePreviewVisibility } from "./preview-activity";
 
 const galleryItems = [
   { id: "learning", label: "Guided learning" },
@@ -203,6 +204,8 @@ function NotchShoulder({ side }: { side: "left" | "right" }) {
 }
 
 export function UcatProductStage() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const visible = usePreviewVisibility(sectionRef);
   const [activeItem, setActiveItem] = useState<GalleryItemId>("learning");
   const [isPointerOver, setIsPointerOver] = useState(false);
   const [pauseUntil, setPauseUntil] = useState(0);
@@ -234,7 +237,7 @@ export function UcatProductStage() {
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) return;
+    if (media.matches || !visible) return;
 
     const tick = () => {
       if (isPointerOver) return;
@@ -248,7 +251,7 @@ export function UcatProductStage() {
 
     const id = window.setInterval(tick, AUTO_ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [isPointerOver, pauseUntil]);
+  }, [isPointerOver, pauseUntil, visible]);
 
   const handleTabChange = (value: GalleryItemId) => {
     setActiveItem(value);
@@ -257,6 +260,7 @@ export function UcatProductStage() {
 
   return (
     <section
+      ref={sectionRef}
       id="product"
       className="relative scroll-mt-24 overflow-hidden bg-marketing-primary px-4 pb-20 text-white sm:px-8 sm:pb-24"
     >
@@ -336,7 +340,9 @@ export function UcatProductStage() {
               key={activeItem}
               className="h-full min-h-0 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
             >
-              <GalleryPreview activeItem={activeItem} />
+              <PreviewActivityBoundary className="h-full">
+                <GalleryPreview activeItem={activeItem} />
+              </PreviewActivityBoundary>
             </div>
           </ScaleToFitFrame>
         </div>

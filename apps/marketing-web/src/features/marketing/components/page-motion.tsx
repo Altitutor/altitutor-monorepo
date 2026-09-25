@@ -11,6 +11,7 @@ export function PageMotion({ children }: { children: ReactNode }) {
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
     if (media.matches || !root.current) return;
+    const mobile = window.matchMedia("(max-width: 800px)").matches;
     const animations = new Set<Animation>();
     const observer = new IntersectionObserver(
       (entries) => {
@@ -19,10 +20,10 @@ export function PageMotion({ children }: { children: ReactNode }) {
           observer.unobserve(entry.target);
           const animation = entry.target.animate(
             [
-              { opacity: 0, transform: "translateY(18px)" },
+              { opacity: mobile ? 1 : 0, transform: "translateY(12px)" },
               { opacity: 1, transform: "translateY(0)" },
             ],
-            { duration: 650, easing: "cubic-bezier(.22,1,.36,1)" },
+            { duration: 360, easing: "cubic-bezier(.22,1,.36,1)" },
           );
           animations.add(animation);
           void animation.finished.then(
@@ -31,7 +32,7 @@ export function PageMotion({ children }: { children: ReactNode }) {
           );
         }
       },
-      { threshold: 0.08 },
+      { threshold: 0, rootMargin: "0px 0px 100px 0px" },
     );
     root.current
       .querySelectorAll("section > div, section > h2, section > p")
@@ -39,6 +40,13 @@ export function PageMotion({ children }: { children: ReactNode }) {
         // Explicit sequences reveal their individual items, never the whole
         // section at once (which consumes the effect before later items arrive).
         if (element.closest("[data-scroll-sequence]")) return;
+        // Whole-section transforms create large layers on phones. Keep mobile
+        // content painted normally; only explicit, small reveals animate.
+        if (
+          mobile ||
+          element.getBoundingClientRect().height > window.innerHeight
+        )
+          return;
         // Never delay visible hero content or animate its image during LCP.
         if (element.getBoundingClientRect().top >= window.innerHeight)
           observer.observe(element);

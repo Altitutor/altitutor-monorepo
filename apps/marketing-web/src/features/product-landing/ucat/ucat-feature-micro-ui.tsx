@@ -32,6 +32,7 @@ import {
 } from "./ucat-marketing-faithful-ui";
 import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { UcatLearningCardPreview } from "./ucat-learning-card-preview";
+import { PreviewActivityBoundary } from "./preview-activity";
 
 function FaithfulPreview({
   children,
@@ -131,7 +132,9 @@ export function UcatFeatureCardPreview({ id }: { id: FeatureCardPreviewId }) {
 
   return (
     <FaithfulPreview interactive={interactive}>
-      <CardPreview id={id} />
+      <PreviewActivityBoundary>
+        <CardPreview id={id} />
+      </PreviewActivityBoundary>
     </FaithfulPreview>
   );
 }
@@ -141,7 +144,9 @@ export function UcatFeatureDetailPreview({ id }: { id: FeatureDetailPreviewId })
 
   return (
     <FaithfulPreview interactive={interactive}>
-      <DetailPreview id={id} />
+      <PreviewActivityBoundary>
+        <DetailPreview id={id} />
+      </PreviewActivityBoundary>
     </FaithfulPreview>
   );
 }

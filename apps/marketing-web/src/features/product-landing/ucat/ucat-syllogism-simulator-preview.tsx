@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { UcatExamActionButton, UcatExamShell } from "@altitutor/ui";
 import { gsap } from "gsap";
 import clsx from "clsx";
@@ -145,7 +146,7 @@ export function UcatSyllogismSimulatorPreview({
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const coordinateScale = useDemoScale();
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const { reduceMotion: prefersReducedMotion } = useFaithfulMotion();
   const [answers, setAnswers] = useState<
     Partial<Record<string, SyllogismChoice>>
   >({});
@@ -153,14 +154,6 @@ export function UcatSyllogismSimulatorPreview({
     null,
   );
   const [timeRemaining, setTimeRemaining] = useState(START_SECONDS);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncPreference = () => setPrefersReducedMotion(mediaQuery.matches);
-    syncPreference();
-    mediaQuery.addEventListener("change", syncPreference);
-    return () => mediaQuery.removeEventListener("change", syncPreference);
-  }, []);
 
   // Real one-second countdown; resets when the drag loop restarts.
   useEffect(() => {

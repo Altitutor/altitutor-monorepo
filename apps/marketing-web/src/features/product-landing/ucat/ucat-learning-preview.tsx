@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "motion/react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { gsap } from "gsap";
 import {
   Card,
@@ -52,7 +52,7 @@ const PAGE_BLOCKS = [
 const BLOCK_PROGRESS = [18, 36, 52] as const;
 
 export function UcatLearningPreview() {
-  const reduceMotion = useReducedMotion();
+  const { reduceMotion } = useFaithfulMotion();
   const coordinateScale = useDemoScale();
   const scaleRef = useRef(coordinateScale);
   scaleRef.current = coordinateScale;

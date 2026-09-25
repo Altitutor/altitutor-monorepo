@@ -353,7 +353,7 @@ export function Navigation() {
               key={group.href}
               id="desktop-course-navigation"
               aria-label={group.label}
-              className={styles.courseCards}
+              className={styles.courseMenuCards}
             >
               {group.items.map(([href, title]) => {
                 const { icon: Icon, description } = courseDetails[href];

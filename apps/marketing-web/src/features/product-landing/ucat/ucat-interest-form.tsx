@@ -245,10 +245,10 @@ export function UcatInterestForm({
   return (
     <form
       onSubmit={submit}
-      className={`grid relative ${formHeightClass(kind)} content-start gap-4`}
+      className={`grid relative grid-cols-1 ${formHeightClass(kind)} content-start gap-4`}
       aria-label={copy.formLabel}
     >
-      <div className="grid gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className={`text-sm font-medium text-marketing-charcoal ${typo.secondarySans}`}>
           First name
           <input
