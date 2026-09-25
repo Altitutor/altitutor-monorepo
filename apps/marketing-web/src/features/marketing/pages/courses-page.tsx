@@ -6,8 +6,8 @@ import {
   Questions,
   ResourceImage,
   SectionTitle,
-  TrialCTA,
 } from "../components/primitives";
+import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
 
 const courses = (id: string) => content("/classes/", id);

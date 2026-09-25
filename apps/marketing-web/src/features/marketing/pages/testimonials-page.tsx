@@ -8,8 +8,8 @@ import {
   Questions,
   Quotes,
   SectionTitle,
-  TrialCTA,
 } from "../components/primitives";
+import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
 
 export function TestimonialsPage() {

@@ -1,12 +1,13 @@
 import { ArrowUpRight } from "lucide-react";
-import { PRODUCT_LINKS } from "@/lib/site";
 import { content } from "../content";
-import { Button, Copy, Eyebrow } from "../components/primitives";
+import { Copy, Eyebrow } from "../components/primitives";
+import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
 
 export function ContactPage() {
   return (
-    <div className={styles.container}>
+    <>
+      <div className={styles.container}>
       <section className={`${styles.hero} ${styles.contactHero}`}>
         <Eyebrow>Contact us</Eyebrow>
         <h1>
@@ -62,15 +63,8 @@ export function ContactPage() {
           </div>
         </div>
       </section>
-      <section className={styles.contactNext}>
-        <div>
-          <h2>Ready to try a lesson?</h2>
-          <p>
-            Meet your tutor and see how we teach, with a free trial session.
-          </p>
-        </div>
-        <Button href={PRODUCT_LINKS.trialBooking}>Book a free trial</Button>
-      </section>
-    </div>
+      </div>
+      <TrialCTA />
+    </>
   );
 }

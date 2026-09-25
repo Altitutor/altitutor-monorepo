@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowRight, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ContentBlock, ContentItem } from "../content";
-import { PRODUCT_LINKS } from "@/lib/site";
 import motion from "./magnetic-button.module.css";
 import styles from "../marketing.module.css";
 
@@ -157,30 +156,6 @@ export function Quotes({ items }: { items: ContentItem[] }) {
         </figure>
       ))}
     </div>
-  );
-}
-
-export function TrialCTA({
-  eyebrow = "Your next step",
-}: {
-  eyebrow?: string;
-}) {
-  return (
-    <section className={styles.cta} data-nav-label={eyebrow}>
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <h2>
-        Start with a conversation.
-        <br />
-        <em>Find your way forward.</em>
-      </h2>
-      <p>
-        Meet your tutor, ask questions and try a lesson. Your first trial
-        session is free.
-      </p>
-      <div className={styles.actions}>
-        <Button href={PRODUCT_LINKS.trialBooking}>Book a free trial</Button>
-      </div>
-    </section>
   );
 }
 

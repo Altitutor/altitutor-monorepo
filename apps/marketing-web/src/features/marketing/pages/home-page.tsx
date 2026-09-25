@@ -10,8 +10,8 @@ import {
   Copy,
   Eyebrow,
   SectionTitle,
-  TrialCTA,
 } from "../components/primitives";
+import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
 
 const home = (id: string) => content("/", id);
@@ -72,8 +72,9 @@ export function HomePage() {
             Want better results?<em>Altitutor can help.</em>
           </h1>
           <p className={styles.lede}>
-            <HeartHandshake size={22} aria-hidden="true" />A mission-driven
-            non-profit providing accessible education for all students.
+            <HeartHandshake size={22} aria-hidden="true" />
+            A mission-driven non-profit providing accessible education for all
+            students.
           </p>
           <div className={styles.actions}>
             <Button href={PRODUCT_LINKS.trialBooking}>Book a free trial</Button>
@@ -246,7 +247,7 @@ export function HomePage() {
           </Link>
         </div>
       </section>
-      <TrialCTA eyebrow="Free trial session" />
+      <TrialCTA />
     </>
   );
 }

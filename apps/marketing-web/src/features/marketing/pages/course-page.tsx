@@ -8,8 +8,8 @@ import {
   Eyebrow,
   Quotes,
   ResourceImage,
-  TrialCTA,
 } from "../components/primitives";
+import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
 
 const MedicalInterviewWaitlistSection = dynamic(() =>
