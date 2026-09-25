@@ -7,7 +7,7 @@ const publicSurfaces = [
   },
   {
     path: "/",
-    heading: /Want better results\?.*We can help\./i,
+    heading: /Want better results\?.*Altitutor can help\./i,
   },
 ] as const;
 
