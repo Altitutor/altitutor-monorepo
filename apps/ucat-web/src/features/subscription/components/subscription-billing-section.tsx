@@ -51,13 +51,7 @@ import {
   UCAT_SURFACE_MOTION,
 } from "@/lib/ucat-surface-motion";
 import { cn } from "@/lib/utils";
-import {
-  cancelUcatSubscriptionImmediately,
-  resumeUcatSubscription,
-} from "@/features/subscription/api/change-subscription-cancellation";
-import { trackSubscriptionJourneyEvent } from "@/features/subscription/api/track-subscription-journey";
-import { ImmediatePlanCancellationDialog } from "@/features/subscription/components/immediate-plan-cancellation-dialog";
-import { ScheduledPlanDowngradeNotice } from "@/features/subscription/components/scheduled-plan-downgrade-notice";
+import { ScheduledPlanDowngradeNoticeWithActions } from "@/features/subscription/components/scheduled-plan-downgrade-notice-with-actions";
 import { UcatPaymentMethodDialog } from "@/features/subscription/components/ucat-payment-method-dialog";
 import { applyUcatPaymentMethod } from "@/features/subscription/api/ucat-payment-method";
 import {
@@ -197,7 +191,7 @@ function PastSubscriptionsSection({
 
 export function SubscriptionBillingSection() {
   const queryClient = useQueryClient();
-  const { data, isLoading, error, refetch } = useUcatSubscriptionBilling();
+  const { data, isLoading, error } = useUcatSubscriptionBilling();
   const {
     data: paymentMethodData,
     isLoading: paymentMethodLoading,
@@ -208,13 +202,6 @@ export function SubscriptionBillingSection() {
     null,
   );
   const [portalError, setPortalError] = useState<string | null>(null);
-  const [resumeLoading, setResumeLoading] = useState(false);
-  const [resumeError, setResumeError] = useState<string | null>(null);
-  const [immediateCancelOpen, setImmediateCancelOpen] = useState(false);
-  const [immediateCancelLoading, setImmediateCancelLoading] = useState(false);
-  const [immediateCancelError, setImmediateCancelError] = useState<
-    string | null
-  >(null);
   const [paymentMethodDialogOpen, setPaymentMethodDialogOpen] = useState(false);
   const [paymentMethodStatus, setPaymentMethodStatus] = useState<string | null>(
     null,
@@ -381,50 +368,6 @@ export function SubscriptionBillingSection() {
     });
   };
 
-  const handleKeepPaidPlan = async () => {
-    setResumeLoading(true);
-    setResumeError(null);
-    try {
-      await resumeUcatSubscription();
-      trackSubscriptionJourneyEvent({
-        eventType: "cancellation_reversed",
-        journeyContext: "subscription_settings",
-        metadata: { current_plan: subscription?.plan_tier ?? null },
-      });
-      await refetch();
-    } catch (e) {
-      setResumeError(
-        e instanceof Error ? e.message : "Failed to keep your paid plan",
-      );
-    } finally {
-      setResumeLoading(false);
-    }
-  };
-
-  const handleCancelImmediately = async () => {
-    setImmediateCancelLoading(true);
-    setImmediateCancelError(null);
-    try {
-      await cancelUcatSubscriptionImmediately();
-      trackSubscriptionJourneyEvent({
-        eventType: "cancellation_accelerated",
-        journeyContext: "subscription_settings",
-        metadata: { previous_plan: subscription?.plan_tier ?? null },
-      });
-      await Promise.all([
-        refetch(),
-        queryClient.invalidateQueries({ queryKey: ["ucat-access"] }),
-      ]);
-      setImmediateCancelOpen(false);
-    } catch (e) {
-      setImmediateCancelError(
-        e instanceof Error ? e.message : "Failed to downgrade to UCAT Free now",
-      );
-    } finally {
-      setImmediateCancelLoading(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div
@@ -566,37 +509,9 @@ export function SubscriptionBillingSection() {
       ) : null}
 
       {isCancelScheduled && cancelEndDate ? (
-        <ScheduledPlanDowngradeNotice
+        <ScheduledPlanDowngradeNoticeWithActions
           endDate={cancelEndDate}
-          error={resumeError}
-          actions={
-            <>
-              <Button
-                type="button"
-                variant="ghost"
-                className="shrink-0 text-amber-950 hover:bg-amber-500/15 hover:text-amber-950 dark:text-amber-100 dark:hover:text-amber-100"
-                disabled={resumeLoading}
-                onClick={() => {
-                  setImmediateCancelError(null);
-                  setImmediateCancelOpen(true);
-                }}
-              >
-                Downgrade now
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="shrink-0"
-                disabled={resumeLoading}
-                onClick={() => void handleKeepPaidPlan()}
-              >
-                {resumeLoading ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : null}
-                Keep paid plan
-              </Button>
-            </>
-          }
+          planTier={subscription?.plan_tier ?? null}
         />
       ) : null}
 
@@ -785,21 +700,6 @@ export function SubscriptionBillingSection() {
           });
         }}
       />
-
-      {cancelEndDate ? (
-        <ImmediatePlanCancellationDialog
-          open={immediateCancelOpen}
-          onOpenChange={(open) => {
-            if (!immediateCancelLoading) {
-              setImmediateCancelOpen(open);
-            }
-          }}
-          scheduledEndDate={formatInvoiceDate(cancelEndDate)}
-          confirming={immediateCancelLoading}
-          error={immediateCancelError}
-          onConfirm={() => void handleCancelImmediately()}
-        />
-      ) : null}
 
       <PastSubscriptionsSection subscriptions={pastSubscriptions} />
 
