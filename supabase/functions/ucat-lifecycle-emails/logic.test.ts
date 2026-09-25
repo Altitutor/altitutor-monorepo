@@ -14,7 +14,7 @@ const candidate: LifecycleCandidate = {
   first_name: "Sam",
   last_name: "Student",
   timezone: "Australia/Adelaide",
-  status: "ACTIVE",
+  has_open_ucat_relationship: true,
   ucat_signup_completed_at: "2026-07-20T00:00:00Z",
   ucat_initial_familiarity: "familiar",
   email_program_cohort: "treatment",
@@ -131,6 +131,34 @@ Deno.test("suppresses unverified, unsubscribed, and holdout candidates", () => {
     null,
   );
 });
+
+Deno.test(
+  "online-only students require an open UCAT product relationship",
+  () => {
+    const now = new Date("2026-07-20T23:30:00Z");
+    const onlineOnlyCandidate = {
+      ...candidate,
+      has_open_ucat_relationship: true,
+    };
+    const closedRelationshipCandidate = {
+      ...onlineOnlyCandidate,
+      has_open_ucat_relationship: false,
+    };
+
+    assertEquals(
+      chooseLifecycleCampaign(onlineOnlyCandidate, now, controls)?.key,
+      "onboarding_starting_point",
+    );
+    assertEquals(
+      chooseLifecycleCampaign(
+        closedRelationshipCandidate,
+        now,
+        controls,
+      ),
+      null,
+    );
+  },
+);
 
 Deno.test("onboarding follows the four lesson windows and sequence", () => {
   assertEquals(

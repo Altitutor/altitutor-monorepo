@@ -25,7 +25,7 @@ export type LifecycleCandidate = {
   first_name: string | null;
   last_name: string | null;
   timezone: string | null;
-  status: string | null;
+  has_open_ucat_relationship: boolean;
   ucat_signup_completed_at: string | null;
   ucat_initial_familiarity: UcatFamiliarity | null;
   email_program_cohort: "treatment" | "holdout" | null;
@@ -213,7 +213,7 @@ export function chooseLifecycleCampaign(
   controls: ReadonlyMap<string, CampaignControl>,
 ): LifecycleCampaign | null {
   if (
-    candidate.status !== "ACTIVE" ||
+    !candidate.has_open_ucat_relationship ||
     !candidate.consent_verified_at ||
     candidate.unsubscribed_at ||
     !candidate.ucat_signup_completed_at ||
