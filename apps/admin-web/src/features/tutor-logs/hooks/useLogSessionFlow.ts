@@ -101,8 +101,8 @@ export function useLogSessionFlow({
   const selectedSession = sessionData?.session || null;
   const sessionClassData = sessionData?.classData || null;
   const sessionSubject = sessionData?.subject || null;
-  const sessionStaff = sessionData?.staff || [];
-  const sessionStudents = sessionData?.students || [];
+  const sessionStaff = useMemo(() => sessionData?.staff ?? [], [sessionData?.staff]);
+  const sessionStudents = useMemo(() => sessionData?.students ?? [], [sessionData?.students]);
   const sessionParents = useMemo(() => sessionData?.parents ?? [], [sessionData?.parents]);
 
   const wizardFlow = useMemo(

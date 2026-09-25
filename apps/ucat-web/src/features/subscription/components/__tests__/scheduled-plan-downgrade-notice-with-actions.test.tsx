@@ -1,6 +1,5 @@
 import React from "react";
-import { render, screen } from "@testing-library/react";
-import userEvent from "@testing-library/user-event";
+import { fireEvent, render, screen } from "@testing-library/react";
 
 import { ScheduledPlanDowngradeNoticeWithActions } from "@/features/subscription/components/scheduled-plan-downgrade-notice-with-actions";
 
@@ -61,8 +60,7 @@ describe("ScheduledPlanDowngradeNoticeWithActions", () => {
     ).toBeInTheDocument();
   });
 
-  it("opens immediate downgrade confirmation", async () => {
-    const user = userEvent.setup();
+  it("opens immediate downgrade confirmation", () => {
     render(
       <ScheduledPlanDowngradeNoticeWithActions
         endDate="2026-10-18"
@@ -70,7 +68,7 @@ describe("ScheduledPlanDowngradeNoticeWithActions", () => {
       />,
     );
 
-    await user.click(screen.getByRole("button", { name: "Downgrade now" }));
+    fireEvent.click(screen.getByRole("button", { name: "Downgrade now" }));
 
     expect(
       screen.getByRole("alertdialog", {
