@@ -79,7 +79,7 @@ export function CoursesPage() {
       >
         <Eyebrow>In person courses · Adelaide</Eyebrow>
         <h1>
-          Different goals.<em>Your kind of support.</em>
+          Different goals.<em>Personalised support.</em>
         </h1>
         <Copy block={courses("614bb01")} />
         <div className={styles.actions}>

@@ -160,10 +160,14 @@ export function Quotes({ items }: { items: ContentItem[] }) {
   );
 }
 
-export function TrialCTA() {
+export function TrialCTA({
+  eyebrow = "Your next step",
+}: {
+  eyebrow?: string;
+}) {
   return (
-    <section className={styles.cta}>
-      <Eyebrow>Your next step</Eyebrow>
+    <section className={styles.cta} data-nav-label={eyebrow}>
+      <Eyebrow>{eyebrow}</Eyebrow>
       <h2>
         Start with a conversation.
         <br />
@@ -175,9 +179,6 @@ export function TrialCTA() {
       </p>
       <div className={styles.actions}>
         <Button href={PRODUCT_LINKS.trialBooking}>Book a free trial</Button>
-        <Button href="/classes/" secondary>
-          Explore our courses
-        </Button>
       </div>
     </section>
   );
