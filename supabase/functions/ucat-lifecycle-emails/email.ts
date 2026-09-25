@@ -1084,7 +1084,7 @@ export function buildLifecyclePreview(
     first_name: "Sam",
     last_name: "Student",
     timezone: "Australia/Adelaide",
-    status: "ACTIVE",
+    has_open_ucat_relationship: true,
     ucat_signup_completed_at: "2026-07-01T00:00:00Z",
     ucat_initial_familiarity: familiarity,
     email_program_cohort: "treatment",
