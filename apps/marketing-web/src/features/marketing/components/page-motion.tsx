@@ -36,10 +36,16 @@ export function PageMotion({ children }: { children: ReactNode }) {
     root.current
       .querySelectorAll("section > div, section > h2, section > p")
       .forEach((element) => {
+        // Explicit sequences reveal their individual items, never the whole
+        // section at once (which consumes the effect before later items arrive).
+        if (element.closest("[data-scroll-sequence]")) return;
         // Never delay visible hero content or animate its image during LCP.
         if (element.getBoundingClientRect().top >= window.innerHeight)
           observer.observe(element);
       });
+    root.current
+      .querySelectorAll("[data-scroll-reveal], [data-scroll-items] > *")
+      .forEach((element) => observer.observe(element));
     const stop = () => {
       observer.disconnect();
       animations.forEach((animation) => animation.cancel());

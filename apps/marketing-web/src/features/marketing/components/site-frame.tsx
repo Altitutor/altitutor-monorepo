@@ -2,7 +2,6 @@ import Link from "next/link";
 import type { ReactNode } from "react";
 import {
   ArrowUpRight,
-  HeartHandshake,
   Instagram,
   Facebook,
   Youtube,
@@ -46,7 +45,6 @@ export function SiteFrame({ children }: { children: ReactNode }) {
               <SiteLogo variant="dark" className={styles.footerLogo} />
             </Link>
             <p>
-              <HeartHandshake size={22} aria-hidden="true" />
               A mission-driven non-profit providing accessible education for all
               students.
             </p>
