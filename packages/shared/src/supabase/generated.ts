@@ -24474,6 +24474,7 @@ export type Database = {
           first_estimate_generated_at: string | null
           first_name: string | null
           has_open_referral_or_reward: boolean | null
+          has_open_ucat_relationship: boolean | null
           has_study_plan: boolean | null
           last_activity_at: string | null
           last_name: string | null
