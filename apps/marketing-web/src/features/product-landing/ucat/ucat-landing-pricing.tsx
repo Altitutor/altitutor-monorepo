@@ -246,7 +246,7 @@ export function UcatLandingPricing() {
         ) : null}
 
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          <article className="flex flex-col justify-between rounded-[2.25rem] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10">
+          <article className="flex flex-col justify-between rounded-[30px] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10">
             <div>
               <span
                 className={`${MARKETING_PLAN_BADGE_LIGHT_CLASS} ${typo.dataMono}`}
@@ -304,7 +304,7 @@ export function UcatLandingPricing() {
             </AnalyticsLink>
           </article>
 
-          <article className="relative flex flex-col justify-between overflow-hidden rounded-[2.25rem] bg-marketing-charcoal p-7 text-marketing-cream shadow-2xl sm:p-10">
+          <article className="relative flex flex-col justify-between overflow-hidden rounded-[30px] bg-marketing-charcoal p-7 text-marketing-cream shadow-2xl sm:p-10">
             <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-marketing-accent/10 blur-[60px]" />
             <div className="relative">
               <span
@@ -406,7 +406,7 @@ export function UcatLandingPricing() {
           </article>
         </div>
 
-        <div className="mt-8 grid gap-8 rounded-[2.25rem] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-14">
+        <div className="mt-8 grid gap-8 rounded-[30px] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-14">
           <div className="flex gap-5">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-marketing-accent/30 text-marketing-primary">
               <Video className="h-5 w-5" aria-hidden />

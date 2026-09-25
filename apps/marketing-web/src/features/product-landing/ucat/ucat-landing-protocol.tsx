@@ -92,7 +92,7 @@ export function UcatLandingProtocol() {
               <article
                 key={feature.slug}
                 data-feature-card
-                className="flex min-w-0 flex-col overflow-hidden rounded-[2rem] bg-[#f4f5f7] p-6 sm:p-8"
+                className="flex min-w-0 flex-col overflow-hidden rounded-[30px] bg-[#f4f5f7] p-6 sm:p-8"
               >
                 <div className="flex items-center gap-2.5">
                   <span
@@ -133,7 +133,7 @@ export function UcatLandingProtocol() {
                 <div
                   className={
                     feature.cardPreviewBleed
-                      ? "mt-6 -mx-6 -mb-6 min-w-0 flex-1 overflow-hidden rounded-b-[2rem] sm:-mx-8 sm:-mb-8"
+                      ? "mt-6 -mx-6 -mb-6 min-w-0 flex-1 overflow-hidden rounded-b-[30px] sm:-mx-8 sm:-mb-8"
                       : "mt-6 min-w-0 flex-1 overflow-hidden"
                   }
                 >
@@ -147,7 +147,7 @@ export function UcatLandingProtocol() {
         <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
           <article
             data-feature-card
-            className="flex min-w-0 flex-row items-center gap-4 rounded-[2rem] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
+            className="flex min-w-0 flex-row items-center gap-4 rounded-[30px] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
           >
             <div className="min-w-0 flex-1">
               <h3
@@ -168,7 +168,7 @@ export function UcatLandingProtocol() {
 
           <article
             data-feature-card
-            className="relative flex min-w-0 flex-row items-stretch gap-4 overflow-hidden rounded-[2rem] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
+            className="relative flex min-w-0 flex-row items-stretch gap-4 overflow-hidden rounded-[30px] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"
           >
             <div className="relative z-10 min-w-0 flex-1">
               <p

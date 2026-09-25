@@ -9,5 +9,10 @@ export function MagneticButton({
   children: ReactNode;
   className?: string;
 }) {
-  return <span className={`${styles.magnetic} ${className}`}>{children}</span>;
+  return (
+    <span className={`${styles.magnetic} ${className}`}>
+      <span className={styles.fill} aria-hidden="true" />
+      {children}
+    </span>
+  );
 }

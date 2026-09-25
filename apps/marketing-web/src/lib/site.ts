@@ -34,6 +34,7 @@ export const IN_PERSON_COURSES = [
   ["/classes/examprep/", "Exam preparation courses"],
   ["/classes/assignment-drafting/", "Assignment drafting"],
   ["/classes/ucatprep/", "In person UCAT tutoring"],
+  ["/classes/medical-interview-preparation/", "Medical interview preparation"],
 ] as const;
 
 export const ONLINE_COURSES = [
@@ -44,7 +45,6 @@ export const ONLINE_COURSES = [
 export const COURSE_LINKS = [
   ["/classes/", "All in person courses"],
   ...IN_PERSON_COURSES,
-  ["/classes/medical-interview-preparation/", "Medical interviews"],
 ] as const;
 
 export const NAV_ITEMS = [

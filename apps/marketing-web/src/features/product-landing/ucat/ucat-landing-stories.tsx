@@ -99,7 +99,7 @@ export function UcatLandingStories() {
           </div>
 
           <div className="grid gap-5 sm:grid-cols-2">
-            <article className="rounded-[2rem] bg-marketing-charcoal p-7 text-marketing-cream sm:p-8">
+            <article className="rounded-[30px] bg-marketing-charcoal p-7 text-marketing-cream sm:p-8">
               <Stethoscope
                 className="h-6 w-6 text-marketing-accent"
                 aria-hidden
@@ -118,7 +118,7 @@ export function UcatLandingStories() {
                 professionals.
               </p>
             </article>
-            <article className="rounded-[2rem] border border-marketing-charcoal/10 bg-marketing-cream p-7 sm:p-8">
+            <article className="rounded-[30px] border border-marketing-charcoal/10 bg-marketing-cream p-7 sm:p-8">
               <HandHeart
                 className="h-6 w-6 text-marketing-primary"
                 aria-hidden
@@ -204,7 +204,7 @@ export function UcatLandingStories() {
           </div>
         </div>
 
-        <div className="mt-24 grid overflow-hidden rounded-[2.5rem] bg-marketing-charcoal text-marketing-cream lg:grid-cols-[0.64fr_1.36fr]">
+        <div className="mt-24 grid overflow-hidden rounded-[30px] bg-marketing-charcoal text-marketing-cream lg:grid-cols-[0.64fr_1.36fr]">
           <div className="relative min-h-[26rem] overflow-hidden border-b border-white/10 lg:min-h-0 lg:border-b-0 lg:border-r">
             <Image
               src="/assets/ucat/matt-chua-founder.jpeg"

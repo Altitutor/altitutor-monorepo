@@ -195,6 +195,7 @@ export function Navigation() {
               className={`${styles.navTrial} ${motion.magnetic}`}
               href={PRODUCT_LINKS.trialBooking}
             >
+              <span className={motion.fill} aria-hidden="true" />
               Free trial <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
             <button
@@ -244,20 +245,6 @@ export function Navigation() {
                 </Link>
               ))}
             </nav>
-            <Link
-              className={`${styles.button} ${motion.magnetic}`}
-              href={PRODUCT_LINKS.trialBooking}
-              onClick={closeMenu}
-            >
-              Book a free trial <ArrowUpRight size={18} />
-            </Link>
-            <Link
-              className={styles.mobileLogin}
-              href={PRODUCT_LINKS.studentLogin}
-              onClick={closeMenu}
-            >
-              Student sign in
-            </Link>
           </div>
         </div>
       </header>

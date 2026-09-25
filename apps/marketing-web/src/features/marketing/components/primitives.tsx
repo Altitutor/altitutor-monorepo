@@ -53,6 +53,7 @@ export function Button({
       href={href}
       className={`${motion.magnetic} ${styles.button} ${secondary ? styles.secondaryButton : ""}`}
     >
+      <span className={motion.fill} aria-hidden="true" />
       {children}
       <ArrowRight size={17} aria-hidden="true" />
     </Link>

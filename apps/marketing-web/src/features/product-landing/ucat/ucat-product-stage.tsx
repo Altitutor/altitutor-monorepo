@@ -286,7 +286,7 @@ export function UcatProductStage() {
           }
         }}
       >
-        <div className="relative rounded-b-[2rem] bg-marketing-cream px-3 pb-5 pt-1 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.2)] sm:rounded-b-[2.5rem] sm:px-6 sm:pb-6">
+        <div className="relative rounded-b-[30px] bg-marketing-cream px-3 pb-5 pt-1 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.2)] sm:px-6 sm:pb-6">
           {/* Cover the hero junction so subpixel gaps can't show through */}
           <span
             aria-hidden
@@ -326,7 +326,7 @@ export function UcatProductStage() {
           aria-label={
             galleryItems.find((item) => item.id === activeItem)?.label
           }
-          className="overflow-hidden rounded-[1.25rem] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15"
+          className="overflow-hidden rounded-[30px] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15"
         >
           <ScaleToFitFrame
             designWidth={PRODUCT_DEMO_DESIGN_WIDTH}

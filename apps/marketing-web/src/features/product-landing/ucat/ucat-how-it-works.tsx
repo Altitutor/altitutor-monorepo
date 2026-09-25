@@ -161,7 +161,7 @@ export function UcatHowItWorks() {
             <article
               key={step.number}
               data-how-step
-              className="flex flex-col rounded-[2rem] border border-marketing-charcoal/10 bg-white p-5 shadow-sm sm:p-7"
+              className="flex flex-col rounded-[30px] border border-marketing-charcoal/10 bg-white p-5 shadow-sm sm:p-7"
             >
               <div className="flex items-center justify-between">
                 <span
