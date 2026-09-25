@@ -47,6 +47,25 @@ export async function PATCH(request: Request, { params }: { params: { id: string
 
   if (typeof body.name === 'string') patch.name = body.name.trim() || 'Untitled form';
   if (typeof body.purpose === 'string') patch.purpose = body.purpose.trim() || 'other';
+  if (patch.purpose === 'subsidy_interview') {
+    const { data: current } = await auth.admin.from('forms').select('status').eq('id', params.id).maybeSingle();
+    if (current?.status === 'published') {
+      const { data: existing } = await auth.admin
+        .from('forms')
+        .select('id')
+        .eq('purpose', 'subsidy_interview')
+        .eq('status', 'published')
+        .is('archived_at', null)
+        .neq('id', params.id)
+        .limit(1);
+      if (existing?.length) {
+        return NextResponse.json(
+          { error: 'Another published form is already assigned to subsidy interviews.' },
+          { status: 409 },
+        );
+      }
+    }
+  }
   if (body.workflowKey === 'student_unenrolment' || body.workflowKey === 'student_discontinuation') {
     patch.workflow_key = body.workflowKey;
   } else if (body.workflowKey === null) {

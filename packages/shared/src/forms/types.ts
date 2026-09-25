@@ -17,6 +17,7 @@ export type FormSubmissionLimit = (typeof FORM_SUBMISSION_LIMITS)[number];
 
 export const FORM_PURPOSE_OPTIONS = [
   { value: 'trial_session', label: 'Trial session' },
+  { value: 'subsidy_interview', label: 'Subsidy interview' },
   { value: 'feedback', label: 'Feedback' },
   { value: 'check_in', label: 'Check-in' },
   { value: 'unenrolment', label: 'Unenrolment' },

@@ -1,5 +1,6 @@
 import { content } from "../content";
 import { Button, Copy, Eyebrow, SectionTitle } from "../components/primitives";
+import { PRODUCT_LINKS } from "@/lib/site";
 import styles from "../marketing.module.css";
 
 export function SubsidyPage() {
@@ -35,10 +36,14 @@ export function SubsidyPage() {
             <br />
             about yourself.
           </h2>
-          <Copy block={content("/about/subsidy/", "6d7097b")} />
+          <p>
+            Book a subsidy interview and tell us about your situation. We will
+            meet you, work out what you can afford, and register the subsidised
+            fee from there.
+          </p>
           <div className={styles.actions}>
-            <Button href="mailto:admin@altitutor.com?subject=Tuition%20subsidy%20application">
-              Email your application
+            <Button href={PRODUCT_LINKS.subsidyBooking}>
+              Apply for a subsidy
             </Button>
           </div>
         </div>

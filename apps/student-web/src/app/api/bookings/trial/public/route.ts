@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { capturePublicBookingOutcome } from '@/features/bookings/lib/capture-public-booking-outcome';
 import { IN_PERSON_BOOKING_EVENTS } from '@/shared/lib/analytics/in-person-booking-event';
+import type { FormAnswerPayload } from '@altitutor/shared';
+import {
+  loadPublishedSubsidyInterviewForm,
+  saveSubsidyInterviewResponse,
+  subsidyFormValidationError,
+} from '@/features/bookings/lib/subsidy-interview-form';
 
 // Simple in-memory rate limiter (replace with Redis for production)
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -58,6 +64,9 @@ export async function POST(request: NextRequest) {
     }
     
     const sessionType = body.session_type === 'SUBSIDY_INTERVIEW' ? 'SUBSIDY_INTERVIEW' : 'TRIAL_SESSION';
+    const formAnswers = body.form_answers && typeof body.form_answers === 'object' && !Array.isArray(body.form_answers)
+      ? body.form_answers as FormAnswerPayload
+      : null;
 
     // Validation
     if (!body.student_first_name ||
@@ -99,6 +108,13 @@ export async function POST(request: NextRequest) {
     // The anonymous HTTP endpoint performs validation and rate limiting; the
     // database RPC itself is service-only so it cannot be invoked directly.
     const supabase = getServerSupabaseAdmin();
+    const subsidyForm = sessionType === 'SUBSIDY_INTERVIEW'
+      ? await loadPublishedSubsidyInterviewForm(supabase)
+      : null;
+    const subsidyFormError = subsidyFormValidationError(subsidyForm, formAnswers);
+    if (subsidyFormError) {
+      return NextResponse.json({ error: subsidyFormError }, { status: 400 });
+    }
     
     // Map year level: 'Reception' -> 0, numeric strings -> numbers
     let yearLevel: number | null = null;
@@ -206,6 +222,16 @@ export async function POST(request: NextRequest) {
       }
       
       const result = data as { session_id: string; student_id: string };
+      if (subsidyForm && formAnswers) {
+        await saveSubsidyInterviewResponse(supabase, {
+          form: subsidyForm,
+          answers: formAnswers,
+          sessionId: result.session_id,
+          studentId: result.student_id,
+          submittedByUserId: null,
+          respondentIsStudent: false,
+        });
+      }
       const { data: bookingToken } = await supabase.rpc(
         'issue_session_booking_public_token',
         { p_session_id: result.session_id }

@@ -27,6 +27,7 @@ export const PRODUCT_LINKS = {
   ucatLogin: `${UCAT_APP_ORIGIN}/login`,
   ucatSignup: `${UCAT_APP_ORIGIN}/signup`,
   trialBooking: `${STUDENT_APP_ORIGIN}/booking/trial-session`,
+  subsidyBooking: `${STUDENT_APP_ORIGIN}/booking/subsidy`,
 };
 
 export const IN_PERSON_COURSES = [

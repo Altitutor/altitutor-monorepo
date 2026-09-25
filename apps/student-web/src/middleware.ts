@@ -129,6 +129,7 @@ export async function handleAuthRequest(request: NextRequest) {
     pathname.startsWith("/auth/") ||
     pathname.startsWith("/form/") ||
     pathname.startsWith("/booking/trial-session") ||
+    pathname.startsWith("/booking/subsidy") ||
     pathname.startsWith("/booking-success") ||
     pathname.startsWith("/sentry-example-page");
   if (pathname.startsWith("/api") || isPublic)

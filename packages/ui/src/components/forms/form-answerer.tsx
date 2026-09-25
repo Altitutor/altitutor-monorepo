@@ -27,6 +27,8 @@ export interface FormAnswererProps {
   className?: string;
   formId?: string;
   hideSubmitButton?: boolean;
+  /** When false, a successful submit stays on the form instead of showing the thank-you state. */
+  completeOnSubmit?: boolean;
   initialAnswers?: FormAnswerPayload;
   onSubmitted?: () => void;
   onSubmittingChange?: (submitting: boolean) => void;
@@ -72,6 +74,7 @@ export function FormAnswerer({
   className,
   formId,
   hideSubmitButton = false,
+  completeOnSubmit = true,
   initialAnswers,
   onSubmitted,
   onSubmittingChange,
@@ -101,6 +104,7 @@ export function FormAnswerer({
     setError(null);
     try {
       await onSubmit(answers);
+      if (!completeOnSubmit) return;
       setSubmitted(true);
       onSubmitted?.();
     } catch (err) {

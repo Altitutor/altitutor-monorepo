@@ -1,5 +1,6 @@
 const HIDE_NAVBAR_EXACT_PATHS = new Set([
   '/booking/trial-session',
+  '/booking/subsidy',
   '/booking-success',
   '/login',
   '/forgot-password',
