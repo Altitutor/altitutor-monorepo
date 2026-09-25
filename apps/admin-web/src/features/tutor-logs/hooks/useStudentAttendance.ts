@@ -1,12 +1,12 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { studentsApi } from '@/features/students/api/students';
 import { useSessionForLogging, type SessionForLogging } from './useSessionForLogging';
-import type { Tables } from '@altitutor/shared';
+import type { Tables, TutorLogAttendanceChoice } from '@altitutor/shared';
 
 export type StudentAttendanceItem = {
   studentId: string;
-  attended: boolean;
+  attended: TutorLogAttendanceChoice;
 };
 
 export interface UseStudentAttendanceProps {
@@ -50,7 +50,6 @@ export function useStudentAttendance({
   const { data: sessionData, isLoading: isLoadingSession } = useSessionForLogging(sessionId);
   const [showSearch, setShowSearch] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
-  const hasInitialized = useRef(false);
 
   const { data: allStudentsData, isLoading: isLoadingStudents } = useQuery({
     queryKey: ['students', 'all', 'forSearch'],
@@ -81,18 +80,6 @@ export function useStudentAttendance({
     );
   }, [sessionData?.students]);
 
-  useEffect(() => {
-    if (!hasInitialized.current && studentAttendance.length === 0 && sessionStudents.length > 0 && !isLoading) {
-      hasInitialized.current = true;
-      const initialAttendance = sessionStudents.map((ss) => ({
-        studentId: ss.student_id,
-        attended: !ss.planned_absence,
-      }));
-      onUpdate(initialAttendance);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sessionStudents.length, isLoading]);
-
   const handleAttendanceChange = (studentId: string, attended: boolean) => {
     const updated = studentAttendance.map((sa) =>
       sa.studentId === studentId ? { ...sa, attended } : sa
@@ -106,7 +93,9 @@ export function useStudentAttendance({
   };
 
   const handleAddStudent = (studentId: string) => {
-    handleAttendanceChange(studentId, true);
+    if (!studentAttendance.find((sa) => sa.studentId === studentId)) {
+      onUpdate([...studentAttendance, { studentId, attended: null }]);
+    }
     setSearchTerm('');
     setShowSearch(false);
   };

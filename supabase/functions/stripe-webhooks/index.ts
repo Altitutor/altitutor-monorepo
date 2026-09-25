@@ -1809,7 +1809,10 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
       case "customer.subscription.deleted": {
         const subscription = event.data.object as {
           id: string;
-          cancellation_details?: { reason?: string | null } | null;
+          cancellation_details?: {
+            reason?: string | null;
+            comment?: string | null;
+          } | null;
         };
 
         const { data: endedSub } = await supabase
@@ -1829,7 +1832,14 @@ serveWithSentry("stripe-webhooks", async (req: Request, sentry) => {
               endedSub.status === "unpaid" ||
               Boolean(endedSub.billing_recovery_invoice_id);
 
-            if (failedBillingCancellation) {
+            const accountDeletion =
+              subscription.cancellation_details?.comment ===
+                "ucat_product_account_deleted";
+
+            if (accountDeletion) {
+              // The deletion route queues ucat_account_deleted. This webhook
+              // must not also tell them they moved to UCAT Free.
+            } else if (failedBillingCancellation) {
               await handleUcatFailedBillingTerminalState(supabase, stripe, {
                 studentId: endedSub.student_id,
                 subjectId: endedSub.subject_id,

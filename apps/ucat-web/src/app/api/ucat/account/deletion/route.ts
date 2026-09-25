@@ -11,6 +11,8 @@ import {
 import { createProductAccountDeletionStore } from "@/features/account-deletion/server/product-account-deletion-store";
 
 const ROUTE = "/api/ucat/account/deletion";
+const UCAT_ACCOUNT_DELETION_CANCELLATION_COMMENT =
+  "ucat_product_account_deleted";
 
 function getStripe() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -26,6 +28,9 @@ async function cancelStripeSubscription(stripeSubscriptionId: string) {
   await stripe.subscriptions.cancel(stripeSubscriptionId, {
     invoice_now: false,
     prorate: false,
+    cancellation_details: {
+      comment: UCAT_ACCOUNT_DELETION_CANCELLATION_COMMENT,
+    },
   });
 }
 
@@ -100,6 +105,16 @@ export async function POST(request: NextRequest) {
       },
     });
     if (!result.ok) return failureResponse(result);
+    const { error: emailError } = await admin.rpc(
+      "queue_ucat_student_transactional_email",
+      {
+        p_student_id: result.studentId,
+        p_template_key: "ucat_account_deleted",
+        p_event_key: `ucat-account-deleted:${result.studentId}`,
+        p_payload: { action_path: "/signup" },
+      },
+    );
+    if (emailError) captureApiError(emailError, ROUTE);
     return NextResponse.json({ loginRemoved: result.loginRemoved });
   } catch (error) {
     captureApiError(error, ROUTE);

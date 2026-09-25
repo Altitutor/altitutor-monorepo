@@ -59,9 +59,9 @@ export function DeleteProductAccount({
       }
       if (body?.loginRemoved) {
         await getSupabaseBrowserClient().auth.signOut();
-        router.push("/login");
+        router.push("/login?deleted=1");
       } else {
-        router.push("/signup/complete");
+        router.push("/signup/complete?deleted=1");
       }
       router.refresh();
     } catch {

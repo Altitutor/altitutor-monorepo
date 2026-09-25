@@ -64,7 +64,7 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
     if (!student) return null;
     const plannedAbsent = studentPlannedMap.get(sa.studentId) ?? false;
     const plannedStatus = plannedAbsent ? ('absent' as const) : ('attending' as const);
-    const actualStatus = sa.attended ? ('attended' as const) : ('did-not-attend' as const);
+    const actualStatus = sa.attended === true ? ('attended' as const) : ('did-not-attend' as const);
     return { student, plannedStatus, actualStatus };
   }).filter((row): row is NonNullable<typeof row> => row !== null);
 
@@ -73,7 +73,7 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
     if (!staff) return null;
     const plannedAbsent = staffPlannedMap.get(sa.staffId) ?? false;
     const plannedStatus = plannedAbsent ? ('absent' as const) : ('attending' as const);
-    const actualStatus = sa.attended
+    const actualStatus = sa.attended === true
       ? ('attended' as const)
       : ('did-not-attend' as const);
     return { staff, plannedStatus, actualStatus, staffType: sa.type };
@@ -82,7 +82,7 @@ export function Step9Confirmation({ title, formData }: Step9ConfirmationProps) {
   const parentRows = (formData.parentAttendance || []).map((pa) => {
     const parent = parentsMap.get(pa.parentId);
     if (!parent) return null;
-    const actualStatus = pa.attended ? ('attended' as const) : ('did-not-attend' as const);
+    const actualStatus = pa.attended === true ? ('attended' as const) : ('did-not-attend' as const);
     return { parent, actualStatus };
   }).filter((row): row is NonNullable<typeof row> => row !== null);
 

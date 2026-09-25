@@ -2,6 +2,7 @@ import {
   buildCodeAndFilenameOrFilter,
   buildCodeAndNameOrFilter,
   buildCodeExactOrPrefixOrFilter,
+  buildPersonFieldOrFilters,
   buildSubjectNameOrFilter,
   looksLikeTopicOrFileCode,
   parseSubjectQualifiedSearch,
@@ -71,6 +72,24 @@ describe('PostgREST filter builders', () => {
     expect(buildCodeAndFilenameOrFilter('code', 'filename', '2.2')).toBe(
       `code.ilike.${quotePostgrestFilterValue('2.2')},code.ilike.${quotePostgrestFilterValue('2.2%')},filename.ilike.${quotePostgrestFilterValue('%2.2%')}`,
     );
+  });
+
+  it('matches a full name by requiring every word against any name field', () => {
+    const [first, last] = buildPersonFieldOrFilters('John Doe', ['first_name', 'last_name', 'email', 'phone']);
+    const john = quotePostgrestFilterValue('%John%');
+    const doe = quotePostgrestFilterValue('%Doe%');
+    expect(first).toBe(
+      `first_name.ilike.${john},last_name.ilike.${john},email.ilike.${john},phone.ilike.${john}`,
+    );
+    expect(last).toBe(
+      `first_name.ilike.${doe},last_name.ilike.${doe},email.ilike.${doe},phone.ilike.${doe}`,
+    );
+  });
+
+  it('keeps a single name as one field group', () => {
+    expect(buildPersonFieldOrFilters('Doe', ['first_name', 'last_name'])).toEqual([
+      `first_name.ilike.${quotePostgrestFilterValue('%Doe%')},last_name.ilike.${quotePostgrestFilterValue('%Doe%')}`,
+    ]);
   });
 
   it('builds code-only or filters for nested filename searches', () => {

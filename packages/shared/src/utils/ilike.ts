@@ -101,6 +101,19 @@ export function buildCodeAndFilenameOrFilter(
   return `${codeField}.ilike.${exact},${codeField}.ilike.${prefix},${filenameField}.ilike.${contains}`;
 }
 
+/**
+ * One PostgREST `.or()` clause per whitespace token.
+ * Callers AND the clauses together so "John Doe" matches first name John and last name Doe,
+ * while a single token still matches any one field.
+ */
+export function buildPersonFieldOrFilters(search: string, fields: readonly string[]): string[] {
+  const tokens = search.trim().split(/\s+/).filter(Boolean);
+  return tokens.map((token) => {
+    const pattern = quotePostgrestFilterValue(`%${escapeIlikePattern(token)}%`);
+    return fields.map((field) => `${field}.ilike.${pattern}`).join(',');
+  });
+}
+
 /** Exact + prefix code match for PostgREST `.or()` (no nested columns). */
 export function buildCodeExactOrPrefixOrFilter(
   codeField: string,

@@ -99,7 +99,7 @@ describe("DeleteProductAccount", () => {
     });
     await waitFor(() => {
       expect(signOut).toHaveBeenCalled();
-      expect(push).toHaveBeenCalledWith("/login");
+      expect(push).toHaveBeenCalledWith("/login?deleted=1");
     });
   });
 
@@ -121,7 +121,7 @@ describe("DeleteProductAccount", () => {
     fireEvent.click(namedButtons[namedButtons.length - 1]);
 
     await waitFor(() => {
-      expect(push).toHaveBeenCalledWith("/signup/complete");
+      expect(push).toHaveBeenCalledWith("/signup/complete?deleted=1");
     });
     expect(signOut).not.toHaveBeenCalled();
   });

@@ -273,3 +273,32 @@ export async function getStaffFileSignedUrl(path: string, expiresIn: number = 36
 export async function deleteStaffFile(path: string): Promise<void> {
   return deleteFromBucket('staff-files', path);
 }
+
+/**
+ * Student Files Storage Functions
+ */
+
+export interface UploadStudentFileOptions {
+  studentId: string;
+  file: File;
+}
+
+/**
+ * Upload a file to the student-files bucket
+ * Path format: {studentId}/{timestamp}_{filename}
+ */
+export async function uploadStudentFile({ studentId, file }: UploadStudentFileOptions): Promise<UploadFileResult> {
+  const timestamp = Date.now();
+  const sanitizedFilename = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+  const path = `${studentId}/${timestamp}_${sanitizedFilename}`;
+
+  return uploadToBucket('student-files', path, file);
+}
+
+export async function getStudentFileSignedUrl(path: string, expiresIn: number = 3600): Promise<string> {
+  return getSignedUrlFromBucket('student-files', path, expiresIn);
+}
+
+export async function deleteStudentFile(path: string): Promise<void> {
+  return deleteFromBucket('student-files', path);
+}

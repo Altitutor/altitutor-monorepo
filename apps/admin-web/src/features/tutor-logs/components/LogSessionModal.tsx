@@ -19,6 +19,7 @@ import { Step8Notes } from './steps/Step8Notes';
 import { Step9Confirmation } from './steps/Step9Confirmation';
 import { MeetingAdminStaffSessionStep } from './steps/MeetingAdminStaffSessionStep';
 import { MeetingCombinedAttendanceStep } from './steps/MeetingCombinedAttendanceStep';
+import { WizardStepBlockers } from './WizardStepBlockers';
 
 type LogSessionModalProps = {
   isOpen: boolean;
@@ -62,7 +63,7 @@ export function LogSessionModal({
     handleAddParentToSession,
     handleRemoveStaffFromSession,
     handleRemoveStudentFromSession,
-    canGoNext,
+    stepBlockers,
   } = useLogSessionFlow({
     isOpen,
     onClose,
@@ -435,22 +436,25 @@ export function LogSessionModal({
             <Button onClick={onClose}>Close</Button>
           </div>
         ) : (
-          <div className="flex w-full justify-between">
+          <div className="flex w-full flex-col gap-3">
+            <WizardStepBlockers blockers={stepBlockers} />
+            <div className="flex w-full justify-between">
             <Button variant="outline" onClick={handlePrevious} disabled={currentStep === 0}>
               <ChevronLeft className="h-4 w-4 mr-2" />
               Previous
             </Button>
 
             {currentStep < totalSteps - 1 ? (
-              <Button onClick={handleNext} disabled={!canGoNext}>
+              <Button onClick={handleNext}>
                 Next
                 <ChevronRight className="h-4 w-4 ml-2" />
               </Button>
             ) : (
-              <Button onClick={handleSubmit} disabled={submissionState === 'submitting' || !canGoNext}>
+              <Button onClick={handleSubmit} disabled={submissionState === 'submitting'}>
                 {submissionState === 'submitting' ? 'Submitting...' : 'Submit log'}
               </Button>
             )}
+            </div>
           </div>
         )
       }

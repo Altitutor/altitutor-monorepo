@@ -85,7 +85,11 @@ describe("deleteUcatProductAccount", () => {
       deleteAuthUser,
     });
 
-    expect(result).toEqual({ ok: true, loginRemoved: true });
+    expect(result).toEqual({
+      ok: true,
+      loginRemoved: true,
+      studentId: "student-1",
+    });
     expect(cancelStripeSubscription).toHaveBeenCalledWith("sub_123");
     expect(deletionStore.markSubscriptionCanceled).toHaveBeenCalledWith(
       "sub-row-1",
@@ -118,7 +122,11 @@ describe("deleteUcatProductAccount", () => {
       deleteAuthUser,
     });
 
-    expect(result).toEqual({ ok: true, loginRemoved: false });
+    expect(result).toEqual({
+      ok: true,
+      loginRemoved: false,
+      studentId: "student-1",
+    });
     expect(deletionStore.deleteLearningData).toHaveBeenCalledWith("student-1");
     expect(deletionStore.unlinkLogin).not.toHaveBeenCalled();
     expect(deleteAuthUser).not.toHaveBeenCalled();
@@ -138,7 +146,11 @@ describe("deleteUcatProductAccount", () => {
       deleteAuthUser,
     });
 
-    expect(result).toEqual({ ok: true, loginRemoved: false });
+    expect(result).toEqual({
+      ok: true,
+      loginRemoved: false,
+      studentId: "student-1",
+    });
     expect(deleteAuthUser).not.toHaveBeenCalled();
   });
 
@@ -189,7 +201,11 @@ describe("deleteUcatProductAccount", () => {
       deleteAuthUser: jest.fn(async () => undefined),
     });
 
-    expect(result).toEqual({ ok: true, loginRemoved: true });
+    expect(result).toEqual({
+      ok: true,
+      loginRemoved: true,
+      studentId: "student-1",
+    });
     expect(cancelStripeSubscription).not.toHaveBeenCalled();
     expect(deletionStore.deleteLearningData).toHaveBeenCalledWith("student-1");
   });

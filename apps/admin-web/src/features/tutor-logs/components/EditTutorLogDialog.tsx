@@ -17,7 +17,7 @@ import { Step4Topics } from './steps/Step4Topics';
 import { Step5TopicStudents } from './steps/Step5TopicStudents';
 import { Step6Files } from './steps/Step6Files';
 import { Step7FileStudents } from './steps/Step7FileStudents';
-import { getAttendedStudentIds } from '../utils/logSessionHelpers';
+import { getAttendedStudentIds, normalizeTutorLogFormDataForSubmit } from '../utils/logSessionHelpers';
 import { AdminDialogShell } from '@/shared/components';
 
 interface EditTutorLogDialogProps {
@@ -162,7 +162,7 @@ export function EditTutorLogDialog({
     try {
       await updateMutation.mutateAsync({
         id: tutorLogId,
-        data: {
+        data: normalizeTutorLogFormDataForSubmit({
           sessionId: formData.sessionId,
           staffAttendance: formData.staffAttendance || [],
           studentAttendance: formData.studentAttendance || [],
@@ -170,7 +170,7 @@ export function EditTutorLogDialog({
           topics: formData.topics || [],
           topicFiles: formData.topicFiles || [],
           notes: formData.notes ?? [],
-        },
+        }),
         loggedForStaffId,
       });
 

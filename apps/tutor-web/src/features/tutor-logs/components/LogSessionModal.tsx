@@ -3,6 +3,10 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import type { Tables } from '@altitutor/shared';
 import {
+  assertResolvedAttendanceRows,
+  getAttendanceCompletionBlockers,
+} from '@altitutor/shared';
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -52,6 +56,9 @@ import { Step6Files } from './steps/Step6Files';
 import { Step7FileStudents } from './steps/Step7FileStudents';
 import { Step8Notes } from './steps/Step8Notes';
 import { Step9Confirmation } from './steps/Step9Confirmation';
+import { useTutorLogStep2Data } from '../hooks/useTutorLogStep2Data';
+import { useTutorLogStep3Data } from '../hooks/useTutorLogStep3Data';
+import { WizardStepBlockers } from './WizardStepBlockers';
 
 type LogSessionModalProps = {
   isOpen: boolean;
@@ -79,9 +86,14 @@ export function LogSessionModal({
   const [adminStaffResults, setAdminStaffResults] = useState<Tables<'staff'>[]>([]);
   const [adminStaffSearchLoading, setAdminStaffSearchLoading] = useState(false);
   const [showDiscardAlert, setShowDiscardAlert] = useState(false);
+  const [stepBlockers, setStepBlockers] = useState<string[]>([]);
   const wasOpenRef = useRef(false);
 
   const createMutation = useCreateTutorLog();
+
+  const sessionIdForSteps = formData.sessionId ?? '';
+  const { sessionStaff } = useTutorLogStep2Data(sessionIdForSteps);
+  const { sessionStudents } = useTutorLogStep3Data(sessionIdForSteps);
 
   const handleAdminStaffSearch = useCallback(async (search: string) => {
     if (!search.trim()) {
@@ -126,6 +138,7 @@ export function LogSessionModal({
       setAdminSelectedStaff(null);
       setAdminStaffResults([]);
       setShowDiscardAlert(false);
+      setStepBlockers([]);
     }
   }, [isOpen, currentStaffId]);
 
@@ -143,10 +156,94 @@ export function LogSessionModal({
   const skipSessionStep = !!preselectedSessionId;
   const totalSteps = adminMode ? 10 : (skipSessionStep ? 8 : 9); // Extra step for staff selection in admin mode
 
+  useEffect(() => {
+    setStepBlockers([]);
+  }, [currentStep, formData, adminSelectedStaff?.id]);
+
+  const getStepBlockers = useCallback((): string[] => {
+    if (adminMode && currentStep === 0) {
+      if (!adminSelectedStaff?.id) {
+        return ['Select the staff member this log is for.'];
+      }
+      return [];
+    }
+
+    const stepIndex = adminMode ? currentStep - 1 : currentStep;
+    const actualStepIndex = skipSessionStep ? stepIndex + 1 : stepIndex;
+
+    if (actualStepIndex === 0) {
+      if (!formData.sessionId) return ['Select a session.'];
+      return [];
+    }
+
+    const staffNames = Object.fromEntries(
+      sessionStaff.map((row) => [
+        row.staff_id,
+        `${row.staff.first_name} ${row.staff.last_name}`.trim(),
+      ])
+    );
+    const studentNames = Object.fromEntries(
+      sessionStudents.map((row) => [
+        row.student_id,
+        `${row.student.first_name} ${row.student.last_name}`.trim(),
+      ])
+    );
+
+    if (actualStepIndex === 1) {
+      return getAttendanceCompletionBlockers({
+        staffIds: sessionStaff.map((row) => row.staff_id),
+        studentIds: [],
+        parentIds: [],
+        includeParents: false,
+        staffAttendance: formData.staffAttendance || [],
+        studentAttendance: [],
+        parentAttendance: [],
+        staffNames,
+      });
+    }
+
+    if (actualStepIndex === 2) {
+      return getAttendanceCompletionBlockers({
+        staffIds: [],
+        studentIds: sessionStudents.map((row) => row.student_id),
+        parentIds: [],
+        includeParents: false,
+        staffAttendance: [],
+        studentAttendance: formData.studentAttendance || [],
+        parentAttendance: [],
+        studentNames,
+      });
+    }
+
+    if (actualStepIndex === 3 && !(formData.topics || []).length) {
+      return ['Select at least one topic.'];
+    }
+
+    return [];
+  }, [
+    adminMode,
+    currentStep,
+    skipSessionStep,
+    formData,
+    adminSelectedStaff?.id,
+    sessionStaff,
+    sessionStudents,
+  ]);
+
   const handleNext = () => {
     if (currentStep < totalSteps - 1) {
       setCurrentStep(currentStep + 1);
     }
+  };
+
+  const attemptNext = () => {
+    const blockers = getStepBlockers();
+    if (blockers.length > 0) {
+      setStepBlockers(blockers);
+      return;
+    }
+    setStepBlockers([]);
+    handleNext();
   };
 
   const handlePrevious = () => {
@@ -158,18 +255,60 @@ export function LogSessionModal({
   const handleSubmit = async () => {
     if (!formData.sessionId) return;
 
+    const staffNames = Object.fromEntries(
+      sessionStaff.map((row) => [
+        row.staff_id,
+        `${row.staff.first_name} ${row.staff.last_name}`.trim(),
+      ])
+    );
+    const studentNames = Object.fromEntries(
+      sessionStudents.map((row) => [
+        row.student_id,
+        `${row.student.first_name} ${row.student.last_name}`.trim(),
+      ])
+    );
+    const submitBlockers = getAttendanceCompletionBlockers({
+      staffIds: sessionStaff.map((row) => row.staff_id),
+      studentIds: sessionStudents.map((row) => row.student_id),
+      parentIds: [],
+      includeParents: false,
+      staffAttendance: formData.staffAttendance || [],
+      studentAttendance: formData.studentAttendance || [],
+      parentAttendance: [],
+      staffNames,
+      studentNames,
+    });
+    if (submitBlockers.length > 0) {
+      setStepBlockers(submitBlockers);
+      return;
+    }
+
     setSubmissionState('submitting');
     setSubmissionError(null);
     setIsSubmitting(true);
+    setStepBlockers([]);
     try {
+      const payload: TutorLogFormData = {
+        ...(formData as TutorLogFormData),
+        staffAttendance: assertResolvedAttendanceRows(
+          formData.staffAttendance || [],
+          'Staff attendance'
+        ),
+        studentAttendance: assertResolvedAttendanceRows(
+          formData.studentAttendance || [],
+          'Student attendance'
+        ),
+      };
       await createMutation.mutateAsync({
-        data: formData as TutorLogFormData,
+        data: payload,
       });
       setSubmissionState('success');
     } catch (error) {
       console.error('Failed to create tutor log:', error);
       setSubmissionState('error');
-      setSubmissionError(error instanceof Error ? error.message : 'Failed to submit log. Please try again.');
+      setSubmissionError(
+        error instanceof Error ? error.message : 'Failed to submit log. Please try again.'
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -364,7 +503,7 @@ export function LogSessionModal({
           <Step5TopicStudents
             topics={formData.topics || []}
             attendedStudentIds={(formData.studentAttendance || [])
-              .filter((sa) => sa.attended)
+              .filter((sa) => sa.attended === true)
               .map((sa) => sa.studentId)}
             onUpdate={(topics) => updateFormData({ topics })}
           />
@@ -402,38 +541,6 @@ export function LogSessionModal({
         );
       default:
         return null;
-    }
-  };
-
-  const canGoNext = () => {
-    if (adminMode && currentStep === 0) return !!adminSelectedStaff?.id;
-    const stepIndex = adminMode ? currentStep - 1 : currentStep;
-    
-    // If session is preselected, skip Step 0 (session selection)
-    const actualStepIndex = skipSessionStep ? stepIndex + 1 : stepIndex;
-
-    switch (actualStepIndex) {
-      case 0:
-        // Session selection step - only check if not preselected
-        return skipSessionStep || !!formData.sessionId;
-      case 1:
-        return (formData.staffAttendance || []).length > 0;
-      case 2:
-        return (formData.studentAttendance || []).length > 0;
-      case 3:
-        return (formData.topics || []).length > 0;
-      case 4:
-        return true; // Can proceed even with no student assignments
-      case 5:
-        return true; // Allow proceeding with no files selected
-      case 6:
-        return true;
-      case 7:
-        return true; // Notes step
-      case 8:
-        return true; // Confirmation step - always allow submission
-      default:
-        return false;
     }
   };
 
@@ -510,7 +617,12 @@ export function LogSessionModal({
           </div>
         </div>
 
-        <DialogFooter className={cn('flex-shrink-0 flex-row justify-between px-6 py-4 sm:justify-between', tutorDialogFooterStrip)}>
+        <DialogFooter
+          className={cn(
+            'flex-shrink-0 flex-col gap-3 px-6 py-4 sm:flex-col',
+            tutorDialogFooterStrip
+          )}
+        >
           {submissionState === 'success' ? (
             <>
               <div></div>
@@ -529,6 +641,8 @@ export function LogSessionModal({
             </>
           ) : (
             <>
+              <WizardStepBlockers blockers={stepBlockers} />
+              <div className="flex w-full flex-row justify-between">
               <Button
                 variant="outline"
                 className={tutorBtnOutline}
@@ -543,8 +657,7 @@ export function LogSessionModal({
               {currentStep < totalSteps - 1 ? (
                 <Button
                   className={tutorBtnPrimary}
-                  onClick={handleNext}
-                  disabled={!canGoNext()}
+                  onClick={attemptNext}
                   data-dialog-primary-action=""
                 >
                   Next
@@ -554,12 +667,13 @@ export function LogSessionModal({
                 <Button
                   className={tutorBtnPrimary}
                   onClick={handleSubmit}
-                  disabled={submissionState === 'submitting' || !canGoNext()}
+                  disabled={submissionState === 'submitting'}
                   data-dialog-primary-action=""
                 >
                   {submissionState === 'submitting' ? 'Submitting...' : 'Submit Log'}
                 </Button>
               )}
+              </div>
             </>
           )}
         </DialogFooter>
