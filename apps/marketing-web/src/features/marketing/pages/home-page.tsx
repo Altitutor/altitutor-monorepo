@@ -2,13 +2,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, HeartHandshake } from "lucide-react";
 import { PRODUCT_LINKS } from "@/lib/site";
-import { content } from "../content";
+import { content, pageContent } from "../content";
+import { TestimonialMarquee } from "../components/testimonial-marquee";
 import {
   Button,
   ContentCard,
   Copy,
   Eyebrow,
-  Quotes,
   SectionTitle,
   TrialCTA,
 } from "../components/primitives";
@@ -72,9 +72,8 @@ export function HomePage() {
             Want better results?<em>Altitutor can help.</em>
           </h1>
           <p className={styles.lede}>
-            <HeartHandshake size={22} aria-hidden="true" />
-            A mission-driven non-profit providing accessible education for all
-            students.
+            <HeartHandshake size={22} aria-hidden="true" />A mission-driven
+            non-profit providing accessible education for all students.
           </p>
           <div className={styles.actions}>
             <Button href={PRODUCT_LINKS.trialBooking}>Book a free trial</Button>
@@ -171,14 +170,17 @@ export function HomePage() {
       <section
         className={`${styles.container} ${styles.section}`}
         data-nav-label="Why choose us"
+        data-scroll-sequence
       >
         <div className={styles.split}>
-          <SectionTitle eyebrow="Why choose us">
-            Good teaching.
-            <br />
-            <em>Support around it.</em>
-          </SectionTitle>
-          <div className={styles.benefits}>
+          <div className={styles.stickyIntro}>
+            <SectionTitle eyebrow="Why choose us">
+              Good teaching.
+              <br />
+              <em>Support around it.</em>
+            </SectionTitle>
+          </div>
+          <div className={styles.benefits} data-scroll-items>
             {["4909d86", "bbc3db2", "88e7edc", "bd33a23"].map((id, i) => (
               <ContentCard key={id} block={home(id)} number={i + 1} />
             ))}
@@ -189,9 +191,10 @@ export function HomePage() {
         id="how-it-works"
         className={`${styles.processSection} ${styles.section}`}
         data-nav-label="How it works"
+        data-scroll-sequence
       >
         <div className={`${styles.container} ${styles.split}`}>
-          <div className={styles.processIntro}>
+          <div className={`${styles.processIntro} ${styles.stickyIntro}`}>
             <Eyebrow>How it works</Eyebrow>
             <h2>
               Start where you are.
@@ -207,53 +210,41 @@ export function HomePage() {
                 Courses
               </Button>
             </div>
-            <div className={styles.subsidyNote}>
-              <Copy block={home("27683c5")} />
-              <Copy block={home("47753a1")} />
-              <Copy block={home("a4a328d")} />
-            </div>
           </div>
-          <div className={styles.timeline}>
+          <div className={styles.timeline} data-scroll-items>
             {steps.map(([id, title]) => (
               <article key={id}>
                 <h3>{title}</h3>
                 <Copy block={home(id)} />
               </article>
             ))}
+            <div className={styles.subsidyNote}>
+              <Copy block={home("27683c5")} />
+              <Copy block={home("47753a1")} />
+              <Copy block={home("a4a328d")} />
+            </div>
           </div>
         </div>
       </section>
-      <section
-        className={`${styles.container} ${styles.section}`}
-        data-nav-label="Student stories"
-      >
-        <SectionTitle eyebrow="Student stories">
-          See what our students
-          <br />
-          <em>have to say.</em>
-        </SectionTitle>
-        <Quotes items={home("68bcaf8").items ?? []} />
-        <div className={styles.stats}>
-          {[
-            ["411ec3f", "19ebe95"],
-            ["7f3ff04", "207f253"],
-            ["52fb120", "dd6d4c1"],
-            ["d7f5c3a", "1d9e88f"],
-          ].map(([stat, label]) => (
-            <div key={stat}>
-              <span className={styles.statValue}>{home(stat).value}</span>
-              <Copy block={home(label)} />
-            </div>
-          ))}
+      <section className={styles.section} data-nav-label="Student stories">
+        <div className={styles.container}>
+          <SectionTitle eyebrow="Student stories">
+            See what our students
+            <br />
+            <em>have to say.</em>
+          </SectionTitle>
         </div>
-        <p className={styles.statsContext}>
-          Published student outcomes and feedback. Every student’s experience is
-          different.
-        </p>
-        <Link className={styles.textLink} href="/about/testimonials/">
-          All reviews, results and how we measure them{" "}
-          <ArrowRight size={17} aria-hidden="true" />
-        </Link>
+        <TestimonialMarquee
+          items={pageContent("/about/testimonials/")
+            .filter((block) => block.kind === "testimonial-carousel")
+            .flatMap((block) => block.items ?? [])}
+        />
+        <div className={styles.container}>
+          <Link className={styles.textLink} href="/about/testimonials/">
+            All reviews, results and how we measure them{" "}
+            <ArrowRight size={17} aria-hidden="true" />
+          </Link>
+        </div>
       </section>
       <TrialCTA eyebrow="Free trial session" />
     </>

@@ -210,7 +210,8 @@ export function Navigation() {
       ) : null}
       <header
         ref={header}
-        onPointerLeave={() => {
+        onPointerLeave={(event) => {
+          if (event.pointerType !== "mouse") return;
           if (
             !header.current
               ?.querySelector("[data-desktop-panel]")
@@ -268,17 +269,20 @@ export function Navigation() {
             {groups.map(({ href, label }, index) => {
               const id = `course-navigation-${index}`;
               return (
-                <Link
+                <button
                   key={href}
-                  href={href}
-                  aria-current={pathname === href ? "page" : undefined}
+                  type="button"
                   aria-expanded={dropdown === id}
                   aria-controls="desktop-course-navigation"
                   data-course-trigger={id}
                   className={styles.courseTrigger}
-                  onPointerEnter={() => expandGroup(index)}
+                  onPointerEnter={(event) => {
+                    if (event.pointerType === "mouse") expandGroup(index);
+                  }}
                   onFocus={() => expandGroup(index)}
-                  onClick={() => setDropdown(null)}
+                  onClick={() => {
+                    if (dropdown !== id) expandGroup(index);
+                  }}
                   onKeyDown={(event) => {
                     if (event.key === "ArrowDown") {
                       event.preventDefault();
@@ -299,7 +303,7 @@ export function Navigation() {
                     className={styles.courseChevron}
                     aria-hidden="true"
                   />
-                </Link>
+                </button>
               );
             })}
             {links.map(([href, label]) => (
