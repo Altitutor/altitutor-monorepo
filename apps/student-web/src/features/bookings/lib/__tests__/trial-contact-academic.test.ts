@@ -2,6 +2,8 @@ import {
   curriculumAfterYearLevelChange,
   formatSubjectWithYearContext,
   impliedCurriculumForYearLevel,
+  trialBookingSubjectKey,
+  trialCrossYearShortNamesForYear,
   yearLevelNeedsCurriculumChoice,
 } from '../trial-contact-academic';
 
@@ -27,6 +29,20 @@ describe('trial contact academic fields', () => {
     expect(curriculumAfterYearLevelChange('10', 'IB')).toBe('PRESACE');
     expect(curriculumAfterYearLevelChange('11', 'PRESACE')).toBeUndefined();
     expect(curriculumAfterYearLevelChange(undefined, 'SACE')).toBeUndefined();
+  });
+
+  it('offers UCAT from year 9 and medicine interview from year 12', () => {
+    expect(trialCrossYearShortNamesForYear('8')).toEqual([]);
+    expect(trialCrossYearShortNamesForYear('9')).toEqual(['UCAT']);
+    expect(trialCrossYearShortNamesForYear('11')).toEqual(['UCAT']);
+    expect(trialCrossYearShortNamesForYear('12')).toEqual(['UCAT', 'MEDI']);
+    expect(trialCrossYearShortNamesForYear('13')).toEqual(['UCAT', 'MEDI']);
+  });
+
+  it('accepts trial booking subject keys from course pages', () => {
+    expect(trialBookingSubjectKey('ucat')).toBe('ucat');
+    expect(trialBookingSubjectKey('MEDI')).toBe('medi');
+    expect(trialBookingSubjectKey('chemistry')).toBeNull();
   });
 
   it('labels another-year subjects with curriculum and year', () => {

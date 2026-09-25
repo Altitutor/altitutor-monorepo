@@ -1,5 +1,4 @@
 import { PRODUCT_LINKS } from "@/lib/site";
-import dynamic from "next/dynamic";
 import { pageContent, type ContentBlock } from "../content";
 import {
   Button,
@@ -11,12 +10,6 @@ import {
 } from "../components/primitives";
 import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
-
-const MedicalInterviewWaitlistSection = dynamic(() =>
-  import(
-    "@/features/product-landing/ucat/medical-interview-waitlist-section"
-  ).then((module) => module.MedicalInterviewWaitlistSection),
-);
 
 const courseHeadings: Record<string, [string, string]> = {
   "/classes/weekly-classes/": ["Weekly tutoring.", "Get ahead. Stay ahead."],
@@ -103,7 +96,15 @@ export function CoursePage({ path }: { path: string }) {
   const [title, emphasis] = courseHeadings[path];
   const image = introduction.blocks.find((b) => b.kind === "image");
   const facts = introduction.blocks.find((b) => b.kind === "icon-list");
-  const interview = path === "/classes/medical-interview-preparation/";
+  const trialSubject =
+    path === "/classes/ucatprep/"
+      ? "ucat"
+      : path === "/classes/medical-interview-preparation/"
+        ? "medi"
+        : null;
+  const trialHref = trialSubject
+    ? `${PRODUCT_LINKS.trialBooking}?subject=${trialSubject}`
+    : PRODUCT_LINKS.trialBooking;
   return (
     <>
       <section
@@ -121,11 +122,7 @@ export function CoursePage({ path }: { path: string }) {
               <Copy key={b.id} block={b} />
             ))}
           <div className={styles.actions}>
-            <Button
-              href={interview ? "#get-started" : PRODUCT_LINKS.trialBooking}
-            >
-              {interview ? "Join the interview waitlist" : "Book a free trial"}
-            </Button>
+            <Button href={trialHref}>Book a free trial</Button>
             <Button href="#course-details" secondary>
               Explore the course
             </Button>
@@ -152,7 +149,6 @@ export function CoursePage({ path }: { path: string }) {
                 {s.title}
               </a>
             ))}
-            {interview ? <a href="#get-started">Join the waitlist</a> : null}
           </nav>
           <div>
             {body.map((section) => (
@@ -168,7 +164,7 @@ export function CoursePage({ path }: { path: string }) {
           </div>
         </div>
       </div>
-      {interview ? <MedicalInterviewWaitlistSection /> : <TrialCTA />}
+      <TrialCTA href={trialHref} />
     </>
   );
 }
