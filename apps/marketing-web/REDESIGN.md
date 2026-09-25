@@ -1,6 +1,7 @@
 # Marketing redesign
 
-The `redesign` branch incorporates `origin/develop` through `4515cb392`.
+The `redesign` branch incorporates local `develop` through `c7b767df3` and
+`origin/develop` through `ac00417df`.
 Work is isolated in `.scratch/marketing-redesign` so other work in the main checkout is unaffected.
 
 ## Presentation
@@ -95,3 +96,13 @@ exactly two unresolved groups on one page (pagination exhausted):
   pending a script origin or reproduction with the affected Safari extension.
 
 No Sentry issues were marked resolved and no production settings were changed.
+
+Final refinement validation: production build generates 31 routes; all 497
+content passages pass. Marketing lint/typecheck/Jest and the two legacy-script
+regression tests pass. Repository lint/typecheck pass; all 21 repository unit-test
+tasks pass when rerun with local IPC permission. The remaining full-gate stages
+(coverage, Edge contracts, full workspace build, database contracts and critical
+browser journeys) were not completed. Shared local database state was not reset.
+Browser checks cover the desktop mountain hero, mobile layouts at 390 and 320px,
+white navigation on scroll, menu open/close/Escape, focus restoration and menu
+navigation. No browser console errors were observed in these flows.
