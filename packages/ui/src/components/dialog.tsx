@@ -48,12 +48,13 @@ interface DialogContentProps
   mobilePresentation?: "fullscreen" | "bottom-sheet";
   /** When false, Cmd/Ctrl+Enter will not activate the primary footer action. */
   primaryShortcut?: boolean;
+  overlayClassName?: string;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideCloseButton = false, mobilePresentation = "fullscreen", primaryShortcut = true, ...props }, ref) => {
+>(({ className, children, hideCloseButton = false, mobilePresentation = "fullscreen", primaryShortcut = true, overlayClassName, ...props }, ref) => {
   const setDateTimeFocusRef = useModalNativeDateTimeFocusGuards<HTMLDivElement>();
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   useDialogPrimaryActionShortcut(contentRef, primaryShortcut);
@@ -83,7 +84,7 @@ const DialogContent = React.forwardRef<
     <DialogPortal>
       <DialogOverlay
         data-mobile-bottom-sheet={isBottomSheet ? "true" : undefined}
-        className={cn(isBottomSheet && "max-md:bg-black/60")}
+        className={cn(isBottomSheet && "max-md:bg-black/60", overlayClassName)}
       />
       <DialogPrimitive.Content
         ref={mergedRef}

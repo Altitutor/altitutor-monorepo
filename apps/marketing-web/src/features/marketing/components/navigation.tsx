@@ -261,7 +261,14 @@ export function Navigation() {
           <Link href="/" className={styles.brand} aria-label="Altitutor home">
             <SiteLogo
               variant={logoVariant}
-              className={styles.navLogo}
+              layout="banner"
+              className={`${styles.navLogo} ${styles.navLogoBanner}`}
+              priority
+            />
+            <SiteLogo
+              variant={logoVariant}
+              layout="mark"
+              className={`${styles.navLogo} ${styles.navLogoMark}`}
               priority
             />
           </Link>
