@@ -461,15 +461,8 @@
 .timeline .copy > h3:first-child {
   display: none;
 }
-.subsidyNote {
-  padding: 25px;
-  background: #ffffff80;
-  border-radius: 30px;
-  margin-top: 30px;
-  font-size: 0.95rem;
-}
-.subsidyNote .copy + .copy {
-  margin-top: 16px;
+.timelineLearnMore {
+  margin-top: 18px;
 }
 .stats {
   display: grid;
@@ -1352,7 +1345,7 @@
   margin-top: 45px;
 }
 .resultStack {
-  padding-bottom: 16vh;
+  padding-bottom: 36vh;
 }
 .resultStackCard {
   position: sticky;
