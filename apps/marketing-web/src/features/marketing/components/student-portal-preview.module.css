@@ -1,5 +1,5 @@
 .stage {
-  --portal-loop: 28s;
+  --portal-loop: 20s;
   position: relative;
   height: 100%;
 }
