@@ -226,7 +226,7 @@ export function StaffSessionsCalendarView({
                               })),
                             ).map((placement) => [placement.id, placement]),
                           );
-                          group.forEach((s: Tables<'sessions'>, idx: number) => {
+                          group.forEach((s: Tables<'sessions'>) => {
                             const placement = placements.get(s.id);
                             const total = placement?.columnCount ?? 1;
                             const column = placement?.column ?? 0;
