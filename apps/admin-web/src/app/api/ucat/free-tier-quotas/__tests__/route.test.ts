@@ -83,23 +83,40 @@ function queryResult(table: string): QueryResult {
   throw new Error(`Unexpected table: ${table}`);
 }
 
-function queryBuilder(table: string) {
-  const builder: Record<string, (...args: unknown[]) => unknown> = {};
-  const chain = () => builder;
-  for (const method of ['select', 'eq', 'in', 'gte', 'not', 'is', 'order', 'limit']) {
-    builder[method] = chain;
-  }
-  builder.or = (filter: unknown) => {
-    if (table === 'student_question_attempts' && typeof filter === 'string') {
-      practiceAnswerFilter = filter;
-    }
-    return builder;
+type QueryBuilder = {
+  select: (...args: unknown[]) => QueryBuilder;
+  eq: (...args: unknown[]) => QueryBuilder;
+  in: (...args: unknown[]) => QueryBuilder;
+  gte: (...args: unknown[]) => QueryBuilder;
+  not: (...args: unknown[]) => QueryBuilder;
+  is: (...args: unknown[]) => QueryBuilder;
+  order: (...args: unknown[]) => QueryBuilder;
+  limit: (...args: unknown[]) => QueryBuilder;
+  or: (filter: unknown) => QueryBuilder;
+  maybeSingle: () => Promise<QueryResult>;
+  then: Promise<QueryResult>['then'];
+};
+
+function queryBuilder(table: string): QueryBuilder {
+  const promise = Promise.resolve(queryResult(table));
+  const builder: QueryBuilder = {
+    select: () => builder,
+    eq: () => builder,
+    in: () => builder,
+    gte: () => builder,
+    not: () => builder,
+    is: () => builder,
+    order: () => builder,
+    limit: () => builder,
+    or: (filter: unknown) => {
+      if (table === 'student_question_attempts' && typeof filter === 'string') {
+        practiceAnswerFilter = filter;
+      }
+      return builder;
+    },
+    maybeSingle: () => promise,
+    then: (onFulfilled, onRejected) => promise.then(onFulfilled, onRejected),
   };
-  builder.maybeSingle = () => Promise.resolve(queryResult(table));
-  builder.then = (
-    onFulfilled?: ((value: QueryResult) => unknown) | null,
-    onRejected?: ((reason: unknown) => unknown) | null,
-  ) => Promise.resolve(queryResult(table)).then(onFulfilled, onRejected);
   return builder;
 }
 
@@ -129,6 +146,10 @@ describe('GET /api/ucat/free-tier-quotas', () => {
     const response = await GET({
       nextUrl: { searchParams: new URLSearchParams() },
     } as never);
+
+    if (!response) {
+      throw new Error('Expected a response');
+    }
 
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
