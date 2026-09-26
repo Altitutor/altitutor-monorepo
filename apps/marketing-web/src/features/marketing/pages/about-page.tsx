@@ -33,22 +33,15 @@ export function AboutPage() {
           </h1>
           <Copy block={about("9423a48")} />
         </div>
-        <div className={styles.portraitComposition}>
+        <div className={styles.aboutHeroPhoto}>
           <Image
-            src={about("3b2d88d").image!}
-            alt="Matthew Chua, Altitutor tutor"
-            width={300}
-            height={300}
+            src="/images/marketing/about-us.jpg"
+            alt="Tutors and students working at desks in the Altitutor learning centre"
+            width={1600}
+            height={1066}
             priority
+            sizes="(max-width: 800px) 90vw, 45vw"
           />
-          <Image
-            src={about("9f20f4f").image!}
-            alt="Lara Nguyen, Altitutor team"
-            width={300}
-            height={300}
-            priority
-          />
-          <p>People who care about your next chapter.</p>
         </div>
       </section>
       <div className={styles.container}>

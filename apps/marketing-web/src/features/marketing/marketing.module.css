@@ -764,32 +764,19 @@
 .aboutHero .copy {
   margin-top: 32px;
 }
-.portraitComposition {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 16px;
-  transform: rotate(3deg);
-  padding: 25px;
+.aboutHeroPhoto {
+  transform: rotate(2deg);
+  padding: 22px;
   background: #e5e9e4;
-  border-radius: 40% 40% 30px 30px;
-}
-.portraitComposition img {
-  height: 240px;
-  width: 100%;
-  object-fit: cover;
   border-radius: 30px;
 }
-.portraitComposition img:nth-child(2) {
-  margin-top: 55px;
-}
-.portraitComposition p {
-  grid-column: 1 / -1;
-  font-family: var(--marketing-font-editorial);
-  font-size: 1.8rem;
-  font-style: italic;
-  text-align: center;
-  color: var(--primary);
-  transform: rotate(-3deg);
+.aboutHeroPhoto img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: 22px;
 }
 .valuesGrid {
   display: grid;
@@ -1369,7 +1356,7 @@
 }
 .resultStackCard {
   position: sticky;
-  top: 110px;
+  top: calc((100svh + 90px) / 2 - 10rem);
   z-index: 1;
   margin-bottom: 28vh;
   padding: 40px 44px 32px;
@@ -1377,7 +1364,7 @@
   border-radius: 30px;
   background: #fff;
   box-shadow: var(--card-shadow);
-  transform-origin: top center;
+  transform-origin: center center;
 }
 .resultStackCard:last-child {
   margin-bottom: 0;
@@ -1391,7 +1378,7 @@
 }
 @media (max-width: 800px) {
   .resultStackCard {
-    top: 96px;
+    top: calc((100svh + 76px) / 2 - 12rem);
     margin-bottom: 22vh;
     padding: 28px 22px 22px;
   }
@@ -1497,12 +1484,8 @@
   .resultsYear .stats {
     grid-template-columns: repeat(3, 1fr);
   }
-  .portraitComposition {
+  .aboutHeroPhoto {
     padding: 18px;
-    gap: 12px;
-  }
-  .portraitComposition img {
-    height: 180px;
   }
 }
 @media (max-width: 800px) {
@@ -1574,13 +1557,10 @@
   .timeline > article {
     padding-left: 40px;
   }
-  .portraitComposition {
-    max-width: 500px;
+  .aboutHeroPhoto {
+    max-width: 560px;
     margin-inline: auto;
-    transform: rotate(2deg);
-  }
-  .portraitComposition img {
-    height: 240px;
+    transform: rotate(1deg);
   }
   .teaching {
     grid-template-columns: 1fr;
@@ -1711,11 +1691,8 @@
   .copy {
     line-height: 1.7;
   }
-  .portraitComposition img {
-    height: 185px;
-  }
-  .portraitComposition p {
-    font-size: 1.5rem;
+  .aboutHeroPhoto {
+    padding: 14px;
   }
   .pageLinks {
     gap: 12px 22px;

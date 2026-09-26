@@ -1524,10 +1524,93 @@
       "html": "<p>We are so <strong>proud</strong> of how our previous <strong>graduating Year 12s</strong> have done!</p><p>Please note that the results shown here are not necessarily indicative of how you will perform if you study with us – every student is different and you should only compare your grades with the grades you’ve gotten in the past.</p>"
     },
     {
+      "id": "c5e0250",
+      "kind": "heading",
+      "title": "2025 results"
+    },
+    {
+      "id": "c5e0251",
+      "kind": "counter",
+      "title": "Student subjects",
+      "value": "—"
+    },
+    {
+      "id": "c5e0252",
+      "kind": "counter",
+      "title": "Received an offer for their top preference",
+      "value": "—"
+    },
+    {
+      "id": "c5e0253",
+      "kind": "counter",
+      "title": "Average (raw) ATAR",
+      "value": "—"
+    },
+    {
+      "id": "c5e0254",
+      "kind": "counter",
+      "title": "Top (raw) ATAR",
+      "value": "—"
+    },
+    {
+      "id": "c5e0255",
+      "kind": "counter",
+      "title": "Average tutor rating",
+      "value": "—"
+    },
+    {
+      "id": "c5e0256",
+      "kind": "counter",
+      "title": "Average course rating",
+      "value": "—"
+    },
+    {
+      "id": "c4e0240",
+      "kind": "heading",
+      "title": "2024 results"
+    },
+    {
+      "id": "c4e0241",
+      "kind": "counter",
+      "title": "Student subjects",
+      "value": "—"
+    },
+    {
+      "id": "c4e0242",
+      "kind": "counter",
+      "title": "Received an offer for their top preference",
+      "value": "—"
+    },
+    {
+      "id": "c4e0243",
+      "kind": "counter",
+      "title": "Average (raw) ATAR",
+      "value": "—"
+    },
+    {
+      "id": "c4e0244",
+      "kind": "counter",
+      "title": "Top (raw) ATAR",
+      "value": "—"
+    },
+    {
+      "id": "c4e0245",
+      "kind": "counter",
+      "title": "Average tutor rating",
+      "value": "—"
+    },
+    {
+      "id": "c4e0246",
+      "kind": "counter",
+      "title": "Average course rating",
+      "value": "—"
+    },
+    {
       "id": "9c6393d",
       "kind": "heading",
       "title": "2023 results"
     },
+
     {
       "id": "679d6c0",
       "kind": "counter",

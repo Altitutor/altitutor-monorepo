@@ -11,7 +11,7 @@ export function ContactPage() {
       <section className={`${styles.hero} ${styles.contactHero}`}>
         <Eyebrow>Contact us</Eyebrow>
         <h1>
-          A question?<em>Let’s talk.</em>
+          Got a question?<em>Let’s talk.</em>
         </h1>
         <Copy
           block={content("/about/contact/", "2cc856f5")}
