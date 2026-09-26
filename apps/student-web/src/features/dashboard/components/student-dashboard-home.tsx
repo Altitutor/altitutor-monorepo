@@ -3,16 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { addDays, format } from 'date-fns';
-import {
-  ArrowRight,
-  BookOpen,
-  Calendar,
-  CreditCard,
-  Settings,
-  User,
-  type LucideIcon,
-} from 'lucide-react';
-import { Button, ClickableNavCard } from '@altitutor/ui';
+import { ArrowRight } from 'lucide-react';
+import { Button } from '@altitutor/ui';
 import type { StudentSessionWithStaff } from '@/shared/api/sessions';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { StudentTodaySessionsCalendarView } from '@/features/sessions/components/StudentTodaySessionsCalendarView';
@@ -24,46 +16,6 @@ import { cn } from '@/shared/utils';
 
 const SESSION_RANGE_DAYS = 56;
 const SESSION_PAST_DAYS = 120;
-
-type QuickLinkItem = {
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-};
-
-const quickLinks: QuickLinkItem[] = [
-  {
-    title: 'Classes & timetable',
-    description: 'Enrolments, calendar, and session tools',
-    href: '/classes',
-    icon: Calendar,
-  },
-  {
-    title: 'Resources',
-    description: 'Subject notes, topics, and files',
-    href: '/resources',
-    icon: BookOpen,
-  },
-  {
-    title: 'Billing',
-    description: 'Subscriptions, invoices, and payment methods',
-    href: '/billing/invoices',
-    icon: CreditCard,
-  },
-  {
-    title: 'My profile',
-    description: 'Personal details and preferences',
-    href: '/settings/profile',
-    icon: User,
-  },
-  {
-    title: 'Settings',
-    description: 'Account and notification settings',
-    href: '/settings',
-    icon: Settings,
-  },
-];
 
 function classGroupKey(session: StudentSessionWithStaff): string {
   return session.class_id ?? session.subject_id ?? session.session_id ?? '';
@@ -173,30 +125,6 @@ export function StudentDashboardHome({ firstName }: StudentDashboardHomeProps) {
             onOpenSession={openSession}
           />
         </div>
-
-        <section aria-labelledby="quick-links-heading" className="space-y-4">
-          <div className="mb-4 flex items-center gap-2">
-            <h2 id="quick-links-heading" className="text-2xl font-semibold">
-              Quick links
-            </h2>
-          </div>
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {quickLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.href} className="flex min-w-0 flex-col">
-                  <ClickableNavCard
-                    href={item.href}
-                    icon={Icon}
-                    title={item.title}
-                    description={item.description}
-                    cardClassName={studentCardCn()}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        </section>
       </StudentPageContainer>
 
       <SessionModal
