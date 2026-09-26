@@ -73,10 +73,11 @@ export function BookingFlow({
         {description && <p className="text-muted-foreground mt-2">{description}</p>}
       </div>
 
-      {/* Step Indicator - Centered */}
-      <div className="flex items-center justify-center space-x-2">
+      {/* Step Indicator - centered when it fits; scroll horizontally on narrow viewports */}
+      <div className="overflow-x-auto overscroll-x-contain">
+        <div className="flex w-max min-w-full items-center justify-center gap-2 px-1">
         {steps.map((step, index) => (
-          <div key={step.id} className="flex items-center">
+          <div key={step.id} className="flex shrink-0 items-center">
             <div
               className={cn(
                 'flex items-center justify-center w-8 h-8 rounded-full text-sm font-medium',
@@ -92,13 +93,14 @@ export function BookingFlow({
             {index < steps.length - 1 && (
               <div
                 className={cn(
-                  'w-12 h-0.5 mx-2',
+                  'mx-2 h-0.5 w-8 sm:w-12',
                   index < currentStep ? 'bg-primary' : 'bg-muted'
                 )}
               />
             )}
           </div>
         ))}
+        </div>
       </div>
 
       {/* Pills for date/time and duration - Show only in details step (step 2) */}
