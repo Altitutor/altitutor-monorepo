@@ -9,6 +9,7 @@ import { cn } from '@/shared/utils/index';
 import { adelaideTimeToMinutes, combineLocalDateAndTime } from '@/shared/utils/datetime';
 import { SessionsCard } from '@/features/sessions/components/SessionsCard';
 import { Button } from '@altitutor/ui';
+import { sessionCalendarDate } from '../hooks/useClassTransferSessions';
 
 interface EnrollmentWeekCalendarProps {
   studentId: string | null;
@@ -23,6 +24,7 @@ interface EnrollmentWeekCalendarProps {
   oldClassSubject?: Tables<'subjects'>;
   oldClassStaff?: Tables<'staff'>[];
   isChangeClassMode?: boolean;
+  inclusiveLastOldClassDate?: string;
   // Unenroll mode props
   isUnenrollMode?: boolean;
   unenrollingClassId?: string;
@@ -98,6 +100,7 @@ export function EnrollmentWeekCalendar({
   oldClassSubject,
   oldClassStaff = [],
   isChangeClassMode = false,
+  inclusiveLastOldClassDate,
   isUnenrollMode = false,
   unenrollingClassId,
   finalSessionDate,
@@ -243,22 +246,19 @@ export function EnrollmentWeekCalendar({
       });
     }
     
-    // In change class mode, filter out old class sessions on or after changeover date
+    // In change class mode, keep old-class lessons only through the inclusive final date.
     if (isChangeClassMode && oldClass) {
       const changeoverDateOnly = new Date(enrollmentDateObj.getFullYear(), enrollmentDateObj.getMonth(), enrollmentDateObj.getDate());
       
       filteredSessions = filteredSessions.filter((s) => {
-        // If session belongs to old class, only show if it's before changeover date
-        if (s.class_id === oldClass.id) {
-          const sessionDate = s.start_at ? new Date(s.start_at) : null;
-          if (sessionDate) {
-            const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
-            return sessionDateOnly < changeoverDateOnly;
-          }
-          return false; // No start_at, filter out
+        if (s.class_id !== oldClass.id) return true;
+        if (!s.start_at) return false;
+        if (inclusiveLastOldClassDate) {
+          return sessionCalendarDate(s.start_at, oldClass.schedule_timezone) <= inclusiveLastOldClassDate;
         }
-        // Keep all other sessions (other classes)
-        return true;
+        const sessionDate = new Date(s.start_at);
+        const sessionDateOnly = new Date(sessionDate.getFullYear(), sessionDate.getMonth(), sessionDate.getDate());
+        return sessionDateOnly < changeoverDateOnly;
       });
     }
     
@@ -266,13 +266,13 @@ export function EnrollmentWeekCalendar({
     if (!isClassContext && !isUnenrollMode) {
       // In change class mode, also add old class potential sessions
       if (isChangeClassMode) {
-        return [...filteredSessions, ...potentialSessions, ...potentialOldClassSessions];
+        return [...filteredSessions, ...potentialSessions, ...(inclusiveLastOldClassDate ? [] : potentialOldClassSessions)];
       }
       return [...filteredSessions, ...potentialSessions];
     }
     
     return filteredSessions;
-  }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, isUnenrollMode, unenrollingClassId, finalSessionDate, oldClass, enrollmentDateObj]);
+  }, [data?.sessions, potentialSessions, potentialOldClassSessions, isClassContext, isChangeClassMode, inclusiveLastOldClassDate, isUnenrollMode, unenrollingClassId, finalSessionDate, oldClass, enrollmentDateObj]);
 
   // Calculate dynamic time range based on sessions
   const { startHour, slots } = useMemo(() => {

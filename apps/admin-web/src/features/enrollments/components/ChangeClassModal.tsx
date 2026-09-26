@@ -253,6 +253,8 @@ export function ChangeClassModal({
 
             {step === 2 && (
               <ChangeClassStep2SelectDate
+                studentId={student.id}
+                subjectName={oldClassSubject?.long_name ?? undefined}
                 firstNewClassDate={firstNewClassDate}
                 lastOldClassDate={lastOldClassDate}
                 onFirstDateChange={setFirstNewClassDate}

@@ -31,6 +31,7 @@ interface ClassCardProps {
   enrollment?: ClassEnrollmentWithAudit;
   onChangeClass?: () => void;
   onUnenroll?: () => void;
+  onCancelEnrolment?: () => void;
   onSendUnenrollmentLink?: () => void;
   onUnassign?: () => void;
   
@@ -55,6 +56,7 @@ export function ClassCard({
   enrollment,
   onChangeClass,
   onUnenroll,
+  onCancelEnrolment,
   onSendUnenrollmentLink,
   onUnassign,
   isSelecting = false,
@@ -110,7 +112,7 @@ export function ClassCard({
       : '-';
   const schedule = classData.schedule_summary_short || `${getDayOfWeek(classData.day_of_week)} ${formatTime(classData.start_time)} - ${formatTime(classData.end_time)}`;
   const isFutureEnrollment = enrollment?.enrolled_at && new Date(enrollment.enrolled_at) > new Date();
-  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll || onSendUnenrollmentLink || onUnassign);
+  const hasMenuActions = !hideActions && (onChangeClass || onUnenroll || onCancelEnrolment || onSendUnenrollmentLink || onUnassign);
   
   // Get subject color for the card (border and icon only)
   const subjectColorHex = getSubjectColorHex(subject);
@@ -226,7 +228,18 @@ export function ClassCard({
                       Change Class
                     </DropdownMenuItem>
                   )}
-                  {(onUnenroll || onSendUnenrollmentLink) && (
+                  {onCancelEnrolment && (
+                    <DropdownMenuItem
+                      className="text-destructive focus:text-destructive"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onCancelEnrolment();
+                      }}
+                    >
+                      Cancel enrolment
+                    </DropdownMenuItem>
+                  )}
+                  {!onCancelEnrolment && (onUnenroll || onSendUnenrollmentLink) && (
                     <DropdownMenuSub>
                       <DropdownMenuSubTrigger onClick={(event) => event.stopPropagation()}>Unenroll Student</DropdownMenuSubTrigger>
                       <DropdownMenuSubContent>

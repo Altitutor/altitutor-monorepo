@@ -3,6 +3,14 @@ import { useQueryClient } from '@tanstack/react-query';
 import type { Tables, ClassWithExpandedSubject } from '@altitutor/shared';
 import {
   AccountClassBadge,
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +33,8 @@ import { useToast } from '@altitutor/ui';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { invalidateClassSurfaces } from '@/shared/lib/query-invalidation';
+import { getErrorMessage } from '@/shared/utils';
+import { isScheduledClassEnrolment } from '@/features/students/utils/classEnrollments';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
 import type { ClassStudent } from '@/features/classes/api/classes';
 
@@ -64,6 +74,9 @@ export function ClassStudentsTab({
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
   const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedStudent, setSelectedStudent] = useState<Tables<'students'> | null>(null);
+  const [replacingStudent, setReplacingStudent] = useState<ClassStudent | null>(null);
+  const [cancelEnrolmentStudent, setCancelEnrolmentStudent] = useState<ClassStudent | null>(null);
+  const [isCancellingEnrolment, setIsCancellingEnrolment] = useState(false);
 
   // Modal handlers
   const handleViewStudent = (studentId: string) => {
@@ -77,10 +90,13 @@ export function ClassStudentsTab({
 
   const openChangeClassModal = (studentId: string) => {
     const student = classStudents.find((s) => s.id === studentId);
-    if (student) {
-      setSelectedStudent(student);
-      setIsChangeClassModalOpen(true);
+    if (!student) return;
+    if (isScheduledClassEnrolment(student.enrolled_at) && classSubject?.id) {
+      setReplacingStudent(student);
+      return;
     }
+    setSelectedStudent(student);
+    setIsChangeClassModalOpen(true);
   };
 
   const openUnenrollModal = (studentId: string) => {
@@ -100,6 +116,64 @@ export function ClassStudentsTab({
   };
 
   // Handle enrollment
+  const handleReplaceScheduledEnrolment = async (params: { studentId: string; classId: string; enrolledAt: Date; staffId: string }) => {
+    try {
+      await classesApi.replaceScheduledEnrolment({
+        studentId: params.studentId,
+        oldClassId: classData.id,
+        newClassId: params.classId,
+        enrolledAt: params.enrolledAt,
+        staffId: params.staffId,
+      });
+      await Promise.all([
+        invalidateClassSurfaces(queryClient, classData.id),
+        invalidateClassSurfaces(queryClient, params.classId),
+      ]);
+      onStudentsUpdated?.();
+      setReplacingStudent(null);
+      toast({
+        title: 'Success',
+        description: 'Student moved to the new class.',
+      });
+    } catch (err) {
+      console.error('Failed to change class:', err);
+      toast({
+        title: 'Change failed',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      });
+      throw err;
+    }
+  };
+
+  const confirmCancelEnrolment = async () => {
+    if (!cancelEnrolmentStudent || !currentStaff) return;
+    setIsCancellingEnrolment(true);
+    try {
+      await classesApi.cancelScheduledEnrolment({
+        studentId: cancelEnrolmentStudent.id,
+        classId: classData.id,
+        staffId: currentStaff.id,
+      });
+      await invalidateClassSurfaces(queryClient, classData.id);
+      onStudentsUpdated?.();
+      toast({
+        title: 'Enrolment cancelled',
+        description: 'The student was removed from the class before it started.',
+      });
+      setCancelEnrolmentStudent(null);
+    } catch (err) {
+      console.error('Failed to cancel enrolment:', err);
+      toast({
+        title: 'Cancel failed',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCancellingEnrolment(false);
+    }
+  };
+
   const handleEnroll = async (params: { studentId: string; classId: string; enrolledAt: Date; staffId: string }) => {
     try {
       await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
@@ -144,7 +218,7 @@ export function ClassStudentsTab({
       console.error('Failed to change class:', err);
       toast({
         title: 'Change failed',
-        description: 'There was an error changing the class. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;
@@ -171,7 +245,7 @@ export function ClassStudentsTab({
       console.error('Failed to unenroll student:', err);
       toast({
         title: 'Unenrollment failed',
-        description: 'There was an error unenrolling the student. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;
@@ -387,18 +461,30 @@ export function ClassStudentsTab({
                               <ArrowRightLeft className="mr-2 h-4 w-4" />
                               Change Class
                             </DropdownMenuItem>
-                            <DropdownMenuItem onClick={() => openUnenrollmentLink(student.id)}>
-                              <Link className="mr-2 h-4 w-4" />
-                              Send unenrolment link
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              className="text-destructive focus:text-destructive"
-                              onClick={() => openUnenrollModal(student.id)}
-                            >
-                              <UserMinus className="mr-2 h-4 w-4" />
-                              Unenrol
-                            </DropdownMenuItem>
+                            {isScheduledClassEnrolment(student.enrolled_at) ? (
+                              <DropdownMenuItem
+                                className="text-destructive focus:text-destructive"
+                                onClick={() => setCancelEnrolmentStudent(student)}
+                              >
+                                <UserMinus className="mr-2 h-4 w-4" />
+                                Cancel enrolment
+                              </DropdownMenuItem>
+                            ) : (
+                              <>
+                                <DropdownMenuItem onClick={() => openUnenrollmentLink(student.id)}>
+                                  <Link className="mr-2 h-4 w-4" />
+                                  Send unenrolment link
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  className="text-destructive focus:text-destructive"
+                                  onClick={() => openUnenrollModal(student.id)}
+                                >
+                                  <UserMinus className="mr-2 h-4 w-4" />
+                                  Unenrol
+                                </DropdownMenuItem>
+                              </>
+                            )}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </TableCell>
@@ -409,6 +495,49 @@ export function ClassStudentsTab({
           </div>
         )}
       </div>
+
+      {replacingStudent && currentStaff && (
+        <EnrollStudentModal
+          isOpen
+          onClose={() => setReplacingStudent(null)}
+          context="student"
+          student={replacingStudent}
+          subjectId={classSubject?.id}
+          enrolledClassIds={[classData.id]}
+          onFetchClasses={fetchClassesForChange}
+          onEnroll={handleReplaceScheduledEnrolment}
+          currentStaffId={currentStaff.id}
+        />
+      )}
+
+      <AlertDialog
+        open={cancelEnrolmentStudent !== null}
+        onOpenChange={(open) => {
+          if (!open && !isCancellingEnrolment) setCancelEnrolmentStudent(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel enrolment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {cancelEnrolmentStudent?.first_name} has not started {classData.long_name ?? 'this class'}. Cancelling removes the enrolment and the lessons reserved for them. It does not send a message.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancellingEnrolment}>Keep enrolment</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isCancellingEnrolment}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmCancelEnrolment();
+              }}
+            >
+              {isCancellingEnrolment ? 'Cancelling…' : 'Cancel enrolment'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Enrollment Modals */}
       <EnrollStudentModal

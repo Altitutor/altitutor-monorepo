@@ -1092,6 +1092,44 @@ export const classesApi = {
   },
 
   /**
+   * Delete an enrolment that has not started, including its future lesson assignments.
+   */
+  cancelScheduledEnrolment: async (params: {
+    studentId: string;
+    classId: string;
+    staffId: string;
+  }): Promise<void> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { error } = await supabase.rpc('cancel_scheduled_class_enrolment', {
+      p_student_id: params.studentId,
+      p_class_id: params.classId,
+      p_staff_id: params.staffId,
+    });
+    if (error) throw error;
+  },
+
+  /**
+   * Enrol in the new class, then delete the scheduled enrolment that has not started.
+   */
+  replaceScheduledEnrolment: async (params: {
+    studentId: string;
+    oldClassId: string;
+    newClassId: string;
+    enrolledAt: Date;
+    staffId: string;
+  }): Promise<void> => {
+    const supabase = (getSupabaseClient() as SupabaseClient<Database>);
+    const { error } = await supabase.rpc('replace_scheduled_class_enrolment', {
+      p_student_id: params.studentId,
+      p_old_class_id: params.oldClassId,
+      p_new_class_id: params.newClassId,
+      p_enrolled_at: params.enrolledAt.toISOString(),
+      p_staff_id: params.staffId,
+    });
+    if (error) throw error;
+  },
+
+  /**
    * Unenroll a student from a class with a reason note
    */
   unenrollStudentWithReason: async (params: {

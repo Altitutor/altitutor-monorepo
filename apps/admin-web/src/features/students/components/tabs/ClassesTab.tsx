@@ -27,7 +27,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useStudentClasses, type StudentClass } from '@/features/students/hooks/useStudentClasses';
 import { useStudentWithSubjects } from '@/features/students/hooks/useStudentsQuery';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
-import { getSubjectColorStyle } from '@/shared/utils';
+import { getErrorMessage, getSubjectColorStyle } from '@/shared/utils';
 import { AvailabilityFields, type AvailabilitySlotKey } from '@/shared/components/AvailabilityFields';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
@@ -38,6 +38,7 @@ import {
 import {
   currentEnrolledClassIds,
   groupStudentClassesBySubject,
+  isScheduledClassEnrolment,
 } from '@/features/students/utils/classEnrollments';
 type ViewMode = 'table' | 'calendar';
 
@@ -92,6 +93,9 @@ export function ClassesTab({
     subjectName: string;
   } | null>(null);
   const [isChangeClassModalOpen, setIsChangeClassModalOpen] = useState(false);
+  const [scheduledReplacementClassId, setScheduledReplacementClassId] = useState<string | null>(null);
+  const [cancelEnrolmentTarget, setCancelEnrolmentTarget] = useState<StudentClass | null>(null);
+  const [isCancellingEnrolment, setIsCancellingEnrolment] = useState(false);
   const [isUnenrollModalOpen, setIsUnenrollModalOpen] = useState(false);
   const [isUnenrollmentLinkOpen, setIsUnenrollmentLinkOpen] = useState(false);
   const [selectedClass, setSelectedClass] = useState<StudentClass | null>(null);
@@ -125,6 +129,7 @@ export function ClassesTab({
   };
 
   const openEnrollModal = (subjectId?: string) => {
+    setScheduledReplacementClassId(null);
     setIsEnrollModalSubjectId(subjectId || null);
     setIsEnrollModalOpen(true);
   };
@@ -159,9 +164,42 @@ export function ClassesTab({
 
   const openChangeClassModal = (classId: string) => {
     const cls = findClass(classId);
-    if (cls) {
-      setSelectedClass(cls);
-      setIsChangeClassModalOpen(true);
+    if (!cls) return;
+    setSelectedClass(cls);
+    if (isScheduledClassEnrolment(cls.enrollment?.enrolled_at) && cls.subject?.id) {
+      setScheduledReplacementClassId(cls.class.id);
+      setIsEnrollModalSubjectId(cls.subject.id);
+      setIsEnrollModalOpen(true);
+      return;
+    }
+    setIsChangeClassModalOpen(true);
+  };
+
+  const confirmCancelEnrolment = async () => {
+    if (!cancelEnrolmentTarget || !currentStaff) return;
+    setIsCancellingEnrolment(true);
+    try {
+      await classesApi.cancelScheduledEnrolment({
+        studentId: student.id,
+        classId: cancelEnrolmentTarget.class.id,
+        staffId: currentStaff.id,
+      });
+      await invalidateStudentClassSurfaces(queryClient, student.id);
+      onStudentUpdated?.();
+      toast({
+        title: 'Enrolment cancelled',
+        description: 'The student was removed from the class before it started.',
+      });
+      setCancelEnrolmentTarget(null);
+    } catch (err) {
+      console.error('Failed to cancel enrolment:', err);
+      toast({
+        title: 'Cancel failed',
+        description: getErrorMessage(err),
+        variant: 'destructive',
+      });
+    } finally {
+      setIsCancellingEnrolment(false);
     }
   };
 
@@ -188,19 +226,33 @@ export function ClassesTab({
     enrolledAt: Date;
     staffId: string;
   }) => {
+    const replacingClassId = scheduledReplacementClassId;
     try {
-      await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
+      if (replacingClassId) {
+        await classesApi.replaceScheduledEnrolment({
+          studentId: params.studentId,
+          oldClassId: replacingClassId,
+          newClassId: params.classId,
+          enrolledAt: params.enrolledAt,
+          staffId: params.staffId,
+        });
+        setScheduledReplacementClassId(null);
+      } else {
+        await classesApi.enrollStudent(params.classId, params.studentId, params.enrolledAt, params.staffId);
+      }
       await invalidateStudentClassSurfaces(queryClient, student.id);
       onStudentUpdated?.();
       toast({
         title: 'Success',
-        description: 'Student enrolled successfully.',
+        description: replacingClassId
+          ? 'Student moved to the new class.'
+          : 'Student enrolled successfully.',
       });
     } catch (err) {
       console.error('Failed to enroll student:', err);
       toast({
-        title: 'Enrollment failed',
-        description: 'There was an error enrolling the student. Please try again.',
+        title: replacingClassId ? 'Change failed' : 'Enrollment failed',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;
@@ -228,7 +280,7 @@ export function ClassesTab({
       console.error('Failed to change class:', err);
       toast({
         title: 'Change failed',
-        description: 'There was an error changing the class. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;
@@ -255,7 +307,7 @@ export function ClassesTab({
       console.error('Failed to unenroll student:', err);
       toast({
         title: 'Unenrollment failed',
-        description: 'There was an error unenrolling the student. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;
@@ -417,6 +469,7 @@ export function ClassesTab({
 
   const renderClassCard = (classData: StudentClass) => {
     const isPrevious = Boolean(classData.isPreviousEnrollment);
+    const isScheduled = !isPrevious && isScheduledClassEnrolment(classData.enrollment?.enrolled_at);
     return (
       <ClassCard
         key={classData.enrollment?.id ?? classData.class.id}
@@ -428,8 +481,9 @@ export function ClassesTab({
         greyedOut={isPrevious}
         onClick={() => handleClassClick(classData.class.id)}
         onChangeClass={isPrevious ? undefined : () => openChangeClassModal(classData.class.id)}
-        onUnenroll={isPrevious ? undefined : () => openUnenrollModal(classData.class.id)}
-        onSendUnenrollmentLink={isPrevious ? undefined : () => openUnenrollmentLink(classData.class.id)}
+        onCancelEnrolment={isScheduled ? () => setCancelEnrolmentTarget(classData) : undefined}
+        onUnenroll={isPrevious || isScheduled ? undefined : () => openUnenrollModal(classData.class.id)}
+        onSendUnenrollmentLink={isPrevious || isScheduled ? undefined : () => openUnenrollmentLink(classData.class.id)}
         hideActions={isPrevious}
       />
     );
@@ -691,6 +745,7 @@ export function ClassesTab({
         onClose={() => {
           setIsEnrollModalOpen(false);
           setIsEnrollModalSubjectId(null);
+          setScheduledReplacementClassId(null);
         }}
         context="student"
         student={student}
@@ -752,6 +807,35 @@ export function ClassesTab({
           onCreated={() => void invalidateStudentDetail(queryClient, student.id)}
         />
       )}
+
+      <AlertDialog
+        open={cancelEnrolmentTarget !== null}
+        onOpenChange={(open) => {
+          if (!open && !isCancellingEnrolment) setCancelEnrolmentTarget(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Cancel enrolment?</AlertDialogTitle>
+            <AlertDialogDescription>
+              {student.first_name} has not started {cancelEnrolmentTarget?.class.long_name ?? 'this class'}. Cancelling removes the enrolment and the lessons reserved for them. It does not send a message.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isCancellingEnrolment}>Keep enrolment</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={isCancellingEnrolment}
+              onClick={(event) => {
+                event.preventDefault();
+                void confirmCancelEnrolment();
+              }}
+            >
+              {isCancellingEnrolment ? 'Cancelling…' : 'Cancel enrolment'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog
         open={pendingSameSubjectEnroll !== null}

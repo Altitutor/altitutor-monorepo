@@ -4,6 +4,7 @@ import {
   currentEnrolledClassIds,
   groupStudentClassesBySubject,
   isPreviousClassEnrollment,
+  isScheduledClassEnrolment,
 } from '../classEnrollments';
 
 const maths = { id: 'maths' } as Tables<'subjects'>;
@@ -22,6 +23,19 @@ function classItem(overrides: {
     isPreviousEnrollment: overrides.isPreviousEnrollment,
   };
 }
+
+describe('isScheduledClassEnrolment', () => {
+  const now = Date.parse('2026-09-26T08:00:00Z');
+
+  it('treats an enrolment that has not reached its start as scheduled', () => {
+    expect(isScheduledClassEnrolment('2026-10-01T00:00:00+09:30', now)).toBe(true);
+  });
+
+  it('treats an enrolment that has already started as current', () => {
+    expect(isScheduledClassEnrolment('2026-09-26T00:00:00+09:30', now)).toBe(false);
+    expect(isScheduledClassEnrolment(null, now)).toBe(false);
+  });
+});
 
 describe('isPreviousClassEnrollment', () => {
   const now = Date.parse('2026-09-03T00:00:00+09:30');
