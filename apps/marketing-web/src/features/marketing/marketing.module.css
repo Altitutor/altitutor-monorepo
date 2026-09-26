@@ -5,6 +5,8 @@
   --ink: rgb(var(--marketing-charcoal));
   --muted-ink: #606970;
   --hairline: rgb(10 41 65 / 14%);
+  --card-shadow: 0 8px 30px rgb(0 0 0 / 4%);
+  --card-line: rgb(0 0 0 / 5%);
   background: var(--cream);
   color: var(--ink);
   font-family: var(--marketing-font-body);
@@ -395,11 +397,6 @@
   position: sticky;
   top: 130px;
 }
-.benefits {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 0 60px;
-}
 .contentCard {
   padding: 28px 0;
   border-top: 1px solid var(--hairline);
@@ -503,9 +500,10 @@
   display: inline-block;
   width: 100%;
   break-inside: avoid;
-  background: #fff9;
-  border: 1px solid var(--hairline);
+  background: #fff;
+  border: 1px solid var(--card-line);
   border-radius: 30px;
+  box-shadow: var(--card-shadow);
   padding: 28px;
   margin-bottom: 22px !important;
 }
@@ -553,7 +551,7 @@
 }
 .marqueeRow {
   overflow: hidden;
-  padding-block: 2px;
+  padding-block: 18px;
   mask-image: linear-gradient(
     to right,
     transparent,
@@ -663,6 +661,9 @@
 .navLogo {
   flex-shrink: 0;
   height: 1.1rem !important;
+}
+.navLogoMark {
+  display: none;
 }
 .footerLogo {
   height: 1.5rem !important;
@@ -1222,6 +1223,104 @@
 .courseSection .quotes {
   columns: 2;
 }
+.courseDialogOverlay {
+  background: rgb(0 0 0 / 45%) !important;
+  backdrop-filter: blur(3px);
+  transition: opacity 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+.courseDialogOverlay[data-state="open"] {
+  animation: menuBackdropIn 420ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (max-width: 800px) {
+  .courseDialogOverlay {
+    backdrop-filter: none;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .courseDialogOverlay {
+    transition: none;
+    animation: none;
+  }
+}
+.courseDialogHeading {
+  padding-right: 48px;
+}
+.courseDialogInner h2 {
+  font-size: clamp(2rem, 4vw, 3.2rem);
+  max-width: 16ch;
+}
+.courseDialogInner .lede {
+  margin-top: 14px;
+  max-width: 38rem;
+}
+.courseDialogInner .formatChoices {
+  margin-top: 28px;
+  max-width: none;
+}
+.formatChoices {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 24px;
+  margin-top: 48px;
+  max-width: 980px;
+}
+.formatChoice {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-height: 100%;
+  padding: 36px;
+  border: 1px solid var(--hairline);
+  border-radius: 30px;
+  background: white;
+  color: var(--ink);
+  box-shadow: 0 4px 20px rgb(10 41 65 / 4%);
+  transition:
+    transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    box-shadow 0.3s,
+    border-color 0.2s;
+}
+.formatChoice:focus-visible {
+  border-color: rgb(10 41 65 / 28%);
+  box-shadow: 0 12px 32px rgb(10 41 65 / 10%);
+}
+@media (hover: hover) {
+  .formatChoice:hover {
+    transform: translateY(-5px);
+    border-color: rgb(10 41 65 / 28%);
+    box-shadow: 0 15px 35px rgb(10 41 65 / 10%);
+  }
+  .formatChoice:hover .textLink {
+    border-bottom-color: rgb(10 41 65 / 35%);
+  }
+  .formatChoice:hover .textLink svg {
+    transform: translateX(3px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .formatChoice {
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .formatChoice:hover,
+  .formatChoice:focus-visible {
+    transform: none;
+  }
+}
+.formatChoice > svg {
+  color: var(--primary);
+}
+.formatChoice h3 {
+  font-size: clamp(1.7rem, 2.4vw, 2.1rem);
+  margin-top: 8px;
+}
+.formatChoice p {
+  color: var(--muted-ink);
+  margin-top: 12px;
+}
+.formatChoice .textLink {
+  margin-top: auto;
+  padding-top: 28px;
+}
 .editorialHero {
   max-width: 850px;
 }
@@ -1265,9 +1364,53 @@
 .resultsYear {
   margin-top: 45px;
 }
+.resultStack {
+  padding-bottom: 16vh;
+}
+.resultStackCard {
+  position: sticky;
+  top: 110px;
+  z-index: 1;
+  margin-bottom: 28vh;
+  padding: 40px 44px 32px;
+  border: 1px solid var(--card-line);
+  border-radius: 30px;
+  background: #fff;
+  box-shadow: var(--card-shadow);
+  transform-origin: top center;
+}
+.resultStackCard:last-child {
+  margin-bottom: 0;
+}
+.resultStackCard.resultsYear {
+  margin-top: 0;
+}
+.resultStackCard .stats {
+  border: 0;
+  padding-bottom: 0;
+}
+@media (max-width: 800px) {
+  .resultStackCard {
+    top: 96px;
+    margin-bottom: 22vh;
+    padding: 28px 22px 22px;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .resultStack {
+    padding-bottom: 0;
+  }
+  .resultStackCard {
+    position: static;
+    margin-bottom: 24px;
+  }
+}
 .resultsYear h3 {
   font-size: 1.4rem;
   margin-bottom: 18px;
+}
+.resultStackCard.resultsYear h3 {
+  font-size: clamp(2rem, 4vw, 3rem);
 }
 .resultsYear .stats {
   grid-template-columns: repeat(6, 1fr);
@@ -1400,6 +1543,7 @@
   .courseHero,
   .contactGrid,
   .accessCards,
+  .formatChoices,
   .roles {
     grid-template-columns: 1fr;
     gap: 35px;
@@ -1417,7 +1561,6 @@
   .roles > div:first-child {
     position: static;
   }
-  .benefits,
   .valuesGrid {
     gap: 0 30px;
   }
@@ -1519,8 +1662,13 @@
   :where(.site) h2 {
     font-size: 2.3rem;
   }
-  .navLogo {
-    height: 1.25rem !important;
+  .navLogoBanner {
+    display: none;
+  }
+  .navLogoMark {
+    display: block;
+    height: 1.35rem !important;
+    width: 1.35rem !important;
   }
   .navigation {
     gap: 8px;
@@ -1547,7 +1695,6 @@
   .actions .button {
     width: 100%;
   }
-  .benefits,
   .valuesGrid,
   .teamGrid,
   .charities,
@@ -1612,6 +1759,7 @@
     font-size: 2.1rem;
   }
   .accessCards > article,
+  .formatChoice,
   .application,
   .teaching > div {
     padding: 27px;
@@ -1752,6 +1900,10 @@
   padding-block: 65px;
   border-bottom: 1px solid var(--hairline);
 }
+.homeStatsInSection {
+  border-bottom: 0;
+  padding-block: 0 56px;
+}
 .homeStats > div + div {
   border-left: 1px solid var(--hairline);
   padding-left: 40px;
@@ -1839,6 +1991,9 @@
   .homeStats {
     gap: 24px;
     padding-block: 40px;
+  }
+  .homeStatsInSection {
+    padding-block: 0 32px;
   }
   .homeStats > div + div {
     padding-left: 24px;

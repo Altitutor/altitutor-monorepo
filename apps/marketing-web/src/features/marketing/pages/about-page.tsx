@@ -113,7 +113,7 @@ export function AboutPage() {
             </div>
           </div>
           <div className={styles.actions}>
-            <Button href="/classes/">Find your course</Button>
+            <Button href="#find-your-course">Find your course</Button>
           </div>
         </div>
       </section>

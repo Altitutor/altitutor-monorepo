@@ -10,6 +10,7 @@ import {
   Music2,
 } from "lucide-react";
 import { COURSE_LINKS, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
+import { FindYourCourseDialog } from "./find-your-course-dialog";
 import { PageMotion } from "./page-motion";
 import { SectionNavigation } from "./section-navigation";
 import { Navigation } from "./navigation";
@@ -38,6 +39,7 @@ export function SiteFrame({ children }: { children: ReactNode }) {
       <Navigation />
       <PageMotion>{children}</PageMotion>
       <SectionNavigation />
+      <FindYourCourseDialog />
       <footer className={styles.footer}>
         <div className={styles.footerTop}>
           <div className={styles.footerBrandColumn}>

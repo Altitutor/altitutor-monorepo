@@ -4,9 +4,9 @@ import { ArrowRight, HeartHandshake } from "lucide-react";
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content, pageContent } from "../content";
 import { TestimonialMarquee } from "../components/testimonial-marquee";
+import { WhyChooseUs } from "../components/why-choose-us";
 import {
   Button,
-  ContentCard,
   Copy,
   Eyebrow,
   SectionTitle,
@@ -15,29 +15,6 @@ import { TrialCTA } from "../components/trial-cta-section";
 import styles from "../marketing.module.css";
 
 const home = (id: string) => content("/", id);
-const pathways = [
-  {
-    id: "38600ea",
-    title: "Weekly tuition",
-    href: "/classes/weekly-classes/",
-    image: "/images/marketing/chemistry-notes.png",
-    label: "Explore weekly classes",
-  },
-  {
-    id: "335161b",
-    title: "UCAT preparation",
-    href: "/classes/ucatprep/",
-    image: "/images/marketing/ucat-qr-online.png",
-    label: "Explore UCAT classes",
-  },
-  {
-    id: "d36aa0c",
-    title: "Assignment drafting",
-    href: "/classes/assignment-drafting/",
-    image: "/images/marketing/english-draft.png",
-    label: "Get help with your writing",
-  },
-];
 const steps = [
   ["4b948c6", "Meet your tutor"],
   ["044a70c", "Find your starting point"],
@@ -84,74 +61,14 @@ export function HomePage() {
           </div>
         </div>
       </section>
-      <section
-        className={`${styles.container} ${styles.homeStats}`}
-        aria-label="Student outcomes"
-      >
-        <div>
-          <strong>
-            94<span>%</span>
-          </strong>
-          <p>
-            Of our graduating year 12s receive a university offer for their top
-            preference.
-          </p>
-        </div>
-        <div>
-          <strong>
-            96<span>%</span>
-          </strong>
-          <p>
-            Of our students improve their grade by at least one grade band
-            within one term.
-          </p>
-        </div>
-        <div>
-          <strong>
-            100<span>+</span>
-          </strong>
-          <p>5 star reviews</p>
-          <Link href="/about/testimonials/">
-            Read our student stories <ArrowRight size={15} aria-hidden="true" />
-          </Link>
-        </div>
-      </section>
-      <section
-        id="find-your-course"
-        className={`${styles.container} ${styles.section}`}
-        data-nav-label="Courses"
-      >
-        <SectionTitle eyebrow="Courses">
-          A little support.
-          <br />
-          <em>A lot of possibility.</em>
-        </SectionTitle>
-        <div className={styles.pathways}>
-          {pathways.map((item) => (
-            <article className={styles.pathway} key={item.id}>
-              <div className={styles.pathwayArt}>
-                <Image
-                  src={item.image}
-                  alt={`${item.title} learning materials`}
-                  width={500}
-                  height={330}
-                  sizes="(max-width: 800px) 85vw, 30vw"
-                />
-              </div>
-              <h3>{item.title}</h3>
-              <Copy block={home(item.id)} />
-              <Link className={styles.textLink} href={item.href}>
-                {item.label}
-                <ArrowRight size={16} aria-hidden="true" />
-              </Link>
-            </article>
-          ))}
-        </div>
-        <Link className={styles.textLink} href="/classes/">
-          Explore all courses, including exam and interview preparation{" "}
-          <ArrowRight size={17} aria-hidden="true" />
-        </Link>
-      </section>
+      <WhyChooseUs
+        copy={{
+          "4909d86": home("4909d86").html ?? "",
+          bbc3db2: home("bbc3db2").html ?? "",
+          "88e7edc": home("88e7edc").html ?? "",
+          bd33a23: home("bd33a23").html ?? "",
+        }}
+      />
       <section className={styles.mission} data-nav-label="Our mission">
         <div className={`${styles.container} ${styles.split}`}>
           <div className={styles.sectionHeading}>
@@ -166,26 +83,6 @@ export function HomePage() {
             </div>
           </div>
           <Copy block={home("18f6dd8")} />
-        </div>
-      </section>
-      <section
-        className={`${styles.container} ${styles.section}`}
-        data-nav-label="Why choose us"
-        data-scroll-sequence
-      >
-        <div className={styles.split}>
-          <div className={styles.stickyIntro}>
-            <SectionTitle eyebrow="Why choose us">
-              Good teaching.
-              <br />
-              <em>Support around it.</em>
-            </SectionTitle>
-          </div>
-          <div className={styles.benefits} data-scroll-items>
-            {["4909d86", "bbc3db2", "88e7edc", "bd33a23"].map((id, i) => (
-              <ContentCard key={id} block={home(id)} number={i + 1} />
-            ))}
-          </div>
         </div>
       </section>
       <section
@@ -207,8 +104,8 @@ export function HomePage() {
               <Button href={PRODUCT_LINKS.trialBooking}>
                 Book a trial session
               </Button>
-              <Button href="/classes/" secondary>
-                Courses
+              <Button href="#find-your-course" secondary>
+                Find your course
               </Button>
             </div>
           </div>

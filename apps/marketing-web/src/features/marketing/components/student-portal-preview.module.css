@@ -1,0 +1,395 @@
+.stage {
+  --portal-loop: 28s;
+  position: relative;
+  height: 100%;
+}
+
+.subject,
+.topic,
+.files,
+.notes {
+  position: absolute;
+  inset: 0;
+}
+
+.subject {
+  animation: portalSubject var(--portal-loop) linear infinite;
+}
+
+.topic {
+  animation: portalTopic var(--portal-loop) linear infinite;
+}
+
+.files {
+  animation: portalFiles var(--portal-loop) linear infinite;
+}
+
+.notes {
+  animation: portalNotes var(--portal-loop) linear infinite;
+}
+
+.scrollport {
+  overflow: hidden;
+}
+
+.topicDrift {
+  animation: portalTopicDrift var(--portal-loop) linear infinite;
+}
+
+.pages {
+  animation: portalNotesDrift var(--portal-loop) linear infinite;
+}
+
+.pressTopic,
+.pressSubtopic,
+.pressFile {
+  position: relative;
+}
+
+.pressTopic {
+  animation: portalPressTopic var(--portal-loop) linear infinite;
+}
+
+.pressSubtopic {
+  animation: portalPressSubtopic var(--portal-loop) linear infinite;
+}
+
+.pressFile {
+  animation: portalPressFile var(--portal-loop) linear infinite;
+}
+
+.cursor {
+  position: absolute;
+  left: 34%;
+  top: 0.15rem;
+  z-index: 5;
+  opacity: 0;
+}
+
+.ripple {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: rgb(var(--marketing-primary) / 0.28);
+  opacity: 0;
+}
+
+.cursorTopic {
+  animation: portalCursorTopic var(--portal-loop) linear infinite;
+}
+
+.cursorTopic .ripple {
+  animation: portalRippleTopic var(--portal-loop) linear infinite;
+}
+
+.cursorSubtopic {
+  animation: portalCursorSubtopic var(--portal-loop) linear infinite;
+}
+
+.cursorSubtopic .ripple {
+  animation: portalRippleSubtopic var(--portal-loop) linear infinite;
+}
+
+.cursorFile {
+  animation: portalCursorFile var(--portal-loop) linear infinite;
+}
+
+.cursorFile .ripple {
+  animation: portalRippleFile var(--portal-loop) linear infinite;
+}
+
+@keyframes portalSubject {
+  0%,
+  17% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  17.2%,
+  99.8% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  100% {
+    opacity: 1;
+    visibility: visible;
+  }
+}
+
+@keyframes portalTopic {
+  0%,
+  17% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  17.2%,
+  46% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  46.2%,
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes portalFiles {
+  0%,
+  46% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  46.2%,
+  68% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  68.2%,
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes portalNotes {
+  0%,
+  68% {
+    opacity: 0;
+    visibility: hidden;
+  }
+
+  68.2%,
+  99.8% {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  100% {
+    opacity: 0;
+    visibility: hidden;
+  }
+}
+
+@keyframes portalTopicDrift {
+  0%,
+  28% {
+    transform: translateY(0);
+  }
+
+  40%,
+  100% {
+    transform: translateY(-700px);
+  }
+}
+
+@keyframes portalNotesDrift {
+  0%,
+  76% {
+    transform: translateY(0);
+  }
+
+  96%,
+  100% {
+    transform: translateY(-150px);
+  }
+}
+
+@keyframes portalPressTopic {
+  0%,
+  12%,
+  20%,
+  100% {
+    background-color: transparent;
+  }
+
+  14%,
+  18% {
+    background-color: hsl(220 12% 92%);
+  }
+}
+
+@keyframes portalPressSubtopic {
+  0%,
+  40%,
+  48%,
+  100% {
+    background-color: transparent;
+  }
+
+  42%,
+  46% {
+    background-color: hsl(220 12% 92%);
+  }
+}
+
+@keyframes portalPressFile {
+  0%,
+  60%,
+  70%,
+  100% {
+    box-shadow: 0 8px 30px rgb(0 0 0 / 4%);
+  }
+
+  62%,
+  67% {
+    box-shadow: 0 0 0 2px rgb(var(--marketing-primary) / 0.35);
+  }
+}
+
+@keyframes portalCursorTopic {
+  0%,
+  5% {
+    opacity: 0;
+    transform: translate(88px, -42px);
+  }
+
+  8% {
+    opacity: 1;
+    transform: translate(88px, -42px);
+  }
+
+  13%,
+  18% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  21%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes portalCursorSubtopic {
+  0%,
+  34% {
+    opacity: 0;
+    transform: translate(96px, -48px);
+  }
+
+  37% {
+    opacity: 1;
+    transform: translate(96px, -48px);
+  }
+
+  42%,
+  47% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  50%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes portalCursorFile {
+  0%,
+  56% {
+    opacity: 0;
+    transform: translate(110px, -36px);
+  }
+
+  59% {
+    opacity: 1;
+    transform: translate(110px, -36px);
+  }
+
+  63%,
+  68% {
+    opacity: 1;
+    transform: translate(0, 0);
+  }
+
+  72%,
+  100% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+}
+
+@keyframes portalRippleTopic {
+  0%,
+  13%,
+  19%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  15% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes portalRippleSubtopic {
+  0%,
+  41%,
+  48%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  43% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes portalRippleFile {
+  0%,
+  62%,
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+
+  64% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .subject,
+  .topic,
+  .files,
+  .notes,
+  .topicDrift,
+  .pages,
+  .pressTopic,
+  .pressSubtopic,
+  .pressFile,
+  .cursor,
+  .ripple {
+    animation: none;
+  }
+
+  .topic,
+  .files,
+  .notes,
+  .cursor {
+    visibility: hidden;
+    opacity: 0;
+  }
+
+  .subject {
+    opacity: 1;
+    visibility: visible;
+  }
+}

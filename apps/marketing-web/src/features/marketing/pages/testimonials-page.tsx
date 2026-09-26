@@ -1,5 +1,6 @@
 import { PRODUCT_LINKS } from "@/lib/site";
 import { content, pageContent } from "../content";
+import { ResultYearStack } from "../components/result-year-stack";
 import {
   Button,
   Copy,
@@ -40,43 +41,44 @@ export function TestimonialsPage() {
           ]}
         />
       </div>
-      <section id="results" className={`${styles.container} ${styles.section}`}>
-        <SectionTitle eyebrow="Student results">
-          A look back.
-          <br />
-          <em>A lot to be proud of.</em>
-        </SectionTitle>
-        {years.map((year, i) => {
-          const start = blocks.indexOf(year);
-          const end =
-            i + 1 < years.length
-              ? blocks.indexOf(years[i + 1])
-              : blocks.findIndex((b) => b.id === "8774f44");
-          const stats = blocks
-            .slice(start, end)
-            .filter((b) => b.kind === "counter");
-          return (
-            <div key={year.id} className={styles.resultsYear}>
-              <h3>{year.title}</h3>
-              <div className={styles.stats}>
-                {stats.map((stat, index) => (
-                  <div key={stat.id}>
-                    <span className={styles.statValue}>{stat.value}</span>
-                    <p className={styles.copy}>
-                      {stat.title ||
-                        (index === 4
-                          ? "Average tutor rating"
-                          : "Average course rating")}
-                    </p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          );
-        })}
-        <Questions
-          items={content("/about/testimonials/", "8774f44").items ?? []}
+      <section id="results" className={styles.section}>
+        <div className={styles.container}>
+          <SectionTitle eyebrow="Student results">
+            A look back.
+            <br />
+            <em>A lot to be proud of.</em>
+          </SectionTitle>
+        </div>
+        <ResultYearStack
+          years={years.map((year, i) => {
+            const start = blocks.indexOf(year);
+            const end =
+              i + 1 < years.length
+                ? blocks.indexOf(years[i + 1])
+                : blocks.findIndex((b) => b.id === "8774f44");
+            const stats = blocks
+              .slice(start, end)
+              .filter((b) => b.kind === "counter");
+            return {
+              id: year.id,
+              title: year.title ?? "Results",
+              stats: stats.map((stat, index) => ({
+                id: stat.id,
+                value: stat.value ?? "",
+                label:
+                  stat.title ||
+                  (index === 4
+                    ? "Average tutor rating"
+                    : "Average course rating"),
+              })),
+            };
+          })}
         />
+        <div className={styles.container}>
+          <Questions
+            items={content("/about/testimonials/", "8774f44").items ?? []}
+          />
+        </div>
       </section>
       <section
         id="testimonials"
@@ -93,7 +95,7 @@ export function TestimonialsPage() {
           </div>
           <Quotes items={reviews.slice(0, 9)} />
           <details className={styles.moreReviews}>
-            <summary>Read all {reviews.length} student reviews</summary>
+            <summary>Read all student reviews</summary>
             <Quotes items={reviews.slice(9)} />
           </details>
         </div>

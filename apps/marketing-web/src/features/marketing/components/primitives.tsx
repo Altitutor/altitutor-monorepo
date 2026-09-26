@@ -47,14 +47,25 @@ export function Button({
   children: ReactNode;
   secondary?: boolean;
 }) {
-  return (
-    <Link
-      href={href}
-      className={`${motion.magnetic} ${styles.button} ${secondary ? styles.secondaryButton : ""}`}
-    >
+  const className = `${motion.magnetic} ${styles.button} ${secondary ? styles.secondaryButton : ""}`;
+  const content = (
+    <>
       <span className={motion.fill} aria-hidden="true" />
       {children}
       <ArrowRight size={17} aria-hidden="true" />
+    </>
+  );
+  // Hash links must be native anchors so the browser records them for Back.
+  if (href.startsWith("#")) {
+    return (
+      <a href={href} className={className}>
+        {content}
+      </a>
+    );
+  }
+  return (
+    <Link href={href} className={className}>
+      {content}
     </Link>
   );
 }
