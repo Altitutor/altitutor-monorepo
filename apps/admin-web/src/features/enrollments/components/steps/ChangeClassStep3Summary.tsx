@@ -5,6 +5,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Alert, AlertDescription } from '@altitutor/ui';
 import { AlertTriangle } from 'lucide-react';
 import { useClassTransferSessions, sessionCalendarDate, sessionDateLabel } from '../../hooks/useClassTransferSessions';
+import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
 import { formatDate, cn } from '@/shared/utils';
 import { subDays } from 'date-fns';
 import { calculateSessionPrice, formatCurrency } from '@/shared/utils/pricing';
@@ -304,6 +305,17 @@ export function ChangeClassStep3Summary({
           </div>
         )}
       </div>
+
+      <EnrollmentWeekCalendar
+        studentId={studentId}
+        selectedStudent={student}
+        enrollmentDate={firstNewClassDate}
+        selectedClass={selectedNewClass}
+        oldClass={oldClass}
+        oldClassSubject={oldClassSubject}
+        isChangeClassMode
+        inclusiveLastOldClassDate={lastOldClassDate}
+      />
 
       {/* Warning */}
       {timeOverlapWarning && (

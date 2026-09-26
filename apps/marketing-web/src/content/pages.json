@@ -1,0 +1,2952 @@
+[
+  {
+    "path": "/terms-of-service/",
+    "title": "Terms of Service",
+    "excerpt": "",
+    "modified": "2022-12-25T00:47:00",
+    "seo": {
+      "title": "Terms of Service | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/terms-of-service/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Terms of Service | Altitutor",
+      "og_url": "https://altitutor.com/terms-of-service/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/terms-of-service/",
+            "url": "https://altitutor.com/terms-of-service/",
+            "name": "Terms of Service | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2022-12-24T14:17:00+00:00",
+            "dateModified": "2022-12-24T14:17:00+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/terms-of-service/#breadcrumb"
+            },
+            "inLanguage": "en-AU",
+            "potentialAction": [
+              {
+                "@type": "ReadAction",
+                "target": [
+                  "https://altitutor.com/terms-of-service/"
+                ]
+              }
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/terms-of-service/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Terms of Service"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/activate/",
+    "title": "Activate",
+    "excerpt": "",
+    "modified": "2022-12-25T00:46:59",
+    "seo": {
+      "title": "Activate | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/activate/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Activate | Altitutor",
+      "og_url": "https://altitutor.com/activate/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/activate/",
+            "url": "https://altitutor.com/activate/",
+            "name": "Activate | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2022-12-24T14:16:59+00:00",
+            "dateModified": "2022-12-24T14:16:59+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/activate/#breadcrumb"
+            },
+            "inLanguage": "en-AU",
+            "potentialAction": [
+              {
+                "@type": "ReadAction",
+                "target": [
+                  "https://altitutor.com/activate/"
+                ]
+              }
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/activate/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Activate"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/new-tutor-registration/",
+    "title": "New Tutor registration",
+    "excerpt": "<p>NEW TUTOR REGISTRATION [user_registration_form id=&#8221;28539&#8243;]</p>\n",
+    "modified": "2022-08-05T16:08:47",
+    "seo": {
+      "title": "New Tutor registration | Altitutor",
+      "robots": {
+        "index": "noindex",
+        "follow": "follow"
+      },
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "New Tutor registration | Altitutor",
+      "og_description": "NEW TUTOR REGISTRATION [user_registration_form id=&#8221;28539&#8243;]",
+      "og_url": "https://altitutor.com/new-tutor-registration/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2022-08-05T06:38:47+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "2 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/new-tutor-registration/",
+            "url": "https://altitutor.com/new-tutor-registration/",
+            "name": "New Tutor registration | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2021-11-30T01:06:31+00:00",
+            "dateModified": "2022-08-05T06:38:47+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/new-tutor-registration/#breadcrumb"
+            },
+            "inLanguage": "en-AU",
+            "potentialAction": [
+              {
+                "@type": "ReadAction",
+                "target": [
+                  "https://altitutor.com/new-tutor-registration/"
+                ]
+              }
+            ]
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/new-tutor-registration/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "New Tutor registration"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/classes/english-assignment-drafting/",
+    "title": "English assignment drafting",
+    "excerpt": "<p>Y11-12 ENGLISH DRAFTING Whether you&#8217;re stuck on writing your assignment or want drafting, we can help. Designed to improve the coherence, fluency and analysis of your writing. This drafting service allows you to obtain extensive and comprehensive feedback on your assignments from high-achieving tutors.  When: At the date and time of your choice Where: Altitutor; Level 1, [&hellip;]</p>\n",
+    "modified": "2026-01-15T22:14:54",
+    "seo": {
+      "title": "English assignment drafting | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/classes/english-assignment-drafting/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "English assignment drafting | Altitutor",
+      "og_description": "Y11-12 ENGLISH DRAFTING Whether you&#8217;re stuck on writing your assignment or want drafting, we can help. Designed to improve the coherence, fluency and analysis of your writing. This drafting service allows you to obtain extensive and comprehensive feedback on your assignments from high-achieving tutors.  When: At the date and time of your choice Where: Altitutor; Level 1, [&hellip;]",
+      "og_url": "https://altitutor.com/classes/english-assignment-drafting/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T11:44:54+00:00",
+      "og_image": [
+        {
+          "width": 1456,
+          "height": 2070,
+          "url": "https://altitutor.com/images/content/2021/12/SACE-EngLit-notes-4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "6 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/classes/english-assignment-drafting/",
+            "url": "https://altitutor.com/classes/english-assignment-drafting/",
+            "name": "English assignment drafting | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "primaryImageOfPage": {
+              "@id": "https://altitutor.com/classes/english-assignment-drafting/#primaryimage"
+            },
+            "image": {
+              "@id": "https://altitutor.com/classes/english-assignment-drafting/#primaryimage"
+            },
+            "thumbnailUrl": "https://altitutor.com/images/content/2021/12/SACE-EngLit-notes-4.png",
+            "datePublished": "2021-09-01T05:29:16+00:00",
+            "dateModified": "2026-01-15T11:44:54+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/classes/english-assignment-drafting/#breadcrumb"
+            },
+            "inLanguage": "en-AU",
+            "potentialAction": [
+              {
+                "@type": "ReadAction",
+                "target": [
+                  "https://altitutor.com/classes/english-assignment-drafting/"
+                ]
+              }
+            ]
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/classes/english-assignment-drafting/#primaryimage",
+            "url": "https://altitutor.com/images/content/2021/12/SACE-EngLit-notes-4.png",
+            "contentUrl": "https://altitutor.com/images/content/2021/12/SACE-EngLit-notes-4.png",
+            "width": 1456,
+            "height": 2070
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/classes/english-assignment-drafting/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Courses",
+                "item": "https://altitutor.com/classes/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "English assignment drafting"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/new-admin-registration/",
+    "title": "New Admin Registration",
+    "excerpt": "",
+    "modified": "2022-08-05T16:05:58",
+    "seo": {
+      "title": "New Admin Registration | Altitutor",
+      "robots": {
+        "index": "noindex",
+        "follow": "follow"
+      },
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "New Admin Registration | Altitutor",
+      "og_description": "There is no excerpt because this is a protected post.",
+      "og_url": "https://altitutor.com/new-admin-registration/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2022-08-05T06:35:58+00:00",
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "2 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/new-admin-registration/",
+            "url": "https://altitutor.com/new-admin-registration/",
+            "name": "New Admin Registration | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2021-04-03T02:29:48+00:00",
+            "dateModified": "2022-08-05T06:35:58+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/new-admin-registration/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/classes/medical-interview-preparation/",
+    "title": "Medical Interview Preparation",
+    "excerpt": "<p>MEDICINE INTERVIEW COURSE Our interview preparation course covers the whole process of the medical interview, from question approach to professional presentation. Our course was developed with guidance from actual interviewers working for the University of Adelaide, and includes real interview scenarios and plenty of practice interviews. Duration: 8:30 AM to 12:30 PM (Morning Session), 1:30 [&hellip;]</p>\n",
+    "modified": "2026-01-15T19:04:21",
+    "seo": {
+      "title": "Medical Interview Preparation | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/classes/medical-interview-preparation/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Medical Interview Preparation | Altitutor",
+      "og_description": "MEDICINE INTERVIEW COURSE Our interview preparation course covers the whole process of the medical interview, from question approach to professional presentation. Our course was developed with guidance from actual interviewers working for the University of Adelaide, and includes real interview scenarios and plenty of practice interviews. Duration: 8:30 AM to 12:30 PM (Morning Session), 1:30 [&hellip;]",
+      "og_url": "https://altitutor.com/classes/medical-interview-preparation/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T08:34:21+00:00",
+      "og_image": [
+        {
+          "width": 1448,
+          "height": 2068,
+          "url": "https://altitutor.com/images/content/2021/12/Pre-course-prep-1.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "4 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/classes/medical-interview-preparation/",
+            "url": "https://altitutor.com/classes/medical-interview-preparation/",
+            "name": "Medical Interview Preparation | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2021-02-22T11:02:44+00:00",
+            "dateModified": "2026-01-15T08:34:21+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/classes/medical-interview-preparation/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/classes/medical-interview-preparation/#primaryimage",
+            "url": "https://altitutor.com/images/content/2021/12/Pre-course-prep-1.png",
+            "contentUrl": "https://altitutor.com/images/content/2021/12/Pre-course-prep-1.png",
+            "width": 1448,
+            "height": 2068
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/classes/medical-interview-preparation/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Courses",
+                "item": "https://altitutor.com/classes/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Medical Interview Preparation"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/privacy-policy/",
+    "title": "Privacy policy",
+    "excerpt": "<p>PRIVACY POLICY Last updated: 30th November, 2021 This Privacy Policy describes Our policies and procedures on the collection, use and disclosure of Your information when You use the Service and tells You about Your privacy rights and how the law protects You. We use Your Personal data to provide and improve the Service. By using [&hellip;]</p>\n",
+    "modified": "2021-12-06T13:56:37",
+    "seo": {
+      "title": "Privacy policy | Altitutor",
+      "robots": {
+        "index": "noindex",
+        "follow": "follow"
+      },
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Privacy policy | Altitutor",
+      "og_description": "PRIVACY POLICY Last updated: 30th November, 2021 This Privacy Policy describes Our policies and procedures on the collection, use and disclosure of Your information when You use the Service and tells You about Your privacy rights and how the law protects You. We use Your Personal data to provide and improve the Service. By using [&hellip;]",
+      "og_url": "https://altitutor.com/privacy-policy/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2021-12-06T03:26:37+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "9 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/privacy-policy/",
+            "url": "https://altitutor.com/privacy-policy/",
+            "name": "Privacy policy | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2020-08-03T11:34:40+00:00",
+            "dateModified": "2021-12-06T03:26:37+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/privacy-policy/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/privacy-policy/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Privacy policy"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/cart/",
+    "title": "Cart",
+    "excerpt": "<p>CART &nbsp; &nbsp; Product Price Quantity Subtotal &times; Parent meeting Parent name(s): asdf What would you like to discuss in the meeting?: asdf Booking Date: January 8, 2022 Booking Time: 9:30 am &#36;0.00 1 &#36;0.00 Cart Totals Subtotal &#36;0.00 Total &#36;0.00 &mdash; OR &mdash; Proceed to Checkout</p>\n",
+    "modified": "2022-01-01T14:48:41",
+    "seo": {
+      "title": "Cart | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/cart/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Cart | Altitutor",
+      "og_description": "CART &nbsp; &nbsp; Product Price Quantity Subtotal &times; Parent meeting Parent name(s): asdf What would you like to discuss in the meeting?: asdf Booking Date: January 8, 2022 Booking Time: 9:30 am &#36;0.00 1 &#36;0.00 Cart Totals Subtotal &#36;0.00 Total &#36;0.00 &mdash; OR &mdash; Proceed to Checkout",
+      "og_url": "https://altitutor.com/cart/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2022-01-01T04:18:41+00:00",
+      "og_image": [
+        {
+          "url": "https://altitutor.com/images/content/2020/12/512px-Circle-icons-pencil_2.svg_.png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "1 minute"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/cart/",
+            "url": "https://altitutor.com/cart/",
+            "name": "Cart | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2020-02-02T10:06:17+00:00",
+            "dateModified": "2022-01-01T04:18:41+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/cart/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/cart/#primaryimage",
+            "url": "https://altitutor.com/images/content/2020/12/512px-Circle-icons-pencil_2.svg_.png",
+            "contentUrl": "https://altitutor.com/images/content/2020/12/512px-Circle-icons-pencil_2.svg_.png",
+            "width": 700,
+            "height": 700
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/cart/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Cart"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/new-student-registration/",
+    "title": "New Student Registration",
+    "excerpt": "<p>NEW STUDENT REGISTRATION Please click on the button below to register on the Altitutor Student Portal. Student portal</p>\n",
+    "modified": "2022-10-22T00:19:50",
+    "seo": {
+      "title": "New Student Registration | Altitutor",
+      "robots": {
+        "index": "noindex",
+        "follow": "follow"
+      },
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "New Student Registration | Altitutor",
+      "og_description": "NEW STUDENT REGISTRATION Please click on the button below to register on the Altitutor Student Portal. Student portal",
+      "og_url": "https://altitutor.com/new-student-registration/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2022-10-21T13:49:50+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "1 minute"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/new-student-registration/",
+            "url": "https://altitutor.com/new-student-registration/",
+            "name": "New Student Registration | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2020-01-14T12:22:11+00:00",
+            "dateModified": "2022-10-21T13:49:50+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/new-student-registration/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/new-student-registration/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "New Student Registration"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/",
+    "title": "Home",
+    "excerpt": "<p>Want to achieve better results? We can help. tutor&nbsp;you. help. draft&nbsp;your&nbsp;work. WEEKLY TUITION Whether you&#8217;re struggling to pass or want to achieve top scores, our weekly classes ensure students not only improve their results, but find the content they&#8217;re learning easy. We offer weekly classes for year 7-10 Maths and Science, SACE Stage 1 and [&hellip;]</p>\n",
+    "modified": "2026-01-15T18:56:39",
+    "seo": {
+      "title": "Altitutor | Maths, Physics, Chemistry and Biology tutoring Adelaide",
+      "description": "Altitutor is an Adelaide tutoring company, and the ultimate resource for Y7-12 SACE students. We're about making schoolwork not just enjoyable, but easy.",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Altitutor | Maths, Physics, Chemistry and Biology tutoring Adelaide",
+      "og_description": "Altitutor is an Adelaide tutoring company, and the ultimate resource for Y7-12 SACE students. We're about making schoolwork not just enjoyable, but easy.",
+      "og_url": "https://altitutor.com/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T08:26:39+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "5 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor | Maths, Physics, Chemistry and Biology tutoring Adelaide",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2020-01-04T04:13:56+00:00",
+            "dateModified": "2026-01-15T08:26:39+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Home"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/checkout/",
+    "title": "Checkout",
+    "excerpt": "<p>PAYMENT Contact information First Name&nbsp;* Last Name&nbsp;* Country/Region&nbsp;*Australia Phone&nbsp;* Email Address&nbsp;* Session details Product Subtotal Standard session &#8211; 90 minutes ($40/hour)&nbsp; &times;&nbsp;1 &#36;60.00 Subtotal &#36;60.00 Total &#36;60.00 Credit/debit card Credit or debit card Since your browser does not support JavaScript, or it is disabled, please ensure you click the Update Totals button before placing your [&hellip;]</p>\n",
+    "modified": "2022-04-09T12:48:33",
+    "seo": {
+      "title": "Checkout | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/checkout/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Checkout | Altitutor",
+      "og_description": "PAYMENT Contact information First Name&nbsp;* Last Name&nbsp;* Country/Region&nbsp;*Australia Phone&nbsp;* Email Address&nbsp;* Session details Product Subtotal Standard session &#8211; 90 minutes ($40/hour)&nbsp; &times;&nbsp;1 &#36;60.00 Subtotal &#36;60.00 Total &#36;60.00 Credit/debit card Credit or debit card Since your browser does not support JavaScript, or it is disabled, please ensure you click the Update Totals button before placing your [&hellip;]",
+      "og_url": "https://altitutor.com/checkout/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2022-04-09T03:18:33+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "1 minute"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/checkout/",
+            "url": "https://altitutor.com/checkout/",
+            "name": "Checkout | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-12-06T09:07:52+00:00",
+            "dateModified": "2022-04-09T03:18:33+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/checkout/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/checkout/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Checkout"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/my-account/",
+    "title": "My account",
+    "excerpt": "<p>MY ACCOUNT Student portal English drafting booking Parent meeting booking [woocommerce_my_account ]</p>\n",
+    "modified": "2024-01-04T12:26:11",
+    "seo": {
+      "title": "My account | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/my-account/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "My account | Altitutor",
+      "og_description": "MY ACCOUNT Student portal English drafting booking Parent meeting booking [woocommerce_my_account ]",
+      "og_url": "https://altitutor.com/my-account/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2024-01-04T01:56:11+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "1 minute"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/my-account/",
+            "url": "https://altitutor.com/my-account/",
+            "name": "My account | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-22T00:55:33+00:00",
+            "dateModified": "2024-01-04T01:56:11+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/my-account/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/my-account/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "My account"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/classes/",
+    "title": "Courses",
+    "excerpt": "<p>COURSES Want to achieve better results? We get it. Different students have different needs.  That&#8217;s why we offer a wide range of programmes, tailored to each student&#8217;s individual needs. To begin, choose an option below. I&#8217;m looking for help with school subjects I&#8217;m looking for help with the UCAT or medical interviews Weekly subject tutoring [&hellip;]</p>\n",
+    "modified": "2026-01-15T19:03:20",
+    "seo": {
+      "title": "Courses | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/classes/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Courses | Altitutor",
+      "og_description": "COURSES Want to achieve better results? We get it. Different students have different needs.  That&#8217;s why we offer a wide range of programmes, tailored to each student&#8217;s individual needs. To begin, choose an option below. I&#8217;m looking for help with school subjects I&#8217;m looking for help with the UCAT or medical interviews Weekly subject tutoring [&hellip;]",
+      "og_url": "https://altitutor.com/classes/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T08:33:20+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "5 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/classes/",
+            "url": "https://altitutor.com/classes/",
+            "name": "Courses | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:48:11+00:00",
+            "dateModified": "2026-01-15T08:33:20+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/classes/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/classes/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Courses"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/about/apply/",
+    "title": "Work with us",
+    "excerpt": "<p>WORK WITH US Want to work with us? Due to our small class sizes, we are always looking for more tutors to work with us. Read below for the different roles we have available.  Tutors Tutors have a number of weekly classes that theyare responsible for. This includes teaching every week and making sure all [&hellip;]</p>\n",
+    "modified": "2025-11-25T20:29:13",
+    "seo": {
+      "title": "Work with us | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/about/apply/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Work with us | Altitutor",
+      "og_description": "WORK WITH US Want to work with us? Due to our small class sizes, we are always looking for more tutors to work with us. Read below for the different roles we have available.  Tutors Tutors have a number of weekly classes that theyare responsible for. This includes teaching every week and making sure all [&hellip;]",
+      "og_url": "https://altitutor.com/about/apply/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2025-11-25T09:59:13+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "2 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/about/apply/",
+            "url": "https://altitutor.com/about/apply/",
+            "name": "Work with us | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:59+00:00",
+            "dateModified": "2025-11-25T09:59:13+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/about/apply/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/about/apply/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About us",
+                "item": "https://altitutor.com/about/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Work with us"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/classes/weekly-classes/",
+    "title": "Weekly subject tutoring",
+    "excerpt": "<p>WEEKLY SUBJECT TUTORING Designed to make school subjects easier for students, our weekly tuition programs teach students class content ahead of their learning in class. Our tutors prepare them for every assessment task, with plenty of time to practice.&nbsp; When: Weekdays after school, Saturdays and Sundays Where: Altitutor; Level 1, 17A Solomon St, Adelaide SA [&hellip;]</p>\n",
+    "modified": "2026-01-15T19:03:32",
+    "seo": {
+      "title": "Weekly subject tutoring | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/classes/weekly-classes/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Weekly subject tutoring | Altitutor",
+      "og_description": "WEEKLY SUBJECT TUTORING Designed to make school subjects easier for students, our weekly tuition programs teach students class content ahead of their learning in class. Our tutors prepare them for every assessment task, with plenty of time to practice.&nbsp; When: Weekdays after school, Saturdays and Sundays Where: Altitutor; Level 1, 17A Solomon St, Adelaide SA [&hellip;]",
+      "og_url": "https://altitutor.com/classes/weekly-classes/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T08:33:32+00:00",
+      "og_image": [
+        {
+          "width": 1448,
+          "height": 2060,
+          "url": "https://altitutor.com/images/content/2021/11/SACE-Chemistry-notes-1.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "5 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/classes/weekly-classes/",
+            "url": "https://altitutor.com/classes/weekly-classes/",
+            "name": "Weekly subject tutoring | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:58+00:00",
+            "dateModified": "2026-01-15T08:33:32+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/classes/weekly-classes/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/classes/weekly-classes/#primaryimage",
+            "url": "https://altitutor.com/images/content/2021/11/SACE-Chemistry-notes-1.png",
+            "contentUrl": "https://altitutor.com/images/content/2021/11/SACE-Chemistry-notes-1.png",
+            "width": 1448,
+            "height": 2060
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/classes/weekly-classes/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Courses",
+                "item": "https://altitutor.com/classes/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Weekly subject tutoring"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/classes/ucatprep/",
+    "title": "UCAT preparation",
+    "excerpt": "<p>UCAT PREPARATION COURSE Whatever stage you&#8217;re at in your preparation, we&#8217;ve got you covered. Our UCAT course starts with us teaching you strategies to recognise and solve question types, and finishes with you confidently smashing through sections in the appropriate time. Timing: Weekly sessions on Sunday from 9:30am-12:30pm. Where: Altitutor; Level 2, 100 Currie St, [&hellip;]</p>\n",
+    "modified": "2026-01-15T22:15:18",
+    "seo": {
+      "title": "UCAT preparation | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/classes/ucatprep/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "UCAT preparation | Altitutor",
+      "og_description": "UCAT PREPARATION COURSE Whatever stage you&#8217;re at in your preparation, we&#8217;ve got you covered. Our UCAT course starts with us teaching you strategies to recognise and solve question types, and finishes with you confidently smashing through sections in the appropriate time. Timing: Weekly sessions on Sunday from 9:30am-12:30pm. Where: Altitutor; Level 2, 100 Currie St, [&hellip;]",
+      "og_url": "https://altitutor.com/classes/ucatprep/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T11:45:18+00:00",
+      "og_image": [
+        {
+          "width": 1600,
+          "height": 948,
+          "url": "https://altitutor.com/images/content/2021/12/UCAT-QR-online-13-inch-MBP.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "4 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/classes/ucatprep/",
+            "url": "https://altitutor.com/classes/ucatprep/",
+            "name": "UCAT preparation | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:56+00:00",
+            "dateModified": "2026-01-15T11:45:18+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/classes/ucatprep/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/classes/ucatprep/#primaryimage",
+            "url": "https://altitutor.com/images/content/2021/12/UCAT-QR-online-13-inch-MBP.png",
+            "contentUrl": "https://altitutor.com/images/content/2021/12/UCAT-QR-online-13-inch-MBP.png",
+            "width": 1600,
+            "height": 948
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/classes/ucatprep/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Courses",
+                "item": "https://altitutor.com/classes/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "UCAT preparation"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/about/subsidy/",
+    "title": "Tuition subsidy",
+    "excerpt": "<p>TUITION SUBSIDY PROGRAM Can&#8217;t afford tuition? Not a problem. Something which is very close to all of our hearts is the unfair advantage money can give you when it comes to University admissions, particularly for more competitive courses such as Medicine and Dentistry. That&#8217;s not to say we think it&#8217;s completely based on money, just [&hellip;]</p>\n",
+    "modified": "2025-11-25T20:31:16",
+    "seo": {
+      "title": "Tuition subsidy | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/about/subsidy/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Tuition subsidy | Altitutor",
+      "og_description": "TUITION SUBSIDY PROGRAM Can&#8217;t afford tuition? Not a problem. Something which is very close to all of our hearts is the unfair advantage money can give you when it comes to University admissions, particularly for more competitive courses such as Medicine and Dentistry. That&#8217;s not to say we think it&#8217;s completely based on money, just [&hellip;]",
+      "og_url": "https://altitutor.com/about/subsidy/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2025-11-25T10:01:16+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "2 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/about/subsidy/",
+            "url": "https://altitutor.com/about/subsidy/",
+            "name": "Tuition subsidy | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:54+00:00",
+            "dateModified": "2025-11-25T10:01:16+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/about/subsidy/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/about/subsidy/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About us",
+                "item": "https://altitutor.com/about/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Tuition subsidy"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/about/testimonials/",
+    "title": "Testimonials",
+    "excerpt": "<p>Results and Testimonials Jump to section Results We are so proud of how our previous graduating Year 12s have done! Please note that the results shown here are not necessarily indicative of how you will perform if you study with us &#8211; every student is different and you should only compare your grades with the [&hellip;]</p>\n",
+    "modified": "2024-04-14T16:23:20",
+    "seo": {
+      "title": "Testimonials | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/about/testimonials/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Testimonials | Altitutor",
+      "og_description": "Results and Testimonials Jump to section Results We are so proud of how our previous graduating Year 12s have done! Please note that the results shown here are not necessarily indicative of how you will perform if you study with us &#8211; every student is different and you should only compare your grades with the [&hellip;]",
+      "og_url": "https://altitutor.com/about/testimonials/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2024-04-14T06:53:20+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "16 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/about/testimonials/",
+            "url": "https://altitutor.com/about/testimonials/",
+            "name": "Testimonials | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:52+00:00",
+            "dateModified": "2024-04-14T06:53:20+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/about/testimonials/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/about/testimonials/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About us",
+                "item": "https://altitutor.com/about/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Testimonials"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/resources/",
+    "title": "Resources",
+    "excerpt": "<p>ONLINE RESOURCES Our online resources comprehensively cover each topic for all subjects we offer courses for. Our students receive printed copies of these resources during each lesson, however they are also available here if they wish to revise outside of class time. Our resources Study notes Designed so that you&#8217;re only writing in the most [&hellip;]</p>\n",
+    "modified": "2026-01-15T19:05:16",
+    "seo": {
+      "title": "Resources | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/resources/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Resources | Altitutor",
+      "og_description": "ONLINE RESOURCES Our online resources comprehensively cover each topic for all subjects we offer courses for. Our students receive printed copies of these resources during each lesson, however they are also available here if they wish to revise outside of class time. Our resources Study notes Designed so that you&#8217;re only writing in the most [&hellip;]",
+      "og_url": "https://altitutor.com/resources/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T08:35:16+00:00",
+      "og_image": [
+        {
+          "width": 1342,
+          "height": 1890,
+          "url": "https://altitutor.com/images/content/2021/11/SACE-Chemistry-notes-2.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "5 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/resources/",
+            "url": "https://altitutor.com/resources/",
+            "name": "Resources | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:51+00:00",
+            "dateModified": "2026-01-15T08:35:16+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/resources/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/resources/#primaryimage",
+            "url": "https://altitutor.com/images/content/2021/11/SACE-Chemistry-notes-2.png",
+            "contentUrl": "https://altitutor.com/images/content/2021/11/SACE-Chemistry-notes-2.png",
+            "width": 1342,
+            "height": 1890
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/resources/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Resources"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/classes/examprep/",
+    "title": "Exam preparation courses",
+    "excerpt": "<p>SACE EXAM PREPARATION COURSES Our exam preparation courses are designed specifically to help students achieve the best score they can in their SACE Stage 2 final examinations. They consist of intensive sessions run over the course of weeks leading up to the exam. Each course gives a review of the entire subject&#8217;s content, highlighting critical [&hellip;]</p>\n",
+    "modified": "2026-01-15T19:04:59",
+    "seo": {
+      "title": "Exam preparation courses | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/classes/examprep/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Exam preparation courses | Altitutor",
+      "og_description": "SACE EXAM PREPARATION COURSES Our exam preparation courses are designed specifically to help students achieve the best score they can in their SACE Stage 2 final examinations. They consist of intensive sessions run over the course of weeks leading up to the exam. Each course gives a review of the entire subject&#8217;s content, highlighting critical [&hellip;]",
+      "og_url": "https://altitutor.com/classes/examprep/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-01-15T08:34:59+00:00",
+      "og_image": [
+        {
+          "width": 1458,
+          "height": 2058,
+          "url": "https://altitutor.com/images/content/2021/12/SACE-Chemistry-exam-1.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "4 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/classes/examprep/",
+            "url": "https://altitutor.com/classes/examprep/",
+            "name": "Exam preparation courses | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:46+00:00",
+            "dateModified": "2026-01-15T08:34:59+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/classes/examprep/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/classes/examprep/#primaryimage",
+            "url": "https://altitutor.com/images/content/2021/12/SACE-Chemistry-exam-1.png",
+            "contentUrl": "https://altitutor.com/images/content/2021/12/SACE-Chemistry-exam-1.png",
+            "width": 1458,
+            "height": 2058
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/classes/examprep/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "Courses",
+                "item": "https://altitutor.com/classes/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Exam preparation courses"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/about/",
+    "title": "About us",
+    "excerpt": "<p>About us Altitutor was founded by a group of tutors, who wanted a better way to do tuition. We found that individual tutors (including ourselves!) often struggled with providing a complete education for students, while tutoring with larger companies lacked personalised learning. That&#8217;s why we developed a teaching model which we believe provides the best [&hellip;]</p>\n",
+    "modified": "2026-05-07T17:46:48",
+    "seo": {
+      "title": "About us | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/about/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "About us | Altitutor",
+      "og_description": "About us Altitutor was founded by a group of tutors, who wanted a better way to do tuition. We found that individual tutors (including ourselves!) often struggled with providing a complete education for students, while tutoring with larger companies lacked personalised learning. That&#8217;s why we developed a teaching model which we believe provides the best [&hellip;]",
+      "og_url": "https://altitutor.com/about/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2026-05-07T08:16:48+00:00",
+      "og_image": [
+        {
+          "width": 500,
+          "height": 500,
+          "url": "https://altitutor.com/images/content/2023/11/DSC07785-1.jpg",
+          "type": "image/jpeg"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "13 minutes"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/about/",
+            "url": "https://altitutor.com/about/",
+            "name": "About us | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2019-11-18T14:43:44+00:00",
+            "dateModified": "2026-05-07T08:16:48+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/about/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "ImageObject",
+            "inLanguage": "en-AU",
+            "@id": "https://altitutor.com/about/#primaryimage",
+            "url": "https://altitutor.com/images/content/2023/11/DSC07785-1.jpg",
+            "contentUrl": "https://altitutor.com/images/content/2023/11/DSC07785-1.jpg",
+            "width": 500,
+            "height": 500
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/about/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About us"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  {
+    "path": "/about/contact/",
+    "title": "Contact us",
+    "excerpt": "<p>CONTACT US Our details If you have any further questions, or would like to organise to meet with us, please contact us by SMS or email. admin@altitutor.com 0483 849 842 Level 1, 17A Solomon St, Adelaide SA 5000</p>\n",
+    "modified": "2025-11-25T20:28:21",
+    "seo": {
+      "title": "Contact us | Altitutor",
+      "robots": {
+        "index": "index",
+        "follow": "follow",
+        "max-snippet": "max-snippet:-1",
+        "max-image-preview": "max-image-preview:large",
+        "max-video-preview": "max-video-preview:-1"
+      },
+      "canonical": "https://altitutor.com/about/contact/",
+      "og_locale": "en_US",
+      "og_type": "article",
+      "og_title": "Contact us | Altitutor",
+      "og_description": "CONTACT US Our details If you have any further questions, or would like to organise to meet with us, please contact us by SMS or email. admin@altitutor.com 0483 849 842 Level 1, 17A Solomon St, Adelaide SA 5000",
+      "og_url": "https://altitutor.com/about/contact/",
+      "og_site_name": "Altitutor",
+      "article_publisher": "https://www.facebook.com/altitutoreducation/",
+      "article_modified_time": "2025-11-25T09:58:21+00:00",
+      "og_image": [
+        {
+          "width": 1200,
+          "height": 675,
+          "url": "https://altitutor.com/images/content/2023/12/4.png",
+          "type": "image/png"
+        }
+      ],
+      "twitter_card": "summary_large_image",
+      "twitter_site": "@Altitutor",
+      "twitter_misc": {
+        "Est. reading time": "1 minute"
+      },
+      "schema": {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebPage",
+            "@id": "https://altitutor.com/about/contact/",
+            "url": "https://altitutor.com/about/contact/",
+            "name": "Contact us | Altitutor",
+            "isPartOf": {
+              "@id": "https://altitutor.com/#website"
+            },
+            "datePublished": "2018-11-26T02:17:06+00:00",
+            "dateModified": "2025-11-25T09:58:21+00:00",
+            "breadcrumb": {
+              "@id": "https://altitutor.com/about/contact/#breadcrumb"
+            },
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "BreadcrumbList",
+            "@id": "https://altitutor.com/about/contact/#breadcrumb",
+            "itemListElement": [
+              {
+                "@type": "ListItem",
+                "position": 1,
+                "name": "Home",
+                "item": "https://altitutor.com/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 2,
+                "name": "About us",
+                "item": "https://altitutor.com/about/"
+              },
+              {
+                "@type": "ListItem",
+                "position": 3,
+                "name": "Contact us"
+              }
+            ]
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://altitutor.com/#website",
+            "url": "https://altitutor.com/",
+            "name": "Altitutor",
+            "description": "Maths, Chemistry, Physics, Biology, English Tutoring Adelaide",
+            "publisher": {
+              "@id": "https://altitutor.com/#organization"
+            },
+            "alternateName": "Alti",
+            "potentialAction": [
+              {
+                "@type": "SearchAction",
+                "target": {
+                  "@type": "EntryPoint",
+                  "urlTemplate": "https://altitutor.com/?s={search_term_string}"
+                },
+                "query-input": {
+                  "@type": "PropertyValueSpecification",
+                  "valueRequired": true,
+                  "valueName": "search_term_string"
+                }
+              }
+            ],
+            "inLanguage": "en-AU"
+          },
+          {
+            "@type": "Organization",
+            "@id": "https://altitutor.com/#organization",
+            "name": "Altitutor",
+            "alternateName": "Alti",
+            "url": "https://altitutor.com/",
+            "logo": {
+              "@type": "ImageObject",
+              "inLanguage": "en-AU",
+              "@id": "https://altitutor.com/#/schema/logo/image/",
+              "url": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "contentUrl": "https://altitutor.com/images/content/2023/01/Site-icon-2.jpg",
+              "width": 1024,
+              "height": 1024,
+              "caption": "Altitutor"
+            },
+            "image": {
+              "@id": "https://altitutor.com/#/schema/logo/image/"
+            },
+            "sameAs": [
+              "https://www.facebook.com/altitutoreducation/",
+              "https://x.com/Altitutor",
+              "https://www.instagram.com/altitutor/",
+              "https://www.tiktok.com/@altitutor",
+              "https://www.linkedin.com/company/altitutor/",
+              "https://www.youtube.com/@altitutor"
+            ]
+          }
+        ]
+      }
+    }
+  }
+]

@@ -458,7 +458,7 @@ export function SignupForm({
                   {referralOffer
                     ? `You've received a free ${referralOffer.duration} of UCAT Unlimited from ${referralOffer.referrerName}, enter your email to continue.`
                     : founderCode
-                      ? "You’ve received a founder gift. Enter your email, complete onboarding and try the sample questions, then choose whether to accept your gift or continue with Free."
+                      ? "You’ve received a founder gift. Enter your email to continue."
                       : planIntent
                         ? `Create your account to continue to ${planName} checkout.`
                         : "Create your account for free by entering your email below."}

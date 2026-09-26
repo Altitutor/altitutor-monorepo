@@ -42,6 +42,30 @@ export function impliedCurriculumForYearLevel(
   return null;
 }
 
+/** Curriculum-agnostic trial subjects, matched by short name. */
+export const TRIAL_CROSS_YEAR_SUBJECTS = [
+  { shortName: 'UCAT', bookingKey: 'ucat', minYear: 9, maxYear: 13 },
+  { shortName: 'MEDI', bookingKey: 'medi', minYear: 12, maxYear: 13 },
+] as const;
+
+export type TrialBookingSubjectKey = (typeof TRIAL_CROSS_YEAR_SUBJECTS)[number]['bookingKey'];
+
+export function trialCrossYearShortNamesForYear(yearLevel: string | undefined): string[] {
+  const year = parseTrialYearLevel(yearLevel);
+  if (year === null) return [];
+  return TRIAL_CROSS_YEAR_SUBJECTS.filter(
+    (subject) => year >= subject.minYear && year <= subject.maxYear,
+  ).map((subject) => subject.shortName);
+}
+
+export function trialBookingSubjectKey(
+  value: string | null | undefined,
+): TrialBookingSubjectKey | null {
+  const normalized = value?.trim().toLowerCase();
+  const match = TRIAL_CROSS_YEAR_SUBJECTS.find((subject) => subject.bookingKey === normalized);
+  return match?.bookingKey ?? null;
+}
+
 export function curriculumAfterYearLevelChange(
   yearLevel: string | undefined,
   currentCurriculum: TrialCurriculum | undefined,

@@ -35,6 +35,23 @@ export async function POST(_request: Request, { params }: { params: { id: string
     return NextResponse.json({ error: errors.join(' ') }, { status: 400 });
   }
 
+  if (form.purpose === 'subsidy_interview') {
+    const { data: existing } = await admin
+      .from('forms')
+      .select('id')
+      .eq('purpose', 'subsidy_interview')
+      .eq('status', 'published')
+      .is('archived_at', null)
+      .neq('id', params.id)
+      .limit(1);
+    if (existing?.length) {
+      return NextResponse.json(
+        { error: 'Another published form is already assigned to subsidy interviews.' },
+        { status: 409 },
+      );
+    }
+  }
+
   const { data: latest } = await admin
     .from('form_versions')
     .select('version_number')

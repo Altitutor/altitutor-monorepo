@@ -1,3 +1,5 @@
+import { applyCustomerBalanceToFutureCharge } from "@altitutor/shared";
+
 export function formatAmount(cents: number | null): string {
   if (cents === null) return '-';
   return `$${(cents / 100).toFixed(2)}`;
@@ -9,28 +11,23 @@ export function getFutureInvoicePayment({
   invoiceCurrency,
   creditBalanceCents,
   creditCurrency,
+  isFirstInCurrency,
 }: {
   fullAmountCents: number;
   priorChargeCents: number;
   invoiceCurrency: string;
   creditBalanceCents: number;
   creditCurrency: string;
-}): { creditAppliedCents: number; payableCents: number } {
-  if (invoiceCurrency.toLowerCase() !== creditCurrency.toLowerCase()) {
-    return { creditAppliedCents: 0, payableCents: fullAmountCents };
-  }
-
-  const availableCreditCents = Math.max(0, -creditBalanceCents);
-  const remainingCreditCents = Math.max(
-    0,
-    availableCreditCents - priorChargeCents,
-  );
-  const creditAppliedCents = Math.min(fullAmountCents, remainingCreditCents);
-
-  return {
-    creditAppliedCents,
-    payableCents: fullAmountCents - creditAppliedCents,
-  };
+  isFirstInCurrency: boolean;
+}): { creditAppliedCents: number; balanceAddedCents: number; payableCents: number } {
+  return applyCustomerBalanceToFutureCharge({
+    fullAmountCents,
+    priorChargeCents,
+    invoiceCurrency,
+    customerBalanceCents: creditBalanceCents,
+    customerBalanceCurrency: creditCurrency,
+    isFirstInCurrency,
+  });
 }
 
 export function getAdelaideTodayIsoDate(): string {

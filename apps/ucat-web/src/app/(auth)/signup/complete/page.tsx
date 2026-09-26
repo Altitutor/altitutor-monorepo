@@ -6,6 +6,7 @@ import { SignupCompleteHardRedirect } from "@/features/signup-onboarding/compone
 import { SignupCompleteSessionFallback } from "@/features/signup-onboarding/components/signup-complete-session-fallback";
 import { loadSignupOnboardingPageData } from "@/features/signup-onboarding/lib/load-signup-onboarding-initial";
 import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
+import { AccountDeletedNotice } from "@/features/account-deletion/components/account-deleted-notice";
 
 // getSupabaseServerClient intentionally uses an empty-cookie placeholder during
 // `next build`. Without this explicit contract, Next prerenders the fallback
@@ -32,7 +33,7 @@ async function resolveSignupCompleteUser(): Promise<User | null> {
 export default async function SignupCompletePage({
   searchParams,
 }: {
-  searchParams: Promise<{ redirect?: string }>;
+  searchParams: Promise<{ redirect?: string; deleted?: string }>;
 }) {
   const params = await searchParams;
   const returnTo = safePostAuthReturnPath(params.redirect);
@@ -51,6 +52,7 @@ export default async function SignupCompletePage({
 
   return (
     <Suspense fallback={null}>
+      {params.deleted === "1" ? <AccountDeletedNotice /> : null}
       <SignupOnboardingWizard initial={initial} />
     </Suspense>
   );

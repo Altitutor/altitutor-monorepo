@@ -1,58 +1,18 @@
-"use client";
-
-import { useEffect, useRef } from "react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import { ArrowDown, ArrowRight, HeartHandshake } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
-import { MagneticButton } from "./magnetic-button";
-import { UCAT_SECTION_EYEBROW_CLASS, UCAT_SECTION_DESCRIPTION_CLASS, UCAT_SUPPORTING_TEXT_CLASS } from "./ucat-landing-section-eyebrow";
+import { MagneticButton } from "@/features/marketing/components/magnetic-button";
+import {
+  MARKETING_SECTION_EYEBROW_CLASS,
+  MARKETING_SECTION_DESCRIPTION_CLASS,
+  MARKETING_SUPPORTING_TEXT_CLASS,
+} from "@/features/marketing/section-styles";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 export function UcatLandingHero() {
-  const sectionRef = useRef<HTMLElement>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    let context: { revert: () => void } | undefined;
-
-    void Promise.all([import("gsap"), import("gsap/ScrollTrigger")]).then(
-      ([gsapModule]) => {
-        const gsap = gsapModule.default;
-        if (cancelled) return;
-        if (!sectionRef.current) return;
-        context = gsap.context(() => {
-          const reduceMotion = window.matchMedia(
-            "(prefers-reduced-motion: reduce)",
-          ).matches;
-          if (reduceMotion) return;
-          gsap
-            .timeline({ defaults: { ease: "power3.out" } })
-            .from("[data-hero-eyebrow]", { opacity: 0, y: 16, duration: 0.55 })
-            .from(
-              "[data-hero-line]",
-              { opacity: 0, y: 44, duration: 0.85, stagger: 0.1 },
-              "-=0.3",
-            )
-            .from(
-              "[data-hero-support]",
-              { opacity: 0, y: 24, duration: 0.65, stagger: 0.08 },
-              "-=0.45",
-            );
-        }, sectionRef);
-      },
-    );
-
-    return () => {
-      cancelled = true;
-      context?.revert();
-    };
-  }, []);
-
   return (
     <section
-      ref={sectionRef}
       id="altitutor-ucat"
       className="relative overflow-hidden bg-marketing-cream px-4 py-32 pt-36 sm:px-8 sm:py-40 sm:pt-44"
     >
@@ -60,7 +20,7 @@ export function UcatLandingHero() {
       <div className="relative mx-auto w-full max-w-[92rem] text-center">
         <p
           data-hero-eyebrow
-          className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
+          className={`${MARKETING_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
         >
           UCAT preparation from Altitutor
         </p>
@@ -79,10 +39,10 @@ export function UcatLandingHero() {
         </h1>
         <p
           data-hero-support
-          className={`mx-auto mt-8 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+          className={`mx-auto mt-8 max-w-2xl ${MARKETING_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
         >
-          Altitutor UCAT intelligently plans practice around your
-          strengths and weaknesses, keeping you on track to hit your target score.
+          Altitutor UCAT intelligently plans practice around your strengths and
+          weaknesses, keeping you on track to hit your target score.
         </p>
 
         <div
@@ -91,28 +51,37 @@ export function UcatLandingHero() {
         >
           <AnalyticsLink
             href={PRODUCT_LINKS.ucatSignup}
-            analytics={{ product: "ucat", placement: "hero", action: "start_free" }}
+            analytics={{
+              product: "ucat",
+              placement: "hero",
+              action: "start_free",
+            }}
             className="w-full sm:w-auto"
           >
             <MagneticButton className="w-full bg-marketing-primary px-7 py-3.5 text-base font-semibold text-white shadow-lg shadow-marketing-primary/15 sm:w-auto">
-              Start preparing free <ArrowRight className="h-4 w-4" aria-hidden />
+              Start preparing free{" "}
+              <ArrowRight className="h-4 w-4" aria-hidden />
             </MagneticButton>
           </AnalyticsLink>
           <a href="#product" className="w-full sm:w-auto">
             <MagneticButton
               className={`w-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal hover:bg-white sm:w-auto ${typo.secondarySans}`}
             >
-              Explore Altitutor UCAT <ArrowDown className="h-4 w-4" aria-hidden />
+              Explore Altitutor UCAT{" "}
+              <ArrowDown className="h-4 w-4" aria-hidden />
             </MagneticButton>
           </a>
         </div>
 
         <div
           data-hero-support
-          className={`mt-9 flex flex-col items-center justify-center gap-2 ${UCAT_SUPPORTING_TEXT_CLASS} sm:flex-row sm:gap-5 ${typo.secondarySans}`}
+          className={`mt-9 flex flex-col items-center justify-center gap-2 ${MARKETING_SUPPORTING_TEXT_CLASS} sm:flex-row sm:gap-5 ${typo.secondarySans}`}
         >
           <p className="flex items-center gap-2">
-            <HeartHandshake className="h-4 w-4 text-marketing-primary" aria-hidden />
+            <HeartHandshake
+              className="h-4 w-4 text-marketing-primary"
+              aria-hidden
+            />
             A not-for-profit initiative by Altitutor.
           </p>
         </div>

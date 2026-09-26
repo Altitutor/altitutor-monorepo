@@ -6,4 +6,5 @@ export interface FutureInvoicePreview {
   full_amount_cents: number;
   prior_charge_cents: number;
   currency: string;
+  is_first_in_currency: boolean;
 }

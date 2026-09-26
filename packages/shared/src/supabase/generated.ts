@@ -39468,6 +39468,10 @@ export type Database = {
       }
       can_tutor_create_file: { Args: { file_path: string }; Returns: boolean }
       can_tutor_read_file: { Args: { file_path: string }; Returns: boolean }
+      cancel_scheduled_class_enrolment: {
+        Args: { p_class_id: string; p_staff_id: string; p_student_id: string }
+        Returns: undefined
+      }
       canonical_ucat_catalog_rich_text: {
         Args: { json_content: Json }
         Returns: string
@@ -40935,6 +40939,16 @@ export type Database = {
         Args: { p_lock_name?: string; p_run_id?: string }
         Returns: boolean
       }
+      replace_scheduled_class_enrolment: {
+        Args: {
+          p_enrolled_at: string
+          p_new_class_id: string
+          p_old_class_id: string
+          p_staff_id: string
+          p_student_id: string
+        }
+        Returns: string
+      }
       replace_ucat_study_plan_generation: {
         Args: {
           p_capacity_risk: Json
@@ -40970,6 +40984,10 @@ export type Database = {
           p_student_id: string
           p_tasks: Json
         }
+        Returns: string
+      }
+      require_scheduled_class_enrolment: {
+        Args: { p_class_id: string; p_student_id: string }
         Returns: string
       }
       reschedule_drafting_session: {

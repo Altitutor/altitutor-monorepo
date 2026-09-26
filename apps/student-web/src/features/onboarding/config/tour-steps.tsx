@@ -37,8 +37,8 @@ const portalTour: Tour = {
       title: 'Start from the dashboard',
       content: (
         <p>
-          Your dashboard shows upcoming sessions and quick links. Use the sidebar
-          whenever you want to switch sections.
+          Your dashboard shows upcoming sessions. Use the sidebar whenever you want to
+          switch sections.
         </p>
       ),
       selector: "[data-tour='nav-dashboard']",

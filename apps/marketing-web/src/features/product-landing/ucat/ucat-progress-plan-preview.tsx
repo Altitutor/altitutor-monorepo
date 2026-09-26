@@ -1,6 +1,7 @@
 "use client";
 
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { Flame, Sparkles } from "lucide-react";
 import {
   DemoStage,
@@ -17,9 +18,9 @@ const PROJECTED_GAIN = 145;
 const INTENSITY_FILL: Record<0 | 1 | 2 | 3 | 4, string> = {
   0: "bg-black/[0.04]",
   1: "bg-[#c5dce5]",
-  2: "bg-[#92b9c6]",
+  2: "bg-marketing-accent",
   3: "bg-[#355d72]",
-  4: "bg-[#0a2941]",
+  4: "bg-marketing-primary",
 };
 
 const JULY_ACTIVITY: Partial<Record<number, 1 | 2 | 3 | 4>> = {
@@ -71,7 +72,7 @@ const COMPLETION_PERCENT = Math.round(
 );
 
 const FLOATING_CARD =
-  "rounded-2xl border border-black/10 bg-white/[0.97] text-[#1a1a1a] shadow-[0_18px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.07] backdrop-blur-xl";
+  "rounded-2xl border border-black/10 bg-white/[0.97] text-marketing-charcoal shadow-[0_18px_48px_rgba(15,23,42,0.14)] ring-1 ring-black/[0.07] backdrop-blur-xl";
 
 const CARD_CHROME =
   "rounded-[1.25rem] bg-white shadow-sm ring-1 ring-black/[0.055]";
@@ -133,7 +134,7 @@ function ScalePill({
           className={[
             "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold tabular-nums shadow-sm ring-1",
             tone === "estimate"
-              ? "border border-[#0a2941]/20 bg-[#0a2941] text-white ring-white"
+              ? "border border-marketing-primary/20 bg-marketing-primary text-white ring-white"
               : "border border-amber-950/15 bg-amber-400 text-slate-950 ring-white/60",
           ].join(" ")}
         >
@@ -176,7 +177,7 @@ function ScoreScale({
         style={{ left: `${gapLeft}%`, width: `${gapWidth}%` }}
       >
         <motion.div
-          className="h-full origin-left rounded-full bg-[#0a2941]/35"
+          className="h-full origin-left rounded-full bg-marketing-primary/35"
           initial={animate ? { scaleX: 0 } : false}
           animate={{ scaleX: 1 }}
           transition={{ duration: 0.5, delay: delay + 0.12, ease: DEMO_EASE }}
@@ -238,7 +239,7 @@ function CircularProgress({
           strokeWidth={strokeWidth}
           strokeDasharray={circumference}
           strokeLinecap="round"
-          className="text-[#0a2941]"
+          className="text-marketing-primary"
           initial={animate ? { strokeDashoffset: circumference } : false}
           animate={{ strokeDashoffset: offset }}
           transition={{ duration: 0.85, ease: DEMO_EASE, delay: 0.2 }}
@@ -287,7 +288,7 @@ function ScoreInsightCard({
 }
 
 export function UcatProgressPlanPreview() {
-  const reduceMotion = useReducedMotion();
+  const { reduceMotion } = useFaithfulMotion();
   const animate = !reduceMotion;
 
   return (
@@ -306,15 +307,15 @@ export function UcatProgressPlanPreview() {
           <div className="relative min-h-[34rem] pb-8">
             <div className="flex flex-row items-start justify-between gap-4 px-10 py-6">
               <div>
-                <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+                <h3 className="text-xl font-semibold tracking-tight sm:text-2xl">
                   Score progress
-                </h1>
+                </h3>
                 <p className="mt-1 text-sm text-black/50">
                   Current estimate {CURRENT_ESTIMATE.toLocaleString()} · Target{" "}
                   {TARGET_SCORE.toLocaleString()}
                 </p>
               </div>
-              <span className="shrink-0 rounded-full bg-[#e8eaed] px-2.5 py-1 text-xs font-semibold text-[#0a2941]">
+              <span className="shrink-0 rounded-full bg-[#e8eaed] px-2.5 py-1 text-xs font-semibold text-marketing-primary">
                 Estimate forming
               </span>
             </div>
@@ -349,7 +350,7 @@ export function UcatProgressPlanPreview() {
                 <motion.path
                   d="M16 198 C70 194 120 182 170 170 S280 142 380 124"
                   fill="none"
-                  stroke="#0a2941"
+                  stroke="rgb(var(--marketing-primary))"
                   strokeWidth="4"
                   strokeLinecap="round"
                   initial={animate ? { pathLength: 0 } : false}
@@ -360,7 +361,7 @@ export function UcatProgressPlanPreview() {
                 <motion.path
                   d="M380 124 C500 98 640 58 792 36"
                   fill="none"
-                  stroke="#92b9c6"
+                  stroke="rgb(var(--marketing-accent))"
                   strokeWidth="4"
                   strokeLinecap="round"
                   strokeDasharray="10 8"
@@ -374,7 +375,7 @@ export function UcatProgressPlanPreview() {
                      C500 78 640 30 792 8
                      L792 64
                      C640 86 500 118 380 124 Z"
-                  fill="#92b9c6"
+                  fill="rgb(var(--marketing-accent))"
                   initial={animate ? { opacity: 0 } : false}
                   animate={{ opacity: 0.22 }}
                   transition={{ duration: 0.9, delay: 0.12 }}
@@ -383,7 +384,7 @@ export function UcatProgressPlanPreview() {
                   cx="380"
                   cy="124"
                   r="6"
-                  fill="#0a2941"
+                  fill="rgb(var(--marketing-primary))"
                   stroke="white"
                   strokeWidth="2.5"
                   initial={animate ? { scale: 0, opacity: 0 } : false}

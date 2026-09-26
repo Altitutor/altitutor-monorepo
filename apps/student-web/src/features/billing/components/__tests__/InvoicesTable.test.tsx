@@ -64,6 +64,7 @@ describe("InvoicesTable future invoices", () => {
           full_amount_cents: 10_000,
           prior_charge_cents: 2_000,
           currency: "aud",
+          is_first_in_currency: false,
         },
       ],
       isLoading: false,
@@ -93,5 +94,46 @@ describe("InvoicesTable future invoices", () => {
     expect(within(futureRow!).getByText("Future")).toBeInTheDocument();
     expect(within(futureRow!).queryByRole("button")).not.toBeInTheDocument();
     expect(within(futureRow!).queryByRole("link")).not.toBeInTheDocument();
+  });
+
+  it("adds a positive customer balance to the next future invoice", () => {
+    mockedUseInvoicesWithItems.mockReturnValue({
+      data: [],
+      isLoading: false,
+      error: null,
+    } as unknown as ReturnType<typeof useInvoicesWithItems>);
+    mockedUseFutureInvoices.mockReturnValue({
+      data: [
+        {
+          sessions_students_id: "assignment-1",
+          subject_id: "subject-1",
+          session_name: "Mathematics A - Thursday, 1 October 2026, 10:30 am",
+          session_start_at: "2026-10-01T00:00:00.000Z",
+          full_amount_cents: 10_000,
+          prior_charge_cents: 0,
+          currency: "aud",
+          is_first_in_currency: true,
+        },
+      ],
+      isLoading: false,
+    } as unknown as ReturnType<typeof useFutureInvoices>);
+    mockedUseCreditBalance.mockReturnValue({
+      data: {
+        linked: true,
+        balance_cents: 2_500,
+        currency: "aud",
+        updated_at: "2026-09-23T00:00:00.000Z",
+      },
+      isLoading: false,
+    } as unknown as ReturnType<typeof useCreditBalance>);
+
+    render(<InvoicesTable />);
+
+    const futureRow = screen
+      .getByText("Mathematics A - Thursday, 1 October 2026, 10:30 am")
+      .closest("tr");
+    expect(within(futureRow!).getByText("$100.00")).toHaveClass("line-through");
+    expect(within(futureRow!).getByText("$125.00")).toBeInTheDocument();
+    expect(within(futureRow!).getByText("Balance added")).toBeInTheDocument();
   });
 });

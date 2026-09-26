@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { ArrowRight, Check, Info, MapPin, Video } from "lucide-react";
 import {
-  MARKETING_TOKENS,
   maxPracticeDayDiscountCents,
   periodCentsToPerWeekCents,
   type UcatBillingInterval,
@@ -11,24 +10,24 @@ import {
 import { SegmentedControl } from "@altitutor/ui";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
-import { MagneticButton } from "./magnetic-button";
+import { MagneticButton } from "@/features/marketing/components/magnetic-button";
 import { UcatInterestDialog } from "./ucat-interest-dialog";
 import {
-  UCAT_SECTION_EYEBROW_CLASS,
-  UCAT_PLAN_BADGE_LIGHT_CLASS,
-  UCAT_PLAN_BADGE_DARK_CLASS,
-  UCAT_SECTION_PADDING_CLASS,
-  UCAT_SECTION_DESCRIPTION_CLASS,
-  UCAT_BODY_DESCRIPTION_CLASS,
-  UCAT_SUPPORTING_TEXT_CLASS,
-  UCAT_SECTION_HEADING_CLASS,
-  UCAT_CARD_TITLE_CLASS,
-  UCAT_CARD_TITLE_DARK_CLASS,
-  UCAT_DARK_BODY_DESCRIPTION_CLASS,
-  UCAT_DARK_SUPPORTING_TEXT_CLASS,
-} from "./ucat-landing-section-eyebrow";
+  MARKETING_SECTION_EYEBROW_CLASS,
+  MARKETING_PLAN_BADGE_LIGHT_CLASS,
+  MARKETING_PLAN_BADGE_DARK_CLASS,
+  MARKETING_SECTION_PADDING_CLASS,
+  MARKETING_SECTION_DESCRIPTION_CLASS,
+  MARKETING_BODY_DESCRIPTION_CLASS,
+  MARKETING_SUPPORTING_TEXT_CLASS,
+  MARKETING_SECTION_HEADING_CLASS,
+  MARKETING_CARD_TITLE_CLASS,
+  MARKETING_CARD_TITLE_DARK_CLASS,
+  MARKETING_DARK_BODY_DESCRIPTION_CLASS,
+  MARKETING_DARK_SUPPORTING_TEXT_CLASS,
+} from "@/features/marketing/section-styles";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 type FreeQuota = { limit: number; period: "day" | "week" | "month" };
 type PublicSubscriptionConfig = {
@@ -100,7 +99,7 @@ function CheckItem({
       <Check className="mt-0.5 size-4 shrink-0" aria-hidden />
       <span
         className={`${typo.secondarySans} ${
-          dark ? UCAT_DARK_BODY_DESCRIPTION_CLASS : UCAT_BODY_DESCRIPTION_CLASS
+          dark ? MARKETING_DARK_BODY_DESCRIPTION_CLASS : MARKETING_BODY_DESCRIPTION_CLASS
         }`}
       >
         {children}
@@ -203,22 +202,22 @@ export function UcatLandingPricing() {
   return (
     <section
       id="pricing"
-      className={`bg-marketing-cream ${UCAT_SECTION_PADDING_CLASS}`}
+      className={`bg-marketing-cream ${MARKETING_SECTION_PADDING_CLASS}`}
     >
       <div className="mx-auto max-w-6xl">
         <div className="text-center">
           <p
-            className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
+            className={`${MARKETING_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}
           >
             Pricing
           </p>
           <h2
-            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
+            className={`mt-4 ${MARKETING_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             Prepare at the pace that works for you.
           </h2>
           <p
-            className={`mx-auto mt-6 max-w-2xl ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+            className={`mx-auto mt-6 max-w-2xl ${MARKETING_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             Keep preparing free, or go Unlimited when you want to move faster.
           </p>
@@ -247,20 +246,20 @@ export function UcatLandingPricing() {
         ) : null}
 
         <div className="mt-10 grid gap-6 lg:grid-cols-2">
-          <article className="flex flex-col justify-between rounded-[2.25rem] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10">
+          <article className="flex flex-col justify-between rounded-[30px] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10">
             <div>
               <span
-                className={`${UCAT_PLAN_BADGE_LIGHT_CLASS} ${typo.dataMono}`}
+                className={`${MARKETING_PLAN_BADGE_LIGHT_CLASS} ${typo.dataMono}`}
               >
                 UCAT Free
               </span>
               <h3
-                className={`mt-4 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
+                className={`mt-4 ${MARKETING_CARD_TITLE_CLASS} ${typo.headingSans}`}
               >
                 A complete start. Free forever.
               </h3>
               <p
-                className={`mt-4 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-4 ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Learn, practice, review, and track your progress with allowances
                 that reset. This is ongoing access - not a trial you eventually
@@ -305,19 +304,19 @@ export function UcatLandingPricing() {
             </AnalyticsLink>
           </article>
 
-          <article className="relative flex flex-col justify-between overflow-hidden rounded-[2.25rem] bg-marketing-primary p-7 text-marketing-cream shadow-2xl sm:p-10">
+          <article className="relative flex flex-col justify-between overflow-hidden rounded-[30px] bg-marketing-charcoal p-7 text-marketing-cream shadow-2xl sm:p-10">
             <div className="absolute -right-20 -top-20 h-60 w-60 rounded-full bg-marketing-accent/10 blur-[60px]" />
             <div className="relative">
               <span
-                className={`${UCAT_PLAN_BADGE_DARK_CLASS} ${typo.dataMono}`}
+                className={`${MARKETING_PLAN_BADGE_DARK_CLASS} ${typo.dataMono}`}
               >
                 UCAT Unlimited
               </span>
-              <h3 className={`mt-4 ${UCAT_CARD_TITLE_DARK_CLASS} ${typo.headingSans}`}>
+              <h3 className={`mt-4 ${MARKETING_CARD_TITLE_DARK_CLASS} ${typo.headingSans}`}>
                 Practice without waiting.
               </h3>
               <p
-                className={`mt-4 ${UCAT_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-4 ${MARKETING_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 Remove limits across the platform when you want to prepare
                 faster or more intensively.
@@ -349,7 +348,7 @@ export function UcatLandingPricing() {
                     </span>
                   </div>
                   <p
-                    className={`mt-2 flex items-start gap-1.5 ${UCAT_DARK_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+                    className={`mt-2 flex items-start gap-1.5 ${MARKETING_DARK_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
                   >
                     <Info className="mt-0.5 size-4 shrink-0" aria-hidden />
                     Standard price {formatMoney(price.standardWeeklyCents)} /
@@ -361,7 +360,7 @@ export function UcatLandingPricing() {
                 </div>
               ) : (
                 <p
-                  className={`mt-7 ${UCAT_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                  className={`mt-7 ${MARKETING_DARK_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
                 >
                   Pricing coming soon
                 </p>
@@ -375,7 +374,7 @@ export function UcatLandingPricing() {
                 ))}
               </ul>
               <p
-                className={`mt-7 rounded-2xl border border-white/10 bg-white/5 p-4 ${UCAT_DARK_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+                className={`mt-7 rounded-2xl border border-white/10 bg-white/5 p-4 ${MARKETING_DARK_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
               >
                 Revenue from paid plans helps fund free and subsidised
                 educational support through Altitutor.
@@ -407,7 +406,7 @@ export function UcatLandingPricing() {
           </article>
         </div>
 
-        <div className="mt-8 grid gap-8 rounded-[2.25rem] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-14">
+        <div className="mt-8 grid gap-8 rounded-[30px] border border-marketing-charcoal/10 bg-white p-7 shadow-sm sm:p-10 lg:grid-cols-[1fr_auto] lg:items-center lg:gap-14">
           <div className="flex gap-5">
             <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-marketing-accent/30 text-marketing-primary">
               <Video className="h-5 w-5" aria-hidden />
@@ -419,19 +418,19 @@ export function UcatLandingPricing() {
                 Online tutoring · coming soon
               </p>
               <h3
-                className={`mt-3 ${UCAT_CARD_TITLE_CLASS} ${typo.headingSans}`}
+                className={`mt-3 ${MARKETING_CARD_TITLE_CLASS} ${typo.headingSans}`}
               >
                 Want a tutor to work from the same evidence?
               </h3>
               <p
-                className={`mt-3 max-w-2xl ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-3 max-w-2xl ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 We are developing one-to-one online UCAT tutoring. Your
                 tutor will be able to see your progress and attempts, and give you 
                 advice tailored to your performance.
               </p>
               <p
-                className={`mt-3 ${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+                className={`mt-3 ${MARKETING_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
               >
                 Joining the waitlist is not a booking or guarantee of
                 availability.
@@ -444,13 +443,13 @@ export function UcatLandingPricing() {
               triggerLabel="Join the waitlist"
               title="Join the online tutoring waitlist"
               description="Leave your contact details and Matt will follow up as plans for one-to-one online UCAT tutoring develop. Joining the waitlist is not a booking or guarantee of availability."
-              triggerClassName="inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-charcoal"
+              triggerClassName="inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-primary/90"
             />
           </div>
         </div>
 
         <p
-          className={`mt-8 flex flex-wrap items-center justify-center gap-2 text-center ${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+          className={`mt-8 flex flex-wrap items-center justify-center gap-2 text-center ${MARKETING_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
         >
           <MapPin className="h-4 w-4 text-marketing-primary" aria-hidden /> In
           Adelaide?

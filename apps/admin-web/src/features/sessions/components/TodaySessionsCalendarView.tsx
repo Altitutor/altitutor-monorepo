@@ -12,6 +12,7 @@ type SessionsData = {
 };
 import { cn } from '@/shared/utils';
 import { adelaideTimeToMinutes } from '@/shared/utils/datetime';
+import { layoutCalendarColumns } from '../utils/calendarLayout';
 import { useElementSize } from '@/shared/hooks/useElementSize';
 import { SessionsCard } from './SessionsCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
@@ -256,14 +257,25 @@ export function TodaySessionsCalendarView({ date, onOpenSession }: Props) {
                     
                     // Render regular sessions AFTER (on top) with higher z-index
                     regularGroups.forEach((group) => {
-                      const total = group.length;
-                      const columnWidth = total > 1 ? 95 / total : 95;
-                      group.forEach((s: Tables<'sessions'>, idx: number) => {
+                      const placements = new Map(
+                        layoutCalendarColumns(
+                          group.map((session) => ({
+                            id: session.id,
+                            startMinutes: adelaideTimeToMinutes(session.start_at ?? ''),
+                            endMinutes: adelaideTimeToMinutes(session.end_at ?? ''),
+                          })),
+                        ).map((placement) => [placement.id, placement]),
+                      );
+                      group.forEach((s: Tables<'sessions'>) => {
+                        const placement = placements.get(s.id);
+                        const total = placement?.columnCount ?? 1;
+                        const column = placement?.column ?? 0;
+                        const columnWidth = total > 1 ? 95 / total : 95;
                         const sStartMinutes = adelaideTimeToMinutes(s.start_at ?? '');
                         const sEndMinutes = adelaideTimeToMinutes(s.end_at ?? '');
                         const top = Math.max(0, (minutesFromStart(s.start_at ?? '') / 60) * slotHeight);
                         const height = Math.max(30, ((sEndMinutes - sStartMinutes) / 60) * slotHeight);
-                        const left = (idx * columnWidth) + 2.5;
+                        const left = column * columnWidth + 2.5;
                         
                         const cls = sessionsData?.classesById?.[s.class_id ?? ''];
                         const subj = cls?.subject_id ? sessionsData?.subjectsById?.[cls.subject_id] : undefined;

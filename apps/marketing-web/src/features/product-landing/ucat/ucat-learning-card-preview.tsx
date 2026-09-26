@@ -106,7 +106,7 @@ export function UcatLearningCardPreview({ animate }: UcatLearningCardPreviewProp
   return (
     <div
       ref={stageRef}
-      className="ucat-product-ui pointer-events-none relative min-w-0 select-none overflow-hidden bg-[#f4f5f7] text-[#1a1a1a]"
+      className="marketing-product-ui pointer-events-none relative min-w-0 select-none overflow-hidden bg-[#f4f5f7] text-marketing-charcoal"
       aria-hidden
     >
       <DemoCursor cursorRef={cursorRef} />
@@ -150,7 +150,7 @@ export function UcatLearningCardPreview({ animate }: UcatLearningCardPreviewProp
                     is the conclusion best supported by the available evidence.
                   </p>
                 </div>
-                <blockquote className="rounded-lg border-l-4 border-[#92b9c6] bg-[#eef0f3] p-3 text-xs leading-relaxed text-black/60 sm:text-sm">
+                <blockquote className="rounded-lg border-l-4 border-marketing-accent bg-[#eef0f3] p-3 text-xs leading-relaxed text-black/60 sm:text-sm">
                   The city reduced bus fares at the beginning of September. In
                   the same week, two new routes began serving suburbs that
                   previously had limited public transport. Passenger numbers were
@@ -171,7 +171,7 @@ export function UcatLearningCardPreview({ animate }: UcatLearningCardPreviewProp
                 </p>
                 <div className="flex items-start gap-2 rounded-lg bg-[#eef0f3] p-3 text-black/58">
                   <Lightbulb
-                    className="mt-0.5 size-3.5 shrink-0 text-[#0a2941]"
+                    className="mt-0.5 size-3.5 shrink-0 text-marketing-primary"
                     aria-hidden
                   />
                   The more you must add from outside the passage, the weaker the
@@ -246,7 +246,7 @@ export function UcatLearningCardPreview({ animate }: UcatLearningCardPreviewProp
                               <span
                                 className={`mt-0.5 grid size-3.5 shrink-0 place-items-center rounded-full border sm:size-4 ${
                                   selected
-                                    ? "border-[#0a2941] bg-[#0a2941]"
+                                    ? "border-marketing-primary bg-marketing-primary"
                                     : "border-black/35"
                                 }`}
                               >

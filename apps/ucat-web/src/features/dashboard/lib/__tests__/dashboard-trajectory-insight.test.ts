@@ -114,7 +114,7 @@ describe("buildDashboardTrajectoryInsight", () => {
     ).toEqual({
       ruleId: "dashboard_trajectory.bounded_outlook_improving",
       title: "Your estimate is up 40 points",
-      body: "Verbal Reasoning still has the largest section gap at 80 points below its Study plan target, so today’s work keeps focus there.",
+      body: "Verbal Reasoning has the largest section gap, 80 points below its Study plan target.",
     });
   });
 
@@ -131,7 +131,7 @@ describe("buildDashboardTrajectoryInsight", () => {
       }),
     ).toEqual({
       ruleId: "dashboard_trajectory.bounded_outlook_section_gap",
-      title: "Verbal Reasoning still has the largest section gap",
+      title: "Verbal Reasoning has the largest section gap",
       body: "It's 80 points below its Study plan target. Start with today's next step and keep practising.",
     });
   });
@@ -156,6 +156,43 @@ describe("buildDashboardTrajectoryInsight", () => {
         studyPlanEnabled: true,
       }).ruleId,
     ).toBe("dashboard_trajectory.bounded_outlook_section_gap");
+  });
+
+  it("ignores a zero section gap when the path is on track", () => {
+    expect(
+      buildDashboardTrajectoryInsight({
+        state: state({ stage: "on_track" }),
+        weakestSection: { name: "Verbal Reasoning", gap: 0 },
+        recentImprovement: null,
+        studyPlanEnabled: true,
+      }).body,
+    ).toBe(
+      "Keep following today’s Study plan so more practice can confirm that you’re on track.",
+    );
+  });
+
+  it("names a positive section gap without describing today's work when the target is within reach", () => {
+    expect(
+      buildDashboardTrajectoryInsight({
+        state: state({ stage: "within_reach" }),
+        weakestSection: { name: "Decision Making", gap: 380 },
+        recentImprovement: null,
+        studyPlanEnabled: true,
+      }).body,
+    ).toBe("Decision Making is 380 points below its section target.");
+  });
+
+  it("does not describe today's work when a within-reach outlook has no section gap", () => {
+    expect(
+      buildDashboardTrajectoryInsight({
+        state: state({ stage: "within_reach" }),
+        weakestSection: { name: "Decision Making", gap: 0 },
+        recentImprovement: null,
+        studyPlanEnabled: true,
+      }).body,
+    ).toBe(
+      "More timed practice will lift your projected score and narrow the range.",
+    );
   });
 
   it("ignores a zero section gap when explaining a bounded outlook", () => {

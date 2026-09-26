@@ -7,6 +7,8 @@ import { formatDate, cn } from '@/shared/utils';
 import { calculateFirstSessionDate, calculateLastSessionDate } from '@/shared/utils/schedule';
 import { getMidnightAdelaide } from '@/shared/utils/enrollment';
 import { EnrollmentWeekCalendar } from '../EnrollmentWeekCalendar';
+import { useOpenEnrolmentStart } from '../../hooks/useClassTransferSessions';
+import { finalClassDateIsAfterEnrolment } from '../../utils/changeClassDates';
 import type { Tables } from '@altitutor/shared';
 import type { JSONContent } from '@tiptap/core';
 
@@ -33,6 +35,7 @@ export function UnenrollStep1DateAndReason({
   onDateChange,
   onReasonChange: _onReasonChange,
 }: UnenrollStep1DateAndReasonProps) {
+  const { data: enrolledAt, isLoading: enrolmentLoading } = useOpenEnrolmentStart(student.id, classData.id);
   // Get student name
   const studentName = `${student.first_name} ${student.last_name}`;
 
@@ -86,8 +89,10 @@ export function UnenrollStep1DateAndReason({
       currentDate.setDate(currentDate.getDate() + 7);
     }
 
-    return dates;
-  }, [classData]);
+    if (enrolmentLoading) return [];
+    const timezone = classData.schedule_timezone || 'Australia/Adelaide';
+    return dates.filter((date) => !enrolledAt || finalClassDateIsAfterEnrolment(date.value, enrolledAt, timezone));
+  }, [classData, enrolledAt, enrolmentLoading]);
 
   const isClassChosen = className !== 'choose class';
   const isDateChosen = !!unenrollmentDate && unenrollmentDate.trim() !== '' && sessionDateOptions.length > 0;
@@ -132,7 +137,9 @@ export function UnenrollStep1DateAndReason({
           </span>
           {', their final session will be '}
           <span className="inline-flex items-center">
-            {sessionDateOptions.length > 0 ? (
+            {enrolmentLoading ? (
+              <span className="px-2 py-1 text-sm text-muted-foreground">Loading sessions…</span>
+            ) : sessionDateOptions.length > 0 ? (
               <SearchableSelect<{ value: string; label: string }>
                 items={sessionDateOptions}
                 value={sessionDateOptions.find((d) => d.value === selectedSessionDate) ?? null}
@@ -149,7 +156,7 @@ export function UnenrollStep1DateAndReason({
               />
             ) : (
               <span className="px-2 py-1 rounded-md bg-muted-foreground/10 text-muted-foreground border border-muted-foreground/20 text-sm font-semibold">
-                choose class
+                {classData.day_of_week == null ? 'choose class' : 'No lesson after enrolment started'}
               </span>
             )}
           </span>

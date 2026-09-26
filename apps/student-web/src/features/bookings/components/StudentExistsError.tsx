@@ -5,7 +5,7 @@ import { studentBtnOutline, studentBtnPrimary } from '@/shared/lib/student-visua
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 
-export function StudentExistsError() {
+export function StudentExistsError({ loginHref = '/login' }: { loginHref?: string }) {
   const router = useRouter();
   
   return (
@@ -17,7 +17,7 @@ export function StudentExistsError() {
         </p>
       </div>
       <div className="flex gap-3 justify-center">
-        <Button className={studentBtnPrimary} onClick={() => router.push('/login')}>
+        <Button className={studentBtnPrimary} onClick={() => router.push(loginHref)}>
           Log In
         </Button>
         <Button variant="outline" className={studentBtnOutline} asChild>

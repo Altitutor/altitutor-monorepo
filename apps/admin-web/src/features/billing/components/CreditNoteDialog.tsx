@@ -1,9 +1,26 @@
 'use client';
 
 import { useState, useMemo, useCallback, useEffect } from 'react';
-import { Button, Label, Checkbox, Input, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Textarea, useToast, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
+import {
+  Button,
+  Label,
+  Checkbox,
+  Input,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+  Textarea,
+  useToast,
+  SearchableSelect,
+  SearchableSelectFieldTrigger,
+  SmartDatePickerField,
+} from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
 import { getInvoiceStatusBadge, formatInvoiceAmount, toInvoiceStatusPayload } from '../utils/invoiceFormatters';
+import { formatCreditAmountInput, getCreditAmountError, parseCreditAmountCents } from '../utils/creditNoteAmounts';
 import type { InvoiceItemRow } from '../types';
 import type { CreateCreditNoteRequest } from '../types';
 import { getErrorMessage } from '@/shared/utils';
@@ -23,7 +40,7 @@ const DESTINATION_OPTIONS = [
   { id: 'out_of_band', label: 'Credit outside of Stripe (e.g., cash)' },
 ] as const;
 
-type LineState = { selected: boolean };
+type LineState = { selected: boolean; amount: string };
 
 export interface CreditNoteDialogProps {
   isOpen: boolean;
@@ -70,17 +87,31 @@ export function CreditNoteDialog({
     if (!isOpen || invoiceItems.length === 0) return;
     const initial: Record<string, LineState> = {};
     itemsWithStripeId.forEach((item) => {
-      initial[item.id] = { selected: true };
+      initial[item.id] = {
+        selected: true,
+        amount: formatCreditAmountInput(item.amount_cents ?? 0),
+      };
     });
     setLineState(initial);
   }, [isOpen, invoiceItems, itemsWithStripeId]);
 
   const amountToCreditCents = useMemo(() => {
-    return itemsWithStripeId.reduce(
-      (sum, item) => (lineState[item.id]?.selected ? sum + (item.amount_cents ?? 0) : sum),
-      0,
-    );
+    return itemsWithStripeId.reduce((sum, item) => {
+      const state = lineState[item.id];
+      if (!state?.selected) return sum;
+
+      return sum + (parseCreditAmountCents(state.amount) ?? 0);
+    }, 0);
   }, [itemsWithStripeId, lineState]);
+
+  const hasInvalidSelectedAmount = useMemo(
+    () =>
+      itemsWithStripeId.some((item) => {
+        const state = lineState[item.id];
+        return state?.selected && getCreditAmountError(state.amount, item.amount_cents ?? 0) !== null;
+      }),
+    [itemsWithStripeId, lineState],
+  );
 
   const allSelected = itemsWithStripeId.length > 0 && itemsWithStripeId.every((i) => lineState[i.id]?.selected);
   const setAllSelected = useCallback(
@@ -88,7 +119,10 @@ export function CreditNoteDialog({
       setLineState((prev) => {
         const next = { ...prev };
         itemsWithStripeId.forEach((item) => {
-          next[item.id] = { selected: checked };
+          next[item.id] = {
+            selected: checked,
+            amount: prev[item.id]?.amount ?? formatCreditAmountInput(item.amount_cents ?? 0),
+          };
         });
         return next;
       });
@@ -114,13 +148,20 @@ export function CreditNoteDialog({
       });
       return;
     }
+    if (hasInvalidSelectedAmount) {
+      toast({
+        title: 'Error',
+        description: 'Enter a valid credit amount for each selected line',
+        variant: 'destructive',
+      });
+      return;
+    }
 
     const body: CreateCreditNoteRequest = {
       reason,
       lines: selectedLines.map((item) => ({
         stripeInvoiceItemId: item.stripe_invoice_item_id,
-        quantity: 1,
-        amount_cents: item.amount_cents ?? 0,
+        amount_cents: parseCreditAmountCents(lineState[item.id].amount)!,
       })),
       memo: memo.trim() || undefined,
       effective_at: effectiveDateEnabled ? new Date(effectiveDate).toISOString() : undefined,
@@ -167,6 +208,13 @@ export function CreditNoteDialog({
 
   const currency = invoice.currency ?? 'AUD';
   const isPaidInvoice = invoice.status === 'paid';
+  const creditImpact = isPaidInvoice
+    ? destination === 'refund'
+      ? `This will refund ${formatInvoiceAmount(amountToCreditCents, currency)} to the payment method used for this invoice.`
+      : destination === 'credit_balance'
+        ? `This will apply ${formatInvoiceAmount(amountToCreditCents, currency)} to the student's balance, which Stripe will automatically use on future invoices.`
+        : `This will record ${formatInvoiceAmount(amountToCreditCents, currency)} as credited outside Stripe. Stripe will not move any money.`
+    : `This will reduce the amount due on this invoice by ${formatInvoiceAmount(amountToCreditCents, currency)}.`;
 
   return (
     <AdminDialogShell
@@ -182,7 +230,10 @@ export function CreditNoteDialog({
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Cancel
           </Button>
-          <Button onClick={handleSubmit} disabled={isSubmitting || missingStripeIds || amountToCreditCents <= 0}>
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || missingStripeIds || amountToCreditCents <= 0 || hasInvalidSelectedAmount}
+          >
             {isSubmitting ? (
               <>
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -268,13 +319,15 @@ export function CreditNoteDialog({
                       <TableHead>Description</TableHead>
                       <TableHead className="w-24">Credit Qty</TableHead>
                       <TableHead className="w-24 text-right">Unit price</TableHead>
-                      <TableHead className="w-28 text-right">Credit Amount</TableHead>
+                      <TableHead className="w-44 text-right">Credit Amount</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {itemsWithStripeId.map((item) => {
                       const selected = lineState[item.id]?.selected ?? false;
                       const unitCents = item.amount_cents ?? 0;
+                      const amount = lineState[item.id]?.amount ?? formatCreditAmountInput(unitCents);
+                      const amountError = selected ? getCreditAmountError(amount, unitCents) : null;
                       return (
                         <TableRow key={item.id}>
                           <TableCell className="text-center">
@@ -283,7 +336,10 @@ export function CreditNoteDialog({
                               onCheckedChange={(c) =>
                                 setLineState((prev) => ({
                                   ...prev,
-                                  [item.id]: { selected: c === true },
+                                  [item.id]: {
+                                    selected: c === true,
+                                    amount: prev[item.id]?.amount ?? formatCreditAmountInput(unitCents),
+                                  },
                                 }))
                               }
                             />
@@ -294,7 +350,33 @@ export function CreditNoteDialog({
                             {formatInvoiceAmount(unitCents, currency)}
                           </TableCell>
                           <TableCell className="text-right text-sm">
-                            {formatInvoiceAmount(unitCents, currency)}
+                            <div className="ml-auto max-w-36 space-y-1">
+                              <div className="flex items-center gap-2">
+                                <span className="text-muted-foreground">$</span>
+                                <Input
+                                  aria-label={`Credit amount for ${item.description ?? 'invoice item'}`}
+                                  aria-invalid={amountError !== null}
+                                  className="h-8 text-right"
+                                  disabled={!selected}
+                                  inputMode="decimal"
+                                  max={formatCreditAmountInput(unitCents)}
+                                  min="0.01"
+                                  step="0.01"
+                                  type="number"
+                                  value={amount}
+                                  onChange={(event) =>
+                                    setLineState((prev) => ({
+                                      ...prev,
+                                      [item.id]: {
+                                        selected: prev[item.id]?.selected ?? false,
+                                        amount: event.target.value,
+                                      },
+                                    }))
+                                  }
+                                />
+                              </div>
+                              {amountError && <p className="text-xs text-destructive">{amountError}</p>}
+                            </div>
                           </TableCell>
                         </TableRow>
                       );
@@ -364,6 +446,10 @@ export function CreditNoteDialog({
                 placeholder="Optional internal note (not shown on PDF)"
                 maxLength={500}
               />
+            </div>
+
+            <div className="rounded-md border bg-muted/40 p-4 text-sm font-medium" role="status">
+              {creditImpact}
             </div>
           </div>
         </div>

@@ -9,6 +9,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from "@altitutor/ui";
 import { EnrollStudentModal, ChangeClassModal, UnenrollStudentModal } from '@/features/enrollments';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
+import { getErrorMessage } from '@/shared/utils';
 
 type ViewMode = 'table' | 'timetable';
 
@@ -149,7 +150,7 @@ export function ClassesTabNew({
       console.error('Failed to change class:', err);
       toast({
         title: 'Change failed',
-        description: 'There was an error changing the class. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;
@@ -175,7 +176,7 @@ export function ClassesTabNew({
       console.error('Failed to unenroll student:', err);
       toast({
         title: 'Unenrollment failed',
-        description: 'There was an error unenrolling the student. Please try again.',
+        description: getErrorMessage(err),
         variant: 'destructive',
       });
       throw err;

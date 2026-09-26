@@ -8,9 +8,8 @@ import {
   Home,
   Target,
 } from "lucide-react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const TAB_ITEMS = [
   { icon: Home, label: "Home", active: true },
@@ -21,7 +20,7 @@ const TAB_ITEMS = [
 
 function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
   return (
-    <div className="flex h-full min-h-0 flex-col bg-[#eef0f3] text-[#1a1a1a]">
+    <div className="flex h-full min-h-0 flex-col bg-[#eef0f3] text-marketing-charcoal">
       <div
         className={`flex items-end justify-between pb-1.5 ${compact ? "px-3 pt-6" : "px-4 pb-2 pt-8"}`}
       >
@@ -38,7 +37,7 @@ function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
           </p>
         </div>
         <span
-          className={`rounded-full bg-white font-semibold text-[#0a2941] ring-1 ring-black/[0.06] ${compact ? "px-1.5 py-0.5 text-[6px]" : "px-2 py-1 text-[8px]"}`}
+          className={`rounded-full bg-white font-semibold text-marketing-primary ring-1 ring-black/[0.06] ${compact ? "px-1.5 py-0.5 text-[6px]" : "px-2 py-1 text-[8px]"}`}
         >
           Unlimited
         </span>
@@ -48,7 +47,7 @@ function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
         className={`min-h-0 flex-1 overflow-hidden ${compact ? "space-y-2 px-2.5 pb-2" : "space-y-2.5 px-3 pb-3"}`}
       >
         <section
-          className={`rounded-2xl bg-[#0a2941] text-white shadow-sm ${compact ? "p-2.5" : "p-3.5"}`}
+          className={`rounded-2xl bg-marketing-primary text-white shadow-sm ${compact ? "p-2.5" : "p-3.5"}`}
         >
           <div className="flex items-center justify-between gap-2 text-[#b8d2da]">
             <span
@@ -73,7 +72,7 @@ function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
             </p>
           ) : null}
           <span
-            className={`mt-2 flex items-center justify-between rounded-xl bg-white font-semibold text-[#0a2941] ${compact ? "px-2 py-1.5 text-[9px]" : "mt-3 px-3 py-2 text-[11px]"}`}
+            className={`mt-2 flex items-center justify-between rounded-xl bg-white font-semibold text-marketing-primary ${compact ? "px-2 py-1.5 text-[9px]" : "mt-3 px-3 py-2 text-[11px]"}`}
           >
             Start task
             <ChevronRight
@@ -93,7 +92,7 @@ function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
           </p>
           <div className="mt-0.5 flex items-end justify-between gap-2">
             <strong
-              className={`font-bold text-[#0a2941] ${compact ? "text-base" : "text-xl"} ${typo.headingSans}`}
+              className={`font-bold text-marketing-primary ${compact ? "text-base" : "text-xl"} ${typo.headingSans}`}
             >
               2,105
             </strong>
@@ -104,13 +103,13 @@ function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
           <div
             className={`relative overflow-hidden rounded-xl bg-[#f5f6f7] ${compact ? "mt-1.5 h-10" : "mt-3 h-16"}`}
           >
-            <div className="absolute inset-x-2 top-[28%] border-t border-dashed border-[#0a2941]/20" />
+            <div className="absolute inset-x-2 top-[28%] border-t border-dashed border-marketing-primary/20" />
             <div className="absolute inset-x-2 top-[58%] border-t border-dashed border-black/10" />
-            <div className="absolute left-[10%] top-[52%] h-0.5 w-[28%] origin-left -rotate-[12deg] rounded-full bg-[#92b9c6]" />
-            <div className="absolute left-[38%] top-[40%] h-0.5 w-[28%] origin-left -rotate-[16deg] rounded-full bg-[#92b9c6]" />
-            <div className="absolute left-[66%] top-[24%] h-0.5 w-[24%] origin-left -rotate-[12deg] rounded-full bg-[#92b9c6]" />
-            <span className="absolute left-[10%] top-[48%] size-1.5 rounded-full border-2 border-white bg-[#0a2941]" />
-            <span className="absolute left-[66%] top-[20%] size-1.5 rounded-full border-2 border-white bg-[#0a2941]" />
+            <div className="absolute left-[10%] top-[52%] h-0.5 w-[28%] origin-left -rotate-[12deg] rounded-full bg-marketing-accent" />
+            <div className="absolute left-[38%] top-[40%] h-0.5 w-[28%] origin-left -rotate-[16deg] rounded-full bg-marketing-accent" />
+            <div className="absolute left-[66%] top-[24%] h-0.5 w-[24%] origin-left -rotate-[12deg] rounded-full bg-marketing-accent" />
+            <span className="absolute left-[10%] top-[48%] size-1.5 rounded-full border-2 border-white bg-marketing-primary" />
+            <span className="absolute left-[66%] top-[20%] size-1.5 rounded-full border-2 border-white bg-marketing-primary" />
           </div>
         </section>
 
@@ -142,7 +141,7 @@ function UcatMobileAppScreen({ compact = false }: { compact?: boolean }) {
           <div
             key={label}
             className={`flex flex-col items-center gap-0.5 ${
-              active ? "text-[#0a2941]" : "text-black/35"
+              active ? "text-marketing-primary" : "text-black/35"
             }`}
           >
             <Icon className={compact ? "size-3" : "size-3.5"} aria-hidden />

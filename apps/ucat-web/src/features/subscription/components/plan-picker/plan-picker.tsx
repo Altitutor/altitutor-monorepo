@@ -42,6 +42,10 @@ type PlanPickerProps = {
   onDowngradeNavigate?: () => void;
   /** Light selector for cream marketing backgrounds */
   selectorTheme?: "app" | "light";
+  /** Invitation form and gift card stay on the light palette on marketing pages. */
+  invitationTone?: "theme" | "marketing";
+  /** Subscribe hides decline; onboarding still offers Continue with Free. */
+  showGiftDecline?: boolean;
   /** App surfaces follow theme tokens (dark mode); marketing uses fixed cream/charcoal */
   surfaceTheme?: PlanPickerSurfaceTheme;
   /** Landing page: CTAs route to signup */
@@ -111,6 +115,8 @@ export function PlanPicker({
   onCheckoutStart,
   onDowngradeNavigate,
   selectorTheme,
+  invitationTone = "theme",
+  showGiftDecline = true,
   surfaceTheme = "marketing",
   audience = "app",
   checkoutReturnContext = "subscribe",
@@ -250,10 +256,20 @@ export function PlanPicker({
   if (selectedCode && audience === "app" && !isOnPaid && showInvitationEntry) {
     return (
       <div className={className}>
-        <h2 className="mb-6 text-3xl font-semibold">Your gift is ready</h2>
+        <h2
+          className={cn(
+            "mb-6 text-3xl font-semibold",
+            invitationTone === "marketing" &&
+              "text-center text-marketing-charcoal dark:text-marketing-charcoal",
+          )}
+        >
+          Your gift is ready
+        </h2>
         <InvitationCodeEntry
           initialCode={selectedCode}
           presentation="gift"
+          tone={invitationTone}
+          showDecline={showGiftDecline}
           onDeclined={() => {
             rememberInvitation(null);
             setSelectedCode(null);
@@ -595,9 +611,10 @@ export function PlanPicker({
       </Grid>
       {audience === "app" && !isOnPaid && showInvitationEntry ? (
         <div className="mx-auto mt-6 max-w-xl">
-          <FounderAccessStatus />
+          <FounderAccessStatus tone={invitationTone} />
           <InvitationCodeEntry
             initialCode={invitationCode}
+            tone={invitationTone}
             onCodeApplied={onInvitationSelected ?? setSelectedCode}
           />
         </div>

@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { Check, ChevronDown, ChevronLeft, ChevronRight } from "lucide-react";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -23,7 +22,8 @@ import {
   ScaleToFitFrame,
 } from "./scale-to-fit-frame";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
+import { PreviewActivityBoundary, usePreviewVisibility } from "./preview-activity";
 
 const galleryItems = [
   { id: "learning", label: "Guided learning" },
@@ -204,6 +204,8 @@ function NotchShoulder({ side }: { side: "left" | "right" }) {
 }
 
 export function UcatProductStage() {
+  const sectionRef = useRef<HTMLElement>(null);
+  const visible = usePreviewVisibility(sectionRef);
   const [activeItem, setActiveItem] = useState<GalleryItemId>("learning");
   const [isPointerOver, setIsPointerOver] = useState(false);
   const [pauseUntil, setPauseUntil] = useState(0);
@@ -235,7 +237,7 @@ export function UcatProductStage() {
 
   useEffect(() => {
     const media = window.matchMedia("(prefers-reduced-motion: reduce)");
-    if (media.matches) return;
+    if (media.matches || !visible) return;
 
     const tick = () => {
       if (isPointerOver) return;
@@ -249,7 +251,7 @@ export function UcatProductStage() {
 
     const id = window.setInterval(tick, AUTO_ROTATE_MS);
     return () => window.clearInterval(id);
-  }, [isPointerOver, pauseUntil]);
+  }, [isPointerOver, pauseUntil, visible]);
 
   const handleTabChange = (value: GalleryItemId) => {
     setActiveItem(value);
@@ -258,6 +260,7 @@ export function UcatProductStage() {
 
   return (
     <section
+      ref={sectionRef}
       id="product"
       className="relative scroll-mt-24 overflow-hidden bg-marketing-primary px-4 pb-20 text-white sm:px-8 sm:pb-24"
     >
@@ -272,7 +275,7 @@ export function UcatProductStage() {
           sizes="100vw"
           className="object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-[#0a2941] via-[#0a2941]/60 to-[#0a2941]/10" />
+        <div className="absolute inset-0 bg-gradient-to-t from-marketing-primary via-marketing-primary/60 to-marketing-primary/10" />
       </div>
 
       {/* Cream notch: continuous with hero cream — no top shadow/seam */}
@@ -287,7 +290,7 @@ export function UcatProductStage() {
           }
         }}
       >
-        <div className="relative rounded-b-[2rem] bg-marketing-cream px-3 pb-5 pt-1 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.2)] sm:rounded-b-[2.5rem] sm:px-6 sm:pb-6">
+        <div className="relative rounded-b-[30px] bg-marketing-cream px-3 pb-5 pt-1 shadow-[0_20px_40px_-12px_rgba(0,0,0,0.2)] sm:px-6 sm:pb-6">
           {/* Cover the hero junction so subpixel gaps can't show through */}
           <span
             aria-hidden
@@ -327,7 +330,7 @@ export function UcatProductStage() {
           aria-label={
             galleryItems.find((item) => item.id === activeItem)?.label
           }
-          className="overflow-hidden rounded-[1.25rem] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15"
+          className="overflow-hidden rounded-[30px] bg-[#f6f7f9] shadow-[0_28px_90px_rgba(0,0,0,0.26)] ring-1 ring-white/15"
         >
           <ScaleToFitFrame
             designWidth={PRODUCT_DEMO_DESIGN_WIDTH}
@@ -337,7 +340,9 @@ export function UcatProductStage() {
               key={activeItem}
               className="h-full min-h-0 overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300"
             >
-              <GalleryPreview activeItem={activeItem} />
+              <PreviewActivityBoundary className="h-full">
+                <GalleryPreview activeItem={activeItem} />
+              </PreviewActivityBoundary>
             </div>
           </ScaleToFitFrame>
         </div>

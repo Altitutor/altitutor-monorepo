@@ -38,8 +38,10 @@ export function SubscribePage() {
     access.onlineTier === "free" && !access.isLoading && access.signupCompleted;
   const monthlyPracticeDiscount = getPublicPracticeDayDiscount(cfg, "month");
 
+  const hasInvitation = Boolean(invitationCode);
+
   return (
-    <div className="relative flex min-h-dvh flex-col bg-marketing-cream">
+    <div className="ucat-subscribe-page relative flex min-h-dvh flex-col bg-marketing-cream text-marketing-charcoal dark:text-marketing-charcoal">
       <NoiseOverlay />
 
       {freeIsCurrentPlan ? (
@@ -183,33 +185,40 @@ export function SubscribePage() {
 
       <section id="pricing" className="bg-marketing-cream px-4 py-24">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-16 text-center">
-            <h2
-              className={`text-4xl font-bold text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
-            >
-              Choose your plan
-            </h2>
-            <p
-              className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}
-            >
-              UCAT Free includes ongoing access with resetting allowances. UCAT
-              Unlimited removes the limits with accountability pricing.
-            </p>
-          </div>
+          {hasInvitation ? null : (
+            <div className="mb-16 text-center">
+              <h2
+                className={`text-4xl font-bold text-marketing-charcoal sm:text-5xl ${typo.headingSans}`}
+              >
+                Choose your plan
+              </h2>
+              <p
+                className={`mt-4 text-marketing-charcoal/60 ${typo.secondarySans}`}
+              >
+                UCAT Free includes ongoing access with resetting allowances. UCAT
+                Unlimited removes the limits with accountability pricing.
+              </p>
+            </div>
+          )}
 
           <PlanPicker
             invitationCode={invitationCode}
             variant="page"
             selectorTheme="light"
+            invitationTone="marketing"
+            showGiftDecline={false}
+            className={hasInvitation ? "mx-auto max-w-3xl" : undefined}
           />
 
-          <p
-            className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}
-          >
-            All prices in AUD and include GST where applicable. Cancel anytime
-            from subscription settings. Practice-day discounts are earned when
-            daily question targets are met.
-          </p>
+          {hasInvitation ? null : (
+            <p
+              className={`mt-10 text-center text-sm text-marketing-charcoal/40 ${typo.secondarySans}`}
+            >
+              All prices in AUD and include GST where applicable. Cancel anytime
+              from subscription settings. Practice-day discounts are earned when
+              daily question targets are met.
+            </p>
+          )}
         </div>
       </section>
 

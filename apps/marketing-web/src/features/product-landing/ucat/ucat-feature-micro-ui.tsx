@@ -32,6 +32,7 @@ import {
 } from "./ucat-marketing-faithful-ui";
 import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { UcatLearningCardPreview } from "./ucat-learning-card-preview";
+import { PreviewActivityBoundary } from "./preview-activity";
 
 function FaithfulPreview({
   children,
@@ -44,8 +45,8 @@ function FaithfulPreview({
     <div
       className={
         interactive
-          ? "ucat-product-ui pointer-events-auto w-full min-w-0 max-w-full text-[#1a1a1a]"
-          : "ucat-product-ui pointer-events-none w-full min-w-0 max-w-full select-none text-[#1a1a1a]"
+          ? "marketing-product-ui pointer-events-auto w-full min-w-0 max-w-full text-marketing-charcoal"
+          : "marketing-product-ui pointer-events-none w-full min-w-0 max-w-full select-none text-marketing-charcoal"
       }
       aria-hidden={!interactive}
     >
@@ -131,7 +132,9 @@ export function UcatFeatureCardPreview({ id }: { id: FeatureCardPreviewId }) {
 
   return (
     <FaithfulPreview interactive={interactive}>
-      <CardPreview id={id} />
+      <PreviewActivityBoundary>
+        <CardPreview id={id} />
+      </PreviewActivityBoundary>
     </FaithfulPreview>
   );
 }
@@ -141,7 +144,9 @@ export function UcatFeatureDetailPreview({ id }: { id: FeatureDetailPreviewId })
 
   return (
     <FaithfulPreview interactive={interactive}>
-      <DetailPreview id={id} />
+      <PreviewActivityBoundary>
+        <DetailPreview id={id} />
+      </PreviewActivityBoundary>
     </FaithfulPreview>
   );
 }

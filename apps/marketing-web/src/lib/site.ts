@@ -27,14 +27,30 @@ export const PRODUCT_LINKS = {
   ucatLogin: `${UCAT_APP_ORIGIN}/login`,
   ucatSignup: `${UCAT_APP_ORIGIN}/signup`,
   trialBooking: `${STUDENT_APP_ORIGIN}/booking/trial-session`,
+  subsidyBooking: `${STUDENT_APP_ORIGIN}/booking/subsidy`,
 };
 
+export const IN_PERSON_COURSES = [
+  ["/classes/weekly-classes/", "Weekly subject tutoring"],
+  ["/classes/examprep/", "Exam preparation courses"],
+  ["/classes/assignment-drafting/", "Assignment drafting"],
+  ["/classes/ucatprep/", "In person UCAT tutoring"],
+  ["/classes/medical-interview-preparation/", "Medical interview preparation"],
+] as const;
+
+export const ONLINE_COURSES = [
+  ["/online-courses/sace-ib-resources/", "Online SACE & IB resources"],
+  ["/ucat/", "Altitutor UCAT"],
+] as const;
+
+export const COURSE_LINKS = [
+  ...IN_PERSON_COURSES,
+  ["/classes/", "All in person courses"],
+] as const;
+
 export const NAV_ITEMS = [
-  { href: "/", label: "Home" },
-  { href: "/classes/", label: "Courses" },
-  { href: "/classes/weekly-classes/", label: "Weekly tutoring" },
-  { href: "/ucat/", label: "Online UCAT preparation" },
-  { href: "/resources/", label: "Resources" },
-  { href: "/about/", label: "About" },
+  { href: "/classes/", label: "In person courses" },
+  { href: "/online-courses/", label: "Online courses" },
+  { href: "/about/", label: "About us" },
   { href: "/about/contact/", label: "Contact" },
 ];

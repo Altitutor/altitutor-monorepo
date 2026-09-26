@@ -1,4 +1,8 @@
-import type { Database } from "@altitutor/shared";
+import {
+  buildFutureSessionCharges,
+  selectRunnerInvoiceAssignmentIds,
+  type Database,
+} from "@altitutor/shared";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { FutureInvoicePreview } from "../types/future-invoices";
 
@@ -55,67 +59,6 @@ export interface BuildFutureInvoicePreviewsInput {
   studentId: string;
 }
 
-function isEffectiveAt(
-  effectiveFrom: string | null,
-  effectiveUntil: string | null,
-  at: Date,
-): boolean {
-  return (
-    (!effectiveFrom || new Date(effectiveFrom) <= at) &&
-    (!effectiveUntil || new Date(effectiveUntil) > at)
-  );
-}
-
-function calculateSessionAmount(
-  assignment: FutureSessionAssignment,
-  pricing: BillingPrice[],
-  pricingOverrides: BillingPriceOverride[],
-  subsidies: StudentSubsidy[],
-  studentId: string,
-): { amountCents: number; currency: string } {
-  const { session } = assignment;
-  const sessionDate = new Date(session.start_at);
-  const defaultPrice = pricing.find(
-    (price) => price.billing_type === session.billing_type,
-  );
-  const override = pricingOverrides.find(
-    (price) =>
-      price.subject_id === session.subject_id &&
-      price.billing_type === session.billing_type &&
-      isEffectiveAt(price.effective_from, price.effective_until, sessionDate),
-  );
-
-  let hourlyRateCents =
-    override?.hourly_rate_cents ?? defaultPrice?.hourly_rate_cents ?? 0;
-  let currency = (
-    override?.currency ??
-    defaultPrice?.currency ??
-    "aud"
-  ).toLowerCase();
-
-  const subsidy = subsidies.find(
-    (row) =>
-      row.student_id === studentId &&
-      row.subject_id === session.subject_id &&
-      row.billing_type === session.billing_type &&
-      isEffectiveAt(row.effective_from, row.effective_until, sessionDate),
-  );
-  if (subsidy) {
-    hourlyRateCents = Math.min(hourlyRateCents, subsidy.price_cents);
-    currency = subsidy.currency.toLowerCase();
-  }
-
-  const durationHours =
-    (new Date(session.end_at).getTime() -
-      new Date(session.start_at).getTime()) /
-    (60 * 60 * 1000);
-
-  return {
-    amountCents: Math.round(hourlyRateCents * durationHours),
-    currency,
-  };
-}
-
 export function buildFutureInvoicePreviews({
   assignments,
   chargeableIds,
@@ -126,52 +69,49 @@ export function buildFutureInvoicePreviews({
   subsidies,
   studentId,
 }: BuildFutureInvoicePreviewsInput): FutureInvoicePreview[] {
-  const sortedAssignments = assignments
-    .filter(
-      (assignment) =>
-        chargeableIds.has(assignment.id) &&
-        !invoicedIds.has(assignment.id) &&
-        !adjustmentControlledIds.has(assignment.id),
-    )
-    .sort((left, right) => {
-      const timeDifference =
-        new Date(left.session.start_at).getTime() -
-        new Date(right.session.start_at).getTime();
-      return timeDifference || left.id.localeCompare(right.id);
-    });
+  const previewableIds = new Set(
+    selectRunnerInvoiceAssignmentIds(
+      assignments.map((assignment) => assignment.id),
+      chargeableIds,
+      invoicedIds,
+      adjustmentControlledIds,
+    ),
+  );
+  const includedAssignments = assignments.filter((assignment) =>
+    previewableIds.has(assignment.id),
+  );
+  const charges = buildFutureSessionCharges(
+    includedAssignments.map((assignment) => ({
+      id: assignment.id,
+      subjectId: assignment.session.subject_id,
+      billingType: assignment.session.billing_type,
+      startAt: assignment.session.start_at,
+      endAt: assignment.session.end_at,
+      assignment,
+    })),
+    { studentId, pricing, pricingOverrides, subsidies },
+  );
 
   const firstInvoiceBySubject = new Map<string, FutureInvoicePreview>();
-  const cumulativeChargesByCurrency = new Map<string, number>();
+  for (const charge of charges) {
+    const { session } = charge.assignment;
+    if (firstInvoiceBySubject.has(session.subject_id)) continue;
 
-  for (const assignment of sortedAssignments) {
-    const { amountCents, currency } = calculateSessionAmount(
-      assignment,
-      pricing,
-      pricingOverrides,
-      subsidies,
-      studentId,
-    );
-    const priorChargeCents = cumulativeChargesByCurrency.get(currency) ?? 0;
-    const { session } = assignment;
-
-    if (!firstInvoiceBySubject.has(session.subject_id)) {
-      firstInvoiceBySubject.set(session.subject_id, {
-        sessions_students_id: assignment.id,
-        subject_id: session.subject_id,
-        session_name:
-          session.long_name ||
-          session.subject?.long_name ||
-          session.subject?.short_name ||
-          session.subject?.name ||
-          "Session",
-        session_start_at: session.start_at,
-        full_amount_cents: amountCents,
-        prior_charge_cents: priorChargeCents,
-        currency,
-      });
-    }
-
-    cumulativeChargesByCurrency.set(currency, priorChargeCents + amountCents);
+    firstInvoiceBySubject.set(session.subject_id, {
+      sessions_students_id: charge.id,
+      subject_id: session.subject_id,
+      session_name:
+        session.long_name ||
+        session.subject?.long_name ||
+        session.subject?.short_name ||
+        session.subject?.name ||
+        "Session",
+      session_start_at: session.start_at,
+      full_amount_cents: charge.amountCents,
+      prior_charge_cents: charge.priorChargeCents,
+      currency: charge.currency,
+      is_first_in_currency: charge.isFirstInCurrency,
+    });
   }
 
   return Array.from(firstInvoiceBySubject.values()).sort((left, right) => {

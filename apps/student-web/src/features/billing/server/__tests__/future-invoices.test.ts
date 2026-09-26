@@ -89,11 +89,13 @@ describe("buildFutureInvoicePreviews", () => {
       session_name: "English A - Saturday, 3 October 2026, 10:30 am",
       full_amount_cents: 10_000,
       prior_charge_cents: 16_000,
+      is_first_in_currency: false,
     });
     expect(previews[1]).toMatchObject({
       sessions_students_id: "math-1",
       full_amount_cents: 8_000,
       prior_charge_cents: 0,
+      is_first_in_currency: true,
     });
   });
 

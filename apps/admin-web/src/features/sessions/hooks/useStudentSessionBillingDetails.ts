@@ -1,16 +1,16 @@
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import type { Tables } from '@altitutor/shared';
+import {
+  applyCustomerBalanceToFutureCharge,
+  buildFutureSessionCharges,
+  type Tables,
+} from '@altitutor/shared';
 import { billingApi } from '@/features/billing/api/billing';
 import { invoicesKeys } from '@/features/billing/hooks/useInvoicesQuery';
 import {
   getBillingPreferences,
   type BillingPreferences,
 } from '@/features/billing/api/billing-preferences';
-import {
-  billingSettingsApi,
-  type BillingSettingsRow,
-} from '@/features/billing/api/billing-settings';
 import {
   paymentMethodsApi,
   type PaymentMethodData,
@@ -24,10 +24,6 @@ import {
   fetchStudentSubsidies,
   type StudentSubsidyRow,
 } from '@/features/students/api/subsidies';
-import {
-  calculateSessionPrice,
-  grossUpInvoiceAmount,
-} from '@/shared/utils/pricing';
 import { formatDayMonth } from '@/shared/utils/datetime';
 
 export type SessionInvoiceDetails = {
@@ -38,9 +34,17 @@ export type SessionInvoiceDetails = {
 
 export type SessionInvoicePreview = {
   amountCents: number;
+  fullAmountCents: number;
+  creditAppliedCents: number;
+  balanceAddedCents: number;
   currency: string;
   billingDate: string;
   action: 'bill' | 'send';
+};
+
+type CustomerBalance = {
+  balance_cents: number;
+  currency: string;
 };
 
 type UseStudentSessionBillingDetailsOptions = {
@@ -58,13 +62,6 @@ type UseStudentSessionBillingDetailsOptions = {
   }>>;
 };
 
-const DEFAULT_FEE_SETTINGS = {
-  domesticPercent: 0.0175,
-  internationalPercent: 0.029,
-  fixedCents: 30,
-  domesticCountry: 'AU',
-};
-
 type BuildSessionInvoicePreviewsOptions = Omit<
   UseStudentSessionBillingDetailsOptions,
   'enabled'
@@ -74,7 +71,9 @@ type BuildSessionInvoicePreviewsOptions = Omit<
   subsidies: StudentSubsidyRow[];
   preferences: BillingPreferences;
   defaultPaymentMethod: PaymentMethodData | null;
-  billingSettings: BillingSettingsRow[];
+  customerBalanceCents: number;
+  customerBalanceCurrency: string;
+  previewableAssignmentIds: ReadonlySet<string>;
 };
 
 export function formatBillingDate(sessionStartAt: string): string {
@@ -101,103 +100,70 @@ export function buildSessionInvoicePreviews({
   subsidies,
   preferences,
   defaultPaymentMethod,
-  billingSettings,
+  customerBalanceCents,
+  customerBalanceCurrency,
+  previewableAssignmentIds,
 }: BuildSessionInvoicePreviewsOptions): Record<string, SessionInvoicePreview> {
   if (!studentId) return {};
 
-  const pricingByBillingType = Object.fromEntries(
-    billingPricing.map((pricing) => [
-      pricing.billing_type,
-      {
-        hourly_rate_cents: pricing.hourly_rate_cents,
-        currency: pricing.currency,
-      },
-    ])
-  );
-  const overridesBySubjectAndBilling: Record<
-    string,
-    Record<string, { hourly_rate_cents: number; currency: string }>
-  > = {};
-  for (const override of [...pricingOverrides].reverse()) {
-    overridesBySubjectAndBilling[override.subject_id] ??= {};
-    overridesBySubjectAndBilling[override.subject_id][override.billing_type] = {
-      hourly_rate_cents: override.hourly_rate_cents,
-      currency: override.currency,
-    };
-  }
-
-  const settingValues = Object.fromEntries(
-    billingSettings.map((setting) => [setting.setting_key, setting.setting_value])
-  );
-  const domesticPercent = Number(settingValues.fee_percent_domestic);
-  const internationalPercent = Number(settingValues.fee_percent_intl);
-  const fixedCents = Number(settingValues.fee_fixed_cents);
-  const domesticCountry = settingValues.domestic_country || DEFAULT_FEE_SETTINGS.domesticCountry;
-  const feeSettings = {
-    domesticPercent: Number.isFinite(domesticPercent)
-      ? domesticPercent
-      : DEFAULT_FEE_SETTINGS.domesticPercent,
-    internationalPercent: Number.isFinite(internationalPercent)
-      ? internationalPercent
-      : DEFAULT_FEE_SETTINGS.internationalPercent,
-    fixedCents: Number.isFinite(fixedCents) ? fixedCents : DEFAULT_FEE_SETTINGS.fixedCents,
-  };
-  const isInternational = !!defaultPaymentMethod?.card_country &&
-    defaultPaymentMethod.card_country.toUpperCase() !== domesticCountry.toUpperCase();
   const action = preferences.auto_bill_enabled && defaultPaymentMethod ? 'bill' : 'send';
+  const eligible = sessions.flatMap((session) => {
+    const student = sessionStudents[session.id]?.find((item) => item.id === studentId);
+    const subjectId = session.subject_id ||
+      (session.class_id ? classesById[session.class_id]?.subject_id : null);
+    const billingType = session.billing_type;
+    if (
+      !student?.sessions_students_id ||
+      !previewableAssignmentIds.has(student.sessions_students_id) ||
+      !billingType ||
+      !subjectId ||
+      !session.start_at ||
+      !session.end_at
+    ) {
+      return [];
+    }
+
+    return [{
+      id: student.sessions_students_id,
+      sessionId: session.id,
+      subjectId,
+      billingType,
+      startAt: session.start_at,
+      endAt: session.end_at,
+    }];
+  });
+
+  const charges = buildFutureSessionCharges(eligible, {
+    studentId,
+    pricing: billingPricing,
+    pricingOverrides,
+    subsidies,
+  });
 
   return Object.fromEntries(
-    sessions.flatMap((session) => {
-      const student = sessionStudents[session.id]?.find((item) => item.id === studentId);
-      const subjectId = session.subject_id ||
-        (session.class_id ? classesById[session.class_id]?.subject_id : null);
-      const billingType = session.billing_type;
-      if (
-        !student?.sessions_students_id ||
-        student.planned_absence ||
-        student.was_trial ||
-        student.actual_was_trial ||
-        student.invoice_status_payload ||
-        !billingType ||
-        !subjectId ||
-        !session.start_at ||
-        !session.end_at
-      ) {
-        return [];
-      }
+    charges.map((charge) => {
+      const payment = applyCustomerBalanceToFutureCharge({
+        fullAmountCents: charge.amountCents,
+        priorChargeCents: charge.priorChargeCents,
+        invoiceCurrency: charge.currency,
+        customerBalanceCents,
+        customerBalanceCurrency,
+        isFirstInCurrency: charge.isFirstInCurrency,
+      });
 
-      const price = calculateSessionPrice(
+      return [
+        charge.sessionId,
         {
-          billing_type: billingType,
-          subject_id: subjectId,
-          start_at: session.start_at,
-          end_at: session.end_at,
-        },
-        studentId,
-        new Date(session.start_at),
-        pricingByBillingType,
-        overridesBySubjectAndBilling,
-        pricingOverrides,
-        subsidies
-      );
-      const amountCents = grossUpInvoiceAmount(
-        price.amount_cents,
-        isInternational,
-        feeSettings.domesticPercent,
-        feeSettings.internationalPercent,
-        feeSettings.fixedCents
-      );
-
-      return [[
-        session.id,
-        {
-          amountCents,
-          currency: price.currency,
-          billingDate: formatBillingDate(session.start_at),
+          amountCents: payment.payableCents,
+          fullAmountCents: charge.amountCents,
+          creditAppliedCents: payment.creditAppliedCents,
+          balanceAddedCents: payment.balanceAddedCents,
+          currency: charge.currency,
+          billingDate: formatBillingDate(charge.startAt),
           action,
         },
-      ] as const];
-    })
+      ] as const;
+    }),
   );
 }
 
@@ -246,11 +212,37 @@ export function useStudentSessionBillingDetails({
     enabled: queryEnabled,
     staleTime: 1000 * 60 * 3,
   });
-  const { data: billingSettings } = useQuery({
-    queryKey: ['billing-settings'],
-    queryFn: () => billingSettingsApi.getBillingSettings(),
+  const {
+    data: previewableAssignmentIds,
+    isSuccess: previewableAssignmentsLoaded,
+  } = useQuery({
+    queryKey: ['invoice-preview-assignments', studentId],
+    queryFn: async (): Promise<string[]> => {
+      const response = await fetch(`/api/students/${studentId}/invoice-preview-assignments`);
+      if (!response.ok) {
+        throw new Error('Failed to load invoice preview assignments');
+      }
+      const body = await response.json() as { sessions_students_ids: string[] };
+      return body.sessions_students_ids;
+    },
     enabled: queryEnabled,
-    staleTime: 1000 * 60 * 3,
+    staleTime: 1000 * 60,
+  });
+  const {
+    data: customerBalance,
+    isSuccess: customerBalanceLoaded,
+    isError: customerBalanceFailed,
+  } = useQuery({
+    queryKey: ['customer-balance', studentId],
+    queryFn: async (): Promise<CustomerBalance> => {
+      const response = await fetch(`/api/students/${studentId}/customer-balance`);
+      if (!response.ok) {
+        throw new Error('Failed to fetch customer balance');
+      }
+      return response.json() as Promise<CustomerBalance>;
+    },
+    enabled: queryEnabled,
+    staleTime: 1000 * 60,
   });
 
   const invoiceDetailsById = useMemo<Record<string, SessionInvoiceDetails>>(
@@ -276,7 +268,8 @@ export function useStudentSessionBillingDetails({
       !subsidies ||
       !preferences ||
       defaultPaymentMethod === undefined ||
-      !billingSettings
+      !previewableAssignmentsLoaded ||
+      (!customerBalanceLoaded && !customerBalanceFailed)
     ) {
       return {};
     }
@@ -290,14 +283,20 @@ export function useStudentSessionBillingDetails({
       subsidies,
       preferences,
       defaultPaymentMethod,
-      billingSettings,
+      customerBalanceCents: customerBalance?.balance_cents ?? 0,
+      customerBalanceCurrency: customerBalance?.currency ?? 'aud',
+      previewableAssignmentIds: new Set(previewableAssignmentIds ?? []),
     });
   }, [
     billingPricing,
-    billingSettings,
     classesById,
+    customerBalance,
+    customerBalanceFailed,
+    customerBalanceLoaded,
     defaultPaymentMethod,
     preferences,
+    previewableAssignmentIds,
+    previewableAssignmentsLoaded,
     pricingOverrides,
     sessionStudents,
     sessions,

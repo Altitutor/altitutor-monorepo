@@ -58,6 +58,7 @@ import { Step8Notes } from './steps/Step8Notes';
 import { Step9Confirmation } from './steps/Step9Confirmation';
 import { useTutorLogStep2Data } from '../hooks/useTutorLogStep2Data';
 import { useTutorLogStep3Data } from '../hooks/useTutorLogStep3Data';
+import { getTutorLogWizardStepBlockers } from '../utils/wizardStepBlockers';
 import { WizardStepBlockers } from './WizardStepBlockers';
 
 type LogSessionModalProps = {
@@ -161,65 +162,18 @@ export function LogSessionModal({
   }, [currentStep, formData, adminSelectedStaff?.id]);
 
   const getStepBlockers = useCallback((): string[] => {
-    if (adminMode && currentStep === 0) {
-      if (!adminSelectedStaff?.id) {
-        return ['Select the staff member this log is for.'];
-      }
-      return [];
-    }
-
-    const stepIndex = adminMode ? currentStep - 1 : currentStep;
-    const actualStepIndex = skipSessionStep ? stepIndex + 1 : stepIndex;
-
-    if (actualStepIndex === 0) {
-      if (!formData.sessionId) return ['Select a session.'];
-      return [];
-    }
-
-    const staffNames = Object.fromEntries(
-      sessionStaff.map((row) => [
-        row.staff_id,
-        `${row.staff.first_name} ${row.staff.last_name}`.trim(),
-      ])
-    );
-    const studentNames = Object.fromEntries(
-      sessionStudents.map((row) => [
-        row.student_id,
-        `${row.student.first_name} ${row.student.last_name}`.trim(),
-      ])
-    );
-
-    if (actualStepIndex === 1) {
-      return getAttendanceCompletionBlockers({
-        staffIds: sessionStaff.map((row) => row.staff_id),
-        studentIds: [],
-        parentIds: [],
-        includeParents: false,
-        staffAttendance: formData.staffAttendance || [],
-        studentAttendance: [],
-        parentAttendance: [],
-        staffNames,
-      });
-    }
-
-    if (actualStepIndex === 2) {
-      return getAttendanceCompletionBlockers({
-        staffIds: [],
-        studentIds: sessionStudents.map((row) => row.student_id),
-        parentIds: [],
-        includeParents: false,
-        staffAttendance: [],
-        studentAttendance: formData.studentAttendance || [],
-        parentAttendance: [],
-        studentNames,
-      });
-    }
-
-    if (actualStepIndex === 3 && !(formData.topics || []).length) {
-      return ['Select at least one topic.'];
-    }
-
-    return [];
+    return getTutorLogWizardStepBlockers({
+      adminMode,
+      currentStep,
+      skipSessionStep,
+      sessionId: formData.sessionId,
+      topicsCount: (formData.topics || []).length,
+      adminSelectedStaffId: adminSelectedStaff?.id,
+      staffAttendance: formData.staffAttendance || [],
+      studentAttendance: formData.studentAttendance || [],
+      sessionStaff,
+      sessionStudents,
+    });
   }, [
     adminMode,
     currentStep,

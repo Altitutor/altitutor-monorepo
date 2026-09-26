@@ -16,6 +16,7 @@ const templates = [
   "subscription_cancellation_scheduled",
   "subscription_cancellation_reversed",
   "subscription_canceled",
+  "ucat_account_deleted",
 ] as const;
 
 Deno.test("renders every UCAT transactional email", () => {

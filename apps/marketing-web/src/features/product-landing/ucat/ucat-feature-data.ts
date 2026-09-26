@@ -43,7 +43,7 @@ export type UcatFeatureTheme = {
 
 /** Shared accent for all feature cards marketing navy. */
 const FEATURE_THEME: UcatFeatureTheme = {
-  accent: "#0a2941",
+  accent: "rgb(var(--marketing-primary))",
   accentBg: "bg-marketing-primary/10",
   iconBg: "bg-marketing-primary/10 text-marketing-primary",
 };

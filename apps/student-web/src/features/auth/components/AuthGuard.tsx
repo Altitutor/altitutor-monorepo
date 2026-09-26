@@ -21,6 +21,7 @@ const isPublicPath = (pathname: string): boolean =>
   pathname.startsWith('/b/') ||
   pathname.startsWith('/form/') ||
   pathname.startsWith('/booking/trial-session') ||
+  pathname.startsWith('/booking/subsidy') ||
   pathname.startsWith('/booking-success') ||
   pathname.startsWith('/sentry-example-page');
 
@@ -40,7 +41,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // Middleware already handles redirecting unauthenticated users from protected routes,
     // so we only need to handle this UX improvement here
     if (user && isAuthPage(pathname) && pathname !== '/reset-password' && !loading) {
-      router.push('/dashboard');
+      const next = new URLSearchParams(window.location.search).get('next');
+      const destination = next?.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
+      router.replace(destination);
     }
   }, [user, loading, pathname, router]);
 

@@ -446,6 +446,29 @@ export function renderTransactionalEmail(
           `Hi ${name},\n\nThe scheduled cancellation has been removed. Your UCAT Unlimited subscription and access will continue as normal.\n\nReview subscription: ${actionUrl}`,
       });
 
+    case "ucat_account_deleted":
+      return render({
+        row,
+        sender: "formal",
+        subject: "Your Altitutor UCAT account has been deleted",
+        previewText:
+          "Your practice history has been removed. Invoices and tutoring records are kept.",
+        heading: "Your UCAT account has been deleted",
+        bodyHtml: paragraph(`Hi ${name},`) +
+          paragraph(
+            "Your Altitutor UCAT account has been deleted. Your practice history, scores and study plan have been removed, and they are no longer included in percentiles or answer statistics.",
+          ) +
+          renderUcatEmailPanel(
+            "If you had a paid plan, it was cancelled immediately. Invoices and any tutoring records are kept.",
+          ) +
+          paragraph(
+            "You can sign up again with this email address. That reopens Altitutor UCAT without restoring the deleted practice history.",
+          ) +
+          renderUcatEmailButton(actionUrl, "Sign up again"),
+        text:
+          `Hi ${name},\n\nYour Altitutor UCAT account has been deleted. Your practice history, scores and study plan have been removed, and they are no longer included in percentiles or answer statistics.\n\nIf you had a paid plan, it was cancelled immediately. Invoices and any tutoring records are kept.\n\nYou can sign up again with this email address. That reopens Altitutor UCAT without restoring the deleted practice history.\n\nSign up again: ${actionUrl}`,
+      });
+
     case "subscription_canceled":
       return render({
         row,

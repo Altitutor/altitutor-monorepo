@@ -170,11 +170,12 @@ export default function DueFlashcardsPage() {
     ? menu.isLoading
     : Boolean(subjectId) && (menu.isLoading || !menu.data || subjectStudy.isLoading);
   const refetch = studyAll ? menu.refetch : subjectStudy.refetch;
+  const refetchMenu = menu.refetch;
   const wasStudyingRef = useRef(false);
   useEffect(() => {
-    if (wasStudyingRef.current && !studying) void menu.refetch();
+    if (wasStudyingRef.current && !studying) void refetchMenu();
     wasStudyingRef.current = studying;
-  }, [menu.refetch, studying]);
+  }, [refetchMenu, studying]);
   const subjectChoices = (menu.data?.subjects ?? []).filter((subject) => subject.total > 0);
   const { data: resourceSubjects } = useResourceSubjects();
   const subjectImages = new Map((resourceSubjects ?? []).map((subject) => [subject.id, subject.image ?? null]));

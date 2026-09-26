@@ -33,6 +33,7 @@ export * from "./auth/session-verification";
 export * from "./observability/sentry-environment";
 export * from "./session-billing/obligation";
 export * from "./session-billing/adjustment";
+export * from "./session-billing/future-invoices";
 // Client hooks and pay-tiers: import via subpaths `@altitutor/shared/hooks` and
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.
 export * from './ucat-founder-offers';

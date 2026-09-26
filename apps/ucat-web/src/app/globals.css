@@ -113,6 +113,37 @@
     /* Dark overlay on light accent fills (dark mode) */
     --ucat-btn-fill-rise-wash: hsl(0 0% 0% / 0.15);
   }
+
+  /*
+   * /subscribe is a marketing page. Re-declare light tokens on the page so
+   * theme-aware children stay light even when html has .dark.
+   * `dark:` utilities that set literal colors still need their own overrides.
+   */
+  .ucat-subscribe-page {
+    color-scheme: light;
+    --background: 220 13% 92%;
+    --foreground: 0 0% 10%;
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 10%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 10%;
+    --primary: 212 86% 14%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 0 0% 96%;
+    --secondary-foreground: 0 0% 12%;
+    --muted: 220 11% 89%;
+    --muted-foreground: 0 0% 40%;
+    --accent: 198 29% 67%;
+    --accent-foreground: 0 0% 10%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 100%;
+    --border: 220 10% 90%;
+    --input: 220 10% 90%;
+    --ring: 212 86% 14%;
+    --sidebar: 0 0% 100%;
+    --sidebar-foreground: 0 0% 10%;
+    --ucat-btn-fill-rise-wash: hsl(0 0% 100% / 0.15);
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

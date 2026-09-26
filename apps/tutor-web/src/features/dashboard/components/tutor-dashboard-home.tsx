@@ -3,16 +3,8 @@
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { format } from 'date-fns';
-import {
-  ArrowRight,
-  BookOpen,
-  BrainCircuit,
-  Calendar,
-  Settings,
-  TrendingUp,
-  type LucideIcon,
-} from 'lucide-react';
-import { Button, ClickableNavCard } from '@altitutor/ui';
+import { ArrowRight } from 'lucide-react';
+import { Button } from '@altitutor/ui';
 import { TutorDashboardUpdatesCard } from './TutorDashboardUpdatesCard';
 import { TutorTodaySessionsCalendarView } from '@/features/sessions/components/TutorTodaySessionsCalendarView';
 import {
@@ -20,51 +12,9 @@ import {
 } from '@/features/sessions/hooks/useSessionsQuery';
 import { SessionModal } from '@/features/sessions/components/SessionModal';
 import { LogSessionModal, UnloggedSessionsTableSection } from '@/features/tutor-logs/components';
-import { useUcatAccess } from '@/features/ucat/shared/hooks/useUcatAccess';
 import { TutorPageContainer } from '@/shared/components/layouts';
 import { tutorBtnOutline, tutorCardCn } from '@/shared/lib/tutor-visual';
 import { cn } from '@/shared/utils';
-
-type QuickLinkItem = {
-  title: string;
-  description: string;
-  href: string;
-  icon: LucideIcon;
-};
-
-const baseQuickLinks: QuickLinkItem[] = [
-  {
-    title: 'Classes',
-    description: 'Timetable, sessions, and tutor logs',
-    href: '/classes',
-    icon: Calendar,
-  },
-  {
-    title: 'Resources',
-    description: 'Learning materials (coming soon)',
-    href: '/resources',
-    icon: BookOpen,
-  },
-  {
-    title: 'Pay tier',
-    description: 'Your pay ladder, requirements, and check-ins',
-    href: '/pay-tier',
-    icon: TrendingUp,
-  },
-  {
-    title: 'Settings',
-    description: 'Profile, blockout dates, and preferences',
-    href: '/settings',
-    icon: Settings,
-  },
-];
-
-const ucatQuickLink: QuickLinkItem = {
-  title: 'UCAT',
-  description: 'Questions, sets, mocks, and student progress',
-  href: '/ucat',
-  icon: BrainCircuit,
-};
 
 export interface TutorDashboardHomeProps {
   firstName: string | null;
@@ -72,7 +22,6 @@ export interface TutorDashboardHomeProps {
 }
 
 export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomeProps) {
-  const ucatAccess = useUcatAccess();
   const displayName = firstName?.trim() || 'Tutor';
 
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
@@ -116,10 +65,6 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
     isLoading: sessionsLoading,
     isError: sessionsError,
   } = useTutorSessionsInRange(todayStr, todayStr);
-
-  const quickLinks = ucatAccess.data
-    ? [baseQuickLinks[0], ucatQuickLink, ...baseQuickLinks.slice(1)]
-    : baseQuickLinks;
 
   return (
     <>
@@ -185,28 +130,6 @@ export function TutorDashboardHome({ firstName, staffId }: TutorDashboardHomePro
         {staffId ? (
           <UnloggedSessionsTableSection staffId={staffId} onLogSession={handleOpenLogSession} />
         ) : null}
-
-        <section aria-labelledby="quick-links-heading" className="space-y-4">
-          <h2 id="quick-links-heading" className="text-2xl font-semibold">
-            Quick links
-          </h2>
-          <ul className="grid gap-4 sm:grid-cols-2">
-            {quickLinks.map((item) => {
-              const Icon = item.icon;
-              return (
-                <li key={item.href} className="flex min-w-0 flex-col">
-                  <ClickableNavCard
-                    href={item.href}
-                    icon={Icon}
-                    title={item.title}
-                    description={item.description}
-                    cardClassName={tutorCardCn()}
-                  />
-                </li>
-              );
-            })}
-          </ul>
-        </section>
       </TutorPageContainer>
     </div>
 

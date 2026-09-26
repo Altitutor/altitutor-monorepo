@@ -1,7 +1,10 @@
 import type { Metadata } from "next";
+import { JsonLd } from "@/features/marketing/components/json-ld";
 import { UcatMarketingLandingPage } from "@/features/product-landing/ucat/ucat-marketing-landing-page";
+import { buildRouteSchema } from "@/lib/pages";
 
-const canonical = "https://altitutor.com/ucat/";
+const canonicalPath = "/ucat/";
+const canonical = `https://altitutor.com${canonicalPath}`;
 
 export const metadata: Metadata = {
   title: "UCAT preparation Australia and New Zealand | Altitutor UCAT",
@@ -27,5 +30,16 @@ export const metadata: Metadata = {
 };
 
 export default function UcatLandingPage() {
-  return <UcatMarketingLandingPage />;
+  return (
+    <>
+      <JsonLd
+        data={buildRouteSchema(
+          canonicalPath,
+          "UCAT preparation Australia and New Zealand | Altitutor UCAT",
+          "Online UCAT preparation for students in Australia and New Zealand, with 10,000+ questions, 30+ full mocks, score estimation, adaptive study planning, and ongoing Free access.",
+        )}
+      />
+      <UcatMarketingLandingPage />
+    </>
+  );
 }

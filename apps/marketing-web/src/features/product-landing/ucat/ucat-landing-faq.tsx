@@ -1,6 +1,5 @@
 "use client";
 
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import {
   Accordion,
   AccordionContent,
@@ -8,15 +7,15 @@ import {
   AccordionTrigger,
 } from "@altitutor/ui";
 import {
-  UCAT_SECTION_EYEBROW_CLASS,
-  UCAT_SECTION_PADDING_CLASS,
-  UCAT_SECTION_DESCRIPTION_CLASS,
-  UCAT_SUPPORTING_TEXT_CLASS,
-  UCAT_SECTION_HEADING_CLASS,
-} from "./ucat-landing-section-eyebrow";
+  MARKETING_SECTION_EYEBROW_CLASS,
+  MARKETING_SECTION_PADDING_CLASS,
+  MARKETING_SECTION_DESCRIPTION_CLASS,
+  MARKETING_SUPPORTING_TEXT_CLASS,
+  MARKETING_SECTION_HEADING_CLASS,
+} from "@/features/marketing/section-styles";
 import { UcatInterestDialog } from "./ucat-interest-dialog";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const faqLinkClassName = `inline font-semibold text-marketing-primary underline decoration-marketing-primary/30 underline-offset-4 transition hover:decoration-marketing-primary ${typo.secondarySans}`;
 
@@ -111,19 +110,19 @@ const faqs = [
 
 export function UcatLandingFaq() {
   return (
-    <section id="faq" className={`bg-white ${UCAT_SECTION_PADDING_CLASS}`}>
+    <section id="faq" className={`bg-white ${MARKETING_SECTION_PADDING_CLASS}`}>
       <div className="mx-auto grid max-w-6xl gap-12 lg:grid-cols-[0.72fr_1.28fr] lg:gap-20">
         <div>
-          <p className={`${UCAT_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>
+          <p className={`${MARKETING_SECTION_EYEBROW_CLASS} ${typo.dataMono}`}>
             Frequently asked questions
           </p>
           <h2
-            className={`mt-4 ${UCAT_SECTION_HEADING_CLASS} ${typo.headingSans}`}
+            className={`mt-4 ${MARKETING_SECTION_HEADING_CLASS} ${typo.headingSans}`}
           >
             Clear answers before you start.
           </h2>
           <p
-            className={`mt-5 max-w-md ${UCAT_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+            className={`mt-5 max-w-md ${MARKETING_SECTION_DESCRIPTION_CLASS} ${typo.secondarySans}`}
           >
             If your question is not here, email admin@altitutor.com and a member
             of the Altitutor team will help.
@@ -149,7 +148,7 @@ export function UcatLandingFaq() {
                 className={`motion-reduce:animate-none ${typo.secondarySans}`}
               >
                 <div
-                  className={`max-w-2xl pb-6 pr-10 ${UCAT_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
+                  className={`max-w-2xl pb-6 pr-10 ${MARKETING_SUPPORTING_TEXT_CLASS} ${typo.secondarySans}`}
                 >
                   {faq.answer}
                 </div>

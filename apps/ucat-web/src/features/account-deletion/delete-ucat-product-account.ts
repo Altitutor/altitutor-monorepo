@@ -26,7 +26,7 @@ export type ProductAccountDeletionStore = {
 };
 
 export type DeleteUcatProductAccountResult =
-  | { ok: true; loginRemoved: boolean }
+  | { ok: true; loginRemoved: boolean; studentId: string }
   | {
       ok: false;
       error:
@@ -107,7 +107,7 @@ export async function deleteUcatProductAccount(input: {
   }
 
   if (student.inPersonStatus !== null || staffLogin) {
-    return { ok: true, loginRemoved: false };
+    return { ok: true, loginRemoved: false, studentId: student.id };
   }
 
   try {
@@ -122,5 +122,5 @@ export async function deleteUcatProductAccount(input: {
     return { ok: false, error: "deletion_failed" };
   }
 
-  return { ok: true, loginRemoved: true };
+  return { ok: true, loginRemoved: true, studentId: student.id };
 }

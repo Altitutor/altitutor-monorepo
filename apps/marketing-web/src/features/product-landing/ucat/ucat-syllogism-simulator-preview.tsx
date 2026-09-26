@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { UcatExamActionButton, UcatExamShell } from "@altitutor/ui";
 import { gsap } from "gsap";
 import clsx from "clsx";
@@ -145,7 +146,7 @@ export function UcatSyllogismSimulatorPreview({
   const stageRef = useRef<HTMLDivElement>(null);
   const cursorRef = useRef<HTMLDivElement>(null);
   const coordinateScale = useDemoScale();
-  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+  const { reduceMotion: prefersReducedMotion } = useFaithfulMotion();
   const [answers, setAnswers] = useState<
     Partial<Record<string, SyllogismChoice>>
   >({});
@@ -153,14 +154,6 @@ export function UcatSyllogismSimulatorPreview({
     null,
   );
   const [timeRemaining, setTimeRemaining] = useState(START_SECONDS);
-
-  useEffect(() => {
-    const mediaQuery = window.matchMedia("(prefers-reduced-motion: reduce)");
-    const syncPreference = () => setPrefersReducedMotion(mediaQuery.matches);
-    syncPreference();
-    mediaQuery.addEventListener("change", syncPreference);
-    return () => mediaQuery.removeEventListener("change", syncPreference);
-  }, []);
 
   // Real one-second countdown; resets when the drag loop restarts.
   useEffect(() => {
@@ -322,7 +315,7 @@ export function UcatSyllogismSimulatorPreview({
               className={clsx(
                 "inline-flex items-center gap-1 rounded-md transition-shadow",
                 highlightedControl === "calculator" &&
-                  "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                  "ring-2 ring-white ring-offset-2 ring-offset-marketing-primary",
               )}
             >
               <Calculator className="size-4" aria-hidden />
@@ -337,7 +330,7 @@ export function UcatSyllogismSimulatorPreview({
               className={clsx(
                 "inline-flex items-center gap-1 rounded-md transition-shadow",
                 highlightedControl === "flag" &&
-                  "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                  "ring-2 ring-white ring-offset-2 ring-offset-marketing-primary",
               )}
             >
               <Flag className="size-4" aria-hidden />
@@ -357,7 +350,7 @@ export function UcatSyllogismSimulatorPreview({
                 data-tour="question-engine-navigator"
                 className={clsx(
                   highlightedControl === "navigator" &&
-                    "ring-2 ring-white ring-offset-2 ring-offset-[#0a2941]",
+                    "ring-2 ring-white ring-offset-2 ring-offset-marketing-primary",
                 )}
                 icon={<Navigation className="size-4" />}
               >

@@ -4,7 +4,9 @@ import { useForm, type UseFormReturn } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { useState, useEffect, useMemo, useRef } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useSubjectsSearch, useSubjectSearchWithTerm } from '@/shared/hooks';
+import { subjectsSearchApi } from '@/shared/api/subjects-search';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import {
   Form,
@@ -28,7 +30,11 @@ import {
   TRIAL_YEAR_LEVELS,
   curriculumAfterYearLevelChange,
   formatSubjectWithYearContext,
+  TRIAL_CROSS_YEAR_SUBJECTS,
+  trialBookingSubjectKey,
+  trialCrossYearShortNamesForYear,
   yearLevelNeedsCurriculumChoice,
+  type TrialBookingSubjectKey,
   type TrialCurriculum,
   type TrialYearLevel,
 } from '../lib/trial-contact-academic';
@@ -93,9 +99,11 @@ interface TrialContactFormProps {
   onFormReady?: (form: UseFormReturn<TrialContactFormValues>) => void;
   onValidityChange?: (isValid: boolean) => void;
   onSelectedSubjectsChange?: (subjects: Tables<'subjects'>[]) => void;
+  /** Course-page booking key, such as `ucat` or `medi`. */
+  preferredSubjectKey?: TrialBookingSubjectKey | null;
 }
 
-export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoading = false, onFormReady, onValidityChange, onSelectedSubjectsChange }: TrialContactFormProps) {
+export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoading = false, onFormReady, onValidityChange, onSelectedSubjectsChange, preferredSubjectKey = null }: TrialContactFormProps) {
   const form = useForm({
     resolver: zodResolver(trialContactSchema),
     mode: 'onChange', // Validate on change for real-time feedback
@@ -153,8 +161,57 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     yearLevel: yearLevel ?? null,
     enabled: canShowSubjects,
   });
-  const yearSubjects = useMemo(() => subjectsFilteredData?.subjects ?? [], [subjectsFilteredData?.subjects]);
+  const { data: crossYearCatalog = [] } = useQuery({
+    queryKey: ['subjects', 'trial-cross-year'],
+    queryFn: async () => {
+      const results = await Promise.all(
+        TRIAL_CROSS_YEAR_SUBJECTS.map((subject) =>
+          subjectsSearchApi.search({ search: subject.shortName, limit: 20 }),
+        ),
+      );
+      const byShortName = new Map<string, Tables<'subjects'>>();
+      for (const result of results) {
+        for (const subject of result.subjects) {
+          const shortName = subject.short_name?.toUpperCase();
+          if (shortName && TRIAL_CROSS_YEAR_SUBJECTS.some((offered) => offered.shortName === shortName)) {
+            byShortName.set(shortName, subject);
+          }
+        }
+      }
+      return [...byShortName.values()];
+    },
+    staleTime: 1000 * 60 * 5,
+  });
+
+  const offeredShortNames = useMemo(
+    () => new Set(trialCrossYearShortNamesForYear(yearLevel)),
+    [yearLevel],
+  );
+  const offeredSubjects = useMemo(
+    () =>
+      crossYearCatalog.filter((subject) =>
+        offeredShortNames.has(subject.short_name?.toUpperCase() ?? ''),
+      ),
+    [crossYearCatalog, offeredShortNames],
+  );
+  const offeredSubjectIds = useMemo(
+    () => new Set(offeredSubjects.map((subject) => subject.id)),
+    [offeredSubjects],
+  );
+
+  const matchedYearSubjects = useMemo(
+    () => subjectsFilteredData?.subjects ?? [],
+    [subjectsFilteredData?.subjects],
+  );
+  const yearSubjects = useMemo(() => {
+    const seen = new Set(matchedYearSubjects.map((subject) => subject.id));
+    return [
+      ...matchedYearSubjects,
+      ...offeredSubjects.filter((subject) => !seen.has(subject.id)),
+    ];
+  }, [matchedYearSubjects, offeredSubjects]);
   const yearSubjectIds = useMemo(() => new Set(yearSubjects.map((subject) => subject.id)), [yearSubjects]);
+  const dismissedPreferredIdsRef = useRef<Set<string>>(new Set());
 
   const { data: subjectsSearchData, isFetching: isSearchingByTerm } = useSubjectSearchWithTerm({
     searchTerm: debouncedSearchQuery,
@@ -197,6 +254,9 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
       setSelectedSubjectsCache((prev) => new Map(prev).set(subject.id, subject));
       return;
     }
+    if (trialBookingSubjectKey(subject.short_name) === preferredSubjectKey) {
+      dismissedPreferredIdsRef.current.add(subject.id);
+    }
     setSelectedIds(currentIds.filter((id) => id !== subject.id));
     setOtherYearSubjectIds((prev) => {
       if (!prev.has(subject.id)) return prev;
@@ -220,11 +280,39 @@ export function TrialContactForm({ onSubmit, defaultValues, isLoading: _isLoadin
     if (previousAcademicKeyRef.current === academicKey) return;
     previousAcademicKeyRef.current = academicKey;
     const currentIds = form.getValues('subject_ids') || [];
-    const nextIds = currentIds.filter((id) => otherYearSubjectIds.has(id));
-    if (nextIds.length !== currentIds.length) {
+    const nextIds = currentIds.filter(
+      (id) => otherYearSubjectIds.has(id) || offeredSubjectIds.has(id),
+    );
+    const preferred = offeredSubjects.find(
+      (subject) =>
+        trialBookingSubjectKey(subject.short_name) === preferredSubjectKey &&
+        !dismissedPreferredIdsRef.current.has(subject.id),
+    );
+    if (preferred && !nextIds.includes(preferred.id)) {
+      nextIds.push(preferred.id);
+      setSelectedSubjectsCache((prev) => new Map(prev).set(preferred.id, preferred));
+    }
+    if (nextIds.length !== currentIds.length || nextIds.some((id, index) => id !== currentIds[index])) {
       form.setValue('subject_ids', nextIds, { shouldValidate: true, shouldDirty: true });
     }
-  }, [yearLevel, curriculum, form, otherYearSubjectIds]);
+  }, [yearLevel, curriculum, form, otherYearSubjectIds, offeredSubjectIds, offeredSubjects, preferredSubjectKey]);
+
+  useEffect(() => {
+    if (!preferredSubjectKey || !canShowSubjects) return;
+    const preferred = offeredSubjects.find(
+      (subject) =>
+        trialBookingSubjectKey(subject.short_name) === preferredSubjectKey &&
+        !dismissedPreferredIdsRef.current.has(subject.id),
+    );
+    if (!preferred) return;
+    const currentIds = form.getValues('subject_ids') || [];
+    if (currentIds.includes(preferred.id)) return;
+    setSelectedSubjectsCache((prev) => new Map(prev).set(preferred.id, preferred));
+    form.setValue('subject_ids', [...currentIds, preferred.id], {
+      shouldValidate: true,
+      shouldDirty: true,
+    });
+  }, [canShowSubjects, form, offeredSubjects, preferredSubjectKey]);
 
   // Expose form to parent for programmatic submission (only when form reference changes to avoid infinite loops)
   const lastFormRef = useRef<UseFormReturn<TrialContactFormValues> | null>(null);

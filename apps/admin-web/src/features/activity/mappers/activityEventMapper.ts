@@ -1,4 +1,8 @@
 import { formatActivityTimestamp, formatCompactDate, formatDate } from '@/shared/utils/datetime';
+import {
+  communicationActivityAt,
+  type CommunicationTimeSort,
+} from '../lib/entityCommunication';
 import type {
   ActivityEvent,
   ActivityEventDisplay,
@@ -383,11 +387,12 @@ function resolvePerformer(event: ActivityEvent, payload: Payload): { id: string;
 
 export function mapActivityEventToDisplay(
   event: ActivityEvent,
-  relatedEntities?: ActivityEventsResponse['relatedEntities']
+  relatedEntities?: ActivityEventsResponse['relatedEntities'],
+  timeBasis: CommunicationTimeSort = 'logged',
 ): ActivityEventDisplay {
   const payload = asRecord(event.payload);
   const presentation = eventPresentation(event, payload);
-  const recordedAt = event.recorded_at;
+  const activityAt = communicationActivityAt(event, timeBasis);
   const liveNote = relatedEntities?.notes?.[event.subject_id];
   const noteContent = event.event_name === 'note.added'
     ? liveNote?.note ?? payload.note
@@ -398,8 +403,8 @@ export function mapActivityEventToDisplay(
     iconColor: presentation.color,
     message: presentation.message,
     messageParts: linkedMessageParts(event, presentation.message),
-    timestamp: formatActivityTimestamp(recordedAt),
-    performedAt: recordedAt,
+    timestamp: formatActivityTimestamp(activityAt),
+    performedAt: activityAt,
     performedBy: resolvePerformer(event, payload),
     metadata: payload,
     changedFields: presentation.fields,
@@ -412,9 +417,10 @@ export function mapActivityEventToDisplay(
 
 export function mapActivityEventsToDisplay(
   response: ActivityEventsResponse,
-  options?: { chronological?: boolean }
+  options?: { chronological?: boolean; timeBasis?: CommunicationTimeSort }
 ): ActivityEventDisplay[] {
   const direction = options?.chronological ? 1 : -1;
+  const timeBasis = options?.timeBasis ?? 'logged';
   return response.events
     .flatMap((event) => {
       if (
@@ -424,7 +430,7 @@ export function mapActivityEventsToDisplay(
       ) {
         return [];
       }
-      return [mapActivityEventToDisplay(event, response.relatedEntities)];
+      return [mapActivityEventToDisplay(event, response.relatedEntities, timeBasis)];
     })
     .sort((a, b) => (
       (new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()) * direction

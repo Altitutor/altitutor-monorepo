@@ -5,6 +5,7 @@ import type { JSONContent } from '@tiptap/core';
 import { useQueryClient } from '@tanstack/react-query';
 import { ActivityItem } from './ActivityItem';
 import { mapActivityEventsToDisplay } from '../mappers';
+import type { CommunicationTimeSort } from '../lib/entityCommunication';
 import type { ActivityEventsResponse } from '../types';
 import { activityKeys } from '../queryKeys';
 import { useDeleteNote, useUpdateNote } from '@/shared/hooks/useNotes';
@@ -21,6 +22,7 @@ interface ActivityFeedProps {
   onLoadMore?: () => void;
   onOpenFormResponse?: (responseId: string) => void;
   chronological?: boolean;
+  timeBasis?: CommunicationTimeSort;
 }
 
 export function ActivityFeed({
@@ -33,6 +35,7 @@ export function ActivityFeed({
   onLoadMore,
   onOpenFormResponse,
   chronological = false,
+  timeBasis = 'logged',
 }: ActivityFeedProps) {
   const queryClient = useQueryClient();
   const updateNote = useUpdateNote();
@@ -40,8 +43,8 @@ export function ActivityFeed({
   const { toast } = useToast();
   const activities = useMemo(() => {
     if (!data) return [];
-    return mapActivityEventsToDisplay(data, { chronological });
-  }, [data, chronological]);
+    return mapActivityEventsToDisplay(data, { chronological, timeBasis });
+  }, [data, chronological, timeBasis]);
 
   const refreshActivity = useCallback(async () => {
     await queryClient.invalidateQueries({ queryKey: activityKeys.all });

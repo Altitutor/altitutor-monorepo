@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { useReducedMotion } from "motion/react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { gsap } from "gsap";
 import {
   Card,
@@ -52,7 +52,7 @@ const PAGE_BLOCKS = [
 const BLOCK_PROGRESS = [18, 36, 52] as const;
 
 export function UcatLearningPreview() {
-  const reduceMotion = useReducedMotion();
+  const { reduceMotion } = useFaithfulMotion();
   const coordinateScale = useDemoScale();
   const scaleRef = useRef(coordinateScale);
   scaleRef.current = coordinateScale;
@@ -196,9 +196,9 @@ export function UcatLearningPreview() {
                     Inference and the Limits of Evidence
                   </span>
                 </p>
-                <h1 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
+                <h3 className="mt-2 text-2xl font-semibold tracking-tight sm:text-3xl">
                   Inference and the Limits of Evidence
-                </h1>
+                </h3>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-black/55 sm:text-base">
                   Learn to distinguish supported inference from possibility,
                   assumption and overstatement.
@@ -217,7 +217,7 @@ export function UcatLearningPreview() {
                       evidence.
                     </p>
                   </div>
-                  <blockquote className="rounded-lg border-l-4 border-[#92b9c6] bg-[#f2f3f4] p-4 text-sm leading-relaxed text-black/60">
+                  <blockquote className="rounded-lg border-l-4 border-marketing-accent bg-[#f2f3f4] p-4 text-sm leading-relaxed text-black/60">
                     The city reduced bus fares at the beginning of September. In
                     the same week, two new routes began serving suburbs that
                     previously had limited public transport. Passenger numbers
@@ -253,7 +253,7 @@ export function UcatLearningPreview() {
                   </ul>
                   <div className="flex items-start gap-2.5 rounded-lg bg-[#f2f3f4] p-3.5 text-sm text-black/58">
                     <Lightbulb
-                      className="mt-0.5 size-4 shrink-0 text-[#0a2941]"
+                      className="mt-0.5 size-4 shrink-0 text-marketing-primary"
                       aria-hidden
                     />
                     The more you must add from outside the passage, the weaker
@@ -331,7 +331,7 @@ export function UcatLearningPreview() {
                                 <span
                                   className={`mt-0.5 grid size-4 shrink-0 place-items-center rounded-full border ${
                                     selected
-                                      ? "border-[#0a2941] bg-[#0a2941]"
+                                      ? "border-marketing-primary bg-marketing-primary"
                                       : "border-black/35"
                                   }`}
                                 >
@@ -368,7 +368,7 @@ export function UcatLearningPreview() {
               <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#e8eaed]">
                 <div
                   ref={progressFillRef}
-                  className="h-full rounded-full bg-[#0a2941]"
+                  className="h-full rounded-full bg-marketing-primary"
                   style={{ width: `${progressPercent}%` }}
                 />
               </div>
@@ -392,7 +392,7 @@ export function UcatLearningPreview() {
                       key={block.id}
                       className={`flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm ${
                         current
-                          ? "bg-[#e8eaed] font-semibold text-[#0a2941]"
+                          ? "bg-[#e8eaed] font-semibold text-marketing-primary"
                           : "text-black/50"
                       }`}
                     >

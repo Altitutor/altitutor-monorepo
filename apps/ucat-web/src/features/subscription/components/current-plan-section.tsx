@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowRight, Check, Sparkles } from "lucide-react";
 import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { FreePlanQuotaLimitsCard } from "@/features/subscription/components/free-plan-quota-limits-card";
-import { ScheduledPlanDowngradeNotice } from "@/features/subscription/components/scheduled-plan-downgrade-notice";
+import { ScheduledPlanDowngradeNoticeWithActions } from "@/features/subscription/components/scheduled-plan-downgrade-notice-with-actions";
 import { useUcatSubscriptionBilling } from "@/features/subscription/hooks/use-ucat-subscription-billing";
 import { formatSubscriptionStatus } from "@/features/subscription/lib/invoice-display";
 import { UCAT_ONLINE_TIER_LABELS } from "@/features/subscription/lib/plan-tier-display";
@@ -75,7 +75,10 @@ export function CurrentPlanSection() {
   return (
     <div className="space-y-4">
       {isCancelScheduled && cancelEndDate ? (
-        <ScheduledPlanDowngradeNotice endDate={cancelEndDate} />
+        <ScheduledPlanDowngradeNoticeWithActions
+          endDate={cancelEndDate}
+          planTier={subscription?.plan_tier ?? null}
+        />
       ) : null}
 
       <section

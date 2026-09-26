@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "motion/react";
+import { motion } from "motion/react";
+import { useFaithfulMotion } from "./ucat-marketing-faithful-ui-motion";
 import { gsap } from "gsap";
 import {
   BookOpen,
@@ -117,11 +118,11 @@ function intensityClass(level: 0 | 1 | 2 | 3 | 4): string {
     case 1:
       return "bg-[#c5dce5]";
     case 2:
-      return "bg-[#92b9c6]";
+      return "bg-marketing-accent";
     case 3:
       return "bg-[#355d72] text-white";
     case 4:
-      return "bg-[#0a2941] text-white";
+      return "bg-marketing-primary text-white";
     default: {
       const _exhaustive: never = level;
       return _exhaustive;
@@ -197,7 +198,7 @@ function moveCursorTo(
 }
 
 export function UcatStudyPlanPreview() {
-  const reduceMotion = useReducedMotion();
+  const { reduceMotion } = useFaithfulMotion();
   const coordinateScale = useDemoScale();
   const scaleRef = useRef(coordinateScale);
   scaleRef.current = coordinateScale;
@@ -290,8 +291,8 @@ export function UcatStudyPlanPreview() {
                     className={[
                       "relative flex aspect-square items-center justify-center rounded-lg text-[11px] font-semibold sm:text-xs",
                       intensityClass(level),
-                      selected ? "ring-2 ring-[#0a2941] ring-offset-1" : "",
-                      isToday && !selected ? "ring-1 ring-[#0a2941]/45" : "",
+                      selected ? "ring-2 ring-marketing-primary ring-offset-1" : "",
+                      isToday && !selected ? "ring-1 ring-marketing-primary/45" : "",
                     ]
                       .filter(Boolean)
                       .join(" ")}
@@ -299,7 +300,7 @@ export function UcatStudyPlanPreview() {
                     {day.day}
                     {isTest ? (
                       <Target
-                        className="absolute bottom-0.5 size-2.5 text-[#0a2941]"
+                        className="absolute bottom-0.5 size-2.5 text-marketing-primary"
                         aria-hidden
                       />
                     ) : null}
@@ -309,7 +310,7 @@ export function UcatStudyPlanPreview() {
             </div>
             <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-black/45">
               <span className="flex items-center gap-1.5">
-                <span className="size-2.5 rounded bg-[#92b9c6]" /> Planned study
+                <span className="size-2.5 rounded bg-marketing-accent" /> Planned study
               </span>
               <span className="flex items-center gap-1.5">
                 <Target className="size-3.5" aria-hidden /> Test date
@@ -361,7 +362,7 @@ export function UcatStudyPlanPreview() {
                   {formatSelectedDay(selectedDate)}
                 </h3>
                 {selectedDate === TODAY ? (
-                  <span className="rounded-full bg-[#0a2941] px-2.5 py-0.5 text-xs font-medium text-white">
+                  <span className="rounded-full bg-marketing-primary px-2.5 py-0.5 text-xs font-medium text-white">
                     Today
                   </span>
                 ) : null}
@@ -387,7 +388,7 @@ export function UcatStudyPlanPreview() {
                   variants={demoItemVariants}
                   className="flex items-start gap-3 rounded-[1.1rem] bg-white p-4 shadow-sm ring-1 ring-black/[0.055]"
                 >
-                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#e8eaed] text-[#0a2941]">
+                  <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-[#e8eaed] text-marketing-primary">
                     <Icon className="size-4" aria-hidden />
                   </span>
                   <div className="min-w-0 flex-1">
@@ -402,7 +403,7 @@ export function UcatStudyPlanPreview() {
                       {task.minutes} min
                     </p>
                   </div>
-                  <span className="shrink-0 rounded-lg bg-[#0a2941] px-3 py-2 text-sm font-semibold text-white">
+                  <span className="shrink-0 rounded-lg bg-marketing-primary px-3 py-2 text-sm font-semibold text-white">
                     Start
                   </span>
                 </motion.li>

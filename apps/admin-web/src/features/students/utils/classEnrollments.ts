@@ -1,5 +1,14 @@
 import type { Tables } from '@altitutor/shared';
 
+/** An open enrolment whose first lesson is still in the future. */
+export function isScheduledClassEnrolment(
+  enrolledAt: string | null | undefined,
+  nowMs = Date.now()
+): boolean {
+  if (!enrolledAt) return false;
+  return new Date(enrolledAt).getTime() > nowMs;
+}
+
 export function isPreviousClassEnrollment(
   unenrolledAt: string | null | undefined,
   nowMs = Date.now()

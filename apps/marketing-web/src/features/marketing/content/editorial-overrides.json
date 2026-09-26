@@ -1,0 +1,63 @@
+{
+  "/": {
+    "d36aa0c": {
+      "title": "ASSIGNMENT DRAFTING",
+      "html": "<p>Make your essays, reports and research assignments stronger. In our one-on-one sessions, tutors give you detailed feedback on structure, clarity, fluency and analysis, so you can revise your work with confidence.</p>"
+    }
+  },
+  "/classes/": {
+    "756a704": {
+      "title": "Assignment drafting",
+      "html": "Writing takes practice. Our tutors help you develop a clear argument, organise your ideas and communicate them effectively in essays, reports and research assignments.",
+      "detailTitle": "Strengthen your assignment, one revision at a time",
+      "detailHtml": "Your tutor reviews your draft and task sheet before the lesson, then works through the feedback with you in a one-on-one session. You leave with practical steps for improving your own work."
+    },
+    "d7994e0": {
+      "items": [
+        {
+          "title": "I'm struggling with my schoolwork.",
+          "html": "<p>Whatever your reason, our <a href=\"/classes/weekly-classes/\">weekly tuition classes</a> are for you. We\u2019ve found that tuition companies tend to just put enrolled students into whatever class they can, depending on availability and convenience. This often makes the student feel even more behind, as the other students of that class would already be ahead because of previous tuition. If you\u2019re struggling with schoolwork, our first point is to find out why \u2013 whether that\u2019s accumulated missed knowledge, school absence, or a teacher which doesn\u2019t benefit your learning style. One of our tutors will then do one-on-one sessions with you until you\u2019re at the level of one of our classes, no matter how long that takes. </p><p><a href=\"/classes/weekly-classes/\">Weekly tuition</a></p>"
+        },
+        {
+          "title": "I want to achieve top scores.",
+          "html": "<h3>Whether you want to get into a top course such as Medicine or Dentistry, or if you\u2019re just a perfectionist, our<a href=\"/classes/weekly-classes/\"> weekly classes</a> will ensure you get the best scores you possibly can. Do you already understand all of the content, but small, silly mistakes are holding you back from the top grade band? Our tutors were all top achieving students who had to face and overcome this problem, and we have our own personal strategies to ensure you minimise the marks you lose for any reason. We don\u2019t put high achieving students with students who are just aiming to pass \u2013 then it would no different to school. All of our classes are sorted by learning ability, which means we group students who are all aiming for perfect scores so we can strive for perfection together.</h3><p><a href=\"/classes/weekly-classes/\">Weekly tuition</a></p>"
+        },
+        {
+          "title": "I don't want regular guidance, but I want to ace my final exams.",
+          "html": "<p>If you\u2019re not interested in regular tuition, our <a href=\"/examprep\">exam preparation courses</a> condense and entire year\u2019s worth of learning into a 10-14 day course. At the beginning of each course, we do a practice exam so you can see you areas of weakness and what to improve on. Each day, we go through a different topic, meaning you can choose which days you want to come to and which to skip \u2013 and the best part is you only pay for what you come to. The last session is a final practice exam \u2013 so you can see firsthand how much your score improved.</p><p><a href=\"/classes/examprep/\">Exam preparation courses</a></p>"
+        },
+        {
+          "title": "I only want help with summative tests.",
+          "html": "<p>Since our weekly classes are learning a few weeks ahead of the school curriculum, we have plenty of time to prepare for summative assessments. Students who only want help with test preparation, only come to our class sessions when we are doing assessment preparation.</p><p><a href=\"/classes/weekly-classes/\">Weekly classes</a></p>"
+        },
+        {
+          "title": "I want drafting for my maths folio / science practicals + SHE tasks.",
+          "html": "<p>Our SACE stage 2 students in our <a href=\"/classes/weekly-classes/\">weekly classes</a> get free in-person assignment drafting for all of their summative assignments for that subject. They also get free access to a weekly homework help class for help writing assignments.</p><p><a href=\"/classes/weekly-classes/\">Weekly tuition</a></p>"
+        },
+        {
+          "title": "I want help writing my English assignments",
+          "html": "<p>As part of our Assignment drafting programme, one of our tutors can sit with you and guide you as you write your assignment, including helpful guides with what to put in each section.</p><p><a href=\"/classes/english-assignment-drafting/\">Assignment drafting</a>.</p>"
+        },
+        {
+          "title": "I want my English assignments drafted",
+          "html": "<p>Not a problem \u2013 click here:</p><p><a href=\"/classes/english-assignment-drafting/\">Assignment drafting</a>.</p>"
+        }
+      ]
+    }
+  },
+  "/classes/english-assignment-drafting/": {
+    "2a09c38": {
+      "title": "ASSIGNMENT DRAFTING"
+    },
+    "5003d9e": {
+      "html": "<p>Get constructive feedback on your essays, reports and research assignments, whether you are planning a first draft or refining your final version.</p><p>Work one-on-one with a tutor to improve structure, clarity, fluency and analysis. Bring your task sheet and draft so the feedback focuses on your assessment and the next steps you can take yourself.</p>"
+    },
+    "855fce7": {
+      "title": "Bring your task sheet",
+      "html": "<p>We can help with the writing process across essays, reports and research assignments. Share your subject, task sheet and draft when you book so we can confirm the right tutor for your assessment.</p><p>Our existing English support includes SACE English Literary Studies, English, Essential English and English as an Additional Language.</p>"
+    },
+    "4f6c016": {
+      "html": "<p>Once you have registered following your trial session:</p><ol><li>Book a drafting time using your student account.</li><li>You will receive an email and text confirmation when we process your booking.</li><li>Email your draft and assessment task sheet to <strong>english@altitutor.com</strong> before your session so your tutor can review them.</li><li>Come to Altitutor at Level 1, 17A Solomon St, Adelaide SA 5000. Work through the feedback with your tutor and plan your revisions.</li></ol>"
+    }
+  }
+}

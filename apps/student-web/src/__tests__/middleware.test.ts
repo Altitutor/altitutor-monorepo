@@ -112,39 +112,12 @@ describe("student session middleware", () => {
     }
   });
 
-  it("redirects an anonymous root to marketing", async () => {
+  it("redirects an anonymous root to login", async () => {
     mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
-    expect((await middleware(request("/"))).headers.get("location")).toBe(
-      "https://altitutor.com/online-learning/",
-    );
-  });
-
-  it("redirects an anonymous development root to the development marketing landing", async () => {
-    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
-    const response = await middleware(
-      new NextRequest("https://student.development.altitutor.com/"),
-    );
-    expect(response.headers.get("location")).toBe(
-      "https://development.altitutor.com/online-learning/",
-    );
-  });
-
-  it("redirects an anonymous local root to the local marketing landing even when production marketing is configured", async () => {
-    const originalMarketingUrl = process.env.NEXT_PUBLIC_MARKETING_URL;
-    process.env.NEXT_PUBLIC_MARKETING_URL = "https://altitutor.com";
-    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
-    try {
-      const response = await middleware(new NextRequest("http://localhost:3001/"));
-      expect(response.headers.get("location")).toBe(
-        "http://localhost:3003/online-learning/",
-      );
-    } finally {
-      if (originalMarketingUrl === undefined) {
-        delete process.env.NEXT_PUBLIC_MARKETING_URL;
-      } else {
-        process.env.NEXT_PUBLIC_MARKETING_URL = originalMarketingUrl;
-      }
-    }
+    const location = new URL((await middleware(request("/"))).headers.get("location")!);
+    expect(location.origin).toBe("https://student.altitutor.test");
+    expect(location.pathname).toBe("/login");
+    expect(location.search).toBe("");
   });
 
   it("treats invalid JWT verification as an instrumented outage", async () => {

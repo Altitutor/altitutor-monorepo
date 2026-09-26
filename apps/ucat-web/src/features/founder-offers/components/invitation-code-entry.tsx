@@ -6,6 +6,7 @@ import { normalizeUcatInvitationCode } from "@altitutor/shared";
 import { Button } from "@/components/ui/button";
 import { GiftOfferCard } from "@/features/subscription/components/gift-offer-card";
 import { UCAT_PRIMARY_ACTION_BUTTON } from "@/lib/ucat-surface-motion";
+import { cn } from "@/lib/utils";
 import { captureUcatEvent } from "@/lib/analytics/posthog";
 import {
   pendingInvitation,
@@ -22,10 +23,18 @@ type Invitation = {
   terms: string;
 };
 
+/** Beats `dark:` button colors so marketing surfaces stay on the light palette. */
+const MARKETING_OUTLINE_BUTTON =
+  "dark:!border-marketing-charcoal/20 dark:!bg-white dark:!text-marketing-charcoal dark:hover:!bg-marketing-charcoal/5 dark:hover:!text-marketing-charcoal";
+const MARKETING_PRIMARY_BUTTON =
+  "dark:!bg-marketing-primary dark:!text-white dark:hover:!bg-marketing-primary";
+
 export function InvitationCodeEntry({
   initialCode,
   appearance = "card",
   presentation = "entry",
+  tone = "theme",
+  showDecline = true,
   onDeclined,
   onOfferLoaded,
   onCodeApplied,
@@ -34,6 +43,10 @@ export function InvitationCodeEntry({
   initialCode?: string;
   appearance?: "card" | "plain";
   presentation?: "entry" | "gift";
+  /** Marketing pages stay on the light palette even when the app is in dark mode. */
+  tone?: "theme" | "marketing";
+  /** Subscribe hides decline; onboarding still offers Continue with Free. */
+  showDecline?: boolean;
   onDeclined?: () => void;
   onOfferLoaded?: (available: boolean) => void;
   onCodeApplied?: (code: string) => void | Promise<void>;
@@ -119,9 +132,12 @@ export function InvitationCodeEntry({
     }
   }
 
+  const marketing = tone === "marketing";
+
   if (presentation === "gift") {
     return (
       <GiftOfferCard
+        tone={tone}
         eyebrow={offer?.name ?? "Your founder invitation"}
         title={
           offer?.description ??
@@ -134,21 +150,26 @@ export function InvitationCodeEntry({
         error={error}
         actions={
           <>
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={busy || disabled}
-              onClick={() => {
-                rememberInvitation(null);
-                onDeclined?.();
-              }}
-            >
-              Continue with Free
-            </Button>
+            {showDecline ? (
+              <Button
+                type="button"
+                variant="ghost"
+                disabled={busy || disabled}
+                onClick={() => {
+                  rememberInvitation(null);
+                  onDeclined?.();
+                }}
+              >
+                Continue with Free
+              </Button>
+            ) : null}
             {offer ? (
               <Button
                 type="button"
-                className={UCAT_PRIMARY_ACTION_BUTTON}
+                className={cn(
+                  UCAT_PRIMARY_ACTION_BUTTON,
+                  marketing && MARKETING_PRIMARY_BUTTON,
+                )}
                 disabled={busy || disabled}
                 onClick={() => void apply()}
               >
@@ -164,9 +185,11 @@ export function InvitationCodeEntry({
   return (
     <section
       className={
-        appearance === "plain"
-          ? "text-foreground"
-          : "rounded-xl border border-border bg-card p-4 text-card-foreground"
+        marketing
+          ? "rounded-xl border border-marketing-charcoal/10 bg-white p-4 text-marketing-charcoal dark:border-marketing-charcoal/10 dark:bg-white dark:text-marketing-charcoal"
+          : appearance === "plain"
+            ? "text-foreground"
+            : "rounded-xl border border-border bg-card p-4 text-card-foreground"
       }
     >
       <button
@@ -191,7 +214,12 @@ export function InvitationCodeEntry({
             </label>
             <input
               id={inputId}
-              className="min-w-0 flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm uppercase"
+              className={cn(
+                "min-w-0 flex-1 rounded-md border px-3 py-2 text-sm uppercase",
+                marketing
+                  ? "border-marketing-charcoal/15 bg-white text-marketing-charcoal dark:border-marketing-charcoal/15 dark:bg-white dark:text-marketing-charcoal"
+                  : "border-input bg-background",
+              )}
               value={code}
               maxLength={42}
               onChange={(event) => {
@@ -206,13 +234,20 @@ export function InvitationCodeEntry({
             <Button
               variant="outline"
               type="submit"
+              className={cn(marketing && MARKETING_OUTLINE_BUTTON)}
               disabled={busy || disabled || !code.trim()}
             >
               {busy ? "Applying…" : "Check code"}
             </Button>
           </form>
           {error && (
-            <p role="alert" className="text-sm text-destructive">
+            <p
+              role="alert"
+              className={cn(
+                "text-sm",
+                marketing ? "text-red-600 dark:text-red-600" : "text-destructive",
+              )}
+            >
               {error}
             </p>
           )}

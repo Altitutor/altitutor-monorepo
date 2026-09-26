@@ -9,7 +9,7 @@ const creditNoteLineSchema = z
   .object({
     stripeInvoiceItemId: z.string().min(1),
     quantity: z.number().int().positive().optional(),
-    amount_cents: z.number().int().nonnegative().optional(),
+    amount_cents: z.number().int().positive().optional(),
   })
   .refine((data) => data.quantity !== undefined || data.amount_cents !== undefined, {
     message: 'Either quantity or amount_cents must be provided',

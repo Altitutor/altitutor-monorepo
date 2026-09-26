@@ -3,7 +3,6 @@
 import { ReactNode } from 'react';
 import Image from 'next/image';
 import { useTheme } from 'next-themes';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Badge } from '@altitutor/ui';
 import { Loader2 } from 'lucide-react';
@@ -26,6 +25,7 @@ interface BookingFlowProps {
   isSubmitting?: boolean;
   canProceed?: boolean;
   selectedSlot?: { startAt: string; endAt: string; availableStaffIds?: string[] } | null;
+  showSlotSummary?: boolean;
 }
 
 export function BookingFlow({
@@ -40,6 +40,7 @@ export function BookingFlow({
   isSubmitting = false,
   canProceed = true,
   selectedSlot,
+  showSlotSummary,
 }: BookingFlowProps) {
   const { resolvedTheme } = useTheme();
   const currentStepData = steps[currentStep];
@@ -101,7 +102,7 @@ export function BookingFlow({
       </div>
 
       {/* Pills for date/time and duration - Show only in details step (step 2) */}
-      {selectedSlot && currentStep === 2 && (
+      {selectedSlot && (showSlotSummary ?? currentStep === 2) && (
         <div className="flex flex-wrap gap-2">
           <Badge variant="secondary" className="text-sm py-1.5 px-3">
             {new Date(selectedSlot.startAt).toLocaleDateString('en-AU', {
@@ -127,109 +128,49 @@ export function BookingFlow({
       )}
 
       {/* Current Step Content */}
-      {currentStep === 0 || currentStep === 1 || currentStep === 2 || currentStep === 3 || currentStep === 4 ? (
-        // No card wrapper for mobile-friendly steps
-        <div className="space-y-6">
-          {currentStepData.component}
-          
-          {/* Navigation Buttons */}
-          <div className="flex gap-2 pt-4 border-t">
-            {!isFirstStep && (
-              <Button
-                variant="outline"
-                className={studentBtnOutline}
-                onClick={onBack}
-                disabled={isSubmitting}
-              >
-                Back
-              </Button>
-            )}
-            <div className="flex-1" />
-            {!isLastStep ? (
-              <Button
-                onClick={onNext}
-                disabled={isSubmitting}
-                className={cn(
-                  studentBtnPrimary,
-                  !canProceed && 'opacity-50 cursor-not-allowed'
-                )}
-              >
-                Next
-              </Button>
-            ) : (
-              <Button
-                className={studentBtnPrimary}
-                onClick={onConfirm}
-                disabled={!canProceed || isSubmitting}
-              >
-                {isSubmitting ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Confirming...
-                  </>
-                ) : (
-                  'Confirm Booking'
-                )}
-              </Button>
-            )}
-          </div>
+      <div className="space-y-6">
+        {currentStepData.component}
+        <div className="flex gap-2 pt-4 border-t">
+          {!isFirstStep && (
+            <Button
+              variant="outline"
+              className={studentBtnOutline}
+              onClick={onBack}
+              disabled={isSubmitting}
+            >
+              Back
+            </Button>
+          )}
+          <div className="flex-1" />
+          {!isLastStep ? (
+            <Button
+              onClick={onNext}
+              disabled={isSubmitting}
+              className={cn(
+                studentBtnPrimary,
+                !canProceed && 'opacity-50 cursor-not-allowed'
+              )}
+            >
+              Next
+            </Button>
+          ) : (
+            <Button
+              className={studentBtnPrimary}
+              onClick={onConfirm}
+              disabled={!canProceed || isSubmitting}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Confirming...
+                </>
+              ) : (
+                'Confirm Booking'
+              )}
+            </Button>
+          )}
         </div>
-      ) : (
-        // Fallback card wrapper for any other steps
-        <Card>
-          <CardHeader>
-            <CardTitle>{currentStepData.title}</CardTitle>
-            {description && <CardDescription>{description}</CardDescription>}
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-6">
-              {currentStepData.component}
-              
-              {/* Navigation Buttons */}
-              <div className="flex gap-2 pt-4 border-t">
-                {!isFirstStep && (
-                  <Button
-                    variant="outline"
-                    className={studentBtnOutline}
-                    onClick={onBack}
-                    disabled={isSubmitting}
-                  >
-                    Back
-                  </Button>
-                )}
-                <div className="flex-1" />
-                {!isLastStep ? (
-                  <Button
-                    onClick={onNext}
-                    disabled={isSubmitting}
-                    className={cn(
-                      studentBtnPrimary,
-                      !canProceed && 'opacity-50 cursor-not-allowed'
-                    )}
-                  >
-                    Next
-                  </Button>
-                ) : (
-                  <Button
-                    className={studentBtnPrimary}
-                    onClick={onConfirm}
-                    disabled={!canProceed || isSubmitting}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Confirming...
-                      </>
-                    ) : (
-                      'Confirm Booking'
-                    )}
-                  </Button>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      </div>
     </div>
   );
 }

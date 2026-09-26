@@ -10,14 +10,13 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@altitutor/ui";
-import { MARKETING_TOKENS } from "@altitutor/shared";
 import { ArrowRight } from "lucide-react";
 import type { UcatFeature } from "./ucat-feature-data";
 import { UcatFeatureDetailPreview } from "./ucat-feature-micro-ui";
-import { MagneticButton } from "./magnetic-button";
-import { UCAT_BODY_DESCRIPTION_CLASS } from "./ucat-landing-section-eyebrow";
+import { MagneticButton } from "@/features/marketing/components/magnetic-button";
+import { MARKETING_BODY_DESCRIPTION_CLASS } from "@/features/marketing/section-styles";
 
-const { typography: typo } = MARKETING_TOKENS;
+import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 
 const DIALOG_EASE = [0.32, 0.72, 0, 1] as const;
 const BOTTOM_SHEET_DISMISS_DRAG_PX = 96;
@@ -128,7 +127,7 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
                 </div>
               </div>
               <DialogDescription
-                className={`mt-4 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                className={`mt-4 ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
               >
                 {feature.body}
               </DialogDescription>
@@ -168,7 +167,7 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
                     {detail.title}
                   </h3>
                   <p
-                    className={`mt-2 ${UCAT_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
+                    className={`mt-2 ${MARKETING_BODY_DESCRIPTION_CLASS} ${typo.secondarySans}`}
                   >
                     {detail.body}
                   </p>

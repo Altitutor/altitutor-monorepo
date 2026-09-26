@@ -1,0 +1,73 @@
+"use client";
+
+import { useEffect, useRef, type ReactNode } from "react";
+import { usePathname } from "next/navigation";
+
+/** Progressive enhancement: content stays visible without JavaScript or motion. */
+export function PageMotion({ children }: { children: ReactNode }) {
+  const root = useRef<HTMLElement>(null);
+  const pathname = usePathname();
+
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+    if (media.matches || !root.current) return;
+    const mobile = window.matchMedia("(max-width: 800px)").matches;
+    const animations = new Set<Animation>();
+    const observer = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (!entry.isIntersecting) continue;
+          observer.unobserve(entry.target);
+          const animation = entry.target.animate(
+            [
+              { opacity: mobile ? 1 : 0, transform: "translateY(12px)" },
+              { opacity: 1, transform: "translateY(0)" },
+            ],
+            { duration: 360, easing: "cubic-bezier(.22,1,.36,1)" },
+          );
+          animations.add(animation);
+          void animation.finished.then(
+            () => animations.delete(animation),
+            () => animations.delete(animation),
+          );
+        }
+      },
+      { threshold: 0, rootMargin: "0px 0px 100px 0px" },
+    );
+    root.current
+      .querySelectorAll("section > div, section > h2, section > p")
+      .forEach((element) => {
+        // Explicit sequences reveal their individual items, never the whole
+        // section at once (which consumes the effect before later items arrive).
+        if (element.closest("[data-scroll-sequence]")) return;
+        // Whole-section transforms create large layers on phones. Keep mobile
+        // content painted normally; only explicit, small reveals animate.
+        if (
+          mobile ||
+          element.getBoundingClientRect().height > window.innerHeight
+        )
+          return;
+        // Never delay visible hero content or animate its image during LCP.
+        if (element.getBoundingClientRect().top >= window.innerHeight)
+          observer.observe(element);
+      });
+    root.current
+      .querySelectorAll("[data-scroll-reveal], [data-scroll-items] > *")
+      .forEach((element) => observer.observe(element));
+    const stop = () => {
+      observer.disconnect();
+      animations.forEach((animation) => animation.cancel());
+    };
+    media.addEventListener("change", stop);
+    return () => {
+      stop();
+      media.removeEventListener("change", stop);
+    };
+  }, [pathname]);
+
+  return (
+    <main id="main-content" ref={root}>
+      {children}
+    </main>
+  );
+}

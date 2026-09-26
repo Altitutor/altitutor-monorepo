@@ -1,5 +1,6 @@
 import React from "react";
 import { LoginForm, LoginPageLayout } from "@/features/auth";
+import { AccountDeletedNotice } from "@/features/account-deletion/components/account-deleted-notice";
 import { getEnabledSocialAuthProviders } from "@/features/auth/lib/social-auth";
 import { safePostAuthReturnPath } from "@/features/auth/lib/return-intent";
 
@@ -9,6 +10,7 @@ type PageProps = {
     existing?: string;
     reset?: string;
     error?: string;
+    deleted?: string;
   }>;
 };
 
@@ -19,6 +21,7 @@ export default async function LoginPage({ searchParams }: PageProps) {
   const resetSuccess = params.reset === "success";
   return (
     <LoginPageLayout redirectTo={redirectTo}>
+      {params.deleted === "1" ? <AccountDeletedNotice /> : null}
       <LoginForm
         redirectTo={redirectTo}
         accountExists={accountExists}
