@@ -271,7 +271,7 @@ export function WhyChooseUs({ copy }: { copy: Record<string, string> }) {
             </Link>
           </div>
         </div>
-        <div className="grid min-w-0 gap-5 lg:grid-cols-2">
+        <div className="grid min-w-0 gap-5 min-[801px]:grid-cols-2">
           {reasons.map((reason) => {
             const Icon = reason.icon;
             return (

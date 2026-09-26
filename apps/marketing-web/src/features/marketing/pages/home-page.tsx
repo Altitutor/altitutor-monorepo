@@ -12,6 +12,7 @@ import {
   SectionTitle,
 } from "../components/primitives";
 import { TrialCTA } from "../components/trial-cta-section";
+import { SubsidyLearnMoreDialog } from "../components/subsidy-learn-more-dialog";
 import styles from "../marketing.module.css";
 
 const home = (id: string) => content("/", id);
@@ -114,13 +115,21 @@ export function HomePage() {
               <article key={id}>
                 <h3>{title}</h3>
                 <Copy block={home(id)} />
+                {id === "859534a" ? (
+                  <div className={styles.timelineLearnMore}>
+                    <SubsidyLearnMoreDialog
+                      eyebrow="Tuition subsidy"
+                      title="Same teaching for every student"
+                      paragraphs={[
+                        home("27683c5").html ?? "",
+                        home("47753a1").html ?? "",
+                        home("a4a328d").html ?? "",
+                      ]}
+                    />
+                  </div>
+                ) : null}
               </article>
             ))}
-            <div className={styles.subsidyNote}>
-              <Copy block={home("27683c5")} />
-              <Copy block={home("47753a1")} />
-              <Copy block={home("a4a328d")} />
-            </div>
           </div>
         </div>
       </section>

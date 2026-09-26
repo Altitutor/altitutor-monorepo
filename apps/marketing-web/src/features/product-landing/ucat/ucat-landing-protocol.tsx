@@ -84,7 +84,7 @@ export function UcatLandingProtocol() {
           </p>
         </div>
 
-        <div className="mt-16 grid min-w-0 gap-5 sm:mt-20 lg:grid-cols-2">
+        <div className="mt-16 grid min-w-0 gap-5 sm:mt-20 min-[801px]:grid-cols-2">
           {UCAT_FEATURES.map((feature) => {
             const Icon = feature.icon;
 
@@ -144,7 +144,7 @@ export function UcatLandingProtocol() {
           })}
         </div>
 
-        <div className="mt-5 grid min-w-0 gap-5 lg:grid-cols-2">
+        <div className="mt-5 grid min-w-0 gap-5 min-[801px]:grid-cols-2">
           <article
             data-feature-card
             className="flex min-w-0 flex-row items-center gap-4 rounded-[30px] bg-[#f4f5f7] p-6 sm:gap-6 sm:p-8"

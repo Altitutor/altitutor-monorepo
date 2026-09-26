@@ -156,7 +156,7 @@ export function UcatHowItWorks() {
           </p>
         </div>
 
-        <div className="mt-16 grid gap-5 lg:grid-cols-3">
+        <div className="mt-16 grid gap-5 min-[801px]:grid-cols-3">
           {steps.map((step, index) => (
             <article
               key={step.number}
