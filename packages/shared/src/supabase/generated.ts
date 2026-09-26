@@ -40825,16 +40825,6 @@ export type Database = {
         }
         Returns: string
       }
-      replace_scheduled_class_enrolment: {
-        Args: {
-          p_enrolled_at: string
-          p_new_class_id: string
-          p_old_class_id: string
-          p_staff_id: string
-          p_student_id: string
-        }
-        Returns: string
-      }
       re_enroll_student: { Args: { p_student_id: string }; Returns: Json }
       rebuild_ucat_duplicate_stem_pairs: { Args: never; Returns: number }
       recalculate_topic_code_and_descendants: {
@@ -40949,6 +40939,16 @@ export type Database = {
         Args: { p_lock_name?: string; p_run_id?: string }
         Returns: boolean
       }
+      replace_scheduled_class_enrolment: {
+        Args: {
+          p_enrolled_at: string
+          p_new_class_id: string
+          p_old_class_id: string
+          p_staff_id: string
+          p_student_id: string
+        }
+        Returns: string
+      }
       replace_ucat_study_plan_generation: {
         Args: {
           p_capacity_risk: Json
@@ -40984,6 +40984,10 @@ export type Database = {
           p_student_id: string
           p_tasks: Json
         }
+        Returns: string
+      }
+      require_scheduled_class_enrolment: {
+        Args: { p_class_id: string; p_student_id: string }
         Returns: string
       }
       reschedule_drafting_session: {
