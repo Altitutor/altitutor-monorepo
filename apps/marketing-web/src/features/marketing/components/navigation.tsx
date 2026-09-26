@@ -210,7 +210,6 @@ export function Navigation() {
       ) : null}
       <header
         ref={header}
-        data-marketing-nav
         onPointerLeave={(event) => {
           if (event.pointerType !== "mouse") return;
           if (

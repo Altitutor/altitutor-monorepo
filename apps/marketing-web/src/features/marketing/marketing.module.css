@@ -461,8 +461,15 @@
 .timeline .copy > h3:first-child {
   display: none;
 }
-.timelineLearnMore {
-  margin-top: 18px;
+.subsidyNote {
+  padding: 25px;
+  background: #ffffff80;
+  border-radius: 30px;
+  margin-top: 30px;
+  font-size: 0.95rem;
+}
+.subsidyNote .copy + .copy {
+  margin-top: 16px;
 }
 .stats {
   display: grid;
@@ -1345,11 +1352,11 @@
   margin-top: 45px;
 }
 .resultStack {
-  padding-bottom: 36vh;
+  padding-bottom: 16vh;
 }
 .resultStackCard {
   position: sticky;
-  top: calc((100svh + 90px) / 2 - 10rem);
+  top: 110px;
   z-index: 1;
   margin-bottom: 28vh;
   padding: 40px 44px 32px;
@@ -1357,7 +1364,7 @@
   border-radius: 30px;
   background: #fff;
   box-shadow: var(--card-shadow);
-  transform-origin: center center;
+  transform-origin: top center;
 }
 .resultStackCard:last-child {
   margin-bottom: 0;
@@ -1371,7 +1378,7 @@
 }
 @media (max-width: 800px) {
   .resultStackCard {
-    top: calc((100svh + 76px) / 2 - 12rem);
+    top: 96px;
     margin-bottom: 22vh;
     padding: 28px 22px 22px;
   }
