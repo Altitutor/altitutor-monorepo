@@ -40673,6 +40673,7 @@ export type Database = {
         Args: { p_sessions_students_ids: string[] }
         Returns: string[]
       }
+      get_mobile_push_dispatch_secret: { Args: never; Returns: string }
       get_my_billing_subsidies: {
         Args: never
         Returns: {

@@ -76,12 +76,14 @@ function isExpoResult(value: unknown): value is ExpoResult {
 
 serveWithSentry("mobile-push-dispatch", async (request, sentry) => {
   if (request.method !== "POST") return Response.json({ error: "Method not allowed" }, { status: 405 });
+  const dispatchSecret = Deno.env.get("MOBILE_PUSH_DISPATCH_SECRET_KEY")?.trim();
+  if (!dispatchSecret) return Response.json({ error: "Not configured" }, { status: 500 });
+  if (request.headers.get("authorization") !== `Bearer ${dispatchSecret}`) {
+    return Response.json({ error: "Unauthorized" }, { status: 401 });
+  }
   const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
   const url = Deno.env.get("SUPABASE_URL");
   if (!serviceKey || !url) return Response.json({ error: "Not configured" }, { status: 500 });
-  if (request.headers.get("authorization") !== `Bearer ${serviceKey}`) {
-    return Response.json({ error: "Unauthorized" }, { status: 401 });
-  }
   const supabase = createClient(url, serviceKey, { auth: { persistSession: false } });
   const update = async (id: string, values: Record<string, unknown>) => {
     const { error } = await supabase.from("mobile_push_deliveries").update({
