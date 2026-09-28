@@ -5,6 +5,8 @@ const HIDE_NAVBAR_EXACT_PATHS = new Set([
   '/login',
   '/forgot-password',
   '/reset-password',
+  '/mobile-auth',
+  '/mobile-browser',
 ]);
 
 export function shouldHideNavbar(pathname: string): boolean {

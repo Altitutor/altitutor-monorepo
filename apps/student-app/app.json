@@ -30,6 +30,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
       [
         "expo-notifications",
         {
@@ -45,7 +47,9 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-video",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

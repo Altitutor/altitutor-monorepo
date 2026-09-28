@@ -6,9 +6,6 @@ import { supabase } from '@/lib/supabase';
 type AuthContextValue = {
   loading: boolean;
   session: Session | null;
-  signIn: (email: string, password: string) => Promise<void>;
-  requestPasswordReset: (email: string) => Promise<void>;
-  updatePassword: (password: string) => Promise<void>;
   signOut: () => Promise<void>;
 };
 
@@ -37,20 +34,6 @@ export function AuthProvider({ children }: PropsWithChildren) {
     () => ({
       loading,
       session,
-      async signIn(email, password) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-      },
-      async requestPasswordReset(email) {
-        const { error } = await supabase.auth.resetPasswordForEmail(email, {
-          redirectTo: 'altitutor-student://reset-password',
-        });
-        if (error) throw error;
-      },
-      async updatePassword(password) {
-        const { error } = await supabase.auth.updateUser({ password });
-        if (error) throw error;
-      },
       async signOut() {
         const { error } = await supabase.auth.signOut();
         if (error) throw error;

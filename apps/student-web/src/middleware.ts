@@ -1,3 +1,4 @@
+import { containsMobileAuthData } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import {
   getClaimsWithJwtIssuedInFutureRetry,
@@ -20,9 +21,14 @@ type CookieToSet = {
 };
 
 function forwardRequest(request: NextRequest, userId: string | null) {
-  return NextResponse.next({
+  const response = NextResponse.next({
     request: { headers: headersWithVerifiedUser(request.headers, userId) },
   });
+  if (containsMobileAuthData(request.url)) {
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+  }
+  return response;
 }
 
 function createDeadline() {
@@ -124,6 +130,15 @@ export async function handleAuthRequest(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Browser redemption must be reachable before it creates a cookie session.
+  // The ticket stays in the URL fragment and is validated only by the exchange API.
+  if (pathname === "/mobile-browser") {
+    const response = forwardRequest(request, null);
+    response.headers.set("Cache-Control", "private, no-store");
+    response.headers.set("Referrer-Policy", "no-referrer");
+    return response;
+  }
+
   const isPublic =
     pathname.startsWith("/login") ||
     pathname.startsWith("/forgot-password") ||
@@ -144,7 +159,9 @@ export async function handleAuthRequest(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   const cookies: CookieToSet[] = [];
-  const responseHeaders: Record<string, string> = {};
+  const responseHeaders: Record<string, string> = containsMobileAuthData(request.url)
+    ? { "Referrer-Policy": "no-referrer" }
+    : {};
   if (!supabaseUrl || !supabaseAnonKey) {
     return unavailable(request, startedAt, { code: "missing_environment" }, cookies, responseHeaders);
   }

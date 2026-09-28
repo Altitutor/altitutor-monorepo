@@ -1,3 +1,4 @@
+import { filterMobileAuthTelemetry } from "@/lib/privacy/mobile-auth-telemetry";
 import * as Sentry from "@sentry/nextjs";
 import { resolveServerSentryEnvironment } from "@altitutor/shared";
 
@@ -13,5 +14,8 @@ Sentry.init({
     vercelEnvironment: process.env.VERCEL_ENV,
   }),
   sendDefaultPii: false,
+  beforeSend: filterMobileAuthTelemetry,
+  beforeSendTransaction: filterMobileAuthTelemetry,
+  beforeBreadcrumb: filterMobileAuthTelemetry,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
 });

@@ -23,7 +23,9 @@ const isPublicPath = (pathname: string): boolean =>
   pathname.startsWith('/booking/trial-session') ||
   pathname.startsWith('/booking/subsidy') ||
   pathname.startsWith('/booking-success') ||
-  pathname.startsWith('/sentry-example-page');
+  pathname.startsWith('/sentry-example-page') ||
+  pathname === '/mobile-auth' ||
+  pathname === '/mobile-browser';
 
 export function AuthGuard({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -46,6 +48,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
       router.replace(destination);
     }
   }, [user, loading, pathname, router]);
+
+  // The native handoff must start immediately. Waiting on the client session
+  // store delays the return to the app.
+  if (pathname === '/mobile-auth' || pathname === '/mobile-browser') {
+    return <>{children}</>;
+  }
 
   // Show nothing while checking auth
   if (loading) {
