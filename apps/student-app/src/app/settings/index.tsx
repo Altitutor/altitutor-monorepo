@@ -3,11 +3,13 @@ import { Alert } from 'react-native';
 
 import { NativeAction } from '@/components/native-action';
 import { Card, StudentScreen, TappableRow } from '@/components/student-ui';
+import { useTheme } from '@/hooks/use-theme';
 import { haptic, withHaptic } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function SettingsScreen() {
   const router = useRouter();
+  const theme = useTheme();
   const { signOut } = useAuth();
 
   function confirmSignOut() {
@@ -32,7 +34,7 @@ export default function SettingsScreen() {
         <TappableRow title="App settings" onPress={withHaptic(() => router.push('/settings/app-settings'))} />
         <TappableRow title="My profile" onPress={withHaptic(() => router.push('/settings/profile'))} />
       </Card>
-      <NativeAction label="Sign out" secondary block onPress={confirmSignOut} />
+      <NativeAction label="Sign out" secondary block color={theme.danger} labelColor={theme.danger} onPress={confirmSignOut} />
     </StudentScreen>
   );
 }

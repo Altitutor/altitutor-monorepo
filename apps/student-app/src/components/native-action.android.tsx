@@ -12,21 +12,23 @@ type NativeActionProps = {
   block?: boolean;
   secondary?: boolean;
   compact?: boolean;
+  color?: string;
+  labelColor?: string;
 };
 
-export function NativeAction({ label, onPress, disabled, block = false, secondary = false, compact = false }: NativeActionProps) {
+export function NativeAction({ label, onPress, disabled, block = false, secondary = false, compact = false, color, labelColor }: NativeActionProps) {
   const theme = useTheme();
   const { resolvedScheme } = useThemePreference();
   const prominent = !secondary && !compact;
   const Control = prominent ? Button : block ? OutlinedButton : FilledTonalButton;
-  const contentColor = prominent ? theme.backgroundElement : theme.primary;
+  const contentColor = labelColor ?? (prominent ? theme.backgroundElement : theme.primary);
 
   return (
     <View style={[styles.wrapper, block && styles.block, compact && styles.compact]}>
       <Host
         matchContents={block ? { vertical: true } : true}
         colorScheme={resolvedScheme}
-        seedColor={theme.primary}
+        seedColor={color ?? theme.primary}
         style={[styles.host, block && styles.block, compact && styles.compact]}
       >
         <Control
@@ -35,12 +37,12 @@ export function NativeAction({ label, onPress, disabled, block = false, secondar
           colors={
             prominent
               ? {
-                  containerColor: theme.primary,
+                  containerColor: color ?? theme.primary,
                   contentColor: theme.backgroundElement,
                   disabledContainerColor: theme.backgroundSelected,
                   disabledContentColor: theme.textSecondary,
                 }
-              : { contentColor: theme.primary }
+              : { contentColor: labelColor ?? theme.primary }
           }
         >
           <Text color={contentColor} style={{ fontWeight: '600' }}>{label}</Text>

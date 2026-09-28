@@ -1,7 +1,8 @@
+import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useState } from 'react';
-import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NativeAction } from '@/components/native-action';
@@ -47,8 +48,9 @@ export default function LandingScreen() {
         <Text style={[styles.brand, { color: theme.primary }]}>ALTITUTOR</Text>
         <View style={styles.hero}>
           <Image
-            accessibilityIgnoresInvertColors
+            accessibilityLabel="Altitutor"
             source={require('../../../assets/images/icon.png')}
+            contentFit="cover"
             style={compact ? styles.iconCompact : styles.icon}
           />
           <Text
@@ -68,6 +70,9 @@ export default function LandingScreen() {
           ) : null}
           <NativeAction
             label={busy === 'login' ? 'Signing in...' : 'Sign in'}
+            block
+            color={theme.accent}
+            labelColor={theme.text}
             disabled={Boolean(busy) || !authConfigured}
             onPress={() => void signIn()}
           />
@@ -95,8 +100,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, paddingHorizontal: 28, paddingTop: 12, gap: 24 },
   brand: { fontSize: 14, fontWeight: '700', letterSpacing: 2 },
   hero: { flex: 1, justifyContent: 'center', gap: 16 },
-  icon: { width: 88, height: 88, borderRadius: 22 },
-  iconCompact: { width: 72, height: 72, borderRadius: 18 },
+  icon: { width: 120, height: 120, borderRadius: 28, borderCurve: 'continuous' },
+  iconCompact: { width: 96, height: 96, borderRadius: 22, borderCurve: 'continuous' },
   title: { fontWeight: '700', letterSpacing: -0.8 },
   titleRegular: { fontSize: 42, lineHeight: 48 },
   titleCompact: { fontSize: 34, lineHeight: 40 },

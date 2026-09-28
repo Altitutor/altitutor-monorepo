@@ -1,5 +1,5 @@
 import { Button, Host } from '@expo/ui';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { withHaptic } from '@/lib/haptics';
 
@@ -10,13 +10,25 @@ type NativeActionProps = {
   block?: boolean;
   secondary?: boolean;
   compact?: boolean;
+  color?: string;
+  labelColor?: string;
 };
 
-export function NativeAction({ label, onPress, disabled, block = false, secondary = false, compact = false }: NativeActionProps) {
+export function NativeAction({ label, onPress, disabled, block = false, secondary = false, compact = false, color, labelColor }: NativeActionProps) {
   return (
     <View style={[styles.wrapper, block && styles.block, compact && styles.compact, secondary && styles.secondary]}>
       <Host style={[styles.host, block && styles.block, compact && styles.compact]}>
-        <Button label={label} onPress={withHaptic(onPress)} disabled={disabled} />
+        <Button
+          label={labelColor ? undefined : label}
+          onPress={withHaptic(onPress)}
+          disabled={disabled}
+          style={{
+            backgroundColor: color,
+            width: block ? '100%' : undefined,
+            height: block ? 56 : undefined,
+          }}>
+          {labelColor ? <Text style={{ color: labelColor, fontWeight: '600', fontSize: 17 }}>{label}</Text> : null}
+        </Button>
       </Host>
     </View>
   );
