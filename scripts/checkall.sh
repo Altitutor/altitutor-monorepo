@@ -61,6 +61,12 @@ supabase test db
 
 section "UCAT critical browser journeys"
 pnpm --filter ucat-web exec playwright install chromium
-pnpm --filter ucat-web test:e2e:critical
+if [ -z "${UCAT_E2E_BASE_URL:-}" ]; then
+  ucat_e2e_port="$(node -e 'const net = require("node:net"); const server = net.createServer().listen(0, "127.0.0.1", () => { console.log(server.address().port); server.close(); });')"
+  export UCAT_E2E_BASE_URL="http://localhost:${ucat_e2e_port}"
+fi
+# Always start this checkout's UCAT server. A different local web app may be
+# listening on the default port, which Playwright would otherwise reuse.
+CI=1 pnpm --filter ucat-web test:e2e:critical
 
 printf '\nAll local CI checks passed.\n'
