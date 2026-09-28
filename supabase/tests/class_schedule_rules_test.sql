@@ -26,20 +26,29 @@ SELECT is(
   'custom timetables materialize explicitly dated Sessions'
 );
 
+WITH october_first AS (
+  SELECT make_date(EXTRACT(YEAR FROM CURRENT_DATE)::INTEGER + 1, 10, 1) AS day
+), dst_start AS (
+  SELECT day + ((7 - EXTRACT(DOW FROM day)::INTEGER) % 7) AS day
+  FROM october_first
+)
 SELECT results_eq(
-  $$
+  format($query$
     SELECT (value->>'start_at')::TIMESTAMPTZ
     FROM jsonb_array_elements(public.preview_class_schedule(jsonb_build_object(
-      'schedule_type', 'RECURRING', 'start_date', '2026-09-27', 'end_date', '2026-10-04',
-      'effective_from', '2026-09-27', 'timezone', 'Australia/Adelaide',
-      'frequency_weeks', 1, 'anchor_date', '2026-09-27',
+      'schedule_type', 'RECURRING', 'start_date', %L, 'end_date', %L,
+      'effective_from', %L, 'timezone', 'Australia/Adelaide',
+      'frequency_weeks', 1, 'anchor_date', %L,
       'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 0, 'start_time', '13:00', 'end_time', '14:00'))
     ))->'occurrences')
     ORDER BY 1
-  $$,
-  $$ VALUES ('2026-09-27 03:30:00+00'::TIMESTAMPTZ), ('2026-10-04 02:30:00+00'::TIMESTAMPTZ) $$,
+  $query$, day - 7, day, day - 7, day - 7),
+  format($expected$ VALUES (%L::TIMESTAMPTZ), (%L::TIMESTAMPTZ) $expected$,
+    ((day - 7) + TIME '13:00') AT TIME ZONE 'Australia/Adelaide',
+    (day + TIME '13:00') AT TIME ZONE 'Australia/Adelaide'),
   'Adelaide wall-clock recurrence follows daylight-saving changes'
-);
+)
+FROM dst_start;
 
 SELECT throws_ok(
   $$ SELECT public.preview_class_schedule(jsonb_build_object(
