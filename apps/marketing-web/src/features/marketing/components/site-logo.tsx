@@ -27,6 +27,8 @@ export function SiteLogo({
   priority,
 }: SiteLogoProps) {
   return (
+    // The SVG logo is served as-is and sized by its existing CSS classes.
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       src={logoSrc[layout][variant]}
       alt="Altitutor"
