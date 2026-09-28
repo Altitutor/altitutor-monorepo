@@ -29,6 +29,8 @@ const isSentrySourceMapUploadConfigured = Boolean(
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: { ignoreDuringBuilds: process.env.ALTITUTOR_CI_BUILD === "true" },
+  typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
   experimental: {
     serverComponentsExternalPackages: ["@open-spaced-repetition/binding"],
   },

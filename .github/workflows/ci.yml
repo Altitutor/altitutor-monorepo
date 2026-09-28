@@ -415,6 +415,8 @@ jobs:
       - name: Build packages and apps
         env:
           NODE_OPTIONS: --max-old-space-size=4096
+          # Lint and type checking run in dedicated required CI jobs.
+          ALTITUTOR_CI_BUILD: "true"
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
