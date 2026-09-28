@@ -44,6 +44,9 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     // so we only need to handle this UX improvement here
     if (user && isAuthPage(pathname) && pathname !== '/reset-password' && !loading) {
       const next = new URLSearchParams(window.location.search).get('next');
+      // A return path on login comes from a server redirect that rejected the
+      // session. A cached browser user must not send it straight back there.
+      if (pathname === '/login' && next) return;
       const destination = next?.startsWith('/') && !next.startsWith('//') ? next : '/dashboard';
       router.replace(destination);
     }
