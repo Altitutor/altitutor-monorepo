@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { authenticatedFlashcardClient } from '@/features/flashcards/server/user-client';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
 const actions = ['forget','suspend','resume','bury','unbury'] as const;
@@ -9,9 +9,8 @@ type Action = typeof actions[number];
 export async function POST(request: NextRequest, { params }: { params: { id: string } }) {
   const body = await request.json() as { action?: unknown; requestId?: unknown };
   if (!actions.includes(body.action as Action) || typeof body.requestId !== 'string') return NextResponse.json({ error: 'Invalid management command' }, { status: 400 });
-  const userClient = createClient();
-  const { data: claims } = await userClient.auth.getClaims();
-  if (!claims?.claims?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const userClient = await authenticatedFlashcardClient(request);
+  if (!userClient) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const [{ data: studentId }, { data: card }] = await Promise.all([
     userClient.rpc('current_student_id'),
     userClient.from('vstudent_flashcard_review_cards').select('id').eq('id',params.id).maybeSingle(),

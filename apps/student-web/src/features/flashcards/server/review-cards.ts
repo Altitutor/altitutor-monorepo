@@ -1,6 +1,6 @@
 import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { authenticatedFlashcardClient } from '@/features/flashcards/server/user-client';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { buildRatingPreviews, getRetrievability, type FlashcardStudyPresetConfig, type ReviewStateRow } from '@/features/flashcards/server/fsrs';
 import { DEFAULT_FLASHCARD_STUDY_PRESET_ID, type FlashcardReviewCard } from '@altitutor/shared';
@@ -31,7 +31,7 @@ function stripLastExtension(filename: string): string {
 const REVIEW_CARD_PAGE_SIZE = 1000;
 
 async function loadReviewCards(
-  userClient: ReturnType<typeof createClient>,
+  userClient: NonNullable<Awaited<ReturnType<typeof authenticatedFlashcardClient>>>,
   topicId: string | null,
   topicIds: string[] | undefined,
 ): Promise<{ data: FlashcardReviewCard[]; error: { message: string } | null }> {
@@ -67,9 +67,8 @@ export async function GET(request: NextRequest) {
   const mode = request.nextUrl.searchParams.get('mode') === 'all' ? 'all' : 'due';
   const countsOnly = request.nextUrl.searchParams.get('countsOnly') === '1';
 
-  const userClient = createClient();
-  const { data: authData, error: authError } = await userClient.auth.getClaims();
-  if (authError || !authData?.claims?.sub) {
+  const userClient = await authenticatedFlashcardClient(request);
+  if (!userClient) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 

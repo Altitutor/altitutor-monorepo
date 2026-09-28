@@ -65,6 +65,7 @@ function AppNavigation() {
         <Stack.Screen name="settings" options={{ headerShown: false, presentation: 'formSheet', sheetAllowedDetents: [0.5, 1], sheetGrabberVisible: true }} />
         <Stack.Screen name="notifications" options={{ ...sheet, title: 'Notifications' }} />
         <Stack.Screen name="resource-topic/[topicId]" options={{ headerShown: true, title: 'Topic', headerLargeTitleEnabled: false }} />
+        <Stack.Screen name="flashcard-topic/[topicId]" options={{ headerShown: true, title: 'Topic flashcards', headerLargeTitleEnabled: false }} />
         <Stack.Screen name="resource-file/[fileId]" options={{ headerShown: true, title: 'Resource', headerLargeTitleEnabled: false }} />
         <Stack.Screen name="topic-navigator" options={{ ...sheet, title: 'Topics' }} />
         <Stack.Screen name="file-navigator" options={{ ...sheet, title: 'Files' }} />

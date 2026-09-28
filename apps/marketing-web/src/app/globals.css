@@ -16,6 +16,7 @@
   --marketing-accent: 146 185 198;
   --marketing-glass: rgb(255 255 255 / 83%);
   --marketing-glass-blur: 16px;
+  --marketing-footer-background: #1a1a1a;
   --background: 45 20% 94%;
   --foreground: 0 0% 10%;
   --popover: 0 0% 100%;
@@ -38,11 +39,13 @@
 
 html {
   scroll-behavior: smooth;
+  background: var(--marketing-footer-background);
 }
 
 body {
   margin: 0;
-  background: #fff;
+  /* Match the footer when Safari samples the canvas beyond the document. */
+  background: var(--marketing-footer-background);
   font-family: var(--marketing-font-body);
 }
 

@@ -7,7 +7,7 @@ import {
 
 const CONTEXT = "altitutor/student/browser-handoff/v1";
 export const BROWSER_HANDOFF_TTL_MS = 60_000;
-const destinations = ["/settings/profile"] as const;
+const destinations = ["/settings/profile", "/settings/flashcards"] as const;
 
 export type BrowserDestination = (typeof destinations)[number];
 

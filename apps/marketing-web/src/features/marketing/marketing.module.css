@@ -13,7 +13,6 @@
   font-size: 17px;
   line-height: 1.65;
   padding-inline: env(safe-area-inset-left) env(safe-area-inset-right);
-  padding-bottom: env(safe-area-inset-bottom);
 }
 .site * {
   box-sizing: border-box;
@@ -635,8 +634,9 @@
   justify-content: center;
 }
 .footer {
-  padding: 65px max(32px, calc((100vw - 1240px) / 2)) 26px;
-  background: #1a1a1a;
+  /* Keep the home-indicator inset inside the footer's painted background. */
+  padding: 65px max(32px, calc((100vw - 1240px) / 2)) calc(26px + env(safe-area-inset-bottom));
+  background: var(--marketing-footer-background);
   color: #e6edef;
   border-radius: 30px 30px 0 0;
 }
@@ -1217,11 +1217,6 @@
 }
 .courseDialogOverlay[data-state="open"] {
   animation: menuBackdropIn 420ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-@media (max-width: 800px) {
-  .courseDialogOverlay {
-    backdrop-filter: none;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .courseDialogOverlay {
@@ -2098,10 +2093,6 @@
   overflow: hidden;
 }
 @media (max-width: 800px) {
-  .menuBackdrop {
-    /* Dimming does not need another full-screen backdrop-filter pass. */
-    backdrop-filter: none;
-  }
   .navigation {
     display: block;
     border-radius: 30px;
@@ -2110,14 +2101,6 @@
   .navigationRow {
     min-height: 42px;
     gap: 12px;
-  }
-  .navigation.navigationExpanded,
-  .navigation.navigationScrolled {
-    background: #f8f7f3;
-    color: var(--ink);
-    backdrop-filter: none;
-    border-color: rgb(255 255 255 / 65%);
-    box-shadow: 0 8px 32px #0a294114;
   }
   .mobileExpansion {
     display: grid;

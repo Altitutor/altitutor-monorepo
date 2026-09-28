@@ -1,6 +1,6 @@
 import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { authenticatedFlashcardClient } from '@/features/flashcards/server/user-client';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 import { DEFAULT_FLASHCARD_STUDY_PRESET_ID, type FlashcardRating, type FlashcardReviewCard } from '@altitutor/shared';
 import { createHash } from 'node:crypto';
@@ -21,9 +21,8 @@ export async function POST(request: NextRequest, { params }: { params: { id: str
     return NextResponse.json({ error: 'Invalid answer command' }, { status: 400 });
   }
 
-  const userClient = createClient();
-  const { data: authData, error: authError } = await userClient.auth.getClaims();
-  if (authError || !authData?.claims?.sub) {
+  const userClient = await authenticatedFlashcardClient(request);
+  if (!userClient) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
