@@ -1,6 +1,19 @@
 import type { ResourceTopicNode } from '@altitutor/shared';
 import { createContext, use, useRef, type PropsWithChildren, type RefObject } from 'react';
 
+type RouteDispatcher = {
+  dispatch: (action: { type: string; payload?: object; source?: string }) => void;
+};
+
+/** Updates a screen that stays mounted under a sheet. Global setParams would hit the sheet instead. */
+export function setRouteParams(navigation: RouteDispatcher, routeKey: string, params: Record<string, string>) {
+  navigation.dispatch({
+    type: 'SET_PARAMS',
+    payload: { params },
+    source: routeKey,
+  });
+}
+
 export type TopicNavigation = {
   subjectId: string;
   topicId: string;

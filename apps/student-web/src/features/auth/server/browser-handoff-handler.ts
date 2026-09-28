@@ -1,3 +1,4 @@
+import { getClaimsWithJwtIssuedInFutureRetry } from "@altitutor/shared";
 import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
@@ -39,6 +40,8 @@ const isolatedAuth = {
   detectSessionInUrl: false,
 };
 
+const clockSkewRetryMs = 1_000;
+
 async function body(request: NextRequest): Promise<Record<string, unknown> | null> {
   if (!request.headers.get("content-type")?.toLowerCase().startsWith("application/json")) return null;
   const text = await request.text();
@@ -71,12 +74,24 @@ export async function issueBrowserHandoff(request: NextRequest) {
       auth: isolatedAuth,
       global: { headers: { Authorization: `Bearer ${token}` } },
     });
-    const {
-      data: { user },
-      error,
-    } = await caller.auth.getUser(token);
-    if (error || !user?.email || !user.email_confirmed_at || user.is_anonymous)
+    const identity = createClient(url, anon, { auth: isolatedAuth });
+    const verified = await getClaimsWithJwtIssuedInFutureRetry(
+      () => identity.auth.getUser(token),
+      () => new Promise((resolve) => setTimeout(resolve, clockSkewRetryMs)),
+      () => {
+        console.warn("[browser handoff] recovered from JWT clock skew");
+      },
+    );
+    const user = verified.data.user;
+    const error = verified.error;
+    if (error || !user?.email || !user.email_confirmed_at || user.is_anonymous) {
+      console.error("[browser handoff] rejected", {
+        reason: error ? "get_user" : !user?.email ? "missing_email" : !user.email_confirmed_at ? "unconfirmed" : "anonymous",
+        code: error && typeof error === "object" && "code" in error ? String(error.code) : null,
+        message: error instanceof Error ? error.message : null,
+      });
       return json({ error: "Authentication required" }, 401);
+    }
     const access = await caller.rpc("current_student_portal_access");
     if (access.error || !studentAllowed(access.data)) return json({ error: "Student access required" }, 403);
     const admin = createClient(url, secret, { auth: isolatedAuth });

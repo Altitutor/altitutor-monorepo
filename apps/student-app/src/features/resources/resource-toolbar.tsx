@@ -12,9 +12,11 @@ type ResourceToolbarProps = {
   previousDisabled?: boolean;
   nextDisabled?: boolean;
   onNavigator: () => void;
+  onSolutions?: () => void;
   previousLabel: string;
   nextLabel: string;
   navigatorLabel: string;
+  solutionsLabel?: string;
 };
 
 export function ResourceToolbar({
@@ -23,9 +25,11 @@ export function ResourceToolbar({
   previousDisabled,
   nextDisabled,
   onNavigator,
+  onSolutions,
   previousLabel,
   nextLabel,
   navigatorLabel,
+  solutionsLabel = 'View solutions',
 }: ResourceToolbarProps) {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
@@ -42,6 +46,11 @@ export function ResourceToolbar({
           {previousLabel}
         </Stack.Toolbar.Button>
         <Stack.Toolbar.Spacer />
+        {onSolutions ? (
+          <Stack.Toolbar.Button icon="doc.text" accessibilityLabel={solutionsLabel} onPress={withHaptic(onSolutions)}>
+            Solutions
+          </Stack.Toolbar.Button>
+        ) : null}
         <Stack.Toolbar.Button
           icon="square.grid.2x2"
           accessibilityLabel={navigatorLabel}
@@ -89,6 +98,11 @@ export function ResourceToolbar({
       >
         <Text style={{ color: theme.primary, fontSize: 26 }}>←</Text>
       </Pressable>
+      {onSolutions ? (
+        <Pressable accessibilityRole="button" accessibilityLabel={solutionsLabel} onPress={withHaptic(onSolutions)} style={{ padding: 12 }}>
+          <Text style={{ color: theme.primary, fontSize: 15, fontWeight: '600' }}>Solutions</Text>
+        </Pressable>
+      ) : null}
       <Pressable accessibilityRole="button" accessibilityLabel={navigatorLabel} onPress={withHaptic(onNavigator)} style={{ padding: 12 }}>
         <Image
           source={{

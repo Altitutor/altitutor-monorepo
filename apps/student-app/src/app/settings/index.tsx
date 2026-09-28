@@ -1,14 +1,13 @@
 import { useRouter } from 'expo-router';
-import { Alert, StyleSheet, Text } from 'react-native';
+import { Alert } from 'react-native';
 
+import { NativeAction } from '@/components/native-action';
 import { Card, StudentScreen, TappableRow } from '@/components/student-ui';
-import { useTheme } from '@/hooks/use-theme';
-import { haptic } from '@/lib/haptics';
+import { haptic, withHaptic } from '@/lib/haptics';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function SettingsScreen() {
   const router = useRouter();
-  const theme = useTheme();
   const { signOut } = useAuth();
 
   function confirmSignOut() {
@@ -29,19 +28,11 @@ export default function SettingsScreen() {
 
   return (
     <StudentScreen title="Menu">
-      <Card>
-        <TappableRow title="App settings" detail="Appearance and notifications" onPress={() => router.push('/settings/app-settings')} />
-        <TappableRow title="My profile" detail="Personal details" onPress={() => router.push('/settings/profile')} />
+      <Card divided>
+        <TappableRow title="App settings" onPress={withHaptic(() => router.push('/settings/app-settings'))} />
+        <TappableRow title="My profile" onPress={withHaptic(() => router.push('/settings/profile'))} />
       </Card>
-      <Card>
-        <Text accessibilityRole="button" onPress={confirmSignOut} style={[styles.signOut, { color: theme.danger }]}>
-          Sign out
-        </Text>
-      </Card>
+      <NativeAction label="Sign out" secondary block onPress={confirmSignOut} />
     </StudentScreen>
   );
 }
-
-const styles = StyleSheet.create({
-  signOut: { paddingVertical: 5, fontSize: 16, textAlign: 'center', fontWeight: '600' },
-});

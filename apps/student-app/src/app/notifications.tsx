@@ -1,20 +1,24 @@
 import { Stack, useRouter } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
+import { useRef } from 'react';
 import { Pressable, Text } from 'react-native';
+import Animated, { FadeOut, LinearTransition } from 'react-native-reanimated';
 
-import { Card, EmptyBlock, ErrorBlock, formatDateTime, Label, LoadingBlock, StudentScreen, TappableRow } from '@/components/student-ui';
+import { EmptyBlock, ErrorBlock, LoadingBlock, StudentScreen } from '@/components/student-ui';
+import { NotificationRow } from '@/features/notifications/notification-row';
 import { openWebProfile } from '@/features/settings/open-web-profile';
 import { useNotifications, useUpdateNotifications } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
 import { withHaptic } from '@/lib/haptics';
-import { studentWebUrl } from '@/lib/student-web';
 import type { StudentNotification } from '@/lib/student-api';
+import { studentWebUrl } from '@/lib/student-web';
 
 export default function NotificationsScreen() {
   const router = useRouter();
   const theme = useTheme();
   const notifications = useNotifications();
   const update = useUpdateNotifications();
+  const openRow = useRef<{ close: () => void } | null>(null);
   const unread = (notifications.data ?? []).filter((notification) => !notification.read_at).length;
 
   function openNotification(notification: StudentNotification) {
@@ -65,31 +69,33 @@ export default function NotificationsScreen() {
           }}
         />
       ) : null}
-      <StudentScreen
-        title="Notifications"
-        refreshing={notifications.isRefetching}
-        onRefresh={() => notifications.refetch()}
-      >
+      <StudentScreen title="Notifications" refreshing={notifications.isRefetching} onRefresh={() => void notifications.refetch()}>
         {notifications.isPending ? <LoadingBlock label="Loading notifications..." /> : null}
         {notifications.isError ? <ErrorBlock message={notifications.error.message} /> : null}
         {update.isError ? <ErrorBlock message={update.error.message} /> : null}
         {notifications.data?.length === 0 ? <EmptyBlock>You’re all caught up.</EmptyBlock> : null}
         {notifications.data?.map((notification) => (
-          <Card key={notification.id}>
-            <TappableRow
-              title={notification.title ?? 'Notification'}
-              detail={[notification.read_at ? null : 'Unread', formatDateTime(notification.created_at)].filter(Boolean).join(' · ')}
-              onPress={() => openNotification(notification)}
+          <Animated.View key={notification.id} exiting={FadeOut.duration(180)} layout={LinearTransition.duration(220)}>
+            <NotificationRow
+              notification={notification}
+              onOpen={() => openNotification(notification)}
+              onToggleRead={() =>
+                update.mutate(
+                  notification.read_at
+                    ? { notificationIds: [notification.id], markUnread: true }
+                    : { notificationIds: [notification.id] },
+                )
+              }
+              onClear={() => {
+                openRow.current = null;
+                update.mutate({ notificationIds: [notification.id], dismiss: true });
+              }}
+              onSwipeOpen={(row) => {
+                if (openRow.current && openRow.current !== row) openRow.current.close();
+                openRow.current = row;
+              }}
             />
-            {notification.body ? <Label>{notification.body}</Label> : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Clear notification"
-              onPress={() => update.mutate({ notificationIds: [notification.id], dismiss: true })}
-            >
-              <Text style={{ color: theme.textSecondary, fontWeight: '600' }}>Clear</Text>
-            </Pressable>
-          </Card>
+          </Animated.View>
         ))}
       </StudentScreen>
     </>

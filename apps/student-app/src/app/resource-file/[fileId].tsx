@@ -1,11 +1,11 @@
 import { flattenTopicFilesForNav, formatResourceTypeLabel } from '@altitutor/shared';
-import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
+import { Stack, useLocalSearchParams, useNavigation, useRoute, useRouter } from 'expo-router';
 import { useEffect, useMemo, useState } from 'react';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ErrorBlock } from '@/components/student-ui';
-import { useFileNavigation } from '@/features/resources/resource-navigation';
+import { setRouteParams, useFileNavigation } from '@/features/resources/resource-navigation';
 import { ResourcePlayer } from '@/features/resources/resource-player';
 import { ResourceToolbar } from '@/features/resources/resource-toolbar';
 import { useResourceFiles } from '@/hooks/use-student-data';
@@ -14,6 +14,8 @@ import { studentApi } from '@/lib/student-api';
 
 export default function ResourceFileScreen() {
   const router = useRouter();
+  const navigation = useNavigation();
+  const route = useRoute();
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const navigationRef = useFileNavigation();
@@ -24,6 +26,7 @@ export default function ResourceFileScreen() {
   const file = ordered[index] ?? files.data?.find((candidate) => candidate.id === fileId) ?? null;
   const previous = index > 0 ? ordered[index - 1] : null;
   const next = index >= 0 && index < ordered.length - 1 ? ordered[index + 1] : null;
+  const solutionId = file && !file.isSolutions ? ordered.find((entry) => entry.isSolutionsOfId === file.id)?.id ?? null : null;
   const [resolved, setResolved] = useState<{ id: string; url: string | null; error: string | null } | null>(null);
   const url = resolved?.id === file?.id ? resolved.url : null;
   const error = resolved?.id === file?.id ? resolved.error : null;
@@ -43,7 +46,7 @@ export default function ResourceFileScreen() {
   }, [file]);
 
   function openFile(nextFileId: string) {
-    router.setParams({ fileId: nextFileId });
+    setRouteParams(navigation, route.key, { fileId: nextFileId });
   }
 
   useEffect(() => {
@@ -57,10 +60,13 @@ export default function ResourceFileScreen() {
       })),
       jump: openFile,
     };
+  });
+
+  useEffect(() => {
     return () => {
       navigationRef.current = null;
     };
-  });
+  }, [navigationRef]);
 
   return (
     <View style={{ flex: 1, backgroundColor: theme.background, paddingBottom: process.env.EXPO_OS === 'ios' ? 0 : 56 + Math.max(insets.bottom, 12) }}>
@@ -69,7 +75,7 @@ export default function ResourceFileScreen() {
         <ActivityIndicator color={theme.primary} style={{ marginTop: 24 }} />
       ) : null}
       {files.isError ? <ErrorBlock message={files.error.message} /> : null}
-      {error ? <Text style={{ color: theme.danger, padding: 20 }}>{error}</Text> : null}
+      {error ? <Text selectable style={{ color: theme.danger, padding: 20 }}>{error}</Text> : null}
       {!file && !files.isPending ? <Text style={{ color: theme.textSecondary, padding: 20 }}>This file is no longer available.</Text> : null}
       {file && (url || file.externalUrl) ? <ResourcePlayer key={file.id} file={file} url={url} /> : null}
       <ResourceToolbar
@@ -78,9 +84,11 @@ export default function ResourceFileScreen() {
         previousDisabled={!previous}
         nextDisabled={!next}
         onNavigator={() => router.push('/file-navigator')}
+        onSolutions={solutionId ? () => openFile(solutionId) : undefined}
         previousLabel="Previous file"
         nextLabel="Next file"
         navigatorLabel="File navigator"
+        solutionsLabel="View solutions"
       />
     </View>
   );

@@ -21,8 +21,11 @@ type CookieToSet = {
 };
 
 function forwardRequest(request: NextRequest, userId: string | null) {
+  const headers = headersWithVerifiedUser(request.headers, userId);
+  const authorization = request.headers.get("authorization");
+  if (authorization) headers.set("authorization", authorization);
   const response = NextResponse.next({
-    request: { headers: headersWithVerifiedUser(request.headers, userId) },
+    request: { headers },
   });
   if (containsMobileAuthData(request.url)) {
     response.headers.set("Cache-Control", "private, no-store");
