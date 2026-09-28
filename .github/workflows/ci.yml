@@ -314,6 +314,7 @@ jobs:
         if: needs.web-system-tests-needed.outputs.admin == 'true'
         env:
           CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          NODE_OPTIONS: --max-old-space-size=3072
         run: |
           trap 'rm -rf apps/admin-web/.next-e2e' EXIT
           pnpm --filter admin-web test:e2e
