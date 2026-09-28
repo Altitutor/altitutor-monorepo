@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { createContext, useContext, useEffect, useMemo, useRef, useState, type PropsWithChildren } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { disablePushNotifications } from '@/lib/notifications';
 
 type AuthContextValue = {
   loading: boolean;
@@ -46,6 +47,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       loading,
       session,
       async signOut() {
+        await disablePushNotifications();
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
       },

@@ -9,6 +9,7 @@
     "dev": "next dev -p 3003",
     "prebuild": "node scripts/sync-email-assets.mjs",
     "build": "next build",
+    "postbuild": "node ../../scripts/cleanup-ci-next-cache.mjs",
     "start": "next start -p 3003",
     "lint": "next lint",
     "lint:fix": "next lint --fix",

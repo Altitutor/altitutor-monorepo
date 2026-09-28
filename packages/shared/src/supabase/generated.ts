@@ -4946,6 +4946,307 @@ export type Database = {
           },
         ]
       }
+      mobile_push_content_days: {
+        Row: {
+          app_scope: string
+          category: string
+          notification_id: string
+          push_day: string
+          student_id: string
+        }
+        Insert: {
+          app_scope: string
+          category: string
+          notification_id: string
+          push_day: string
+          student_id: string
+        }
+        Update: {
+          app_scope?: string
+          category?: string
+          notification_id?: string
+          push_day?: string
+          student_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_push_content_days_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "vucat_notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_content_days_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      mobile_push_deliveries: {
+        Row: {
+          attempts: number
+          category: string
+          created_at: string
+          device_id: string
+          id: string
+          last_error: string | null
+          lease_expires_at: string | null
+          next_attempt_at: string
+          notification_id: string
+          push_day: string | null
+          receipt_due_at: string | null
+          status: string
+          ticket_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          attempts?: number
+          category: string
+          created_at?: string
+          device_id: string
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          next_attempt_at?: string
+          notification_id: string
+          push_day?: string | null
+          receipt_due_at?: string | null
+          status?: string
+          ticket_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          attempts?: number
+          category?: string
+          created_at?: string
+          device_id?: string
+          id?: string
+          last_error?: string | null
+          lease_expires_at?: string | null
+          next_attempt_at?: string
+          notification_id?: string
+          push_day?: string | null
+          receipt_due_at?: string | null
+          status?: string
+          ticket_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_push_deliveries_device_id_fkey"
+            columns: ["device_id"]
+            isOneToOne: false
+            referencedRelation: "mobile_push_devices"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_notifications"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_deliveries_notification_id_fkey"
+            columns: ["notification_id"]
+            isOneToOne: false
+            referencedRelation: "vucat_notifications"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mobile_push_devices: {
+        Row: {
+          app_scope: string
+          created_at: string
+          expo_push_token: string
+          id: string
+          platform: string
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          app_scope: string
+          created_at?: string
+          expo_push_token: string
+          id?: string
+          platform: string
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          app_scope?: string
+          created_at?: string
+          expo_push_token?: string
+          id?: string
+          platform?: string
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_push_devices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_devices_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
+      mobile_push_preferences: {
+        Row: {
+          app_scope: string
+          category: string
+          enabled: boolean
+          student_id: string
+          updated_at: string
+        }
+        Insert: {
+          app_scope: string
+          category: string
+          enabled: boolean
+          student_id: string
+          updated_at?: string
+        }
+        Update: {
+          app_scope?: string
+          category?: string
+          enabled?: boolean
+          student_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mobile_push_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_students_without_payment_method"
+            referencedColumns: ["student_id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vstudent_profile"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_students"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mobile_push_preferences_student_id_fkey"
+            columns: ["student_id"]
+            isOneToOne: false
+            referencedRelation: "vtutor_ucat_student_progress_summary"
+            referencedColumns: ["student_id"]
+          },
+        ]
+      }
       newsletter_subscribers: {
         Row: {
           auth_user_id: string | null
@@ -39703,6 +40004,30 @@ export type Database = {
         Args: { p_connector_id: string; p_limit?: number }
         Returns: Json[]
       }
+      claim_mobile_push_deliveries: {
+        Args: { p_limit?: number }
+        Returns: {
+          app_scope: string
+          category: string
+          dismissed_at: string
+          expires_at: string
+          expo_push_token: string
+          id: string
+          notification_id: string
+          notification_type: string
+          preference_enabled: boolean
+          resolved_at: string
+          student_id: string
+        }[]
+      }
+      claim_mobile_push_receipts: {
+        Args: { p_limit?: number }
+        Returns: {
+          expo_push_token: string
+          id: string
+          ticket_id: string
+        }[]
+      }
       claim_print_jobs: {
         Args: { p_connector_id: string; p_limit?: number }
         Returns: Json[]
@@ -40945,6 +41270,10 @@ export type Database = {
         Returns: string
       }
       migrate_text_to_tiptap_jsonb: { Args: { val: string }; Returns: Json }
+      mobile_push_category: {
+        Args: { p_scope: string; p_type: string }
+        Returns: string
+      }
       normalize_ucat_catalog_text: { Args: { value: string }; Returns: string }
       notify_overdue_invoices: { Args: never; Returns: number }
       onboarding_emails_for_journey: {

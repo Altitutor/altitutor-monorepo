@@ -6,7 +6,7 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 import { ResourceNavigationProvider } from '@/features/resources/resource-navigation';
 import { useTheme } from '@/hooks/use-theme';
-import { useNotificationNavigation } from '@/lib/notifications';
+import { useNotificationNavigation, usePushRegistration } from '@/lib/notifications';
 import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { ThemePreferenceProvider, useThemePreference } from '@/providers/theme-preference-provider';
 
@@ -20,7 +20,6 @@ const sheet = {
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
-  useNotificationNavigation();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -40,7 +39,10 @@ export default function RootLayout() {
 function AppNavigation() {
   const { resolvedScheme } = useThemePreference();
   const theme = useTheme();
+  const { session } = useAuth();
   useReturnToLogin();
+  useNotificationNavigation(Boolean(session));
+  usePushRegistration(session?.user.id);
   return (
     <ThemeProvider value={resolvedScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack

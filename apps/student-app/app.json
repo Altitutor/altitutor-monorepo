@@ -2,10 +2,16 @@
   "expo": {
     "name": "Altitutor Student",
     "slug": "student-app",
-    "version": "1.0.0",
+    "version": "1.6.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "altitutor-student",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/fade1b88-f8c6-4d23-bba4-29d3fb808d3d"
+    },
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.altitutor.altitutorstudent",
@@ -15,6 +21,7 @@
     },
     "android": {
       "package": "com.altitutor.altitutorstudent",
+      "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",

@@ -21,6 +21,7 @@
     "expo-secure-store": "~57.0.4",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-updates": "~57.0.23",
     "expo-video": "~57.0.5",
     "expo-web-browser": "~57.0.3",
     "react": "19.2.3",
@@ -52,6 +53,7 @@
     "typescript": "~6.0.3"
   },
   "scripts": {
+    "eas-build-post-install": "cd ../.. && pnpm turbo run build --filter=@altitutor/shared",
     "dev": "expo start --go --port 8082",
     "start": "expo start --go --port 8082",
     "ios": "expo start --go --ios --port 8082",

@@ -51,7 +51,7 @@ function readLocalSupabaseEnvironment() {
 
 const localSupabase = readLocalSupabaseEnvironment();
 const baseURL = process.env.UCAT_E2E_BASE_URL ?? "http://localhost:3014";
-const port = new URL(baseURL).port || "3014";
+const e2ePort = new URL(baseURL).port || "3014";
 const runFullBrowserMatrix =
   process.env.UCAT_E2E_FULL_BROWSER_MATRIX === "true";
 
@@ -118,7 +118,7 @@ export default defineConfig({
     command: [
       "pnpm --workspace-root exec turbo run build --filter=ucat-web^...",
       "pnpm exec next build",
-      `pnpm exec next start -p ${port} -H 127.0.0.1`,
+      `pnpm exec next start -p ${e2ePort} -H 127.0.0.1`,
     ].join(" && "),
     url: baseURL,
     reuseExistingServer: !process.env.CI,

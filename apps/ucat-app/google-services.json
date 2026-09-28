@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "922178007601",
+    "project_id": "altitutor",
+    "storage_bucket": "altitutor.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922178007601:android:fed71a39f02dee21fd1b10",
+        "android_client_info": {
+          "package_name": "com.altitutor.altitutorstudent"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSTxqPr2fa1XIyA0mCnesDfbeywjPRrlU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922178007601:android:d4556a02bd43bc21fd1b10",
+        "android_client_info": {
+          "package_name": "com.altitutor.ucat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSTxqPr2fa1XIyA0mCnesDfbeywjPRrlU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
