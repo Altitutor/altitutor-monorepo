@@ -2,6 +2,7 @@ import type { Session } from '@supabase/supabase-js';
 import { createContext, useContext, useEffect, useMemo, useState, type PropsWithChildren } from 'react';
 
 import { supabase } from '@/lib/supabase';
+import { disablePushNotifications } from '@/lib/notifications';
 
 type AuthContextValue = {
   loading: boolean;
@@ -52,6 +53,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         if (error) throw error;
       },
       async signOut() {
+        await disablePushNotifications();
         const { error } = await supabase.auth.signOut();
         if (error) throw error;
       },

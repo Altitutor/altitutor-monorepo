@@ -3,6 +3,7 @@ import { Stack } from "expo-router/stack";
 import { Action, Copy, Failure, Group, Loading, Screen } from "@/components/ui";
 import { useOnboardingAccess } from "@/features/auth/onboarding-access";
 import { signInWithBrowser } from "@/features/auth/browser-auth";
+import { disablePushNotifications } from "@/features/notifications/push";
 import { supabase } from "@/lib/supabase";
 
 export default function OnboardingRequired() {
@@ -55,9 +56,12 @@ export default function OnboardingRequired() {
         title="Sign out"
         disabled={busy}
         onPress={() => {
-          void supabase.auth.signOut().then(({ error }) => {
-            if (error) setError(error);
-          });
+          void disablePushNotifications()
+            .then(() => supabase.auth.signOut())
+            .then(({ error }) => {
+              if (error) setError(error);
+            })
+            .catch(setError);
         }}
       />
     </Screen>
