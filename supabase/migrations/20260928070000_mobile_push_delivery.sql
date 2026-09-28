@@ -283,7 +283,7 @@ BEGIN
     WHERE jobname = 'mobile-push-dispatch';
   PERFORM cron.schedule(
     'mobile-push-dispatch',
-    '* * * *',
+    '* * * * *',
     $cron$
       SELECT net.http_post(
         url := public.get_supabase_url() || '/functions/v1/mobile-push-dispatch',
