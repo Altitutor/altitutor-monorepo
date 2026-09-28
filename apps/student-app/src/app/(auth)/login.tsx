@@ -71,8 +71,7 @@ export default function LandingScreen() {
           <NativeAction
             label={busy === 'login' ? 'Signing in...' : 'Sign in'}
             block
-            color={theme.accent}
-            labelColor={theme.text}
+            color={theme.primary}
             disabled={Boolean(busy) || !authConfigured}
             onPress={() => void signIn()}
           />

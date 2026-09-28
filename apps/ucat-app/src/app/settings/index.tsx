@@ -18,6 +18,7 @@ export default function Settings() {
       <Action
         title="Sign out"
         secondary
+        tone="danger"
         onPress={() =>
           Alert.alert(
             "Sign out?",

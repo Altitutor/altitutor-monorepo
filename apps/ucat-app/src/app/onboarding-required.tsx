@@ -52,6 +52,7 @@ export default function OnboardingRequired() {
       {error ? <Failure error={error} /> : null}
       <Action
         secondary
+        tone="danger"
         title="Sign out"
         disabled={busy}
         onPress={() => {

@@ -23,6 +23,8 @@ export function NativeButton({
       onPress={withHaptic(onPress)}
       disabled={disabled}
       style={{
+        width: block ? "100%" : undefined,
+        alignSelf: block ? "stretch" : undefined,
         padding: block ? 14 : compact ? 8 : 12,
         minHeight: block ? 48 : undefined,
         borderRadius: block ? 14 : 24,

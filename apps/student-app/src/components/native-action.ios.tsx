@@ -3,6 +3,7 @@ import { buttonBorderShape, buttonStyle, controlSize, disabled as disabledModifi
 import { StyleSheet, View } from 'react-native';
 
 import { withHaptic } from '@/lib/haptics';
+import { useThemePreference } from '@/providers/theme-preference-provider';
 
 type NativeActionProps = {
   label: string;
@@ -16,13 +17,15 @@ type NativeActionProps = {
 };
 
 export function NativeAction({ label, onPress, disabled, block = false, secondary = false, compact = false, color, labelColor }: NativeActionProps) {
+  const { resolvedScheme } = useThemePreference();
   const prominent = !secondary && !compact;
   return (
-    <View style={[styles.wrapper, block && styles.block, compact && styles.compact, prominent && block && styles.large]}>
+    <View style={[styles.wrapper, block && styles.block, compact && styles.compact]}>
       <Host
         matchContents={block ? { vertical: true } : true}
+        colorScheme={resolvedScheme}
         seedColor={color}
-        style={[styles.host, block && styles.block, compact && styles.compact, prominent && block && styles.large]}>
+        style={[styles.host, block && styles.block, compact && styles.compact]}>
         <Button
           label={label}
           onPress={withHaptic(onPress)}
@@ -30,8 +33,8 @@ export function NativeAction({ label, onPress, disabled, block = false, secondar
             buttonStyle(prominent ? 'glassProminent' : 'glass'),
             ...(color ? [tint(color)] : []),
             ...(labelColor ? [foregroundStyle(labelColor)] : []),
-            ...(compact ? [controlSize('small')] : []),
-            ...(block ? [controlSize(prominent ? 'extraLarge' : 'large'), buttonBorderShape('capsule'), frame({ maxWidth: Infinity, minHeight: prominent ? 56 : 50 })] : []),
+            controlSize(compact ? 'small' : block ? 'large' : 'regular'),
+            ...(block ? [buttonBorderShape('capsule'), frame({ maxWidth: Infinity, minHeight: 50 })] : []),
             ...(disabled ? [disabledModifier()] : []),
           ]}
         />
@@ -43,7 +46,6 @@ export function NativeAction({ label, onPress, disabled, block = false, secondar
 const styles = StyleSheet.create({
   wrapper: { minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   host: { minHeight: 48 },
-  block: { width: '100%', minHeight: 50 },
-  large: { minHeight: 56 },
+  block: { width: '100%', minHeight: 50, alignItems: 'stretch', alignSelf: 'stretch' },
   compact: { width: '100%', minHeight: 32, alignItems: 'stretch' },
 });

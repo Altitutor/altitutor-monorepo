@@ -37,7 +37,7 @@ export function NativeAction({ label, onPress, disabled, block = false, secondar
 const styles = StyleSheet.create({
   wrapper: { minHeight: 48, width: '100%' },
   host: { flex: 1, width: '100%' },
-  block: { width: '100%', minHeight: 50 },
+  block: { width: '100%', minHeight: 50, alignSelf: 'stretch' },
   compact: { minHeight: 32 },
   secondary: { opacity: 1 },
 });

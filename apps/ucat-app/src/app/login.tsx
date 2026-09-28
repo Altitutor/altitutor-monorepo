@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useWindowDimensions, Text, View } from "react-native";
+import { Pressable, useWindowDimensions, Text, View } from "react-native";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -166,12 +166,20 @@ export default function Login() {
           disabled={Boolean(busy) || !configured}
           onPress={() => void signIn("login")}
         />
-        <Action
-          title={busy === "signup" ? "Creating account…" : "Create an account"}
-          secondary
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Don't have an account? Sign up"
           disabled={Boolean(busy) || !configured}
           onPress={() => void signIn("signup")}
-        />
+          style={{ alignItems: "center", paddingVertical: 8 }}
+        >
+          <Text style={{ color: c.secondary, fontSize: 16, lineHeight: 22 }}>
+            Don't have an account?{" "}
+            <Text style={{ color: c.accent, fontWeight: "700" }}>
+              {busy === "signup" ? "Opening…" : "Sign up"}
+            </Text>
+          </Text>
+        </Pressable>
         {!short && (
           <Text
             style={{
