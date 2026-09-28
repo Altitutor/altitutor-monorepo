@@ -630,7 +630,7 @@ test("the native student app has an executable unit-test baseline", async () => 
   assert.equal(packageJson.devDependencies.tsx, "^4.20.6");
 });
 
-test("the UCAT native app instruments Sentry and keeps store submit manual", async () => {
+test("the UCAT native app instruments Sentry and keeps manual store submit available", async () => {
   const [packageJson, appConfig, workflow] = await Promise.all([
     readFile(new URL("../apps/ucat-app/package.json", import.meta.url), "utf8"),
     readFile(new URL("../apps/ucat-app/app.json", import.meta.url), "utf8"),
