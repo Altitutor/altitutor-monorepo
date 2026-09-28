@@ -24703,6 +24703,7 @@ export type Database = {
           profile_image_storage_path: string | null
           public_title: string | null
           staff_id: string | null
+          subjects: Json | null
           updated_at: string | null
         }
         Relationships: []
