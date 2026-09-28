@@ -381,6 +381,9 @@
 - **User interface preference** — A user-owned, app-scoped choice that changes how a Product app is presented or operated without changing authorization, billing, learning progress, communication consent, or other domain outcomes. Preferences may follow the same authenticated user across devices while remaining independently typed for each Product app.
   _Avoid_: User setting, profile field, domain configuration
 
+- **Push category preference** — A student's product-scoped choice of which kinds of existing inbox notices may also reach their mobile devices. It follows the account across devices; each device separately controls whether it receives pushes.
+  _Avoid_: Marketing consent, inbox subscription
+
 ## Office printing
 
 - **Office print** — Sending a staff-selected file from admin-web or tutor-web to the physical office printer (FUJ) via the Mac Mini print bridge, as distinct from the browser’s local print dialog.

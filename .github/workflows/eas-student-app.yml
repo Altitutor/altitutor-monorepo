@@ -1,0 +1,49 @@
+name: Student app EAS
+
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: EAS build profile
+        type: choice
+        options: [preview, production]
+        default: preview
+      platform:
+        description: Platform
+        type: choice
+        options: [ios, android, all]
+        default: all
+      submit:
+        description: Submit the production build to App Store / Play Store
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: eas-student-app-${{ github.ref }}-${{ inputs.profile }}-${{ inputs.platform }}
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: EAS ${{ inputs.profile }} ${{ inputs.platform }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.profile == 'production' && 'production' || 'development' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+      - name: Reject non-production store submit
+        if: ${{ inputs.submit && inputs.profile != 'production' }}
+        run: exit 1
+      - name: Build on EAS
+        working-directory: apps/student-app
+        run: |
+          extra=()
+          if [ "${{ inputs.submit }}" = "true" ]; then
+            extra+=(--auto-submit)
+          fi
+          eas build --platform "${{ inputs.platform }}" --profile "${{ inputs.profile }}" --non-interactive --no-wait "${extra[@]}"

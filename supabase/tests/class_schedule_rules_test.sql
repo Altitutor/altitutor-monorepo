@@ -30,14 +30,14 @@ SELECT results_eq(
   $$
     SELECT (value->>'start_at')::TIMESTAMPTZ
     FROM jsonb_array_elements(public.preview_class_schedule(jsonb_build_object(
-      'schedule_type', 'RECURRING', 'start_date', '2026-09-27', 'end_date', '2026-10-04',
-      'effective_from', '2026-09-27', 'timezone', 'Australia/Adelaide',
-      'frequency_weeks', 1, 'anchor_date', '2026-09-27',
+      'schedule_type', 'RECURRING', 'start_date', '2027-09-26', 'end_date', '2027-10-03',
+      'effective_from', '2027-09-26', 'timezone', 'Australia/Adelaide',
+      'frequency_weeks', 1, 'anchor_date', '2027-09-26',
       'recurring_rows', jsonb_build_array(jsonb_build_object('day_of_week', 0, 'start_time', '13:00', 'end_time', '14:00'))
     ))->'occurrences')
     ORDER BY 1
   $$,
-  $$ VALUES ('2026-09-27 03:30:00+00'::TIMESTAMPTZ), ('2026-10-04 02:30:00+00'::TIMESTAMPTZ) $$,
+  $$ VALUES ('2027-09-26 03:30:00+00'::TIMESTAMPTZ), ('2027-10-03 02:30:00+00'::TIMESTAMPTZ) $$,
   'Adelaide wall-clock recurrence follows daylight-saving changes'
 );
 
