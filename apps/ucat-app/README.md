@@ -10,8 +10,11 @@ From the monorepo root:
 
 ```sh
 pnpm install
-pnpm --filter @altitutor/ucat-app start
+pnpm --filter @altitutor/ucat-app dev
 ```
+
+`start` is an alias for `dev`. Metro uses port **8081** (distinct from
+`student-app`).
 
 Copy `.env.example` to `.env.local` in this directory and configure the public
 Supabase URL/key, the UCAT web origin, and `EXPO_PUBLIC_SENTRY_DSN`. The app
@@ -108,6 +111,5 @@ Register the EAS project (`cd apps/ucat-app && eas init`), add the resulting
 before the first store build. Source maps upload during native EAS builds when
 `SENTRY_AUTH_TOKEN` is present. Trigger builds from GitHub Actions workflow
 `UCAT app EAS` (`workflow_dispatch` only; store submit is production-profile
-and opt-in). Existing `student-app` development clients need rebuilding for
-SDK 57. Store submission and hosted deployment are separate from local
+and opt-in). Store submission and hosted deployment are separate from local
 development.
