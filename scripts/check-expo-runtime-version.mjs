@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { isDeepStrictEqual } from "node:util";
 
 const base = process.argv[2] ?? "HEAD^";
 const apps = ["student-app", "ucat-app"];
@@ -17,7 +18,15 @@ for (const app of apps) {
   const nativeChanged = [...changed].some((path) => {
     if (!path.startsWith(root)) return false;
     const file = path.slice(root.length);
-    return ["app.json", "package.json", "eas.json", "google-services.json",
+    if (file === "eas.json") {
+      const previous = JSON.parse(git("show", `${base}:${path}`));
+      const current = JSON.parse(readFileSync(path, "utf8"));
+      // EAS Submit only uploads an existing binary; it cannot change its runtime.
+      delete previous.submit;
+      delete current.submit;
+      return !isDeepStrictEqual(previous, current);
+    }
+    return ["app.json", "package.json", "google-services.json",
       "assets/expo.icon", "assets/images/icon.png",
       "assets/images/splash-icon.png", "assets/images/android-icon-foreground.png",
       "assets/images/android-icon-background.png", "assets/images/android-icon-monochrome.png"].includes(file)
