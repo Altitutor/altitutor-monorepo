@@ -9,7 +9,6 @@ import {
 } from "@/lib/pages";
 import { SiteFrame } from "@/features/marketing/components/site-frame";
 import { HomePage } from "@/features/marketing/pages/home-page";
-import { AboutPage } from "@/features/marketing/pages/about-page";
 import { ContactPage } from "@/features/marketing/pages/contact-page";
 import { CoursesPage } from "@/features/marketing/pages/courses-page";
 import { CoursePage } from "@/features/marketing/pages/course-page";
@@ -25,9 +24,11 @@ import { JsonLd } from "@/features/marketing/components/json-ld";
 type PageProps = { params: { slug?: string[] } };
 
 export function generateStaticParams() {
-  return getAllMarketingPages().map((page) => ({
-    slug: page.path === "/" ? [] : page.path.split("/").filter(Boolean),
-  }));
+  return getAllMarketingPages()
+    .filter((page) => page.path !== "/about/")
+    .map((page) => ({
+      slug: page.path === "/" ? [] : page.path.split("/").filter(Boolean),
+    }));
 }
 
 export const dynamicParams = false;
@@ -44,8 +45,6 @@ function PageContent({ path, title }: { path: string; title: string }) {
   switch (path) {
     case "/":
       return <HomePage />;
-    case "/about/":
-      return <AboutPage />;
     case "/about/contact/":
       return <ContactPage />;
     case "/classes/":

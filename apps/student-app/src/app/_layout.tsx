@@ -56,6 +56,7 @@ function AppNavigation() {
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="auth-return" options={{ headerShown: false, title: 'Signing in' }} />
         <Stack.Screen name="(tabs)" />
+        <Stack.Screen name="flashcards/study" options={{ headerShown: true, title: 'Study', headerLargeTitleEnabled: false }} />
         <Stack.Screen
           name="session/[sessionId]"
           options={{ presentation: 'formSheet', sheetAllowedDetents: [0.5, 0.9], sheetInitialDetentIndex: 0, sheetGrabberVisible: true }}

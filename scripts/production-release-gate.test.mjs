@@ -626,7 +626,7 @@ test("the native student app has an executable unit-test baseline", async () => 
     ),
   );
 
-  assert.equal(packageJson.scripts.test, "tsx --test src/**/*.test.ts");
+  assert.equal(packageJson.scripts.test, "tsx --test 'src/**/*.test.ts'");
   assert.equal(packageJson.devDependencies.tsx, "^4.20.6");
 });
 

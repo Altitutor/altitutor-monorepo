@@ -1,10 +1,12 @@
 import Image from "next/image";
+import { getStaffProfiles } from "@/features/staff/server/profiles";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { content, pageContent } from "../content";
+import { AboutValues } from "../components/about-values";
+import { TeachingMethodSection } from "../components/teaching-method-section";
 import {
   Button,
-  ContentCard,
   Copy,
   Eyebrow,
   PageLinks,
@@ -14,13 +16,55 @@ import styles from "../marketing.module.css";
 
 const about = (id: string) => content("/about/", id);
 
-export function AboutPage() {
-  const team = pageContent("/about/").filter(
-    (b) => b.kind === "flip-box" && b.title !== "You",
-  );
+export async function AboutPage() {
+  const profiles = await getStaffProfiles();
   const charities = pageContent("/about/").filter(
     (b) => b.kind === "call-to-action",
   );
+  const teachingDetail = (id: string, title: string, description: string) => {
+    const original = about(id);
+    return {
+      title,
+      description,
+      originalTitle: original.title ?? title,
+      html: original.html ?? "",
+    };
+  };
+  const lessonSteps = [
+    teachingDetail(
+      "db71db1",
+      "Review and remember",
+      "Start with revision or flashcards so earlier topics stay familiar before exams arrive.",
+    ),
+    teachingDetail(
+      "7b7691b",
+      "Learn ahead of school",
+      "Work through new content with your tutor, notes, and practice questions before it appears at school.",
+    ),
+    teachingDetail(
+      "696bce9",
+      "Practice for assessments",
+      "Complete topic tests together, learn assessment strategies, and move on when you feel confident.",
+    ),
+  ];
+  const weekSupport = [
+    teachingDetail(
+      "c48c5f3",
+      "Homework help",
+      "A free three-hour class for schoolwork, catch-up, and assignments.",
+    ),
+    teachingDetail(
+      "b86f312",
+      "Question helpline",
+      "Ask tutors questions during the week whenever you get stuck.",
+    ),
+    teachingDetail(
+      "8c6ca79",
+      "Online resources",
+      "Use notes, video lessons, flashcards, practice, tests, and exams.",
+    ),
+  ];
+
   return (
     <>
       <section
@@ -56,18 +100,21 @@ export function AboutPage() {
       </div>
       <section id="values" className={`${styles.container} ${styles.section}`}>
         <div className={styles.split}>
-          <SectionTitle eyebrow="Our values">
-            Good education should
+          <SectionTitle eyebrow="Our mission and values">
+            Transformative education.
             <br />
-            <em>open doors.</em>
+            <em>For all who need it.</em>
           </SectionTitle>
-          <Copy block={about("998c6ba")} />
+          <div className={styles.copy}>
+            <p>
+              Altitutor&apos;s mission is to reinvest every dollar we earn into
+              providing transformative education for all who need it, building a
+              community where learning is accessible, relationships are valued,
+              and everyone is empowered to excel.
+            </p>
+          </div>
         </div>
-        <div className={styles.valuesGrid}>
-          {["b64b029", "9af0661", "41b01c4", "bf261c7"].map((id, i) => (
-            <ContentCard key={id} block={about(id)} number={i + 1} />
-          ))}
-        </div>
+        <AboutValues />
         <div className={styles.actions}>
           <Button href="/about/subsidy/">Explore tuition subsidies</Button>
           <Button href="/about/testimonials/" secondary>
@@ -75,41 +122,10 @@ export function AboutPage() {
           </Button>
         </div>
       </section>
-      <section
-        id="teaching"
-        className={`${styles.processSection} ${styles.section}`}
-      >
-        <div className={styles.container}>
-          <div className={styles.split}>
-            <SectionTitle eyebrow="Our teaching method">
-              The best of both worlds.
-              <br />
-              <em>Built around you.</em>
-            </SectionTitle>
-            <Copy block={about("c90b9f5")} />
-          </div>
-          <Copy block={about("7e7ad5b")} />
-          <div className={styles.teaching}>
-            <div>
-              <h3>In class</h3>
-              <Copy block={about("23fbbe2")} />
-              {["db71db1", "7b7691b", "696bce9"].map((id) => (
-                <ContentCard key={id} block={about(id)} />
-              ))}
-            </div>
-            <div>
-              <h3>Out of class</h3>
-              <Copy block={about("1f50fc0")} />
-              {["c48c5f3", "b86f312", "8c6ca79"].map((id) => (
-                <ContentCard key={id} block={about(id)} />
-              ))}
-            </div>
-          </div>
-          <div className={styles.actions}>
-            <Button href="#find-your-course">Find your course</Button>
-          </div>
-        </div>
-      </section>
+      <TeachingMethodSection
+        lessonSteps={lessonSteps}
+        weekSupport={weekSupport}
+      />
       <section id="team" className={`${styles.container} ${styles.section}`}>
         <div className={styles.split}>
           <SectionTitle eyebrow="Our team">
@@ -119,31 +135,52 @@ export function AboutPage() {
           </SectionTitle>
           <Copy block={about("61c3580")} />
         </div>
-        <div className={styles.teamGrid}>
-          {team.map((person) => (
+        <div className={styles.teamGrid} data-scroll-stagger>
+          {profiles.map((person) => (
             <article key={person.id} className={styles.teamCard}>
               <div className={styles.teamPortrait}>
                 {person.image ? (
                   <Image
                     src={person.image}
-                    alt={person.title ?? "Altitutor team member"}
+                    alt={person.name}
                     width={450}
                     height={375}
                     sizes="(max-width: 520px) 90vw, (max-width: 1050px) 45vw, 30vw"
+                    style={{
+                      objectPosition: `${person.crop.x}% ${person.crop.y}%`,
+                      transform: `scale(${person.crop.zoom})`,
+                      transformOrigin: `${person.crop.x}% ${person.crop.y}%`,
+                    }}
                   />
                 ) : (
                   <span className={styles.teamInitial} aria-hidden="true">
-                    {person.title?.charAt(0)}
+                    {person.name.charAt(0)}
                   </span>
                 )}
               </div>
               <div>
-                <h3>{person.title}</h3>
-                <Copy block={person} />
-                <details>
-                  <summary>Meet {person.title?.split(" ")[0]}</summary>
-                  <Copy html={person.detailHtml} />
-                </details>
+                <h3>{person.name}</h3>
+                {person.title && (
+                  <p style={{ whiteSpace: "pre-line" }}>{person.title}</p>
+                )}
+                {person.subjects.length > 0 && (
+                  <ul
+                    className={styles.staffSubjects}
+                    aria-label={`Subjects taught by ${person.name}`}
+                  >
+                    {person.subjects.map((subject) => (
+                      <li key={subject} className={styles.staffSubjectBadge}>
+                        {subject}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {person.bio && (
+                  <details>
+                    <summary>Meet {person.name.split(" ")[0]}</summary>
+                    <p style={{ whiteSpace: "pre-line" }}>{person.bio}</p>
+                  </details>
+                )}
               </div>
             </article>
           ))}
@@ -165,7 +202,7 @@ export function AboutPage() {
             </SectionTitle>
             <Copy block={about("93b0a58")} />
           </div>
-          <div className={styles.charities}>
+          <div className={styles.charities} data-scroll-stagger>
             {charities.map((charity) => (
               <article className={styles.charity} key={charity.id}>
                 {charity.image ? (

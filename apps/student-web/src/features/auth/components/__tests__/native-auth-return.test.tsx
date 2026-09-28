@@ -5,7 +5,7 @@ import { NativeAuthReturn } from "../native-auth-return";
 Object.assign(globalThis, { React });
 
 jest.mock("@altitutor/ui", () => {
-  const ReactRuntime = require("react") as typeof import("react");
+  const ReactRuntime = jest.requireActual<typeof import("react")>("react");
   return {
     Button: ({
       children,

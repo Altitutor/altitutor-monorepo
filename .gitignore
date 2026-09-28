@@ -82,3 +82,6 @@ ref/
 # Copied at Next start from pdfjs-dist (webpack cannot bundle its ESM)
 apps/tutor-web/public/pdfjs/
 apps/student-web/public/pdfjs/
+
+# Local snapshots for explicitly authorized data imports
+.local-backups/

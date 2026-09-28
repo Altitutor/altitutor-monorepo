@@ -34,7 +34,7 @@ export default function FlashcardsScreen() {
             <TappableRow
               title="Study all"
               detail={`${snapshot.data.counts.total} due · ${snapshot.data.counts.new} new · ${snapshot.data.counts.learning + snapshot.data.counts.relearning} learning · ${snapshot.data.counts.review} review`}
-              onPress={() => router.push('/(tabs)/flashcards/study')}
+              onPress={() => router.push('/flashcards/study')}
             />
           </Card>
           {snapshot.data.subjects.filter((subject) => subject.total > 0).map((subject) => (
@@ -42,7 +42,7 @@ export default function FlashcardsScreen() {
               <TappableRow
                 title={subject.name}
                 detail={`${subject.total} cards · ${subject.new} new · ${subject.learning} learning · ${subject.review} review`}
-                onPress={() => router.push({ pathname: '/(tabs)/flashcards/study', params: { subjectId: subject.id } })}
+                onPress={() => router.push({ pathname: '/flashcards/study', params: { subjectId: subject.id } })}
               />
             </Card>
           ))}

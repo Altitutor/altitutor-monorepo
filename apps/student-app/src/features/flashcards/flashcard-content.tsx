@@ -13,14 +13,14 @@ import { refreshFlashcardHtmlImages } from './flashcard-image-urls';
 
 function HtmlCard({ html }: { html: string }) {
   const theme = useTheme();
-  const [rendered, setRendered] = useState(html);
+  const [rendered, setRendered] = useState({ source: html, value: html });
   const [height, setHeight] = useState(140);
+  const renderedHtml = rendered.source === html ? rendered.value : html;
 
   useEffect(() => {
     let active = true;
-    setRendered(html);
     void refreshFlashcardHtmlImages(html).then((next) => {
-      if (active) setRendered(next);
+      if (active) setRendered({ source: html, value: next });
     }).catch(() => undefined);
     return () => { active = false; };
   }, [html]);
@@ -31,10 +31,10 @@ function HtmlCard({ html }: { html: string }) {
     body{overflow-wrap:anywhere}p{margin:.3em 0 1em}img{max-width:100%;height:auto}a{color:${theme.primary}}
     .cloze{display:inline-block;border-radius:6px;padding:0 7px;font-weight:700}.question{background:${theme.backgroundSelected};color:${theme.textSecondary}}
     .answer{background:${theme.accent};color:#0A2941}.extra{font-size:15px;line-height:1.55;border-top:1px solid ${theme.border};padding-top:14px;margin-top:18px}
-  </style></head><body>${rendered}<script>
+  </style></head><body>${renderedHtml}<script>
     function report(){window.ReactNativeWebView.postMessage(String(Math.ceil(document.documentElement.scrollHeight)))}
     new ResizeObserver(report).observe(document.body);window.addEventListener('load',report);setTimeout(report,100);
-  </script></body></html>`, [rendered, theme]);
+  </script></body></html>`, [renderedHtml, theme]);
 
   return (
     <WebView
@@ -133,8 +133,13 @@ export function FlashcardContent({ card, showAnswer, onReadyChange }: {
       {showAnswer && card.note_links?.length ? (
         <View style={{ gap: 8 }}>
           <Text selectable style={{ color: theme.text, fontSize: 15, fontWeight: '700' }}>Notes and solutions</Text>
+          <Text selectable style={{ color: theme.textSecondary, fontSize: 12 }}>Review the source material for this subtopic.</Text>
           {card.note_links.map((link) => (
-            <Pressable key={link.id} onPress={() => router.push({ pathname: '/resource-file/[fileId]', params: { fileId: link.id, topicId: card.topic_id, title: link.label } })}>
+            <Pressable
+              key={link.id}
+              accessibilityRole="link"
+              onPress={() => router.push({ pathname: '/resource-file/[fileId]', params: { fileId: link.id, topicId: card.topic_id, singleFile: '1' } })}
+              style={{ alignSelf: 'flex-start', borderWidth: 1, borderColor: theme.border, borderRadius: 10, borderCurve: 'continuous', paddingHorizontal: 12, paddingVertical: 9 }}>
               <Text selectable style={{ color: theme.primary }}>{link.is_solution ? 'Solution: ' : ''}{link.label} ›</Text>
             </Pressable>
           ))}

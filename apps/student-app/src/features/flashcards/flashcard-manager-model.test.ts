@@ -1,3 +1,4 @@
+/* eslint-disable no-extend-native -- This test simulates Hermes without Array.toSorted. */
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import type { FlashcardReviewCard } from '@altitutor/shared';
@@ -47,4 +48,16 @@ test('manager groups sibling clozes but filters on each review card state and fl
   assert.deepEqual(groups[0].cards.map((item) => item.id), ['first', 'second']);
   assert.equal(filterFlashcardGroups(groups, { search: 'nucleus', state: 'Review', flag: 'buried', sort: 'order' }).length, 1);
   assert.equal(filterFlashcardGroups(groups, { search: '', state: 'New', flag: 'suspended', sort: 'order' }).length, 0);
+});
+
+test('manager works on runtimes without Array.toSorted', () => {
+  const original = Object.getOwnPropertyDescriptor(Array.prototype, 'toSorted');
+  Object.defineProperty(Array.prototype, 'toSorted', { value: undefined, configurable: true });
+  try {
+    const groups = groupFlashcards([card('second', 2, 'Review'), card('first', 1, 'New')]);
+    assert.deepEqual(filterFlashcardGroups(groups, { search: '', state: 'all', flag: 'all', sort: 'order' }).map((group) => group.id), ['flashcard-1']);
+  } finally {
+    if (original) Object.defineProperty(Array.prototype, 'toSorted', original);
+    else Reflect.deleteProperty(Array.prototype, 'toSorted');
+  }
 });

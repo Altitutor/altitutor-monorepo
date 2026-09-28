@@ -1,0 +1,202 @@
+[
+  {
+    "name": "Matthew Chua",
+    "display_name": "Matthew Chua",
+    "title": "MATHEMATICAL METHODS COURSE MANAGER Tutor: Mathematical Methods, Specialist Mathematics, Physics, Chemistry, Biology, UCAT",
+    "bio": "Hi, my name is Matt and I love walking alongside students as they improve both their understanding and their scores. Outside of Altitutor I also work as a doctor at the Queen Elizabeth Hospital, but in my spare time, I enjoy landscape photography and fingerstyle guitar.",
+    "image": "/images/content/2023/11/DSC07785-1.jpg",
+    "order": 0
+  },
+  {
+    "name": "Lara Nguyen",
+    "display_name": "Lara Nguyen",
+    "title": "ADMINISTRATIVE ASSISTANT Social Media, Marketing and Staff Management",
+    "bio": "Hi I’m Lara, a ‘23 SACE graduate currently studying Law and Commerce! I’m an admin who occasionally tutors as a side quest. I'm a huge foodie, and my hobbies include photography, gymming and volleyball. I also enjoy late night walks and hanging out with friends.",
+    "image": "/images/content/2026/03/square-image-300x300.jpg",
+    "order": 1
+  },
+  {
+    "name": "Tim Naylor",
+    "display_name": "Tim Naylor",
+    "title": "IB BIOLOGY COURSE MANAGER Tutor: IB Biology, IB Chemistry, IB Mathematics AA",
+    "bio": "Hi! I'm Tim and I'm an IB grad from Nov 2021. I love cooking and eating spicy food, but have a very low spice tolerance so you'll probably see my crying over my lunch. I’ve been online tutoring for just over a year before joining Altitutor and I’m super excited to share my passion for Bio, Chem and Maths with you all.",
+    "image": "/images/content/2021/12/Profile-Picture-cropped-300x300.jpg",
+    "order": 2
+  },
+  {
+    "name": "Joshua Gooi",
+    "display_name": "Joshua Gooi",
+    "title": "UCAT COURSE MANAGERTutor: Biology, Chemistry, UCAT, Mathematical Methods",
+    "bio": "Hi, my name is Joshua but people call me Gooi. I'm really cute and petite, and I am a precious little small bean and everyone loves me. I would love to be your maths tutor because that is my strongest subject!",
+    "image": "/images/content/2021/12/Gooi-photo-cropped-300x300.jpg",
+    "order": 3
+  },
+  {
+    "name": "Kevin Ling",
+    "display_name": "Kevin Ling",
+    "title": "CHEMISTRY COURSE MANAGER Tutor: Biology, Chemistry, UCAT, Mathematical Methods",
+    "bio": "Hello! My name is Kevin. I mainly teach Chemistry but am more than happy to help with Methods, Biology and whatever you come in with to homework help. I study Medicine at the University of Adelaide and enjoy food, meeting new people and playing basketball.",
+    "image": "/images/content/2021/12/Screen-Shot-2021-12-18-at-10.56.55-am-300x252.png",
+    "order": 4
+  },
+  {
+    "name": "Shardul Mulye",
+    "display_name": "Shardul Mulye",
+    "title": "PRESACE COURSE MANAGER Tutor: Mathematical Methods, Biology, Physics, UCAT",
+    "bio": "Hey there, my name is Shardul and I'm currently studying medicine at Adelaide University. Through tutoring for several years, I've developed a thorough yet simple approach to helping students achieve their goals in their academics. My passion for tutoring stems from students being able to achieve what they had hoped for and becoming successful in their post high-school journey.",
+    "image": "/images/content/2022/09/Shardul-cropped-300x300.jpeg",
+    "order": 5
+  },
+  {
+    "name": "Ed Nitschke",
+    "display_name": "Ed Nitschke",
+    "title": "Tutor: Mathematical Methods, Chemistry, Pre-SACE Maths",
+    "bio": "Hi! I’m Ed, a 2023 SACE graduate pursuing a Bachelor of Clinical Science/Doctor of Medicine at Flinders University. My journey with Altitutor began as a student in 2022 and 2023, where I received invaluable support from my tutors. Inspired by their guidance, I decided to join the Altitutor team to give back and help other students succeed. I am passionate about teaching chemistry, methods, and biology. When I'm not tutoring, I enjoy playing tennis and watching movies with friends.",
+    "image": "/images/content/2024/07/alti-pfp-e1719818033985-300x300.jpg",
+    "order": 6
+  },
+  {
+    "name": "Alexander Wabnitz",
+    "display_name": "Alexander Wabnitz",
+    "title": "Tutor: Specialist Mathematics, Mathematical Methods, Pre-SACE Mathematics, Pre-SACE Science",
+    "bio": "Hey! I'm Alex. I'm studying a Bachelor of Advanced Mathematical Sciences at Adelaide Uni. In my spare time, I enjoy playing piano or competing in competitive tournaments for some of my favourite tabletop games. I tutor Maths. It’s been my favourite subject for most of my life.",
+    "image": "/images/content/2021/12/Alex-photo-cropped-150x150.jpg",
+    "order": 7
+  },
+  {
+    "name": "Melshuel George",
+    "display_name": "Melshuel George",
+    "title": "Tutor: English, Biology, Pre-SACE Science",
+    "bio": "Hi I’m Melsh and I’m studying Medicine at the University of Adelaide. I graduated from SACE in 2024 and I currently tutor English and Science. I really enjoy badminton, going to the gym, and watching medical dramas!",
+    "image": "/images/content/2025/06/DSC00149-150x150.jpeg",
+    "order": 8
+  },
+  {
+    "name": "Maddie Parker",
+    "display_name": "Maddie Parker",
+    "title": "Tutor: Biology, English, AIF",
+    "bio": "Hi! I’m Maddie, a 2024 SACE graduate now studying medicine at the University of Adelaide. In my spare time, I enjoy hitting the gym, playing netball, listening to music and reading.",
+    "image": "/images/content/2025/06/maddie-image-min-scaled-e1749283909374-150x150.jpeg",
+    "order": 9
+  },
+  {
+    "name": "An Do",
+    "display_name": "An Do",
+    "title": "ADMINISTRATIVE STAFF Tutor: General Maths, Pre-SACE",
+    "bio": "Bio coming soon.",
+    "image": null,
+    "order": 10
+  },
+  {
+    "name": "Syme Aftab",
+    "display_name": "Syme Aftab",
+    "title": "Tutor: Mathematical Methods, Chemistry, Physics",
+    "bio": "Hi there! I'm Syme, and I’m studying Medicine at Flinders Uni. I teach Maths, Science (Biology, Chemistry & Physics), alongside UCAT. Outside of work and study, I enjoy playing piano and badminton. I’m a big fan of the outdoors too, so I love hiking, nature walks and scenic drives!",
+    "image": "/images/content/2023/05/Screenshot-2023-05-27-at-10.01.01-am-300x300.png",
+    "order": 11
+  },
+  {
+    "name": "Elliot Koh",
+    "display_name": "Elliot Koh",
+    "title": "SOFTWARE DEVELOPMENT Tutor: Pre-SACE Maths, Pre-SACE English",
+    "bio": "Hi! I'm Elliot. I'm studying Bachelor of Computer Science (Advanced) at the University of Adelaide. I enjoy making custom mechanical keyboards, coding, playing video games, listening to music, playing basketball, and even have my own clothing brand Project Binks!",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 12
+  },
+  {
+    "name": "Josh Lee",
+    "display_name": "Josh Lee",
+    "title": "Tutor: UCAT, Chemistry, Mathematical Methods, Chemistry, Physics, Biology",
+    "bio": "Hi! My name is Josh and I am a 2025 SACE graduate currently studying medicine at Adelaide University. Having gone through the struggles of high school myself, I would love to help others with their schoolwork to make it just that bit easier!! When I'm not studying (which is most of the time), I really enjoy playing tennis and watching sport.",
+    "image": "/images/content/2026/03/Josh-300x300.jpg",
+    "order": 13
+  },
+  {
+    "name": "Darshil Jangra",
+    "display_name": "Darshil Jang",
+    "title": "Tutor: Specialist Mathematics, Mathematical Methods, English, Pre-SACE Science",
+    "bio": "Hey! I am Darshil and I am studying Medicine at Adelaide University. I graduated from SACE in 2024, and a fun fact about me is that I have resided in more than 3 cities in the past 3 years!",
+    "image": "/images/content/2026/03/Darshil-300x300.jpg",
+    "order": 14
+  },
+  {
+    "name": "Rongjun He",
+    "display_name": "RJ He",
+    "title": "Tutor: Mathematical Methods, Chemistry, Biology, English",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 15
+  },
+  {
+    "name": "Alessia D'Angelis",
+    "display_name": "Alessia D'Angelis",
+    "title": "Tutor: Physics, Specialist Mathematics, Mathematical Methods, Chemistry, Pre-SACE Maths",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 16
+  },
+  {
+    "name": "Huanzhen Lin",
+    "display_name": "Huanzhen Lin",
+    "title": "Tutor: Pre-SACE Science, Pre-SACE Mathematics",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 17
+  },
+  {
+    "name": "Navya Shah",
+    "display_name": "Navya Shah",
+    "title": "Tutor: Biology, Mathematical Methods, Pre-SACE Mathematics",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 18
+  },
+  {
+    "name": "Ryan George",
+    "display_name": "Ryan George",
+    "title": "Tutor: UCAT, Chemistry, Biology, Pre-SACE Science",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 19
+  },
+  {
+    "name": "Christian Kriek",
+    "display_name": "Christian Kriek",
+    "title": "ADMINISTRATIVE STAFF",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 20
+  },
+  {
+    "name": "Jayden Tran",
+    "display_name": "Jayden Tran",
+    "title": "Tutor: Mathematical Methods, Pre-SACE Maths",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 21
+  },
+  {
+    "name": "Minah Cho",
+    "display_name": "Minah Cho",
+    "title": "Tutor: UCAT",
+    "bio": "Bio coming soon.",
+    "image": "/images/content/2023/12/Square-logo-transparent-300x300.png",
+    "order": 22
+  },
+  {
+    "name": "Emma Choi",
+    "display_name": "Emma Choi",
+    "title": "",
+    "bio": "",
+    "image": null,
+    "order": 23
+  },
+  {
+    "name": "Brian Ju",
+    "display_name": "Brian Ju",
+    "title": "Tutor",
+    "bio": "",
+    "image": null,
+    "order": 24
+  }
+]

@@ -243,7 +243,7 @@ export function UcatLandingStories() {
             </div>
             <div className="mt-7 text-marketing-cream/72">
               <p className={`text-lg italic text-marketing-cream ${typo.dramaSerif}`}>
-                Thank you for your support ♥︎
+                Thank you for your support.
               </p>
               <div
                 role="img"

@@ -17,12 +17,23 @@ export function PageMotion({ children }: { children: ReactNode }) {
         for (const entry of entries) {
           if (!entry.isIntersecting) continue;
           observer.unobserve(entry.target);
+          const parent = entry.target.parentElement;
+          const staggered = parent?.hasAttribute("data-scroll-stagger") ?? false;
+          const staggerIndex = staggered && parent
+            ? Array.from(parent.children).indexOf(entry.target)
+            : 0;
+          const delay = Math.min(staggerIndex, 3) * 70;
           const animation = entry.target.animate(
             [
               { opacity: 0, transform: "translateY(12px)" },
               { opacity: 1, transform: "translateY(0)" },
             ],
-            { duration: 360, easing: "cubic-bezier(.22,1,.36,1)" },
+            {
+              duration: staggered ? 420 : 360,
+              delay,
+              easing: "cubic-bezier(.22,1,.36,1)",
+              fill: delay ? "backwards" : "none",
+            },
           );
           animations.add(animation);
           void animation.finished.then(
@@ -47,7 +58,9 @@ export function PageMotion({ children }: { children: ReactNode }) {
           observer.observe(element);
       });
     root.current
-      .querySelectorAll("[data-scroll-reveal], [data-scroll-items] > *")
+      .querySelectorAll(
+        "[data-scroll-reveal], [data-scroll-items] > *, [data-scroll-stagger] > *",
+      )
       .forEach((element) => observer.observe(element));
     const stop = () => {
       observer.disconnect();

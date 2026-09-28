@@ -19,7 +19,8 @@ export default function ResourceFileScreen() {
   const theme = useTheme();
   const insets = useSafeAreaInsets();
   const navigationRef = useFileNavigation();
-  const { fileId, topicId } = useLocalSearchParams<{ fileId: string; topicId: string }>();
+  const { fileId, topicId, singleFile } = useLocalSearchParams<{ fileId: string; topicId: string; singleFile?: string }>();
+  const isSingleFile = singleFile === '1';
   const files = useResourceFiles(topicId);
   const ordered = useMemo(() => flattenTopicFilesForNav(files.data ?? []), [files.data]);
   const index = ordered.findIndex((file) => file.id === fileId);
@@ -50,7 +51,7 @@ export default function ResourceFileScreen() {
   }
 
   useEffect(() => {
-    navigationRef.current = {
+    navigationRef.current = isSingleFile ? null : {
       topicId,
       currentId: fileId,
       files: ordered.map((entry) => ({
@@ -69,7 +70,7 @@ export default function ResourceFileScreen() {
   }, [navigationRef]);
 
   return (
-    <View style={{ flex: 1, backgroundColor: theme.background, paddingBottom: process.env.EXPO_OS === 'ios' ? 0 : 56 + Math.max(insets.bottom, 12) }}>
+    <View style={{ flex: 1, backgroundColor: theme.background, paddingBottom: process.env.EXPO_OS === 'ios' ? 0 : isSingleFile ? insets.bottom : 56 + Math.max(insets.bottom, 12) }}>
       <Stack.Screen options={{ title: file?.filename || 'Resource', headerLargeTitleEnabled: false }} />
       {files.isPending || (file && !file.externalUrl && !url && !error) ? (
         <ActivityIndicator color={theme.primary} style={{ marginTop: 24 }} />
@@ -78,7 +79,7 @@ export default function ResourceFileScreen() {
       {error ? <Text selectable style={{ color: theme.danger, padding: 20 }}>{error}</Text> : null}
       {!file && !files.isPending ? <Text style={{ color: theme.textSecondary, padding: 20 }}>This file is no longer available.</Text> : null}
       {file && (url || file.externalUrl) ? <ResourcePlayer key={file.id} file={file} url={url} /> : null}
-      <ResourceToolbar
+      {!isSingleFile ? <ResourceToolbar
         previous={() => previous && openFile(previous.id)}
         next={() => next && openFile(next.id)}
         previousDisabled={!previous}
@@ -89,7 +90,7 @@ export default function ResourceFileScreen() {
         nextLabel="Next file"
         navigatorLabel="File navigator"
         solutionsLabel="View solutions"
-      />
+      /> : null}
     </View>
   );
 }

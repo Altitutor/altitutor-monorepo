@@ -1,3 +1,4 @@
+import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
 import { useState, useEffect } from 'react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@altitutor/ui";
 import { SegmentedControl, SegmentedTabPanelContent } from "@altitutor/ui";
@@ -239,6 +240,7 @@ export function ViewStaffModal({
                     onValueChange={setActiveTab}
                     options={[
                       { value: 'details', label: 'Details' },
+                      { value: 'website', label: 'Website' },
                       { value: 'classes', label: 'Classes' },
                       { value: 'pay-tier', label: 'Pay tier' },
                       { value: 'activity', label: 'Activity' },
@@ -251,6 +253,9 @@ export function ViewStaffModal({
 
               {/* Scrollable Content */}
               <div className="flex-1 min-h-0 relative">
+                <SegmentedTabPanelContent when="website" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
+                  <StaffWebsiteProfile key={staffMember.id} staffId={staffMember.id} active={staffMember.status === 'ACTIVE'} />
+                </SegmentedTabPanelContent>
                 <SegmentedTabPanelContent when="details" activeTab={activeTab} className="absolute inset-0 overflow-y-auto">
                   <div className="p-6">
                     <StaffDetailsTab

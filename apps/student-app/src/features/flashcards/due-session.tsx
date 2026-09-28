@@ -8,8 +8,12 @@ import { useTheme } from '@/hooks/use-theme';
 
 import { flashcardApi, FlashcardApiError } from './flashcard-api';
 import { FlashcardContent } from './flashcard-content';
-import { FlashcardButton } from './flashcard-controls';
+import { StudyFlashcardButton, StudyRatingButton } from './study-buttons';
 import { useRateFlashcard } from './flashcard-hooks';
+import { availableDueSessionCards, type AnsweredCardHold } from './due-session-model';
+import { useStudyFeedback } from './study-feedback';
+import { StudyHeaderActions } from './study-header-actions';
+import { StudySurface } from './study-surface';
 import { useStudyConnectivity } from './study-connectivity';
 
 const ratings: { value: FlashcardRating; label: string; tone: 'danger' | 'warning' | 'success' | 'primary' }[] = [
@@ -19,32 +23,56 @@ const ratings: { value: FlashcardRating; label: string; tone: 'danger' | 'warnin
   { value: 'easy', label: 'Easy', tone: 'primary' },
 ];
 
-export function DueFlashcardSession({ snapshot, resetKey, onRefresh }: {
+export function DueFlashcardSession({ snapshot, resetKey, onRefresh, title }: {
   snapshot: FlashcardStudySnapshot;
   resetKey: number;
   onRefresh: () => Promise<void>;
+  title: string;
 }) {
   const theme = useTheme();
   const connected = useStudyConnectivity();
-  const card = snapshot.cards[0] ?? null;
   const rateMutation = useRateFlashcard();
-  const [showAnswer, setShowAnswer] = useState(false);
+  const { feedback, showFeedback, clearFeedback } = useStudyFeedback();
+  const [answeredHolds, setAnsweredHolds] = useState<ReadonlyMap<string, AnsweredCardHold>>(() => new Map());
+  const [now, setNow] = useState(() => new Date());
+  const [pendingCardId, setPendingCardId] = useState<string | null>(null);
+  const availableCards = availableDueSessionCards(snapshot.cards, answeredHolds, now, pendingCardId);
+  const card = availableCards[0] ?? null;
+  const [revealedCardId, setRevealedCardId] = useState<string | null>(null);
+  const showAnswer = card?.id === revealedCardId;
   const [imageReady, setImageReady] = useState(false);
   const [pending, setPending] = useState(false);
+  const [checkingNext, setCheckingNext] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [answerLogId, setAnswerLogId] = useState<string | null>(null);
+  const [lastAnsweredCardId, setLastAnsweredCardId] = useState<string | null>(null);
   const shownAt = useRef(0);
   const failedCommand = useRef<RateFlashcardCommand | null>(null);
   const undoCommand = useRef<{ requestId: string; answerLogId: string } | null>(null);
 
   useEffect(() => {
-    setShowAnswer(false);
     setImageReady(false);
     setNeedsRefresh(false);
     shownAt.current = new Date().getTime();
-    failedCommand.current = null;
-  }, [card?.id, resetKey]);
+  }, [card?.id, card?.revision]);
+
+  useEffect(() => {
+    setNow(new Date());
+  }, [resetKey]);
+
+  useEffect(() => {
+    const nextDue = [...answeredHolds.values()]
+      .map((hold) => new Date(hold.dueAt).getTime())
+      .filter((time) => time > now.getTime() && time - now.getTime() <= 60 * 60_000)
+      .sort((left, right) => left - right)[0];
+    if (nextDue === undefined) return;
+    const timer = setTimeout(() => {
+      setNow(new Date());
+      void onRefresh().catch(() => setNeedsRefresh(true));
+    }, Math.max(0, nextDue - now.getTime()));
+    return () => clearTimeout(timer);
+  }, [answeredHolds, now, onRefresh]);
 
   async function refresh() {
     setPending(true);
@@ -72,6 +100,8 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh }: {
         previewSeed: card.rating_preview_seed ?? `${card.id}:${card.revision}`,
         answeredAt: new Date().toISOString(),
       };
+    showFeedback(rating === 'again' ? 'incorrect' : 'correct', rating === 'again' ? 'danger' : rating === 'hard' ? 'warning' : rating === 'good' ? 'success' : 'primary');
+    setPendingCardId(card.id);
     setPending(true);
     setMessage(null);
     try {
@@ -84,15 +114,18 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh }: {
         result = await rateMutation.mutateAsync(command);
       }
       failedCommand.current = null;
+      setAnsweredHolds((current) => new Map(current).set(card.id, { revision: command.expectedRevision, dueAt: result.due_at }));
+      setNow(new Date());
       setAnswerLogId(result.answer_log_id ?? null);
-      setNeedsRefresh(true);
-      try {
-        await onRefresh();
+      setLastAnsweredCardId(card.id);
+      setRevealedCardId(null);
+      setCheckingNext(true);
+      void onRefresh().then(() => {
         setNeedsRefresh(false);
-        setShowAnswer(false);
-      } catch {
+      }).catch(() => {
+        setNeedsRefresh(true);
         setMessage('Your answer was saved, but the next card could not load. Refresh to continue.');
-      }
+      }).finally(() => setCheckingNext(false));
       if (result.leech_suggested) {
         Alert.alert('Difficult card', 'This card has been repeatedly difficult. Suspend it for now?', [
           { text: 'Keep studying', style: 'cancel' },
@@ -100,15 +133,18 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh }: {
         ]);
       }
     } catch (error) {
+      clearFeedback();
       if (error instanceof FlashcardApiError && error.status === 409) {
         failedCommand.current = null;
-        setMessage('This card changed on another screen. Your answer was not saved; the queue has been refreshed.');
+        setRevealedCardId(null);
+        setMessage('That answer could not be applied because the card’s schedule changed or it is no longer due. The latest queue has been loaded.');
         try { await onRefresh(); } catch { setNeedsRefresh(true); }
       } else {
         failedCommand.current = command;
         setMessage('Your answer was not confirmed. Retry the same rating when connected.');
       }
     } finally {
+      setPendingCardId(null);
       setPending(false);
     }
   }
@@ -130,6 +166,12 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh }: {
       }
       setAnswerLogId(null);
       undoCommand.current = null;
+      setLastAnsweredCardId(null);
+      setAnsweredHolds((current) => {
+        const next = new Map(current);
+        if (lastAnsweredCardId) next.delete(lastAnsweredCardId);
+        return next;
+      });
       setNeedsRefresh(true);
       await onRefresh();
       setNeedsRefresh(false);
@@ -166,45 +208,74 @@ export function DueFlashcardSession({ snapshot, resetKey, onRefresh }: {
   }
 
   const held = snapshot.held;
+  const visibleCounts = availableCards.reduce(
+    (counts, item) => {
+      if (item.state === 'New') counts.new += 1;
+      else if (item.state === 'Review') counts.review += 1;
+      else counts.learning += 1;
+      return counts;
+    },
+    { new: 0, learning: 0, review: 0 },
+  );
+  const nextHeldDue = [...answeredHolds.values()]
+    .map((hold) => new Date(hold.dueAt).getTime())
+    .filter((time) => time > now.getTime() && time - now.getTime() <= 60 * 60_000)
+    .sort((left, right) => left - right)[0];
   return (
-    <View style={{ gap: 14 }}>
-      <Text selectable style={{ color: theme.textSecondary, fontVariant: ['tabular-nums'] }}>
-        {snapshot.counts.new} new · {snapshot.counts.learning + snapshot.counts.relearning} learning · {snapshot.counts.review} review
-      </Text>
+    <>
+      <StudyHeaderActions
+        title={title}
+        onUndo={() => void undo()}
+        onBury={() => void bury()}
+        onRefresh={() => void refresh()}
+        canUndo={Boolean(answerLogId) && connected}
+        canBury={Boolean(card) && !needsRefresh && connected}
+        disabled={pending || !connected}
+      />
+      <StudySurface feedback={feedback} footer={
+        <View style={{ gap: 8 }}>
+          <Text selectable style={{ color: theme.textSecondary, fontVariant: ['tabular-nums'], textAlign: 'center' }}>
+            {visibleCounts.new} new · {visibleCounts.learning} learning · {visibleCounts.review} review
+          </Text>
+          {needsRefresh ? <Text selectable style={{ color: theme.textSecondary, textAlign: 'center' }}>Refresh the queue to continue.</Text>
+            : connected && card ? !showAnswer
+              ? <StudyFlashcardButton tone="primary" onPress={() => setRevealedCardId(card.id)} disabled={pending || (card.card_type === 'image_occlusion' && !imageReady)}>Show answer</StudyFlashcardButton>
+              : <View style={{ flexDirection: 'row', gap: 6 }}>
+                {ratings.map((option) => (
+                  <StudyRatingButton
+                    key={option.value}
+                    label={option.label}
+                    preview={card.rating_previews?.[option.value]?.label}
+                    tone={option.tone}
+                    onPress={() => void rate(option.value)}
+                    disabled={pending}
+                  />
+                ))}
+              </View>
+              : null}
+        </View>
+      }>
       {message ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger }}>{message}</Text> : null}
       {!connected ? <Text selectable accessibilityRole="alert" style={{ color: theme.danger }}>A connection is required to study flashcards. Reconnect and refresh to continue.</Text> : null}
-      {needsRefresh ? <FlashcardButton onPress={() => void refresh()} disabled={pending}>Refresh queue</FlashcardButton> : null}
       {connected && card && !needsRefresh ? (
         <Card>
           <Text selectable style={{ color: theme.textSecondary, fontSize: 13 }}>
             {[card.subject_short_name, card.topic_code, card.topic_name].filter(Boolean).join(' · ')}
           </Text>
           <FlashcardContent card={card} showAnswer={showAnswer} onReadyChange={setImageReady} />
-          {!showAnswer ? (
-            <FlashcardButton tone="primary" onPress={() => setShowAnswer(true)} disabled={pending || (card.card_type === 'image_occlusion' && !imageReady)}>Show answer</FlashcardButton>
-          ) : (
-            <View style={{ gap: 8 }}>
-              {ratings.map((option) => (
-                <FlashcardButton key={option.value} tone={option.tone} onPress={() => void rate(option.value)} disabled={pending}>
-                  {option.label}{card.rating_previews?.[option.value] ? ` · ${card.rating_previews[option.value].label}` : ''}
-                </FlashcardButton>
-              ))}
-            </View>
-          )}
-          <FlashcardButton onPress={() => void bury()} disabled={pending}>Bury until tomorrow</FlashcardButton>
         </Card>
       ) : connected && !needsRefresh ? (
         <Card>
-          <Text selectable style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>No cards due</Text>
+          <Text selectable style={{ color: theme.text, fontSize: 18, fontWeight: '700' }}>{pending || checkingNext ? 'Loading next card…' : nextHeldDue ? 'You’re caught up for now' : 'No cards due'}</Text>
+          {nextHeldDue ? <Text selectable style={{ color: theme.textSecondary }}>Next scheduled card: {new Date(nextHeldDue).toLocaleTimeString()}.</Text> : null}
           {held.newLimit > 0 ? <Text selectable style={{ color: theme.textSecondary }}>{held.newLimit} new cards are held by today’s limit.</Text> : null}
           {held.reviewLimit > 0 ? <Text selectable style={{ color: theme.textSecondary }}>{held.reviewLimit} reviews are held by today’s limit.</Text> : null}
           {held.newBlockedByReviews > 0 ? <Text selectable style={{ color: theme.textSecondary }}>{held.newBlockedByReviews} new cards wait for overdue reviews.</Text> : null}
           {held.futureLearning > 0 && snapshot.nextDueAt ? <Text selectable style={{ color: theme.textSecondary }}>Next learning card: {new Date(snapshot.nextDueAt).toLocaleTimeString()}.</Text> : null}
         </Card>
       ) : null}
-      {connected && answerLogId ? <FlashcardButton onPress={() => void undo()} disabled={pending}>Undo last answer</FlashcardButton> : null}
-      <FlashcardButton onPress={() => void refresh()} disabled={pending || !connected}>Refresh</FlashcardButton>
       {pending ? <Text selectable style={{ color: theme.textSecondary, textAlign: 'center' }}>Saving…</Text> : null}
-    </View>
+      </StudySurface>
+    </>
   );
 }

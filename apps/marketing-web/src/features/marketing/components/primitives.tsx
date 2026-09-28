@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, Plus } from "lucide-react";
+import { ArrowRight, ArrowUpRight, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ContentBlock, ContentItem } from "../content";
 import motion from "./magnetic-button.module.css";
@@ -176,7 +176,7 @@ export function PageLinks({ links }: { links: Array<[string, string]> }) {
       {links.map(([href, label]) => (
         <a key={href} href={href}>
           {label}
-          <span aria-hidden="true">↗</span>
+          <ArrowUpRight size={16} aria-hidden="true" />
         </a>
       ))}
     </nav>

@@ -28,7 +28,7 @@ export function groupFlashcards(cards: FlashcardReviewCard[]): FlashcardGroup[] 
     byFlashcard.set(card.flashcard_id, group);
   }
   return [...byFlashcard.entries()].map(([id, group]) => {
-    const sorted = group.toSorted((a, b) => a.cloze_index - b.cloze_index);
+    const sorted = [...group].sort((a, b) => a.cloze_index - b.cloze_index);
     return {
       id,
       cards: sorted,
@@ -49,7 +49,7 @@ export function filterFlashcardGroups(groups: FlashcardGroup[], filters: Flashca
         : filters.flag === 'suspended' ? Boolean(card.suspended_at)
           : Boolean(card.leech_at))) return false;
     return true;
-  }).toSorted((a, b) => {
+  }).sort((a, b) => {
     if (filters.sort === 'due') return a.dueAt.localeCompare(b.dueAt);
     if (filters.sort === 'state') return stateOrder[a.cards[0].state] - stateOrder[b.cards[0].state];
     return a.cards[0].flashcard_index - b.cards[0].flashcard_index;

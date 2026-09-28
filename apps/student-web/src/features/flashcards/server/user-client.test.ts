@@ -39,6 +39,7 @@ describe('authenticatedFlashcardClient', () => {
 
     expect(await authenticatedFlashcardClient(request())).toBe(client);
     expect(client.auth.getClaims).toHaveBeenCalledTimes(1);
+    expect(mockedCreateServerClient).toHaveBeenCalledWith({ fetch: expect.any(Function) });
     expect(mockedCreateClient).not.toHaveBeenCalled();
   });
 
@@ -51,7 +52,7 @@ describe('authenticatedFlashcardClient', () => {
     expect(client.auth.getUser).toHaveBeenCalledWith('native-token');
     expect(mockedCreateServerClient).not.toHaveBeenCalled();
     expect(mockedCreateClient).toHaveBeenCalledWith('https://example.supabase.co', 'public-key', expect.objectContaining({
-      global: { headers: { Authorization: 'Bearer native-token' } },
+      global: expect.objectContaining({ headers: { Authorization: 'Bearer native-token' }, fetch: expect.any(Function) }),
     }));
   });
 
