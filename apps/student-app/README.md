@@ -1,6 +1,6 @@
 # Altitutor Student App
 
-Native student application built with Expo SDK 56 and Expo Router.
+Native student application built with Expo SDK 57 and Expo Router.
 
 ## Environment
 
@@ -10,47 +10,37 @@ Create a local environment file from `.env.example` and configure:
 - `EXPO_PUBLIC_SUPABASE_ANON_KEY`
 - `EXPO_PUBLIC_STUDENT_WEB_URL`
 
-## Development Builds
+## Run
 
-This app uses native Expo modules and is developed with `expo-dev-client`.
-Do not open it in Expo Go.
-
-Install workspace dependencies from the repository root:
+From the monorepo root:
 
 ```bash
 pnpm install
+pnpm --filter @altitutor/student-app dev
 ```
 
-Build and install the iOS development client in Simulator:
+`start` is an alias for `dev`. Metro uses port **8082** (distinct from `ucat-app` on
+8081) so both native apps can run during root `pnpm dev`.
+
+Open the project in **Expo Go** on a device or simulator:
 
 ```bash
 pnpm --filter @altitutor/student-app ios
-```
-
-Expo SDK 56 native iOS compilation requires Xcode 26.4 or newer.
-
-Build and install the Android development client:
-
-```bash
+# or
 pnpm --filter @altitutor/student-app android
 ```
 
-After a development client is installed, reconnect it to Metro without
-rebuilding native code:
+Use `expo run:ios` / `expo run:android` only when you need a custom native build
+(for example store signing or native config not bundled in Expo Go).
 
-```bash
-pnpm --filter @altitutor/student-app start
-```
-
-The `development-simulator` profile in `eas.json` can produce an iOS
-Simulator development build through EAS while local Xcode is unavailable:
+`eas.json` provides development, preview, and production profiles. The
+`development-simulator` profile can produce an iOS Simulator build through EAS
+when local Xcode is unavailable:
 
 ```bash
 cd apps/student-app
 eas build --platform ios --profile development-simulator
 ```
-
-Use the `development` profile instead when building for a physical device.
 
 ## Validation
 

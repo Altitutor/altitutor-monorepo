@@ -11,7 +11,8 @@ pnpm + Turborepo workspace for Altitutor's web apps, native student app, and sha
 - `apps/tutor-web`: Tutor portal (port 3002)
 - `apps/marketing-web`: Marketing site (port 3003)
 - `apps/ucat-web`: UCAT student product (port 3004)
-- `apps/student-app`: Expo native student app
+- `apps/student-app`: Expo native student app (Expo Go, Metro port 8082)
+- `apps/ucat-app`: Expo UCAT native app (Expo Go, Metro port 8081)
 
 ### Packages
 
@@ -53,7 +54,8 @@ pnpm --filter student-web dev
 pnpm --filter tutor-web dev
 pnpm --filter marketing-web dev
 pnpm --filter ucat-web dev
-pnpm --filter @altitutor/student-app start
+pnpm --filter @altitutor/student-app dev
+pnpm --filter @altitutor/ucat-app dev
 ```
 
 6. Open in the browser:

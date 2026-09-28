@@ -19,6 +19,7 @@ export * from "./ucat/catalog-name";
 export * from "./ucat/acquisition-attribution";
 export * from "./types/ucat-subscription";
 export * from "./types/ucat-skill-trainer";
+export * from "./mobile-push/categories";
 export * from "./utils/quick-filters";
 export * from "./utils/session-format";
 export * from "./utils/ilike";

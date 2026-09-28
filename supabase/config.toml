@@ -352,6 +352,9 @@ verify_jwt = false
 [functions.resend-webhooks]
 verify_jwt = false
 
+[functions.mobile-push-dispatch]
+verify_jwt = false
+
 [analytics]
 enabled = true
 port = 55327
