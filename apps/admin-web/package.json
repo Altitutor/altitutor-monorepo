@@ -11,6 +11,7 @@
     "switch:local": "node ../../scripts/switch-env.js local",
     "switch:remote": "node ../../scripts/switch-env.js remote",
     "build": "next build",
+    "postbuild": "node ../../scripts/cleanup-ci-next-cache.mjs",
     "start": "next start",
     "lint": "eslint . --ext .ts,.tsx --max-warnings=2000",
     "lint:fix": "eslint . --ext .ts,.tsx --max-warnings=2000 --fix",
