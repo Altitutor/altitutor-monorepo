@@ -55,6 +55,13 @@ jobs:
           python3 supabase/scripts/disable-automatic-seed.py
           supabase start --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
 
+      - name: Cache postgres-meta image from GHCR
+        run: |
+          # Supabase CLI 2.108.0 type generation still requests this image from
+          # ECR, whose shared GitHub runner limit can block an otherwise valid check.
+          docker pull ghcr.io/supabase/postgres-meta:v0.96.1
+          docker tag ghcr.io/supabase/postgres-meta:v0.96.1 public.ecr.aws/supabase/postgres-meta:v0.96.1
+
       - name: Regenerate types and fail if committed file is stale
         run: |
           cp packages/shared/src/supabase/generated.ts /tmp/generated.ts.before

@@ -129,12 +129,14 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Run type check
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run typecheck --filter="${{ env.TURBO_FILTER }}"
+            pnpm turbo run typecheck --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run typecheck
+            pnpm turbo run typecheck --concurrency=1
           fi
 
   test:
@@ -246,6 +248,8 @@ jobs:
     if: needs.web-system-tests-needed.outputs.run == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 90
+    env:
+      NODE_OPTIONS: --max-old-space-size=4096
     steps:
       - uses: actions/checkout@v4
 
@@ -409,10 +413,12 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Build packages and apps
+        env:
+          NODE_OPTIONS: --max-old-space-size=4096
         run: |
           set -euo pipefail
           if [ -n "${{ env.TURBO_FILTER }}" ]; then
-            pnpm turbo run build --filter="${{ env.TURBO_FILTER }}"
+            pnpm turbo run build --concurrency=1 --filter="${{ env.TURBO_FILTER }}"
           else
-            pnpm turbo run build
+            pnpm turbo run build --concurrency=1
           fi
