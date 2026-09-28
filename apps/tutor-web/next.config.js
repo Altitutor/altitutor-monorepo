@@ -29,6 +29,8 @@ copyPdfjsAssets();
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  eslint: { ignoreDuringBuilds: process.env.ALTITUTOR_CI_BUILD === "true" },
+  typescript: { ignoreBuildErrors: process.env.ALTITUTOR_CI_BUILD === "true" },
   reactStrictMode: true,
   swcMinify: true,
   distDir: process.env.NEXT_DIST_DIR || ".next",

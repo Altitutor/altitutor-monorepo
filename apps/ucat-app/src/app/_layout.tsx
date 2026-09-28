@@ -24,6 +24,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { StatusBar } from "expo-status-bar";
 import { AuthProvider, useAuth } from "@/features/auth/auth-provider";
 import { Loading, Screen, useColors } from "@/components/ui";
+import { useNotificationNavigation, usePushRegistration } from "@/features/notifications/push";
 function Root() {
   return (
     <AppThemeProvider>
@@ -89,6 +90,8 @@ function Navigation() {
   const { session, loading } = useAuth();
   const access = useOnboardingAccess();
   const ready = Boolean(session && access.data?.completed && !access.error);
+  usePushRegistration(session?.user.id);
+  useNotificationNavigation(ready);
   const c = useColors();
   const attemptBannerStackOptions = useAttemptBannerStackScreenOptions();
   if (loading)

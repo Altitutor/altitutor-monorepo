@@ -4,13 +4,12 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
-import { AuthProvider } from '@/providers/auth-provider';
+import { AuthProvider, useAuth } from '@/providers/auth-provider';
 import { ThemePreferenceProvider, useThemePreference } from '@/providers/theme-preference-provider';
-import { useNotificationNavigation } from '@/lib/notifications';
+import { useNotificationNavigation, usePushRegistration } from '@/lib/notifications';
 
 export default function RootLayout() {
   const [queryClient] = useState(() => new QueryClient());
-  useNotificationNavigation();
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
@@ -27,6 +26,9 @@ export default function RootLayout() {
 
 function AppNavigation() {
   const { resolvedScheme } = useThemePreference();
+  const { session } = useAuth();
+  useNotificationNavigation(Boolean(session));
+  usePushRegistration(session?.user.id);
   return (
     <ThemeProvider value={resolvedScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack screenOptions={{ headerShown: false }}>
