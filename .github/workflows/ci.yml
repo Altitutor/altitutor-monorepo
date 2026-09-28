@@ -270,7 +270,9 @@ jobs:
       - name: Load cached Supabase Docker images
         if: steps.supabase-docker-cache.outputs.cache-hit == 'true'
         continue-on-error: true
-        run: docker load -i /tmp/supabase-docker-images.tar
+        run: |
+          trap 'rm -f /tmp/supabase-docker-images.tar' EXIT
+          docker load -i /tmp/supabase-docker-images.tar
 
       - name: Render email templates
         run: bash supabase/scripts/render-email-templates.sh
@@ -312,6 +314,7 @@ jobs:
         if: needs.web-system-tests-needed.outputs.admin == 'true'
         env:
           CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          NODE_OPTIONS: --max-old-space-size=3072
         run: |
           trap 'rm -rf apps/admin-web/.next-e2e' EXIT
           pnpm --filter admin-web test:e2e

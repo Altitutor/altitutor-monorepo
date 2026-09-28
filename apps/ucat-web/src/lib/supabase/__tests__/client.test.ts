@@ -1,5 +1,15 @@
+const originalGetSession = jest.fn().mockResolvedValue({
+  data: { session: null },
+  error: null,
+});
+
 const createBrowserClient = jest.fn(
-  (_url: string, _key: string, _options: unknown) => ({ auth: {} }),
+  (_url: string, _key: string, _options: unknown) => ({
+    auth: {
+      getSession: originalGetSession,
+      onAuthStateChange: jest.fn(),
+    },
+  }),
 );
 
 jest.mock("@supabase/ssr", () => ({
@@ -34,7 +44,9 @@ describe("getSupabaseBrowserClient", () => {
     process.env.NEXT_PUBLIC_SUPABASE_URL = "https://project.supabase.co";
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
 
-    getSupabaseBrowserClient();
+    const client = getSupabaseBrowserClient();
+
+    expect(client.auth.getSession).not.toBe(originalGetSession);
 
     expect(createBrowserClient).toHaveBeenCalledWith(
       "https://project.supabase.co",

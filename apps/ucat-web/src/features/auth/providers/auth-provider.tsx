@@ -1,6 +1,12 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import * as Sentry from "@sentry/nextjs";
 import type { User } from "@supabase/supabase-js";
 import { useQueryClient } from "@tanstack/react-query";
