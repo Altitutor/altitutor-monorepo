@@ -14,6 +14,7 @@
     },
     "build": {
       "dependsOn": ["^build"],
+      "passThroughEnv": ["ALTITUTOR_CI_BUILD"],
       "outputs": [".next/**", "dist/**", "build/**"]
     },
     "lint": { "dependsOn": ["^build"] },
