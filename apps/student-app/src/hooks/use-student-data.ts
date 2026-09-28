@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { studentApi, type StudentProfileUpdate } from '@/lib/student-api';
+import { studentApi, type NotificationPatch } from '@/lib/student-api';
 
 export const studentKeys = {
   sessions: ['student', 'sessions'] as const,
@@ -68,10 +68,14 @@ export function useProfile() {
   return useQuery({ queryKey: studentKeys.profile, queryFn: studentApi.getProfile });
 }
 
-export function useUpdateProfile(studentId: string) {
+export function useNotifications() {
+  return useQuery({ queryKey: ['student', 'notifications'], queryFn: studentApi.listNotifications });
+}
+
+export function useUpdateNotifications() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (updates: StudentProfileUpdate) => studentApi.updateProfile(studentId, updates),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: studentKeys.profile }),
+    mutationFn: (patch: NotificationPatch) => studentApi.patchNotifications(patch),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['student', 'notifications'] }),
   });
 }

@@ -2,7 +2,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
-import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
+import { createNotificationUserClient } from '@/features/notifications/server/user-client';
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 const MAX_NOTIFICATIONS = 50;
@@ -33,8 +33,8 @@ function createServiceClient() {
   }));
 }
 
-async function resolveStudentContext() {
-  const userClient = createServerClient();
+async function resolveStudentContext(request: Request) {
+  const userClient = createNotificationUserClient(request);
   const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
 
   if (studentCheckError) {
@@ -65,7 +65,7 @@ async function resolveStudentContext() {
 }
 
 async function verifyNotificationIds(
-  userClient: ReturnType<typeof createServerClient>,
+  userClient: ReturnType<typeof createNotificationUserClient>,
   notificationIds: string[],
 ) {
   const { data: visibleNotifications, error: noteError } = await userClient
@@ -106,7 +106,7 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ success: true, updated: 0 });
     }
 
-    const resolved = await resolveStudentContext();
+    const resolved = await resolveStudentContext(request);
     if ('response' in resolved) return resolved.response;
 
     const { userClient, studentId } = resolved;

@@ -15,8 +15,6 @@ export default function AppTabs() {
       <Tabs.Screen name="classes" options={{ title: 'Classes' }} />
       <Tabs.Screen name="resources" options={{ title: 'Resources' }} />
       <Tabs.Screen name="billing" options={{ title: 'Billing' }} />
-      <Tabs.Screen name="more" options={{ title: 'More' }} />
-      <Tabs.Screen name="profile" options={{ href: null }} />
     </Tabs>
   );
 }

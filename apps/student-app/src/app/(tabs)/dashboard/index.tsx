@@ -31,6 +31,7 @@ export default function DashboardScreen() {
     <StudentScreen
       title="Dashboard"
       subtitle="Welcome back. Here is what is coming up."
+      showHeaderActions
       refreshing={sessions.isRefetching}
       onRefresh={() => sessions.refetch()}>
       <SectionTitle>Upcoming sessions</SectionTitle>

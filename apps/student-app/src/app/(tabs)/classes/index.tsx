@@ -38,6 +38,7 @@ export default function ClassesScreen() {
     <StudentScreen
       title="Classes"
       subtitle="Your enrolled subjects and weekly timetable."
+      showHeaderActions
       refreshing={classes.isRefetching}
       onRefresh={() => classes.refetch()}>
       {classes.isPending ? <LoadingBlock label="Loading classes..." /> : null}

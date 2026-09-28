@@ -21,7 +21,7 @@ export default function ClassDetailScreen() {
   const sessions = useClassSessions(classId);
 
   return (
-    <StudentScreen title={details.data?.subject_name ?? 'Class details'} subtitle="Schedule and recent sessions">
+    <StudentScreen title={details.data?.subject_name ?? 'Class details'} subtitle="Schedule and recent sessions" showHeaderActions>
       {details.isPending ? <LoadingBlock /> : null}
       {details.isError ? <ErrorBlock message={details.error.message} /> : null}
       {details.data ? (

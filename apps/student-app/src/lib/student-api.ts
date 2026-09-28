@@ -1,6 +1,7 @@
 import type { Database, ResourceFile } from '@altitutor/shared';
 import { mapTopicFile } from '@altitutor/shared';
 
+import { studentWebUrl } from '@/lib/student-web';
 import { supabase } from '@/lib/supabase';
 export { readPaymentMethod, type PaymentMethod } from '@/lib/payment-method';
 
@@ -20,10 +21,20 @@ export type StudentSessionDetail = Database['public']['Views']['vstudent_session
 export type ResourceSubject = Database['public']['Views']['vstudent_online_subjects']['Row'];
 export type ResourceTopic = Database['public']['Views']['vstudent_topics']['Row'];
 
-export type StudentProfileUpdate = Pick<
-  Database['public']['Tables']['students']['Update'],
-  'first_name' | 'last_name' | 'phone'
->;
+export type StudentNotification = {
+  id: string;
+  title: string | null;
+  body: string | null;
+  created_at: string | null;
+  read_at: string | null;
+  action_url: string | null;
+};
+
+export type NotificationPatch = {
+  notificationIds?: string[];
+  markAllRead?: boolean;
+  dismiss?: boolean;
+};
 
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
@@ -185,8 +196,40 @@ export const studentApi = {
     return data;
   },
 
-  async updateProfile(studentId: string, updates: StudentProfileUpdate): Promise<void> {
-    const { error } = await supabase.from('students').update(updates).eq('id', studentId);
+  async listNotifications(): Promise<StudentNotification[]> {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('vstudent_notifications')
+      .select('id, title, body, created_at, read_at, action_url')
+      .is('dismissed_at', null)
+      .is('resolved_at', null)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order('created_at', { ascending: false })
+      .limit(50);
     throwIfError(error);
+    return (data ?? []).flatMap((row) => (row.id ? [{
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      created_at: row.created_at,
+      read_at: row.read_at,
+      action_url: row.action_url,
+    }] : []));
+  },
+
+  async patchNotifications(body: NotificationPatch): Promise<void> {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) throw new Error('Please sign in to continue.');
+    const response = await fetch(studentWebUrl('/api/notifications'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error('Unable to update notifications.');
   },
 };

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HeaderActions } from '@/components/header-actions';
 import { useTheme } from '@/hooks/use-theme';
 
 export function StudentScreen({
@@ -19,24 +20,33 @@ export function StudentScreen({
   children,
   refreshing,
   onRefresh,
+  showHeaderActions = false,
+  largeTitle = true,
+  contentPaddingBottom = 100,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
   refreshing?: boolean;
   onRefresh?: () => void;
+  showHeaderActions?: boolean;
+  largeTitle?: boolean;
+  contentPaddingBottom?: number;
 }>) {
   const theme = useTheme();
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['left', 'right']}>
-      <Stack.Screen options={{ title }} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.content}
-        refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} /> : undefined}>
-        {subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text> : null}
-        {children}
-      </ScrollView>
-    </SafeAreaView>
+    <>
+      {showHeaderActions ? <HeaderActions /> : null}
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['left', 'right']}>
+        <Stack.Screen options={{ title, ...(largeTitle ? {} : { headerLargeTitleEnabled: false }) }} />
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+          refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} /> : undefined}>
+          {subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text> : null}
+          {children}
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
 
