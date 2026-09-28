@@ -29,7 +29,7 @@ export default function AppSettingsScreen() {
   }
 
   return (
-    <StudentScreen title="App settings" subtitle="Preferences for this device.">
+    <StudentScreen title="App settings">
       <Text style={[styles.groupLabel, { color: theme.textSecondary }]}>APPEARANCE</Text>
       <Card>
         <Text style={[styles.rowTitle, { color: theme.text }]}>Theme</Text>

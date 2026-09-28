@@ -4,6 +4,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { expandProjectedClassScheduleRows } from '@altitutor/shared';
 
 import { Card, EmptyBlock, ErrorBlock, LoadingBlock, SectionTitle, StudentScreen, TappableRow } from '@/components/student-ui';
+import { sessionDisplayTitle } from '@/features/sessions/session-display';
 import { useStudentClasses } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -37,7 +38,6 @@ export default function ClassesScreen() {
   return (
     <StudentScreen
       title="Classes"
-      subtitle="Your enrolled subjects and weekly timetable."
       showHeaderActions
       refreshing={classes.isRefetching}
       onRefresh={() => classes.refetch()}>
@@ -48,7 +48,7 @@ export default function ClassesScreen() {
       {classes.data?.map((row) => (
         <Card key={row.class_id}>
           <TappableRow
-            title={row.short_name ?? `${row.subject_year_level ? `Year ${row.subject_year_level} ` : ''}${row.subject_name ?? 'Class'}`}
+            title={sessionDisplayTitle(row)}
             detail={row.schedule_summary_long ?? `${days[row.day_of_week ?? 0]} · ${row.start_time ?? '--:--'} - ${row.end_time ?? '--:--'}`}
             accent={row.subject_color}
             onPress={row.class_id ? () => router.push({ pathname: '/(tabs)/classes/[classId]', params: { classId: row.class_id! } }) : undefined}
@@ -75,7 +75,11 @@ export default function ClassesScreen() {
                       {formatTime(row.start_time)} - {formatTime(row.end_time)}
                     </Text>
                     <Text style={[styles.eventTitle, { color: theme.text }]} numberOfLines={1}>
-                      {row.subject_year_level ? `Year ${row.subject_year_level} ` : ''}{row.subject_name ?? 'Class'}
+                      {sessionDisplayTitle({
+                        session_type: row.session_type,
+                        subject_year_level: row.subject_year_level,
+                        subject_name: row.subject_name,
+                      })}
                     </Text>
                     {row.room ? <Text style={[styles.eventRoom, { color: theme.textSecondary }]}>{row.room}</Text> : null}
                   </Pressable>

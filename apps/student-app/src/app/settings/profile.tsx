@@ -35,7 +35,7 @@ export default function ProfileScreen() {
           }}
         />
       )}
-      <StudentScreen title="My profile" subtitle="Your student account details.">
+      <StudentScreen title="My profile">
         {profile.isPending ? <LoadingBlock /> : null}
         {profile.isError ? <ErrorBlock message={profile.error.message} /> : null}
         {profile.data ? (

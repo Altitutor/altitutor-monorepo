@@ -1,6 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { studentApi, type NotificationPatch } from '@/lib/student-api';
+import { applyNotificationPatch } from '@/features/notifications/inbox';
+import { studentApi, type NotificationPatch, type StudentNotification } from '@/lib/student-api';
 
 export const studentKeys = {
   sessions: ['student', 'sessions'] as const,
@@ -14,6 +15,14 @@ export const studentKeys = {
 
 export function useUpcomingSessions() {
   return useQuery({ queryKey: studentKeys.sessions, queryFn: studentApi.listUpcomingSessions });
+}
+
+export function useDashboardSessions() {
+  return useQuery({ queryKey: ['student', 'dashboard', 'sessions'], queryFn: studentApi.listDashboardSessions });
+}
+
+export function useRecentResources() {
+  return useQuery({ queryKey: ['student', 'dashboard', 'resources'], queryFn: studentApi.listRecentResources });
 }
 
 export function useStudentClasses() {
@@ -68,14 +77,27 @@ export function useProfile() {
   return useQuery({ queryKey: studentKeys.profile, queryFn: studentApi.getProfile });
 }
 
+const notificationKey = ['student', 'notifications'] as const;
+
 export function useNotifications() {
-  return useQuery({ queryKey: ['student', 'notifications'], queryFn: studentApi.listNotifications });
+  return useQuery({ queryKey: notificationKey, queryFn: studentApi.listNotifications });
 }
 
 export function useUpdateNotifications() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (patch: NotificationPatch) => studentApi.patchNotifications(patch),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: ['student', 'notifications'] }),
+    onMutate: async (patch) => {
+      await queryClient.cancelQueries({ queryKey: notificationKey });
+      const previous = queryClient.getQueryData<StudentNotification[]>(notificationKey);
+      if (previous) {
+        queryClient.setQueryData(notificationKey, applyNotificationPatch(previous, patch, new Date().toISOString()));
+      }
+      return { previous };
+    },
+    onError: (_error, _patch, context) => {
+      if (context?.previous) queryClient.setQueryData(notificationKey, context.previous);
+    },
+    onSettled: () => queryClient.invalidateQueries({ queryKey: notificationKey }),
   });
 }

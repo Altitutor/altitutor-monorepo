@@ -25,14 +25,16 @@ export default function TopicNavigatorScreen() {
   }, [files.data]);
 
   return (
-    <StudentScreen title="Topics" subtitle="Jump to another topic in this subject." largeTitle={false}>
+    <StudentScreen title="Topics" largeTitle={false}>
       {nav ? (
         <TopicTree
           tree={nav.tree}
           currentId={nav.topicId}
           fileCounts={fileCounts}
           onOpen={(topic) => {
-            nav.jump(topic);
+            const jump = navigationRef.current?.jump;
+            if (!jump) return;
+            jump(topic);
             router.back();
           }}
         />

@@ -14,14 +14,16 @@ export default function FileNavigatorScreen() {
   }, [navigationRef]);
 
   return (
-    <StudentScreen title="Files" subtitle="Jump to another file in this topic." largeTitle={false}>
+    <StudentScreen title="Files" largeTitle={false}>
       {nav?.files.length ? nav.files.map((file) => (
         <Card key={file.id}>
           <TappableRow
             title={file.title}
             detail={file.id === nav.currentId ? 'Current' : file.detail}
             onPress={() => {
-              nav.jump(file.id);
+              const jump = navigationRef.current?.jump;
+              if (!jump) return;
+              jump(file.id);
               router.back();
             }}
           />

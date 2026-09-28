@@ -19,7 +19,7 @@ export default function TopicsScreen() {
   }, [files.data]);
 
   return (
-    <StudentScreen title={title ?? 'Topics'} subtitle="Select a topic to view resources." showHeaderActions>
+    <StudentScreen title={title ?? 'Topics'} showHeaderActions>
       {topics.isPending ? <LoadingBlock label="Loading topics..." /> : null}
       {topics.isError ? <ErrorBlock message={topics.error.message} /> : null}
       {topics.data?.length === 0 ? <EmptyBlock>No topics published yet.</EmptyBlock> : null}
