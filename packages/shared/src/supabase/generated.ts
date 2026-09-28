@@ -501,6 +501,13 @@ export type Database = {
             foreignKeyName: "answer_option_files_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "answer_option_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -3098,6 +3105,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "flashcards_image_file_id_fkey"
@@ -6282,6 +6296,13 @@ export type Database = {
             foreignKeyName: "print_jobs_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -7580,6 +7601,13 @@ export type Database = {
             foreignKeyName: "question_stems_files_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "question_stems_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -8036,6 +8064,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "questions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "questions_files_file_id_fkey"
@@ -8675,6 +8710,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "sessions_files_file_id_fkey"
@@ -9572,6 +9614,13 @@ export type Database = {
             foreignKeyName: "staff_profile_image_file_id_fkey"
             columns: ["profile_image_file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -9662,6 +9711,13 @@ export type Database = {
             foreignKeyName: "staff_files_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "staff_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -9704,6 +9760,59 @@ export type Database = {
             foreignKeyName: "staff_files_staff_id_fkey"
             columns: ["staff_id"]
             isOneToOne: false
+            referencedRelation: "vtutor_profile"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      staff_marketing_profiles: {
+        Row: {
+          display_name: string | null
+          display_order: number
+          public_title: string
+          published: boolean
+          staff_id: string
+        }
+        Insert: {
+          display_name?: string | null
+          display_order?: number
+          public_title?: string
+          published?: boolean
+          staff_id: string
+        }
+        Update: {
+          display_name?: string | null
+          display_order?: number
+          public_title?: string
+          published?: boolean
+          staff_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "staff_marketing_profiles_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "staff"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_marketing_profiles_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_marketing_profiles_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
+            referencedRelation: "vtutor_pay_tier_profile"
+            referencedColumns: ["staff_id"]
+          },
+          {
+            foreignKeyName: "staff_marketing_profiles_staff_id_fkey"
+            columns: ["staff_id"]
+            isOneToOne: true
             referencedRelation: "vtutor_profile"
             referencedColumns: ["id"]
           },
@@ -10500,6 +10609,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "student_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "student_files_file_id_fkey"
@@ -13873,6 +13989,13 @@ export type Database = {
             foreignKeyName: "subjects_files_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "subjects_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -14361,6 +14484,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "topics_files_file_id_fkey"
@@ -18323,6 +18453,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_blocks_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "ucat_learning_module_blocks_file_id_fkey"
@@ -24554,6 +24691,8 @@ export type Database = {
       }
       vmarketing_staff_profiles: {
         Row: {
+          display_name: string | null
+          display_order: number | null
           first_name: string | null
           last_name: string | null
           profile_bio: string | null
@@ -24562,39 +24701,11 @@ export type Database = {
           profile_image_metadata: Json | null
           profile_image_mimetype: string | null
           profile_image_storage_path: string | null
+          public_title: string | null
           staff_id: string | null
           updated_at: string | null
         }
-        Relationships: [
-          {
-            foreignKeyName: "staff_profile_image_file_id_fkey"
-            columns: ["profile_image_file_id"]
-            isOneToOne: false
-            referencedRelation: "files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_profile_image_file_id_fkey"
-            columns: ["profile_image_file_id"]
-            isOneToOne: false
-            referencedRelation: "vstudent_subject_images"
-            referencedColumns: ["file_id"]
-          },
-          {
-            foreignKeyName: "staff_profile_image_file_id_fkey"
-            columns: ["profile_image_file_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_files"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "staff_profile_image_file_id_fkey"
-            columns: ["profile_image_file_id"]
-            isOneToOne: false
-            referencedRelation: "vtutor_subject_images"
-            referencedColumns: ["file_id"]
-          },
-        ]
+        Relationships: []
       }
       vstaff_flashcard_topics: {
         Row: {
@@ -24762,6 +24873,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "flashcards_image_file_id_fkey"
@@ -25239,6 +25357,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "flashcards_image_file_id_fkey"
+            columns: ["image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "flashcards_image_file_id_fkey"
@@ -26151,6 +26276,13 @@ export type Database = {
             foreignKeyName: "sessions_files_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "sessions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -26911,6 +27043,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "topics_files_file_id_fkey"
@@ -27703,6 +27842,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_blocks_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "ucat_learning_module_blocks_file_id_fkey"
@@ -32321,6 +32467,13 @@ export type Database = {
             foreignKeyName: "print_jobs_file_id_fkey"
             columns: ["file_id"]
             isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
+          },
+          {
+            foreignKeyName: "print_jobs_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
             referencedRelation: "vstudent_subject_images"
             referencedColumns: ["file_id"]
           },
@@ -32448,6 +32601,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "staff_profile_image_file_id_fkey"
+            columns: ["profile_image_file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "staff_profile_image_file_id_fkey"
@@ -32661,6 +32821,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "sessions_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "sessions_files_file_id_fkey"
@@ -33586,6 +33753,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "topics_files_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "topics_files_file_id_fkey"
@@ -35143,6 +35317,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "files"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ucat_learning_module_blocks_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "vmarketing_staff_profiles"
+            referencedColumns: ["profile_image_file_id"]
           },
           {
             foreignKeyName: "ucat_learning_module_blocks_file_id_fkey"
@@ -39979,6 +40160,13 @@ export type Database = {
       current_tutor_id: { Args: never; Returns: string }
       current_ucat_portal_access: { Args: never; Returns: Json }
       current_ucat_signup_staff_role: { Args: never; Returns: string }
+      dashboard_new_class_students: {
+        Args: { p_session_ids: string[] }
+        Returns: {
+          session_id: string
+          student_id: string
+        }[]
+      }
       delete_ucat_product_learning_data: {
         Args: { p_student_id: string }
         Returns: undefined

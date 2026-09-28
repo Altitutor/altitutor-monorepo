@@ -5,6 +5,7 @@ import { useSessionsWithDetails, sessionsKeys } from './useSessionsQuery';
 import {
   buildDashboardDayUpdates,
   DASHBOARD_MEETING_TYPES,
+  dashboardNewStudentKey,
   type DashboardDaySession,
   type DashboardDayUpdates,
 } from '../utils/dashboardDayUpdates';
@@ -58,6 +59,25 @@ export function useDashboardDayUpdates(date: string) {
     gcTime: 1000 * 60 * 3,
   });
 
+  const classSessionIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const session of sessionsQuery.data?.sessions ?? []) {
+      if (session.class_id) ids.add(session.id);
+    }
+    for (const override of overridesQuery.data ?? []) {
+      if (override.class_id) ids.add(override.id);
+    }
+    return [...ids].sort();
+  }, [overridesQuery.data, sessionsQuery.data?.sessions]);
+
+  const newStudentsQuery = useQuery({
+    queryKey: [...sessionsKeys.withDetails(), 'new-students', date, classSessionIds],
+    queryFn: () => sessionsApi.getDashboardNewClassStudents(classSessionIds),
+    enabled: classSessionIds.length > 0,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 3,
+  });
+
   const updates: DashboardDayUpdates = useMemo(() => {
     const sessionsById = new Map<string, DashboardDaySession>();
 
@@ -90,6 +110,11 @@ export function useDashboardDayUpdates(date: string) {
       });
     }
 
+    const newStudentKeys = new Set<string>();
+    for (const row of newStudentsQuery.data ?? []) {
+      newStudentKeys.add(dashboardNewStudentKey(row.session_id, row.student_id));
+    }
+
     return buildDashboardDayUpdates({
       sessions: [...sessionsById.values()],
       sessionStudents: sessionsQuery.data?.sessionStudents ?? {},
@@ -98,11 +123,13 @@ export function useDashboardDayUpdates(date: string) {
       classesById: sessionsQuery.data?.classesById ?? {},
       subjectsById: sessionsQuery.data?.subjectsById ?? {},
       classStaffAssignments: assignmentsQuery.data ?? [],
+      newStudentKeys,
       viewDate: date,
     });
   }, [
     assignmentsQuery.data,
     date,
+    newStudentsQuery.data,
     overridesQuery.data,
     parentsQuery.data,
     sessionsQuery.data?.classesById,
@@ -114,11 +141,16 @@ export function useDashboardDayUpdates(date: string) {
 
   const isAssignmentsLoading = classIds.length > 0 && assignmentsQuery.isLoading;
   const isParentsLoading = meetingIds.length > 0 && parentsQuery.isLoading;
+  const isNewStudentsLoading = classSessionIds.length > 0 && newStudentsQuery.isLoading;
 
   return {
     updates,
     isLoading:
-      sessionsQuery.isLoading || overridesQuery.isLoading || isAssignmentsLoading || isParentsLoading,
-    isError: sessionsQuery.isError,
+      sessionsQuery.isLoading ||
+      overridesQuery.isLoading ||
+      isAssignmentsLoading ||
+      isParentsLoading ||
+      isNewStudentsLoading,
+    isError: sessionsQuery.isError || newStudentsQuery.isError,
   };
 }

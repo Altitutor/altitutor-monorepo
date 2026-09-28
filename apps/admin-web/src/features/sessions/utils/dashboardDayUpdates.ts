@@ -68,6 +68,7 @@ export type DashboardDayUpdateKind =
   | 'meeting'
   | 'time_change'
   | 'student_absence'
+  | 'new_student'
   | 'extra_student'
   | 'staff_swap'
   | 'staff_absence'
@@ -91,6 +92,7 @@ export type DashboardDayUpdates = {
   meetings: DashboardDayUpdateItem[];
   timeChanges: DashboardDayUpdateItem[];
   studentAbsences: DashboardDayUpdateItem[];
+  newStudents: DashboardDayUpdateItem[];
   extraStudents: DashboardDayUpdateItem[];
   staffSwaps: DashboardDayUpdateItem[];
   staffAbsences: DashboardDayUpdateItem[];
@@ -106,8 +108,15 @@ export type BuildDashboardDayUpdatesInput = {
   classesById: Record<string, Tables<'classes'>>;
   subjectsById: Record<string, Tables<'subjects'>>;
   classStaffAssignments?: DashboardClassStaffAssignment[];
+  newStudentKeys?: ReadonlySet<string>;
   viewDate?: string;
 };
+
+const EMPTY_NEW_STUDENT_KEYS: ReadonlySet<string> = new Set();
+
+export function dashboardNewStudentKey(sessionId: string, studentId: string): string {
+  return `${sessionId}:${studentId}`;
+}
 
 function personName(person: { first_name: string | null; last_name: string | null }): string {
   return `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim() || 'Unknown';
@@ -224,6 +233,7 @@ export const DASHBOARD_UPDATES_TYPE_SECTIONS: Array<{
   { key: 'meetings', title: 'Meetings' },
   { key: 'timeChanges', title: 'Rescheduled sessions' },
   { key: 'studentAbsences', title: 'Student absences' },
+  { key: 'newStudents', title: 'New students' },
   { key: 'extraStudents', title: 'Extra students' },
   { key: 'staffSwaps', title: 'Staff swaps' },
   { key: 'staffAbsences', title: 'Staff absences' },
@@ -235,6 +245,7 @@ const DASHBOARD_UPDATE_KIND_SECTION_KEY: Record<DashboardDayUpdateKind, keyof Da
   meeting: 'meetings',
   time_change: 'timeChanges',
   student_absence: 'studentAbsences',
+  new_student: 'newStudents',
   extra_student: 'extraStudents',
   staff_swap: 'staffSwaps',
   staff_absence: 'staffAbsences',
@@ -274,6 +285,7 @@ const STAFF_UPDATE_KINDS = new Set<DashboardDayUpdateKind>([
 
 const STUDENT_UPDATE_KINDS = new Set<DashboardDayUpdateKind>([
   'student_absence',
+  'new_student',
   'extra_student',
 ]);
 
@@ -317,6 +329,7 @@ export function flattenDashboardDayUpdates(updates: DashboardDayUpdates): Dashbo
     ...updates.meetings,
     ...updates.timeChanges,
     ...updates.studentAbsences,
+    ...updates.newStudents,
     ...updates.extraStudents,
     ...updates.staffSwaps,
     ...updates.staffAbsences,
@@ -424,6 +437,7 @@ export function hasDashboardDayUpdates(updates: DashboardDayUpdates): boolean {
     updates.meetings.length > 0 ||
     updates.timeChanges.length > 0 ||
     updates.studentAbsences.length > 0 ||
+    updates.newStudents.length > 0 ||
     updates.extraStudents.length > 0 ||
     updates.staffSwaps.length > 0 ||
     updates.staffAbsences.length > 0 ||
@@ -440,6 +454,7 @@ export function buildDashboardDayUpdates({
   classesById,
   subjectsById,
   classStaffAssignments = [],
+  newStudentKeys = EMPTY_NEW_STUDENT_KEYS,
   viewDate,
 }: BuildDashboardDayUpdatesInput): DashboardDayUpdates {
   const assignmentsByClass = new Map<string, DashboardClassStaffAssignment[]>();
@@ -453,6 +468,7 @@ export function buildDashboardDayUpdates({
     meetings: [],
     timeChanges: [],
     studentAbsences: [],
+    newStudents: [],
     extraStudents: [],
     staffSwaps: [],
     staffAbsences: [],
@@ -529,6 +545,24 @@ export function buildDashboardDayUpdates({
           personName: name,
         });
       }
+
+      const isNewStudent =
+        student.is_extra !== true &&
+        !student.planned_absence &&
+        student.sessions_students_id != null &&
+        isTeachingType(session.type) &&
+        newStudentKeys.has(dashboardNewStudentKey(session.id, student.id));
+
+      if (isNewStudent) {
+        updates.newStudents.push({
+          kind: 'new_student',
+          sessionId: session.id,
+          sessionLabel: label,
+          startAt: session.start_at,
+          endAt: session.end_at,
+          personName: name,
+        });
+      }
     }
 
     const classHasAssignments =
@@ -597,6 +631,7 @@ export function buildDashboardDayUpdates({
   updates.meetings.sort(byStartThenLabel);
   updates.timeChanges.sort(byStartThenLabel);
   updates.studentAbsences.sort(byStartThenLabel);
+  updates.newStudents.sort(byStartThenLabel);
   updates.extraStudents.sort(byStartThenLabel);
   updates.staffSwaps.sort(byStartThenLabel);
   updates.staffAbsences.sort(byStartThenLabel);
