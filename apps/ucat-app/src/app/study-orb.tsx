@@ -1,17 +1,35 @@
-import { Stack, useFocusEffect } from "expo-router";
+import { useFocusEffect } from "expo-router";
+import { Stack } from "expo-router/stack";
 import { useCallback, useState } from "react";
-import { Screen, Group, Copy, Action, Loading, Failure } from "@/components/ui";
+import { Pressable, Text } from "react-native";
+import {
+  Screen,
+  Group,
+  Copy,
+  Action,
+  Loading,
+  Failure,
+  useColors,
+} from "@/components/ui";
 import { useStudyCompanion } from "@/features/study-plan/components/study-orb";
 import { StudyCalendar } from "@/features/study-plan/components/study-calendar";
 import { StudyGoal } from "@/features/study-plan/components/study-goal";
 import { useLaunchActivity } from "@/features/study-plan/use-launch-activity";
+import { openWebSettings } from "@/features/settings/open-web-settings";
+import { withHaptic } from "@/lib/haptics";
 
 export default function StudyCompanion() {
   const { query, next } = useStudyCompanion();
   const { launch, busy, error } = useLaunchActivity();
   const [expanded, setExpanded] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  const c = useColors();
   const { refetch } = query;
+  const editPlan = () => {
+    void openWebSettings("/settings/study-plan").then(() => {
+      void refetch();
+    });
+  };
   useFocusEffect(
     useCallback(() => {
       void refetch();
@@ -29,8 +47,32 @@ export default function StudyCompanion() {
           title: expanded ? "Study plan" : "Your next step",
           sheetAllowedDetents: expanded ? [1] : [0.5, 1],
           sheetInitialDetentIndex: 0,
+          ...(process.env.EXPO_OS === "ios"
+            ? {}
+            : {
+                headerRight: () => (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel="Edit study plan"
+                    onPress={withHaptic(editPlan)}
+                    style={{ padding: 12 }}
+                  >
+                    <Text style={{ color: c.accent }}>Edit</Text>
+                  </Pressable>
+                ),
+              }),
         }}
       />
+      {process.env.EXPO_OS === "ios" ? (
+        <Stack.Toolbar placement="right">
+          <Stack.Toolbar.Button
+            accessibilityLabel="Edit study plan"
+            onPress={withHaptic(editPlan)}
+          >
+            Edit
+          </Stack.Toolbar.Button>
+        </Stack.Toolbar>
+      ) : null}
       {query.isPending ? (
         <Loading variant="card" />
       ) : query.error ? (
@@ -70,6 +112,7 @@ export default function StudyCompanion() {
           )}
           {expanded && query.data && (
             <>
+              <StudyGoal profile={query.data.profile} />
               <StudyCalendar
                 today={query.data.today}
                 tasks={query.data.tasks}
@@ -112,11 +155,10 @@ export default function StudyCompanion() {
                   <Copy muted>
                     {query.data.profile
                       ? "No study activities scheduled for this day."
-                      : "Set your goal below to build your study plan."}
+                      : "No study activities yet."}
                   </Copy>
                 </Group>
               )}
-              <StudyGoal />
             </>
           )}
         </>

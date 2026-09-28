@@ -43,6 +43,7 @@ export function BrowserSessionReturn() {
           "/settings/plan",
           "/settings/plan/subscription",
           "/settings/plan/referrals",
+          "/settings/study-plan",
         ].includes(data.path)
       )
         throw new Error(

@@ -15,6 +15,7 @@ const destinations = [
   "/settings/plan",
   "/settings/plan/subscription",
   "/settings/plan/referrals",
+  "/settings/study-plan",
 ] as const;
 export type BrowserDestination = (typeof destinations)[number];
 export type HandoffPayload = { userId: string; tokenHash: string } & (

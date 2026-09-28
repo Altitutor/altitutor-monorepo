@@ -9,6 +9,7 @@ const allowedPaths = new Set([
   "/settings/plan",
   "/settings/plan/subscription",
   "/settings/plan/referrals",
+  "/settings/study-plan",
 ]);
 
 export async function openWebSettings(path: string) {
