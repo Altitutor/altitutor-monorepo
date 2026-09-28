@@ -31,12 +31,6 @@
     "plugins": [
       "expo-router",
       [
-        "expo-dev-client",
-        {
-          "launchMode": "most-recent"
-        }
-      ],
-      [
         "expo-notifications",
         {
           "color": "#2949D3"
@@ -51,11 +45,7 @@
             "imageWidth": 76
           }
         }
-      ],
-      "expo-font",
-      "expo-image",
-      "expo-status-bar",
-      "expo-web-browser"
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
