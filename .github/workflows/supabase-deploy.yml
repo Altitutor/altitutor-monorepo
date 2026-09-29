@@ -339,7 +339,7 @@ jobs:
         run: pnpm turbo run build --filter=@altitutor/shared
       - uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
+          eas-version: 24.8.0
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Build compatible preview binary or publish OTA
         run: bash scripts/mobile-eas-release.sh "${{ matrix.app }}" "${{ matrix.platform }}" preview
@@ -373,7 +373,7 @@ jobs:
         run: pnpm turbo run build --filter=@altitutor/shared
       - uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
+          eas-version: 24.8.0
           token: ${{ secrets.EXPO_TOKEN }}
       - name: Build compatible store binary or publish OTA
         run: bash scripts/mobile-eas-release.sh "${{ matrix.app }}" "${{ matrix.platform }}" production
