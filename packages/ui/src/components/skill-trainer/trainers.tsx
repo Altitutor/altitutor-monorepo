@@ -351,6 +351,18 @@ export function FindWordTrainer({
                   )}
             </p>
           ))}
+          {content.source?.provider === "wikipedia" ? (
+            <p className="text-xs text-muted-foreground" onClick={(event) => event.stopPropagation()}>
+              Excerpt adapted from Wikipedia contributors: {" "}
+              <a href={content.source.url} target="_blank" rel="noopener noreferrer" className="underline">
+                {content.source.title}
+              </a>{" "}
+              · {" "}
+              <a href="https://creativecommons.org/licenses/by-sa/4.0/" target="_blank" rel="noopener noreferrer" className="underline">
+                {content.source.license}
+              </a>
+            </p>
+          ) : null}
         </div>
       </div>
     );

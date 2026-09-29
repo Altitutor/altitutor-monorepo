@@ -34,7 +34,7 @@ export default function SettingsScreen() {
         <TappableRow title="App settings" onPress={withHaptic(() => router.push('/settings/app-settings'))} />
         <TappableRow title="My profile" onPress={withHaptic(() => router.push('/settings/profile'))} />
         <TappableRow title="Privacy policy" onPress={() => void Linking.openURL('https://altitutor.com/mobile-privacy/')} />
-        <TappableRow title="Account and data requests" onPress={() => void Linking.openURL('https://altitutor.com/about/contact/')} />
+        <TappableRow title="Request account deletion" onPress={() => void Linking.openURL('https://altitutor.com/mobile-account-deletion/')} />
       </Card>
       <NativeAction label="Sign out" secondary block color={theme.danger} labelColor={theme.danger} onPress={confirmSignOut} />
     </StudentScreen>

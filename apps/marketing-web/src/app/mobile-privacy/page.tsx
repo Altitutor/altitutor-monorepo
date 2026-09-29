@@ -74,10 +74,10 @@ export default function MobilePrivacyPage() {
             tutoring and payment records may need to remain after an online product account
             is closed. You can start UCAT product-account deletion from UCAT app Settings
             → My profile → Delete account. For Student app account access or data requests,
-            including deletion requests, contact{" "}
-            <a href="mailto:admin@altitutor.com">admin@altitutor.com</a>. Parents or
-            guardians may contact us on a student’s behalf. We will explain what can be
-            deleted or must be retained when we respond.
+            including deletion requests, follow our{" "}
+            <Link href="/mobile-account-deletion/">mobile account deletion steps</Link>.
+            Parents or guardians may contact us on a student’s behalf. We will explain
+            what can be deleted or must be retained when we respond.
           </p>
 
           <h2>Contact</h2>
