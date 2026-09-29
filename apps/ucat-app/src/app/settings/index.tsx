@@ -19,7 +19,7 @@ export default function Settings() {
       <Action
         title="Privacy policy"
         secondary
-        onPress={() => void Linking.openURL("https://altitutor.com/privacy-policy/")}
+        onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
       />
       <Action
         title="Sign out"

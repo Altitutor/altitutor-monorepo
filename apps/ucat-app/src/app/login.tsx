@@ -195,7 +195,7 @@ export default function Login() {
         )}
         <Text
           accessibilityRole="link"
-          onPress={() => void Linking.openURL("https://altitutor.com/privacy-policy/")}
+          onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
           style={{ color: c.accent, fontSize: 14, textAlign: "center" }}
         >
           Privacy policy

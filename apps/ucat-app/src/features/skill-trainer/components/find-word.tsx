@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { PanResponder, Pressable, ScrollView, Text, View } from "react-native";
+import { Linking, PanResponder, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import {
   extractSkillTrainerPlainText,
@@ -173,6 +173,7 @@ export function FindWord({
       return { text, start, tokens: findFindWordClickableTokens(text) };
     });
   }, [plain]);
+  const wikipediaSource = content.source?.provider === "wikipedia" ? content.source : null;
   const active = selected && !placedIds.includes(selected) ? selected : null;
   function place(id: string, index: number) {
     if (
@@ -306,6 +307,23 @@ export function FindWord({
               </View>
             );
           })}
+          {wikipediaSource ? (
+            <View>
+              <Text style={{ color: c.secondary, fontSize: 12 }}>
+                Excerpt adapted from Wikipedia contributors: {wikipediaSource.title}
+              </Text>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => void Linking.openURL(wikipediaSource.url)}>
+                <Text style={{ color: c.accent, fontSize: 12 }}>View article</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="link"
+                onPress={() => void Linking.openURL("https://creativecommons.org/licenses/by-sa/4.0/")}>
+                <Text style={{ color: c.accent, fontSize: 12 }}>{wikipediaSource.license} license</Text>
+              </Pressable>
+            </View>
+          ) : null}
         </ScrollView>
       </View>
       <View

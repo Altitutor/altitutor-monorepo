@@ -90,7 +90,7 @@ export default function LandingScreen() {
           </Pressable>
           <Pressable
             accessibilityRole="link"
-            onPress={() => void Linking.openURL('https://altitutor.com/privacy-policy/')}
+            onPress={() => void Linking.openURL('https://altitutor.com/mobile-privacy/')}
             style={styles.signup}>
             <Text style={[styles.signupText, { color: theme.primary }]}>Privacy policy</Text>
           </Pressable>

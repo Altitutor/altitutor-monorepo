@@ -23,9 +23,22 @@ function asRecord(value: unknown): Record<string, unknown> {
 }
 
 function toFindWordContent(raw: Record<string, unknown>) {
+  const source = asRecord(raw.source);
   return {
     passage: asRecord(raw.passage),
     keywords: Array.isArray(raw.keywords) ? raw.keywords : [],
+    source:
+      source.provider === "wikipedia" &&
+      typeof source.title === "string" &&
+      typeof source.url === "string" &&
+      typeof source.license === "string"
+        ? {
+            provider: source.provider,
+            title: source.title,
+            url: source.url,
+            license: source.license,
+          }
+        : undefined,
   };
 }
 
