@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Pressable, useWindowDimensions, Text, View } from "react-native";
+import { Linking, Pressable, useWindowDimensions, Text, View } from "react-native";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -193,6 +193,13 @@ export default function Login() {
             Continue securely in your browser, then return to the app.
           </Text>
         )}
+        <Text
+          accessibilityRole="link"
+          onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
+          style={{ color: c.accent, fontSize: 14, textAlign: "center" }}
+        >
+          Privacy policy
+        </Text>
       </View>
     </View>
   );

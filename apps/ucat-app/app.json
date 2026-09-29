@@ -2,7 +2,7 @@
   "expo": {
     "name": "Altitutor UCAT",
     "slug": "ucat-app",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },

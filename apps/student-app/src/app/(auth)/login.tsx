@@ -2,7 +2,7 @@ import { Image } from 'expo-image';
 import { Stack } from 'expo-router';
 import { openBrowserAsync } from 'expo-web-browser';
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Linking, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { NativeAction } from '@/components/native-action';
@@ -87,6 +87,12 @@ export default function LandingScreen() {
                 {busy === 'signup' ? 'Opening...' : 'Sign up'}
               </Text>
             </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="link"
+            onPress={() => void Linking.openURL('https://altitutor.com/mobile-privacy/')}
+            style={styles.signup}>
+            <Text style={[styles.signupText, { color: theme.primary }]}>Privacy policy</Text>
           </Pressable>
         </View>
       </View>

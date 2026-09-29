@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router';
-import { Alert } from 'react-native';
+import { Alert, Linking } from 'react-native';
 
 import { NativeAction } from '@/components/native-action';
 import { Card, StudentScreen, TappableRow } from '@/components/student-ui';
@@ -33,6 +33,8 @@ export default function SettingsScreen() {
       <Card divided>
         <TappableRow title="App settings" onPress={withHaptic(() => router.push('/settings/app-settings'))} />
         <TappableRow title="My profile" onPress={withHaptic(() => router.push('/settings/profile'))} />
+        <TappableRow title="Privacy policy" onPress={() => void Linking.openURL('https://altitutor.com/mobile-privacy/')} />
+        <TappableRow title="Request account deletion" onPress={() => void Linking.openURL('https://altitutor.com/mobile-account-deletion/')} />
       </Card>
       <NativeAction label="Sign out" secondary block color={theme.danger} labelColor={theme.danger} onPress={confirmSignOut} />
     </StudentScreen>

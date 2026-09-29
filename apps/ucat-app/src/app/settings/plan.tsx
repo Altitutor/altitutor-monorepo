@@ -1,7 +1,6 @@
 import { Text, View } from "react-native";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Action,
   Copy,
   Failure,
   Group,
@@ -12,14 +11,13 @@ import {
 } from "@/components/ui";
 import { AppIcon } from "@/components/app-icon";
 import { dataApi } from "@/features/dashboard/api";
-import { openWebSettings } from "@/features/settings/open-web-settings";
 
 export default function Plan() {
   const c = useColors();
   const q = useQuery({ queryKey: ["quota"], queryFn: dataApi.quota });
   const free = q.data?.onlineTier === "free" && !q.data.isQuotaExempt;
   const highlights = free
-    ? ["Daily practice access", "Progress saved", "Upgrade anytime"]
+    ? ["Daily practice access", "Progress saved"]
     : [
         "Unlimited online access",
         "All mocks and analytics",
@@ -57,12 +55,6 @@ export default function Plan() {
                 <Copy>{highlight}</Copy>
               </View>
             ))}
-            <Action
-              title="Manage subscription"
-              onPress={() =>
-                void openWebSettings("/settings/plan/subscription")
-              }
-            />
           </Group>
           {free && (
             <Group title="Your free quotas" dividers>
@@ -94,11 +86,6 @@ export default function Plan() {
                   />
                 </View>
               ))}
-              <Action
-                title="Explore paid plans"
-                secondary
-                onPress={() => void openWebSettings("/settings/plan")}
-              />
             </Group>
           )}
         </>

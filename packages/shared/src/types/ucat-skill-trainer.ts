@@ -45,6 +45,12 @@ export type FindWordKeywordOccurrence = {
 export type FindWordItemContent = {
   passage: Record<string, unknown>;
   keywords: FindWordKeyword[];
+  source?: {
+    provider: string;
+    title: string;
+    url: string;
+    license: string;
+  };
 };
 
 export type FindConceptOccurrence = {
