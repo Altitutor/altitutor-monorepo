@@ -1,5 +1,6 @@
 import type { SubjectPricingOverrideRow } from '@/features/billing/api/subject-pricing-overrides';
 import type { StudentSubsidyRow } from '@/features/students/api/subsidies';
+import { selectEffectiveSubsidy } from '@altitutor/shared';
 
 /**
  * Calculate session price based on billing type, subject, and student subsidies
@@ -63,13 +64,15 @@ export function calculateSessionPrice(
   }
 
   if (studentId && session.subject_id && session.billing_type) {
-    const activeSub = (subsidies || []).find(
-      (s: StudentSubsidyRow) =>
-        s.student_id === studentId &&
-        s.subject_id === session.subject_id &&
-        s.billing_type === session.billing_type &&
-        (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
-        (!s.effective_until || new Date(s.effective_until) > targetDate)
+    const activeSub = selectEffectiveSubsidy(
+      (subsidies || []).filter(
+        (s: StudentSubsidyRow) =>
+          s.student_id === studentId &&
+          s.subject_id === session.subject_id &&
+          s.billing_type === session.billing_type &&
+          (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
+          (!s.effective_until || new Date(s.effective_until) > targetDate),
+      ),
     );
 
     if (activeSub) {

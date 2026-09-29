@@ -116,6 +116,7 @@ export async function loadPricingOverrides(
  */
 export async function loadSubsidies(supabase: SupabaseClient): Promise<
   Array<{
+    id: string;
     student_id: string;
     subject_id: string;
     billing_type: string;
@@ -128,7 +129,7 @@ export async function loadSubsidies(supabase: SupabaseClient): Promise<
   const { data: subsidies, error: subErr } = await supabase
     .from('student_subsidies')
     .select(
-      'student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until',
+      'id, student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until',
     );
   if (subErr) throw subErr;
 

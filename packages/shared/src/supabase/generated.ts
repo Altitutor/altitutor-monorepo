@@ -41585,6 +41585,19 @@ export type Database = {
         Args: { p_performed_by?: string; p_student_id: string }
         Returns: string
       }
+      save_student_subsidy: {
+        Args: {
+          p_billing_type?: Database["public"]["Enums"]["billing_type"]
+          p_currency?: string
+          p_effective_from?: string
+          p_effective_until?: string | null
+          p_id?: string | null
+          p_price_cents?: number
+          p_student_id?: string
+          p_subject_id?: string
+        }
+        Returns: string
+      }
       safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
       search_classes_admin: {
         Args: {

@@ -39,6 +39,7 @@ interface BillingPriceOverride extends BillingPrice {
 }
 
 interface StudentSubsidy {
+  id?: string;
   student_id: string;
   subject_id: string;
   billing_type: BillingType;
@@ -212,7 +213,7 @@ export async function loadFutureInvoicePreviews(
     admin
       .from("student_subsidies")
       .select(
-        "student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until",
+        "id, student_id, subject_id, billing_type, price_cents, currency, effective_from, effective_until",
       )
       .eq("student_id", studentId)
       .in("subject_id", subjectIds),

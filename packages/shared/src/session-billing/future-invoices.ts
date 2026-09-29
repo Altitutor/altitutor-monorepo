@@ -11,6 +11,7 @@ export interface SessionHourlyRateOverride extends SessionHourlyRate {
 }
 
 export interface SessionSubsidy {
+  id?: string | null;
   student_id: string;
   subject_id: string;
   billing_type: string;
@@ -18,6 +19,36 @@ export interface SessionSubsidy {
   currency: string | null;
   effective_from: string | null;
   effective_until: string | null;
+}
+
+/**
+ * Among subsidies that are already effective, the latest start wins.
+ * Equal start times use the greatest id so every caller agrees.
+ */
+export function selectEffectiveSubsidy<
+  T extends { effective_from?: string | null; id?: string | null },
+>(candidates: readonly T[]): T | undefined {
+  let selected: T | undefined;
+  for (const candidate of candidates) {
+    if (!selected) {
+      selected = candidate;
+      continue;
+    }
+
+    const selectedFrom = selected.effective_from
+      ? Date.parse(selected.effective_from)
+      : Number.NEGATIVE_INFINITY;
+    const candidateFrom = candidate.effective_from
+      ? Date.parse(candidate.effective_from)
+      : Number.NEGATIVE_INFINITY;
+    if (
+      candidateFrom > selectedFrom ||
+      (candidateFrom === selectedFrom && (candidate.id ?? '') > (selected.id ?? ''))
+    ) {
+      selected = candidate;
+    }
+  }
+  return selected;
 }
 
 export interface FutureSessionForPricing {
@@ -77,12 +108,14 @@ export function calculateFutureSessionAmount(
     'aud'
   ).toLowerCase();
 
-  const subsidy = subsidies.find(
-    (row) =>
-      row.student_id === studentId &&
-      row.subject_id === session.subjectId &&
-      row.billing_type === session.billingType &&
-      isEffectiveAt(row.effective_from, row.effective_until, sessionDate),
+  const subsidy = selectEffectiveSubsidy(
+    subsidies.filter(
+      (row) =>
+        row.student_id === studentId &&
+        row.subject_id === session.subjectId &&
+        row.billing_type === session.billingType &&
+        isEffectiveAt(row.effective_from, row.effective_until, sessionDate),
+    ),
   );
   if (subsidy) {
     hourlyRateCents = Math.min(hourlyRateCents, subsidy.price_cents);
