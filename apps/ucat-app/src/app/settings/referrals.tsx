@@ -16,7 +16,6 @@ import type { ReferralGiftInbox } from "@/features/subscription/api/referral-gif
 import type { UcatSubscriptionBillingResponse } from "@/features/subscription/types/ucat-subscription-billing";
 import { resolveReferralOfferCopy } from "@/features/subscription/lib/referral-offer-copy";
 import { buildAvailableRewardDisplay } from "@/features/subscription/lib/referral-rewards-display";
-import { openWebSettings } from "@/features/settings/open-web-settings";
 
 export default function Referrals() {
   const c = useColors();
@@ -98,10 +97,6 @@ export default function Referrals() {
             A free {gifts.pendingGift.duration} from{" "}
             {gifts.pendingGift.referrerName}
           </Copy>
-          <Action
-            title="View gift"
-            onPress={() => void openWebSettings("/settings/plan/referrals")}
-          />
         </Group>
       )}
       <Group title="Referral activity">
@@ -116,12 +111,6 @@ export default function Referrals() {
         <Copy large>{rewards.title}</Copy>
         <Copy muted>{rewards.detail}</Copy>
         {rewards.extra && <Copy muted>{rewards.extra}</Copy>}
-        {rewards.cta && (
-          <Action
-            title="View rewards"
-            onPress={() => void openWebSettings("/settings/plan/referrals")}
-          />
-        )}
         <Copy muted>Already used: {rewards.usedCount}</Copy>
       </Group>
     </Screen>

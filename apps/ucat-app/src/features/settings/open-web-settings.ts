@@ -6,9 +6,6 @@ import { supabase } from "@/lib/supabase";
 const allowedPaths = new Set([
   "/exam",
   "/settings/profile",
-  "/settings/plan",
-  "/settings/plan/subscription",
-  "/settings/plan/referrals",
   "/settings/study-plan",
 ]);
 
