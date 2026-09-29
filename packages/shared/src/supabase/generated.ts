@@ -41563,6 +41563,7 @@ export type Database = {
         Args: { p_student_id: string }
         Returns: string
       }
+      resolve_overlapping_student_subsidies: { Args: never; Returns: undefined }
       resolve_ucat_signup_email_state: {
         Args: { p_client_key: string; p_email: string }
         Returns: string
@@ -41586,20 +41587,20 @@ export type Database = {
         Args: { p_performed_by?: string; p_student_id: string }
         Returns: string
       }
+      safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
       save_student_subsidy: {
         Args: {
           p_billing_type?: Database["public"]["Enums"]["billing_type"]
           p_currency?: string
           p_effective_from?: string
-          p_effective_until?: string | null
-          p_id?: string | null
+          p_effective_until?: string
+          p_id?: string
           p_price_cents?: number
           p_student_id?: string
           p_subject_id?: string
         }
         Returns: string
       }
-      safe_text_to_jsonb: { Args: { text_content: string }; Returns: Json }
       search_classes_admin: {
         Args: {
           p_ascending?: boolean
@@ -42948,6 +42949,17 @@ export type Database = {
         }[]
       }
       validate_phone_e164: { Args: { phone: string }; Returns: boolean }
+      yield_student_subsidies_to_window: {
+        Args: {
+          p_billing_type: Database["public"]["Enums"]["billing_type"]
+          p_except_id: string
+          p_student_id: string
+          p_subject_id: string
+          p_window_from: string
+          p_window_until: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       billing_type: "CLASS" | "EXAM_COURSE" | "DRAFTING"
