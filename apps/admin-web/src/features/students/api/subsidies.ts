@@ -72,7 +72,7 @@ export async function createSubsidy(input: CreateSubsidyInput): Promise<StudentS
     p_price_cents: input.price_cents,
     p_currency: input.currency || 'AUD',
     p_effective_from: input.effective_from || new Date().toISOString(),
-    p_effective_until: input.effective_until ?? null,
+    ...(input.effective_until != null ? { p_effective_until: input.effective_until } : {}),
   });
 
   if (error) throw error;
@@ -89,6 +89,9 @@ export async function updateSubsidy(
   updates: UpdateSubsidyInput
 ): Promise<StudentSubsidyRow> {
   const existing = await fetchSubsidyById(subsidyId);
+  const effectiveUntil = updates.effective_until === undefined
+    ? existing.effective_until
+    : updates.effective_until;
   const { data: savedId, error } = await subsidyClient().rpc('save_student_subsidy', {
     p_id: subsidyId,
     p_student_id: existing.student_id,
@@ -97,9 +100,7 @@ export async function updateSubsidy(
     p_price_cents: updates.price_cents ?? existing.price_cents,
     p_currency: updates.currency ?? existing.currency,
     p_effective_from: updates.effective_from ?? existing.effective_from,
-    p_effective_until: updates.effective_until === undefined
-      ? existing.effective_until
-      : updates.effective_until,
+    ...(effectiveUntil !== null ? { p_effective_until: effectiveUntil } : {}),
   });
 
   if (error) throw error;
@@ -118,4 +119,3 @@ export async function deleteSubsidy(subsidyId: string): Promise<void> {
 
   if (error) throw error;
 }
-
