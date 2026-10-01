@@ -1,6 +1,8 @@
 import { useMemo } from 'react';
+import { useQuery } from '@tanstack/react-query';
 import { useClassesWithDetailsBatch } from '@/features/classes/hooks/useClassesQuery';
 import {
+  sessionsKeys,
   useTutorSessionDetailsBatch,
   useTutorSessionsInRange,
   useTutorSessionsOriginallyInRange,
@@ -10,8 +12,10 @@ import {
   parseClassStaffIds,
   readOptionalIso,
 } from '../utils/parseSessionDetailJson';
+import { sessionsApi } from '../api/sessions';
 import {
   buildDashboardDayUpdates,
+  dashboardNewStudentKey,
   type DashboardClassStaffAssignment,
   type DashboardDaySession,
   type DashboardDayStaff,
@@ -60,6 +64,13 @@ export function useTutorDashboardDayUpdates(date: string) {
 
   const detailsQuery = useTutorSessionDetailsBatch(sessionIds);
   const classesQuery = useClassesWithDetailsBatch(classIds);
+  const newStudentsQuery = useQuery({
+    queryKey: [...sessionsKeys.all, 'new-students', date, sessionIds],
+    queryFn: () => sessionsApi.getDashboardNewClassStudents(sessionIds),
+    enabled: sessionIds.length > 0,
+    staleTime: 1000 * 60 * 3,
+    gcTime: 1000 * 60 * 3,
+  });
   const detailsMap = detailsQuery.data;
   const classRows = classesQuery.data;
 
@@ -108,22 +119,34 @@ export function useTutorDashboardDayUpdates(date: string) {
       sessionParents[mapped.id] = details?.parents ?? [];
     }
 
+    const newStudentKeys = new Set<string>();
+    for (const row of newStudentsQuery.data ?? []) {
+      newStudentKeys.add(dashboardNewStudentKey(row.session_id, row.student_id));
+    }
+
     return buildDashboardDayUpdates({
       sessions,
       sessionStudents,
       sessionStaff,
       sessionParents,
       classStaffAssignments: assignments,
+      newStudentKeys,
       viewDate: date,
     });
-  }, [classRows, date, detailsMap, sessionRows]);
+  }, [classRows, date, detailsMap, newStudentsQuery.data, sessionRows]);
 
   const isDetailsLoading = sessionIds.length > 0 && detailsQuery.isLoading;
   const isClassesLoading = classIds.length > 0 && classesQuery.isLoading;
+  const isNewStudentsLoading = sessionIds.length > 0 && newStudentsQuery.isLoading;
 
   return {
     updates,
-    isLoading: sessionsQuery.isLoading || originalQuery.isLoading || isDetailsLoading || isClassesLoading,
-    isError: sessionsQuery.isError || detailsQuery.isError,
+    isLoading:
+      sessionsQuery.isLoading ||
+      originalQuery.isLoading ||
+      isDetailsLoading ||
+      isClassesLoading ||
+      isNewStudentsLoading,
+    isError: sessionsQuery.isError || detailsQuery.isError || newStudentsQuery.isError,
   };
 }

@@ -1,6 +1,6 @@
 import { captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { authenticatedFlashcardClient } from '@/features/flashcards/server/user-client';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -16,9 +16,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid undo command' }, { status: 400 });
   }
 
-  const user = createClient();
-  const { data: claims } = await user.auth.getClaims();
-  if (!claims?.claims?.sub) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  const user = await authenticatedFlashcardClient(request);
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: studentId } = await user.rpc('current_student_id');
   if (!studentId) return NextResponse.json({ error: 'student_not_found' }, { status: 403 });
 

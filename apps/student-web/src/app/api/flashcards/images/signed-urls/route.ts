@@ -1,6 +1,6 @@
 import { captureApiError, captureApiErrorResponse } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
-import { createClient } from '@/shared/lib/supabase/server-ssr';
+import { authenticatedFlashcardClient } from '@/features/flashcards/server/user-client';
 import { getServerSupabaseAdmin } from '@/shared/lib/supabase/server';
 
 const BUCKET = 'flashcard-images';
@@ -41,7 +41,8 @@ export async function POST(request: NextRequest) {
   }
 
   const topicIds = [...new Set(paths.map(topicIdFromPath).filter((id): id is string => Boolean(id)))];
-  const userClient = createClient();
+  const userClient = await authenticatedFlashcardClient(request);
+  if (!userClient) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   const { data: accessibleTopics, error: topicError } = await userClient
     .from('vstudent_topics')
     .select('id')

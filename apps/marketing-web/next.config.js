@@ -1,4 +1,5 @@
 const { withSentryConfig } = require("@sentry/nextjs");
+const staffImageOrigin = process.env.NEXT_PUBLIC_SUPABASE_URL || require("./src/features/staff/preview.json").origin;
 const legacyRedirects = require("./src/lib/legacy-redirects.json");
 
 const isSentrySourceMapUploadConfigured = Boolean(
@@ -18,6 +19,12 @@ const nextConfig = {
   images: {
     formats: ["image/avif", "image/webp"],
     remotePatterns: [
+      ...(staffImageOrigin ? [{
+        protocol: new URL(staffImageOrigin).protocol.replace(":", ""),
+        hostname: new URL(staffImageOrigin).hostname,
+        port: new URL(staffImageOrigin).port,
+        pathname: "/storage/v1/object/public/staff-profile-images/**",
+      }] : []),
       {
         protocol: "https",
         hostname: "altitutor.com",

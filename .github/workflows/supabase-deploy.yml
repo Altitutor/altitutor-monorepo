@@ -313,15 +313,17 @@ jobs:
           UCAT_PRODUCTION_BASE_URL: https://ucat.altitutor.com
 
   update-preview-apps:
-    name: Publish ${{ matrix.app }} preview update
+    name: Deliver ${{ matrix.app }} ${{ matrix.platform }} preview
     needs: deploy
     if: github.ref == 'refs/heads/develop'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     environment: development
     strategy:
       fail-fast: false
       matrix:
         app: [student-app, ucat-app]
+        platform: [ios, android]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -337,22 +339,25 @@ jobs:
         run: pnpm turbo run build --filter=@altitutor/shared
       - uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
+          eas-version: 24.8.0
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Publish preview OTA
-        working-directory: apps/${{ matrix.app }}
-        run: eas update --channel preview --environment preview --message "${{ github.sha }}" --non-interactive
+      - name: Build compatible preview binary or publish OTA
+        run: bash scripts/mobile-eas-release.sh "${{ matrix.app }}" "${{ matrix.platform }}" preview
 
   update-production-apps:
-    name: Publish ${{ matrix.app }} production update
+    name: Deliver ${{ matrix.app }} ${{ matrix.platform }} production
     needs: smoke-production
     if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
+    timeout-minutes: 120
     environment: production
+    env:
+      MOBILE_STORE_AUTO_SUBMIT_ENABLED: ${{ vars.MOBILE_STORE_AUTO_SUBMIT_ENABLED || 'false' }}
     strategy:
       fail-fast: false
       matrix:
         app: [student-app, ucat-app]
+        platform: [ios, android]
     steps:
       - uses: actions/checkout@v4
         with:
@@ -368,11 +373,10 @@ jobs:
         run: pnpm turbo run build --filter=@altitutor/shared
       - uses: expo/expo-github-action@v8
         with:
-          eas-version: latest
+          eas-version: 24.8.0
           token: ${{ secrets.EXPO_TOKEN }}
-      - name: Publish production OTA
-        working-directory: apps/${{ matrix.app }}
-        run: eas update --channel production --environment production --message "${{ github.sha }}" --non-interactive
+      - name: Build compatible store binary or publish OTA
+        run: bash scripts/mobile-eas-release.sh "${{ matrix.app }}" "${{ matrix.platform }}" production
 
   publish-sentry-release:
     name: Publish Sentry production release

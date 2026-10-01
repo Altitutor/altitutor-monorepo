@@ -103,7 +103,7 @@ export function EditSubsidyModal({ isOpen, onClose, subsidy, onSuccess }: EditSu
       open={isOpen}
       onClose={onClose}
       title="Edit Subsidy"
-      subtitle='Update the hourly rate subsidy details. The student will pay the minimum of the subsidy rate and the default rate. Leave "Effective Until" empty for indefinitely.'
+      subtitle='Update this hourly rate. Saving closes or splits any other subsidy for the same subject and billing type that covers these dates, so only one rate applies at a time. Leave "Effective Until" empty for indefinitely.'
       contentClassName="md:max-w-[500px]"
       footer={
         <>

@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(15);
+SELECT plan(18);
 
 SELECT has_column(
   'public',
@@ -54,7 +54,7 @@ SELECT
   DATE '2026-09-03',
   1,
   'section_benchmark',
-  'in_progress',
+  'planned',
   'Paced benchmark',
   44,
   44,
@@ -62,19 +62,38 @@ SELECT
   question_set.id,
   '/sets/' || question_set.id::TEXT,
   '{"kind":"set","prescribedPace":0.5}'::JSONB,
-  NOW()
+  NULL
 FROM public.question_sets question_set
 WHERE question_set.id = 'f3000000-0000-4000-8000-000000000001';
 
-INSERT INTO public.student_question_set_attempts (
-  id, student_id, question_set_id, engine_snapshot, study_plan_task_id
-)
-VALUES (
-  'ee000000-0000-4000-8000-000000000004',
-  '10000000-0000-0000-0000-000000000007',
-  'f3000000-0000-4000-8000-000000000001',
-  '{"state":{"phase":"intro"},"examTiming":{"setModeTiming":{"setTimeLimitSeconds":1320}}}'::JSONB,
-  'ee000000-0000-4000-8000-000000000003'
+SELECT public.create_ucat_exam_attempt_records(
+  p_attempt_kind => 'set',
+  p_student_id => '10000000-0000-0000-0000-000000000007',
+  p_attempt_id => 'ee000000-0000-4000-8000-000000000004',
+  p_resource_id => 'f3000000-0000-4000-8000-000000000001',
+  p_engine_snapshot => '{"state":{"phase":"intro"},"examTiming":{"setModeTiming":{"setTimeLimitSeconds":1320}}}'::JSONB,
+  p_current_segment_ends_at => NULL,
+  p_was_timed => FALSE,
+  p_study_plan_task_id => 'ee000000-0000-4000-8000-000000000003'
+);
+
+SELECT is(
+  (SELECT status FROM public.ucat_student_study_plan_tasks
+    WHERE id = 'ee000000-0000-4000-8000-000000000003'),
+  'in_progress',
+  'beginning a prescribed set activates its planned Study plan task'
+);
+SELECT is(
+  (SELECT matched_activity_type FROM public.ucat_student_study_plan_tasks
+    WHERE id = 'ee000000-0000-4000-8000-000000000003'),
+  'set_attempt',
+  'the activated task records the set attempt activity type'
+);
+SELECT is(
+  (SELECT matched_activity_id FROM public.ucat_student_study_plan_tasks
+    WHERE id = 'ee000000-0000-4000-8000-000000000003'),
+  'ee000000-0000-4000-8000-000000000004'::UUID,
+  'the activated task records the created set attempt'
 );
 
 SELECT is(
@@ -174,7 +193,7 @@ SELECT is(
 );
 
 UPDATE public.ucat_student_study_plan_tasks
-SET status = 'planned'
+SET status = 'completed'
 WHERE id = 'ee000000-0000-4000-8000-000000000003';
 
 SELECT throws_ok(
@@ -188,7 +207,7 @@ SELECT throws_ok(
     )$$,
   '22023',
   'Invalid Study plan set pace prescription',
-  'a task must be in progress before it can prescribe attempt pacing'
+  'a completed task cannot prescribe attempt pacing'
 );
 
 UPDATE public.ucat_student_study_plan_tasks

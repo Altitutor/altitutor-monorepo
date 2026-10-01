@@ -7,6 +7,7 @@ export function useNativeStackOptions() {
 
   return {
     headerShown: true,
+    headerBackButtonDisplayMode: 'minimal' as const,
     headerLargeTitleEnabled: Platform.OS === 'ios',
     headerLargeTitleShadowVisible: false,
     headerShadowVisible: false,

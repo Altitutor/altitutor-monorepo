@@ -1,4 +1,4 @@
-import { Alert } from "react-native";
+import { Alert, Linking } from "react-native";
 import { Action, Group, Row, Screen } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
@@ -17,8 +17,14 @@ export default function Settings() {
         <Row title="Refer friends" icon="people" href="/settings/referrals" />
       </Group>
       <Action
+        title="Privacy policy"
+        secondary
+        onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
+      />
+      <Action
         title="Sign out"
         secondary
+        tone="danger"
         onPress={() =>
           Alert.alert(
             "Sign out?",

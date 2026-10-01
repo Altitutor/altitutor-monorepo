@@ -5,6 +5,7 @@ import {
   buttonStyle,
   controlSize,
   disabled,
+  foregroundStyle,
   frame,
   labelStyle,
   tint,
@@ -40,7 +41,9 @@ export function NativeButton({
       matchContents={block ? { vertical: true } : true}
       colorScheme={scheme === "dark" ? "dark" : "light"}
       seedColor={color}
-      style={block ? { width: "100%", minHeight: 50 } : undefined}
+      style={
+        block ? { width: "100%", minHeight: 50, alignSelf: "stretch" } : undefined
+      }
     >
       <Button
         label={title}
@@ -52,6 +55,7 @@ export function NativeButton({
           disabled(busy),
           accessibilityLabel(label ?? title),
           tint(color),
+          ...(secondary && tintColor ? [foregroundStyle(tintColor)] : []),
           ...(close ? [labelStyle("iconOnly")] : []),
           ...(block
             ? [

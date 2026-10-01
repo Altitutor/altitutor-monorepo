@@ -1,5 +1,6 @@
 'use client';
 
+import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
@@ -201,12 +202,16 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
         className="space-y-6"
         options={[
           { value: 'details', label: 'Details' },
+          { value: 'website', label: 'Website' },
           { value: 'classes', label: 'Classes' },
           { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
           { value: 'files', label: 'Files' },
         ]}
       >
+        <SegmentedTabPanelContent when="website" activeTab={activeTab} className="overflow-y-auto">
+          <StaffWebsiteProfile key={staffMember.id} staffId={staffMember.id} active={staffMember.status === 'ACTIVE'} />
+        </SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
           <StaffDetailsTab
             staffMember={staffMember}

@@ -2,7 +2,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
-import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
+import { createNotificationUserClient } from '@/features/notifications/server/user-client';
 import { instrumentSupabaseClient } from '@/lib/sentry/instrument-supabase-client';
 
 const MAX_NOTIFICATIONS = 50;
@@ -10,6 +10,7 @@ const MAX_NOTIFICATIONS = 50;
 type NotificationPatchBody = {
   notificationIds?: string[];
   markAllRead?: boolean;
+  markUnread?: boolean;
   dismiss?: boolean;
 };
 
@@ -33,8 +34,8 @@ function createServiceClient() {
   }));
 }
 
-async function resolveStudentContext() {
-  const userClient = createServerClient();
+async function resolveStudentContext(request: Request) {
+  const userClient = createNotificationUserClient(request);
   const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');
 
   if (studentCheckError) {
@@ -65,7 +66,7 @@ async function resolveStudentContext() {
 }
 
 async function verifyNotificationIds(
-  userClient: ReturnType<typeof createServerClient>,
+  userClient: ReturnType<typeof createNotificationUserClient>,
   notificationIds: string[],
 ) {
   const { data: visibleNotifications, error: noteError } = await userClient
@@ -102,11 +103,15 @@ export async function PATCH(request: Request) {
     const body = (await request.json().catch(() => ({}))) as NotificationPatchBody;
     const notificationIds = Array.from(new Set(body.notificationIds ?? [])).filter(Boolean);
 
+    if (body.markUnread && (body.markAllRead || body.dismiss || notificationIds.length === 0)) {
+      return NextResponse.json({ error: 'Invalid notification update' }, { status: 400 });
+    }
+
     if (!body.markAllRead && notificationIds.length === 0) {
       return NextResponse.json({ success: true, updated: 0 });
     }
 
-    const resolved = await resolveStudentContext();
+    const resolved = await resolveStudentContext(request);
     if ('response' in resolved) return resolved.response;
 
     const { userClient, studentId } = resolved;
@@ -145,6 +150,27 @@ export async function PATCH(request: Request) {
         console.error('Error marking dismissed notifications as read:', readError);
         captureApiError(readError, "/api/notifications");
         return NextResponse.json({ error: 'Failed to dismiss notifications' }, { status: 500 });
+      }
+
+      return NextResponse.json({ success: true, updated: verified.visibleIds.length });
+    }
+
+    if (body.markUnread) {
+      const verified = await verifyNotificationIds(userClient, notificationIds);
+      if ('response' in verified) return verified.response;
+
+      const { error: unreadError } = await serviceClient
+        .from('notifications')
+        .update({ read_at: null, updated_at: now })
+        .eq('student_id', studentId)
+        .in('id', verified.visibleIds)
+        .is('dismissed_at', null)
+        .is('resolved_at', null);
+
+      if (unreadError) {
+        console.error('Error marking notifications unread:', unreadError);
+        captureApiError(unreadError, "/api/notifications");
+        return NextResponse.json({ error: 'Failed to mark notifications as unread' }, { status: 500 });
       }
 
       return NextResponse.json({ success: true, updated: verified.visibleIds.length });

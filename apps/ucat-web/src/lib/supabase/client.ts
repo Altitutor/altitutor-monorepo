@@ -2,6 +2,7 @@ import { createBrowserClient } from "@supabase/ssr";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
+import { recoverTransientBrowserSession } from "@/lib/supabase/recover-transient-session";
 
 let browserClient: SupabaseClient<Database> | null = null;
 
@@ -43,19 +44,23 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
     );
   }
 
+  const client = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
+    // Auth callbacks exchange PKCE codes explicitly. Automatic detection can
+    // consume the code and remove it from the URL before the callback route
+    // has finished, creating a second payload-less callback render.
+    auth: {
+      detectSessionInUrl: false,
+    },
+    cookieOptions: {
+      name: "student-auth",
+    },
+    isSingleton: true,
+  }) as unknown as SupabaseClient<Database>;
+
   browserClient = instrumentSupabaseClient(
-    createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
-      // Auth callbacks exchange PKCE codes explicitly. Automatic detection can
-      // consume the code and remove it from the URL before the callback route
-      // has finished, creating a second payload-less callback render.
-      auth: {
-        detectSessionInUrl: false,
-      },
-      cookieOptions: {
-        name: "student-auth",
-      },
-      isSingleton: true,
-    }) as unknown as SupabaseClient<Database>,
+    typeof window === "undefined"
+      ? client
+      : recoverTransientBrowserSession(client),
   );
 
   return browserClient;

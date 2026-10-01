@@ -2,6 +2,7 @@ import { Stack, useLocalSearchParams, useRouter } from 'expo-router';
 import { Platform, Pressable, StyleSheet, Text } from 'react-native';
 
 import { Card, EmptyBlock, ErrorBlock, formatDateTime, Label, LoadingBlock, StudentScreen, Value } from '@/components/student-ui';
+import { sessionDisplayTitle, sessionTypeLabel } from '@/features/sessions/session-display';
 import { useSessionDetail } from '@/hooks/use-student-data';
 import { useTheme } from '@/hooks/use-theme';
 
@@ -22,9 +23,7 @@ export default function SessionModalScreen() {
   const { sessionId } = useLocalSearchParams<{ sessionId: string }>();
   const session = useSessionDetail(sessionId);
   const detail = session.data;
-  const subject = detail
-    ? `${detail.subject_year_level ? `Year ${detail.subject_year_level} ` : ''}${detail.subject_name ?? 'Tutoring session'}`
-    : 'Session';
+  const subject = detail ? sessionDisplayTitle(detail) : 'Session';
 
   return (
     <>
@@ -50,7 +49,7 @@ export default function SessionModalScreen() {
           <Stack.Toolbar.Button accessibilityLabel="Close session" icon="xmark" onPress={() => router.back()} />
         </Stack.Toolbar>
       ) : null}
-      <StudentScreen title={subject} subtitle="Session details">
+      <StudentScreen title={subject}>
         {session.isPending ? <LoadingBlock label="Loading session..." /> : null}
         {session.isError ? <ErrorBlock message={session.error.message} /> : null}
         {!session.isPending && !detail ? <EmptyBlock>Session not found.</EmptyBlock> : null}
@@ -62,7 +61,7 @@ export default function SessionModalScreen() {
               <Label>Room</Label>
               <Value>{detail.room ?? 'To be confirmed'}</Value>
               <Label>Type</Label>
-              <Value>{detail.session_type ?? 'Class'}</Value>
+              <Value>{sessionTypeLabel(detail.session_type)}</Value>
             </Card>
             <Card>
               <Label>Tutors</Label>

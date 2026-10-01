@@ -18,6 +18,7 @@ const SECTIONS: Array<{
   { key: 'meetings', title: 'Meetings' },
   { key: 'timeChanges', title: 'Rescheduled sessions' },
   { key: 'studentAbsences', title: 'Student absences' },
+  { key: 'newStudents', title: 'New students' },
   { key: 'extraStudents', title: 'Extra students' },
   { key: 'staffSwaps', title: 'Staff swaps' },
   { key: 'staffAbsences', title: 'Staff absences' },

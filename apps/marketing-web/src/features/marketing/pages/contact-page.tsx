@@ -58,7 +58,7 @@ export function ContactPage() {
           <div className={styles.mapCaption}>
             <span>Your next chapter starts here.</span>
             <a href="https://www.google.com/maps/search/?api=1&query=Altitutor+17A+Solomon+St+Adelaide">
-              Get directions ↗
+              Get directions <ArrowUpRight size={16} aria-hidden="true" />
             </a>
           </div>
         </div>

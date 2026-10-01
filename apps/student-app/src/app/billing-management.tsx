@@ -9,7 +9,7 @@ export default function BillingManagementScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { session } = useAuth();
-  const billingUrl = `${process.env.EXPO_PUBLIC_STUDENT_WEB_URL ?? 'https://students.altitutor.com'}/auth/mobile-session`;
+  const billingUrl = `${process.env.EXPO_PUBLIC_STUDENT_WEB_URL ?? 'https://student.altitutor.com'}/auth/mobile-session`;
 
   return (
     <>

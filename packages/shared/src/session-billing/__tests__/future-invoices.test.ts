@@ -54,6 +54,82 @@ describe('buildFutureSessionCharges', () => {
       { id: 'english-1', amountCents: 10_000, priorChargeCents: 16_000 },
     ]);
   });
+
+  it('uses the latest overlapping subsidy, then resumes the earlier rate', () => {
+    const charges = buildFutureSessionCharges(
+      [
+        session('during', 'math', '2026-10-01T00:00:00.000Z'),
+        session('after', 'math', '2026-12-01T00:00:00.000Z'),
+      ],
+      {
+        studentId: 'student-1',
+        pricing,
+        pricingOverrides: [],
+        subsidies: [
+          {
+            id: '00000000-0000-4000-8000-000000000001',
+            student_id: 'student-1',
+            subject_id: 'math',
+            billing_type: 'CLASS',
+            price_cents: 9_000,
+            currency: 'AUD',
+            effective_from: '2026-01-01T00:00:00.000Z',
+            effective_until: null,
+          },
+          {
+            id: '00000000-0000-4000-8000-000000000002',
+            student_id: 'student-1',
+            subject_id: 'math',
+            billing_type: 'CLASS',
+            price_cents: 4_000,
+            currency: 'AUD',
+            effective_from: '2026-09-14T00:00:00.000Z',
+            effective_until: '2026-11-01T00:00:00.000Z',
+          },
+        ],
+      },
+    );
+
+    expect(charges.map(({ id, amountCents }) => ({ id, amountCents }))).toEqual([
+      { id: 'during', amountCents: 4_000 },
+      { id: 'after', amountCents: 9_000 },
+    ]);
+  });
+
+  it('breaks equal subsidy start times by id', () => {
+    const charges = buildFutureSessionCharges(
+      [session('math-1', 'math', '2026-10-01T00:00:00.000Z')],
+      {
+        studentId: 'student-1',
+        pricing,
+        pricingOverrides: [],
+        subsidies: [
+          {
+            id: '00000000-0000-4000-8000-000000000002',
+            student_id: 'student-1',
+            subject_id: 'math',
+            billing_type: 'CLASS',
+            price_cents: 4_000,
+            currency: 'AUD',
+            effective_from: '2026-01-01T00:00:00.000Z',
+            effective_until: null,
+          },
+          {
+            id: '00000000-0000-4000-8000-000000000001',
+            student_id: 'student-1',
+            subject_id: 'math',
+            billing_type: 'CLASS',
+            price_cents: 9_000,
+            currency: 'AUD',
+            effective_from: '2026-01-01T00:00:00.000Z',
+            effective_until: null,
+          },
+        ],
+      },
+    );
+
+    expect(charges[0]?.amountCents).toBe(4_000);
+  });
 });
 
 describe('applyCustomerBalanceToFutureCharge', () => {

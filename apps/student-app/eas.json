@@ -21,6 +21,12 @@
       "environment": "preview",
       "channel": "preview"
     },
+    "preview-simulator": {
+      "extends": "preview",
+      "ios": {
+        "simulator": true
+      }
+    },
     "production": {
       "autoIncrement": true,
       "environment": "production",
@@ -28,7 +34,17 @@
     }
   },
   "submit": {
+    "initial": {
+      "android": {
+        "track": "internal",
+        "releaseStatus": "draft"
+      }
+    },
     "production": {
+      "android": {
+        "track": "production",
+        "releaseStatus": "completed"
+      },
       "ios": {
         "ascAppId": "1638039014"
       }

@@ -63,7 +63,7 @@ export default function BillingScreen() {
   }
 
   return (
-    <StudentScreen title="Billing" subtitle="Payment details and recent invoices.">
+    <StudentScreen title="Billing" showHeaderActions>
       <SectionTitle>Payment method</SectionTitle>
       {billing.isPending ? <LoadingBlock /> : null}
       {billing.isError ? <ErrorBlock message={billing.error.message} /> : null}

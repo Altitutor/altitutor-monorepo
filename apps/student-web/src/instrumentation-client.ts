@@ -1,4 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
+import {
+  filterMobileAuthTelemetry,
+  isMobileAuthBrowserContext,
+} from "@/lib/privacy/mobile-auth-telemetry";
 import { sanitizeStudentAnalyticsUrl } from "@/shared/lib/analytics/posthog";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
@@ -8,6 +12,7 @@ const replayEnabled =
   process.env.NODE_ENV === "production" &&
   (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") === "production" &&
   typeof window !== "undefined" &&
+  !isMobileAuthBrowserContext() &&
   window.location.hostname === "student.altitutor.com";
 
 Sentry.init({
@@ -18,11 +23,15 @@ Sentry.init({
   sendDefaultPii: false,
   tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
   beforeSend(event) {
-    if (event.request?.url) {
-      event.request.url = sanitizeStudentAnalyticsUrl(event.request.url);
+    const filtered = filterMobileAuthTelemetry(event);
+    if (!filtered) return null;
+    if (filtered.request?.url) {
+      filtered.request.url = sanitizeStudentAnalyticsUrl(filtered.request.url);
     }
-    return event;
+    return filtered;
   },
+  beforeSendTransaction: filterMobileAuthTelemetry,
+  beforeBreadcrumb: filterMobileAuthTelemetry,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,
   integrations: [

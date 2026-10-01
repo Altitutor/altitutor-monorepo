@@ -141,6 +141,30 @@ describe("student session middleware", () => {
     },
   );
 
+  it("allows the in-app browser handoff before a session exists", async () => {
+    const response = await middleware(request("/mobile-browser"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(response.headers.get("cache-control")).toContain("no-store");
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
+  });
+
+  it("withholds referrers for native sign-in handoff URLs", async () => {
+    mockGetClaims.mockResolvedValue({ data: null, error: { name: "AuthSessionMissingError" } });
+    const response = await middleware(request("/mobile-auth?challenge=proof&state=nonce"));
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    const location = new URL(response.headers.get("location")!);
+    expect(location.pathname).toBe("/login");
+    expect(location.searchParams.get("next")).toContain("/mobile-auth");
+  });
+
+  it("withholds referrers when login returns to native sign-in", async () => {
+    const response = await middleware(request("/login?next=%2Fmobile-auth%3Fchallenge%3Dproof"));
+    expect(response.status).toBe(200);
+    expect(response.headers.get("referrer-policy")).toBe("no-referrer");
+    expect(mockCreateServerClient).not.toHaveBeenCalled();
+  });
+
   it("fails closed when the Supabase environment is missing", async () => {
     delete process.env.NEXT_PUBLIC_SUPABASE_URL;
     const response = await middleware(request("/dashboard"));

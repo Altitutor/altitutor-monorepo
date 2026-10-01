@@ -49,7 +49,7 @@ const courseDetails = {
   },
   "/classes/medical-interview-preparation/": {
     icon: MessageCircle,
-    description: "Practise for your medical interview.",
+    description: "Practice for your medical interview.",
   },
   "/online-courses/sace-ib-resources/": {
     icon: Library,
@@ -200,6 +200,15 @@ export function Navigation() {
       ? "dark"
       : "light";
 
+  const isUcatLandingPage =
+    pathname === "/ucat" || pathname === "/ucat/";
+  const navCtaHref = isUcatLandingPage
+    ? PRODUCT_LINKS.ucatSignup
+    : PRODUCT_LINKS.trialBooking;
+  const navCtaLabel = isUcatLandingPage
+    ? "Start free"
+    : "Free trial";
+
   return (
     <>
       <a href="#main-content" className={styles.skipLink}>
@@ -328,10 +337,10 @@ export function Navigation() {
           <div className={styles.navActions}>
             <Link
               className={`${styles.navTrial} ${motion.magnetic}`}
-              href={PRODUCT_LINKS.trialBooking}
+              href={navCtaHref}
             >
               <span className={motion.fill} aria-hidden="true" />
-              Free trial <ArrowUpRight size={16} aria-hidden="true" />
+              {navCtaLabel} <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
             <button
               className={styles.menuButton}

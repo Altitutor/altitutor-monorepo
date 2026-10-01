@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import type { PropsWithChildren, ReactNode } from 'react';
+import { Children, Fragment, isValidElement, type PropsWithChildren, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { HeaderActions } from '@/components/header-actions';
 import { useTheme } from '@/hooks/use-theme';
 
 export function StudentScreen({
@@ -19,30 +20,51 @@ export function StudentScreen({
   children,
   refreshing,
   onRefresh,
+  showHeaderActions = false,
+  largeTitle = true,
+  contentPaddingBottom = 100,
 }: PropsWithChildren<{
   title: string;
   subtitle?: string;
   refreshing?: boolean;
   onRefresh?: () => void;
+  showHeaderActions?: boolean;
+  largeTitle?: boolean;
+  contentPaddingBottom?: number;
 }>) {
   const theme = useTheme();
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['left', 'right']}>
-      <Stack.Screen options={{ title }} />
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        contentContainerStyle={styles.content}
-        refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} /> : undefined}>
-        {subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text> : null}
-        {children}
-      </ScrollView>
-    </SafeAreaView>
+    <>
+      {showHeaderActions ? <HeaderActions /> : null}
+      <SafeAreaView style={[styles.safe, { backgroundColor: theme.background }]} edges={['left', 'right']}>
+        <Stack.Screen options={{ title, ...(largeTitle ? {} : { headerLargeTitleEnabled: false }) }} />
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          contentContainerStyle={[styles.content, { paddingBottom: contentPaddingBottom }]}
+          refreshControl={onRefresh ? <RefreshControl refreshing={Boolean(refreshing)} onRefresh={onRefresh} /> : undefined}>
+          {subtitle ? <Text style={[styles.subtitle, { color: theme.textSecondary }]}>{subtitle}</Text> : null}
+          {children}
+        </ScrollView>
+      </SafeAreaView>
+    </>
   );
 }
 
-export function Card({ children }: PropsWithChildren) {
+export function Card({ children, divided = false }: PropsWithChildren<{ divided?: boolean }>) {
   const theme = useTheme();
-  return <View style={[styles.card, { backgroundColor: theme.backgroundElement, shadowColor: theme.shadow }]}>{children}</View>;
+  const items = Children.toArray(children);
+  return (
+    <View style={[styles.card, divided && styles.dividedCard, { backgroundColor: theme.backgroundElement, shadowColor: theme.shadow }]}>
+      {divided
+        ? items.map((child, index) => (
+            <Fragment key={isValidElement(child) ? (child.key ?? index) : index}>
+              {index > 0 ? <View style={[styles.divider, { backgroundColor: theme.border }]} /> : null}
+              {child}
+            </Fragment>
+          ))
+        : children}
+    </View>
+  );
 }
 
 export function SectionTitle({ children }: PropsWithChildren) {
@@ -57,7 +79,7 @@ export function Label({ children }: PropsWithChildren) {
 
 export function Value({ children }: PropsWithChildren) {
   const theme = useTheme();
-  return <Text style={[styles.value, { color: theme.text }]}>{children}</Text>;
+  return <Text selectable style={[styles.value, { color: theme.text }]}>{children}</Text>;
 }
 
 export function TappableRow({ title, detail, onPress, accent }: { title: string; detail?: string; onPress?: () => void; accent?: string | null }) {
@@ -91,7 +113,7 @@ export function ErrorBlock({ message }: { message: string }) {
   const theme = useTheme();
   return (
     <Card>
-      <Text style={[styles.value, { color: theme.danger }]}>{message}</Text>
+      <Text selectable style={[styles.value, { color: theme.danger }]}>{message}</Text>
     </Card>
   );
 }
@@ -134,6 +156,7 @@ const styles = StyleSheet.create({
   card: {
     padding: 16,
     borderRadius: 20,
+    borderCurve: 'continuous',
     gap: 12,
     shadowOpacity: 0.07,
     shadowRadius: 14,
@@ -142,7 +165,9 @@ const styles = StyleSheet.create({
   },
   label: { fontSize: 14, lineHeight: 20 },
   value: { fontSize: 16, lineHeight: 23, fontWeight: '500' },
-  row: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 4 },
+  dividedCard: { gap: 0, paddingVertical: 4 },
+  divider: { height: 0.5 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 48, paddingVertical: 4 },
   rowTitle: { fontSize: 16, fontWeight: '600', lineHeight: 22 },
   dot: { width: 10, height: 10, borderRadius: 5 },
   grow: { flex: 1, gap: 3 },

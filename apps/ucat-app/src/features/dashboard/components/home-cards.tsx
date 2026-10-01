@@ -62,11 +62,9 @@ export function TestCountdownCard({
             })
           : "Test date to be confirmed"}
       </Copy>
-      <Action
-        secondary
-        title={testDate ? "View study plan" : "Set your test date"}
-        onPress={onOpenPlan}
-      />
+      {testDate ? (
+        <Action secondary title="View study plan" onPress={onOpenPlan} />
+      ) : null}
     </Group>
   );
 }

@@ -2,7 +2,7 @@
   "expo": {
     "name": "Altitutor Student",
     "slug": "student-app",
-    "version": "1.6.1",
+    "version": "1.6.3",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "altitutor-student",
@@ -14,7 +14,6 @@
     },
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.altitutor.altitutorstudent",
       "supportsTablet": true,
       "infoPlist": {
@@ -22,10 +21,10 @@
       }
     },
     "android": {
-      "package": "com.altitutor.altitutorstudent",
+      "package": "com.altitutor.student",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#FFFFFF",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -38,6 +37,8 @@
     },
     "plugins": [
       "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
       [
         "expo-notifications",
         {
@@ -53,7 +54,9 @@
             "imageWidth": 76
           }
         }
-      ]
+      ],
+      "expo-video",
+      "expo-image"
     ],
     "experiments": {
       "typedRoutes": true,

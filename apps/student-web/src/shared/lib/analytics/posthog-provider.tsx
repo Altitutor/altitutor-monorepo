@@ -4,6 +4,7 @@ import { Suspense, useEffect, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { PostHogProvider as PHProvider } from "posthog-js/react";
 import { useAuth } from "@/features/auth/providers";
+import { filterMobileAuthTelemetry } from "@/lib/privacy/mobile-auth-telemetry";
 import {
   getStudentAnalyticsSurface,
   posthog,
@@ -19,7 +20,7 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
   const searchParams = useSearchParams();
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled || pathname === "/mobile-auth" || pathname === "/mobile-browser") return;
     const safePathname = sanitizeStudentAnalyticsPathname(pathname);
     const safeQuery = new URLSearchParams();
     const step = searchParams.get("step");
@@ -40,12 +41,13 @@ function PostHogPageView({ enabled }: { enabled: boolean }) {
 }
 
 export function StudentPostHogIdentity() {
+  const pathname = usePathname();
   const { session, isLoading } = useAuth();
   const userId = session?.user.id ?? null;
   const previousUserId = useRef<string | null>(null);
 
   useEffect(() => {
-    if (isLoading || !posthog.__loaded) return;
+    if (pathname === "/mobile-auth" || pathname === "/mobile-browser" || isLoading || !posthog.__loaded) return;
 
     if (userId) {
       posthog.identify(userId, {
@@ -59,7 +61,7 @@ export function StudentPostHogIdentity() {
       posthog.reset();
       previousUserId.current = null;
     }
-  }, [isLoading, userId]);
+  }, [isLoading, pathname, userId]);
 
   return null;
 }
@@ -88,6 +90,7 @@ export function StudentPostHogProvider({
         person_profiles: "identified_only",
         disable_session_recording: true,
         disable_surveys: true,
+        before_send: (event) => filterMobileAuthTelemetry(event),
       });
       posthog.register({
         ...STUDENT_ANALYTICS_CONTEXT,

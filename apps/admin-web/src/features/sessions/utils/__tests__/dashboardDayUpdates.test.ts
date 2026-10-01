@@ -1,5 +1,6 @@
 import {
   buildDashboardDayUpdates,
+  dashboardNewStudentKey,
   getDashboardDayUpdateKindLabel,
   groupDashboardDayUpdateItems,
   hasDashboardDayUpdates,
@@ -225,6 +226,53 @@ describe('buildDashboardDayUpdates', () => {
 
     expect(updates.studentAbsences.map((item) => item.personName)).toEqual(['Alice Chen', 'Cara Ng']);
     expect(updates.extraStudents.map((item) => item.personName)).toEqual(['Bob Lee']);
+    expect(updates.newStudents).toEqual([]);
+  });
+
+  it('lists enrolled students attending their first class session', () => {
+    const updates = buildDashboardDayUpdates({
+      sessions: [session(), session({ id: 'meeting-1', type: 'ADMIN_MEETING', class_id: null, short_name: null })],
+      sessionStudents: {
+        'session-1': [
+          student({ id: 'student-new', first_name: 'Nina', last_name: 'New' }),
+          student({ id: 'student-return', first_name: 'Rita', last_name: 'Return' }),
+          student({ id: 'student-extra', first_name: 'Eve', last_name: 'Extra', is_extra: true }),
+          student({
+            id: 'student-absent',
+            first_name: 'Abe',
+            last_name: 'Absent',
+            planned_absence: true,
+          }),
+        ],
+        'meeting-1': [student({ id: 'student-meeting', first_name: 'Mia', last_name: 'Meeting' })],
+      },
+      sessionStaff: {},
+      classesById,
+      subjectsById: emptySubjects,
+      newStudentKeys: new Set([
+        dashboardNewStudentKey('session-1', 'student-new'),
+        dashboardNewStudentKey('session-1', 'student-extra'),
+        dashboardNewStudentKey('session-1', 'student-absent'),
+        dashboardNewStudentKey('meeting-1', 'student-meeting'),
+      ]),
+    });
+
+    expect(updates.newStudents).toEqual([
+      expect.objectContaining({
+        kind: 'new_student',
+        personName: 'Nina New',
+        sessionLabel: '12MATH tue 4:15',
+      }),
+    ]);
+    expect(updates.extraStudents.map((item) => item.personName)).toEqual(['Eve Extra']);
+    expect(updates.studentAbsences.map((item) => item.personName)).toEqual(['Abe Absent']);
+    expect(hasDashboardDayUpdates(updates)).toBe(true);
+    expect(groupDashboardDayUpdateItems(updates, 'type').map((group) => group.title)).toEqual([
+      'Meetings',
+      'Student absences',
+      'New students',
+      'Extra students',
+    ]);
   });
 
   it('does not list extra students on meetings', () => {
@@ -539,6 +587,7 @@ describe('groupDashboardDayUpdateItems', () => {
 describe('getDashboardDayUpdateKindLabel', () => {
   it('returns the type section title for each update kind', () => {
     expect(getDashboardDayUpdateKindLabel('meeting')).toBe('Meetings');
+    expect(getDashboardDayUpdateKindLabel('new_student')).toBe('New students');
     expect(getDashboardDayUpdateKindLabel('trial_tutor')).toBe('Trial tutors');
     expect(getDashboardDayUpdateKindLabel('staff_swap')).toBe('Staff swaps');
   });

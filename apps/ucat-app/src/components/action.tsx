@@ -20,7 +20,7 @@ export function Action({
       title={title}
       onPress={onPress}
       disabled={disabled}
-      secondary={!tone && secondary}
+      secondary={secondary}
       block
       tint={tone ? c[tone] : undefined}
     />

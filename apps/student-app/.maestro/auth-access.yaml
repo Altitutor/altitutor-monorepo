@@ -1,9 +1,7 @@
 appId: com.altitutor.altitutorstudent
-name: Anonymous access reaches login and password recovery
+name: Anonymous access reaches the student landing page
 ---
 - launchApp:
     clearState: true
-- assertVisible: "Student app"
 - assertVisible: "Sign in"
-- tapOn: "Forgot password?"
-- assertVisible: "Reset password"
+- assertVisible: "Not a student? Sign up"

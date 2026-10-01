@@ -37,6 +37,7 @@ export function NativeButton({
       accessible
       accessibilityRole="button"
       accessibilityLabel={announced ?? title}
+      style={block ? { width: "100%", alignSelf: "stretch" } : undefined}
     >
       <Host
         matchContents={block ? { vertical: true } : true}
@@ -44,7 +45,7 @@ export function NativeButton({
         seedColor={color}
         style={
           block
-            ? { width: "100%", minHeight: 48 }
+            ? { width: "100%", minHeight: 48, alignSelf: "stretch" }
             : compact
               ? { minHeight: 32 }
               : undefined

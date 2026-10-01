@@ -1,6 +1,8 @@
 import type { Database, ResourceFile } from '@altitutor/shared';
-import { mapTopicFile } from '@altitutor/shared';
+import { displayResourceFilename, formatResourceTypeLabel, mapTopicFile } from '@altitutor/shared';
 
+import { startOfAdelaideDay } from '@/features/dashboard/timetable';
+import { studentWebUrl } from '@/lib/student-web';
 import { supabase } from '@/lib/supabase';
 export { readPaymentMethod, type PaymentMethod } from '@/lib/payment-method';
 
@@ -20,13 +22,91 @@ export type StudentSessionDetail = Database['public']['Views']['vstudent_session
 export type ResourceSubject = Database['public']['Views']['vstudent_online_subjects']['Row'];
 export type ResourceTopic = Database['public']['Views']['vstudent_topics']['Row'];
 
-export type StudentProfileUpdate = Pick<
-  Database['public']['Tables']['students']['Update'],
-  'first_name' | 'last_name' | 'phone'
->;
+export type RecentResource = {
+  id: string;
+  topicId: string;
+  title: string;
+  detail: string | null;
+};
+
+const RECENT_RESOURCE_LIMIT = 4;
+
+export type StudentNotification = {
+  id: string;
+  title: string | null;
+  body: string | null;
+  created_at: string | null;
+  read_at: string | null;
+  action_url: string | null;
+};
+
+export type NotificationPatch = {
+  notificationIds?: string[];
+  markAllRead?: boolean;
+  markUnread?: boolean;
+  dismiss?: boolean;
+};
 
 function throwIfError(error: { message: string } | null) {
   if (error) throw new Error(error.message);
+}
+
+function toRecentResource(row: {
+  id: string | null;
+  filename: string | null;
+  topic_id: string | null;
+  type: string | null;
+  code: string | null;
+}): RecentResource | null {
+  if (!row.id || !row.topic_id || !row.filename) return null;
+  return {
+    id: row.id,
+    topicId: row.topic_id,
+    title: displayResourceFilename(row.filename),
+    detail: row.type ? formatResourceTypeLabel(row.type) : row.code,
+  };
+}
+
+function tutorLogFileIds(raw: Database['public']['Views']['vstudent_tutor_log']['Row']['files']): string[] {
+  if (!Array.isArray(raw)) return [];
+  const ids: string[] = [];
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object' || Array.isArray(entry)) continue;
+    const record = entry as { [key: string]: unknown };
+    if (typeof record.topics_files_id === 'string') ids.push(record.topics_files_id);
+  }
+  return ids;
+}
+
+async function recentResourcesFromTutorLogs(): Promise<RecentResource[]> {
+  const { data, error } = await supabase
+    .from('vstudent_tutor_log')
+    .select('files, tutor_log_updated_at')
+    .not('files', 'is', null)
+    .order('tutor_log_updated_at', { ascending: false })
+    .limit(12);
+  throwIfError(error);
+  const ids: string[] = [];
+  for (const log of data ?? []) {
+    for (const id of tutorLogFileIds(log.files)) {
+      if (ids.includes(id)) continue;
+      ids.push(id);
+      if (ids.length >= RECENT_RESOURCE_LIMIT) break;
+    }
+    if (ids.length >= RECENT_RESOURCE_LIMIT) break;
+  }
+  if (ids.length === 0) return [];
+  const files = await supabase
+    .from('vstudent_topics_files')
+    .select('id, filename, topic_id, type, code')
+    .in('id', ids);
+  throwIfError(files.error);
+  const byId = new Map((files.data ?? []).map((row) => [row.id, row]));
+  return ids.flatMap((id) => {
+    const row = byId.get(id);
+    const resource = row ? toRecentResource(row) : null;
+    return resource ? [resource] : [];
+  });
 }
 
 export const studentApi = {
@@ -40,6 +120,32 @@ export const studentApi = {
       .limit(60);
     throwIfError(error);
     return data ?? [];
+  },
+
+  async listDashboardSessions(): Promise<StudentSession[]> {
+    const { data, error } = await supabase
+      .from('vstudent_session_base')
+      .select('*')
+      .gte('start_at', startOfAdelaideDay().toISOString())
+      .order('start_at', { ascending: true })
+      .limit(40);
+    throwIfError(error);
+    return data ?? [];
+  },
+
+  async listRecentResources(): Promise<RecentResource[]> {
+    const { data, error } = await supabase
+      .from('vstudent_topics_files')
+      .select('id, filename, topic_id, type, code')
+      .order('created_at', { ascending: false })
+      .limit(RECENT_RESOURCE_LIMIT);
+    throwIfError(error);
+    const files = (data ?? []).flatMap((row) => {
+      const resource = toRecentResource(row);
+      return resource ? [resource] : [];
+    });
+    if (files.length > 0) return files;
+    return recentResourcesFromTutorLogs();
   },
 
   async listClasses(): Promise<StudentClass[]> {
@@ -185,8 +291,40 @@ export const studentApi = {
     return data;
   },
 
-  async updateProfile(studentId: string, updates: StudentProfileUpdate): Promise<void> {
-    const { error } = await supabase.from('students').update(updates).eq('id', studentId);
+  async listNotifications(): Promise<StudentNotification[]> {
+    const now = new Date().toISOString();
+    const { data, error } = await supabase
+      .from('vstudent_notifications')
+      .select('id, title, body, created_at, read_at, action_url')
+      .is('dismissed_at', null)
+      .is('resolved_at', null)
+      .or(`expires_at.is.null,expires_at.gt.${now}`)
+      .order('created_at', { ascending: false })
+      .limit(50);
     throwIfError(error);
+    return (data ?? []).flatMap((row) => (row.id ? [{
+      id: row.id,
+      title: row.title,
+      body: row.body,
+      created_at: row.created_at,
+      read_at: row.read_at,
+      action_url: row.action_url,
+    }] : []));
+  },
+
+  async patchNotifications(body: NotificationPatch): Promise<void> {
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (!data.session) throw new Error('Please sign in to continue.');
+    const response = await fetch(studentWebUrl('/api/notifications'), {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${data.session.access_token}`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(30000),
+    });
+    if (!response.ok) throw new Error('Unable to update notifications.');
   },
 };

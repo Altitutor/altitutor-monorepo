@@ -232,4 +232,18 @@ export const sessionsApi = {
 
     return response.json();
   },
+
+  getDashboardNewClassStudents: async (
+    sessionIds: string[]
+  ): Promise<Array<{ session_id: string; student_id: string }>> => {
+    if (sessionIds.length === 0) return [];
+
+    const supabase = getSupabaseClient() as SupabaseClient<Database>;
+    const { data, error } = await supabase.rpc('dashboard_new_class_students', {
+      p_session_ids: sessionIds,
+    });
+
+    if (error) throw error;
+    return data ?? [];
+  },
 };

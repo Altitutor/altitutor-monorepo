@@ -2,7 +2,7 @@ import { captureApiError } from '@/lib/sentry/capture-api-error';
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
-import { createClient as createServerClient } from '@/shared/lib/supabase/server-ssr';
+import { createNotificationUserClient } from '@/features/notifications/server/user-client';
 
 /**
  * PATCH /api/notifications/[notificationId]
@@ -19,7 +19,7 @@ export async function PATCH(
   try {
     const body = (await request.json().catch(() => ({}))) as { dismiss?: boolean };
     // Get the authenticated user's supabase client
-    const userClient = createServerClient();
+    const userClient = createNotificationUserClient(request);
     
     // Verify user is a student
     const { data: isStudent, error: studentCheckError } = await userClient.rpc('is_student');

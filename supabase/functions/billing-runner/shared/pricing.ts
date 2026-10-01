@@ -19,6 +19,7 @@ interface PricingOverrideRow {
 }
 
 interface SubsidyRow {
+  id?: string | null;
   student_id: string;
   subject_id: string;
   billing_type: string;
@@ -26,6 +27,31 @@ interface SubsidyRow {
   currency?: string | null;
   effective_from?: string | null;
   effective_until?: string | null;
+}
+
+/** Latest effective_from wins, then the greatest id. Matches selectEffectiveSubsidy in @altitutor/shared. */
+function selectEffectiveSubsidy(candidates: SubsidyRow[]): SubsidyRow | undefined {
+  let selected: SubsidyRow | undefined;
+  for (const candidate of candidates) {
+    if (!selected) {
+      selected = candidate;
+      continue;
+    }
+
+    const selectedFrom = selected.effective_from
+      ? Date.parse(selected.effective_from)
+      : Number.NEGATIVE_INFINITY;
+    const candidateFrom = candidate.effective_from
+      ? Date.parse(candidate.effective_from)
+      : Number.NEGATIVE_INFINITY;
+    if (
+      candidateFrom > selectedFrom ||
+      (candidateFrom === selectedFrom && (candidate.id ?? '') > (selected.id ?? ''))
+    ) {
+      selected = candidate;
+    }
+  }
+  return selected;
 }
 
 export function calculateSessionPrice(
@@ -91,13 +117,15 @@ export function calculateSessionPrice(
   // Subsidies are stored as hourly_rate_cents (price_cents field)
   // Student pays the minimum of subsidy rate and default/override rate
   if (studentId && session.subject_id && session.billing_type) {
-    const activeSub = (subsidies || []).find(
-      (s: SubsidyRow) =>
-        s.student_id === studentId &&
-        s.subject_id === session.subject_id &&
-        s.billing_type === session.billing_type &&
-        (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
-        (!s.effective_until || new Date(s.effective_until) > targetDate)
+    const activeSub = selectEffectiveSubsidy(
+      (subsidies || []).filter(
+        (s: SubsidyRow) =>
+          s.student_id === studentId &&
+          s.subject_id === session.subject_id &&
+          s.billing_type === session.billing_type &&
+          (!s.effective_from || new Date(s.effective_from) <= targetDate) &&
+          (!s.effective_until || new Date(s.effective_until) > targetDate),
+      ),
     );
 
     if (activeSub) {

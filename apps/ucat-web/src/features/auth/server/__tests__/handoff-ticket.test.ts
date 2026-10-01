@@ -65,6 +65,7 @@ describe("encrypted handoff tickets", () => {
   });
   it("permits only exact local destinations", () => {
     expect(isBrowserDestination("/settings/plan/referrals")).toBe(true);
+    expect(isBrowserDestination("/settings/study-plan")).toBe(true);
     for (const path of [
       "https://evil.test",
       "//evil.test",

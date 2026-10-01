@@ -99,7 +99,7 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
       open={isOpen}
       onClose={onClose}
       title="Add Subsidy"
-      subtitle="Create a new hourly rate subsidy for this student. The student will pay the minimum of the subsidy rate and the default rate for the selected subject and billing type."
+      subtitle="Set the hourly rate for one subject and billing type. Saving closes or splits any other subsidy that covers the same dates, so only one rate applies at a time. The student pays the lower of this rate and the catalogue rate."
       contentClassName="md:max-w-[500px]"
       footer={
         <>

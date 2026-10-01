@@ -8,7 +8,7 @@ export default function ResourcesScreen() {
   const subjects = useResourceSubjects();
 
   return (
-    <StudentScreen title="Resources" subtitle="Browse files by subject and topic.">
+    <StudentScreen title="Resources" showHeaderActions>
       {subjects.isPending ? <LoadingBlock label="Loading subjects..." /> : null}
       {subjects.isError ? <ErrorBlock message={subjects.error.message} /> : null}
       {subjects.data?.length === 0 ? <EmptyBlock>No subject resources available.</EmptyBlock> : null}

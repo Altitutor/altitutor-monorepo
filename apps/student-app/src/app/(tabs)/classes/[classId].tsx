@@ -12,6 +12,7 @@ import {
   TappableRow,
   Value,
 } from '@/components/student-ui';
+import { sessionTypeLabel } from '@/features/sessions/session-display';
 import { useClassDetail, useClassSessions } from '@/hooks/use-student-data';
 
 export default function ClassDetailScreen() {
@@ -21,7 +22,7 @@ export default function ClassDetailScreen() {
   const sessions = useClassSessions(classId);
 
   return (
-    <StudentScreen title={details.data?.subject_name ?? 'Class details'} subtitle="Schedule and recent sessions">
+    <StudentScreen title={details.data?.session_type === 'HOMEWORK_HELP' ? 'Homework help' : (details.data?.subject_name ?? 'Class details')} showHeaderActions>
       {details.isPending ? <LoadingBlock /> : null}
       {details.isError ? <ErrorBlock message={details.error.message} /> : null}
       {details.data ? (
@@ -38,7 +39,7 @@ export default function ClassDetailScreen() {
         <Card key={session.session_id ?? session.start_at}>
           <TappableRow
             title={formatDateTime(session.start_at)}
-            detail={session.session_type ?? 'Session'}
+            detail={sessionTypeLabel(session.session_type)}
             onPress={session.session_id ? () => router.push({ pathname: '/session/[sessionId]', params: { sessionId: session.session_id! } }) : undefined}
           />
         </Card>

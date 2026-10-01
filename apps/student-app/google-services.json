@@ -23,6 +23,44 @@
           "other_platform_oauth_client": []
         }
       }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922178007601:android:3b15bab26f374c9ffd1b10",
+        "android_client_info": {
+          "package_name": "com.altitutor.student"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSTxqPr2fa1XIyA0mCnesDfbeywjPRrlU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:922178007601:android:d4556a02bd43bc21fd1b10",
+        "android_client_info": {
+          "package_name": "com.altitutor.ucat"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBSTxqPr2fa1XIyA0mCnesDfbeywjPRrlU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
     }
   ],
   "configuration_version": "1"

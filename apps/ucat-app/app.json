@@ -2,7 +2,7 @@
   "expo": {
     "name": "Altitutor UCAT",
     "slug": "ucat-app",
-    "version": "1.1.0",
+    "version": "1.1.1",
     "runtimeVersion": {
       "policy": "appVersion"
     },
@@ -13,7 +13,6 @@
     "icon": "./assets/images/icon.png",
     "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
       "supportsTablet": false,
       "bundleIdentifier": "com.altitutor.ucat",
       "infoPlist": {
@@ -24,7 +23,7 @@
       "package": "com.altitutor.ucat",
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#072941",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
@@ -57,7 +56,7 @@
         "expo-splash-screen",
         {
           "backgroundColor": "#E8EAED",
-          "image": "./assets/images/icon.png",
+          "image": "./assets/images/splash-icon-light.png",
           "imageWidth": 128,
           "dark": {
             "backgroundColor": "#171717",

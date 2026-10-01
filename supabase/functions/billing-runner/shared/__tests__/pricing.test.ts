@@ -173,6 +173,41 @@ describe('calculateSessionPrice', () => {
       expect(result.currency).toBe('aud');
     });
 
+    it('uses the latest overlapping subsidy even when an older one is listed first', () => {
+      const older = {
+        id: '00000000-0000-4000-8000-000000000001',
+        student_id: 'student-1',
+        subject_id: 'subject-1',
+        billing_type: 'DOMESTIC',
+        price_cents: 9000,
+        currency: 'AUD',
+        effective_from: '2024-01-01T00:00:00.000Z',
+        effective_until: null,
+      };
+      const newer = {
+        id: '00000000-0000-4000-8000-000000000002',
+        student_id: 'student-1',
+        subject_id: 'subject-1',
+        billing_type: 'DOMESTIC',
+        price_cents: 4000,
+        currency: 'AUD',
+        effective_from: '2024-01-10T00:00:00.000Z',
+        effective_until: null,
+      };
+
+      const result = calculateSessionPrice(
+        mockSession,
+        'student-1',
+        new Date('2024-01-15'),
+        mockPricingByBillingType,
+        {},
+        [],
+        [older, newer]
+      );
+
+      expect(result.amount_cents).toBe(4000);
+    });
+
     it('should use minimum of subsidy and override rate', () => {
       const override = {
         subject_id: 'subject-1',

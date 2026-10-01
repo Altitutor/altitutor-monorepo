@@ -1,0 +1,1206 @@
+{
+  "origin": "https://mzgunxjfgvcyivcyqimn.supabase.co",
+  "profiles": [
+    {
+      "staff_id": "fed019f7-7bd3-4b31-b82e-6845d031aaae",
+      "display_name": "Matthew Chua",
+      "public_title": "MATHEMATICAL METHODS COURSE MANAGER Tutor: Mathematical Methods, Specialist Mathematics, Physics, Chemistry, Biology, UCAT",
+      "is_administrative_staff": true,
+      "profile_bio": "Hi, my name is Matt and I love walking alongside students as they improve both their understanding and their scores. Outside of Altitutor I also work as a doctor at the Queen Elizabeth Hospital, but in my spare time, I enjoy landscape photography and fingerstyle guitar.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "fed019f7-7bd3-4b31-b82e-6845d031aaae/website-import-ccfffa7022ad56390663.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 0
+    },
+    {
+      "staff_id": "f3b77741-77bc-4226-8e75-b664fda4f980",
+      "display_name": "Lara Nguyen",
+      "public_title": "ADMINISTRATIVE ASSISTANT Social Media, Marketing and Staff Management",
+      "is_administrative_staff": true,
+      "profile_bio": "Hi I’m Lara, a ‘23 SACE graduate currently studying Law and Commerce! I’m an admin who occasionally tutors as a side quest. I'm a huge foodie, and my hobbies include photography, gymming and volleyball. I also enjoy late night walks and hanging out with friends.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "f3b77741-77bc-4226-8e75-b664fda4f980/website-import-cd9daa2d59c57c9b02ba.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [],
+      "display_order": 1
+    },
+    {
+      "staff_id": "61b7f261-a30f-48ce-a522-7e036239fdb1",
+      "display_name": "Joshua Gooi",
+      "public_title": "UCAT COURSE MANAGERTutor: Biology, Chemistry, UCAT, Mathematical Methods",
+      "is_administrative_staff": false,
+      "profile_bio": "Hi, my name is Joshua but people call me Gooi. I'm really cute and petite, and I am a precious little small bean and everyone loves me. I would love to be your maths tutor because that is my strongest subject!",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "61b7f261-a30f-48ce-a522-7e036239fdb1/website-import-2581abbead1549038d31.jpg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 3
+    },
+    {
+      "staff_id": "2c3516f8-63ee-45fa-b1a2-c6b42d62610f",
+      "display_name": "Kevin Ling",
+      "public_title": "CHEMISTRY COURSE MANAGER Tutor: Biology, Chemistry, UCAT, Mathematical Methods",
+      "is_administrative_staff": false,
+      "profile_bio": "Hello! My name is Kevin. I mainly teach Chemistry but am more than happy to help with Methods, Biology and whatever you come in with to homework help. I study Medicine at the University of Adelaide and enjoy food, meeting new people and playing basketball.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "2c3516f8-63ee-45fa-b1a2-c6b42d62610f/website-import-ff659faaad77fb06e8d1.png",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 4
+    },
+    {
+      "staff_id": "519a1cfc-b6e4-422f-95eb-4f268103fcbd",
+      "display_name": "Shardul Mulye",
+      "public_title": "PRESACE COURSE MANAGER Tutor: Mathematical Methods, Biology, Physics, UCAT",
+      "is_administrative_staff": false,
+      "profile_bio": "Hey there, my name is Shardul and I'm currently studying medicine at Adelaide University. Through tutoring for several years, I've developed a thorough yet simple approach to helping students achieve their goals in their academics. My passion for tutoring stems from students being able to achieve what they had hoped for and becoming successful in their post high-school journey.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "519a1cfc-b6e4-422f-95eb-4f268103fcbd/website-import-f32617c138f70aec10bc.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 5
+    },
+    {
+      "staff_id": "545f1875-a139-4ef0-ad22-4c45a5a52317",
+      "display_name": "Ed Nitschke",
+      "public_title": "Tutor: Mathematical Methods, Chemistry, Pre-SACE Maths",
+      "is_administrative_staff": false,
+      "profile_bio": "Hi! I’m Ed, a 2023 SACE graduate pursuing a Bachelor of Clinical Science/Doctor of Medicine at Flinders University. My journey with Altitutor began as a student in 2022 and 2023, where I received invaluable support from my tutors. Inspired by their guidance, I decided to join the Altitutor team to give back and help other students succeed. I am passionate about teaching chemistry, methods, and biology. When I'm not tutoring, I enjoy playing tennis and watching movies with friends.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "545f1875-a139-4ef0-ad22-4c45a5a52317/website-import-8f8e90316e42b297e53f.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 6
+    },
+    {
+      "staff_id": "324e9713-abd7-4a8f-bf30-5b295fd6c9fc",
+      "display_name": "Alexander Wabnitz",
+      "public_title": "Tutor: Specialist Mathematics, Mathematical Methods, Pre-SACE Mathematics, Pre-SACE Science",
+      "is_administrative_staff": false,
+      "profile_bio": "Hey! I'm Alex. I'm studying a Bachelor of Advanced Mathematical Sciences at Adelaide Uni. In my spare time, I enjoy playing piano or competing in competitive tournaments for some of my favourite tabletop games. I tutor Maths. It’s been my favourite subject for most of my life.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "324e9713-abd7-4a8f-bf30-5b295fd6c9fc/website-import-a8a238a24bbd69cce28d.jpg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 7
+    },
+    {
+      "staff_id": "b4a1f085-4047-4b9e-b070-c5ff91587850",
+      "display_name": "Melshuel George",
+      "public_title": "Tutor: English, Biology, Pre-SACE Science",
+      "is_administrative_staff": false,
+      "profile_bio": "Hi I’m Melsh and I’m studying Medicine at the University of Adelaide. I graduated from SACE in 2024 and I currently tutor English and Science. I really enjoy badminton, going to the gym, and watching medical dramas!",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "b4a1f085-4047-4b9e-b070-c5ff91587850/website-import-8bb816d5ce78ac5c5088.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "English General",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 8
+    },
+    {
+      "staff_id": "91876ce2-9be9-4e48-bae2-b4af5b00e9e1",
+      "display_name": "Maddie Parker",
+      "public_title": "Tutor: Biology, English, AIF",
+      "is_administrative_staff": false,
+      "profile_bio": "Hi! I’m Maddie, a 2024 SACE graduate now studying medicine at the University of Adelaide. In my spare time, I enjoy hitting the gym, playing netball, listening to music and reading.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "91876ce2-9be9-4e48-bae2-b4af5b00e9e1/website-import-bc28054d424db0db7055.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English General",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        },
+        {
+          "name": "English",
+          "curriculum": "IB"
+        },
+        {
+          "name": "English",
+          "curriculum": "IB"
+        },
+        {
+          "name": "English",
+          "curriculum": "IB"
+        },
+        {
+          "name": "English",
+          "curriculum": "IB"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "English General",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English Literature",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English Literature",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        }
+      ],
+      "display_order": 9
+    },
+    {
+      "staff_id": "b84b501e-0fc7-438e-a15f-d63330cbfaf1",
+      "display_name": "An Do",
+      "public_title": "ADMINISTRATIVE STAFF Tutor: General Maths, Pre-SACE",
+      "is_administrative_staff": true,
+      "profile_bio": null,
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "b84b501e-0fc7-438e-a15f-d63330cbfaf1/website-import-a7831c7df3c272ba0916.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "General Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 10
+    },
+    {
+      "staff_id": "c4db1ba0-bc2c-45a6-93bb-a2ff3e25d2c4",
+      "display_name": "Josh Lee",
+      "public_title": "Tutor: UCAT, Chemistry, Mathematical Methods, Chemistry, Physics, Biology",
+      "is_administrative_staff": false,
+      "profile_bio": "Hi! My name is Josh and I am a 2025 SACE graduate currently studying medicine at Adelaide University. Having gone through the struggles of high school myself, I would love to help others with their schoolwork to make it just that bit easier!! When I'm not studying (which is most of the time), I really enjoy playing tennis and watching sport.",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "c4db1ba0-bc2c-45a6-93bb-a2ff3e25d2c4/website-import-85f375199c4e7d71c566.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 13
+    },
+    {
+      "staff_id": "620a1a2d-e1d4-4eb3-a888-bc6ee3a4eca6",
+      "display_name": "Darshil Jang",
+      "public_title": "Tutor: Specialist Mathematics, Mathematical Methods, English, Pre-SACE Science",
+      "is_administrative_staff": false,
+      "profile_bio": "Hey! I am Darshil and I am studying Medicine at Adelaide University. I graduated from SACE in 2024, and a fun fact about me is that I have resided in more than 3 cities in the past 3 years!",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "620a1a2d-e1d4-4eb3-a888-bc6ee3a4eca6/website-import-7e25f979d1655a4ad5c8.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "General Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 14
+    },
+    {
+      "staff_id": "24e5ac6b-5bed-453e-9a50-1ecf13fb8c5a",
+      "display_name": "RJ He",
+      "public_title": "Tutor: Mathematical Methods, Chemistry, Biology, English",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": null,
+      "profile_image_storage_path": null,
+      "profile_image_metadata": {
+        "profileImageCrop": null
+      },
+      "subjects": [
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 15
+    },
+    {
+      "staff_id": "83e00fb5-06eb-4ce1-83e6-65ad4fea184a",
+      "display_name": "Alessia D'Angelis",
+      "public_title": "Tutor: Physics, Specialist Mathematics, Mathematical Methods, Chemistry, Pre-SACE Maths",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": null,
+      "profile_image_storage_path": null,
+      "profile_image_metadata": {
+        "profileImageCrop": null
+      },
+      "subjects": [
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematics AI",
+          "curriculum": "IB"
+        }
+      ],
+      "display_order": 16
+    },
+    {
+      "staff_id": "b26f35fc-238f-463c-98ff-581cb2970166",
+      "display_name": "Huanzhen Lin",
+      "public_title": "Tutor: Pre-SACE Science, Pre-SACE Mathematics",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": null,
+      "profile_image_storage_path": null,
+      "profile_image_metadata": {
+        "profileImageCrop": null
+      },
+      "subjects": [
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 17
+    },
+    {
+      "staff_id": "1729a66d-5a57-4d4d-8d30-620d310ad73a",
+      "display_name": "Navya Shah",
+      "public_title": "Tutor: Biology, Mathematical Methods, Pre-SACE Mathematics",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "1729a66d-5a57-4d4d-8d30-620d310ad73a/website-import-f80fd83a7e143771a7c4.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        }
+      ],
+      "display_order": 18
+    },
+    {
+      "staff_id": "9b5c2bb4-6991-4f04-88c6-7b7451641380",
+      "display_name": "Ryan George",
+      "public_title": "Tutor: UCAT, Chemistry, Biology, Pre-SACE Science",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": null,
+      "profile_image_storage_path": null,
+      "profile_image_metadata": {
+        "profileImageCrop": null
+      },
+      "subjects": [
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        }
+      ],
+      "display_order": 19
+    },
+    {
+      "staff_id": "02c1e010-323f-4b81-b77c-1426e656c3f9",
+      "display_name": "Christian Kriek",
+      "public_title": "ADMINISTRATIVE STAFF",
+      "is_administrative_staff": true,
+      "profile_bio": null,
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "02c1e010-323f-4b81-b77c-1426e656c3f9/website-import-a4c7bbaa1181a77fc769.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 20
+    },
+    {
+      "staff_id": "bd716550-f843-499e-89f6-916c62751587",
+      "display_name": "Jayden Tran",
+      "public_title": "Tutor: Mathematical Methods, Pre-SACE Maths",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": null,
+      "profile_image_storage_path": null,
+      "profile_image_metadata": {
+        "profileImageCrop": null
+      },
+      "subjects": [
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        }
+      ],
+      "display_order": 21
+    },
+    {
+      "staff_id": "c73cee21-6a35-4868-a541-0df128505870",
+      "display_name": "Minah Cho",
+      "public_title": "Tutor: UCAT",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "c73cee21-6a35-4868-a541-0df128505870/website-import-99e7086aaaee1087c5aa.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 22
+    },
+    {
+      "staff_id": "0da01f44-e4c3-4d52-a6f8-521099385ba2",
+      "display_name": "Emma Choi",
+      "public_title": "",
+      "is_administrative_staff": false,
+      "profile_bio": "Hi, I’m Emma! I’m currently studying medicine and really enjoy helping students find a genuine enjoyment in learning new things. I tutor a range of subjects across SACE Maths, Science and English, and I’m always up for a good chat too :)",
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "0da01f44-e4c3-4d52-a6f8-521099385ba2/website-import-4eedd6abfcee5196ef76.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Biology",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "English",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "English General",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English General",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "English Literature",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Mathematics",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Physics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRESACE"
+        },
+        {
+          "name": "Science",
+          "curriculum": "PRIMARY"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Specialist Mathematics",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "UCAT",
+          "curriculum": null
+        }
+      ],
+      "display_order": 23
+    },
+    {
+      "staff_id": "7d452d32-b6a8-4cc0-9bfd-3156733c57fa",
+      "display_name": "Brian Ju",
+      "public_title": "Tutor",
+      "is_administrative_staff": false,
+      "profile_bio": null,
+      "profile_image_bucket": "staff-profile-images",
+      "profile_image_storage_path": "7d452d32-b6a8-4cc0-9bfd-3156733c57fa/website-import-b6eda6ae22d0bb3b1b95.jpeg",
+      "profile_image_metadata": {
+        "profileImageCrop": {
+          "x": 50,
+          "y": 50,
+          "zoom": 1
+        }
+      },
+      "subjects": [
+        {
+          "name": "UCAT",
+          "curriculum": null
+        },
+        {
+          "name": "Homework Help",
+          "curriculum": null
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Mathematical Methods",
+          "curriculum": "SACE"
+        },
+        {
+          "name": "Medicine Interview",
+          "curriculum": null
+        },
+        {
+          "name": "Chemistry",
+          "curriculum": "SACE"
+        }
+      ],
+      "display_order": 24
+    }
+  ]
+}

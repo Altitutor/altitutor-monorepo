@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { useRouter } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { HeaderActions } from "@/components/header-actions";
@@ -19,13 +20,16 @@ export default function Home() {
     queryFn: progressApi.activity,
   });
   const { launch, busy, error } = useLaunchActivity();
+  const [pulling, setPulling] = useState(false);
   const openPlan = () => router.push("/study-orb");
   return (
     <Screen
-      refreshing={plan.isRefetching || activity.isRefetching}
+      refreshing={pulling}
       onRefresh={() => {
-        void plan.refetch();
-        void activity.refetch();
+        setPulling(true);
+        void Promise.all([plan.refetch(), activity.refetch()]).finally(() =>
+          setPulling(false),
+        );
       }}
     >
       <HeaderActions />
