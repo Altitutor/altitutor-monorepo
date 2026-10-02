@@ -1,29 +1,74 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FieldValues, UseFormReturn } from "react-hook-form";
+import type {
+  FieldPath,
+  FieldPathValue,
+  FieldValues,
+  UseFormReturn,
+} from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
 import {
-  editOperation,
+  deleteWorkItem,
+  patchWorkItem,
+  readWorkItem,
   type EditKind,
   type EditRecord,
-  type EditSession,
+  type WorkItemSnapshot,
 } from "./api";
+import { workItemFormField } from "./fields";
 
-export interface RecoveryDraft {
-  key: string;
-  values: EditRecord;
-  savedAt: string;
-}
-// Postgres JSON and the editor can emit identical objects in different key orders.
-const signature = (value: unknown) => JSON.stringify(value, (_key, item) =>
-  item && typeof item === "object" && !Array.isArray(item)
-    ? Object.fromEntries(Object.keys(item).sort().map(key => [key, item[key]]))
-    : item,
-);
+// JSON object key order is immaterial to both Postgres and rich-text content.
+const signature = (value: unknown) =>
+  JSON.stringify(value, (_key, item) =>
+    item && typeof item === "object" && !Array.isArray(item)
+      ? Object.fromEntries(
+          Object.keys(item)
+            .sort()
+            .map((key) => [key, item[key]]),
+        )
+      : item,
+  );
 const same = (a: unknown, b: unknown) => signature(a) === signature(b);
+const isRecord = (value: unknown): value is EditRecord =>
+  !!value && typeof value === "object" && !Array.isArray(value);
+const textFields = new Set(["title", "name", "description", "content"]);
+interface SaveRequest {
+  key: string;
+  changes: EditRecord;
+  expected: EditRecord;
+}
+interface EditingState {
+  disposed: boolean;
+  removing: boolean;
+  snapshot: WorkItemSnapshot | null;
+  baseline: EditRecord;
+  expected: EditRecord;
+  pending: Set<string>;
+  conflicts: Set<string>;
+  invalid: Set<string>;
+  due: Map<string, number>;
+  request: SaveRequest | null;
+  active: Promise<boolean> | null;
+  timer?: ReturnType<typeof setTimeout>;
+  storageKey: string | null;
+}
+const newState = (): EditingState => ({
+  disposed: false,
+  removing: false,
+  snapshot: null,
+  baseline: {},
+  expected: {},
+  pending: new Set(),
+  conflicts: new Set(),
+  invalid: new Set(),
+  due: new Map(),
+  request: null,
+  active: null,
+  storageKey: null,
+});
 
-/** Owns the entire editing lifecycle. Server refreshes never replace a writable draft. */
+/** User edits produce conditional field patches; loading and refreshes never save. */
 export function useWorkItemEditor<T extends FieldValues>({
   kind,
   id,
@@ -42,494 +87,508 @@ export function useWorkItemEditor<T extends FieldValues>({
   onClose: () => void;
 }) {
   const cache = useQueryClient();
-  const [session, setSession] = useState<EditSession | null>(null);
+  const [session, setSession] = useState<WorkItemSnapshot | null>(null);
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [lost, setLost] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [recovery, setRecovery] = useState<RecoveryDraft[]>([]);
-  const [closeRequested, setCloseRequested] = useState(false);
-  const [viewSwitchRequested, setViewSwitchRequested] = useState(false);
   const [storageError, setStorageError] = useState(false);
-  const sessionRef = useRef<EditSession | null>(null);
-  const baseline = useRef<T | null>(null);
-  const draftKey = useRef<string | null>(null);
-  const dirtyRef = useRef(false);
-  const savingRef = useRef(false);
-  const lostRef = useRef(false);
+  const [conflicts, setConflicts] = useState<string[]>([]);
+  const [closeRequested, setCloseRequested] = useState(false);
+  const state = useRef<EditingState>(newState());
   const resetting = useRef(false);
-  const request = useRef<{ key: string; changes: EditRecord } | null>(null);
-  const pendingPreview = useRef<Promise<unknown>>(Promise.resolve());
-  // Strict Mode can mount again while the previous acquisition is in flight.
-  // Finish releasing that session before requesting the next one.
-  const initialization = useRef<Promise<void>>(Promise.resolve());
   const options = useRef({ fromRecord, toRecord, onClose });
   options.current = { fromRecord, toRecord, onClose };
   const continuation = useRef<(() => void) | null>(null);
+  const saveRef = useRef<(force?: boolean) => Promise<boolean>>(
+    async () => false,
+  );
 
-  const apply = useCallback(
-    (next: EditSession, initial = false) => {
-      sessionRef.current = next;
-      setSession(next);
-      if (initial || (!next.can_edit && !lostRef.current)) {
-        const record = next.preview
-          ? { ...next.record, ...next.preview }
-          : next.record;
-        const values = options.current.fromRecord(record);
-        if (initial || !same(values, form.getValues())) {
-          resetting.current = true;
-          form.reset(values);
-          resetting.current = false;
-        }
-        baseline.current = options.current.fromRecord(next.record);
-        dirtyRef.current = false;
-        setDirty(false);
+  const setField = useCallback(
+    (field: string, record: EditRecord) => {
+      const name = workItemFormField(kind, field) as FieldPath<T>;
+      const values = options.current.fromRecord(record);
+      resetting.current = true;
+      form.setValue(name, values[name] as FieldPathValue<T, FieldPath<T>>);
+      resetting.current = false;
+    },
+    [form, kind],
+  );
+
+  const preserve = useCallback(
+    (s: EditingState) => {
+      if (s.disposed) return;
+      const unsaved = s.pending.size > 0 || !!s.request;
+      setDirty(unsaved);
+      setConflicts([...s.conflicts]);
+      if (!s.storageKey) return;
+      try {
+        if (unsaved) {
+          const full = options.current.toRecord(form.getValues());
+          const changes = Object.fromEntries(
+            [...s.pending].map((field) => [field, full[field] ?? null]),
+          );
+          const expected = Object.fromEntries(
+            [...s.pending].map((field) => [field, s.expected[field] ?? null]),
+          );
+          // One recovery copy per record in this tab. Restoring keeps the old
+          // expectations, so it cannot overwrite content changed elsewhere.
+          sessionStorage.setItem(
+            s.storageKey,
+            JSON.stringify({ changes, expected, request: s.request }),
+          );
+        } else sessionStorage.removeItem(s.storageKey);
+        setStorageError(false);
+      } catch {
+        setStorageError(true);
       }
     },
     [form],
   );
 
-  const preserve = useCallback(() => {
-    if (!draftKey.current || !baseline.current) return;
-    const values = form.getValues();
-    const changed = !same(values, baseline.current);
-    dirtyRef.current = changed;
-    setDirty(changed);
-    try {
-      if (changed)
-        localStorage.setItem(
-          draftKey.current,
-          JSON.stringify({
-            values: options.current.toRecord(values),
-            savedAt: new Date().toISOString(),
-          }),
-        );
-      else localStorage.removeItem(draftKey.current);
-      setStorageError(false);
-    } catch {
-      setStorageError(true);
-    }
-  }, [form]);
+  const schedule = useCallback((s: EditingState) => {
+    clearTimeout(s.timer);
+    if (s.disposed || s.active || s.removing) return;
+    const due = [...s.pending]
+      .filter((field) => !s.conflicts.has(field) && !s.invalid.has(field))
+      .map((field) => s.due.get(field) ?? 0);
+    if (!due.length) return;
+    s.timer = setTimeout(
+      () => {
+        void saveRef.current(false);
+      },
+      Math.max(0, Math.min(...due) - Date.now()),
+    );
+  }, []);
 
-  const loseSession = useCallback(
-    (message: string) => {
-      preserve();
-      lostRef.current = true;
-      setLost(true);
-      setError(message);
-      if (sessionRef.current) {
-        sessionRef.current = { ...sessionRef.current, can_edit: false };
-        setSession(sessionRef.current);
+  const apply = useCallback(
+    (s: EditingState, next: WorkItemSnapshot, submitted?: EditRecord) => {
+      if (s.disposed || state.current !== s) return;
+      const stale =
+        Number(next.record.admin_revision ?? 0) <
+        Number(s.snapshot?.record.admin_revision ?? 0);
+      if (stale && !submitted) return;
+      const latest = stale && s.snapshot ? s.snapshot : next;
+      const full = options.current.toRecord(form.getValues());
+      const normalized = options.current.toRecord(
+        options.current.fromRecord(next.record),
+      );
+      const latestNormalized = options.current.toRecord(
+        options.current.fromRecord(latest.record),
+      );
+      for (const field of Object.keys(normalized)) {
+        if (submitted && field in submitted) {
+          s.baseline[field] = normalized[field];
+          s.expected[field] = next.record[field];
+          if (same(full[field], submitted[field])) {
+            s.pending.delete(field);
+            s.invalid.delete(field);
+            s.baseline[field] = latestNormalized[field];
+            s.expected[field] = latest.record[field];
+            setField(field, latest.record);
+          } else {
+            s.pending.add(field);
+          }
+        } else if (!s.pending.has(field)) {
+          s.baseline[field] = latestNormalized[field];
+          s.expected[field] = latest.record[field];
+          if (!same(full[field], latestNormalized[field]))
+            setField(field, latest.record);
+        }
       }
+      s.snapshot = latest;
+      setSession(latest);
+      preserve(s);
     },
-    [preserve],
+    [form, preserve, setField],
   );
 
-  useEffect(() => {
-    if (!enabled || !id) return;
-    let disposed = false;
-    let busy = false;
-    let heartbeatAt = 0;
-    let acquired: EditSession | null = null;
-    sessionRef.current = null;
-    baseline.current = null;
-    draftKey.current = null;
-    request.current = null;
-    lostRef.current = false;
-    dirtyRef.current = false;
-    setSession(null);
-    setLost(false);
-    setDirty(false);
-    setError(null);
-    setRecovery([]);
-    const load = async () => {
-      try {
-        const next = await editOperation(kind, id, "acquire");
-        acquired = next;
-        if (disposed) {
-          if (next.token) await editOperation(kind, id, "release", next.token);
-          return;
-        }
-        const prefix = `work-draft:${next.user_id}:${kind}:${id}:`;
-        const drafts: RecoveryDraft[] = [];
-        try {
-          for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key?.startsWith(prefix)) {
-              try {
-                drafts.push({ key, ...JSON.parse(localStorage.getItem(key)!) });
-              } catch {
-                /* Leave unreadable storage untouched. */
-              }
-            }
-          }
-        } catch {
-          setStorageError(true);
-        }
-        setRecovery(drafts);
-        draftKey.current = `${prefix}${crypto.randomUUID()}`;
-        apply(next, true);
-      } catch (failure) {
-        if (!disposed)
-          setError(
-            failure instanceof Error
-              ? failure.message
-              : "Could not open editor.",
-          );
-      }
-    };
-    initialization.current = initialization.current.then(load);
-    const timer = window.setInterval(async () => {
-      const current = sessionRef.current;
-      if (disposed || busy || !current || savingRef.current) return;
-      if (current.can_edit && Date.now() - heartbeatAt < 10000) return;
-      busy = true;
-      try {
-        const next = await editOperation(
-          kind,
-          id,
-          current.can_edit ? "heartbeat" : "read",
-          current.token,
-        );
-        if (disposed) return;
-        heartbeatAt = Date.now();
-        if (current.can_edit && !next.can_edit)
-          loseSession("Your editing session ended. Your draft has been kept.");
-        else if (!lostRef.current) {
-          setError(null);
-          apply(next);
-        }
-      } catch (failure) {
-        if (!disposed) {
-          if (current.can_edit)
-            loseSession(
-              "Connection to the editing session was lost. Your draft has been kept.",
-            );
-          else
-            setError(
-              failure instanceof Error
-                ? failure.message
-                : "Live preview unavailable.",
-            );
-        }
-      } finally {
-        busy = false;
-      }
-    }, 2000);
-    return () => {
-      disposed = true;
-      clearInterval(timer);
-      const current = sessionRef.current ?? acquired;
-      if (current?.token)
-        initialization.current = initialization.current.then(async () => {
-          await editOperation(kind, id, "release", current.token).catch(
-            () => undefined,
-          );
-        });
-    };
-  }, [kind, id, enabled, apply, loseSession]);
-
-  useEffect(() => {
-    let previewTimer: ReturnType<typeof setTimeout> | undefined;
-    const subscription = form.watch(() => {
-      if (resetting.current || !sessionRef.current?.can_edit) return;
-      preserve();
-      clearTimeout(previewTimer);
-      previewTimer = setTimeout(() => {
-        const current = sessionRef.current;
-        if (!current?.can_edit || savingRef.current) return;
-        const changes = dirtyRef.current
-          ? options.current.toRecord(form.getValues())
-          : null;
-        pendingPreview.current = pendingPreview.current
-          .then(() =>
-            editOperation(kind, id, "preview", current.token, changes),
-          )
-          .catch(() => {
-            setError("Live preview unavailable. Your draft is kept locally.");
-          });
-      }, 400);
-    });
-    return () => {
-      clearTimeout(previewTimer);
-      subscription.unsubscribe();
-    };
-  }, [form, kind, id, preserve]);
-
-  useEffect(() => {
-    const unload = (event: BeforeUnloadEvent) => {
-      if (dirtyRef.current || savingRef.current) {
-        preserve();
-        event.preventDefault();
-        event.returnValue = "";
-      }
-    };
-    const navigate = (event: MouseEvent) => {
-      const target =
-        event.target instanceof Element
-          ? event.target.closest("a[href]")
-          : null;
-      if (
-        !target ||
-        !dirtyRef.current ||
-        event.defaultPrevented ||
-        event.metaKey ||
-        event.ctrlKey ||
-        target.getAttribute("target") === "_blank"
-      )
-        return;
-      const href = target.getAttribute("href");
-      if (!href || href.startsWith("#")) return;
-      event.preventDefault();
-      event.stopPropagation();
-      continuation.current = () => {
-        window.location.assign(href);
-      };
-      setCloseRequested(true);
-    };
-    window.addEventListener("beforeunload", unload);
-    document.addEventListener("click", navigate, true);
-    return () => {
-      window.removeEventListener("beforeunload", unload);
-      document.removeEventListener("click", navigate, true);
-    };
-  }, [preserve]);
-
-  const save = async () => {
-    if (savingRef.current || !sessionRef.current?.can_edit || lostRef.current)
-      return false;
-    if (!(await form.trigger())) {
-      setError("Please check the highlighted fields.");
-      return false;
-    }
-    const values = structuredClone(form.getValues());
-    const full = options.current.toRecord(values);
-    const base = baseline.current
-      ? options.current.toRecord(baseline.current)
-      : {};
-    const changes = Object.fromEntries(
-      Object.entries(full).filter(([key, value]) => !same(value, base[key])),
-    );
-    if (!request.current || !same(request.current.changes, changes))
-      request.current = { key: crypto.randomUUID(), changes };
-    savingRef.current = true;
-    setSaving(true);
-    setError(null);
-    try {
-      await pendingPreview.current;
-      const next = await editOperation(
-        kind,
-        id,
-        "save",
-        sessionRef.current.token,
-        changes,
-        request.current.key,
-      );
-      baseline.current = values;
-      request.current = null;
-      apply(next);
-      preserve();
-      void cache.invalidateQueries({
-        queryKey: [kind === "document" ? "notes" : `${kind}s`],
-      });
-      void cache.invalidateQueries({ queryKey: ["activity", kind, id] });
-      if (kind === "document")
-        void cache.invalidateQueries({ queryKey: ["folders"] });
-      return !dirtyRef.current;
-    } catch (failure) {
-      preserve();
-      if ((failure as { code?: string }).code === "55P03")
-        loseSession(
-          "Your editing session ended. Copy your preserved draft before opening a fresh session.",
-        );
-      else
-        setError(
-          failure instanceof Error
-            ? failure.message
-            : "Save failed. Your draft has been kept.",
-        );
-      return false;
-    } finally {
-      savingRef.current = false;
-      setSaving(false);
-    }
-  };
-  const finishClose = async () => {
-    await pendingPreview.current;
-    if (sessionRef.current?.token)
-      await editOperation(kind, id, "release", sessionRef.current.token).catch(
-        () => undefined,
-      );
-    setCloseRequested(false);
-    (continuation.current ?? options.current.onClose)();
-    continuation.current = null;
-  };
-  const requestClose = (next?: () => void) => {
-    if (savingRef.current) return;
-    continuation.current = next ?? null;
-    if (dirtyRef.current) setCloseRequested(true);
-    else void finishClose();
-  };
-  const discard = async () => {
-    if (savingRef.current) return;
-    try {
-      if (draftKey.current) localStorage.removeItem(draftKey.current);
-    } catch {
-      setStorageError(true);
-    }
-    dirtyRef.current = false;
-    setDirty(false);
-    if (baseline.current) {
-      resetting.current = true;
-      form.reset(baseline.current);
-      resetting.current = false;
-    }
-    await pendingPreview.current;
-    if (sessionRef.current?.can_edit)
-      await editOperation(
-        kind,
-        id,
-        "preview",
-        sessionRef.current.token,
-        null,
-      ).catch(() => undefined);
-  };
-  const remove = async () => {
-    if (!sessionRef.current?.can_edit || savingRef.current) return;
-    savingRef.current = true;
-    setDeleting(true);
-    try {
-      await pendingPreview.current;
-      await editOperation(kind, id, "delete", sessionRef.current.token);
-    } catch (failure) {
-      setError(failure instanceof Error ? failure.message : "Could not delete this record.");
-      return;
-    } finally {
-      savingRef.current = false;
-      setDeleting(false);
-    }
-    try {
-      if (draftKey.current) localStorage.removeItem(draftKey.current);
-    } catch {
-      setStorageError(true);
-    }
-    dirtyRef.current = false;
+  const invalidate = useCallback(() => {
     void cache.invalidateQueries({
       queryKey: [kind === "document" ? "notes" : `${kind}s`],
     });
     void cache.invalidateQueries({ queryKey: ["activity", kind, id] });
     if (kind === "document")
       void cache.invalidateQueries({ queryKey: ["folders"] });
-    options.current.onClose();
-  };
-  const acquire = async () => {
-    // Never carry a stale draft into a newly acquired session.
-    if (dirtyRef.current || savingRef.current) return;
-    savingRef.current = true;
+  }, [cache, kind, id]);
+
+  const save = useCallback(
+    (force = true): Promise<boolean> => {
+      const s = state.current;
+      if (s.active)
+        return s.active.then(() =>
+          force ? saveRef.current(true) : !s.pending.size && !s.request,
+        );
+      if (s.disposed || !s.snapshot || s.removing)
+        return Promise.resolve(false);
+      clearTimeout(s.timer);
+      const run = async () => {
+        setSaving(true);
+        setError(null);
+        try {
+          while (!s.disposed && !s.removing) {
+            if (!s.request) {
+              const fields = [...s.pending].filter(
+                (field) =>
+                  !s.conflicts.has(field) &&
+                  !s.invalid.has(field) &&
+                  (force || (s.due.get(field) ?? 0) <= Date.now()),
+              );
+              const valid: string[] = [];
+              const full = options.current.toRecord(form.getValues());
+              for (const field of fields) {
+                if (
+                  await form.trigger(
+                    workItemFormField(kind, field) as FieldPath<T>,
+                  )
+                )
+                  valid.push(field);
+                else s.invalid.add(field);
+              }
+              if (s.disposed || s.removing) return false;
+              const current = options.current.toRecord(form.getValues());
+              const changed = valid.filter(
+                (field) =>
+                  s.pending.has(field) &&
+                  same(full[field], current[field]) &&
+                  !same(full[field], s.baseline[field]),
+              );
+              if (!changed.length) break;
+              s.request = {
+                key: crypto.randomUUID(),
+                changes: Object.fromEntries(
+                  changed.map((field) => [field, full[field] ?? null]),
+                ),
+                expected: Object.fromEntries(
+                  changed.map((field) => [field, s.expected[field] ?? null]),
+                ),
+              };
+              preserve(s);
+            }
+            const request = s.request;
+            const next = await patchWorkItem(
+              kind,
+              id,
+              request.changes,
+              request.expected,
+              request.key,
+            );
+            if (s.disposed) return false;
+            s.request = null;
+            if (next.conflicts.length) {
+              for (const field of next.conflicts)
+                if (s.pending.has(field)) s.conflicts.add(field);
+              apply(s, next);
+            } else {
+              apply(s, next, request.changes);
+              invalidate();
+            }
+            // Edits made during an HTTP request remain pending. A forced flush
+            // drains them; normal autosave respects their typing debounce.
+          }
+          if (s.invalid.size)
+            setError(
+              "Please check the highlighted fields. Those changes have not been saved.",
+            );
+          preserve(s);
+          return !s.pending.size && !s.request;
+        } catch (failure) {
+          if (!s.disposed) {
+            setError(
+              failure instanceof Error
+                ? failure.message
+                : "Couldn’t save. Your changes are kept in this tab.",
+            );
+            preserve(s);
+          }
+          // Keep the exact request and key: an HTTP failure may have happened
+          // after the database committed. Retry it before sending newer edits.
+          return false;
+        } finally {
+          if (!s.disposed) setSaving(false);
+        }
+      };
+      s.active = run().finally(() => {
+        s.active = null;
+        if (!s.request) schedule(s);
+      });
+      return s.active;
+    },
+    [apply, form, id, invalidate, kind, preserve, schedule],
+  );
+  saveRef.current = save;
+
+  useEffect(() => {
+    const s = newState();
+    state.current = s;
+    setSession(null);
+    setDirty(false);
+    setSaving(false);
     setError(null);
+    setConflicts([]);
+    setCloseRequested(false);
+    if (!enabled || !id)
+      return () => {
+        s.disposed = true;
+      };
+    const load = async () => {
+      try {
+        const next = await readWorkItem(kind, id);
+        if (s.disposed) return;
+        s.snapshot = next;
+        s.baseline = options.current.toRecord(
+          options.current.fromRecord(next.record),
+        );
+        s.expected = { ...next.record };
+        s.storageKey = `work-autosave:${next.user_id}:${kind}:${id}`;
+        let record = next.record;
+        try {
+          const recovery: unknown = JSON.parse(
+            sessionStorage.getItem(s.storageKey) ?? "null",
+          );
+          if (
+            isRecord(recovery) &&
+            isRecord(recovery.changes) &&
+            isRecord(recovery.expected)
+          ) {
+            const changed = recovery.changes;
+            const previous = recovery.expected;
+            const normalizedPrevious = options.current.toRecord(
+              options.current.fromRecord({ ...next.record, ...previous }),
+            );
+            for (const field of Object.keys(s.baseline)) {
+              if (!(field in changed) || !(field in previous)) continue;
+              s.pending.add(field);
+              s.due.set(field, Date.now());
+              s.baseline[field] = normalizedPrevious[field];
+              s.expected[field] = previous[field];
+              record = { ...record, [field]: changed[field] };
+            }
+            const request = recovery.request;
+            if (
+              isRecord(request) &&
+              typeof request.key === "string" &&
+              isRecord(request.changes) &&
+              isRecord(request.expected)
+            ) {
+              s.request = {
+                key: request.key,
+                changes: request.changes,
+                expected: request.expected,
+              };
+            }
+          }
+        } catch {
+          setStorageError(true);
+        }
+        resetting.current = true;
+        form.reset(options.current.fromRecord(record));
+        resetting.current = false;
+        setSession(next);
+        preserve(s);
+        if (s.request) void saveRef.current(false);
+        else schedule(s);
+      } catch (failure) {
+        if (!s.disposed)
+          setError(
+            failure instanceof Error
+              ? failure.message
+              : "Could not open this record.",
+          );
+      }
+    };
+    void load();
+    // Refresh saved properties without replacing locally edited fields.
+    const poll = setInterval(() => {
+      if (!s.snapshot || s.active || s.disposed || s.removing) return;
+      void readWorkItem(kind, id)
+        .then((next) => {
+          if (!s.active) apply(s, next);
+        })
+        .catch(() => undefined);
+    }, 10000);
+    return () => {
+      s.disposed = true;
+      clearTimeout(s.timer);
+      clearInterval(poll);
+    };
+  }, [apply, enabled, form, id, kind, preserve, schedule]);
+
+  useEffect(() => {
+    const subscription = form.watch((_values, info) => {
+      const s = state.current;
+      if (
+        resetting.current ||
+        s.disposed ||
+        s.removing ||
+        !s.snapshot ||
+        !info.name
+      )
+        return;
+      // Controller events and touched setValue calls are edits. A touched
+      // setter still counts when the user returns to the original form default.
+      // form.reset and programmatic hydration have no permission to save.
+      const fieldState = form.getFieldState(info.name);
+      if (
+        info.type !== "change" &&
+        !fieldState.isDirty &&
+        !fieldState.isTouched
+      )
+        return;
+      const full = options.current.toRecord(form.getValues());
+      for (const field of Object.keys(full)) {
+        if (workItemFormField(kind, field) !== info.name) continue;
+        s.invalid.delete(field);
+        if (same(full[field], s.baseline[field])) {
+          s.pending.delete(field);
+          s.conflicts.delete(field);
+        } else {
+          s.pending.add(field);
+          s.due.set(field, Date.now() + (textFields.has(field) ? 600 : 0));
+        }
+      }
+      preserve(s);
+      schedule(s);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, kind, preserve, schedule]);
+
+  const resolveConflict = (field: string, useMine: boolean) => {
+    const s = state.current;
+    if (!s.snapshot || !s.conflicts.has(field) || s.active) return;
+    const latest = s.snapshot.record;
+    s.expected[field] = latest[field];
+    s.baseline[field] = options.current.toRecord(
+      options.current.fromRecord(latest),
+    )[field];
+    s.conflicts.delete(field);
+    if (!useMine) {
+      setField(field, latest);
+      s.pending.delete(field);
+    } else s.due.set(field, Date.now());
+    preserve(s);
+    if (useMine) void saveRef.current(true);
+  };
+
+  const finishClose = () => {
+    setCloseRequested(false);
+    const next = continuation.current ?? options.current.onClose;
+    continuation.current = null;
+    next();
+  };
+  const requestClose = async (next?: () => void) => {
+    const s = state.current;
+    continuation.current = next ?? null;
+    if (!state.current.snapshot) {
+      finishClose();
+      return;
+    }
+    const saved = await saveRef.current(true);
+    if (s.disposed || state.current !== s) return;
+    if (saved) finishClose();
+    else setCloseRequested(true);
+  };
+  const closeGate = useRef(requestClose);
+  closeGate.current = requestClose;
+
+  useEffect(() => {
+    const unload = (event: BeforeUnloadEvent) => {
+      const s = state.current;
+      if (s.pending.size || s.request || s.active) {
+        preserve(s);
+        event.preventDefault();
+        event.returnValue = "";
+      }
+    };
+    const navigate = (event: MouseEvent) => {
+      const s = state.current;
+      if (
+        (!s.pending.size && !s.request && !s.active) ||
+        event.defaultPrevented ||
+        event.metaKey ||
+        event.ctrlKey ||
+        event.shiftKey ||
+        event.altKey ||
+        event.button !== 0
+      )
+        return;
+      const target =
+        event.target instanceof Element
+          ? event.target.closest("a[href]")
+          : null;
+      const href = target?.getAttribute("href");
+      if (
+        !href ||
+        href.startsWith("#") ||
+        target?.getAttribute("target") === "_blank" ||
+        target?.hasAttribute("download")
+      )
+        return;
+      event.preventDefault();
+      event.stopPropagation();
+      void closeGate.current(() => window.location.assign(href));
+    };
+    const online = () => {
+      if (state.current.request || state.current.pending.size)
+        void saveRef.current(true);
+    };
+    window.addEventListener("beforeunload", unload);
+    window.addEventListener("online", online);
+    document.addEventListener("click", navigate, true);
+    return () => {
+      window.removeEventListener("beforeunload", unload);
+      window.removeEventListener("online", online);
+      document.removeEventListener("click", navigate, true);
+    };
+  }, [preserve]);
+
+  const remove = async () => {
+    const s = state.current;
+    if (!s.snapshot || s.removing) return;
+    s.removing = true;
+    setDeleting(true);
+    if (s.active) await s.active;
+    if (s.disposed) return;
+    clearTimeout(s.timer);
     try {
-      const next = await editOperation(kind, id, "acquire");
-      lostRef.current = false;
-      setLost(false);
-      apply(next, true);
+      await deleteWorkItem(kind, id);
+      if (s.disposed) return;
+      s.pending.clear();
+      s.request = null;
+      preserve(s);
+      invalidate();
+      options.current.onClose();
     } catch (failure) {
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : "Could not acquire editing session.",
-      );
+      if (!s.disposed)
+        setError(
+          failure instanceof Error
+            ? failure.message
+            : "Could not delete this record.",
+        );
     } finally {
-      savingRef.current = false;
+      s.removing = false;
+      if (!s.disposed) {
+        setDeleting(false);
+        schedule(s);
+      }
     }
   };
-  const releaseToView = async () => {
-    if (savingRef.current) return;
-    const current = sessionRef.current;
-    if (!current?.can_edit) return;
-    savingRef.current = true;
-    setError(null);
-    try {
-      await pendingPreview.current;
-      if (current.token)
-        await editOperation(kind, id, "release", current.token);
-      const next = await editOperation(kind, id, "read");
-      lostRef.current = false;
-      setLost(false);
-      apply(next, true);
-      setViewSwitchRequested(false);
-    } catch (failure) {
-      setError(
-        failure instanceof Error
-          ? failure.message
-          : "Could not switch to view mode.",
-      );
-    } finally {
-      savingRef.current = false;
-    }
-  };
-  const requestViewMode = () => {
-    if (savingRef.current) return;
-    if (!sessionRef.current?.can_edit) return;
-    if (dirtyRef.current) setViewSwitchRequested(true);
-    else void releaseToView();
-  };
-  const finishViewSwitch = async () => {
-    setViewSwitchRequested(false);
-    await releaseToView();
-  };
-  const restart = async () => {
-    if (savingRef.current) return;
-    preserve();
-    if (dirtyRef.current && draftKey.current) {
-      setRecovery((items) => [
-        ...items,
-        {
-          key: draftKey.current!,
-          values: options.current.toRecord(form.getValues()),
-          savedAt: new Date().toISOString(),
-        },
-      ]);
-      draftKey.current = `${draftKey.current.slice(0, draftKey.current.lastIndexOf(":") + 1)}${crypto.randomUUID()}`;
-    }
-    if (sessionRef.current?.token)
-      await editOperation(kind, id, "release", sessionRef.current.token).catch(
-        () => undefined,
-      );
-    dirtyRef.current = false;
-    await acquire();
-  };
+
   return {
     session,
-    editable: !!session?.can_edit && !lost && !saving && !deleting,
+    editable: !!session && !deleting,
     dirty,
     saving,
     deleting,
-    lost,
     error,
     storageError,
-    recovery,
+    conflicts,
     closeRequested,
     setCloseRequested,
-    viewSwitchRequested,
-    setViewSwitchRequested,
     save,
-    discard,
     remove,
-    acquire,
-    requestViewMode,
-    finishViewSwitch,
-    restart,
     requestClose,
     finishClose,
-    draft: options.current.toRecord(form.getValues()),
-    dismissRecovery: (key: string) => {
-      try {
-        localStorage.removeItem(key);
-        setRecovery((items) => items.filter((item) => item.key !== key));
-      } catch {
-        setStorageError(true);
-      }
-    },
+    resolveConflict,
   };
 }

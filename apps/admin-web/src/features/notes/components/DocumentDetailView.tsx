@@ -22,7 +22,6 @@ import {
   EditorControls,
   EditorFooterActions,
   EditorNotices,
-  EditorViewSwitchConfirmDialog,
   WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
@@ -239,12 +238,7 @@ export function DocumentDetailView({
           </div>
         ) : null}
       </div>
-      {variant === "dialog" ? (
-        <>
-          <EditorCloseConfirmDialog editor={editor} />
-          <EditorViewSwitchConfirmDialog editor={editor} />
-        </>
-      ) : null}
+      <EditorCloseConfirmDialog editor={editor} />
       <SaveAsTemplateDialog
         isOpen={saveTemplate}
         onClose={() => setSaveTemplate(false)}

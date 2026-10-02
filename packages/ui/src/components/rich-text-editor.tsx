@@ -1175,8 +1175,10 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
         return true;
       },
     },
-    onUpdate: ({ editor }) => {
-      if (!editor) return;
+    onUpdate: ({ editor, transaction }) => {
+      // Editability changes and initialization are not edits. Only document
+      // transactions may reach callers (including callers that autosave).
+      if (!editor || !editor.isEditable || !transaction.docChanged) return;
 
       const json = editor.getJSON();
       const jsonString = JSON.stringify(json);

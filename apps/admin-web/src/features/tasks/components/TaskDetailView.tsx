@@ -6,7 +6,6 @@ import {
   EditorControls,
   EditorFooterActions,
   EditorNotices,
-  EditorViewSwitchConfirmDialog,
   WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
@@ -338,9 +337,11 @@ export function TaskDetailView({
                                 setSelectedProject(null);
                                 form.setValue("issueId", null, {
                                   shouldDirty: true,
+                                  shouldTouch: true,
                                 });
                                 form.setValue("projectId", null, {
                                   shouldDirty: true,
+                                  shouldTouch: true,
                                 });
                                 return;
                               }
@@ -353,9 +354,11 @@ export function TaskDetailView({
                                 setSelectedProject(null);
                                 form.setValue("issueId", link.id, {
                                   shouldDirty: true,
+                                  shouldTouch: true,
                                 });
                                 form.setValue("projectId", null, {
                                   shouldDirty: true,
+                                  shouldTouch: true,
                                 });
                               } else {
                                 setSelectedProject({
@@ -365,9 +368,11 @@ export function TaskDetailView({
                                 setSelectedIssue(null);
                                 form.setValue("projectId", link.id, {
                                   shouldDirty: true,
+                                  shouldTouch: true,
                                 });
                                 form.setValue("issueId", null, {
                                   shouldDirty: true,
+                                  shouldTouch: true,
                                 });
                               }
                             }}
@@ -392,12 +397,7 @@ export function TaskDetailView({
         ) : null}
       </div>
 
-      {variant === "dialog" ? (
-        <>
-          <EditorCloseConfirmDialog editor={editor} />
-          <EditorViewSwitchConfirmDialog editor={editor} />
-        </>
-      ) : null}
+      <EditorCloseConfirmDialog editor={editor} />
 
       <AlertDialog
         open={isDeleteDialogOpen}

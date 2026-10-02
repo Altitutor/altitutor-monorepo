@@ -39851,6 +39851,16 @@ export type Database = {
         Args: { p_id: string; p_kind: string; p_offset?: number }
         Returns: Json
       }
+      admin_work_item_patch: {
+        Args: {
+          p_changes: Json
+          p_expected: Json
+          p_id: string
+          p_key: string
+          p_kind: string
+        }
+        Returns: Json
+      }
       admin_work_item_read: {
         Args: { p_id: string; p_kind: string }
         Returns: Json
