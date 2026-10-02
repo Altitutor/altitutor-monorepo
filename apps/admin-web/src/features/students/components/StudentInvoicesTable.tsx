@@ -30,7 +30,7 @@ import { cn, getErrorMessage } from '@/shared/utils';
 import { stripeInvoiceDashboardUrl } from '@/shared/utils/stripe-dashboard-urls';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { TablePagination } from '@/shared/components/TablePagination';
-import { useRouter } from 'next/navigation';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateInvoiceSurfaces } from '@/shared/lib/query-invalidation';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -44,7 +44,7 @@ interface StudentInvoicesTableProps {
 const INVOICE_STATUSES: InvoiceRow['status'][] = ['draft', 'open', 'paid', 'void', 'uncollectible', 'disputed'];
 
 export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
-  const router = useRouter();
+  const {router} = usePaneNavigation();
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();

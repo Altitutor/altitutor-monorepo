@@ -1,7 +1,3 @@
-'use client';
-
-import { TaskDetailPage } from '@/features/tasks/components/TaskDetailPage';
-
-export default function TaskDetailRoute({ params }: { params: { id: string } }) {
-  return <TaskDetailPage taskId={params.id} />;
-}
+"use client";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+export default function Page({ params }: { params: { id: string } }) { return <AccessoryRoute href={`/tasks/${params.id}`} />; }

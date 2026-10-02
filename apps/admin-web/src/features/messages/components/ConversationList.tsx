@@ -212,13 +212,13 @@ export function ConversationList({
 
   return (
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
-      <div className="p-3 flex-shrink-0">
+      <div data-pane-toolbar className="p-3 flex-shrink-0">
         <div className="flex items-center gap-2">
           {/* Search bar - styled like searchable-select-inline */}
           <div className="flex flex-1 min-w-0 items-center rounded-md border px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
-              className="flex h-9 w-full rounded-md border-0 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+              className="flex h-10 w-full rounded-md border-0 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
               placeholder="Search conversations"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -229,7 +229,7 @@ export function ConversationList({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-9 px-2 flex-shrink-0 gap-1"
+                className="h-10 px-2 flex-shrink-0 gap-1"
               >
                 <Filter className="h-4 w-4" />
                 <span className="text-xs">{activeFilterLabel}</span>

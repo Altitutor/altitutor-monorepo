@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useCallback } from 'react';
+import { useToast } from '@altitutor/ui';
 import { Button } from '@altitutor/ui';
 import { Card, CardContent } from '@altitutor/ui';
 import {
@@ -10,9 +11,9 @@ import {
   DropdownMenuTrigger,
 } from '@altitutor/ui';
 import { format } from 'date-fns';
-import { MoreVertical, Edit, Trash2 } from 'lucide-react';
+import { AlertTriangle, FlagOff, MoreVertical, Edit, Trash2 } from 'lucide-react';
 import { useCurrentStaff } from '@/shared/hooks';
-import { useCreateNote, useUpdateNote, useDeleteNote } from '@/shared/hooks/useNotes';
+import { useCreateNote, useUpdateNote, useDeleteNote, useSetNoteAlert } from '@/shared/hooks/useNotes';
 import { NotesEditorWithMentions } from '@/shared/components/NotesEditorWithMentions';
 import { NoteComposerWithTemplate } from '@/shared/components/NoteComposerWithTemplate';
 import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
@@ -33,7 +34,7 @@ const EMPTY_DOC: JSONContent = {
 };
 
 type NotesProps = {
-  targetType: 'students' | 'classes' | 'staff' | 'sessions';
+  targetType: 'students' | 'parents' | 'classes' | 'staff' | 'sessions';
   targetId: string;
   notes: NoteWithStaff[];
   onNoteAdded?: () => void;
@@ -44,10 +45,13 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
   const [newNoteContent, setNewNoteContent] = useState<JSONContent>(EMPTY_DOC);
   const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [editingNoteContent, setEditingNoteContent] = useState<JSONContent>(EMPTY_DOC);
+  const [editingNoteRevision, setEditingNoteRevision] = useState<number | undefined>();
   const { data: currentStaff } = useCurrentStaff();
   const createNoteMutation = useCreateNote();
   const updateNoteMutation = useUpdateNote();
   const deleteNoteMutation = useDeleteNote();
+  const setAlert = useSetNoteAlert();
+  const { toast } = useToast();
 
   const handleSubmit = useCallback(async () => {
     if (isTiptapContentEmpty(newNoteContent) || !currentStaff?.id) return;
@@ -73,6 +77,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
 
   const handleEdit = useCallback((note: NoteWithStaff) => {
     setEditingNoteId(note.id);
+    setEditingNoteRevision(note.admin_revision);
     setEditingNoteContent(toEditorContent(note.note));
   }, []);
 
@@ -89,6 +94,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
         await updateNoteMutation.mutateAsync({
           noteId,
           note: editingNoteContent,
+          revision: editingNoteRevision,
         });
         setEditingNoteId(null);
         setEditingNoteContent(EMPTY_DOC);
@@ -97,7 +103,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
         // Error handled silently - user can retry
       }
     },
-    [editingNoteContent, updateNoteMutation, onNoteAdded]
+    [editingNoteContent, editingNoteRevision, updateNoteMutation, onNoteAdded]
   );
 
   const handleDelete = async (noteId: string) => {
@@ -113,6 +119,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
 
   const titleMap: Record<typeof targetType, string> = {
     students: 'Student',
+    parents: 'Parent',
     classes: 'Class',
     staff: 'Staff',
     sessions: 'Session',
@@ -144,6 +151,7 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
                         {format(new Date(note.created_at), 'MMM d, yyyy h:mm a')}
                       </span>
                     </div>
+                    {note.is_alert && <span className="mb-1 inline-flex items-center gap-1 text-xs font-semibold text-amber-700"><AlertTriangle className="h-3 w-3" />Alert</span>}
                     {editingNoteId === note.id ? (
                       <div className="space-y-2">
                         <NotesEditorWithMentions
@@ -196,6 +204,17 @@ export function Notes({ targetType, targetId, notes, onNoteAdded, title }: Notes
                           </Button>
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end">
+                          {['students', 'parents', 'staff'].includes(targetType) && <DropdownMenuItem disabled={setAlert.isPending} onClick={async () => {
+                            try {
+                              await setAlert.mutateAsync({ noteId: note.id, isAlert: !note.is_alert, revision: note.admin_revision });
+                              onNoteAdded?.();
+                            } catch (error) {
+                              toast({ title: 'Could not update alert', description: error instanceof Error ? error.message : 'Please try again.', variant: 'destructive' });
+                            }
+                          }}>
+                            {note.is_alert ? <FlagOff className="mr-2 h-4 w-4" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                            {note.is_alert ? 'Remove alert flag' : 'Flag as alert'}
+                          </DropdownMenuItem>}
                           <DropdownMenuItem onClick={() => handleEdit(note)}>
                             <Edit className="h-4 w-4 mr-2" />
                             Edit

@@ -1,7 +1,3 @@
-'use client';
-
-import { NoteDetailPage } from '@/features/notes/components/NoteDetailPage';
-
-export default function DocumentDetailRoute({ params }: { params: { id: string } }) {
-  return <NoteDetailPage noteId={params.id} />;
-}
+"use client";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+export default function Page({ params }: { params: { id: string } }) { return <AccessoryRoute href={`/documents/${params.id}`} />; }

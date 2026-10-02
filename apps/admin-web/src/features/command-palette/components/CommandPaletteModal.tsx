@@ -10,7 +10,7 @@ import {
 import { cn } from '@/shared/utils';
 import { AdminDialogShell } from '@/shared/components';
 import { CommandPalette } from './CommandPalette';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 interface CommandPaletteModalProps {
   isOpen: boolean;
@@ -26,7 +26,7 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
   const dragStartYRef = useRef<number | null>(null);
   const dragOffsetRef = useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
   const viewportRect = useVisualViewportRect(isOpen && !isDesktop);
 
   useEffect(() => {

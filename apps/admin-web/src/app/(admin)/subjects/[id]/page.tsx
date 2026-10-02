@@ -1,4 +1,5 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -89,13 +90,13 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const { toast } = useToast();
-  
+
   // Topics modals state
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
   const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
-  
+
   const { data: allTopics = [], refetch: refetchTopics } = useTopics();
-  
+
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -165,7 +166,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!subject) return;
-    
+
     try {
       setLoading(true);
       const updatedData: TablesUpdate<'subjects'> = {
@@ -176,12 +177,12 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         level: values.level,
         color: values.color || null,
       };
-      
+
       const updated = await subjectsApi.updateSubject(subject.id, updatedData);
-      
+
       setSubject(updated);
       setIsEditing(false);
-      
+
       toast({
         title: "Subject updated",
         description: `${updated.name} has been updated successfully.`,
@@ -200,16 +201,16 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
 
   const handleDeleteSubject = async () => {
     if (!subject) return;
-    
+
     try {
       setIsDeleting(true);
       await subjectsApi.deleteSubject(subject.id);
-      
+
       toast({
         title: "Subject deleted",
         description: `${subject.name} has been deleted successfully.`,
       });
-      
+
       setDeleteConfirmText('');
       setIsDeleteDialogOpen(false);
       router.push('/subjects');
@@ -238,8 +239,8 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
 
   if (error || !subject) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -270,22 +271,12 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/subjects')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Subject' : 'Subject Details'}
-          </h1>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb />
+
+
         {subject && !isEditing && (
           <ActionsMenu
             type="subject"
@@ -570,9 +561,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                   </div>
                 </PropertyFormRow>
               </PropertyForm>
-              
+
               <Separator className="my-4" />
-              
+
               <div>
                 <h3 className="text-lg font-semibold mb-3">Topics</h3>
                 <TopicsHierarchy

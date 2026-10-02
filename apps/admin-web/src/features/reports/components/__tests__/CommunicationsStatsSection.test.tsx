@@ -4,8 +4,8 @@ import { CommunicationsStatsSection } from '../HrStatsSection';
 const mockIssuesReportChart = jest.fn((_props: unknown) => <div>Form completions chart</div>);
 const mockUseCommunicationsStatsReport = jest.fn((..._args: unknown[]): unknown => null);
 
-jest.mock('@/shared/contexts/EntityModalContext', () => ({
-  useEntityModals: () => ({
+jest.mock('@/shared/contexts/EntityNavigation', () => ({
+  useEntityNavigation: () => ({
     openSession: jest.fn(),
     openStaff: jest.fn(),
     openStudent: jest.fn(),

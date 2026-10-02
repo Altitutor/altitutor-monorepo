@@ -87,15 +87,7 @@ export const useChatStore = create<ChatStoreState>((set, get) => ({
   // Legacy methods (kept for backward compatibility during transition)
   windows: [],
   openWindow: ({ conversationId, title }) => {
-    // Add to conversations map
-    const conversations = new Map(get().conversations);
-    const existing = conversations.get(conversationId) || { unreadCount: 0 };
-    conversations.set(conversationId, { ...existing, title });
-    set({ 
-      conversations,
-      activeConversationId: conversationId,
-      minimized: false,
-    });
+    window.dispatchEvent(new CustomEvent("open-accessory-messages", { detail: { conversationId, title } }));
   },
   closeWindow: () => {
     // No-op: chat dock cannot be closed, only minimized

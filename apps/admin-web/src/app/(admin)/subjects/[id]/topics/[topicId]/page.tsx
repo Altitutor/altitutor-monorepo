@@ -1,4 +1,5 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -56,7 +57,7 @@ type FormData = z.infer<typeof formSchema>;
 export default function TopicDetailPage({ params }: { params: { id: string; topicId: string } }) {
   const { id: subjectId, topicId } = params;
   const router = useRouter();
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
@@ -67,13 +68,13 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
   const [isEditFileModalOpen, setIsEditFileModalOpen] = useState(false);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);
-  
+
   const { data: topic, isLoading, error } = useTopicById(topicId);
   const { data: subjects = [] } = useSubjects();
   const { data: allTopics = [] } = useTopics();
   const { data: subjectTopics = [] } = useTopicsBySubject(topic?.subject_id || null);
   const { data: topicFiles = [] } = useTopicFilesByTopic(topicId);
-  
+
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
   const updateTopicIndices = useUpdateTopicIndices();
@@ -124,7 +125,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
 
   const onSubmit = async (values: FormData) => {
     if (!topicId) return;
-    
+
     try {
       const topicData: TablesUpdate<'topics'> = {
         name: values.name,
@@ -133,19 +134,19 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
       };
 
       await updateTopicMutation.mutateAsync({ id: topicId, data: topicData });
-      
+
       if (reorderedChildren.length > 0) {
         await updateTopicIndices.mutateAsync(reorderedChildren);
         setReorderedChildren([]);
       }
-      
+
       setIsEditing(false);
-      
+
       toast({
         title: 'Topic updated',
         description: 'Topic has been updated successfully.',
       });
-      
+
       // Redirect if subject changed
       if (values.subject_id !== subjectId) {
         router.push(`/subjects/${values.subject_id}/topics/${topicId}`);
@@ -165,12 +166,12 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
 
     try {
       await deleteTopicMutation.mutateAsync(topicId);
-      
+
       toast({
         title: 'Topic deleted',
         description: 'Topic has been deleted successfully.',
       });
-      
+
       setShowDeleteDialog(false);
       router.push(`/subjects/${subjectId}/topics`);
     } catch (error) {
@@ -185,7 +186,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
 
   // Get children topics
   const childrenTopics = subjectTopics.filter(t => t.parent_id === topicId);
-  
+
   // Get available parent topics (exclude self and descendants)
   const availableParents = subjectTopics.filter(t => 
     t.id !== topicId && t.parent_id !== topicId
@@ -205,7 +206,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
 
   if (isLoading) {
     return (
-      <div className="p-6">
+      <div className="p-4">
         <div className="flex items-center justify-center h-64">
           <Loader2 className="h-8 w-8 animate-spin" />
         </div>
@@ -215,8 +216,8 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
 
   if (error || !topic) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -240,22 +241,11 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push(effectiveSubjectId ? `/subjects/${effectiveSubjectId}/topics` : '/subjects')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Topic' : 'Topic Details'}
-          </h1>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb />
+
         {topic && !isEditing && (
           <ActionsMenu
             type="topic"
@@ -280,7 +270,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                   required
                 />
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="subject_id" className="text-right">
                   Subject
@@ -312,7 +302,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                   />
                 </div>
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="parent_id" className="text-right">
                   Parent
@@ -374,7 +364,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                 <TrashIcon className="h-4 w-4 mr-2" />
                 Delete
               </Button>
-              
+
               <div className="flex space-x-2">
                 <Button
                   type="button"
@@ -445,9 +435,9 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                   </div>
                 </PropertyFormRow>
               </PropertyForm>
-            
+
               <Separator className="my-4" />
-              
+
               {/* Files Section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -469,7 +459,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                   <div className="space-y-2">
                     {topicFiles.map((topicFile) => {
                       const code = topicFile.code || '';
-                      
+
                       return (
                         <FileCard
                           key={topicFile.id}
@@ -513,7 +503,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
                     Add Subtopic
                   </Button>
                 </div>
-                
+
                 {childrenTopics.length > 0 ? (
                   <div className="space-y-1">
                     {buildTopicTree(subjectTopics, topicId).map((childTopic) => (
@@ -570,7 +560,7 @@ export default function TopicDetailPage({ params }: { params: { id: string; topi
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       {/* Add Topic Modal */}
       <AddTopicModal
         isOpen={isAddTopicModalOpen}

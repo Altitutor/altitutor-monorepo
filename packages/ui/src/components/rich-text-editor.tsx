@@ -833,8 +833,8 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
             const detail = { id, type, label };
             const handled = onMentionClickRef.current?.(detail) ?? false;
             if (!handled) {
-              window.dispatchEvent(
-                new CustomEvent<MentionClickDetail>('mentionClick', { detail })
+              mentionNode.dispatchEvent(
+                new CustomEvent<MentionClickDetail>('mentionClick', { detail, bubbles: true })
               );
             }
             return true;

@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePaneNavigation } from './usePaneNavigation';
 import { useAdminUrlSync } from './useAdminUrlSync';
 
 /**
@@ -9,9 +9,7 @@ import { useAdminUrlSync } from './useAdminUrlSync';
  */
 export function useUrlQueryParam(name: string, defaultValue = ''): [string, (value: string) => void] {
   useAdminUrlSync();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const router = useRouter();
+  const { router, searchParams, pathname } = usePaneNavigation();
 
   const readValue = useCallback(
     () => searchParams.get(name) ?? defaultValue,

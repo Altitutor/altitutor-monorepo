@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { Button } from '@altitutor/ui';
 import { cn } from '@/shared/utils';
 import { formatRelativeDate } from '@/features/messages/utils/templateHelpers';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import type { Notification } from '../types';
 
 interface NotificationItemProps {
@@ -24,7 +24,7 @@ export function NotificationItem({
   onOpen,
 }: NotificationItemProps) {
   const router = useRouter();
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
   const unread = !notification.read_at;
 
   const handleClick = () => {

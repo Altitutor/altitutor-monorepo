@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
 import {
   Loader2,
   X,
@@ -20,77 +20,81 @@ import {
   Newspaper,
   FolderKanban,
   Monitor,
-} from 'lucide-react';
-import { Button, Input, SearchFromDropdown } from '@altitutor/ui';
-import { focusCommandPaletteInput } from '@altitutor/shared';
-import { getEffectiveEntityFilters } from '../utils/entitySearchTypes';
-import { useCommandPaletteSearch } from '../hooks/useCommandPaletteSearch';
+} from "lucide-react";
+import { Button, Input, SearchFromDropdown } from "@altitutor/ui";
+import { focusCommandPaletteInput } from "@altitutor/shared";
+import { getEffectiveEntityFilters } from "../utils/entitySearchTypes";
+import { useCommandPaletteSearch } from "../hooks/useCommandPaletteSearch";
 import {
   additionalPages,
   extractPagesFromNavItems,
   entityTypes,
-} from '../config/commandPalette.config';
-import { useCommandPaletteCommandActions } from '../hooks/useCommandPaletteActions';
-import { useCommandPaletteCommands } from '../hooks/useCommandPaletteCommands';
-import { useCommandPaletteFiltering } from '../hooks/useCommandPaletteFiltering';
-import { useCommandPaletteKeyboard } from '../hooks/useCommandPaletteKeyboard';
-import { CommandItem } from './CommandItem';
-import { PageItem } from './PageItem';
-import { EntityItem } from './EntityItem';
-import type { LucideIcon } from 'lucide-react';
-import type { FilterType } from '../utils/filtering';
+} from "../config/commandPalette.config";
+import { useCommandPaletteCommandActions } from "../hooks/useCommandPaletteActions";
+import { useCommandPaletteCommands } from "../hooks/useCommandPaletteCommands";
+import { useCommandPaletteFiltering } from "../hooks/useCommandPaletteFiltering";
+import { useCommandPaletteKeyboard } from "../hooks/useCommandPaletteKeyboard";
+import { CommandItem } from "./CommandItem";
+import { PageItem } from "./PageItem";
+import { EntityItem } from "./EntityItem";
+import type { LucideIcon } from "lucide-react";
+import type { FilterType } from "../utils/filtering";
 
 // Map singular entity types to plural keys in entityTypes config
 const ENTITY_TYPE_MAPPING: Record<string, string> = {
-  student: 'students',
-  staff: 'staff',
-  parent: 'parents',
-  class: 'classes',
-  subject: 'subjects',
-  task: 'tasks',
-  issue: 'issues',
-  project: 'projects',
-  topic: 'topics',
-  file: 'files',
-  note: 'notes',
+  student: "students",
+  staff: "staff",
+  parent: "parents",
+  class: "classes",
+  subject: "subjects",
+  task: "tasks",
+  issue: "issues",
+  project: "projects",
+  topic: "topics",
+  file: "files",
+  note: "notes",
 };
 
 // Nav items matching layout.tsx - pages will be automatically searchable
 const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
-  { title: 'Dashboard', href: '/dashboard', icon: Home },
-  { title: 'Tasks', href: '/tasks', icon: CheckSquare },
-  { title: 'Projects', href: '/projects', icon: FolderKanban },
-  { title: 'Reconciliation', href: '/reconciliation', icon: AlertTriangle },
-  { title: 'Messages', href: '/messages', icon: MessageCircle },
-  { title: 'In-person Students', href: '/students', icon: GraduationCap },
-  { title: 'Online Students', href: '/online-students', icon: Monitor },
-  { title: 'Parents', href: '/parents', icon: UserRound },
-  { title: 'Staff', href: '/staff', icon: Users },
-  { title: 'Classes', href: '/classes', icon: Calendar },
-  { title: 'Admin Shifts', href: '/admin-shifts', icon: Calendar },
-  { title: 'Sessions', href: '/sessions', icon: ClipboardList },
-  { title: 'Invoices', href: '/invoices', icon: CreditCard },
-  { title: 'Reports', href: '/reports', icon: FileText },
-  { title: 'Tutor logs', href: '/tutor-logs', icon: ClipboardList },
-  { title: 'Subjects', href: '/subjects', icon: Beaker },
-  { title: 'Topics', href: '/topics', icon: Newspaper },
-  { title: 'Documents', href: '/documents', icon: FileText },
+  { title: "Dashboard", href: "/dashboard", icon: Home },
+  { title: "Issues", href: "/issues", icon: AlertTriangle },
+  { title: "Tasks", href: "/tasks", icon: CheckSquare },
+  { title: "Projects", href: "/projects", icon: FolderKanban },
+  { title: "Reconciliation", href: "/reconciliation", icon: AlertTriangle },
+  { title: "Messages", href: "/messages", icon: MessageCircle },
+  { title: "In-person Students", href: "/students", icon: GraduationCap },
+  { title: "Online Students", href: "/online-students", icon: Monitor },
+  { title: "Parents", href: "/parents", icon: UserRound },
+  { title: "Staff", href: "/staff", icon: Users },
+  { title: "Classes", href: "/classes", icon: Calendar },
+  { title: "Admin Shifts", href: "/admin-shifts", icon: Calendar },
+  { title: "Sessions", href: "/sessions", icon: ClipboardList },
+  { title: "Invoices", href: "/invoices", icon: CreditCard },
+  { title: "Reports", href: "/reports", icon: FileText },
+  { title: "Tutor logs", href: "/tutor-logs", icon: ClipboardList },
+  { title: "Subjects", href: "/subjects", icon: Beaker },
+  { title: "Topics", href: "/topics", icon: Newspaper },
+  { title: "Documents", href: "/documents", icon: FileText },
 ];
 
-const COMMAND_PALETTE_FILTER_OPTIONS: Array<{ type: FilterType; label: string }> = [
-  { type: 'command', label: 'Commands' },
-  { type: 'page', label: 'Pages' },
-  { type: 'student', label: 'Students' },
-  { type: 'staff', label: 'Staff' },
-  { type: 'parent', label: 'Parents' },
-  { type: 'class', label: 'Classes' },
-  { type: 'subject', label: 'Subjects' },
-  { type: 'task', label: 'Tasks' },
-  { type: 'issue', label: 'Issues' },
-  { type: 'project', label: 'Projects' },
-  { type: 'topic', label: 'Topics' },
-  { type: 'file', label: 'Files' },
-  { type: 'note', label: 'Notes' },
+const COMMAND_PALETTE_FILTER_OPTIONS: Array<{
+  type: FilterType;
+  label: string;
+}> = [
+  { type: "command", label: "Commands" },
+  { type: "page", label: "Pages" },
+  { type: "student", label: "Students" },
+  { type: "staff", label: "Staff" },
+  { type: "parent", label: "Parents" },
+  { type: "class", label: "Classes" },
+  { type: "subject", label: "Subjects" },
+  { type: "task", label: "Tasks" },
+  { type: "issue", label: "Issues" },
+  { type: "project", label: "Projects" },
+  { type: "topic", label: "Topics" },
+  { type: "file", label: "Files" },
+  { type: "note", label: "Notes" },
 ];
 
 const ALL_COMMAND_PALETTE_FILTER_TYPES = COMMAND_PALETTE_FILTER_OPTIONS.map(
@@ -103,11 +107,15 @@ interface CommandPaletteProps {
   onEntitySelected?: (type: string, id: string) => void;
 }
 
-export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPaletteProps) {
-  const router = useRouter();
+export function CommandPalette({
+  isOpen,
+  onClose,
+  onEntitySelected,
+}: CommandPaletteProps) {
+  const { router } = usePaneNavigation();
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedFilters, setSelectedFilters] = useState<FilterType[]>(
     ALL_COMMAND_PALETTE_FILTER_TYPES,
@@ -131,24 +139,26 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   );
 
   // Search entities
-  const { results: entityResults, isLoading: isSearching } = useCommandPaletteSearch({
-    search: searchQuery,
-    enabled: isOpen,
-    selectedFilters,
-    allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
-  });
+  const { results: entityResults, isLoading: isSearching } =
+    useCommandPaletteSearch({
+      search: searchQuery,
+      enabled: isOpen,
+      selectedFilters,
+      allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
+    });
 
   // Filter and sort items
-  const { filteredItems, groupedItems, displayItems } = useCommandPaletteFiltering({
-    commands: commandsWithActions,
-    pages: allPages,
-    entityResults,
-    searchQuery,
-    selectedFilters: effectiveEntityFilters,
-    allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
-    entityTypeMapping: ENTITY_TYPE_MAPPING,
-    entityTypes,
-  });
+  const { filteredItems, groupedItems, displayItems } =
+    useCommandPaletteFiltering({
+      commands: commandsWithActions,
+      pages: allPages,
+      entityResults,
+      searchQuery,
+      selectedFilters: effectiveEntityFilters,
+      allFilterTypes: ALL_COMMAND_PALETTE_FILTER_TYPES,
+      entityTypeMapping: ENTITY_TYPE_MAPPING,
+      entityTypes,
+    });
 
   // Reset selected index when visible items change
   useEffect(() => {
@@ -160,10 +170,10 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
   // Reset state and focus input when opened (Radix Dialog focuses first focusable, but we ensure input gets it)
   useEffect(() => {
     if (!isOpen) return;
-    setSearchQuery('');
+    setSearchQuery("");
     setSelectedIndex(0);
     setSelectedFilters(ALL_COMMAND_PALETTE_FILTER_TYPES);
-    const isMobileSheet = window.matchMedia('(max-width: 767px)').matches;
+    const isMobileSheet = window.matchMedia("(max-width: 767px)").matches;
     // Wait for the mobile slide-up so iOS does not treat the input as
     // keyboard-obscured and pan the page off-screen.
     focusCommandPaletteInput(
@@ -174,18 +184,18 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Handle item selection
   const handleSelectItem = useCallback(
-    (item: typeof displayItems[number]) => {
-      if (item.type === 'command') {
+    (item: (typeof displayItems)[number]) => {
+      if (item.type === "command") {
         // Execute the action
         if (item.action) {
           item.action();
         }
-      } else if (item.type === 'page') {
+      } else if (item.type === "page") {
         onClose();
         router.push(item.href);
-      } else if (item.type === 'entity') {
+      } else if (item.type === "entity") {
         const { result } = item;
-        setSearchQuery('');
+        setSearchQuery("");
 
         // Notify parent component to handle entity selection (modals will be rendered there)
         if (onEntitySelected) {
@@ -196,7 +206,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         onClose();
       }
     },
-    [onClose, router, onEntitySelected]
+    [onClose, router, onEntitySelected],
   );
 
   // Keyboard navigation
@@ -210,10 +220,10 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
   // Render item helper
   const renderItem = useCallback(
-    (item: typeof displayItems[number], index: number) => {
+    (item: (typeof displayItems)[number], index: number) => {
       const isSelected = index === selectedIndex;
 
-      if (item.type === 'command') {
+      if (item.type === "command") {
         return (
           <CommandItem
             key={`command-${item.id}`}
@@ -230,7 +240,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         );
       }
 
-      if (item.type === 'page') {
+      if (item.type === "page") {
         return (
           <PageItem
             key={`page-${item.id}`}
@@ -245,7 +255,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         );
       }
 
-      if (item.type === 'entity') {
+      if (item.type === "entity") {
         return (
           <EntityItem
             key={`entity-${item.result.type}-${item.result.id}`}
@@ -260,7 +270,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
 
       return null;
     },
-    [selectedIndex, searchQuery, handleSelectItem]
+    [selectedIndex, searchQuery, handleSelectItem],
   );
 
   if (!isOpen) return null;
@@ -285,7 +295,9 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
               value: filter.type,
             }))}
             value={selectedFilters}
-            onValueChange={(values) => setSelectedFilters(values as FilterType[])}
+            onValueChange={(values) =>
+              setSelectedFilters(values as FilterType[])
+            }
             menuLabel="Search in"
             allSelectedLabel="All types"
             partialSelectedSuffix="types"
@@ -319,8 +331,8 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
         {filteredItems.length === 0 && !isSearching && (
           <div className="px-4 py-8 text-center text-sm text-muted-foreground">
             {searchQuery.trim().length < 2 && searchQuery.trim().length > 0
-              ? 'Type at least 2 characters to search entities'
-              : 'No results found'}
+              ? "Type at least 2 characters to search entities"
+              : "No results found"}
           </div>
         )}
 

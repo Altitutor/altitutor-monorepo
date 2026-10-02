@@ -46,6 +46,7 @@ import type { TaskWithAssignee, TaskStatus, TaskPriority, TaskFilters, TaskUpdat
 import { cn } from '@/shared/utils';
 
 interface TasksBoardProps {
+  defaultFilters?: Record<string, unknown[]>;
   filters?: {
     assignedTo?: string;
     priority?: number;
@@ -57,7 +58,7 @@ interface TasksBoardProps {
   showLinkPill?: boolean;
 }
 
-export function TasksBoard({ filters: initialFilters, projectId, issueId, showLinkPill = true }: TasksBoardProps) {
+export function TasksBoard({ filters: initialFilters, projectId, issueId, showLinkPill = true, defaultFilters }: TasksBoardProps) {
   const {
     filters,
     setFilters,
@@ -69,6 +70,7 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId, showLi
     sortDirection,
     handleSortChange,
   } = useEntityListTableState({
+    defaultFilters,
     defaultSort: { field: 'priority', direction: 'asc' },
     defaultGroupBy: 'status',
     filterKeys: [...TASK_FILTER_KEYS],

@@ -1,4 +1,5 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useRouter } from 'next/navigation';
 import { Button, Separator, Badge } from '@altitutor/ui';
@@ -107,7 +108,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
     if (stripeDetails?.next_payment_attempt) {
       const nextAttemptDate = new Date(stripeDetails.next_payment_attempt * 1000);
       const formattedDate = format(nextAttemptDate, 'MMM d, yyyy h:mm a');
-      
+
       if (!confirm(`Are you sure you want to attempt this payment now? This payment will already be automatically attempted at ${formattedDate}.`)) {
         return;
       }
@@ -128,7 +129,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         title: 'Success',
         description: 'Payment attempt initiated successfully',
       });
-      
+
       await invalidateInvoiceDetail(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
@@ -171,8 +172,8 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
 
   if (!invoice) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -188,20 +189,12 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/invoices')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Invoice Details</h1>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb label={formatInvoiceTagText({invoiceDate:invoice.invoice_date,lineItemDescriptions:invoiceItems.map(item=>item.description || "Invoice item"),status:invoice.status})} />
+
+
         <ActionsMenu
           type="invoice"
           entityId={id}
@@ -307,13 +300,13 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                   </div>
                 </div>
               ))}
-              
+
               {/* Total */}
               <div className="flex items-center justify-between pt-3 border-t font-semibold">
                 <div className="text-sm">Total:</div>
                 <div className="text-sm">{totalAmountFormatted}</div>
               </div>
-              
+
               {/* Show warning if line items don't match total */}
               {Math.abs(totalAmount - lineItemsSubtotal) > 1 && (
                 <div className="text-xs text-muted-foreground mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
@@ -338,7 +331,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
             <Separator />
             <div>
               <h3 className="text-lg font-semibold mb-4">Refunds & Credits</h3>
-              
+
               {/* Direct Refund */}
               {invoice.is_refunded && (
                 <div className="mb-3 p-3 rounded-md border bg-muted/50">
@@ -359,7 +352,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                   </div>
                 </div>
               )}
-              
+
               {/* Credit Notes */}
               {creditNotes.length > 0 && (
                 <div className="space-y-3">

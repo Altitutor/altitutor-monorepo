@@ -57,7 +57,7 @@ describe('useNotes', () => {
     const mockNotes: Array<Tables<'notes'> & { staff?: Tables<'staff'> | null }> = [
       {
         id: 'note-1',
-        admin_revision: 1, target_type: 'student',
+        admin_revision: 1, is_alert: false, target_type: 'student',
         target_id: 'student-1',
         note: 'Test note',
         created_by: 'staff-1',
@@ -162,7 +162,7 @@ describe('useCreateNote', () => {
   it('should create a note and invalidate queries', async () => {
     const newNote: Tables<'notes'> = {
       id: 'note-1',
-      admin_revision: 1, target_type: 'student',
+      admin_revision: 1, is_alert: false, target_type: 'student',
       target_id: 'student-1',
       note: 'New note',
       created_by: 'staff-1',
@@ -224,7 +224,7 @@ describe('useUpdateNote', () => {
   it('should update a note', async () => {
     const updatedNote: Tables<'notes'> = {
       id: 'note-1',
-      admin_revision: 1, target_type: 'student',
+      admin_revision: 1, is_alert: false, target_type: 'student',
       target_id: 'student-1',
       note: 'Updated note',
       created_by: 'staff-1',
@@ -336,4 +336,14 @@ describe('notesKeys', () => {
       'class-1',
     ]);
   });
+});
+
+
+it('updates a note using the revision captured when its editor opened', async () => {
+  mockNotesApi.updateNote.mockResolvedValue({ id: 'note-1', admin_revision: 6, is_alert: true, target_type: 'student', target_id: 'student-1', note: 'Saved note', created_by: 'staff-1', created_at: '2026-10-02T00:00:00Z', updated_at: '2026-10-02T00:01:00Z' });
+  const { result } = renderHook(() => useUpdateNote(), { wrapper: createWrapper() });
+  await act(async () => {
+    await result.current.mutateAsync({ noteId: 'note-1', note: sampleNoteContent, revision: 5 });
+  });
+  expect(mockNotesApi.updateNote).toHaveBeenCalledWith('note-1', sampleNoteContent, 5);
 });

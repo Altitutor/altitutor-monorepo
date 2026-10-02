@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useMediaQuery } from '../hooks/use-media-query';
 import { Button } from './button';
 import {
   DropdownMenu,
@@ -261,12 +262,14 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     descriptionConfig,
     hideToolbar = false,
     noPadding = false,
-    compact = false,
+    compact: compactProp = false,
     addButtonVariant,
     addButtonShowLabel = false,
     renderAddRow,
   } = props;
 
+  const narrow = !useMediaQuery('(min-width: 768px)');
+  const compact = compactProp || narrow;
   const [internalVisiblePills, setInternalVisiblePills] = React.useState<string[]>(() =>
     rightPills.filter((p) => p.filterOnly !== true && p.visibleByDefault !== false).map((p) => p.key)
   );
@@ -452,7 +455,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
       {!hideToolbar && (
-        <div className="flex flex-wrap items-center gap-2 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
+        <div data-entity-list-toolbar data-pane-toolbar className="flex flex-wrap items-center gap-2 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
           {onSearchChange ? (
             <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
               <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
@@ -481,9 +484,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           {rightPills.length > 0 && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10">
-                  <LayoutGrid className="h-4 w-4 md:mr-2" />
-                  <span className={cn("hidden md:inline", !visiblePillKeys.length && "opacity-50")}>View</span>
+                <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
+                  <LayoutGrid className={cn("h-4 w-4", !narrow && "mr-2")} />
+                  <span className={cn(narrow ? "sr-only" : "inline", !visiblePillKeys.length && "opacity-50")}>View</span>
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-[200px] p-0">
@@ -507,9 +510,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <div className="relative flex items-center">
               <DropdownMenu open={groupByOpen} onOpenChange={setGroupByOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-10">
-                    <Layers className="h-4 w-4 md:mr-2" />
-                    <span className={cn("hidden md:inline", !groupBy && "opacity-50")}>
+                  <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
+                    <Layers className={cn("h-4 w-4", !narrow && "mr-2")} />
+                    <span className={cn(narrow ? "sr-only" : "inline", !groupBy && "opacity-50")}>
                       Group by {groupBy ? groupByOptions.find((o) => o.key === groupBy)?.label ?? groupBy : ''}
                     </span>
                   </Button>
@@ -545,9 +548,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
             <div className="relative flex items-center">
               <DropdownMenu open={sortOpen} onOpenChange={setSortOpen}>
                 <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="sm" className="h-10">
-                    <ArrowUpDown className="h-4 w-4 md:mr-2" />
-                    <span className={cn("hidden md:inline", sortBy === 'name' && "opacity-50")}>
+                  <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
+                    <ArrowUpDown className={cn("h-4 w-4", !narrow && "mr-2")} />
+                    <span className={cn(narrow ? "sr-only" : "inline", sortBy === 'name' && "opacity-50")}>
                       Sort by {sortBy === 'name' ? '' : sortByOptions.find((o) => o.key === sortBy)?.label ?? sortBy}
                     </span>
                   </Button>
@@ -640,9 +643,9 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
           <div className="relative flex items-center">
             <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="h-10">
-                  <Filter className="h-4 w-4 md:mr-2" />
-                  <span className={cn("hidden md:inline", activeFilterCount === 0 && "opacity-50")}>
+                <Button variant="outline" size="sm" className={cn("h-10", narrow && "w-10 p-0")}>
+                  <Filter className={cn("h-4 w-4", !narrow && "mr-2")} />
+                  <span className={cn(narrow ? "sr-only" : "inline", activeFilterCount === 0 && "opacity-50")}>
                     Filter
                   </span>
                 </Button>

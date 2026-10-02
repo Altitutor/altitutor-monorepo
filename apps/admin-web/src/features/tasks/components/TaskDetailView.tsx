@@ -1,4 +1,6 @@
 "use client";
+import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
+import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
@@ -6,7 +8,6 @@ import {
   EditorControls,
   EditorFooterActions,
   EditorNotices,
-  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -15,13 +16,10 @@ import {
 } from "@/features/work-item-editing/fields";
 
 import { useState, useEffect, useRef } from "react";
-import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  DialogTitle,
-  DialogDescription,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -31,17 +29,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
   type RichTextEditorRef,
-  Button,
   Form,
 } from "@altitutor/ui";
-import { X, ArrowLeft, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useTask } from "../api/queries";
 import type { Tables } from "@altitutor/shared";
 import type { TaskFormData, TaskStatus } from "../types";
 import { useNotes } from "@/shared/hooks/useNotes";
 import { TaskPropertiesPanel, TaskContentPanel } from "./panels";
 import { EntityResizablePanels } from "@/shared/components/EntityResizablePanels";
-import { useTaskActions } from "../hooks/useTaskActions";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
 import { EditIssueDialog } from "@/features/issues/components/EditIssueDialog";
@@ -107,8 +103,8 @@ export function TaskDetailView({
   project,
   variant,
 }: TaskDetailViewProps) {
-  const router = useRouter();
   const { data: task, isLoading } = useTask(taskId, enabled);
+  useAccessoryTitle(task?.title);
   const [selectedAssignee, setSelectedAssignee] =
     useState<Tables<"staff"> | null>(null);
   const [selectedIssue, setSelectedIssue] = useState<{
@@ -210,86 +206,37 @@ export function TaskDetailView({
     }
   };
 
-  const taskActions = useTaskActions({
-    taskId,
-    onOpenInPage:
-      variant === "dialog"
-        ? () => {
-            editor.requestClose(() => {
-              router.push(`/tasks/${taskId}`);
-              onClose();
-            });
-          }
-        : undefined,
-  });
-
-  const title = isLoading
-    ? "Loading..."
-    : variant === "page"
-      ? "Task Details"
-      : "Edit Task";
-
   return (
     <>
       <div className="h-full min-h-0 flex flex-col overflow-hidden">
-        <div className="flex-shrink-0 border-b bg-card px-6 py-4">
-          <div className="flex items-center justify-between gap-4 w-full">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant={variant === "page" ? "ghost" : "outline"}
-                size="icon"
-                aria-label="Close"
-                  onClick={() => editor.requestClose()}
-                className={variant === "page" ? "shrink-0 border" : "shrink-0"}
-              >
-                {variant === "page" ? (
-                  <ArrowLeft className="h-4 w-4" />
-                ) : (
-                  <X className="h-4 w-4" />
-                )}
-              </Button>
-              <div className="flex-1">
-                {variant === "dialog" ? (
-                  <>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription className="sr-only">
-                      Edit the details, description, and properties of this
-                      task.
-                    </DialogDescription>
-                  </>
-                ) : (
-                  <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-                )}
-              </div>
-            </div>
+        <div className="flex-shrink-0 border-b bg-background px-4 py-2">
+          <div className="flex min-w-0 items-center justify-between gap-2 w-full">
+            <AccessoryBreadcrumb
+              ownerIds={[task?.project_id, task?.issue_id]}
+            />
 
-            <div className="flex items-center gap-2">
-              {variant === "dialog" ? (
-                <WorkItemDialogHeaderActions
-                  editor={editor}
-                  actions={
-                    <ActionsMenu
-                      type="task"
-                      entityId={taskId}
-                      onOpenInPage={taskActions.onOpenInPage}
-                      onDelete={() => {
-                        if (editor.editable) setIsDeleteDialogOpen(true);
-                      }}
-                      richTextTemplateConfig={{
-                        getEditor: () =>
-                          editor.editable
-                            ? descriptionRef.current?.getEditor() ?? null
-                            : null,
-                        getCurrentContent: () =>
-                          form.getValues("description") ?? null,
-                        onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
-                      }}
-                    />
-                  }
-                />
-              ) : (
-                <EditorControls editor={editor} />
-              )}
+            <div className="flex shrink-0 items-center gap-2">
+              {
+                <>
+                  <EditorControls editor={editor} />
+                  <ActionsMenu
+                    type="task"
+                    entityId={taskId}
+                    onDelete={() => {
+                      if (editor.editable) setIsDeleteDialogOpen(true);
+                    }}
+                    richTextTemplateConfig={{
+                      getEditor: () =>
+                        editor.editable
+                          ? (descriptionRef.current?.getEditor() ?? null)
+                          : null,
+                      getCurrentContent: () =>
+                        form.getValues("description") ?? null,
+                      onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                    }}
+                  />
+                </>
+              }
             </div>
           </div>
         </div>

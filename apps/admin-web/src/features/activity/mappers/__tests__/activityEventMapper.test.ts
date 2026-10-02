@@ -331,7 +331,7 @@ describe('lifecycle activity mapper', () => {
     });
     const liveNote = {
       id: noteId,
-      admin_revision: 1, target_type: 'student',
+      admin_revision: 1, is_alert: true, target_type: 'student',
       target_id: '10000000-0000-4000-8000-000000000041',
       note: 'Edited note',
       created_at: '2026-08-30T10:00:00.000Z',
@@ -348,6 +348,9 @@ describe('lifecycle activity mapper', () => {
 
     expect(result).toHaveLength(1);
     expect(result[0].noteContent).toBe('Edited note');
+    expect(result[0].isNoteAlert).toBe(true);
+    expect(result[0].noteTargetType).toBe('student');
+    expect(result[0].noteRevision).toBe(1);
   });
 
   it('omits a note card when the live note has been deleted', () => {
@@ -395,4 +398,25 @@ describe('lifecycle activity mapper', () => {
       '2026-08-31T10:00:00.000Z'
     );
   });
+});
+
+test('work-item activity interleaves notes and events oldest first, includes legacy notes, and removes duplicate note events', () => {
+  const makeNote = (id: string, hour: number) => ({
+    id, note: `Note ${id}`, created_at: `2026-08-30T${hour}:00:00.000Z`, created_by: 'staff-one', updated_at: `2026-08-30T${hour}:00:00.000Z`,
+    target_type: 'tasks', target_id: 'task-one', admin_revision: 1, is_alert: false,
+  });
+  const legacy = makeNote('legacy', 10);
+  const live = makeNote('live', 12);
+  const newer = makeNote('newer', 13);
+  const result = mapActivityEventsToDisplay({
+    events: [
+      makeEvent({ id: 'change', event_name: 'task.status_changed', recorded_at: '2026-08-30T11:00:00.000Z' }),
+      makeEvent({ id: 'note-event', event_name: 'note.added', subject_type: 'note', subject_id: live.id }),
+    ],
+    relatedEntities: { notes: { [live.id]: live } }, total: 2, hasMore: false,
+  }, { chronological: true, notes: [newer, live, legacy] });
+  expect(result.map(item => item.id)).toEqual(['note:legacy', 'change', 'note:live', 'note:newer']);
+  expect(result[2].noteContent).toBe('Note live');
+  expect(result[2].entityId).toBe('live');
+  expect(result[2].noteRevision).toBe(1);
 });

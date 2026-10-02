@@ -4,6 +4,5 @@ export * from './types';
 export * from './components/EditIssueDialog';
 export * from './components/CreateIssueDialog';
 export * from './components/IssuePill';
-export * from './components/IssueDetailPage';
 export * from './components/IssueDetailView';
 export * from './hooks/useIssueActions';

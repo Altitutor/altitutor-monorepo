@@ -10,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
   isPanelResizeActive,
+  MediaQueryWidthProvider,
 } from '@altitutor/ui';
 import { X } from 'lucide-react';
 import {
@@ -101,6 +102,7 @@ export function AdminDialogShell({
         )}
         {...dialogContentProps}
       >
+        <MediaQueryWidthProvider width={null}>
         <AdminDialogExpandContext.Provider value={{ expanded, setExpanded }}>
         {hideHeader ? <DialogTitle className="sr-only">{title}</DialogTitle> : null}
         {!hideHeader ? (
@@ -143,6 +145,7 @@ export function AdminDialogShell({
           <DialogFooter className="shrink-0 border-t bg-card px-6 py-4 sm:justify-end">{footer}</DialogFooter>
         ) : null}
         </AdminDialogExpandContext.Provider>
+        </MediaQueryWidthProvider>
       </DialogContent>
     </Dialog>
   );

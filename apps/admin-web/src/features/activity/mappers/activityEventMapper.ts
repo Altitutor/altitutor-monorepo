@@ -4,6 +4,7 @@ import {
   type CommunicationTimeSort,
 } from '../lib/entityCommunication';
 import type {
+  ActivityNote,
   ActivityEvent,
   ActivityEventDisplay,
   ActivityMessagePart,
@@ -411,18 +412,23 @@ export function mapActivityEventToDisplay(
     entityId: event.subject_id,
     entityType: event.subject_type === 'form_response' ? 'form_responses' : event.subject_type,
     eventType: event.event_name,
+    isNoteAlert: liveNote?.is_alert ?? false,
+    noteTargetType: liveNote?.target_type,
+    noteRevision: liveNote?.admin_revision,
     noteContent: noteContent as Record<string, unknown> | string | undefined,
   };
 }
 
 export function mapActivityEventsToDisplay(
   response: ActivityEventsResponse,
-  options?: { chronological?: boolean; timeBasis?: CommunicationTimeSort }
+  options?: { chronological?: boolean; timeBasis?: CommunicationTimeSort; notes?: ActivityNote[] }
 ): ActivityEventDisplay[] {
   const direction = options?.chronological ? 1 : -1;
   const timeBasis = options?.timeBasis ?? 'logged';
-  return response.events
+  const noteIds = new Set(options?.notes?.map(note => note.id));
+  const events = response.events
     .flatMap((event) => {
+      if (event.event_name === 'note.added' && noteIds.has(event.subject_id)) return [];
       if (
         event.event_name === 'note.added' &&
         response.relatedEntities.notes &&
@@ -431,8 +437,24 @@ export function mapActivityEventsToDisplay(
         return [];
       }
       return [mapActivityEventToDisplay(event, response.relatedEntities, timeBasis)];
-    })
-    .sort((a, b) => (
-      (new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()) * direction
-    ));
+    });
+  const notes: ActivityEventDisplay[] = (options?.notes ?? []).map(note => ({
+    id: `note:${note.id}`,
+    icon: 'note',
+    iconColor: 'gray',
+    message: 'added a note',
+    timestamp: formatActivityTimestamp(note.created_at),
+    performedAt: note.created_at,
+    performedBy: { id: note.created_by ?? '', name: note.staff ? `${note.staff.first_name ?? ''} ${note.staff.last_name ?? ''}`.trim() || 'Unknown' : 'Unknown' },
+    entityId: note.id,
+    entityType: 'note',
+    eventType: 'note.added',
+    noteContent: note.note as Record<string, unknown> | string | undefined,
+    noteTargetType: note.target_type,
+    noteRevision: note.admin_revision,
+    isNoteAlert: note.is_alert,
+  }));
+  return [...events, ...notes].sort((a, b) => (
+    (new Date(a.performedAt).getTime() - new Date(b.performedAt).getTime()) * direction
+  ));
 }

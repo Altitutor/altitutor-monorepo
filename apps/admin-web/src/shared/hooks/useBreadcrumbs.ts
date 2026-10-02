@@ -1,6 +1,7 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { usePathname, useSearchParams } from 'next/navigation';
+import { primaryTrail } from '@/shared/utils/primaryOwnership';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import type { BreadcrumbItem } from '@/shared/components/Breadcrumb';
@@ -86,10 +87,13 @@ function isUUID(segment: string): boolean {
 export function useBreadcrumbs(): BreadcrumbItem[] {
   const pathname = usePathname();
 
+  const searchParams = useSearchParams();
+  const trail = useMemo(()=>primaryTrail(pathname,new URLSearchParams(searchParams.toString())),[pathname,searchParams]);
+  const breadcrumbPath = trail.length ? [...trail,pathname].join('') : pathname;
   // Parse path segments
   const segments = useMemo(() => {
-    return pathname.split('/').filter(Boolean);
-  }, [pathname]);
+    return breadcrumbPath.split('/').filter(Boolean);
+  }, [breadcrumbPath]);
 
   // Determine which entity IDs we need to fetch
   const entityIds = useMemo(() => {
@@ -379,10 +383,7 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
       return [{ label: 'Dashboard', href: '/dashboard' }];
     }
 
-    // Always start with Dashboard
-    const items: BreadcrumbItem[] = [
-      { label: 'Dashboard', href: '/dashboard' },
-    ];
+    const items: BreadcrumbItem[] = [];
 
     // Build breadcrumb items from path segments
     let currentPath = '';
@@ -443,15 +444,16 @@ export function useBreadcrumbs(): BreadcrumbItem[] {
             ? undefined
             : currentPath;
 
-      items.push({
-        label,
-        href,
-      });
+      if (trail.length && !isDynamicRoute && index > 0) return;
+      const ancestorIndex = Math.floor(index / 2);
+      const ancestorPath = trail[ancestorIndex];
+      items.push({label,href: trail.length && ancestorPath && isDynamicRoute ? `${ancestorPath}${ancestorIndex ? `?trail=${encodeURIComponent(JSON.stringify(trail.slice(0,ancestorIndex)))}` : ''}` : href});
     });
 
     return items;
   }, [
     segments,
+    trail,
     entityIds,
     studentQueries.data,
     staffQueries.data,

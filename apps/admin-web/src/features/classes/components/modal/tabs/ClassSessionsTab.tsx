@@ -5,7 +5,7 @@ import type { Tables } from '@altitutor/shared';
 import { SegmentedControl } from '@altitutor/ui';
 import { SessionsTable } from '@/features/sessions/components/SessionsTable';
 import { StudentSessionsCalendarView } from '@/features/students/components/StudentSessionsCalendarView';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 interface ClassSessionsTabProps {
   classData: Tables<'classes'>;
@@ -15,7 +15,7 @@ interface ClassSessionsTabProps {
 
 export function ClassSessionsTab({ classData }: ClassSessionsTabProps) {
   const [viewMode, setViewMode] = useState<'table' | 'calendar'>('table');
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   const handleOpenSession = useCallback((sessionId: string) => {
     entityModals.openSession(sessionId);

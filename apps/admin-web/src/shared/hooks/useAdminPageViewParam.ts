@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback } from 'react';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePaneNavigation } from './usePaneNavigation';
 import { useAdminUrlSync } from './useAdminUrlSync';
 
 /**
@@ -11,22 +11,22 @@ import { useAdminUrlSync } from './useAdminUrlSync';
 export function useAdminPageViewParam<T extends string>(
   validViews: readonly T[],
   defaultView: T,
+  paramName = 'view',
 ): [T, (view: T) => void] {
   useAdminUrlSync();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
-  const router = useRouter();
+  const { router, searchParams, pathname } = usePaneNavigation();
 
-  const raw = searchParams.get('view');
-  const view = validViews.includes(raw as T) ? (raw as T) : defaultView;
+  const raw = searchParams.get(paramName);
+  const resolved = paramName === 'tab' && raw === 'messages' ? 'activity' : raw;
+  const view = validViews.includes(resolved as T) ? (resolved as T) : defaultView;
 
   const setView = useCallback(
     (next: T) => {
       const params = new URLSearchParams(searchParams.toString());
-      params.set('view', next);
+      params.set(paramName, next);
       router.push(`${pathname}?${params.toString()}`, { scroll: false });
     },
-    [pathname, router, searchParams],
+    [pathname, router, searchParams, paramName],
   );
 
   return [view, setView];

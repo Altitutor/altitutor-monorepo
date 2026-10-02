@@ -1,0 +1,42 @@
+.divider {
+  transition: width 240ms ease;
+}
+
+.panel {
+  transition:
+    width 240ms ease,
+    transform 240ms ease,
+    opacity 180ms ease,
+    visibility 0s;
+}
+
+.panel[data-docked="true"] {
+  width: var(--detail-width);
+}
+
+.panel[data-expanded="false"] {
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    width 240ms ease,
+    transform 240ms ease,
+    opacity 180ms ease,
+    visibility 0s 240ms;
+}
+
+.panel[data-docked="true"][data-expanded="false"] {
+  width: 0;
+}
+
+.panel[data-docked="false"][data-expanded="false"] {
+  transform: translateX(100%);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .divider,
+  .panel,
+  .panel[data-expanded="false"] {
+    transition: none;
+  }
+}

@@ -1,9 +1,9 @@
-'use client';
+"use client";
 
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { useForm, type Resolver } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { z } from 'zod';
+import { useCallback, useEffect, useRef, useState } from "react";
+import { useForm, type Resolver } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import {
   Form,
   Button,
@@ -11,24 +11,27 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger,
   type RichTextEditorRef,
-} from '@altitutor/ui';
-import { MoreVertical } from 'lucide-react';
-import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
-import { SaveAsTemplateDialog } from '@/features/rich-text-templates/components/SaveAsTemplateDialog';
-import { useCreateProject } from '../api/mutations';
-import type { ProjectFormData, ProjectPriority, ProjectStatus } from '../types';
-import type { SubmitHandler } from 'react-hook-form';
-import { ProjectTitleField } from './fields/ProjectTitleField';
-import { ProjectDescriptionField } from './fields/ProjectDescriptionField';
-import { ProjectPropertiesFields } from './fields/ProjectPropertiesFields';
-import { useCurrentStaff, useDialogHotkeys } from '@/shared/hooks';
-import { AdminDialogShell } from '@/shared/components';
-import { EntityResizablePanels } from '@/shared/components/EntityResizablePanels';
+} from "@altitutor/ui";
+import { MoreVertical } from "lucide-react";
+import { RichTextTemplateMenuItems } from "@/features/rich-text-templates/components/RichTextTemplateMenuItems";
+import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
+import { useCreateProject } from "../api/mutations";
+import type { ProjectFormData, ProjectPriority, ProjectStatus } from "../types";
+import type { SubmitHandler } from "react-hook-form";
+import { ProjectTitleField } from "./fields/ProjectTitleField";
+import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
+import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
+import { useCurrentStaff, useDialogHotkeys } from "@/shared/hooks";
+import { AdminDialogShell } from "@/shared/components";
+import { useCreateDialogDraft } from "@/shared/hooks/useCreateDialogDraft";
+import { EntityResizablePanels } from "@/shared/components/EntityResizablePanels";
 
 const formSchema = z.object({
-  name: z.string().min(1, 'Name is required'),
-  description: z.union([z.record(z.unknown()), z.string(), z.null()]).optional(),
-  status: z.enum(['backlog', 'planned', 'in_progress', 'completed']),
+  name: z.string().min(1, "Name is required"),
+  description: z
+    .union([z.record(z.unknown()), z.string(), z.null()])
+    .optional(),
+  status: z.enum(["backlog", "planned", "in_progress", "completed"]),
   priority: z.number().min(0).max(4),
   projectLeadId: z.union([z.string().uuid(), z.null()]).default(null),
   memberIds: z.array(z.string().uuid()).default([]),
@@ -49,7 +52,7 @@ export function CreateProjectDialog({
   isOpen,
   onClose,
   onProjectCreated,
-  initialStatus = 'backlog',
+  initialStatus = "backlog",
   initialPriority = null,
   initialProjectLeadId = null,
 }: CreateProjectDialogProps) {
@@ -62,7 +65,7 @@ export function CreateProjectDialog({
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
     resolver: zodResolver(formSchema) as Resolver<ProjectFormData>,
     defaultValues: {
-      name: '',
+      name: "",
       description: null,
       status: initialStatus,
       priority: (initialPriority ?? 0) as ProjectPriority,
@@ -73,10 +76,21 @@ export function CreateProjectDialog({
     },
   });
 
+  const { readDraft, saveDraft, clearDraft, storageKey } = useCreateDialogDraft(
+    form,
+    isOpen,
+    "project",
+  );
+  const initializedKey = useRef<string | null>(null);
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      initializedKey.current = null;
+      return;
+    }
+    if (initializedKey.current === storageKey) return;
+    initializedKey.current = storageKey;
     form.reset({
-      name: '',
+      name: "",
       description: null,
       status: initialStatus,
       priority: (initialPriority ?? 0) as ProjectPriority,
@@ -84,37 +98,59 @@ export function CreateProjectDialog({
       memberIds: [],
       startDate: null,
       targetDate: null,
+      ...readDraft(),
     });
-  }, [isOpen, initialStatus, initialPriority, initialProjectLeadId, form]);
+  }, [
+    isOpen,
+    initialStatus,
+    initialPriority,
+    initialProjectLeadId,
+    form,
+    readDraft,
+    storageKey,
+  ]);
 
   const handleClose = useCallback(() => {
-    form.reset();
+    saveDraft();
     onClose();
-  }, [form, onClose]);
+  }, [saveDraft, onClose]);
 
-  const onSubmit = useCallback(async (data: ProjectFormData) => {
-    try {
-      const created = await createProject.mutateAsync({
-        name: data.name,
-        description: data.description || null,
-        status: data.status,
-        priority: data.priority,
-        project_lead_id: data.projectLeadId || null,
-        memberIds: data.memberIds ?? [],
-        start_date: data.startDate ? new Date(data.startDate).toISOString() : null,
-        target_date: data.targetDate ? new Date(data.targetDate).toISOString() : null,
-        created_by: currentStaff?.id ?? null,
-      });
-      onProjectCreated?.(created.id);
-      handleClose();
-    } catch (error) {
-      console.error('Failed to create project:', error);
-    }
-  }, [createProject, currentStaff, handleClose, onProjectCreated]);
+  const onSubmit = useCallback(
+    async (data: ProjectFormData) => {
+      try {
+        const created = await createProject.mutateAsync({
+          name: data.name,
+          description: data.description || null,
+          status: data.status,
+          priority: data.priority,
+          project_lead_id: data.projectLeadId || null,
+          memberIds: data.memberIds ?? [],
+          start_date: data.startDate
+            ? new Date(data.startDate).toISOString()
+            : null,
+          target_date: data.targetDate
+            ? new Date(data.targetDate).toISOString()
+            : null,
+          created_by: currentStaff?.id ?? null,
+        });
+        form.reset();
+        clearDraft();
+        onClose();
+        onProjectCreated?.(created.id);
+      } catch (error) {
+        console.error("Failed to create project:", error);
+      }
+    },
+    [createProject, currentStaff, form, clearDraft, onClose, onProjectCreated],
+  );
 
   const handleTitleEnter = useCallback(() => {
     const editor = descriptionFieldRef.current?.getEditor();
-    if (editor && editor.commands && typeof editor.commands.focus === 'function') {
+    if (
+      editor &&
+      editor.commands &&
+      typeof editor.commands.focus === "function"
+    ) {
       editor.commands.focus();
     }
   }, []);
@@ -133,7 +169,6 @@ export function CreateProjectDialog({
   return (
     <>
       <AdminDialogShell
-      dialogContentProps={{ onInteractOutside: (event) => event.preventDefault(), onEscapeKeyDown: (event) => event.preventDefault() }}
         fillHeight
         defaultExpanded
         open={isOpen}
@@ -150,8 +185,10 @@ export function CreateProjectDialog({
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               <RichTextTemplateMenuItems
-                getEditor={() => descriptionFieldRef.current?.getEditor() ?? null}
-                getCurrentContent={() => form.getValues('description') ?? null}
+                getEditor={() =>
+                  descriptionFieldRef.current?.getEditor() ?? null
+                }
+                getCurrentContent={() => form.getValues("description") ?? null}
                 onSaveAsTemplateClick={() => setIsSaveDialogOpen(true)}
               />
             </DropdownMenuContent>
@@ -159,9 +196,15 @@ export function CreateProjectDialog({
         }
         footer={
           <>
-            <Button type="button" variant="outline" onClick={handleClose}>Cancel</Button>
-            <Button type="submit" form="create-project-form" disabled={createProject.isPending}>
-              {createProject.isPending ? 'Creating...' : 'Create Project'}
+            <Button type="button" variant="outline" onClick={handleClose}>
+              Cancel
+            </Button>
+            <Button
+              type="submit"
+              form="create-project-form"
+              disabled={createProject.isPending}
+            >
+              {createProject.isPending ? "Creating..." : "Create Project"}
             </Button>
           </>
         }
@@ -169,12 +212,16 @@ export function CreateProjectDialog({
         <Form {...form}>
           <form
             id="create-project-form"
-            onSubmit={form.handleSubmit(onSubmit as SubmitHandler<ProjectFormData>)}
+            onSubmit={form.handleSubmit(
+              onSubmit as SubmitHandler<ProjectFormData>,
+            )}
             className="flex h-full min-h-0 flex-1"
           >
             <EntityResizablePanels
               id="create-project-panels"
-              main={(
+              primaryMinSize={320}
+              secondaryMinSize={240}
+              main={
                 <div
                   className="h-full min-w-0 overflow-y-auto p-6 space-y-6"
                   data-rich-text-toolbar-container
@@ -189,12 +236,12 @@ export function CreateProjectDialog({
                     descriptionRef={descriptionFieldRef}
                   />
                 </div>
-              )}
-              sidebar={(
+              }
+              sidebar={
                 <div className="hidden h-full w-full overflow-y-auto p-6 md:block">
                   <ProjectPropertiesFields form={form} />
                 </div>
-              )}
+              }
             />
           </form>
         </Form>
@@ -202,7 +249,7 @@ export function CreateProjectDialog({
       <SaveAsTemplateDialog
         isOpen={isSaveDialogOpen}
         onClose={() => setIsSaveDialogOpen(false)}
-        initialContent={form.getValues('description') ?? null}
+        initialContent={form.getValues("description") ?? null}
         onSuccess={() => setIsSaveDialogOpen(false)}
       />
     </>

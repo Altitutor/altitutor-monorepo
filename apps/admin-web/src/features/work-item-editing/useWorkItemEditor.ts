@@ -8,6 +8,7 @@ import type {
   UseFormReturn,
 } from "react-hook-form";
 import { useQueryClient } from "@tanstack/react-query";
+import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import {
   deleteWorkItem,
   patchWorkItem,
@@ -86,6 +87,7 @@ export function useWorkItemEditor<T extends FieldValues>({
   toRecord: (values: T) => EditRecord;
   onClose: () => void;
 }) {
+  const accessoryTab = useAccessoryTab();
   const cache = useQueryClient();
   const [session, setSession] = useState<WorkItemSnapshot | null>(null);
   const [dirty, setDirty] = useState(false);
@@ -490,6 +492,13 @@ export function useWorkItemEditor<T extends FieldValues>({
   };
   const closeGate = useRef(requestClose);
   closeGate.current = requestClose;
+  useEffect(() => {
+    if (!accessoryTab) return;
+    accessoryTab.registerClose((next) => {
+      void closeGate.current(next);
+    });
+    return () => accessoryTab.registerClose(null);
+  }, [accessoryTab]);
 
   useEffect(() => {
     const unload = (event: BeforeUnloadEvent) => {
@@ -503,6 +512,7 @@ export function useWorkItemEditor<T extends FieldValues>({
     const navigate = (event: MouseEvent) => {
       const s = state.current;
       if (
+        accessoryTab ||
         (!s.pending.size && !s.request && !s.active) ||
         event.defaultPrevented ||
         event.metaKey ||
@@ -540,7 +550,7 @@ export function useWorkItemEditor<T extends FieldValues>({
       window.removeEventListener("online", online);
       document.removeEventListener("click", navigate, true);
     };
-  }, [preserve]);
+  }, [accessoryTab, preserve]);
 
   const remove = async () => {
     const s = state.current;

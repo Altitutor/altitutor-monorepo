@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import type { FolderTreeItem } from '../types';
 import { DraggableNote } from './DraggableNote';
 import { DraggableFolder } from './DraggableFolder';
@@ -29,7 +29,7 @@ export function FolderTreeNode({
   projects = [],
 }: FolderTreeNodeProps) {
   const [isExpanded, setIsExpanded] = useState(false);
-  const router = useRouter();
+  const { router } = usePaneNavigation();
 
   const indent = level * 20;
 

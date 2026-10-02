@@ -35,7 +35,7 @@ import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
 
 const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 'member'] as const;
 
-export function ProjectsBoard() {
+export function ProjectsBoard({defaultFilters}:{defaultFilters?:Record<string, unknown[]>} = {}) {
   const {
     filters,
     setFilters,
@@ -48,6 +48,7 @@ export function ProjectsBoard() {
     handleSortChange,
     applyQuickFilter,
   } = useEntityListTableState({
+    defaultFilters,
     defaultSort: { field: 'name', direction: 'asc' },
     defaultGroupBy: 'status',
     filterKeys: [...PROJECT_FILTER_KEYS],

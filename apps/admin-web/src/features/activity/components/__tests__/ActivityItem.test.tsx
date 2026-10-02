@@ -5,8 +5,8 @@ import { ActivityItem } from '../ActivityItem';
 
 const openEntity = jest.fn();
 
-jest.mock('@/shared/contexts/EntityModalContext', () => ({
-  useEntityModals: () => ({ openEntity }),
+jest.mock('@/shared/contexts/EntityNavigation', () => ({
+  useEntityNavigation: () => ({ openEntity }),
 }));
 
 jest.mock('@/shared/components/NotesEditorWithMentions', () => ({
@@ -124,4 +124,43 @@ describe('ActivityItem', () => {
     expect(onDeleteNote).toHaveBeenCalledWith(noteId);
     confirmSpy.mockRestore();
   });
+});
+
+
+it('flags and unflags entity notes using the displayed revision', async () => {
+  const user = userEvent.setup();
+  const onSetNoteAlert = jest.fn().mockResolvedValue(undefined);
+  const activity: ActivityEventDisplay = {
+    ...makeActivity(), icon: 'note', noteContent: 'Call before each session',
+    entityId: 'note-id', noteTargetType: 'parents', noteRevision: 4,
+  };
+  const { rerender } = render(<ActivityItem activity={activity} onUpdateNote={jest.fn()} onDeleteNote={jest.fn()} onSetNoteAlert={onSetNoteAlert} />);
+  await user.click(screen.getByRole('button', { name: 'Note actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Flag as alert' }));
+  expect(onSetNoteAlert).toHaveBeenCalledWith('note-id', true, 4);
+  rerender(<ActivityItem activity={{ ...activity, isNoteAlert: true, noteRevision: 5 }} onUpdateNote={jest.fn()} onDeleteNote={jest.fn()} onSetNoteAlert={onSetNoteAlert} />);
+  expect(screen.getByText('Alert')).toBeVisible();
+  await user.click(screen.getByRole('button', { name: 'Note actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Remove alert flag' }));
+  expect(onSetNoteAlert).toHaveBeenCalledWith('note-id', false, 5);
+});
+
+it('does not offer alerts on session notes', async () => {
+  const user = userEvent.setup();
+  render(<ActivityItem activity={{ ...makeActivity(), icon: 'note', noteContent: 'Session note', entityId: 'note-id', noteTargetType: 'sessions', noteRevision: 1 }} onUpdateNote={jest.fn()} onDeleteNote={jest.fn()} onSetNoteAlert={jest.fn()} />);
+  await user.click(screen.getByRole('button', { name: 'Note actions' }));
+  expect(screen.queryByRole('menuitem', { name: 'Flag as alert' })).not.toBeInTheDocument();
+});
+
+
+it('captures the note revision when editing starts and does not advance it on refresh', async () => {
+  const user = userEvent.setup();
+  const onUpdateNote = jest.fn().mockResolvedValue(undefined);
+  const activity: ActivityEventDisplay = { ...makeActivity(), icon: 'note', noteContent: 'Check this note', entityId: 'note-id', noteRevision: 7 };
+  const { rerender } = render(<ActivityItem activity={activity} onUpdateNote={onUpdateNote} onDeleteNote={jest.fn()} />);
+  await user.click(screen.getByRole('button', { name: 'Note actions' }));
+  await user.click(screen.getByRole('menuitem', { name: 'Edit' }));
+  rerender(<ActivityItem activity={{ ...activity, noteRevision: 8, isNoteAlert: true }} onUpdateNote={onUpdateNote} onDeleteNote={jest.fn()} />);
+  await user.click(screen.getByRole('button', { name: 'Save' }));
+  expect(onUpdateNote).toHaveBeenCalledWith('note-id', expect.any(Object), 7);
 });

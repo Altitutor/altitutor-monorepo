@@ -1,6 +1,6 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import {
   DndContext,
   closestCenter,
@@ -41,7 +41,7 @@ export function FolderTree({
   onNoteCreated,
   onProjectClick,
 }: FolderTreeProps) {
-  const router = useRouter();
+  const { router } = usePaneNavigation();
   const isSearching = searchQuery.length > 0;
   const { data: projects = [] } = useProjects();
 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useMemo } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { FileText, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { navLinkInactiveStyles } from '@altitutor/ui';
@@ -40,7 +40,7 @@ function sortNotesByRelevance(notes: Note[], searchQuery: string): Note[] {
  * Displays search results with highlighted matches in title and content snippet
  */
 export function NotesSearchResults({ notes, searchQuery, onNoteClick, onProjectClick, projects = [] }: NotesSearchResultsProps) {
-  const router = useRouter();
+  const { router } = usePaneNavigation();
   const sortedNotes = useMemo(() => sortNotesByRelevance(notes, searchQuery), [notes, searchQuery]);
 
   const handleNoteClick = (noteId: string) => {

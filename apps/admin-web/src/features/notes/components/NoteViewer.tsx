@@ -120,8 +120,8 @@ function JsonNoteViewer({
       const detail: MentionClickDetail = { id, type, label };
       const handled = onMentionClick?.(detail) ?? false;
       if (!handled) {
-        window.dispatchEvent(
-          new CustomEvent<MentionClickDetail>('mentionClick', { detail }),
+        mentionEl.dispatchEvent(
+          new CustomEvent<MentionClickDetail>('mentionClick', { detail, bubbles: true }),
         );
       }
     };

@@ -1,28 +1,25 @@
 "use client";
+import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
+import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import type { Editor } from "@tiptap/react";
 import {
-  Button,
   Form,
   FormField,
   FormItem,
   FormControl,
-  DialogTitle,
   type RichTextEditorRef,
 } from "@altitutor/ui";
-import { X, ArrowLeft } from "lucide-react";
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
   EditorCloseConfirmDialog,
   EditorControls,
   EditorFooterActions,
   EditorNotices,
-  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -58,7 +55,6 @@ export function DocumentDetailView({
   onClose: () => void;
   variant: "page" | "dialog";
 }) {
-  const router = useRouter();
   const form = useForm<NoteFormData>({
     resolver: zodResolver(schema) as Resolver<NoteFormData>,
     defaultValues: {
@@ -77,6 +73,7 @@ export function DocumentDetailView({
     toRecord: documentToRecord,
     onClose,
   });
+  useAccessoryTitle(form.watch("title"));
   const { data: folders } = useFolders();
   const titleRef = useRef<HTMLInputElement>(null);
   const richTextRef = useRef<RichTextEditorRef>(null);
@@ -90,61 +87,35 @@ export function DocumentDetailView({
   });
   return (
     <WorkItemEditableContext.Provider value={editor.editable}>
-      <div className="h-full min-h-0 flex flex-col overflow-hidden">
-        <div className="shrink-0 border-b bg-card px-6 py-4 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="icon"
-              aria-label="Close"
-              onClick={() => editor.requestClose()}
-            >
-              {variant === "dialog" ? (
-                <X className="h-4 w-4" />
-              ) : (
-                <ArrowLeft className="h-4 w-4" />
-              )}
-            </Button>
-            {variant === "dialog" ? (
-              <DialogTitle>Document</DialogTitle>
-            ) : (
-              <h1 className="text-2xl font-bold">Document</h1>
-            )}
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {variant === "dialog" ? (
-              <WorkItemDialogHeaderActions
-                editor={editor}
-                actions={
-                  <ActionsMenu
-                    type="document"
-                    entityId={noteId}
-                    onOpenInPage={() =>
-                      editor.requestClose(() => {
-                        router.push(`/documents/${noteId}`);
-                        onClose();
-                      })
-                    }
-                    onDelete={() => {
-                      if (!editor.editable) return;
-                      if (window.confirm("Permanently delete this document?"))
-                        void editor.remove();
-                    }}
-                    richTextTemplateConfig={{
-                      getEditor: () =>
-                        editor.editable
-                          ? richTextRef.current?.getEditor() ?? null
-                          : null,
-                      getCurrentContent: () => form.getValues("content") ?? null,
-                      onSaveAsTemplateClick: () => setSaveTemplate(true),
-                    }}
-                  />
-                }
-              />
-            ) : (
-              <EditorControls editor={editor} />
-            )}
+      <div
+        className="h-full min-h-0 flex flex-col overflow-hidden"
+        data-rich-text-toolbar-container
+      >
+        <div className="shrink-0 border-b bg-background px-4 py-2 flex min-w-0 items-center justify-between gap-2">
+          <AccessoryBreadcrumb ownerIds={[form.watch("project_id")]} />
+          <div className="flex shrink-0 items-center gap-2">
+            {
+              <>
+                <EditorControls editor={editor} />
+                <ActionsMenu
+                  type="document"
+                  entityId={noteId}
+                  onDelete={() => {
+                    if (!editor.editable) return;
+                    if (window.confirm("Permanently delete this document?"))
+                      void editor.remove();
+                  }}
+                  richTextTemplateConfig={{
+                    getEditor: () =>
+                      editor.editable
+                        ? (richTextRef.current?.getEditor() ?? null)
+                        : null,
+                    getCurrentContent: () => form.getValues("content") ?? null,
+                    onSaveAsTemplateClick: () => setSaveTemplate(true),
+                  }}
+                />
+              </>
+            }
           </div>
         </div>
         <EditorNotices editor={editor} />
@@ -163,10 +134,7 @@ export function DocumentDetailView({
                 id={`document-${noteId}-panels`}
                 main={
                   <div className="flex h-full min-h-0 flex-col overflow-hidden">
-                    <div
-                      className="flex-1 min-h-0 overflow-y-auto overscroll-contain"
-                      data-rich-text-toolbar-container
-                    >
+                    <div className="flex-1 min-h-0 overflow-y-auto overscroll-contain">
                       <div className="mx-auto max-w-3xl p-6 space-y-4">
                         <FormField
                           control={form.control}

@@ -1,7 +1,3 @@
-'use client';
-
-import { ProjectDetailPage } from '@/features/projects/components/ProjectDetailPage';
-
-export default function ProjectDetailRoute({ params }: { params: { id: string } }) {
-  return <ProjectDetailPage projectId={params.id} />;
-}
+"use client";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+export default function Page({ params }: { params: { id: string } }) { return <AccessoryRoute href={`/projects/${params.id}`} />; }

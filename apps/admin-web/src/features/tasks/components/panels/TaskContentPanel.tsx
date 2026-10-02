@@ -1,20 +1,19 @@
-'use client';
+"use client";
 
-import { Separator } from '@altitutor/ui';
-import { UseFormReturn } from 'react-hook-form';
-import { useCallback, useRef, useEffect } from 'react';
-import { TaskTitleField, TaskDescriptionField } from '../fields';
-import { TaskPropertyPills } from '../fields/TaskPropertyPills';
-import { TaskActivityTab } from '@/features/activity/components/tabs/TaskActivityTab';
-import { TaskNotes } from '../TaskNotes';
-import type { RichTextEditorRef } from '@altitutor/ui';
-import type { TaskFormData, TaskStatus } from '../../types';
-import type { Tables } from '@altitutor/shared';
-import type { TagEntityType } from '@/shared/utils/tagParsing';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { Separator } from "@altitutor/ui";
+import { UseFormReturn } from "react-hook-form";
+import { useCallback, useRef, useEffect } from "react";
+import { TaskTitleField, TaskDescriptionField } from "../fields";
+import { TaskPropertyPills } from "../fields/TaskPropertyPills";
+import { TaskActivityTab } from "@/features/activity/components/tabs/TaskActivityTab";
+import type { RichTextEditorRef } from "@altitutor/ui";
+import type { TaskFormData, TaskStatus } from "../../types";
+import type { Tables } from "@altitutor/shared";
+import type { TagEntityType } from "@/shared/utils/tagParsing";
+import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 
-type NoteWithStaff = Tables<'notes'> & {
-  staff?: Tables<'staff'> | null;
+type NoteWithStaff = Tables<"notes"> & {
+  staff?: Tables<"staff"> | null;
 };
 
 interface TaskContentPanelProps {
@@ -23,8 +22,8 @@ interface TaskContentPanelProps {
   notes: NoteWithStaff[];
   isOpen: boolean;
   showActivity?: boolean;
-  selectedAssignee?: Tables<'staff'> | null;
-  onAssigneeChange?: (staff: Tables<'staff'> | null) => void;
+  selectedAssignee?: Tables<"staff"> | null;
+  onAssigneeChange?: (staff: Tables<"staff"> | null) => void;
   taskStatus?: TaskStatus;
   enabled?: boolean;
   autoFocusTitle?: boolean;
@@ -48,33 +47,41 @@ export function TaskContentPanel({
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const internalDescriptionRef = useRef<RichTextEditorRef>(null);
   const descriptionFieldRef = descriptionRefProp ?? internalDescriptionRef;
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
-  const handleTagClick = useCallback((type: TagEntityType, id: string) => {
-    if (type === 'student') {
-      entityModals.openStudent(id);
-    } else if (type === 'staff') {
-      entityModals.openStaff(id);
-    } else if (type === 'class') {
-      entityModals.openClass(id);
-    } else if (type === 'parent') {
-      entityModals.openParent(id);
-    } else if (type === 'subject') {
-      entityModals.openSubject(id);
-    } else if (type === 'topic') {
-      entityModals.openTopic(id);
-    } else if (type === 'session') {
-      entityModals.openSession(id);
-    } else if (type === 'file') {
-      entityModals.openFile(id);
-    }
-  }, [entityModals]);
+  const handleTagClick = useCallback(
+    (type: TagEntityType, id: string) => {
+      if (type === "student") {
+        entityModals.openStudent(id);
+      } else if (type === "staff") {
+        entityModals.openStaff(id);
+      } else if (type === "class") {
+        entityModals.openClass(id);
+      } else if (type === "parent") {
+        entityModals.openParent(id);
+      } else if (type === "subject") {
+        entityModals.openSubject(id);
+      } else if (type === "topic") {
+        entityModals.openTopic(id);
+      } else if (type === "session") {
+        entityModals.openSession(id);
+      } else if (type === "file") {
+        entityModals.openFile(id);
+      }
+    },
+    [entityModals],
+  );
 
   // Handle Enter key in title field - move focus to description
   const handleTitleEnter = useCallback(() => {
     if (descriptionFieldRef.current) {
       const editor = descriptionFieldRef.current.getEditor();
-      if (editor && 'commands' in editor && editor.commands && typeof editor.commands.focus === 'function') {
+      if (
+        editor &&
+        "commands" in editor &&
+        editor.commands &&
+        typeof editor.commands.focus === "function"
+      ) {
         editor.commands.focus();
       }
     }
@@ -122,36 +129,20 @@ export function TaskContentPanel({
         <div className="space-y-2">
           <TaskDescriptionField
             form={form}
-            value={form.getValues('description')}
-            onTagClick={handleTagClick as (type: TagEntityType, id: string) => void}
+            value={form.getValues("description")}
+            onTagClick={
+              handleTagClick as (type: TagEntityType, id: string) => void
+            }
             descriptionRef={descriptionFieldRef}
           />
         </div>
 
-      {/* Notes Section */}
-      {taskId && (
-        <>
-          <Separator />
-          <TaskNotes
-            taskId={taskId}
-            notes={notes}
-            onNoteAdded={() => {
-              // Notes will auto-refresh via query invalidation
-            }}
-          />
-        </>
-      )}
-
-      {/* Activity Section */}
-      {showActivity && taskId && (
-        <>
-          <Separator />
-          <div className="space-y-4">
-            <h3 className="text-lg font-semibold">Activity</h3>
-            <TaskActivityTab taskId={taskId} isOpen={isOpen} />
-          </div>
-        </>
-      )}
+        {showActivity && taskId && (
+          <>
+            <Separator />
+            <TaskActivityTab taskId={taskId} isOpen={isOpen} notes={notes} />
+          </>
+        )}
       </div>
     </>
   );

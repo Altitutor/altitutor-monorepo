@@ -1,5 +1,5 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { useRouter, useSearchParams, usePathname } from 'next/navigation';
+import { usePaneNavigation } from './usePaneNavigation';
 import { DataTableState, QuickFilter, resolveQuickFilterPlaceholders } from '@altitutor/shared';
 import { addDays, endOfWeek, format, startOfWeek, subDays } from 'date-fns';
 
@@ -119,9 +119,7 @@ export function useDataTable({
   skipUrlSync = false,
   filterKeys,
 }: UseDataTableOptions = {}) {
-  const router = useRouter();
-  const searchParams = useSearchParams();
-  const pathname = usePathname();
+  const { router, searchParams, pathname } = usePaneNavigation();
   const isInitialLoad = useRef(true);
   const hasSyncedInitialDefaults = useRef(false);
   const pendingUrlUpdateRef = useRef(false);

@@ -17,12 +17,12 @@ import { BookSessionModal } from '@/features/bookings/components';
 import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
 import { ChevronDown, Plus } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 export default function SessionsPage() {
   const search = useSearchParams();
   const { openCheckInModal } = useQuickActions();
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
   const [view, setView] = useAdminPageViewParam(['table', 'calendar'] as const, 'calendar');
   const [bookingModalOpen, setBookingModalOpen] = useState(false);
   const [bookingSessionType, setBookingSessionType] = useState<'DRAFTING' | 'TRIAL_SESSION' | 'SUBSIDY_INTERVIEW' | 'STAFF_INTERVIEW' | null>(null);

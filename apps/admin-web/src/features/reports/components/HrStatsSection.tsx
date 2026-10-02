@@ -1,6 +1,6 @@
 'use client';
 
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import type { ReportEntityLink, ReportEntityPerson } from '../types';
 import { useCommunicationsStatsReport } from '../hooks/useHrReports';
 import { IssuesReportChart } from './IssuesReportChart';
@@ -15,7 +15,7 @@ export function CommunicationsStatsSection({
   dateRange,
   visibleCharts,
 }: CommunicationsStatsSectionProps) {
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
   const { data, isLoading, error } = useCommunicationsStatsReport(
     dateRange.start,
     dateRange.end

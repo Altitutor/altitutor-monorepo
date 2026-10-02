@@ -1,95 +1,161 @@
-'use client';
+"use client";
 
-import { useMemo, useState } from 'react';
-import { usePathname, useRouter } from 'next/navigation';
-import { addDays, format, isValid, parse, startOfWeek } from 'date-fns';
-import { Button, Popover, PopoverContent, PopoverTrigger, navActiveStyles, navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
-import { ChevronLeft, ChevronRight, CalendarDays } from 'lucide-react';
-import { cn } from '@/shared/utils';
+import { useState } from "react";
+import {
+  addMonths,
+  eachDayOfInterval,
+  endOfMonth,
+  endOfWeek,
+  format,
+  isSameMonth,
+  isValid,
+  parseISO,
+  startOfMonth,
+  startOfWeek,
+} from "date-fns";
+import {
+  Button,
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+  navActiveStyles,
+  navHoverStyles,
+  navItemTransitionStyles,
+} from "@altitutor/ui";
+import { ChevronLeft, ChevronRight, CalendarDays } from "lucide-react";
+import { cn } from "@/shared/utils";
+import { useAccessoryPanel } from "@/shared/contexts/AccessoryPanelContext";
 
-const DASHBOARD_DATE_RE = /^\/dashboard\/(\d{4}-\d{2}-\d{2})$/;
-
-function parseDashboardDate(pathname: string): Date | null {
-  const match = pathname.match(DASHBOARD_DATE_RE);
-  if (!match?.[1]) return null;
-  const parsed = parse(match[1], 'yyyy-MM-dd', new Date());
-  return isValid(parsed) ? parsed : null;
-}
+const weekdays = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
 export function DashboardDatePicker() {
-  const pathname = usePathname();
-  const router = useRouter();
+  const panel = useAccessoryPanel();
   const [isOpen, setIsOpen] = useState(false);
+  const calendarTab =
+    panel?.tabs.find(
+      (tab) => tab.kind === "today" && tab.key === panel.activeKey,
+    ) ?? panel?.tabs.find((tab) => tab.kind === "today");
+  const selectedDate = new URLSearchParams(calendarTab?.query).get("date");
+  const activeDate =
+    selectedDate &&
+    /^\d{4}-\d{2}-\d{2}$/.test(selectedDate) &&
+    isValid(parseISO(selectedDate))
+      ? parseISO(selectedDate)
+      : new Date();
+  const [month, setMonth] = useState(() => startOfMonth(activeDate));
+  const days = eachDayOfInterval({
+    start: startOfWeek(startOfMonth(month), { weekStartsOn: 1 }),
+    end: endOfWeek(endOfMonth(month), { weekStartsOn: 1 }),
+  });
+  const activeDateStr = format(activeDate, "yyyy-MM-dd");
+  const todayStr = format(new Date(), "yyyy-MM-dd");
 
-  const activeDate = useMemo(() => parseDashboardDate(pathname) || new Date(), [pathname]);
-  const [weekAnchor, setWeekAnchor] = useState<Date>(activeDate);
-
-  const weekDays = useMemo(() => {
-    const weekStart = startOfWeek(weekAnchor, { weekStartsOn: 1 });
-    return Array.from({ length: 7 }, (_, i) => addDays(weekStart, i));
-  }, [weekAnchor]);
-
-  const activeDateStr = format(activeDate, 'yyyy-MM-dd');
-  const todayStr = format(new Date(), 'yyyy-MM-dd');
+  const selectDay = (day: Date) => {
+    const date = format(day, "yyyy-MM-dd");
+    const destination = {
+      kind: "today" as const,
+      title: date === todayStr ? "Today" : format(day, "d MMM"),
+      query: date === todayStr ? "" : new URLSearchParams({ date }).toString(),
+    };
+    if (calendarTab && panel) {
+      panel.navigateTab(calendarTab.key, destination);
+      panel.selectTab(calendarTab.key);
+    } else {
+      panel?.openTab(destination);
+    }
+    setIsOpen(false);
+  };
 
   return (
     <Popover
       open={isOpen}
       onOpenChange={(open) => {
         setIsOpen(open);
-        if (open) {
-          setWeekAnchor(activeDate);
-        }
+        if (open) setMonth(startOfMonth(activeDate));
       }}
     >
       <PopoverTrigger asChild>
-        <Button variant="outline" className="h-9 gap-2 px-3 md:px-3 px-2">
+        <Button
+          variant="outline"
+          aria-label="Open calendar"
+          className="h-9 gap-2 px-2 md:px-3"
+        >
           <CalendarDays className="h-4 w-4" />
-          <span className="hidden md:inline text-sm">{format(activeDate, 'dd/MM/yyyy')}</span>
+          <span className="hidden md:inline text-sm">
+            {format(activeDate, "dd/MM/yyyy")}
+          </span>
         </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[420px] max-w-[calc(100vw-2rem)] p-3" collisionPadding={16}>
-        <div className="flex items-center justify-between gap-2">
+      <PopoverContent
+        align="end"
+        className="w-[360px] max-w-[calc(100vw-2rem)] p-3"
+        collisionPadding={16}
+      >
+        <div className="mb-3 flex items-center justify-between gap-2">
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setWeekAnchor((prev) => addDays(prev, -7))}
+            aria-label="Previous month"
+            onClick={() => setMonth((previous) => addMonths(previous, -1))}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <div className="text-sm font-medium">{format(weekDays[0], 'dd MMM')} - {format(weekDays[6], 'dd MMM yyyy')}</div>
+          <div className="text-sm font-medium" aria-live="polite">
+            {format(month, "MMMM yyyy")}
+          </div>
           <Button
             variant="ghost"
             size="icon"
             className="h-8 w-8"
-            onClick={() => setWeekAnchor((prev) => addDays(prev, 7))}
+            aria-label="Next month"
+            onClick={() => setMonth((previous) => addMonths(previous, 1))}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>
-        <div className="mt-3 grid grid-cols-7 gap-2">
-          {weekDays.map((day) => {
-            const dayStr = format(day, 'yyyy-MM-dd');
-            const isActive = dayStr === activeDateStr;
-            const isToday = dayStr === todayStr;
+        <div className="mb-2 grid grid-cols-7 gap-1" aria-hidden="true">
+          {weekdays.map((day) => (
+            <div
+              key={day}
+              className="text-center text-xs text-muted-foreground"
+            >
+              {day}
+            </div>
+          ))}
+        </div>
+        <div
+          className="grid grid-cols-7 gap-1"
+          role="group"
+          aria-label={format(month, "MMMM yyyy")}
+        >
+          {days.map((day) => {
+            const date = format(day, "yyyy-MM-dd");
+            if (!isSameMonth(day, month))
+              return (
+                <div
+                  key={date}
+                  aria-hidden="true"
+                  className="aspect-square rounded-md bg-muted/20"
+                />
+              );
+            const selected = date === activeDateStr;
             return (
               <button
-                key={dayStr}
-                onClick={() => {
-                  router.push(`/dashboard/${dayStr}`);
-                  setIsOpen(false);
-                }}
+                key={date}
+                type="button"
+                aria-label={format(day, "EEEE, d MMMM yyyy")}
+                aria-pressed={selected}
+                aria-current={date === todayStr ? "date" : undefined}
+                onClick={() => selectDay(day)}
                 className={cn(
-                  'rounded-md border px-1 py-2 text-center min-w-0 h-[68px] flex flex-col items-center justify-center',
+                  "aspect-square min-w-0 rounded-md border text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   navItemTransitionStyles,
-                  isActive ? navActiveStyles : navHoverStyles,
-                  isToday && !isActive && 'border-brand-lightBlue bg-brand-lightBlue/10',
-                  isActive && 'border-border'
+                  selected ? navActiveStyles : navHoverStyles,
+                  date === todayStr && "font-semibold ring-1 ring-border",
                 )}
               >
-                <div className="text-[11px] leading-tight text-muted-foreground whitespace-nowrap">{format(day, 'EEE')}</div>
-                <div className="text-xs font-semibold leading-tight whitespace-nowrap">{format(day, 'dd/MM')}</div>
+                {format(day, "d")}
               </button>
             );
           })}

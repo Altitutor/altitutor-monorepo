@@ -6,7 +6,7 @@ import { SegmentedControl, useToast } from '@altitutor/ui';
 import { StudentSessionsCalendarView } from './StudentSessionsCalendarView';
 import { SessionsTable, RemoveFromSessionConfirmDialog } from '@/features/sessions/components';
 import { useRemoveParentFromSession } from '@/features/sessions/hooks/useSessionsQuery';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 type RemoveFromSessionTarget = {
   sessionId: string;
@@ -24,7 +24,7 @@ export function ParentSessionsTab({ parent, onOpenSession }: ParentSessionsTabPr
   const [removeFromSessionTarget, setRemoveFromSessionTarget] = useState<RemoveFromSessionTarget | null>(null);
   const { toast } = useToast();
   const removeParentMutation = useRemoveParentFromSession();
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
   const parentName = `${parent.first_name ?? ''} ${parent.last_name ?? ''}`.trim() || 'Parent';
 
   const handleOpenSession = useCallback((sessionId: string) => {

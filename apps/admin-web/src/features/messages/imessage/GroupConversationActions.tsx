@@ -14,7 +14,7 @@ import {
   TooltipTrigger,
 } from '@altitutor/ui';
 import { AdminDialogShell } from '@/shared/components';
-import { Users } from 'lucide-react';
+import { ImageOff, LogOut, Pencil, Trash2, UserMinus, UserPlus, Users } from 'lucide-react';
 import { useImessageControl } from './hooks';
 import { ImessageCommandDialog } from './ImessageCommandDialog';
 import type { ImessageCommandType } from './types';
@@ -96,12 +96,12 @@ export function GroupConversationActions({
 
   const menuItems = (
     <>
-      <DropdownMenuItem onClick={() => openEditable('update_chat')}>Rename group</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => openEditable('add_participant')}>Add participant</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => openEditable('remove_participant')}>Remove participant</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => setDestructiveAction('remove_group_icon')}>Remove group icon…</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => setDestructiveAction('leave_chat')}>Leave group…</DropdownMenuItem>
-      <DropdownMenuItem onClick={() => setDestructiveAction('delete_chat')}>Delete chat…</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => openEditable('update_chat')}><Pencil className="mr-2 h-4 w-4" />Rename group</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => openEditable('add_participant')}><UserPlus className="mr-2 h-4 w-4" />Add participant</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => openEditable('remove_participant')}><UserMinus className="mr-2 h-4 w-4" />Remove participant</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setDestructiveAction('remove_group_icon')}><ImageOff className="mr-2 h-4 w-4" />Remove group icon…</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setDestructiveAction('leave_chat')}><LogOut className="mr-2 h-4 w-4" />Leave group…</DropdownMenuItem>
+      <DropdownMenuItem onClick={() => setDestructiveAction('delete_chat')}><Trash2 className="mr-2 h-4 w-4" />Delete chat…</DropdownMenuItem>
     </>
   );
 
