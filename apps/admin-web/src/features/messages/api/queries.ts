@@ -7,10 +7,18 @@ import {
   isContactConversation,
   type Sender,
   type AggregatedConversation,
+  type ConversationLatestMessage,
   type ConversationListItem,
   type GroupConversation,
 } from '../types';
 import type { Tables } from '@altitutor/shared';
+import {
+  buildConversationPreview,
+  contactSenderBadgeName,
+  countsAsUnrepliedMessage,
+  outboundSenderBadgeName,
+  participantSenderBadgeName,
+} from '../utils/conversationPreview';
 import { messagingHandle } from '../utils/messagingHandle';
 
 // Re-export types for backward compatibility
@@ -63,6 +71,143 @@ type LastMessageSummary = {
   id: string;
   direction: string;
 };
+
+type MessagePreviewRow = {
+  id: string;
+  conversation_id: string;
+  body: string;
+  direction: string;
+  is_reaction: boolean;
+  reaction_type: string | null;
+  from_number_e164: string | null;
+  staff: { first_name: string | null; last_name: string | null } | Array<{
+    first_name: string | null;
+    last_name: string | null;
+  }> | null;
+  message_attachments: Array<{ id: string }> | null;
+};
+
+const MESSAGE_PREVIEW_SELECT = `
+  id,
+  conversation_id,
+  body,
+  direction,
+  is_reaction,
+  reaction_type,
+  from_number_e164,
+  staff:created_by_staff_id(first_name, last_name),
+  message_attachments(id)
+`;
+
+const MESSAGE_PREVIEW_CHUNK = 80;
+const REACTION_LOOKUP_CONCURRENCY = 6;
+
+async function fetchMessagePreviewsById(
+  ids: string[],
+  signal?: AbortSignal,
+): Promise<Map<string, MessagePreviewRow>> {
+  const unique = [...new Set(ids.filter(Boolean))];
+  const byId = new Map<string, MessagePreviewRow>();
+  if (unique.length === 0) return byId;
+
+  const supabase = getSupabaseClient();
+  const chunks: string[][] = [];
+  for (let index = 0; index < unique.length; index += MESSAGE_PREVIEW_CHUNK) {
+    chunks.push(unique.slice(index, index + MESSAGE_PREVIEW_CHUNK));
+  }
+
+  const parts = await Promise.all(chunks.map(async (chunk) => {
+    let query = supabase
+      .from('messages')
+      .select(MESSAGE_PREVIEW_SELECT)
+      .in('id', chunk);
+    if (signal) query = query.abortSignal(signal);
+    const { data, error } = await query;
+    if (error) throw error;
+    return (data ?? []) as MessagePreviewRow[];
+  }));
+
+  for (const row of parts.flat()) {
+    byId.set(row.id, row);
+  }
+  return byId;
+}
+
+async function fetchLatestNonReactionPreviews(
+  conversationIds: string[],
+  signal?: AbortSignal,
+): Promise<Map<string, MessagePreviewRow>> {
+  const byConversation = new Map<string, MessagePreviewRow>();
+  if (conversationIds.length === 0) return byConversation;
+
+  const supabase = getSupabaseClient();
+  let cursor = 0;
+  const workers = Array.from(
+    { length: Math.min(REACTION_LOOKUP_CONCURRENCY, conversationIds.length) },
+    async () => {
+      while (cursor < conversationIds.length) {
+        const conversationId = conversationIds[cursor];
+        cursor += 1;
+        if (!conversationId) continue;
+        let query = supabase
+          .from('messages')
+          .select(MESSAGE_PREVIEW_SELECT)
+          .eq('conversation_id', conversationId)
+          .eq('is_reaction', false)
+          .order('created_at', { ascending: false })
+          .limit(1);
+        if (signal) query = query.abortSignal(signal);
+        const { data, error } = await query;
+        if (error) throw error;
+        const row = ((data ?? []) as MessagePreviewRow[])[0];
+        if (row) byConversation.set(conversationId, row);
+      }
+    },
+  );
+  await Promise.all(workers);
+  return byConversation;
+}
+
+function latestMessageForConversation(
+  conv: ConversationRow,
+  previewsById: Map<string, MessagePreviewRow>,
+  substantiveByConversationId: Map<string, MessagePreviewRow>,
+  inboundSenderName: (message: MessagePreviewRow) => string,
+): ConversationLatestMessage | null {
+  const tip = lastMessageFromConversation(conv);
+  if (!tip) return null;
+
+  const tipRow = previewsById.get(tip.id) ?? null;
+  const substantive = tipRow?.is_reaction
+    ? substantiveByConversationId.get(conv.id) ?? null
+    : tipRow;
+  const countsAsUnreplied = substantive
+    ? countsAsUnrepliedMessage({
+      direction: substantive.direction,
+      isReaction: substantive.is_reaction,
+    })
+    : tipRow?.is_reaction
+      ? false
+      : countsAsUnrepliedMessage({ direction: tip.direction, isReaction: false });
+
+  const preview = substantive && !substantive.is_reaction
+    ? buildConversationPreview({
+      direction: substantive.direction,
+      body: substantive.body,
+      attachmentCount: substantive.message_attachments?.length ?? 0,
+      senderName: substantive.direction === 'OUTBOUND'
+        ? outboundSenderBadgeName(substantive.staff)
+        : inboundSenderName(substantive),
+    })
+    : null;
+
+  return {
+    id: tip.id,
+    direction: tip.direction,
+    countsAsUnreplied,
+    preview,
+  };
+}
 
 function lastMessageFromConversation(conv: {
   last_message_id: string | null;
@@ -510,6 +655,18 @@ export async function fetchConversationList(
   if (error) throw error;
 
   const typedConversations = (conversations || []) as ConversationWithLastMessage[];
+  const previewsById = await fetchMessagePreviewsById(
+    typedConversations.flatMap((conv) => conv.last_message_id ? [conv.last_message_id] : []),
+    signal,
+  );
+  const reactionConversationIds = typedConversations.flatMap((conv) => {
+    const tip = conv.last_message_id ? previewsById.get(conv.last_message_id) : null;
+    return tip?.is_reaction ? [conv.id] : [];
+  });
+  const substantiveByConversationId = await fetchLatestNonReactionPreviews(
+    reactionConversationIds,
+    signal,
+  );
 
   const byContact = new Map<string, AggregatedConversation>();
   const groups: GroupConversation[] = [];
@@ -519,23 +676,32 @@ export async function fetchConversationList(
     const lastMessage = lastMessageFromConversation(conv);
 
     if (conv.is_group_chat && conv.group_chat_id) {
-      const participantNames = (conv.group_chat_participants ?? []).map((participant) => {
+      const participants = (conv.group_chat_participants ?? []).map((participant) => {
         const contact = participant.contacts;
         const person = contact?.students ?? contact?.parents ?? contact?.staff;
         const name = person
           ? `${person.first_name ?? ''} ${person.last_name ?? ''}`.trim()
           : '';
-        return name || messagingHandle(contact) || 'Unknown participant';
+        return {
+          name: name || messagingHandle(contact) || 'Unknown participant',
+          phone: contact?.phone_e164 ?? null,
+          email: contact?.email ?? null,
+        };
       });
       groups.push({
         kind: 'group',
         conversationId: conv.id,
         groupChatId: conv.group_chat_id,
         groupName: conv.group_chat_name,
-        participantNames,
+        participantNames: participants.map((participant) => participant.name),
         ownedNumberId: conv.owned_number_id,
         latestMessageAt: conv.last_message_at,
-        latestMessage: lastMessage,
+        latestMessage: latestMessageForConversation(
+          conv,
+          previewsById,
+          substantiveByConversationId,
+          (message) => participantSenderBadgeName(message.from_number_e164, participants),
+        ),
         // Match navbar badge: unread only when tip is inbound and unread.
         unreadCount:
           !conv.conversation_reads?.length && lastMessage?.direction === 'INBOUND'
@@ -572,7 +738,12 @@ export async function fetchConversationList(
 
     if (conv.last_message_at && (!aggregated.latestMessageAt || conv.last_message_at > aggregated.latestMessageAt)) {
       aggregated.latestMessageAt = conv.last_message_at;
-      aggregated.latestMessage = lastMessage;
+      aggregated.latestMessage = latestMessageForConversation(
+        conv,
+        previewsById,
+        substantiveByConversationId,
+        () => contactSenderBadgeName(conv.contacts),
+      );
     }
 
     // Outbound tip / history-only threads are not unread (badge uses the same rule).
