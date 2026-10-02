@@ -5404,6 +5404,7 @@ export type Database = {
           created_at: string
           created_by: string
           id: string
+          is_alert: boolean
           note: Json
           target_id: string
           target_type: string
@@ -5414,6 +5415,7 @@ export type Database = {
           created_at?: string
           created_by: string
           id?: string
+          is_alert?: boolean
           note?: Json
           target_id: string
           target_type: string
@@ -5424,6 +5426,7 @@ export type Database = {
           created_at?: string
           created_by?: string
           id?: string
+          is_alert?: boolean
           note?: Json
           target_id?: string
           target_type?: string
