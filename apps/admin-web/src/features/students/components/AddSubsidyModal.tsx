@@ -9,6 +9,7 @@ import { AdminDialogShell } from '@/shared/components';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
 import { createSubsidy, type CreateSubsidyInput } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
+import { activityKeys } from '@/features/activity/queryKeys';
 import { SubjectSearchPopover } from '@/features/subjects/components/SubjectSearchPopover';
 import type { Tables } from '@altitutor/shared';
 import { getErrorMessage } from '@/shared/utils';
@@ -81,6 +82,7 @@ export function AddSubsidyModal({ isOpen, onClose, studentId }: AddSubsidyModalP
         description: 'Subsidy created successfully',
       });
       queryClient.invalidateQueries({ queryKey: studentSubsidiesKeys.student(studentId) });
+      void queryClient.invalidateQueries({ queryKey: activityKeys.all });
       onClose();
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
