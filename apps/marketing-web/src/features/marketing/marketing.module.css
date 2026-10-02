@@ -137,6 +137,7 @@
   margin-top: 32px;
 }
 .button {
+  composes: magnetic from "./components/magnetic-button.module.css";
   display: inline-flex;
   justify-content: center;
   align-items: center;
@@ -145,24 +146,18 @@
   border-radius: 99px;
   padding: 14px 24px;
   color: white !important;
-  background: rgb(var(--marketing-primary));
+  background-color: rgb(var(--marketing-primary));
   font-size: 0.93rem;
   font-weight: 500;
   line-height: 1.5;
-  transition:
-    transform 0.2s,
-    background 0.2s;
 }
-.button:hover {
-  background: #153e5d;
+.button:not(.secondaryButton) {
+  --magnetic-wash: rgb(255 255 255 / 14%);
 }
 .secondaryButton {
   color: var(--primary) !important;
-  background: transparent;
+  background-color: transparent;
   border-color: var(--hairline);
-}
-.secondaryButton:hover {
-  background: white;
 }
 .textLink {
   display: inline-flex;
@@ -250,10 +245,11 @@
   gap: 12px;
 }
 .navTrial {
+  composes: magnetic from "./components/magnetic-button.module.css";
   display: flex;
   gap: 16px;
   align-items: center;
-  background: rgb(255 255 255 / 4%);
+  background-color: rgb(255 255 255 / 4%);
   color: var(--primary);
   border: 1px solid rgb(10 41 65 / 18%);
   border-radius: 99px;
@@ -261,10 +257,6 @@
   font-size: 0.85rem;
   font-weight: 600;
   backdrop-filter: blur(8px);
-  transition:
-    background 0.3s,
-    color 0.3s,
-    border-color 0.3s;
 }
 .navigationOverHero .navTrial {
   color: #f2f0e9;
@@ -272,9 +264,10 @@
 }
 .navigationScrolled .navTrial,
 .navigationExpanded .navTrial {
-  background: rgb(var(--marketing-primary));
+  background-color: rgb(var(--marketing-primary));
   color: white;
   border-color: transparent;
+  --magnetic-wash: rgb(255 255 255 / 14%);
 }
 .menuButton {
   display: none;
@@ -400,8 +393,9 @@
   color: white;
 }
 .mission .button {
-  background: var(--accent-blue);
+  background-color: var(--accent-blue);
   color: var(--primary) !important;
+  --magnetic-wash: rgb(0 0 0 / 10%);
 }
 .split {
   display: grid;
@@ -1298,6 +1292,7 @@
   max-width: 980px;
 }
 .formatChoice {
+  composes: magnetic from "./components/magnetic-button.module.css";
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -1305,13 +1300,9 @@
   padding: 36px;
   border: 1px solid var(--hairline);
   border-radius: 30px;
-  background: white;
+  background-color: white;
   color: var(--ink);
   box-shadow: 0 4px 20px rgb(10 41 65 / 4%);
-  transition:
-    transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94),
-    box-shadow 0.3s,
-    border-color 0.2s;
 }
 .formatChoice:focus-visible {
   border-color: rgb(10 41 65 / 28%);
@@ -1319,7 +1310,6 @@
 }
 @media (hover: hover) {
   .formatChoice:hover {
-    transform: translateY(-5px);
     border-color: rgb(10 41 65 / 28%);
     box-shadow: 0 15px 35px rgb(10 41 65 / 10%);
   }
@@ -1388,8 +1378,9 @@
   color: #d9e5e9;
 }
 .application .button {
-  background: var(--accent-blue);
+  background-color: var(--accent-blue);
   color: var(--primary) !important;
+  --magnetic-wash: rgb(0 0 0 / 10%);
 }
 .application .eyebrow {
   color: var(--accent-blue);
@@ -1872,22 +1863,18 @@
   color: #d1e0e4;
 }
 .mountainHero .button:not(.secondaryButton) {
-  background: var(--accent-blue);
+  background-color: var(--accent-blue);
   color: var(--primary) !important;
+  --magnetic-wash: rgb(0 0 0 / 10%);
 }
 .mountainHero .secondaryButton {
-  background: #ffffff0a;
+  background-color: #ffffff0a;
   color: #f2f0e9 !important;
   border-color: #ffffff66;
   backdrop-filter: blur(8px);
 }
-.mountainHero .button:not(.secondaryButton):hover {
-  background: #7eabbb;
-}
-.mountainHero .secondaryButton:hover {
-  background: #ffffff24;
-}
 .announcement {
+  composes: magnetic from "./components/magnetic-button.module.css";
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -1897,11 +1884,8 @@
   font-size: 0.78rem;
   border-radius: 99px;
   border: 1px solid #ffffff38;
-  background: #ffffff17;
+  background-color: #ffffff17;
   backdrop-filter: blur(12px);
-  transition:
-    background 0.2s,
-    transform 0.2s;
 }
 .announcement > span {
   padding: 2px 9px;
@@ -1911,10 +1895,6 @@
   font-size: 0.65rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-}
-.announcement:hover {
-  background: #ffffff2b;
-  transform: translateY(-2px);
 }
 .homeStats {
   display: grid;
@@ -2229,9 +2209,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
-  padding: 20px 0 12px;
+  padding: 24px 8px 20px;
 }
 .courseMenuCard {
+  composes: magnetic from "./components/magnetic-button.module.css";
   position: relative;
   display: flex;
   flex-direction: column;
@@ -2240,15 +2221,11 @@
   padding: 20px;
   border: 1px solid rgb(10 41 65 / 8%);
   border-radius: 20px;
-  background: rgb(255 255 255 / 42%);
+  background-color: rgb(255 255 255 / 42%);
   color: var(--primary);
-  transition:
-    background 0.2s,
-    border-color 0.2s;
 }
 .courseMenuCard:hover,
 .courseMenuCard:focus-visible {
-  background: rgb(255 255 255 / 85%);
   border-color: rgb(10 41 65 / 25%);
 }
 .courseMenuCard > svg:first-child {
@@ -2268,7 +2245,7 @@
   top: 22px;
 }
 .allCoursesCard {
-  background: rgb(var(--marketing-accent) / 30%);
+  background-color: rgb(var(--marketing-accent) / 30%);
 }
 @media (max-width: 800px) {
   .desktopExpansion {

@@ -3,14 +3,19 @@
  * Renders a command item in the command palette
  */
 
-import { Badge } from '@altitutor/ui';
+import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
+import {
+  useAccessoryPanel,
+  accessoryFamily,
+} from "@/shared/contexts/AccessoryPanelContext";
+import { Badge } from "@altitutor/ui";
 import {
   commandPaletteItemActiveStyles,
   commandPaletteItemInactiveStyles,
-} from '@altitutor/ui';
-import { cn } from '@/shared/utils';
-import type { LucideIcon } from 'lucide-react';
-import { highlightText } from '../utils/highlighting';
+} from "@altitutor/ui";
+import { cn } from "@/shared/utils";
+import type { LucideIcon } from "lucide-react";
+import { highlightText } from "../utils/highlighting";
 
 interface CommandItemProps {
   id: string;
@@ -34,9 +39,25 @@ export function CommandItem({
   onSelect,
   onMouseEnter,
 }: CommandItemProps) {
+  const panel = useAccessoryPanel();
+  const tab = panel?.expanded
+    ? panel.tabs.find((tab) => tab.key === panel.activeKey)
+    : undefined;
+  const newFamily =
+    id === "add-task"
+      ? "tasks"
+      : id === "add-issue"
+        ? "issues"
+        : id === "add-project"
+          ? "projects"
+          : undefined;
+  const hasNewShortcut =
+    newFamily && tab && accessoryFamily(tab.kind) === newFamily;
   const baseClasses = cn(
-    'w-full flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer text-left',
-    isSelected ? commandPaletteItemActiveStyles : commandPaletteItemInactiveStyles,
+    "w-full flex items-start gap-3 px-4 py-3 rounded-xl cursor-pointer text-left",
+    isSelected
+      ? commandPaletteItemActiveStyles
+      : commandPaletteItemInactiveStyles,
   );
 
   return (
@@ -58,6 +79,7 @@ export function CommandItem({
           <div className="text-sm text-muted-foreground">{description}</div>
         )}
       </div>
+      {hasNewShortcut && <ShortcutKeys id="new" always />}
       <Badge variant="outline" className="text-xs flex-shrink-0">
         Command
       </Badge>

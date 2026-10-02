@@ -8,6 +8,8 @@ import {
   type KeyboardEvent,
 } from "react";
 import { navLinkActiveStyles, navLinkInactiveStyles } from "@/shared/utils";
+import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
+import { panelShortcut } from "@/shared/shortcuts/registry";
 import { List, Columns, X } from "lucide-react";
 import {
   useAccessoryPanel,
@@ -144,13 +146,7 @@ export function AccessoryTabs() {
   }, [activeKey]);
   if (!panel) return null;
   const keyboard = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    if (
-      event.altKey ||
-      event.metaKey ||
-      event.ctrlKey ||
-      !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
-    )
-      return;
+    if (event.altKey || event.metaKey || event.ctrlKey || !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
     event.preventDefault();
     const next =
       event.key === "Home"
@@ -195,7 +191,7 @@ export function AccessoryTabs() {
               >
                 <AccessoryIcon kind={tab.kind} />
                 <span className="truncate">{tab.title}</span>
-
+                {panelShortcut(tab.kind) && <ShortcutKeys id={panelShortcut(tab.kind)!} />}
               </button>
               {tab.key === panel.activeKey &&
                 ["tasks", "issues", "projects"].includes(tab.kind) && (

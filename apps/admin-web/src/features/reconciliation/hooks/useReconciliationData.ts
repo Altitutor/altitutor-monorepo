@@ -7,7 +7,6 @@ import {
   useUnassignedTasks,
   useStudentsWithoutClasses,
   useStudentsWithoutPaymentMethod,
-  useTrialStudentsNotSignedUp,
   useProjectsWithNoLead,
   useSessionBillingAdjustmentIssues,
 } from '../api/queries';
@@ -54,24 +53,20 @@ export function useReconciliationSchedulingData() {
   const unloggedSessions = useUnloggedSessions();
   const unassignedClasses = useUnassignedClasses();
   const studentsWithoutClasses = useStudentsWithoutClasses();
-  const trialStudentsNotSignedUp = useTrialStudentsNotSignedUp();
 
   return {
     unloggedSessions,
     unassignedClasses,
     studentsWithoutClasses,
-    trialStudentsNotSignedUp,
     isLoading: aggregateLoading(
       unloggedSessions.isLoading,
       unassignedClasses.isLoading,
       studentsWithoutClasses.isLoading,
-      trialStudentsNotSignedUp.isLoading,
     ),
     hasError: aggregateError(
       unloggedSessions.isError,
       unassignedClasses.isError,
       studentsWithoutClasses.isError,
-      trialStudentsNotSignedUp.isError,
     ),
   };
 }

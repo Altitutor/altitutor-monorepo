@@ -9,7 +9,6 @@ import type {
   UnassignedTask,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
-  TrialStudentNotSignedUp,
   ProjectWithoutLead,
 } from '../../types';
 
@@ -22,7 +21,6 @@ type ReconciliationQueries = {
   unassignedTasks: { data?: UnassignedTask[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
-  trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
   projectsWithoutLead?: { data?: ProjectWithoutLead[] };
 };
 
@@ -35,7 +33,6 @@ const createMockQueries = (overrides?: Partial<ReconciliationQueries>): Reconcil
   unassignedTasks: { data: [] as UnassignedTask[] },
   studentsWithoutClasses: { data: [] as StudentWithoutClasses[] },
   studentsWithoutPaymentMethod: { data: [] as StudentWithoutPaymentMethod[] },
-  trialStudentsNotSignedUp: { data: [] as TrialStudentNotSignedUp[] },
   projectsWithoutLead: { data: [] },
   ...overrides,
 });
@@ -60,12 +57,11 @@ describe('useReconciliationItems', () => {
       unloggedSessions: { data: [{ session_id: '1' } as UnloggedSession] },
       unassignedClasses: { data: [{ class_id: '1', class_display_name: 'Math' } as UnassignedClass] },
       studentsWithoutClasses: { data: [{ student_id: '1' } as StudentWithoutClasses] },
-      trialStudentsNotSignedUp: { data: [{ student_id: '1' } as TrialStudentNotSignedUp] },
     });
 
     const { result } = renderHook(() => useReconciliationItems(queries));
 
-    expect(result.current.schedulingItems).toHaveLength(4);
+    expect(result.current.schedulingItems).toHaveLength(3);
     expect(result.current.hasAnyItems).toBe(true);
   });
 
@@ -77,17 +73,6 @@ describe('useReconciliationItems', () => {
     const { result } = renderHook(() => useReconciliationItems(queries));
 
     expect(result.current.operationsItems).toHaveLength(1);
-    expect(result.current.hasAnyItems).toBe(true);
-  });
-
-  it('should aggregate trial items correctly', () => {
-    const queries = createMockQueries({
-      trialStudentsNotSignedUp: { data: [{ student_id: '1' } as TrialStudentNotSignedUp] },
-    });
-
-    const { result } = renderHook(() => useReconciliationItems(queries));
-
-    expect(result.current.trialItems).toHaveLength(1);
     expect(result.current.hasAnyItems).toBe(true);
   });
 
@@ -109,7 +94,6 @@ describe('useReconciliationItems', () => {
 
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
-    expect(result.current.trialItems).toHaveLength(0);
     expect(result.current.operationsItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
   });
@@ -124,7 +108,6 @@ describe('useReconciliationItems', () => {
       unassignedTasks: { data: undefined },
       studentsWithoutClasses: { data: undefined },
       studentsWithoutPaymentMethod: { data: undefined },
-      trialStudentsNotSignedUp: { data: undefined },
       projectsWithoutLead: { data: undefined },
     };
 
@@ -132,7 +115,6 @@ describe('useReconciliationItems', () => {
 
     expect(result.current.financialItems).toHaveLength(0);
     expect(result.current.schedulingItems).toHaveLength(0);
-    expect(result.current.trialItems).toHaveLength(0);
     expect(result.current.operationsItems).toHaveLength(0);
     expect(result.current.hasAnyItems).toBe(false);
   });

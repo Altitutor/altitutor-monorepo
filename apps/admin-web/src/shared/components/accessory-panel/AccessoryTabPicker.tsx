@@ -1,4 +1,6 @@
 "use client";
+import { ShortcutKeys } from '@/shared/shortcuts/ShortcutKeys';
+import { panelShortcut } from '@/shared/shortcuts/registry';
 import { useState } from "react";
 import {
   Button,
@@ -87,7 +89,7 @@ export function AccessoryTabPicker() {
                       className="mr-2 h-4 w-4 shrink-0"
                     />
                     {view.title}
-
+                    {panelShortcut(view.kind) && <ShortcutKeys id={panelShortcut(view.kind)!} always />}
                   </CommandItem>
                 ))}
             </CommandGroup>

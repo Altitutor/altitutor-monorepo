@@ -1,69 +1,41 @@
-"use client";
+'use client';
 
-import { ProfileMenu } from "@/shared/components/layouts/ProfileMenu";
-import { AccessoryPanelLayout } from "@/shared/components/accessory-panel/AccessoryPanelLayout";
+import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
+import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
+import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
 
-import React, { useState, useEffect } from "react";
-import Link from "next/link";
-import {
-  usePaneNavigation,
-  accessoryDestination,
-} from "@/shared/hooks/usePaneNavigation";
-import { usePathname } from "next/navigation";
-import {
-  Users,
-  Calendar,
-  GraduationCap,
-  FileText,
-  Home,
-  CreditCard,
-  AlertTriangle,
-  ChevronDown,
-} from "lucide-react";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@altitutor/ui";
-import {
-  cn,
-  navLinkActiveStyles,
-  navLinkInactiveStyles,
-} from "@/shared/utils/index";
-import { ScrollArea } from "@altitutor/ui";
-import {
-  Beaker,
-  Newspaper,
-  ClipboardList,
-  Monitor,
-  UserRound,
-  TrendingUp,
-  MessageSquareText,
-} from "lucide-react";
-import { useQuickActions } from "@/shared/contexts/QuickActionsContext";
-import { useQueryClient } from "@tanstack/react-query";
-import { useToast } from "@altitutor/ui";
-import { CheckInBookSessionModal } from "@/features/sessions/components/CheckInBookSessionModal";
-import { payTiersKeys } from "@/features/pay-tiers/api/queryKeys";
-import { CommandPaletteModal } from "@/features/command-palette/components/CommandPaletteModal";
-import { useCommandPalette } from "@/shared/contexts/CommandPaletteContext";
-import { LogSessionModal } from "@/features/tutor-logs";
-import { LogAbsenceDialog, LogStaffAbsenceDialog } from "@/features/sessions";
-import { AnnouncementsModal } from "@/features/messages/components/announcements/AnnouncementsModal";
-import { BookSessionModal } from "@/features/bookings/components";
-import { StaffInterviewBookSessionModal } from "@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal";
-import { CreateTaskDialog } from "@/features/tasks/components/CreateTaskDialog";
-import { CreateIssueDialog } from "@/features/issues/components/CreateIssueDialog";
-import { CreateProjectDialog } from "@/features/projects/components/CreateProjectDialog";
-import { useCurrentStaff } from "@/shared/hooks";
-import { useMobileMenu } from "@/shared/contexts/MobileMenuContext";
-import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from "@/shared/components";
-import { useBreadcrumbs } from "@/shared/hooks/useBreadcrumbs";
-import { useAdminShell } from "@/shared/contexts/AdminShellContext";
-import { invalidateCheckInSurfaces } from "@/shared/lib/query-invalidation";
-import { format } from "date-fns";
-import type { LucideIcon } from "lucide-react";
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { usePaneNavigation, accessoryDestination } from '@/shared/hooks/usePaneNavigation';
+import { usePathname } from 'next/navigation';
+import { Users, Calendar, GraduationCap, FileText, Home, CreditCard, AlertTriangle, ChevronDown } from 'lucide-react';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
+import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
+import { ScrollArea } from '@altitutor/ui';
+import { Beaker, Newspaper, ClipboardList, Monitor, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
+import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { useQueryClient } from '@tanstack/react-query';
+import { useToast } from '@altitutor/ui';
+import { CheckInBookSessionModal } from '@/features/sessions/components/CheckInBookSessionModal';
+import { payTiersKeys } from '@/features/pay-tiers/api/queryKeys';
+import { CommandPaletteModal } from '@/features/command-palette/components/CommandPaletteModal';
+import { useCommandPalette } from '@/shared/contexts/CommandPaletteContext';
+import { LogSessionModal } from '@/features/tutor-logs';
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from '@/features/sessions';
+import { AnnouncementsModal } from '@/features/messages/components/announcements/AnnouncementsModal';
+import { BookSessionModal } from '@/features/bookings/components';
+import { StaffInterviewBookSessionModal } from '@/features/bookings/components/staff-interview/StaffInterviewBookSessionModal';
+import { CreateTaskDialog } from '@/features/tasks/components/CreateTaskDialog';
+import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
+import { CreateProjectDialog } from '@/features/projects/components/CreateProjectDialog';
+import { useCurrentStaff } from '@/shared/hooks';
+import { useMobileMenu } from '@/shared/contexts/MobileMenuContext';
+import { Breadcrumb, AdminUrlSyncBoundary, Navbar } from '@/shared/components';
+import { useBreadcrumbs } from '@/shared/hooks/useBreadcrumbs';
+import { useAdminShell } from '@/shared/contexts/AdminShellContext';
+import { invalidateCheckInSurfaces } from '@/shared/lib/query-invalidation';
+import { format } from 'date-fns';
+import type { LucideIcon } from 'lucide-react';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -71,123 +43,123 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
 
 type NavItem =
   | {
-      type?: "link";
+      type?: 'link';
       title: string;
       href: string;
       icon: LucideIcon;
       children?: { title: string; href: string }[];
     }
-  | { type: "heading"; title: string };
+  | { type: 'heading'; title: string };
 
 const navItems: NavItem[] = [
   {
-    title: "Dashboard",
-    href: "/dashboard",
+    title: 'Dashboard',
+    href: '/dashboard',
     icon: Home,
   },
   {
-    type: "heading",
-    title: "COMMUNICATION",
+    type: 'heading',
+    title: 'COMMUNICATION',
   },
   {
-    title: "Feedback",
-    href: "/feedback",
+    title: 'Feedback',
+    href: '/feedback',
     icon: MessageSquareText,
   },
   {
-    title: "Trial students",
-    href: "/trial-students",
+    title: 'Trial students',
+    href: '/trial-students',
     icon: Users,
     children: [
-      { title: "Work queue", href: "/trial-students" },
-      { title: "Conversion insights", href: "/trial-students/insights" },
+      { title: 'Work queue', href: '/trial-students' },
+      { title: 'Conversion insights', href: '/trial-students/insights' },
     ],
   },
   {
-    type: "heading",
-    title: "SCHEDULING",
+    type: 'heading',
+    title: 'SCHEDULING',
   },
   {
-    title: "In-person Students",
-    href: "/students",
+    title: 'In-person Students',
+    href: '/students',
     icon: GraduationCap,
   },
   {
-    title: "Online Students",
-    href: "/online-students",
+    title: 'Online Students',
+    href: '/online-students',
     icon: Monitor,
   },
   {
-    title: "Parents",
-    href: "/parents",
+    title: 'Parents',
+    href: '/parents',
     icon: UserRound,
   },
   {
-    title: "Staff",
-    href: "/staff",
+    title: 'Staff',
+    href: '/staff',
     icon: Users,
   },
   {
-    title: "Classes",
-    href: "/classes",
+    title: 'Classes',
+    href: '/classes',
     icon: Calendar,
   },
   {
-    title: "Admin Shifts",
-    href: "/admin-shifts",
+    title: 'Admin Shifts',
+    href: '/admin-shifts',
     icon: Calendar,
   },
   {
-    title: "Sessions",
-    href: "/sessions",
+    title: 'Sessions',
+    href: '/sessions',
     icon: ClipboardList,
   },
   {
-    type: "heading",
-    title: "FINANCIAL",
+    type: 'heading',
+    title: 'FINANCIAL',
   },
   {
-    title: "Reconciliation",
-    href: "/reconciliation",
+    title: 'Reconciliation',
+    href: '/reconciliation',
     icon: AlertTriangle,
   },
   {
-    title: "Invoices",
-    href: "/invoices",
+    title: 'Invoices',
+    href: '/invoices',
     icon: CreditCard,
   },
   {
-    title: "Reports",
-    href: "/reports",
+    title: 'Reports',
+    href: '/reports',
     icon: FileText,
   },
   {
-    title: "Tutor logs",
-    href: "/tutor-logs",
+    title: 'Tutor logs',
+    href: '/tutor-logs',
     icon: ClipboardList,
   },
   {
-    title: "Pay tiers",
-    href: "/pay-tiers",
+    title: 'Pay tiers',
+    href: '/pay-tiers',
     icon: TrendingUp,
   },
   {
-    type: "heading",
-    title: "RESOURCES",
+    type: 'heading',
+    title: 'RESOURCES',
   },
   {
-    title: "Subjects",
-    href: "/subjects",
+    title: 'Subjects',
+    href: '/subjects',
     icon: Beaker,
   },
   {
-    title: "Topics",
-    href: "/topics",
+    title: 'Topics',
+    href: '/topics',
     icon: Newspaper,
   },
 ];
 
-type NavLink = Extract<NavItem, { type?: "link" }>;
+type NavLink = Extract<NavItem, { type?: 'link' }>;
 
 type NavSection = {
   title: string | null;
@@ -198,7 +170,7 @@ function groupNavItems(items: NavItem[]): NavSection[] {
   const sections: NavSection[] = [];
   let current: NavSection = { title: null, items: [] };
   for (const item of items) {
-    if (item.type === "heading") {
+    if (item.type === 'heading') {
       sections.push(current);
       current = { title: item.title, items: [] };
     } else {
@@ -206,9 +178,7 @@ function groupNavItems(items: NavItem[]): NavSection[] {
     }
   }
   sections.push(current);
-  return sections.filter(
-    (section) => section.title !== null || section.items.length > 0,
-  );
+  return sections.filter((section) => section.title !== null || section.items.length > 0);
 }
 
 function SidebarExpandablePanel({
@@ -221,8 +191,8 @@ function SidebarExpandablePanel({
   return (
     <div
       className={cn(
-        "grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none",
-        expanded ? "grid-rows-[1fr]" : "grid-rows-[0fr]",
+        'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+        expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
       )}
     >
       <div className="min-h-0 overflow-hidden">
@@ -241,39 +211,32 @@ function NavSectionHeading({ title }: { title: string }) {
       aria-expanded={expanded}
       onClick={() => toggleGroup(title)}
       className={cn(
-        "mt-2 flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground",
+        'mt-2 flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground',
         navLinkInactiveStyles,
       )}
     >
       <span>{title}</span>
       <ChevronDown
-        className={cn(
-          "h-3 w-3 transition-transform duration-200",
-          !expanded && "-rotate-90",
-        )}
+        className={cn('h-3 w-3 transition-transform duration-200', !expanded && '-rotate-90')}
       />
     </button>
   );
 }
 
-const getTodayDashboardHref = () =>
-  `/dashboard/${format(new Date(), "yyyy-MM-dd")}`;
+const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
 
-const getNavItemHref = (item: Extract<NavItem, { type?: "link" }>) => {
-  if (item.title === "Dashboard") {
+const getNavItemHref = (item: Extract<NavItem, { type?: 'link' }>) => {
+  if (item.title === 'Dashboard') {
     return getTodayDashboardHref();
   }
   return item.href;
 };
 
-const isNavItemActive = (
-  pathname: string,
-  item: Extract<NavItem, { type?: "link" }>,
-) => {
-  if (item.title === "Dashboard") {
-    return pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+const isNavItemActive = (pathname: string, item: Extract<NavItem, { type?: 'link' }>) => {
+  if (item.title === 'Dashboard') {
+    return pathname === '/dashboard' || pathname.startsWith('/dashboard/');
   }
-  if (item.href.startsWith("/ucat/")) {
+  if (item.href.startsWith('/ucat/')) {
     return pathname === item.href || pathname.startsWith(`${item.href}/`);
   }
   return pathname === item.href;
@@ -289,11 +252,7 @@ function useSectionExpanded(pathname: string, href: string) {
   return [expanded, () => setExpanded((current) => !current)] as const;
 }
 
-function childNavActive(
-  pathname: string,
-  parentHref: string,
-  childHref: string,
-) {
+function childNavActive(pathname: string, parentHref: string, childHref: string) {
   if (childHref === parentHref) return pathname === parentHref;
   return pathname === childHref || pathname.startsWith(`${childHref}/`);
 }
@@ -303,7 +262,7 @@ function ExpandableNavGroup({
   pathname,
   collapsed = false,
 }: {
-  item: Extract<NavItem, { type?: "link" }> & {
+  item: Extract<NavItem, { type?: 'link' }> & {
     children: { title: string; href: string }[];
   };
   pathname: string;
@@ -322,7 +281,7 @@ function ExpandableNavGroup({
               href={item.href}
               prefetch={false}
               className={cn(
-                "flex items-center justify-center rounded-md px-0 py-2 text-sm",
+                'flex items-center justify-center rounded-md px-0 py-2 text-sm',
                 active ? navLinkActiveStyles : navLinkInactiveStyles,
               )}
             >
@@ -342,7 +301,7 @@ function ExpandableNavGroup({
     <div className="space-y-0.5">
       <div
         className={cn(
-          "flex items-center rounded-md text-sm",
+          'flex items-center rounded-md text-sm',
           active ? navLinkActiveStyles : navLinkInactiveStyles,
         )}
       >
@@ -357,16 +316,14 @@ function ExpandableNavGroup({
         <button
           type="button"
           aria-expanded={expanded}
-          aria-label={
-            expanded ? `Collapse ${item.title}` : `Expand ${item.title}`
-          }
+          aria-label={expanded ? `Collapse ${item.title}` : `Expand ${item.title}`}
           className="mr-1 rounded p-1 text-muted-foreground hover:text-foreground"
           onClick={toggleExpanded}
         >
           <ChevronDown
             className={cn(
-              "h-4 w-4 transition-transform duration-200",
-              expanded ? "rotate-0" : "-rotate-90",
+              'h-4 w-4 transition-transform duration-200',
+              expanded ? 'rotate-0' : '-rotate-90',
             )}
           />
         </button>
@@ -379,7 +336,7 @@ function ExpandableNavGroup({
               href={child.href}
               prefetch={false}
               className={cn(
-                "flex items-center rounded-md px-2 py-1.5 text-sm",
+                'flex items-center rounded-md px-2 py-1.5 text-sm',
                 childNavActive(pathname, item.href, child.href)
                   ? navLinkActiveStyles
                   : navLinkInactiveStyles,
@@ -416,10 +373,7 @@ function AdminNavMenu({
   return (
     <>
       {sections.map((section) => {
-        const sectionExpanded =
-          collapsed ||
-          !section.title ||
-          !collapsedGroups.includes(section.title);
+        const sectionExpanded = collapsed || !section.title || !collapsedGroups.includes(section.title);
         const links = section.items.map((item) => {
           const Icon = item.icon;
           const itemHref = getNavItemHref(item);
@@ -440,20 +394,16 @@ function AdminNavMenu({
               onClick={(event) => openAccessory(event, itemHref)}
               prefetch={false}
               className={cn(
-                "flex items-center gap-3 rounded-md px-3 py-2 text-sm",
-                isNavItemActive(pathname, item)
-                  ? navLinkActiveStyles
-                  : navLinkInactiveStyles,
-                collapsed && "justify-center px-0",
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm',
+                isNavItemActive(pathname, item) ? navLinkActiveStyles : navLinkInactiveStyles,
+                collapsed && 'justify-center px-0',
               )}
             >
-              <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
+              <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
               {collapsed ? (
                 <span className="sr-only">{item.title}</span>
               ) : (
-                <span className="overflow-hidden whitespace-nowrap">
-                  {item.title}
-                </span>
+                <span className="overflow-hidden whitespace-nowrap">{item.title}</span>
               )}
             </Link>
           );
@@ -475,20 +425,14 @@ function AdminNavMenu({
         });
 
         return (
-          <div key={section.title ?? "root"} className="flex flex-col gap-1">
+          <div key={section.title ?? 'root'} className="flex flex-col gap-1">
             {section.title ? (
-              collapsed ? (
-                <div className="my-2 h-px bg-border" />
-              ) : (
-                <NavSectionHeading title={section.title} />
-              )
+              collapsed ? <div className="my-2 h-px bg-border" /> : <NavSectionHeading title={section.title} />
             ) : null}
             {collapsed || !section.title ? (
               links
             ) : (
-              <SidebarExpandablePanel expanded={sectionExpanded}>
-                {links}
-              </SidebarExpandablePanel>
+              <SidebarExpandablePanel expanded={sectionExpanded}>{links}</SidebarExpandablePanel>
             )}
           </div>
         );
@@ -497,13 +441,7 @@ function AdminNavMenu({
   );
 }
 
-function MobileMenu({
-  isOpen,
-  onClose,
-}: {
-  isOpen: boolean;
-  onClose: () => void;
-}) {
+function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const pathname = usePathname();
   const dragStartYRef = React.useRef<number | null>(null);
   const dragOffsetRef = React.useRef(0);
@@ -511,12 +449,12 @@ function MobileMenu({
 
   useEffect(() => {
     if (isOpen) {
-      document.body.style.overflow = "hidden";
+      document.body.style.overflow = 'hidden';
     } else {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     }
     return () => {
-      document.body.style.overflow = "";
+      document.body.style.overflow = '';
     };
   }, [isOpen]);
 
@@ -525,13 +463,13 @@ function MobileMenu({
 
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
-      if (target.hasAttribute("data-mobile-menu-overlay")) {
+      if (target.hasAttribute('data-mobile-menu-overlay')) {
         onClose();
       }
     };
 
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [isOpen, onClose]);
 
   // Close menu when route changes
@@ -555,11 +493,7 @@ function MobileMenu({
 
   const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
     if (dragStartYRef.current == null) return;
-    const nextOffset = Math.max(
-      0,
-      (event.touches[0]?.clientY ?? dragStartYRef.current) -
-        dragStartYRef.current,
-    );
+    const nextOffset = Math.max(0, (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current);
     dragOffsetRef.current = nextOffset;
     setDragOffset(nextOffset);
   };
@@ -588,13 +522,9 @@ function MobileMenu({
         className={cn(
           "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] max-h-[calc(100dvh-var(--navbar-height))] flex-col overflow-hidden rounded-t-3xl bg-card ring-1 ring-black/10 transition-transform duration-300 ease-out dark:ring-white/10 md:hidden",
           dragStartYRef.current != null && "transition-none",
-          isOpen ? "translate-y-0" : "translate-y-full",
+          isOpen ? "translate-y-0" : "translate-y-full"
         )}
-        style={
-          isOpen && dragOffset > 0
-            ? { transform: `translateY(${dragOffset}px)` }
-            : undefined
-        }
+        style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
       >
         <div className="flex flex-col h-full">
           <div
@@ -629,7 +559,7 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
       className={cn(
         "hidden md:flex shrink-0 flex-col bg-card h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
         collapsed ? "w-[70px]" : "w-[250px]",
-        className,
+        className
       )}
       {...props}
     >
@@ -646,7 +576,11 @@ function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
   );
 }
 
-function AdminLayoutContent({ children }: { children: React.ReactNode }) {
+function AdminLayoutContent({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const {
@@ -675,19 +609,14 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
   } = useQuickActions();
   const { sidebarCollapsed: collapsed } = useAdminShell();
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
-  const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } =
-    useCommandPalette();
+  const { isOpen: isCommandPaletteOpen, close: closeCommandPalette } = useCommandPalette();
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
-  const showBreadcrumbs =
-    pathname !== "/messages" &&
-    !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+/.test(
-      pathname,
-    );
+  const showBreadcrumbs = pathname !== '/messages' && !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+/.test(pathname);
 
   return (
-    <>
+    <AdminShortcuts>
       <Navbar />
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       <CommandPaletteModal
@@ -697,10 +626,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
       <div className="mt-[var(--navbar-height)] flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
         <SidebarNav collapsed={collapsed} />
         <AccessoryPanelLayout>
-          <div
-            data-admin-main
-            className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70"
-          >
+          <div data-admin-main className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70">
             {showBreadcrumbs && (
               <div className="shrink-0 px-6 pt-6 pb-0">
                 <Breadcrumb items={breadcrumbs} />
@@ -733,7 +659,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 isOpen={isAnnouncementsModalOpen}
                 onClose={closeAnnouncementsModal}
               />
-              {bookingSessionType === "STAFF_INTERVIEW" ? (
+              {bookingSessionType === 'STAFF_INTERVIEW' ? (
                 <StaffInterviewBookSessionModal
                   isOpen={isBookingModalOpen}
                   onClose={closeBookingModal}
@@ -771,7 +697,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                 initialPrefill={checkInPrefill}
                 onCreated={(sessionId, staffIds) => {
                   void invalidateCheckInSurfaces(queryClient);
-                  if (checkInSessionType === "CHECK_IN") {
+                  if (checkInSessionType === 'CHECK_IN') {
                     for (const staffId of staffIds) {
                       void queryClient.invalidateQueries({
                         queryKey: payTiersKeys.staffProgress(staffId),
@@ -780,24 +706,20 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
                         queryKey: payTiersKeys.staffCheckIns(staffId),
                       });
                     }
-                    void queryClient.invalidateQueries({
-                      queryKey: payTiersKeys.staffSummaries(),
-                    });
+                    void queryClient.invalidateQueries({ queryKey: payTiersKeys.staffSummaries() });
                   }
                   closeCheckInModal();
                   toast({
                     title:
-                      checkInSessionType === "ADMIN_MEETING"
-                        ? "Admin meeting scheduled"
-                        : "Check-in scheduled",
-                    description: "Session was created.",
+                      checkInSessionType === 'ADMIN_MEETING'
+                        ? 'Admin meeting scheduled'
+                        : 'Check-in scheduled',
+                    description: 'Session was created.',
                     action: {
-                      label: "View session",
+                      label: 'View session',
                       onClick: () =>
                         window.dispatchEvent(
-                          new CustomEvent("open-session-modal", {
-                            detail: { id: sessionId },
-                          }),
+                          new CustomEvent('open-session-modal', { detail: { id: sessionId } })
                         ),
                     },
                     duration: 12_000,
@@ -808,7 +730,7 @@ function AdminLayoutContent({ children }: { children: React.ReactNode }) {
           )}
         </AccessoryPanelLayout>
       </div>
-    </>
+    </AdminShortcuts>
   );
 }
 

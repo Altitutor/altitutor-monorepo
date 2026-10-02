@@ -1,51 +1,68 @@
+/* Rising black wash plus a slight scale. Hosts keep their own shape and layout.
+   The wash sits above the host background and below its text. */
 .magnetic {
   position: relative;
   isolation: isolate;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.6rem;
   overflow: hidden;
-  border-radius: 999px;
-  transition: transform 450ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
+  --magnetic-wash: rgb(0 0 0 / 10%);
 }
-.fill {
+.magnetic::before {
+  content: "";
   position: absolute;
   inset: 0;
   z-index: -1;
-  background: currentColor;
-  opacity: 0.12;
-  transform: translateY(102%);
+  background: var(--magnetic-wash);
+  transform: translateY(101%);
   transition: transform 450ms cubic-bezier(0.25, 0.46, 0.45, 0.94);
   pointer-events: none;
 }
-.magnetic > :not(.fill) {
-  position: relative;
-  z-index: 1;
+/* Navy is too dark for a black wash, so those controls lighten instead. */
+:global(.bg-marketing-primary).magnetic {
+  --magnetic-wash: rgb(255 255 255 / 14%);
+}
+.magnetic.magnetic {
+  transition:
+    transform 450ms cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    background-color 300ms ease,
+    color 300ms ease,
+    border-color 300ms ease,
+    box-shadow 300ms ease;
 }
 @media (hover: hover) {
-  .magnetic:hover {
+  .magnetic.magnetic:hover {
     transform: scale(1.03);
   }
-  .magnetic:hover > .fill {
+  .magnetic.magnetic:hover::before {
     transform: translateY(0);
   }
 }
-.magnetic:focus-visible > .fill,
-:global(a:focus-visible) > .magnetic > .fill,
-:global(button:focus-visible) > .magnetic > .fill {
+.magnetic.magnetic:focus-visible::before,
+:global(a:focus-visible) > .magnetic.magnetic::before,
+:global(button:focus-visible) > .magnetic.magnetic::before {
   transform: translateY(0);
 }
-.magnetic:active {
+.magnetic.magnetic:active {
   transform: scale(0.97);
 }
+.magnetic.magnetic:disabled:hover,
+.magnetic.magnetic:disabled:active,
+:global(button:disabled) > .magnetic.magnetic:hover,
+:global(button:disabled) > .magnetic.magnetic:active {
+  transform: none;
+}
+.magnetic.magnetic:disabled:hover::before,
+.magnetic.magnetic:disabled:focus-visible::before,
+:global(button:disabled) > .magnetic.magnetic:hover::before,
+:global(button:disabled) > .magnetic.magnetic:focus-visible::before {
+  transform: translateY(101%);
+}
 @media (prefers-reduced-motion: reduce) {
-  .magnetic,
-  .fill {
+  .magnetic.magnetic,
+  .magnetic.magnetic::before {
     transition: none;
   }
-  .magnetic:hover,
-  .magnetic:active {
+  .magnetic.magnetic:hover,
+  .magnetic.magnetic:active {
     transform: none;
   }
 }

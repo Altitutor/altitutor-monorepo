@@ -92,9 +92,26 @@ export function useEntityCommunicationContext(
           if (parentContacts.error) throw parentContacts.error;
           parentContacts.data.forEach((contact) => ids.add(contact.id));
         }
+      } else if (entityType === 'parent') {
+        const own = await db.from('contacts').select('id').eq('parent_id', entityId);
+        if (own.error) throw own.error;
+        own.data.forEach((contact) => ids.add(contact.id));
+        const links = await db
+          .from('parents_students')
+          .select('student_id')
+          .eq('parent_id', entityId);
+        if (links.error) throw links.error;
+        const studentContacts = await Promise.all(
+          links.data.map((row) => getMessageContactsForStudent(row.student_id)),
+        );
+        for (const contacts of studentContacts) {
+          for (const contact of contacts) {
+            ids.add(contact.id);
+            currentById.set(contact.id, contact.is_current);
+          }
+        }
       } else {
-        const field = entityType === 'staff' ? 'staff_id' : 'parent_id';
-        const own = await db.from('contacts').select('id').eq(field, entityId);
+        const own = await db.from('contacts').select('id').eq('staff_id', entityId);
         if (own.error) throw own.error;
         own.data.forEach((contact) => ids.add(contact.id));
       }

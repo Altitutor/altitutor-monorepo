@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { AnimatedHamburgerIcon } from "@altitutor/ui";
 import { IN_PERSON_COURSES, ONLINE_COURSES, PRODUCT_LINKS } from "@/lib/site";
-import motion from "./magnetic-button.module.css";
 import { SiteLogo } from "./site-logo";
 import styles from "../marketing.module.css";
 
@@ -335,11 +334,7 @@ export function Navigation() {
             ))}
           </nav>
           <div className={styles.navActions}>
-            <Link
-              className={`${styles.navTrial} ${motion.magnetic}`}
-              href={navCtaHref}
-            >
-              <span className={motion.fill} aria-hidden="true" />
+            <Link className={styles.navTrial} href={navCtaHref}>
               {navCtaLabel} <ArrowUpRight size={16} aria-hidden="true" />
             </Link>
             <button

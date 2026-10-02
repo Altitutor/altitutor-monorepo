@@ -95,6 +95,8 @@ export function CommandPaletteModal({ isOpen, onClose }: CommandPaletteModalProp
 
       <div
         role="dialog"
+        aria-hidden={!isOpen || isDesktop}
+        ref={node => { node?.toggleAttribute('inert', !isOpen || isDesktop); }}
         aria-modal="true"
         aria-label="Command palette"
         className={cn(

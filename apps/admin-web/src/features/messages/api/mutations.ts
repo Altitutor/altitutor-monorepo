@@ -155,6 +155,7 @@ export function useSendMessage() {
       qc.invalidateQueries({ queryKey: messagesKeys.conversations() });
       qc.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
       qc.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
+      qc.invalidateQueries({ queryKey: ['entity-communication', 'messages'] });
     },
   });
 }

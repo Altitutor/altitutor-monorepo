@@ -32,7 +32,6 @@ import type {
   UnassignedTask,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
-  TrialStudentNotSignedUp,
   ProjectWithoutLead,
   SessionBillingAdjustmentIssue,
 } from '../types';
@@ -862,46 +861,3 @@ export function StudentsWithoutClassesTable({
   );
 }
 
-export function TrialStudentsNotSignedUpTable({
-  items,
-  isLoading,
-}: {
-  items: TrialStudentNotSignedUp[];
-  isLoading?: boolean;
-}) {
-  const handlers = useReconciliationHandlers();
-  return (
-    <ReconciliationTable
-      title="Trial Students Who Haven't Signed Up"
-      items={items}
-      isLoading={isLoading}
-      columns={['Date', 'Student']}
-      renderRow={(item, _index) => (
-        <TableRow key={item.student_id}>
-          <TableCell>
-            {item.first_trial_session_date && item.first_trial_session_id ? (
-              <ReconciliationTableLinkButton onClick={() => handlers.onOpenSession(item.first_trial_session_id!)}>
-                {format(new Date(item.first_trial_session_date), 'MMM d, yyyy')}
-              </ReconciliationTableLinkButton>
-            ) : item.first_trial_session_date ? (
-              format(new Date(item.first_trial_session_date), 'MMM d, yyyy')
-            ) : (
-              '—'
-            )}
-          </TableCell>
-          <TableCell>
-            <ReconciliationTableLinkButton
-              className="font-medium"
-              onClick={() => handlers.onOpenStudent(item.student_id)}
-            >
-              {item.first_name} {item.last_name}
-            </ReconciliationTableLinkButton>
-          </TableCell>
-          <TableCell className={ACTIONS_CELL}>
-            <ReconciliationActions type="trial_students_not_signed_up" item={item} />
-          </TableCell>
-        </TableRow>
-      )}
-    />
-  );
-}

@@ -13,7 +13,6 @@ import {
   MessagesToFollowUpTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
-  TrialStudentsNotSignedUpTable,
   ProjectsWithoutLeadTable,
   SessionBillingAdjustmentsTable,
 } from './ReconciliationTable';
@@ -41,7 +40,6 @@ function SchedulingTabSkeleton() {
     <div className="space-y-6 mt-6" aria-busy="true">
       <SkeletonTable rows={3} columns={6} />
       <SkeletonTable rows={3} columns={5} />
-      <SkeletonTable rows={3} columns={4} />
       <SkeletonTable rows={3} columns={4} />
     </div>
   );
@@ -132,10 +130,6 @@ export function ReconciliationSchedulingTab() {
       <StudentsWithoutClassesTable
         items={data.studentsWithoutClasses.data ?? []}
         isLoading={data.studentsWithoutClasses.isLoading}
-      />
-      <TrialStudentsNotSignedUpTable
-        items={data.trialStudentsNotSignedUp.data ?? []}
-        isLoading={data.trialStudentsNotSignedUp.isLoading}
       />
     </div>
   );

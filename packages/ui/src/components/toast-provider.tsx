@@ -76,7 +76,7 @@ function mapLegacyToastToSonner(input: ToastInput): void {
   sonnerToast((description ?? "") as React.ReactNode, opts);
 }
 
-export function ToastProvider({ children }: { children: React.ReactNode }) {
+export function ToastProvider({ children, hotkey }: { children: React.ReactNode; hotkey?: string[] }) {
   const toast = React.useCallback((props: ToastInput) => {
     mapLegacyToastToSonner(props);
   }, []);
@@ -95,6 +95,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
       {children}
       <Toaster
         data-toast-container
+        hotkey={hotkey}
         position="top-right"
         theme="system"
         closeButton
