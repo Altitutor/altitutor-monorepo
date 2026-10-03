@@ -14,6 +14,8 @@ import type {
   ChangedField,
 } from '../types';
 
+import { subsidyActivityMessage } from './subsidyActivityMessage';
+
 type Payload = Record<string, unknown>;
 
 function asRecord(value: unknown): Payload {
@@ -241,6 +243,18 @@ function eventPresentation(event: ActivityEvent, payload: Payload): {
     ? `${invoice} for ${formatList(invoiceSessions)}`
     : invoice;
   const paymentAttemptDeclined = text(payload.outcome) === 'declined';
+
+  if (['student.subsidy_added', 'student.subsidy_changed', 'student.subsidy_removed'].includes(eventName)) {
+    return {
+      message: subsidyActivityMessage(
+        eventName,
+        event.entities.find((entity) => entity.entityType === 'student' && entity.entityId === event.subject_id)?.displayName || student,
+        payload,
+      ),
+      icon: eventName === 'student.subsidy_changed' ? 'user-edit' : eventName === 'student.subsidy_removed' ? 'x' : 'check',
+      color: eventName === 'student.subsidy_changed' ? 'blue' : eventName === 'student.subsidy_removed' ? 'red' : 'green',
+    };
+  }
 
   const catalog: Record<string, [string, ActivityIconType, ActivityIconColor]> = {
     'onboarding.journey_started': [`started an onboarding journey for ${student}`, 'user-plus', 'blue'],
