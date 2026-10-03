@@ -1,5 +1,8 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
+import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
@@ -40,14 +43,14 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
   const router = useRouter();
   const queryClient = useQueryClient();
   const { openCheckInModal } = useQuickActions();
-  
+
   // Data fetching
   const { data: parentData, isLoading } = useParentDetails(id, !!id);
   const { data: allStudents = [] } = useStudents();
-  
+
   const parent = parentData?.parent || null;
   const students = parentData?.students || [];
-  
+
   // Business logic hooks
   const editFlow = useParentEditFlow({
     initialStudents: students,
@@ -64,7 +67,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
   const modals = useParentModals();
 
   // UI state
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'sessions', 'activity'] as const, 'details', 'tab');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -75,7 +78,7 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
   // Handle details submit
   const handleDetailsSubmit = async (data: ParentDetailsFormData) => {
     if (!parent) return;
-    
+
     await mutations.updateDetails(
       data,
       {
@@ -112,8 +115,8 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
 
   if (!parent) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -128,23 +131,15 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
     );
   }
 
+  const activityLayout = activeTab === 'activity';
+
   return (
-    <div className="p-6">
+    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden' : 'p-4'}>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/parents')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {editFlow.isEditing ? 'Edit Parent' : 'Parent Details'}
-          </h1>
-        </div>
+      <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
+        <PrimaryEntityBreadcrumb label={`${parent.first_name ?? ""} ${parent.last_name ?? ""}`.trim()} />
+        <NoteAlertPills entityType="parent" entityId={parent.id} />
+
         <ActionsMenu
           type="parent"
           entityId={parent.id}
@@ -174,7 +169,8 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-6"
+        className={activityLayout ? 'mt-3 flex min-h-0 flex-1 flex-col gap-3 px-4' : 'space-y-6'}
+        selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
           { value: 'details', label: 'Details' },
           { value: 'sessions', label: 'Sessions' },
@@ -229,13 +225,12 @@ export default function ParentDetailPage({ params }: { params: { id: string } })
           <ParentSessionsTab parent={parent} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
-          <div className="h-[calc(100dvh-280px)] min-h-[420px]">
-            <EntityCommunicationPanel
-              entityType="parent"
-              entityId={id}
-            />
-          </div>
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <EntityCommunicationPanel
+            className="min-h-0 flex-1"
+            entityType="parent"
+            entityId={id}
+          />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 

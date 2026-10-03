@@ -98,9 +98,9 @@ export type ActivityMessagePart =
   | { kind: 'text'; text: string }
   | { kind: 'entity'; text: string; entity: ActivityEntityReference };
 
-/**
- * Activity event display object (translated for UI)
- */
+export type ActivityNote = Tables<'notes'> & { staff?: Tables<'staff'> | null };
+
+/** Activity event translated for display. */
 export interface ActivityEventDisplay {
   id: string;
   icon: ActivityIconType;
@@ -145,6 +145,9 @@ export interface ActivityEventDisplay {
   eventType?: ActivityEventType | string;
   // For note CREATED events: the full note content (TipTap JSON or plain text for rich display)
   noteContent?: Record<string, unknown> | string;
+  isNoteAlert?: boolean;
+  noteRevision?: number;
+  noteTargetType?: string;
 }
 
 /**

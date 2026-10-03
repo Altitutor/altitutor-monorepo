@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { AnalyticsLink } from "../analytics-link";
 import { PRODUCT_LINKS } from "@/lib/site";
+import motion from "@/features/marketing/components/magnetic-button.module.css";
 import {
   MARKETING_SECTION_EYEBROW_CLASS,
   MARKETING_CONTENT_WIDTH_CLASS,
@@ -207,7 +208,7 @@ export function UcatHowItWorks() {
               placement: "how_it_works",
               action: "start_free",
             }}
-            className={`inline-flex items-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white ${typo.secondarySans}`}
+            className={`${motion.magnetic} inline-flex items-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white ${typo.secondarySans}`}
           >
             Start preparing free <ArrowRight className="size-4" aria-hidden />
           </AnalyticsLink>

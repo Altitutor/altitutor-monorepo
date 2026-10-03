@@ -15,12 +15,11 @@ import { ViewParentModal } from '@/features/students/components/ViewParentModal'
 import { useQuery } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useMessageSubscription } from '../hooks/useMessageSubscription';
-import { useConversationsByContact, useUnreadConversationCount, getContactIdFromConversation, useAvailableSenders } from '../api/queries';
+import { useConversationsByContact, useUnreadConversationCount, getContactIdFromConversation } from '../api/queries';
 import { useMarkRead, useMarkContactUnread } from '../api/mutations';
 import { useChatStore } from '../state/chatStore';
 import {
   getMessagingDraftKey,
-  useMessagingListFilters,
   useMessagingUiHydration,
   useMessagingUiStore,
   usePersistedConversationDraft,
@@ -36,7 +35,6 @@ export function MessagesDropdown() {
   const setView = useMessagingUiStore((s) => s.setDropdownView);
   const dropdownSelection = useMessagingUiStore((s) => s.dropdownSelection);
   const setDropdownSelection = useMessagingUiStore((s) => s.setDropdownSelection);
-  const { ownedNumberFilter, setOwnedNumberFilter } = useMessagingListFilters('dropdown');
   const activeContactId = dropdownSelection?.kind === 'contact' ? dropdownSelection.contactId : null;
 
   // When another part of the app (e.g. reconciliation Message button) calls openWindow(conversationId),
@@ -73,10 +71,9 @@ export function MessagesDropdown() {
   const { data: unreadCount = 0 } = useUnreadConversationCount();
   // Full contact aggregation only when the panel is open (thread header / mark read)
   const needsConversationDetails = isOpen && (view === 'thread' || !!activeContactId);
-  const { data: conversations } = useConversationsByContact(ownedNumberFilter, {
+  const { data: conversations } = useConversationsByContact(null, {
     enabled: needsConversationDetails,
   });
-  const { data: availableSenders = [] } = useAvailableSenders();
   const markRead = useMarkRead();
   const markContactUnread = useMarkContactUnread();
   
@@ -128,16 +125,6 @@ export function MessagesDropdown() {
     contact: activeContact,
     enabled: isOpen && view === 'thread',
   });
-  const fromNumberOptions = availableSenders.map((sender) => ({
-    id: sender.id,
-    label:
-      sender.sender_type === 'ALPHANUMERIC'
-        ? (sender.alphanumeric_sender_id || sender.label || 'Unknown sender')
-        : (sender.phone_e164 || sender.label || 'Unknown sender'),
-  }));
-  const selectedFromNumberOption = fromNumberOptions.find(
-    (option) => option.id === ownedNumberFilter
-  ) ?? null;
   
   const handleBack = () => {
     setView('list');
@@ -249,9 +236,6 @@ export function MessagesDropdown() {
                   onAssignStudent={linking.onAssignStudent}
                   onAssignParent={linking.onAssignParent}
                   onAssignStaff={linking.onAssignStaff}
-                  fromNumberOptions={fromNumberOptions}
-                  selectedFromNumber={selectedFromNumberOption}
-                  onFromNumberChange={(option) => setOwnedNumberFilter(option?.id ?? null)}
                 />
                 <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   {activeContactId ? (
@@ -259,7 +243,7 @@ export function MessagesDropdown() {
                       <div className="flex-1 min-h-0 overflow-hidden">
                         <MessageThread 
                           contactId={activeContactId} 
-                          ownedNumberId={ownedNumberFilter}
+                          ownedNumberId={null}
                           isSearching={isSearching}
                           searchTerm={searchTerm}
                           onSearchTermChange={setSearchTerm}

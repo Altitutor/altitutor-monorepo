@@ -1,3 +1,4 @@
+import { activityKeys } from '@/features/activity/queryKeys';
 import { useWorkItemRevision } from '@/features/admin-mcp/client/operations';
 import { useMutation, useQueryClient, useQuery } from '@tanstack/react-query';
 import type { JSONContent } from '@tiptap/core';
@@ -6,6 +7,7 @@ import { useSupabaseRealtimeInvalidation } from './useSupabaseRealtimeInvalidati
 
 export const notesKeys = {
   all: ['notes'] as const,
+  alertsForTarget: (entityType: string, entityId: string) => [...notesKeys.all, 'alerts', entityType, entityId] as const,
   forTarget: (targetType: string, targetId: string) => 
     [...notesKeys.all, targetType, targetId] as const,
 };
@@ -89,7 +91,9 @@ export function useUpdateNote() {
     mutationFn: async (params: {
       noteId: string;
       note: JSONContent;
+      revision?: number;
     }) => {
+      if (params.revision !== undefined) return notesApi.updateNote(params.noteId, params.note, params.revision);
       return withRevision(params.noteId, (revision) => notesApi.updateNote(params.noteId, params.note, revision));
     },
     onSuccess: () => {
@@ -117,3 +121,26 @@ export function useDeleteNote() {
 }
 
 
+
+export function useAlertNotes(entityType: 'student' | 'parent' | 'staff', entityId: string | null, enabled = true) {
+  useSupabaseRealtimeInvalidation({ table: 'notes', queryKey: notesKeys.all, enabled: enabled && !!entityId });
+  return useQuery({
+    queryKey: notesKeys.alertsForTarget(entityType, entityId ?? ''),
+    queryFn: () => notesApi.getAlertNotes(entityType, entityId!),
+    enabled: enabled && !!entityId,
+  });
+}
+
+export function useSetNoteAlert() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ noteId, isAlert, revision }: { noteId: string; isAlert: boolean; revision: number }) =>
+      notesApi.setAlert(noteId, isAlert, revision),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: notesKeys.all }),
+        queryClient.invalidateQueries({ queryKey: activityKeys.all }),
+      ]);
+    },
+  });
+}

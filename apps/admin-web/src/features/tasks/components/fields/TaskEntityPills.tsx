@@ -4,7 +4,7 @@ import { useState } from 'react';
 import { Button, SearchableSelect } from '@altitutor/ui';
 import { User, Gauge, Link2, FolderKanban } from 'lucide-react';
 import { cn } from '@/shared/utils';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import {
   getPriorityIcon,
   getPriorityLabel,
@@ -323,7 +323,7 @@ export function TaskLinkEntityPill({
   project?: { id: string; name: string | null } | null;
   collapsed?: boolean;
 }) {
-  const { openIssue, openProject } = useEntityModals();
+  const { openIssue, openProject } = useEntityNavigation();
 
   const activeLink = project
     ? { type: 'project' as const, id: project.id, name: project.name }

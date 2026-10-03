@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import {
   Button,
   AlertDialog,
@@ -9,107 +8,40 @@ import {
   AlertDialogTitle,
   AlertDialogDescription,
   AlertDialogFooter,
-  SegmentedControl,
+  RichTextEditor,
+  type JSONContent,
 } from "@altitutor/ui";
-import type { useWorkItemEditor } from "./useWorkItemEditor";
+import type { ReactNode } from "react";
 import type { EditRecord } from "./api";
+import type { useWorkItemEditor } from "./useWorkItemEditor";
 import { ExpandButton } from "@/shared/components/expandable-dialog";
 import { useAdminDialogExpand } from "@/shared/components/dialog-shell";
-import type { ReactNode } from "react";
 
 export { WorkItemEditableContext } from "./context";
 type Controller = ReturnType<typeof useWorkItemEditor>;
-function textContent(value: unknown): string {
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) return value.map(textContent).join("");
-  if (!value || typeof value !== "object") return "";
-  const node = value as { text?: string; content?: unknown; type?: string };
-  return (
-    (node.text ?? textContent(node.content)) +
-    (["paragraph", "heading", "listItem"].includes(node.type ?? "") ? "\n" : "")
-  );
-}
-function Recovery({
-  values,
-  onDismiss,
-}: {
-  values: EditRecord;
-  onDismiss?: () => void;
-}) {
-  const [copied, setCopied] = useState(false);
-  const text = [
-    values.title ?? values.name,
-    textContent(values.description ?? values.content),
-  ]
-    .filter(Boolean)
-    .join("\n\n");
-  return (
-    <details className="text-sm border rounded p-2">
-      <summary>
-        Preserved draft — copy it before starting a fresh editing session
-      </summary>
-      <textarea
-        aria-label="Preserved draft"
-        readOnly
-        value={text}
-        className="mt-2 w-full min-h-32 border rounded p-2"
-      />
-      <div className="flex gap-2 mt-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            void navigator.clipboard
-              .writeText(text)
-              .then(() => setCopied(true));
-          }}
-        >
-          {copied ? "Copied" : "Copy text"}
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => {
-            const url = URL.createObjectURL(
-              new Blob([JSON.stringify(values, null, 2)], {
-                type: "application/json",
-              }),
-            );
-            const link = document.createElement("a");
-            link.href = url;
-            link.download = "preserved-draft.json";
-            link.click();
-            URL.revokeObjectURL(url);
-          }}
-        >
-          Download formatted draft
-        </Button>
-        {onDismiss && (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => {
-              if (window.confirm("Permanently discard this preserved draft?"))
-                onDismiss();
-            }}
-          >
-            Discard preserved draft
-          </Button>
-        )}
-      </div>
-    </details>
-  );
-}
+const labels: Record<string, string> = {
+  description: "Description",
+  content: "Document content",
+  title: "Title",
+  name: "Name",
+  assigned_to: "Assignee",
+  project_lead_id: "Project lead",
+  member_ids: "Members",
+  issue_id: "Issue",
+  project_id: "Project",
+  folder_id: "Folder",
+  due_date: "Due date",
+  start_date: "Start date",
+  target_date: "Target date",
+  is_tutor_documentation: "Tutor documentation",
+};
 function editorStatusLabel(editor: Controller): string {
-  if (editor.saving) return "Saving…";
-  if (editor.lost) return "Editing session ended";
-  if (editor.dirty) return "Unsaved changes";
-  if (editor.session?.can_edit) return "Saved";
-  if (editor.session?.owner) return `${editor.session.owner} is editing`;
-  if (editor.session) return "Read only";
-  return "Opening…";
+  if (!editor.session) return editor.error ? "Couldn’t load" : "Loading…";
+  if (editor.conflicts.length) return "Changes need review";
+  if (editor.error) return "Couldn’t save";
+  if (editor.saving || editor.dirty) return "Saving…";
+  return "Saved";
 }
-
 export function EditorStatus({
   editor,
   className,
@@ -118,62 +50,14 @@ export function EditorStatus({
   className?: string;
 }) {
   return (
-    <span className={className ?? "text-sm text-muted-foreground"} role="status">
+    <span
+      className={className ?? "text-sm text-muted-foreground"}
+      role="status"
+    >
       {editorStatusLabel(editor)}
     </span>
   );
 }
-
-export function EditorHeaderActions({ editor }: { editor: Controller }) {
-  if (!(editor.session?.can_edit && !editor.lost)) return null;
-
-  return (
-    <>
-      <Button
-        type="button"
-        disabled={editor.saving || !editor.dirty}
-        onClick={() => {
-          void editor.save();
-        }}
-      >
-        Save
-      </Button>
-      <Button
-        type="button"
-        variant="outline"
-        disabled={editor.saving || !editor.dirty}
-        onClick={() => {
-          if (window.confirm("Discard your unsaved changes?"))
-            void editor.discard();
-        }}
-      >
-        Cancel changes
-      </Button>
-    </>
-  );
-}
-
-export function EditorViewEditToggle({ editor }: { editor: Controller }) {
-  const mode =
-    editor.session?.can_edit && !editor.lost ? ("edit" as const) : ("view" as const);
-
-  return (
-    <SegmentedControl
-      value={mode}
-      onValueChange={(value) => {
-        if (value === "edit") void editor.acquire();
-        else editor.requestViewMode();
-      }}
-      options={[
-        { value: "view", label: "View" },
-        { value: "edit", label: "Edit" },
-      ]}
-      size="sm"
-      aria-label="View or edit"
-    />
-  );
-}
-
 export function WorkItemDialogHeaderActions({
   editor,
   actions,
@@ -182,10 +66,9 @@ export function WorkItemDialogHeaderActions({
   actions: ReactNode;
 }) {
   const expand = useAdminDialogExpand();
-
   return (
     <div className="flex items-center gap-2">
-      <EditorViewEditToggle editor={editor} />
+      <EditorStatus editor={editor} />
       {expand ? (
         <ExpandButton
           expanded={expand.expanded}
@@ -196,84 +79,26 @@ export function WorkItemDialogHeaderActions({
     </div>
   );
 }
-
 export function EditorFooterActions({ editor }: { editor: Controller }) {
-  const isEditing = editor.session?.can_edit && !editor.lost;
-
   return (
     <div className="flex w-full items-center gap-2">
-      <EditorStatus editor={editor} className="mr-auto text-sm text-muted-foreground" />
-      <Button type="button" variant="outline" onClick={() => editor.requestClose()}>
-        Cancel
+      <EditorStatus
+        editor={editor}
+        className="mr-auto text-sm text-muted-foreground"
+      />
+      <Button
+        type="button"
+        variant="outline"
+        disabled={editor.deleting}
+        onClick={() => {
+          void editor.requestClose();
+        }}
+      >
+        Close
       </Button>
-      {isEditing ? (
-        <Button
-          type="button"
-          disabled={editor.saving || !editor.dirty}
-          onClick={() => {
-            void editor.save().then((saved) => {
-              if (saved) void editor.finishClose();
-            });
-          }}
-        >
-          {editor.saving ? "Saving..." : "Save"}
-        </Button>
-      ) : null}
     </div>
   );
 }
-
-export function EditorViewSwitchConfirmDialog({
-  editor,
-}: {
-  editor: Controller;
-}) {
-  return (
-    <AlertDialog
-      open={editor.viewSwitchRequested}
-      onOpenChange={editor.setViewSwitchRequested}
-    >
-      <AlertDialogContent>
-        <AlertDialogHeader>
-          <AlertDialogTitle>Save your changes before viewing?</AlertDialogTitle>
-          <AlertDialogDescription>
-            Your changes have not been saved to this record.
-          </AlertDialogDescription>
-        </AlertDialogHeader>
-        <AlertDialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => editor.setViewSwitchRequested(false)}
-          >
-            Keep editing
-          </Button>
-          <Button
-            variant="outline"
-            disabled={editor.saving}
-            onClick={() => {
-              void editor.discard().then(editor.finishViewSwitch);
-            }}
-          >
-            Discard and view
-          </Button>
-          <Button
-            disabled={
-              !editor.session?.can_edit || editor.lost || editor.saving
-            }
-            onClick={() => {
-              void editor.save().then((saved) => {
-                if (saved) void editor.finishViewSwitch();
-              });
-            }}
-          >
-            Save and view
-          </Button>
-        </AlertDialogFooter>
-      </AlertDialogContent>
-    </AlertDialog>
-  );
-}
-
 export function EditorCloseConfirmDialog({ editor }: { editor: Controller }) {
   return (
     <AlertDialog
@@ -282,9 +107,14 @@ export function EditorCloseConfirmDialog({ editor }: { editor: Controller }) {
     >
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Save your changes before closing?</AlertDialogTitle>
+          <AlertDialogTitle>Some changes haven’t saved</AlertDialogTitle>
           <AlertDialogDescription>
-            Your changes have not been saved to this record.
+            Keep this record open to resolve the problem. If you close it,
+            unsaved changes are{" "}
+            {editor.storageError
+              ? "only available here; copy them before leaving"
+              : "kept in this browser tab for when you reopen it"}
+            .
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
@@ -292,86 +122,125 @@ export function EditorCloseConfirmDialog({ editor }: { editor: Controller }) {
             variant="outline"
             onClick={() => editor.setCloseRequested(false)}
           >
-            Keep editing
+            Keep open
           </Button>
           <Button
             variant="outline"
             disabled={editor.saving}
-            onClick={() => {
-              void editor.discard().then(editor.finishClose);
-            }}
+            onClick={editor.finishClose}
           >
-            Discard and close
+            Close without saving
           </Button>
-          <Button
-            disabled={
-              !editor.session?.can_edit || editor.lost || editor.saving
-            }
-            onClick={() => {
-              void editor.save().then((saved) => {
-                if (saved) void editor.finishClose();
-              });
-            }}
-          >
-            Save and close
-          </Button>
+          {!editor.conflicts.length && (
+            <Button
+              disabled={editor.saving}
+              onClick={() => {
+                void editor.save().then((saved) => {
+                  if (saved) editor.finishClose();
+                });
+              }}
+            >
+              Retry
+            </Button>
+          )}
         </AlertDialogFooter>
       </AlertDialogContent>
     </AlertDialog>
   );
 }
-
 export function EditorControls({ editor }: { editor: Controller }) {
+  return <EditorStatus editor={editor} />;
+}
+function LatestValue({
+  field,
+  value,
+}: {
+  field: string;
+  value: EditRecord[string];
+}) {
+  if (field === "description" || field === "content") {
+    return (
+      <RichTextEditor
+        content={(value ?? "") as JSONContent | string}
+        editable={false}
+        minHeight="80px"
+      />
+    );
+  }
   return (
-    <>
-      <div className="flex items-center gap-2 text-sm" role="status">
-        <EditorViewEditToggle editor={editor} />
-        <EditorStatus editor={editor} />
-        <EditorHeaderActions editor={editor} />
-      </div>
-      <EditorCloseConfirmDialog editor={editor} />
-      <EditorViewSwitchConfirmDialog editor={editor} />
-    </>
+    <p className="whitespace-pre-wrap break-words">
+      {typeof value === "string" ? value : JSON.stringify(value ?? null)}
+    </p>
   );
 }
 export function EditorNotices({ editor }: { editor: Controller }) {
   return (
-    <div className="space-y-2 px-6 text-sm shrink-0">
+    <div className="space-y-2 px-6 text-sm shrink-0 max-h-[40vh] overflow-y-auto">
       {editor.error && (
-        <p role="alert" className="text-destructive py-2">
-          {editor.error}
-        </p>
+        <div role="alert" className="py-2 flex flex-wrap items-center gap-2">
+          <p className="text-destructive">{editor.error}</p>
+          {editor.session && !editor.conflicts.length && (
+            <Button
+              type="button"
+              variant="outline"
+              disabled={editor.saving}
+              onClick={() => {
+                void editor.save();
+              }}
+            >
+              Retry
+            </Button>
+          )}
+        </div>
       )}
-      {editor.storageError && (
+      {editor.storageError && editor.dirty && (
         <p role="alert" className="text-destructive">
-          Draft recovery storage is unavailable. Keep this editor open and copy
-          your text before leaving.
+          Browser recovery storage is unavailable. Keep this record open until
+          changes save.
         </p>
       )}
-      {!editor.session?.can_edit && editor.session?.preview && !editor.lost && (
-        <p className="py-2">
-          Live preview — these changes have not been saved.
-        </p>
-      )}
-      {editor.lost && (
-        <>
-          <Recovery values={editor.draft} />
-          <Button
-            variant="outline"
-            onClick={() => {
-              void editor.restart();
-            }}
-          >
-            Open latest in a fresh session (keep this draft)
-          </Button>
-        </>
-      )}
-      {editor.recovery.map((draft) => (
-        <Recovery
-          key={draft.key}
-          values={draft.values}
-          onDismiss={() => editor.dismissRecovery(draft.key)}
-        />
+      {editor.conflicts.map((field) => (
+        <div
+          key={field}
+          role="alert"
+          className="my-2 space-y-2 rounded border p-3"
+        >
+          <p>
+            {labels[field] ?? field} changed elsewhere. Your changes are still
+            in the editor below.
+          </p>
+          <details>
+            <summary className="cursor-pointer">
+              Review latest saved {labels[field]?.toLowerCase() ?? field}
+            </summary>
+            <LatestValue field={field} value={editor.session?.record[field]} />
+          </details>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={editor.saving}
+              onClick={() => editor.resolveConflict(field, false)}
+            >
+              Use latest
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={editor.saving}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    "Replace the latest saved value with your changes?",
+                  )
+                )
+                  editor.resolveConflict(field, true);
+              }}
+            >
+              Save my changes
+            </Button>
+          </div>
+        </div>
       ))}
     </div>
   );

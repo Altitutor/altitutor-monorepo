@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import {
   Loader2,
   X,
@@ -56,8 +56,9 @@ const ENTITY_TYPE_MAPPING: Record<string, string> = {
 };
 
 // Nav items matching layout.tsx - pages will be automatically searchable
-const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
+export const navItems: Array<{ title: string; href: string; icon: LucideIcon }> = [
   { title: 'Dashboard', href: '/dashboard', icon: Home },
+  { title: 'Issues', href: '/issues', icon: AlertTriangle },
   { title: 'Tasks', href: '/tasks', icon: CheckSquare },
   { title: 'Projects', href: '/projects', icon: FolderKanban },
   { title: 'Reconciliation', href: '/reconciliation', icon: AlertTriangle },
@@ -104,7 +105,7 @@ interface CommandPaletteProps {
 }
 
 export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPaletteProps) {
-  const router = useRouter();
+  const { router } = usePaneNavigation();
   const inputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
   const [searchQuery, setSearchQuery] = useState('');
@@ -236,6 +237,7 @@ export function CommandPalette({ isOpen, onClose, onEntitySelected }: CommandPal
             key={`page-${item.id}`}
             id={item.id}
             title={item.title}
+            href={item.href}
             icon={item.icon}
             isSelected={isSelected}
             searchQuery={searchQuery}

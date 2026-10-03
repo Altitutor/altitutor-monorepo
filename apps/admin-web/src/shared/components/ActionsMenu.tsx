@@ -14,6 +14,7 @@ import {
   useToast,
 } from '@altitutor/ui';
 import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, UserCheck, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { JSONContent } from '@tiptap/core';
 import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
@@ -22,7 +23,7 @@ import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/compon
 import type { IssueTagInsert } from '@/features/issues/types';
 
 interface BaseActionsMenuProps {
-  onOpenInPage: () => void;
+  onOpenInPage?: () => void;
   entityId?: string;
   copyTagType?: string;
   copyTagDisplayText?: string;
@@ -31,8 +32,8 @@ interface BaseActionsMenuProps {
 interface StudentActionsMenuProps extends BaseActionsMenuProps {
   type: 'student';
   onEditDetails: () => void;
-  onPasswordResetOrRegistration: () => void;
-  passwordResetLabel: string;
+  onPasswordResetOrRegistration?: () => void;
+  passwordResetLabel?: string;
   onLogAbsence?: () => void;
   onBookTrialSession?: () => void;
   onBookDraftingSession?: () => void;
@@ -49,8 +50,8 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
 interface StaffActionsMenuProps extends BaseActionsMenuProps {
   type: 'staff';
   onEditDetails: () => void;
-  onPasswordResetOrRegistration: () => void;
-  passwordResetLabel: string;
+  onPasswordResetOrRegistration?: () => void;
+  passwordResetLabel?: string;
   onLogAbsence: () => void;
   onBookCheckIn?: () => void;
   onDelete: () => void;
@@ -152,6 +153,37 @@ interface DocumentActionsMenuProps extends BaseActionsMenuProps {
 
 type ActionsMenuProps = StudentActionsMenuProps | StaffActionsMenuProps | SessionActionsMenuProps | InvoiceActionsMenuProps | ClassActionsMenuProps | AdminShiftActionsMenuProps | ParentActionsMenuProps | TopicActionsMenuProps | SubjectActionsMenuProps | TutorLogActionsMenuProps | IssueActionsMenuProps | TaskActionsMenuProps | ProjectActionsMenuProps | DocumentActionsMenuProps;
 
+type BookMeetingItem = {
+  key: string;
+  label: string;
+  icon: LucideIcon;
+  onSelect: () => void;
+};
+
+function BookMeetingSubmenu({ items }: { items: BookMeetingItem[] }) {
+  if (items.length === 0) return null;
+
+  return (
+    <DropdownMenuSub>
+      <DropdownMenuSubTrigger>
+        <Calendar className="h-4 w-4 mr-2" />
+        Book meeting
+      </DropdownMenuSubTrigger>
+      <DropdownMenuSubContent>
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <DropdownMenuItem key={item.key} onClick={item.onSelect}>
+              <Icon className="h-4 w-4 mr-2" />
+              {item.label}
+            </DropdownMenuItem>
+          );
+        })}
+      </DropdownMenuSubContent>
+    </DropdownMenuSub>
+  );
+}
+
 const DEFAULT_TAG_TYPE_BY_MENU_TYPE: Partial<Record<ActionsMenuProps['type'], string>> = {
   student: 'student',
   staff: 'staff',
@@ -223,55 +255,46 @@ export function ActionsMenu(props: ActionsMenuProps) {
       <>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="icon" className="shrink-0">
+            <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
               <MoreVertical className="h-4 w-4" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={props.onOpenInPage}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Open in page
-            </DropdownMenuItem>
+
             {copyMenuItem}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={props.onEditDetails}>
               <Pencil className="h-4 w-4 mr-2" />
               Edit details
             </DropdownMenuItem>
-            <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
-              <Mail className="h-4 w-4 mr-2" />
-              {props.passwordResetLabel}
-            </DropdownMenuItem>
+            {props.onPasswordResetOrRegistration && props.passwordResetLabel ? (
+              <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
+                <Mail className="h-4 w-4 mr-2" />
+                {props.passwordResetLabel}
+              </DropdownMenuItem>
+            ) : null}
             {props.onLogAbsence && (
               <DropdownMenuItem onClick={props.onLogAbsence}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Log absence
               </DropdownMenuItem>
             )}
-            {props.onBookTrialSession && (
-              <DropdownMenuItem onClick={props.onBookTrialSession}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Book trial session
-              </DropdownMenuItem>
-            )}
-            {props.onBookDraftingSession && (
-              <DropdownMenuItem onClick={props.onBookDraftingSession}>
-                <FileText className="h-4 w-4 mr-2" />
-                Book drafting session
-              </DropdownMenuItem>
-            )}
-            {props.onBookSubsidyInterview && (
-              <DropdownMenuItem onClick={props.onBookSubsidyInterview}>
-                <Calendar className="h-4 w-4 mr-2" />
-                Book subsidy interview
-              </DropdownMenuItem>
-            )}
-            {props.onBookCheckIn && (
-              <DropdownMenuItem onClick={props.onBookCheckIn}>
-                <ClipboardCheck className="h-4 w-4 mr-2" />
-                Book check in
-              </DropdownMenuItem>
-            )}
+            <BookMeetingSubmenu
+              items={[
+                props.onBookTrialSession
+                  ? { key: 'trial', label: 'Book trial session', icon: Calendar, onSelect: props.onBookTrialSession }
+                  : null,
+                props.onBookDraftingSession
+                  ? { key: 'drafting', label: 'Book drafting session', icon: FileText, onSelect: props.onBookDraftingSession }
+                  : null,
+                props.onBookSubsidyInterview
+                  ? { key: 'subsidy', label: 'Book subsidy interview', icon: Calendar, onSelect: props.onBookSubsidyInterview }
+                  : null,
+                props.onBookCheckIn
+                  ? { key: 'check-in', label: 'Book check in', icon: ClipboardCheck, onSelect: props.onBookCheckIn }
+                  : null,
+              ].filter((item): item is BookMeetingItem => item !== null)}
+            />
             {canAddIssue && (
               <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />
@@ -317,35 +340,35 @@ export function ActionsMenu(props: ActionsMenuProps) {
       <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={props.onEditDetails}>
             <Pencil className="h-4 w-4 mr-2" />
             Edit details
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
-            <Mail className="h-4 w-4 mr-2" />
-            {props.passwordResetLabel}
-          </DropdownMenuItem>
+          {props.onPasswordResetOrRegistration && props.passwordResetLabel ? (
+            <DropdownMenuItem onClick={props.onPasswordResetOrRegistration}>
+              <Mail className="h-4 w-4 mr-2" />
+              {props.passwordResetLabel}
+            </DropdownMenuItem>
+          ) : null}
           <DropdownMenuItem onClick={props.onLogAbsence}>
             <Calendar className="h-4 w-4 mr-2" />
             Log absence
           </DropdownMenuItem>
-          {props.onBookCheckIn && (
-            <DropdownMenuItem onClick={props.onBookCheckIn}>
-              <ClipboardCheck className="h-4 w-4 mr-2" />
-              Book check in
-            </DropdownMenuItem>
-          )}
+          <BookMeetingSubmenu
+            items={
+              props.onBookCheckIn
+                ? [{ key: 'check-in', label: 'Book check in', icon: ClipboardCheck, onSelect: props.onBookCheckIn }]
+                : []
+            }
+          />
           {canAddIssue && (
             <DropdownMenuItem onClick={() => setIsCreateIssueOpen(true)}>
               <Plus className="h-4 w-4 mr-2" />
@@ -385,15 +408,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
       <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onSelect={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           <DropdownMenuSeparator />
           {canSendBookingConfirmation && sendBookingAction && props.sessionStudents && (
@@ -463,10 +483,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {(props.onViewPaymentPage || props.onViewInStripe) && (
             <>
@@ -543,15 +560,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.onEdit && (
             <>
@@ -580,15 +594,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.onEdit && (
             <>
@@ -617,7 +628,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
@@ -642,15 +653,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
       <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {canAddIssue && (
             <>
@@ -685,15 +693,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {canAddIssue && (
             <>
@@ -723,23 +728,19 @@ export function ActionsMenu(props: ActionsMenuProps) {
       <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.onBookCheckIn && (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem onClick={props.onBookCheckIn}>
-                <ClipboardCheck className="h-4 w-4 mr-2" />
-                Book check in
-              </DropdownMenuItem>
+              <BookMeetingSubmenu
+                items={[{ key: 'check-in', label: 'Book check in', icon: ClipboardCheck, onSelect: props.onBookCheckIn }]}
+              />
             </>
           )}
           {canAddIssue && (
@@ -775,15 +776,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.richTextTemplateConfig && (
             <RichTextTemplateMenuItems
@@ -809,15 +807,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.richTextTemplateConfig && (
             <RichTextTemplateMenuItems
@@ -843,15 +838,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.richTextTemplateConfig && (
             <RichTextTemplateMenuItems
@@ -877,15 +869,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return (
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="outline" size="icon" className="shrink-0">
+          <Button variant="outline" size="icon" className="shrink-0" aria-label="Record actions">
             <MoreVertical className="h-4 w-4" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem onClick={props.onOpenInPage}>
-            <ExternalLink className="h-4 w-4 mr-2" />
-            Open in page
-          </DropdownMenuItem>
+
           {copyMenuItem}
           {props.richTextTemplateConfig && (
             <RichTextTemplateMenuItems

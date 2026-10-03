@@ -52,6 +52,21 @@ export type Sender = {
   provider: 'TWILIO' | 'IMESSAGE' | null;
 };
 
+export type ConversationMessagePreview = {
+  senderName: string;
+  text: string;
+  /** INBOUND is from the contact. OUTBOUND is to the contact. */
+  direction: 'INBOUND' | 'OUTBOUND';
+};
+
+export type ConversationLatestMessage = {
+  id: string;
+  direction: string;
+  /** False when the newest activity is a tapback rather than a real inbound message. */
+  countsAsUnreplied: boolean;
+  preview: ConversationMessagePreview | null;
+};
+
 /**
  * Aggregated conversation type - groups multiple conversations by contact
  */
@@ -69,7 +84,7 @@ export type AggregatedConversation = {
     needs_follow_up: boolean;
   }>;
   latestMessageAt: string | null;
-  latestMessage: { id: string; direction: string } | null;
+  latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
 };
 
@@ -81,7 +96,7 @@ export type GroupConversation = {
   participantNames: string[];
   ownedNumberId: string;
   latestMessageAt: string | null;
-  latestMessage: { id: string; direction: string } | null;
+  latestMessage: ConversationLatestMessage | null;
   unreadCount: number;
 };
 

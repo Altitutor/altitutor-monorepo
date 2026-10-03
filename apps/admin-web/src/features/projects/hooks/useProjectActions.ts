@@ -1,4 +1,4 @@
-import { useRouter } from 'next/navigation';
+import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { useCallback } from 'react';
 
 interface UseProjectActionsProps {
@@ -17,7 +17,7 @@ export function useProjectActions({
   projectId,
   onOpenInPage,
 }: UseProjectActionsProps) {
-  const router = useRouter();
+  const { router } = usePaneNavigation();
 
   const handleOpenInPage = useCallback(() => {
     if (onOpenInPage) {

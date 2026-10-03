@@ -11,6 +11,7 @@ import {
 } from "react-resizable-panels"
 
 import { cn } from "../lib/cn"
+import { useMediaQuery } from "../hooks/use-media-query"
 import {
   bindPanelResizeRelease,
   ensurePanelResizeGuardInstalled,
@@ -71,6 +72,7 @@ interface ResponsiveResizablePanelsProps {
   secondary: React.ReactNode
   mobilePanel?: "primary" | "secondary"
   breakpoint?: keyof typeof BREAKPOINT_QUERIES
+  stackOnNarrow?: boolean
   primaryDefaultSize?: number | string
   primaryMinSize: number | string
   primaryMaxSize?: number | string
@@ -86,6 +88,7 @@ function ResponsiveResizablePanels({
   secondary,
   mobilePanel = "primary",
   breakpoint = "md",
+  stackOnNarrow = false,
   primaryDefaultSize = "65%",
   primaryMinSize,
   primaryMaxSize,
@@ -94,21 +97,15 @@ function ResponsiveResizablePanels({
   secondaryMaxSize,
   handleLabel,
 }: ResponsiveResizablePanelsProps) {
-  const [isResizable, setIsResizable] = React.useState(false)
-
-  React.useEffect(() => {
-    const media = window.matchMedia(BREAKPOINT_QUERIES[breakpoint])
-    const update = () => setIsResizable(media.matches)
-
-    update()
-    media.addEventListener("change", update)
-    return () => media.removeEventListener("change", update)
-  }, [breakpoint])
+  const isResizable = useMediaQuery(BREAKPOINT_QUERIES[breakpoint])
 
   if (!isResizable) {
     return (
       <div className="flex h-full min-h-0 w-full min-w-0 flex-1 flex-col">
-        {mobilePanel === "primary" ? primary : secondary}
+        {stackOnNarrow ? <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-contain pb-20" data-panel-scroll>
+          <div className="min-w-0 shrink-0 [&>.h-full]:h-auto [&>.h-full]:overflow-visible [&_.overscroll-contain]:overflow-visible [&_.overscroll-contain]:overscroll-auto">{primary}</div>
+          <div className="min-w-0 shrink-0">{secondary}</div>
+        </div> : mobilePanel === "primary" ? primary : secondary}
       </div>
     )
   }

@@ -1,13 +1,18 @@
 'use client';
 
+import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
+import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
+import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
+
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { usePaneNavigation, accessoryDestination } from '@/shared/hooks/usePaneNavigation';
 import { usePathname } from 'next/navigation';
-import { Users, Calendar, GraduationCap, Settings, FileText, Home, CreditCard, CheckSquare, AlertTriangle, FolderKanban, ChevronDown } from 'lucide-react';
+import { Users, Calendar, GraduationCap, FileText, Home, CreditCard, AlertTriangle, ChevronDown } from 'lucide-react';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@altitutor/ui';
 import { cn, navLinkActiveStyles, navLinkInactiveStyles } from '@/shared/utils/index';
 import { ScrollArea } from '@altitutor/ui';
-import { Beaker, Newspaper, ClipboardList, MessageCircle, Monitor, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
+import { Beaker, Newspaper, ClipboardList, Monitor, UserRound, TrendingUp, MessageSquareText } from 'lucide-react';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
 import { useQueryClient } from '@tanstack/react-query';
 import { useToast } from '@altitutor/ui';
@@ -36,7 +41,7 @@ interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
 }
 
-type NavItem = 
+type NavItem =
   | {
       type?: 'link';
       title: string;
@@ -54,41 +59,7 @@ const navItems: NavItem[] = [
   },
   {
     type: 'heading',
-    title: 'OPERATIONS',
-  },
-  {
-    title: 'Tasks',
-    href: '/tasks',
-    icon: CheckSquare,
-  },
-  {
-    title: 'Issues',
-    href: '/issues',
-    icon: AlertTriangle,
-  },
-  {
-    title: 'Projects',
-    href: '/projects',
-    icon: FolderKanban,
-  },
-  {
-    title: 'Reconciliation',
-    href: '/reconciliation',
-    icon: AlertTriangle,
-  },
-  {
-    title: 'Documents',
-    href: '/documents',
-    icon: FileText,
-  },
-  {
-    type: 'heading',
     title: 'COMMUNICATION',
-  },
-  {
-    title: 'Messages',
-    href: '/messages',
-    icon: MessageCircle,
   },
   {
     title: 'Feedback',
@@ -148,6 +119,11 @@ const navItems: NavItem[] = [
     title: 'FINANCIAL',
   },
   {
+    title: 'Reconciliation',
+    href: '/reconciliation',
+    icon: AlertTriangle,
+  },
+  {
     title: 'Invoices',
     href: '/invoices',
     icon: CreditCard,
@@ -182,6 +158,70 @@ const navItems: NavItem[] = [
     icon: Newspaper,
   },
 ];
+
+type NavLink = Extract<NavItem, { type?: 'link' }>;
+
+type NavSection = {
+  title: string | null;
+  items: NavLink[];
+};
+
+function groupNavItems(items: NavItem[]): NavSection[] {
+  const sections: NavSection[] = [];
+  let current: NavSection = { title: null, items: [] };
+  for (const item of items) {
+    if (item.type === 'heading') {
+      sections.push(current);
+      current = { title: item.title, items: [] };
+    } else {
+      current.items.push(item);
+    }
+  }
+  sections.push(current);
+  return sections.filter((section) => section.title !== null || section.items.length > 0);
+}
+
+function SidebarExpandablePanel({
+  expanded,
+  children,
+}: {
+  expanded: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <div
+      className={cn(
+        'grid transition-[grid-template-rows] duration-200 ease-out motion-reduce:transition-none',
+        expanded ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]',
+      )}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <div className="flex flex-col gap-1">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+function NavSectionHeading({ title }: { title: string }) {
+  const { collapsedGroups, toggleGroup } = useAdminShell();
+  const expanded = !collapsedGroups.includes(title);
+  return (
+    <button
+      type="button"
+      aria-expanded={expanded}
+      onClick={() => toggleGroup(title)}
+      className={cn(
+        'mt-2 flex w-full items-center justify-between rounded-md px-3 py-2 text-xs font-semibold text-muted-foreground hover:text-foreground',
+        navLinkInactiveStyles,
+      )}
+    >
+      <span>{title}</span>
+      <ChevronDown
+        className={cn('h-3 w-3 transition-transform duration-200', !expanded && '-rotate-90')}
+      />
+    </button>
+  );
+}
 
 const getTodayDashboardHref = () => `/dashboard/${format(new Date(), 'yyyy-MM-dd')}`;
 
@@ -288,7 +328,7 @@ function ExpandableNavGroup({
           />
         </button>
       </div>
-      {expanded && (
+      <SidebarExpandablePanel expanded={expanded}>
         <div className="ml-4 space-y-0.5 border-l border-border pl-2">
           {item.children.map((child) => (
             <Link
@@ -306,8 +346,98 @@ function ExpandableNavGroup({
             </Link>
           ))}
         </div>
-      )}
+      </SidebarExpandablePanel>
     </div>
+  );
+}
+
+function AdminNavMenu({
+  collapsed = false,
+  onAccessoryNavigate,
+}: {
+  collapsed?: boolean;
+  onAccessoryNavigate?: () => void;
+}) {
+  const { router: paneRouter } = usePaneNavigation();
+  const { collapsedGroups } = useAdminShell();
+  const pathname = usePathname();
+  const sections = groupNavItems(navItems);
+
+  const openAccessory = (event: React.MouseEvent, href: string) => {
+    if (!accessoryDestination(href)) return;
+    event.preventDefault();
+    paneRouter.push(href);
+    onAccessoryNavigate?.();
+  };
+
+  return (
+    <>
+      {sections.map((section) => {
+        const sectionExpanded = collapsed || !section.title || !collapsedGroups.includes(section.title);
+        const links = section.items.map((item) => {
+          const Icon = item.icon;
+          const itemHref = getNavItemHref(item);
+          if (item.children?.length) {
+            return (
+              <ExpandableNavGroup
+                key={item.href}
+                item={{ ...item, children: item.children }}
+                pathname={pathname}
+                collapsed={collapsed}
+              />
+            );
+          }
+
+          const link = (
+            <Link
+              href={itemHref}
+              onClick={(event) => openAccessory(event, itemHref)}
+              prefetch={false}
+              className={cn(
+                'flex items-center gap-3 rounded-md px-3 py-2 text-sm',
+                isNavItemActive(pathname, item) ? navLinkActiveStyles : navLinkInactiveStyles,
+                collapsed && 'justify-center px-0',
+              )}
+            >
+              <Icon className={cn('h-5 w-5', collapsed && 'h-6 w-6')} />
+              {collapsed ? (
+                <span className="sr-only">{item.title}</span>
+              ) : (
+                <span className="overflow-hidden whitespace-nowrap">{item.title}</span>
+              )}
+            </Link>
+          );
+
+          if (!collapsed) {
+            return <React.Fragment key={item.href}>{link}</React.Fragment>;
+          }
+
+          return (
+            <TooltipProvider key={item.href} delayDuration={150}>
+              <Tooltip>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right" sideOffset={10}>
+                  {item.title}
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          );
+        });
+
+        return (
+          <div key={section.title ?? 'root'} className="flex flex-col gap-1">
+            {section.title ? (
+              collapsed ? <div className="my-2 h-px bg-border" /> : <NavSectionHeading title={section.title} />
+            ) : null}
+            {collapsed || !section.title ? (
+              links
+            ) : (
+              <SidebarExpandablePanel expanded={sectionExpanded}>{links}</SidebarExpandablePanel>
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }
 
@@ -316,7 +446,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
   const dragStartYRef = React.useRef<number | null>(null);
   const dragOffsetRef = React.useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
-  
+
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -330,7 +460,7 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
 
   useEffect(() => {
     if (!isOpen) return;
-    
+
     const handleClickOutside = (event: MouseEvent) => {
       const target = event.target as HTMLElement;
       if (target.hasAttribute('data-mobile-menu-overlay')) {
@@ -383,14 +513,14 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
       {isOpen && (
         <div
           data-mobile-menu-overlay
-          className="fixed inset-0 z-[70] bg-black/60 transition-opacity md:hidden"
+          className="fixed inset-x-0 bottom-0 top-[var(--navbar-height)] z-[70] bg-black/60 transition-opacity md:hidden"
           onClick={onClose}
         />
       )}
-      
+
       <div
         className={cn(
-          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] flex-col overflow-hidden rounded-t-3xl bg-card ring-1 ring-black/10 transition-transform duration-300 ease-out dark:ring-white/10 md:hidden",
+          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] max-h-[calc(100dvh-var(--navbar-height))] flex-col overflow-hidden rounded-t-3xl bg-card ring-1 ring-black/10 transition-transform duration-300 ease-out dark:ring-white/10 md:hidden",
           dragStartYRef.current != null && "transition-none",
           isOpen ? "translate-y-0" : "translate-y-full"
         )}
@@ -406,66 +536,15 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
           >
             <h2 className="text-lg font-semibold">Altitutor Admin</h2>
           </div>
-          
+
           <ScrollArea className="flex-1">
             <nav className="flex flex-col gap-1 p-2">
-              {navItems.map((item, index) => {
-                if (item.type === 'heading') {
-                  return (
-                    <div 
-                      key={`heading-${index}`}
-                      className="text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2"
-                    >
-                      {item.title}
-                    </div>
-                  );
-                }
-                
-                const Icon = item.icon;
-                const itemHref = getNavItemHref(item);
-                if (item.children?.length) {
-                  return (
-                    <ExpandableNavGroup
-                      key={item.href}
-                      item={{ ...item, children: item.children }}
-                      pathname={pathname}
-                    />
-                  );
-                }
-                return (
-                  <Link 
-                    key={item.href} 
-                    href={itemHref}
-                    prefetch={false}
-                    className={cn(
-                      "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
-                      isNavItemActive(pathname, item)
-                        ? navLinkActiveStyles
-                        : navLinkInactiveStyles
-                    )}
-                  >
-                    <Icon className="h-5 w-5" />
-                    <span>{item.title}</span>
-                  </Link>
-                );
-              })}
+              <AdminNavMenu onAccessoryNavigate={onClose} />
             </nav>
           </ScrollArea>
-          
+
           <div className="border-t p-2">
-            <Link 
-              href="/settings"
-              prefetch={false}
-              className={cn(
-                "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
-                pathname === '/settings'
-                  ? navLinkActiveStyles
-                  : navLinkInactiveStyles
-              )}
-            >
-              <Settings className="h-5 w-5" />
-              <span>Settings</span>
-            </Link>
+            <ProfileMenu onNavigate={onClose} />
           </div>
         </div>
       </div>
@@ -474,127 +553,24 @@ function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void 
 }
 
 function SidebarNav({ className, collapsed, ...props }: SidebarNavProps) {
-  const pathname = usePathname();
-  
   return (
-    <div 
+    <div
+      data-admin-sidebar
       className={cn(
-        "hidden md:flex flex-col bg-card h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
+        "hidden md:flex shrink-0 flex-col bg-card h-[calc(100dvh-var(--navbar-height))] transition-all duration-300",
         collapsed ? "w-[70px]" : "w-[250px]",
         className
-      )} 
+      )}
       {...props}
     >
       <ScrollArea className="flex-1">
         <nav className="flex flex-col gap-1 p-2">
-          {navItems.map((item, index) => {
-            if (item.type === 'heading') {
-              return (
-                <div 
-                  key={`heading-${index}`}
-                  className={cn(
-                    "text-xs font-semibold text-muted-foreground px-3 pt-4 pb-2",
-                    collapsed && "text-center px-0"
-                  )}
-                >
-                  {!collapsed && (
-                    <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
-                  )}
-                  {collapsed && <div className="h-px bg-border" />}
-                </div>
-              );
-            }
-            
-            const Icon = item.icon;
-            const itemHref = getNavItemHref(item);
-            if (item.children?.length) {
-              return (
-                <ExpandableNavGroup
-                  key={item.href}
-                  item={{ ...item, children: item.children }}
-                  pathname={pathname}
-                  collapsed={collapsed}
-                />
-              );
-            }
-            const link = (
-              <Link
-                key={item.href} 
-                href={itemHref}
-                prefetch={false}
-                className={cn(
-                  "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
-                  isNavItemActive(pathname, item)
-                    ? navLinkActiveStyles
-                    : navLinkInactiveStyles,
-                  collapsed && "justify-center px-0"
-                )}
-              >
-                <Icon className={cn("h-5 w-5", collapsed && "h-6 w-6")} />
-                {!collapsed && (
-                  <span className="whitespace-nowrap overflow-hidden">{item.title}</span>
-                )}
-              </Link>
-            );
-
-            if (!collapsed) {
-              return link;
-            }
-
-            return (
-              <TooltipProvider key={item.href} delayDuration={150}>
-                <Tooltip>
-                  <TooltipTrigger asChild>{link}</TooltipTrigger>
-                  <TooltipContent side="right" sideOffset={10}>
-                    {item.title}
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            );
-          })}
+          <AdminNavMenu collapsed={collapsed} />
         </nav>
       </ScrollArea>
-      
+
       <div className="border-t p-2">
-        {collapsed ? (
-          <TooltipProvider delayDuration={150}>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Link
-                  href="/settings"
-                  prefetch={false}
-                  className={cn(
-                    "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
-                    pathname === '/settings'
-                      ? navLinkActiveStyles
-                      : navLinkInactiveStyles,
-                    "justify-center px-0"
-                  )}
-                >
-                  <Settings className="h-6 w-6" />
-                  <span className="sr-only">Settings</span>
-                </Link>
-              </TooltipTrigger>
-              <TooltipContent side="right" sideOffset={10}>
-                Settings
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        ) : (
-          <Link 
-          href="/settings"
-          prefetch={false}
-          className={cn(
-            "flex items-center gap-3 px-3 py-2 rounded-md text-sm",
-            pathname === '/settings'
-              ? navLinkActiveStyles
-              : navLinkInactiveStyles,
-          )}
-        >
-          <Settings className="h-5 w-5" />
-          <span className="whitespace-nowrap overflow-hidden">Settings</span>
-          </Link>
-        )}
+        <ProfileMenu collapsed={collapsed} />
       </div>
     </div>
   );
@@ -637,10 +613,10 @@ function AdminLayoutContent({
   const { data: currentStaff } = useCurrentStaff();
   const breadcrumbs = useBreadcrumbs();
   const pathname = usePathname();
-  const showBreadcrumbs = pathname !== '/messages';
-  
+  const showBreadcrumbs = pathname !== '/messages' && !/^\/(students|parents|staff|classes|sessions|invoices|subjects|topics|admin-shifts)\/[^/]+/.test(pathname);
+
   return (
-    <>
+    <AdminShortcuts>
       <Navbar />
       <MobileMenu isOpen={isMobileMenuOpen} onClose={closeMobileMenu} />
       <CommandPaletteModal
@@ -649,14 +625,16 @@ function AdminLayoutContent({
       />
       <div className="mt-[var(--navbar-height)] flex h-[calc(100dvh-var(--navbar-height))] overflow-hidden bg-card">
         <SidebarNav collapsed={collapsed} />
-        <div className="min-w-0 flex-1 overflow-hidden">
-          <div className="relative h-full overflow-auto rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70 md:rounded-tr-none">
+        <AccessoryPanelLayout>
+          <div data-admin-main className="relative flex h-full min-h-0 flex-col overflow-hidden rounded-tl-2xl rounded-tr-2xl bg-background ring-1 ring-border/70">
             {showBreadcrumbs && (
-              <div className="px-6 pt-6 pb-0">
+              <div className="shrink-0 px-6 pt-6 pb-0">
                 <Breadcrumb items={breadcrumbs} />
               </div>
             )}
-            <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
+            <div className="flex min-h-0 flex-1 flex-col overflow-auto">
+              <AdminUrlSyncBoundary>{children}</AdminUrlSyncBoundary>
+            </div>
           </div>
           {/* Quick action modals */}
           {currentStaff?.id && (
@@ -750,9 +728,9 @@ function AdminLayoutContent({
               />
             </>
           )}
-        </div>
+        </AccessoryPanelLayout>
       </div>
-    </>
+    </AdminShortcuts>
   );
 }
 

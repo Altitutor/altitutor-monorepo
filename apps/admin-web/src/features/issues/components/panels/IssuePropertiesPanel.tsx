@@ -1,20 +1,20 @@
-'use client';
+"use client";
+import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 
-import { useRef, useCallback, memo } from 'react';
-import { Separator } from '@altitutor/ui';
-import { UseFormReturn } from 'react-hook-form';
-import { LinkedTasksSection } from '@/features/tasks/components/LinkedTasksSection';
-import { IssueActivityTab } from '@/features/issues/components/IssueActivityTab';
-import { IssueTitleField } from '@/features/issues/components/fields/IssueTitleField';
-import { IssueDescriptionField } from '@/features/issues/components/fields/IssueDescriptionField';
-import { IssueNotes } from '@/features/issues/components/IssueNotes';
-import type { RichTextEditorRef } from '@altitutor/ui';
-import type { IssueFormData, IssueTag, IssueWithTags } from '../../types';
-import type { TagEntityType } from '@/shared/utils/tagParsing';
-import type { Tables } from '@altitutor/shared';
+import { useRef, useCallback, memo } from "react";
+import { Separator } from "@altitutor/ui";
+import { UseFormReturn } from "react-hook-form";
+import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
+import { IssueActivityTab } from "@/features/issues/components/IssueActivityTab";
+import { IssueTitleField } from "@/features/issues/components/fields/IssueTitleField";
+import { IssueDescriptionField } from "@/features/issues/components/fields/IssueDescriptionField";
+import type { RichTextEditorRef } from "@altitutor/ui";
+import type { IssueFormData, IssueTag, IssueWithTags } from "../../types";
+import type { TagEntityType } from "@/shared/utils/tagParsing";
+import type { Tables } from "@altitutor/shared";
 
-type NoteWithStaff = Tables<'notes'> & {
-  staff?: Tables<'staff'> | null;
+type NoteWithStaff = Tables<"notes"> & {
+  staff?: Tables<"staff"> | null;
 };
 
 interface IssuePropertiesPanelProps {
@@ -40,14 +40,23 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
   const internalDescriptionRef = useRef<RichTextEditorRef>(null);
   const descriptionRef = descriptionRefProp ?? internalDescriptionRef;
 
-  const handleTagClick = useCallback((type: TagEntityType, id: string) => {
-    window.dispatchEvent(new CustomEvent('mentionClick', { detail: { id, type } }));
-  }, []);
+  const { openEntity } = useEntityNavigation();
+  const handleTagClick = useCallback(
+    (type: TagEntityType, id: string) => {
+      openEntity(type, id);
+    },
+    [openEntity],
+  );
 
   const handleTitleEnter = useCallback(() => {
     if (descriptionRef.current) {
       const editor = descriptionRef.current.getEditor();
-      if (editor && 'commands' in editor && editor.commands && typeof editor.commands.focus === 'function') {
+      if (
+        editor &&
+        "commands" in editor &&
+        editor.commands &&
+        typeof editor.commands.focus === "function"
+      ) {
         editor.commands.focus();
       }
     }
@@ -60,61 +69,49 @@ export const IssuePropertiesPanel = memo(function IssuePropertiesPanel({
         data-rich-text-toolbar-container
       >
         <div className="p-6 space-y-6">
-            {/* Title */}
-            <div className="space-y-4">
-              <IssueTitleField
-                form={form}
-                onEnter={handleTitleEnter}
-                titleRef={titleFieldRef}
+          {/* Title */}
+          <div className="space-y-4">
+            <IssueTitleField
+              form={form}
+              onEnter={handleTitleEnter}
+              titleRef={titleFieldRef}
+            />
+          </div>
+
+          {/* Description */}
+          <div className="space-y-2">
+            <IssueDescriptionField
+              form={form}
+              value={form.getValues("description")}
+              onTagClick={handleTagClick}
+              descriptionRef={descriptionRef}
+            />
+          </div>
+
+          {/* Tasks Section */}
+          {issue?.id && (
+            <div className="space-y-4 min-w-0 max-w-full">
+              <Separator />
+              <LinkedTasksSection issueId={issue.id} />
+            </div>
+          )}
+
+          {/* Activity Section */}
+          {issue?.id && (
+            <div className="space-y-4 pb-6">
+              <Separator />
+              <IssueActivityTab
+                issueId={issue.id}
+                notes={notes}
+                isOpen={isOpen}
+                studentIds={tags.map((t) => t.student_id!).filter(Boolean)}
+                staffIds={tags.map((t) => t.staff_id!).filter(Boolean)}
+                classIds={tags.map((t) => t.class_id!).filter(Boolean)}
+                sessionIds={tags.map((t) => t.session_id!).filter(Boolean)}
+                invoiceIds={tags.map((t) => t.invoice_id!).filter(Boolean)}
               />
             </div>
-
-            {/* Description */}
-            <div className="space-y-2">
-              <IssueDescriptionField
-                form={form}
-                value={form.getValues('description')}
-                onTagClick={handleTagClick}
-                descriptionRef={descriptionRef}
-              />
-            </div>
-
-            {/* Tasks Section */}
-            {issue?.id && (
-              <div className="space-y-4 min-w-0 max-w-full">
-                <Separator />
-                <LinkedTasksSection issueId={issue.id} />
-              </div>
-            )}
-
-            {/* Notes Section */}
-            {issue?.id && (
-              <div className="space-y-4">
-                <Separator />
-                <IssueNotes
-                  issueId={issue.id}
-                  notes={notes}
-                  onNoteAdded={() => {}}
-                />
-              </div>
-            )}
-
-            {/* Activity Section */}
-            {issue?.id && (
-              <div className="space-y-4 pb-6">
-                <Separator />
-                <h3 className="text-lg font-semibold">Activity</h3>
-                <IssueActivityTab 
-                  issueId={issue.id} 
-                  isOpen={isOpen}
-                  studentIds={tags.map(t => t.student_id!).filter(Boolean)}
-                  staffIds={tags.map(t => t.staff_id!).filter(Boolean)}
-                  classIds={tags.map(t => t.class_id!).filter(Boolean)}
-                  sessionIds={tags.map(t => t.session_id!).filter(Boolean)}
-                  invoiceIds={tags.map(t => t.invoice_id!).filter(Boolean)}
-                />
-              </div>
-            )}
+          )}
         </div>
       </div>
     </>

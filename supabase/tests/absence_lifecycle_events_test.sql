@@ -1,6 +1,6 @@
 BEGIN;
 
-SELECT plan(24);
+SELECT plan(25);
 
 SELECT ok(
   (SELECT bool_and(event_names @> ARRAY[
@@ -184,6 +184,18 @@ SELECT ok(
    WHERE recorded_at >= transaction_timestamp() AND event_name = 'session.student_rescheduled'
    LIMIT 1),
   'the reschedule links the original and replacement sessions'
+);
+
+SELECT is(
+  (SELECT payload->'display'->>'session_name'
+   FROM public.domain_events
+   WHERE recorded_at >= transaction_timestamp()
+     AND event_name = 'session.student_rescheduled'
+   LIMIT 1),
+  (SELECT COALESCE(NULLIF(BTRIM(long_name), ''), NULLIF(BTRIM(short_name), ''))
+   FROM public.sessions
+   WHERE id = '50000000-0000-0000-0000-000000000005'),
+  'a reschedule snapshots the missed class as session_name'
 );
 
 SELECT is(

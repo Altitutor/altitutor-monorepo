@@ -6,7 +6,7 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 import type { ConversationSelection } from '../types';
 
 export type ConversationListFilter = 'all' | 'unread' | 'unreplied' | 'to_follow_up';
-export type MessagingFilterScope = 'dropdown' | 'page';
+export type MessagingFilterScope = 'dropdown' | 'page' | `tab:${string}`;
 
 type MessagingListFilters = {
   listFilter: ConversationListFilter;
@@ -111,6 +111,7 @@ export const useMessagingUiStore = create<MessagingUiState>()(
           ...currentState,
           ...persisted,
           filters: {
+            ...persisted.filters,
             dropdown: { ...EMPTY_LIST_FILTERS, ...persisted.filters?.dropdown },
             page: { ...EMPTY_LIST_FILTERS, ...persisted.filters?.page },
           },

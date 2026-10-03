@@ -56,6 +56,25 @@ export function defaultCommunicationSources(input: {
   return sources;
 }
 
+/** A message thread starts with only that person's number selected. */
+export function messageConversationSources(contactId: string): string[] {
+  return [contactSourceId(contactId)];
+}
+
+export function communicationContactDetail(
+  contact: {
+    kind: CommunicationContactKind;
+    phoneE164: string | null;
+    email: string | null;
+    isCurrent: boolean;
+  },
+  entityType: CommunicationEntityType,
+): string {
+  const handle = contact.phoneE164 || contact.email || contact.kind;
+  if (contact.kind === entityType && !contact.isCurrent) return `${handle} · historical`;
+  return handle;
+}
+
 /** Own current number. Linked parents stay out of the default selection. */
 export function defaultRecipientId(input: {
   entityType: CommunicationEntityType;

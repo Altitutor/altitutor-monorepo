@@ -5,6 +5,25 @@ import type { IssueFormData } from "@/features/issues/types";
 import type { ProjectFormData } from "@/features/projects/types";
 import type { NoteFormData } from "@/features/notes/types";
 import type { EditRecord } from "./api";
+import type { EditKind } from "./api";
+
+/** Map persisted properties back to the form for validation and silent refreshes. */
+export function workItemFormField(kind: EditKind, field: string): string {
+  const names: Record<string, string> =
+    kind === "document"
+      ? {}
+      : {
+          assigned_to: "assignedTo",
+          issue_id: "issueId",
+          project_id: "projectId",
+          due_date: "dueDate",
+          project_lead_id: "projectLeadId",
+          member_ids: "memberIds",
+          start_date: "startDate",
+          target_date: "targetDate",
+        };
+  return names[field] ?? field;
+}
 const date = (value: Json | undefined) =>
   typeof value === "string" ? value.split("T")[0] : null;
 const text = (value: Json | undefined) =>

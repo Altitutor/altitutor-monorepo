@@ -1,7 +1,3 @@
-'use client';
-
-import { IssueDetailPage } from '@/features/issues/components/IssueDetailPage';
-
-export default function IssueDetailRoute({ params }: { params: { id: string } }) {
-  return <IssueDetailPage issueId={params.id} />;
-}
+"use client";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+export default function Page({ params }: { params: { id: string } }) { return <AccessoryRoute href={`/issues/${params.id}`} />; }

@@ -29,7 +29,7 @@ import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState'
 
 const ISSUE_FILTER_KEYS = ['status', 'due_date'] as const;
 
-export function IssuesBoard() {
+export function IssuesBoard({defaultFilters}:{defaultFilters?:Record<string, unknown[]>} = {}) {
   const {
     filters,
     setFilters,
@@ -41,6 +41,7 @@ export function IssuesBoard() {
     sortDirection,
     handleSortChange,
   } = useEntityListTableState({
+    defaultFilters,
     defaultSort: { field: 'name', direction: 'asc' },
     defaultGroupBy: 'status',
     filterKeys: [...ISSUE_FILTER_KEYS],

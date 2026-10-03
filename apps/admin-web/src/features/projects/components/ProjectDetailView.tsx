@@ -1,4 +1,6 @@
 "use client";
+import { AccessoryBreadcrumb } from "@/shared/components/accessory-panel/AccessoryBreadcrumb";
+import { useAccessoryTitle } from "@/shared/hooks/useAccessoryTitle";
 
 import { useWorkItemEditor } from "@/features/work-item-editing/useWorkItemEditor";
 import {
@@ -6,8 +8,6 @@ import {
   EditorControls,
   EditorFooterActions,
   EditorNotices,
-  EditorViewSwitchConfirmDialog,
-  WorkItemDialogHeaderActions,
   WorkItemEditableContext,
 } from "@/features/work-item-editing/EditorControls";
 import {
@@ -16,13 +16,10 @@ import {
 } from "@/features/work-item-editing/fields";
 
 import { useState, useRef, useCallback } from "react";
-import { useRouter } from "next/navigation";
 import { useForm, type Resolver } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import {
-  DialogTitle,
-  DialogDescription,
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -37,21 +34,19 @@ import {
   Input,
   type RichTextEditorRef,
 } from "@altitutor/ui";
-import { X, ArrowLeft, Loader2, FileText, Plus } from "lucide-react";
+import { Loader2, FileText, Plus } from "lucide-react";
 import { useProject } from "../api/queries";
 import type { ProjectFormData } from "../types";
 import { ProjectTitleField } from "./fields/ProjectTitleField";
 import { ProjectDescriptionField } from "./fields/ProjectDescriptionField";
 import { ProjectPropertiesFields } from "./fields/ProjectPropertiesFields";
-import { useProjectActions } from "../hooks/useProjectActions";
 import { LinkedTasksSection } from "@/features/tasks/components/LinkedTasksSection";
 import { useNotes } from "@/features/notes/api/queries";
 import { useCreateNote } from "@/features/notes/hooks/useNoteMutations";
 import { EditDocumentDialog } from "@/features/notes/components/EditDocumentDialog";
-import { ActivityFeed } from "@/features/activity/components/ActivityFeed";
+import { WorkItemActivity } from "@/features/activity/components/WorkItemActivity";
 import { useProjectActivity } from "@/features/activity/hooks";
 import { useNotes as useEntityNotes } from "@/shared/hooks/useNotes";
-import { ProjectNotes } from "./ProjectNotes";
 import { ProjectPropertyPills } from "./fields/ProjectPropertyPills";
 import { ActionsMenu } from "@/shared/components/ActionsMenu";
 import { SaveAsTemplateDialog } from "@/features/rich-text-templates/components/SaveAsTemplateDialog";
@@ -87,8 +82,8 @@ export function ProjectDetailView({
   onClose,
   variant,
 }: ProjectDetailViewProps) {
-  const router = useRouter();
   const { data: project, isLoading } = useProject(projectId, enabled);
+  useAccessoryTitle(project?.name);
   const { data: projectNotes = [] } = useNotes(
     { projectId: projectId && projectId.trim() ? projectId : undefined },
     enabled,
@@ -105,9 +100,6 @@ export function ProjectDetailView({
     null,
   );
   const [isDocumentDialogOpen, setIsDocumentDialogOpen] = useState(false);
-  const [documentInitialMode, setDocumentInitialMode] = useState<
-    "view" | "edit"
-  >("view");
   const [newDocumentTitle, setNewDocumentTitle] = useState("");
   const titleFieldRef = useRef<HTMLInputElement>(null);
   const descriptionFieldRef = useRef<RichTextEditorRef>(null);
@@ -115,6 +107,9 @@ export function ProjectDetailView({
     data: projectActivity,
     isLoading: isProjectActivityLoading,
     error: projectActivityError,
+    hasNextPage,
+    isFetchingNextPage,
+    fetchNextPage,
   } = useProjectActivity(projectId, enabled, 100);
 
   const form = useForm<ProjectFormData, unknown, ProjectFormData>({
@@ -140,7 +135,6 @@ export function ProjectDetailView({
     toRecord: projectToRecord,
     onClose,
   });
-
 
   const handleTitleEnter = useCallback(() => {
     const editor = descriptionFieldRef.current?.getEditor();
@@ -171,7 +165,6 @@ export function ProjectDetailView({
           project_id: projectId,
         });
         setNewDocumentTitle("");
-        setDocumentInitialMode("edit");
         setSelectedDocumentId(created.id);
         setIsDocumentDialogOpen(true);
       } catch (error) {
@@ -181,25 +174,6 @@ export function ProjectDetailView({
     [projectId, createNote],
   );
 
-  const projectActions = useProjectActions({
-    projectId,
-    onOpenInPage:
-      variant === "dialog"
-        ? () => {
-            editor.requestClose(() => {
-              router.push(`/projects/${projectId}`);
-              onClose();
-            });
-          }
-        : undefined,
-  });
-
-  const title = isLoading
-    ? "Loading..."
-    : variant === "page"
-      ? "Project Details"
-      : "Edit Project";
-
   const documentsList = (
     <div className="space-y-0.5">
       {projectNotes.map((doc) => (
@@ -208,7 +182,6 @@ export function ProjectDetailView({
           key={doc.id}
           className="w-full flex items-center gap-2 py-2 px-2 rounded-md hover:bg-muted/50 text-left text-sm"
           onClick={() => {
-            setDocumentInitialMode("view");
             setSelectedDocumentId(doc.id);
             setIsDocumentDialogOpen(true);
           }}
@@ -255,63 +228,32 @@ export function ProjectDetailView({
   return (
     <>
       <div className="h-full min-h-0 flex flex-col overflow-hidden">
-        <div className="flex-shrink-0 border-b bg-card px-6 py-4">
-          <div className="flex items-center justify-between gap-4 w-full">
-            <div className="flex items-center gap-3 flex-1">
-              <Button
-                variant={variant === "page" ? "ghost" : "outline"}
-                size="icon"
-                aria-label="Close"
-                  onClick={() => editor.requestClose()}
-                className={variant === "page" ? "shrink-0 border" : "shrink-0"}
-              >
-                {variant === "page" ? (
-                  <ArrowLeft className="h-4 w-4" />
-                ) : (
-                  <X className="h-4 w-4" />
-                )}
-              </Button>
-              <div className="flex-1">
-                {variant === "dialog" ? (
-                  <>
-                    <DialogTitle>{title}</DialogTitle>
-                    <DialogDescription className="sr-only">
-                      Edit project details, linked tasks, and linked documents.
-                    </DialogDescription>
-                  </>
-                ) : (
-                  <h1 className="text-3xl font-bold tracking-tight">{title}</h1>
-                )}
-              </div>
-            </div>
+        <div className="flex-shrink-0 border-b bg-background px-4 py-2">
+          <div className="flex min-w-0 items-center justify-between gap-2 w-full">
+            <AccessoryBreadcrumb />
 
-            <div className="flex items-center gap-2">
-              {variant === "dialog" ? (
-                <WorkItemDialogHeaderActions
-                  editor={editor}
-                  actions={
-                    <ActionsMenu
-                      type="project"
-                      entityId={projectId}
-                      onOpenInPage={projectActions.onOpenInPage}
-                      onDelete={() => {
-                        if (editor.editable) setIsDeleteDialogOpen(true);
-                      }}
-                      richTextTemplateConfig={{
-                        getEditor: () =>
-                          editor.editable
-                            ? descriptionFieldRef.current?.getEditor() ?? null
-                            : null,
-                        getCurrentContent: () =>
-                          form.getValues("description") ?? null,
-                        onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
-                      }}
-                    />
-                  }
-                />
-              ) : (
-                <EditorControls editor={editor} />
-              )}
+            <div className="flex shrink-0 items-center gap-2">
+              {
+                <>
+                  <EditorControls editor={editor} />
+                  <ActionsMenu
+                    type="project"
+                    entityId={projectId}
+                    onDelete={() => {
+                      if (editor.editable) setIsDeleteDialogOpen(true);
+                    }}
+                    richTextTemplateConfig={{
+                      getEditor: () =>
+                        editor.editable
+                          ? (descriptionFieldRef.current?.getEditor() ?? null)
+                          : null,
+                      getCurrentContent: () =>
+                        form.getValues("description") ?? null,
+                      onSaveAsTemplateClick: () => setIsSaveDialogOpen(true),
+                    }}
+                  />
+                </>
+              }
             </div>
           </div>
         </div>
@@ -358,23 +300,17 @@ export function ProjectDetailView({
                             <LinkedTasksSection projectId={projectId} />
 
                             <Separator />
-                            <ProjectNotes
-                              projectId={projectId}
+                            <WorkItemActivity
+                              kind="project"
+                              entityId={projectId}
                               notes={progressNotesData}
-                              onNoteAdded={() => {}}
+                              data={projectActivity}
+                              isLoading={isProjectActivityLoading}
+                              error={projectActivityError}
+                              hasNextPage={hasNextPage}
+                              isFetchingNextPage={isFetchingNextPage}
+                              onLoadMore={fetchNextPage}
                             />
-
-                            <Separator />
-                            <div className="space-y-4">
-                              <h3 className="text-lg font-semibold">
-                                Activity
-                              </h3>
-                              <ActivityFeed
-                                data={projectActivity}
-                                isLoading={isProjectActivityLoading}
-                                error={projectActivityError}
-                              />
-                            </div>
 
                             <div className="space-y-4 md:hidden">
                               <Separator />
@@ -423,12 +359,7 @@ export function ProjectDetailView({
         ) : null}
       </div>
 
-      {variant === "dialog" ? (
-        <>
-          <EditorCloseConfirmDialog editor={editor} />
-          <EditorViewSwitchConfirmDialog editor={editor} />
-        </>
-      ) : null}
+      <EditorCloseConfirmDialog editor={editor} />
 
       <AlertDialog
         open={isDeleteDialogOpen}
@@ -473,10 +404,8 @@ export function ProjectDetailView({
         onClose={() => {
           setIsDocumentDialogOpen(false);
           setSelectedDocumentId(null);
-          setDocumentInitialMode("view");
         }}
         noteId={selectedDocumentId}
-        initialMode={documentInitialMode}
       />
     </>
   );

@@ -368,13 +368,17 @@ async function processMessage(
   }
 
   await upsertAttachments(supabase, messageId, message.attachments);
-  const { error: conversationError } = await supabase.from("conversations")
-    .update({
-      last_message_at: message.date,
-    }).eq("id", conversationId).or(
-      `last_message_at.is.null,last_message_at.lt."${message.date}"`,
-    );
-  if (conversationError) throw conversationError;
+  // Reactions are not a new message for inbox ordering or unreplied state.
+  // The last-message trigger also ignores them.
+  if (!message.isReaction) {
+    const { error: conversationError } = await supabase.from("conversations")
+      .update({
+        last_message_at: message.date,
+      }).eq("id", conversationId).or(
+        `last_message_at.is.null,last_message_at.lt."${message.date}"`,
+      );
+    if (conversationError) throw conversationError;
+  }
 
   if (!message.isFromMe) {
     // New inserts sync unread/historical read state. Reconciliation updates of

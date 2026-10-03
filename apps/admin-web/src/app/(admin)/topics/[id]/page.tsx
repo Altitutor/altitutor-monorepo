@@ -1,4 +1,6 @@
 'use client';
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
@@ -65,13 +67,13 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   const [isEditFileModalOpen, setIsEditFileModalOpen] = useState(false);
   const [editingFileId, setEditingFileId] = useState<string | null>(null);
   const [reorderedChildren, setReorderedChildren] = useState<Array<{ id: string; index: number }>>([]);
-  
+
   const { data: topic, isLoading, error } = useTopicById(id);
   const { data: subjects = [] } = useSubjects();
   const { data: allTopics = [] } = useTopics();
   const { data: subjectTopics = [] } = useTopicsBySubject(topic?.subject_id || null);
   const { data: topicFiles = [] } = useTopicFilesByTopic(id);
-  
+
   const updateTopicMutation = useUpdateTopic();
   const deleteTopicMutation = useDeleteTopic();
   const updateTopicIndices = useUpdateTopicIndices();
@@ -118,7 +120,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
 
   const onSubmit = async (values: FormData) => {
     if (!id) return;
-    
+
     try {
       const topicData: TablesUpdate<'topics'> = {
         name: values.name,
@@ -127,14 +129,14 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
       };
 
       await updateTopicMutation.mutateAsync({ id, data: topicData });
-      
+
       if (reorderedChildren.length > 0) {
         await updateTopicIndices.mutateAsync(reorderedChildren);
         setReorderedChildren([]);
       }
-      
+
       setIsEditing(false);
-      
+
       toast({
         title: 'Topic updated',
         description: 'Topic has been updated successfully.',
@@ -154,12 +156,12 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
 
     try {
       await deleteTopicMutation.mutateAsync(id);
-      
+
       toast({
         title: 'Topic deleted',
         description: 'Topic has been deleted successfully.',
       });
-      
+
       setShowDeleteDialog(false);
       // Redirect to subject topics page
       if (topic?.subject_id) {
@@ -179,7 +181,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
 
   // Get children topics
   const childrenTopics = subjectTopics.filter(t => t.parent_id === id);
-  
+
   // Get available parent topics (exclude self and descendants)
   const availableParents = subjectTopics.filter(t => 
     t.id !== id && t.parent_id !== id
@@ -193,8 +195,8 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
 
   if (error || !topic) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -224,28 +226,13 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => {
-            if (topic?.subject_id) {
-              router.push(`/subjects/${topic.subject_id}/topics`);
-            } else {
-              router.push('/subjects');
-            }
-          }}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Topic' : 'Topic Details'}
-          </h1>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb />
+        <ActionsMenu type="topic" entityId={id} onEdit={handleEdit} onDelete={()=>setShowDeleteDialog(true)} />
+
+
       </div>
 
       <div className="space-y-6">
@@ -263,7 +250,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                   required
                 />
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="subject_id" className="text-right">
                   Subject
@@ -334,7 +321,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                 <TrashIcon className="h-4 w-4 mr-2" />
                 Delete
               </Button>
-              
+
               <div className="flex space-x-2">
                 <Button
                   type="button"
@@ -404,9 +391,9 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                   </div>
                 </PropertyFormRow>
               </PropertyForm>
-            
+
               <Separator className="my-4" />
-              
+
               {/* Files Section */}
               <div>
                 <div className="flex items-center justify-between mb-3">
@@ -428,7 +415,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                   <div className="space-y-2">
                     {topicFiles.map((topicFile) => {
                       const code = topicFile.code || '';
-                      
+
                       return (
                         <FileCard
                           key={topicFile.id}
@@ -472,7 +459,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
                     Add Subtopic
                   </Button>
                 </div>
-                
+
                 {childrenTopics.length > 0 ? (
                   <div className="space-y-1">
                     {buildTopicTree(subjectTopics, id).map((childTopic) => (
@@ -531,7 +518,7 @@ export default function TopicDetailPage({ params }: { params: { id: string } }) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
-      
+
       {/* Add Topic Modal */}
       <AddTopicModal
         isOpen={isAddTopicModalOpen}

@@ -25,6 +25,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import type {
   AggregatedConversation,
   ConversationListItem,
+  ConversationMessagePreview,
   ConversationSelection,
 } from '../types';
 
@@ -87,9 +88,9 @@ export function ConversationList({
     return aggregated.unreadCount > 0;
   };
   
-  // Check if aggregated conversation is unreplied (last message is inbound)
-  const isUnreplied = (aggregated: AggregatedConversation) => {
-    return aggregated.latestMessage?.direction === 'INBOUND';
+  // Unreplied means the latest real message is inbound. Tapbacks do not count.
+  const isUnreplied = (item: { latestMessage: { countsAsUnreplied: boolean } | null }) => {
+    return item.latestMessage?.countsAsUnreplied === true;
   };
 
   // Check if any conversation for this contact needs follow up (outbound with ? and no inbound after)
@@ -166,7 +167,7 @@ export function ConversationList({
       if (activeFilter === 'unread') {
         filtered = filtered.filter((c) => c.kind === 'group' ? c.unreadCount > 0 : isUnread(c));
       } else if (activeFilter === 'unreplied') {
-        filtered = filtered.filter((c) => c.kind === 'group' ? c.latestMessage?.direction === 'INBOUND' : isUnreplied(c));
+        filtered = filtered.filter((c) => isUnreplied(c));
       } else if (activeFilter === 'to_follow_up') {
         filtered = filtered.filter((c) => c.kind === 'contact' && isToFollowUp(c));
       }
@@ -211,13 +212,13 @@ export function ConversationList({
 
   return (
     <div className="h-full border-r dark:border-brand-dark-border flex flex-col">
-      <div className="p-3 flex-shrink-0">
+      <div data-pane-toolbar className="p-3 flex-shrink-0">
         <div className="flex items-center gap-2">
           {/* Search bar - styled like searchable-select-inline */}
           <div className="flex flex-1 min-w-0 items-center rounded-md border px-3">
             <Search className="mr-2 h-4 w-4 shrink-0 opacity-50" />
             <input
-              className="flex h-9 w-full rounded-md border-0 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
+              className="flex h-10 w-full rounded-md border-0 bg-transparent py-2 text-sm outline-none placeholder:text-muted-foreground"
               placeholder="Search conversations"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -228,7 +229,7 @@ export function ConversationList({
               <Button
                 size="sm"
                 variant="outline"
-                className="h-9 px-2 flex-shrink-0 gap-1"
+                className="h-10 px-2 flex-shrink-0 gap-1"
               >
                 <Filter className="h-4 w-4" />
                 <span className="text-xs">{activeFilterLabel}</span>
@@ -290,61 +291,65 @@ export function ConversationList({
               const participants = aggregated.participantNames.length
                 ? aggregated.participantNames.join(', ')
                 : 'Participants unavailable';
-              const lastMessageTime = aggregated.latestMessageAt
-                ? new Date(aggregated.latestMessageAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false })
-                : '';
 
               return (
                 <div
                   key={aggregated.conversationId}
                   className={`relative w-full ${isActive ? 'md:bg-muted' : ''}`}
                 >
-                  <button
-                    type="button"
-                    className="w-full p-3 pr-12 text-left hover:bg-muted"
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    className={`w-full p-3 text-left hover:bg-muted cursor-pointer ${isActive ? 'md:bg-muted' : ''}`}
                     onClick={() => onSelect({ kind: 'group', conversationId: aggregated.conversationId })}
+                    onKeyDown={(event) => {
+                      if (event.key === 'Enter' || event.key === ' ') {
+                        event.preventDefault();
+                        onSelect({ kind: 'group', conversationId: aggregated.conversationId });
+                      }
+                    }}
                   >
                     <div className="flex items-center justify-between gap-2">
-                      <div className="truncate text-sm font-medium">{title}</div>
-                      <Badge variant="outline">Group</Badge>
+                      <div className="truncate text-sm font-medium min-w-0">{title}</div>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant="outline">Group</Badge>
+                        <ListTimestamp iso={aggregated.latestMessageAt} />
+                        {aggregated.latestMessage?.id && (
+                          <Button
+                            size="sm"
+                            variant={aggregated.unreadCount > 0 ? 'default' : 'outline'}
+                            className={cn(
+                              'h-6 w-6 p-0 transition-none',
+                              aggregated.unreadCount > 0 && 'bg-red-500 text-white hover:bg-red-600'
+                            )}
+                            title={aggregated.unreadCount > 0 ? 'Mark as read for me' : 'Mark as unread for me'}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              if (aggregated.unreadCount > 0) {
+                                markConversationReadMutation.mutate({
+                                  conversationId: aggregated.conversationId,
+                                  lastMessageId: aggregated.latestMessage!.id,
+                                });
+                              } else {
+                                markUnreadMutation.mutate(aggregated.conversationId);
+                              }
+                            }}
+                          >
+                            <Mail className="h-3 w-3" />
+                          </Button>
+                        )}
+                      </div>
                     </div>
                     <div className="truncate text-xs text-muted-foreground">{participants}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {aggregated.latestMessageAt ? `${formatConversationDate(aggregated.latestMessageAt)} ${lastMessageTime}` : ''}
-                    </div>
-                  </button>
-                  {aggregated.latestMessage?.id && (
-                    <Button
-                      size="sm"
-                      variant={aggregated.unreadCount > 0 ? 'default' : 'outline'}
-                      className={cn(
-                        'absolute right-3 top-3 h-6 w-6 p-0 transition-none',
-                        aggregated.unreadCount > 0 && 'bg-red-500 text-white hover:bg-red-600'
-                      )}
-                      title={aggregated.unreadCount > 0 ? 'Mark as read for me' : 'Mark as unread for me'}
-                      onClick={() => {
-                        if (aggregated.unreadCount > 0) {
-                          markConversationReadMutation.mutate({
-                            conversationId: aggregated.conversationId,
-                            lastMessageId: aggregated.latestMessage!.id,
-                          });
-                        } else {
-                          markUnreadMutation.mutate(aggregated.conversationId);
-                        }
-                      }}
-                    >
-                      <Mail className="h-3 w-3" />
-                    </Button>
-                  )}
+                    <ConversationPreviewText preview={aggregated.latestMessage?.preview ?? null} />
+                  </div>
                 </div>
               );
             }
 
             const title = formatContactName({ contacts: aggregated.contact });
-            const phoneNumber = aggregated.contact?.phone_e164;
             const isActive = activeSelection?.kind === 'contact' && aggregated.contactId === activeSelection.contactId;
             const isUnreadConv = isUnread(aggregated);
-            const lastMessageTime = aggregated.latestMessageAt ? new Date(aggregated.latestMessageAt).toLocaleTimeString('en-AU', { hour: '2-digit', minute: '2-digit', hour12: false }) : '';
 
             const handleToggleRead = (e: React.MouseEvent) => {
               e.stopPropagation();
@@ -375,14 +380,12 @@ export function ConversationList({
                     }
                   }}
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex items-center justify-between mb-1 gap-2">
                     <div className="flex items-center gap-2 flex-1 min-w-0">
                       <div className="text-sm font-medium truncate">{title}</div>
                     </div>
-                    <div className="flex items-center gap-2">
-                      {phoneNumber && (
-                        <div className="text-xs text-muted-foreground shrink-0">{phoneNumber}</div>
-                      )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      <ListTimestamp iso={aggregated.latestMessageAt} />
                       <Button
                         size="sm"
                         variant={isUnreadConv ? 'default' : 'outline'}
@@ -397,9 +400,7 @@ export function ConversationList({
                       </Button>
                     </div>
                   </div>
-                  <div className="text-xs text-muted-foreground">
-                    {aggregated.latestMessageAt ? `${formatConversationDate(aggregated.latestMessageAt)} ${lastMessageTime}` : ''}
-                  </div>
+                  <ConversationPreviewText preview={aggregated.latestMessage?.preview ?? null} />
                 </div>
               </div>
             );
@@ -414,6 +415,43 @@ export function ConversationList({
         ownedNumberId={selectedOwnedNumberId}
       />
     </div>
+  );
+}
+
+function ListTimestamp({ iso }: { iso: string | null }) {
+  if (!iso) return null;
+  const time = new Date(iso).toLocaleTimeString('en-AU', {
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
+  return (
+    <span className="whitespace-nowrap text-xs text-muted-foreground">
+      {formatConversationDate(iso)} {time}
+    </span>
+  );
+}
+
+function ConversationPreviewText({ preview }: { preview: ConversationMessagePreview | null }) {
+  if (!preview) return null;
+  const fromContact = preview.direction === 'INBOUND';
+  return (
+    <p
+      className="line-clamp-2 break-words text-xs leading-4 text-muted-foreground"
+      title={preview.text}
+    >
+      <span
+        className={cn(
+          'mr-1 inline rounded px-1 font-medium',
+          fromContact
+            ? 'bg-sky-100 text-sky-800 dark:bg-sky-950 dark:text-sky-200'
+            : 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-200',
+        )}
+      >
+        {preview.senderName}:
+      </span>
+      {preview.text}
+    </p>
   );
 }
 

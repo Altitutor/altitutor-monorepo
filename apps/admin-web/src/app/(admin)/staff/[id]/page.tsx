@@ -1,6 +1,10 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { StaffPayTierTab } from '@/features/staff/components/modal/tabs/StaffPayTierTab';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
 import { StaffWebsiteProfile } from '@/features/staff/components/StaffWebsiteProfile';
+import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
@@ -23,7 +27,6 @@ import {
   Label,
   Input,
 } from "@altitutor/ui";
-import { SendInviteDialog } from '@/features/staff/components/modal/SendInviteDialog';
 import { useStaffDetails } from '@/features/staff/hooks/useStaffQuery';
 import { useSubjects } from '@/features/subjects';
 import { useQueryClient } from '@tanstack/react-query';
@@ -35,12 +38,11 @@ import { SubjectSearchPopover } from '@/features/subjects/components';
 import { StaffFiles } from '@/features/staff/components/StaffFiles';
 import {
   useStaffEditFlow,
-  useStaffPasswordReset,
   useStaffMutations,
   useStaffModals,
 } from '@/features/staff/hooks';
 import { AdminLoadingSkeleton } from '@/shared/components';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import { invalidateStaffDetail } from '@/shared/lib/query-invalidation';
 
 export default function StaffDetailPage({ params }: { params: { id: string } }) {
@@ -49,22 +51,20 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   const queryClient = useQueryClient();
   const { data: currentStaff } = useCurrentStaff();
   const { openCheckInModal } = useQuickActions();
-  const entityModals = useEntityModals();
-  
+  const entityModals = useEntityNavigation();
+
   // Data fetching
   const { data: staffData, isLoading } = useStaffDetails(id, !!id);
   const { data: allSubjects = [] } = useSubjects();
-  
+
   const staffMember = staffData?.staff || null;
   const staffSubjects = staffData?.subjects || [];
   const staffFullName = staffMember ? `${staffMember.first_name} ${staffMember.last_name}` : '';
-  
+
   // Business logic hooks
   const editFlow = useStaffEditFlow({
     initialSubjects: staffSubjects,
   });
-
-  const passwordReset = useStaffPasswordReset({ staff: staffMember });
 
   const mutations = useStaffMutations({
     staffId: id,
@@ -83,13 +83,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
       setActiveTab('details');
       editFlow.startEdit();
     },
-    onPasswordResetOrRegistration: () => {
-      passwordReset.openPasswordResetOrRegistration();
-      if (staffMember?.user_id) {
-        setActiveTab('details');
-      }
-    },
-    passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookCheckIn: staffMember
       ? () =>
@@ -107,13 +100,13 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   });
 
   // UI state
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'pay-tier', 'website', 'classes', 'activity', 'sessions', 'files'] as const, 'details', 'tab');
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
 
   // Handle details submit
   const handleDetailsSubmit = async (data: StaffDetailsFormData) => {
     if (!staffMember) return;
-    
+
     await mutations.updateDetails(
       data,
       {
@@ -126,7 +119,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
   // Handle delete with navigation
   const handleDelete = async () => {
     if (!staffMember) return;
-    
+
     try {
       await mutations.deleteStaff();
       modals.closeDeleteDialog();
@@ -154,8 +147,8 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
 
   if (!staffMember) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <UIButton
             variant="ghost"
             size="icon"
@@ -170,23 +163,15 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
     );
   }
 
+  const activityLayout = activeTab === 'activity';
+
   return (
-    <div className="p-6">
+    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden' : 'p-4'}>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <UIButton
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/staff')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </UIButton>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {editFlow.isEditing ? 'Edit Staff Member' : 'Staff Member Details'}
-          </h1>
-        </div>
+      <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
+        <PrimaryEntityBreadcrumb />
+        <NoteAlertPills entityType="staff" entityId={staffMember.id} />
+
         <ActionsMenu
           type="staff"
           entityId={staffMember.id}
@@ -199,9 +184,11 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-6"
+        className={activityLayout ? 'mt-3 flex min-h-0 flex-1 flex-col gap-3 px-4' : 'space-y-6'}
+        selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
           { value: 'details', label: 'Details' },
+          { value: 'pay-tier', label: 'Pay tier' },
           { value: 'website', label: 'Website' },
           { value: 'classes', label: 'Classes' },
           { value: 'activity', label: 'Activity' },
@@ -259,6 +246,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           )}
         </SegmentedTabPanelContent>
 
+        <SegmentedTabPanelContent when="pay-tier" activeTab={activeTab} className="space-y-6"><StaffPayTierTab staffId={id} staffFirstName={staffMember.first_name} staffLastName={staffMember.last_name} onOpenSession={entityModals.openSession} /></SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
           <ClassesTab
             staff={staffMember}
@@ -276,13 +264,12 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           <StaffFiles staffId={id} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
-          <div className="h-[calc(100dvh-280px)] min-h-[420px]">
-            <EntityCommunicationPanel
-              entityType="staff"
-              entityId={id}
-            />
-          </div>
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <EntityCommunicationPanel
+            entityType="staff"
+            entityId={id}
+            className="min-h-0 flex-1"
+          />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 
@@ -294,15 +281,6 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
           staffId={currentStaff.id}
           initialStaffId={id}
           allowPastSessions={true}
-        />
-      )}
-
-      {/* Send Invite Dialog */}
-      {staffMember && (
-        <SendInviteDialog
-          isOpen={passwordReset.inviteDialogOpen}
-          onClose={passwordReset.closeInviteDialog}
-          staffMember={staffMember}
         />
       )}
 

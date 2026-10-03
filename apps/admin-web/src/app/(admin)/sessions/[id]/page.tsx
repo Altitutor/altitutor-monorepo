@@ -1,40 +1,45 @@
-'use client';
+"use client";
+import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Button } from '@altitutor/ui';
-import { ArrowLeft } from 'lucide-react';
-import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { useSessionActions } from '@/features/sessions/hooks/useSessionActions';
-import { LogSessionModal } from '@/features/tutor-logs';
-import { useCurrentStaff } from '@/shared/hooks';
-import { getSessionTitle } from '@/features/sessions/utils/session-helpers';
-import { useChatStore } from '@/features/messages/state/chatStore';
-import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { SegmentedTabPanel, SegmentedTabPanelContent } from '@altitutor/ui';
-import { SessionActivityTab } from '@/features/activity/components/tabs/SessionActivityTab';
-import { SessionDetailsTab } from '@/features/sessions/components/SessionDetailsTab';
-import { SendBookingConfirmationDialog } from '@/features/sessions/components/SendBookingConfirmationDialog';
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { Button } from "@altitutor/ui";
+import { ArrowLeft } from "lucide-react";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { useSessionActions } from "@/features/sessions/hooks/useSessionActions";
+import { LogSessionModal } from "@/features/tutor-logs";
+import { useCurrentStaff } from "@/shared/hooks";
+import { getSessionTitle } from "@/features/sessions/utils/session-helpers";
+import { useChatStore } from "@/features/messages/state/chatStore";
+import { ensureConversationForRelated } from "@/features/messages/api/queries";
+import { SegmentedTabPanel, SegmentedTabPanelContent } from "@altitutor/ui";
+import { SessionActivityTab } from "@/features/activity/components/tabs/SessionActivityTab";
+import { SessionDetailsTab } from "@/features/sessions/components/SessionDetailsTab";
+import { SendBookingConfirmationDialog } from "@/features/sessions/components/SendBookingConfirmationDialog";
 import {
   useSessionData,
   useSessionModals,
   useSessionHelpers,
-} from '@/features/sessions/hooks';
+} from "@/features/sessions/hooks";
 import {
   buildStudentAttendanceMap,
   buildStaffAttendanceMap,
   processSessionStudents,
   processSessionStaff,
-} from '@/features/sessions/utils';
-import { AdminLoadingSkeleton } from '@/shared/components';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+} from "@/features/sessions/utils";
+import { AdminLoadingSkeleton } from "@/shared/components";
+import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 
-export default function SessionDetailPage({ params }: { params: { id: string } }) {
+export default function SessionDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const { id } = params;
   const router = useRouter();
-  const openWindow = useChatStore(s => s.openWindow);
+  const openWindow = useChatStore((s) => s.openWindow);
   const { data: currentStaff } = useCurrentStaff();
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   // Business logic hooks
   const sessionData = useSessionData({
@@ -45,7 +50,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const modals = useSessionModals();
 
   // UI state
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useState("details");
 
   // Session helpers
   const helpers = useSessionHelpers({
@@ -93,23 +98,29 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
 
   const handleMessageStudent = async (studentId: string) => {
     try {
-      const conversationId = await ensureConversationForRelated(studentId, 'student');
+      const conversationId = await ensureConversationForRelated(
+        studentId,
+        "student",
+      );
       if (conversationId) {
-        openWindow({ conversationId, title: 'Student' });
+        openWindow({ conversationId, title: "Student" });
       }
     } catch (error) {
-      console.error('Failed to open conversation:', error);
+      console.error("Failed to open conversation:", error);
     }
   };
 
   const handleMessageStaff = async (staffId: string) => {
     try {
-      const conversationId = await ensureConversationForRelated(staffId, 'staff');
+      const conversationId = await ensureConversationForRelated(
+        staffId,
+        "staff",
+      );
       if (conversationId) {
-        openWindow({ conversationId, title: 'Staff' });
+        openWindow({ conversationId, title: "Staff" });
       }
     } catch (error) {
-      console.error('Failed to open conversation:', error);
+      console.error("Failed to open conversation:", error);
     }
   };
 
@@ -119,23 +130,26 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
 
   if (!sessionData.data || !sessionData.data.session) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/sessions')}
+            onClick={() => router.push("/sessions")}
             className="border"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Session Not Found</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Session Not Found
+          </h1>
         </div>
       </div>
     );
   }
 
-  const { session, sessionsStudents, sessionsStaff, tutorLog } = sessionData.data;
+  const { session, sessionsStudents, sessionsStaff, tutorLog } =
+    sessionData.data;
   const sessionTitle = getSessionTitle(session);
 
   // Process attendance data
@@ -143,39 +157,38 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
   const actualStaffAttendance = buildStaffAttendanceMap(tutorLog);
 
   // Process students and staff data
-  const studentsData = processSessionStudents(sessionsStudents, actualStudentAttendance, helpers.hasTutorLog);
+  const studentsData = processSessionStudents(
+    sessionsStudents,
+    actualStudentAttendance,
+    helpers.hasTutorLog,
+  );
   const staffData = processSessionStaff(
     sessionsStaff,
     actualStaffAttendance,
     helpers.hasTutorLog,
-    tutorLog?.created_by ?? undefined
+    tutorLog?.created_by ?? undefined,
   );
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/sessions')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">Session Details</h1>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
+
         <ActionsMenu
           type="session"
           entityId={session.id}
           copyTagDisplayText={sessionTitle || session.id}
           {...sessionActions}
           sessionType={session.type}
-          sessionStudents={studentsData.map((d: { student: { id: string; first_name: string; last_name: string } }) => ({
-            id: d.student.id,
-            name: `${d.student.first_name} ${d.student.last_name}`,
-          }))}
+          sessionStudents={studentsData.map(
+            (d: {
+              student: { id: string; first_name: string; last_name: string };
+            }) => ({
+              id: d.student.id,
+              name: `${d.student.first_name} ${d.student.last_name}`,
+            }),
+          )}
           onSendBookingConfirmation={modals.openBookingConfirmationDialog}
         />
       </div>
@@ -186,11 +199,15 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
         onValueChange={setActiveTab}
         className="space-y-6"
         options={[
-          { value: 'details', label: 'Details' },
-          { value: 'activity', label: 'Activity' },
+          { value: "details", label: "Details" },
+          { value: "activity", label: "Activity" },
         ]}
       >
-        <SegmentedTabPanelContent when="details" activeTab={activeTab} className="space-y-6">
+        <SegmentedTabPanelContent
+          when="details"
+          activeTab={activeTab}
+          className="space-y-6"
+        >
           <SessionDetailsTab
             session={session}
             studentsData={studentsData}
@@ -212,7 +229,11 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
+        <SegmentedTabPanelContent
+          when="activity"
+          activeTab={activeTab}
+          className="space-y-6"
+        >
           <SessionActivityTab sessionId={id} isOpen={true} />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
@@ -230,7 +251,7 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           initialSessionId={id}
           initialStaffId={helpers.getFirstStaffForLogging()}
           initialSessionKind={
-            sessionData.data?.session?.type !== 'CLASS' ? 'meeting' : 'class'
+            sessionData.data?.session?.type !== "CLASS" ? "meeting" : "class"
           }
         />
       )}
@@ -244,7 +265,6 @@ export default function SessionDetailPage({ params }: { params: { id: string } }
           studentId={modals.selectedStudentForBookingConfirmation}
         />
       )}
-
     </div>
   );
 }

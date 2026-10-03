@@ -13,6 +13,7 @@ import { MARKETING_BODY_DESCRIPTION_CLASS } from "@/features/marketing/section-s
 import { ArrowRight } from "lucide-react";
 import { UcatInterestForm } from "./ucat-interest-form";
 import type { UcatInterestKind } from "./ucat-interest-kind";
+import motion from "@/features/marketing/components/magnetic-button.module.css";
 
 import { MARKETING_TYPOGRAPHY as typo } from "@/features/marketing/theme";
 const BOTTOM_SHEET_DISMISS_DRAG_PX = 96;
@@ -82,10 +83,10 @@ export function UcatInterestDialog({
       <DialogTrigger asChild>
         <button
           type="button"
-          className={
+          className={`${motion.magnetic} ${
             triggerClassName ??
-            "inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-primary/90"
-          }
+            "inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white"
+          }`}
         >
           {triggerLabel}
           {hideTriggerIcon ? null : (

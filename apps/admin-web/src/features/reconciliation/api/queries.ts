@@ -97,18 +97,6 @@ export function useStudentsWithoutPaymentMethod() {
 }
 
 /**
- * Get trial students who haven't signed up
- */
-export function useTrialStudentsNotSignedUp() {
-  return useQuery({
-    queryKey: reconciliationKeys.trialStudentsNotSignedUp(),
-    queryFn: () => reconciliationApi.getTrialStudentsNotSignedUp(),
-    staleTime: 1000 * 60 * 2, // 2 minutes
-    gcTime: 1000 * 60 * 5, // 5 minutes
-  });
-}
-
-/**
  * Get unassigned tasks
  */
 export function useUnassignedTasks() {

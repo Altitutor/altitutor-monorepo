@@ -55,7 +55,7 @@ export function TaskProjectField({
             onValueChange={(project) => {
               onProjectChange(project);
               if (project) {
-                form.setValue('issueId', null, { shouldDirty: true });
+                form.setValue('issueId', null, { shouldDirty: true, shouldTouch: true });
               }
             }}
             getItemId={(p) => p.id}

@@ -3,6 +3,7 @@ import {
   contactSourceId,
   defaultCommunicationSources,
   defaultRecipientId,
+  messageConversationSources,
   groupConversationSourceId,
   messageSourceId,
   sourcesAfterRecipientChange,
@@ -41,6 +42,10 @@ describe('entity communication defaults', () => {
         contacts: [historicalStudent, parent, student],
       }),
     ).toBe('student-contact');
+  });
+
+  it('starts a message conversation with only that person selected', () => {
+    expect(messageConversationSources(student.id)).toEqual([contactSourceId(student.id)]);
   });
 
   it('selects the parent when the panel is the parent', () => {

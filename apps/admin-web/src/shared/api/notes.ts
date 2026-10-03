@@ -69,6 +69,19 @@ export const notesApi = {
    */
   updateNote: async (noteId: string, note: JSONContent, revision?: number): Promise<Tables<'notes'>> => mutateWorkItem<Tables<'notes'>>('note', { note }, noteId, revision),
 
+  getAlertNotes: async (entityType: 'student' | 'parent' | 'staff', entityId: string): Promise<Tables<'notes'>[]> => {
+    const supabase = getSupabaseClient();
+    const targetTypes = entityType === 'staff' ? ['staff'] : [entityType, `${entityType}s`];
+    const { data, error } = await supabase.from('notes').select('*')
+      .in('target_type', targetTypes).eq('target_id', entityId).eq('is_alert', true)
+      .order('created_at', { ascending: false });
+    if (error) throw error;
+    return data ?? [];
+  },
+
+  setAlert: async (noteId: string, isAlert: boolean, revision: number): Promise<Tables<'notes'>> =>
+    mutateWorkItem<Tables<'notes'>>('note', { is_alert: isAlert }, noteId, revision),
+
   /**
    * Delete a note
    */

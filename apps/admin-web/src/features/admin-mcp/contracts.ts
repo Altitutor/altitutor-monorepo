@@ -64,6 +64,7 @@ export const operationSchemas = {
   note: z
     .object({
       note: richText,
+      is_alert: z.boolean().optional(),
       target_type: z.enum([
         "student",
         "staff",
@@ -105,7 +106,7 @@ export const workItemTables: Record<WorkItemKind, string> = {
 
 export function changeSchema(kind: WorkItemKind) {
   if (kind === "note")
-    return operationSchemas.note.pick({ note: true }).partial();
+    return operationSchemas.note.pick({ note: true, is_alert: true }).partial();
   if (kind === "daily_note")
     return operationSchemas.daily_note.pick({ content: true }).partial();
   return operationSchemas[kind].partial();

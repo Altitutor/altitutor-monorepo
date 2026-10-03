@@ -14,7 +14,7 @@ import {
   ResponsiveContainer,
 } from 'recharts';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import { ReportSummaryCard } from './ReportSummaryCard';
 import { buildReportSummary } from '../utils/reportSummaries';
 
@@ -94,7 +94,7 @@ function SubsidiesTooltip({
 }
 
 export function FinancialStatsSection({ dateRange, visibleCharts }: FinancialStatsSectionProps) {
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   const { data, isLoading, error } = useBillingStatsReport(dateRange.start, dateRange.end);
 

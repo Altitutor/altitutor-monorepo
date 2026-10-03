@@ -46,6 +46,7 @@ export function useMessageSubscription() {
         queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
         queryClient.invalidateQueries({ queryKey: messagesKeys.messages(row.conversation_id) });
         queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
+        queryClient.invalidateQueries({ queryKey: ['entity-communication', 'messages'] });
 
         let senderName = 'Unknown';
         let contactId: string | null = null;

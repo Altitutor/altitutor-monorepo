@@ -3,7 +3,6 @@ export * from './NoteEditorBottomToolbar';
 export * from './NoteViewer';
 export * from './FolderTree';
 export * from './FolderTreeNode';
-export * from './NoteDetailPage';
 export * from './NotePropertiesPanel';
 export * from './NotePropertyPills';
 export * from './NoteDocumentSidebarPanel';

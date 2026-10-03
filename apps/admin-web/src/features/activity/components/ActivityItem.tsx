@@ -15,20 +15,20 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { ChevronDown, ChevronRight, Edit, MoreVertical, Trash2 } from 'lucide-react';
+import { AlertTriangle, FlagOff, ChevronDown, ChevronRight, Edit, MoreVertical, Trash2 } from 'lucide-react';
 import { NoteContentDisplay } from '@/shared/components/NoteContentDisplay';
 import { isTiptapContentEmpty, toEditorContent } from '@/shared/utils/plainTextToTiptapJson';
 import {
-  useEntityModals,
-  type EntityModalType,
-} from '@/shared/contexts/EntityModalContext';
+  useEntityNavigation,
+  type EntityType,
+} from '@/shared/contexts/EntityNavigation';
 
 const NotesEditorWithMentions = dynamic(
   () => import('@/shared/components/NotesEditorWithMentions').then((module) => module.NotesEditorWithMentions),
   { ssr: false }
 );
 
-const ENTITY_MODAL_TYPES: Partial<Record<ActivityEntityReference['entityType'], EntityModalType>> = {
+const ENTITY_MODAL_TYPES: Partial<Record<ActivityEntityReference['entityType'], EntityType>> = {
   student: 'student',
   parent: 'parent',
   staff: 'staff',
@@ -47,8 +47,10 @@ interface ActivityItemProps {
   className?: string;
   isNested?: boolean;
   onOpenFormResponse?: (responseId: string) => void;
-  onUpdateNote?: (noteId: string, note: JSONContent) => Promise<void>;
+  onUpdateNote?: (noteId: string, note: JSONContent, revision?: number) => Promise<void>;
   onDeleteNote?: (noteId: string) => Promise<void>;
+  onSetNoteAlert?: (noteId: string, isAlert: boolean, revision: number) => Promise<void>;
+  isSettingNoteAlert?: boolean;
   isUpdatingNote?: boolean;
   isDeletingNote?: boolean;
 }
@@ -60,13 +62,16 @@ export function ActivityItem({
   onOpenFormResponse,
   onUpdateNote,
   onDeleteNote,
+  onSetNoteAlert,
+  isSettingNoteAlert = false,
   isUpdatingNote = false,
   isDeletingNote = false,
 }: ActivityItemProps) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [editingNoteContent, setEditingNoteContent] = useState<JSONContent | null>(null);
-  const { openEntity } = useEntityModals();
+  const [editingNoteRevision, setEditingNoteRevision] = useState<number | undefined>();
+  const { openEntity } = useEntityNavigation();
 
   const openLinkedEntity = (entity: ActivityEntityReference) => {
     const modalType = ENTITY_MODAL_TYPES[entity.entityType];
@@ -95,6 +100,7 @@ export function ActivityItem({
 
   const beginEditingNote = () => {
     setEditingNoteContent(toEditorContent(activity.noteContent));
+    setEditingNoteRevision(activity.noteRevision);
     setIsEditingNote(true);
   };
 
@@ -106,7 +112,8 @@ export function ActivityItem({
   const saveNote = async () => {
     if (!activity.entityId || !editingNoteContent || isTiptapContentEmpty(editingNoteContent)) return;
     try {
-      await onUpdateNote?.(activity.entityId, editingNoteContent);
+      if (editingNoteRevision === undefined) await onUpdateNote?.(activity.entityId, editingNoteContent);
+      else await onUpdateNote?.(activity.entityId, editingNoteContent, editingNoteRevision);
       cancelEditingNote();
     } catch {
       // The feed reports the error and keeps the editor open for retrying.
@@ -126,10 +133,11 @@ export function ActivityItem({
     return (
       <>
         <div className={cn('pb-4', className)}>
-          <div className="group rounded-lg border bg-muted/20">
+          <div className={cn('group rounded-lg border bg-muted/20', activity.isNoteAlert && 'border-amber-300 dark:border-amber-700')}>
             <div className="flex items-center gap-2 px-3 py-2">
               <ActivityPerformerAvatar name={activity.performedBy.name} />
               <span className="flex min-w-0 text-sm">{performerName}</span>
+              {activity.isNoteAlert && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 dark:bg-amber-950 dark:text-amber-200"><AlertTriangle className="h-3 w-3" />Alert</span>}
               <span className="ml-auto shrink-0 text-xs text-muted-foreground">
                 {activity.timestamp}
               </span>
@@ -140,7 +148,7 @@ export function ActivityItem({
                       type="button"
                       variant="ghost"
                       size="icon"
-                      className="h-8 w-8 opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
+                      className="h-8 w-8 sm:opacity-0 transition-opacity group-hover:opacity-100 group-focus-within:opacity-100"
                       aria-label="Note actions"
                     >
                       <MoreVertical className="h-4 w-4" />
@@ -151,6 +159,12 @@ export function ActivityItem({
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
+                    {onSetNoteAlert && activity.entityId && activity.noteRevision !== undefined && ['student', 'students', 'parent', 'parents', 'staff'].includes(activity.noteTargetType ?? '') && <DropdownMenuItem
+                      disabled={isSettingNoteAlert}
+                      onClick={() => void onSetNoteAlert(activity.entityId!, !activity.isNoteAlert, activity.noteRevision!)}>
+                      {activity.isNoteAlert ? <FlagOff className="mr-2 h-4 w-4" /> : <AlertTriangle className="mr-2 h-4 w-4" />}
+                      {activity.isNoteAlert ? 'Remove alert flag' : 'Flag as alert'}
+                    </DropdownMenuItem>}
                     <DropdownMenuItem
                       onClick={() => void deleteNote()}
                       disabled={isDeletingNote}
@@ -213,6 +227,8 @@ export function ActivityItem({
                 onOpenFormResponse={onOpenFormResponse}
                 onUpdateNote={onUpdateNote}
                 onDeleteNote={onDeleteNote}
+                onSetNoteAlert={onSetNoteAlert}
+                isSettingNoteAlert={isSettingNoteAlert}
                 isUpdatingNote={isUpdatingNote}
                 isDeletingNote={isDeletingNote}
               />

@@ -3,6 +3,42 @@ import { getSupabaseClient } from "@/shared/lib/supabase/client";
 
 export type EditKind = "task" | "issue" | "project" | "document";
 export type EditRecord = Record<string, Json | undefined>;
+export interface WorkItemSnapshot {
+  record: EditRecord;
+  user_id: string;
+  conflicts: string[];
+}
+
+/** Read saved content only; viewing never acquires an editing lease. */
+export async function readWorkItem(
+  kind: EditKind,
+  id: string,
+): Promise<WorkItemSnapshot> {
+  const next = await editOperation(kind, id, "read");
+  return { record: next.record, user_id: next.user_id, conflicts: [] };
+}
+
+export async function patchWorkItem(
+  kind: EditKind,
+  id: string,
+  changes: EditRecord,
+  expected: EditRecord,
+  key: string,
+): Promise<WorkItemSnapshot> {
+  const { data, error } = await getSupabaseClient().rpc(
+    "admin_work_item_patch",
+    {
+      p_kind: kind,
+      p_id: id,
+      p_changes: changes as Json,
+      p_expected: expected as Json,
+      p_key: key,
+    },
+  );
+  if (error)
+    throw Object.assign(new Error(error.message), { code: error.code });
+  return data as unknown as WorkItemSnapshot;
+}
 export interface EditSession {
   record: EditRecord;
   token: string | null;

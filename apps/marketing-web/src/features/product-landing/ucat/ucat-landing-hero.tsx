@@ -65,7 +65,7 @@ export function UcatLandingHero() {
           </AnalyticsLink>
           <a href="#product" className="w-full sm:w-auto">
             <MagneticButton
-              className={`w-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal hover:bg-white sm:w-auto ${typo.secondarySans}`}
+              className={`w-full border border-marketing-charcoal/15 bg-white/55 px-7 py-3.5 text-base font-medium text-marketing-charcoal sm:w-auto ${typo.secondarySans}`}
             >
               Explore Altitutor UCAT{" "}
               <ArrowDown className="h-4 w-4" aria-hidden />

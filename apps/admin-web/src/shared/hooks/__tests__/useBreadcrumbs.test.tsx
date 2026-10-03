@@ -18,6 +18,7 @@ import type { Tables } from '@altitutor/shared';
 // Mock Next.js navigation
 jest.mock('next/navigation', () => ({
   usePathname: jest.fn(),
+  useSearchParams: () => new URLSearchParams(),
 }));
 
 const mockUsePathname = usePathname as jest.MockedFunction<typeof usePathname>;
@@ -135,7 +136,6 @@ describe('useBreadcrumbs', () => {
     });
 
     expect(result.current).toEqual([
-      { label: 'Dashboard', href: '/dashboard' },
       { label: 'Students', href: '/students' },
     ]);
   });
@@ -148,7 +148,6 @@ describe('useBreadcrumbs', () => {
     });
 
     expect(result.current).toEqual([
-      { label: 'Dashboard', href: '/dashboard' },
       { label: 'Students', href: '/students' },
       { label: 'Staff', href: '/students/staff' },
       { label: 'Classes', href: '/students/staff/classes' },
@@ -163,7 +162,6 @@ describe('useBreadcrumbs', () => {
     });
 
     expect(result.current).toEqual([
-      { label: 'Dashboard', href: '/dashboard' },
       { label: 'Subject Overrides', href: '/subject-overrides' },
     ]);
   });
@@ -298,7 +296,6 @@ describe('useBreadcrumbs', () => {
     });
 
     expect(result.current).toEqual([
-      { label: 'Dashboard', href: '/dashboard' },
       { label: 'Invoices', href: '/invoices' },
       { label: '123e4567...', href: undefined },
     ]);

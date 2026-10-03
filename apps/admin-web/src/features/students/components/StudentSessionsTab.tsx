@@ -10,7 +10,7 @@ import { useUndoAbsences } from '@/features/sessions/hooks/useAbsences';
 import { useRemoveStudentFromSession } from '@/features/sessions/hooks/useSessionsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { sessionsKeys } from '@/features/sessions/hooks/useSessionsQuery';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 type StudentUndoTarget = {
   entityType: 'student';
@@ -44,7 +44,7 @@ export function StudentSessionsTab({ student, onOpenSession }: StudentSessionsTa
   const undoAbsenceMutation = useUndoAbsences();
   const removeStudentMutation = useRemoveStudentFromSession();
   const queryClient = useQueryClient();
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   const handleOpenSession = useCallback((sessionId: string) => {
     if (onOpenSession) {

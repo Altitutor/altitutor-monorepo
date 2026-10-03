@@ -8,7 +8,7 @@ import {
   useMarketingStatsReport,
 } from '../hooks/useAdditionalReports';
 import { IssuesReportChart } from './IssuesReportChart';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 interface SchedulingStatsSectionProps {
   dateRange: ReportsDateRange;
@@ -16,7 +16,7 @@ interface SchedulingStatsSectionProps {
 }
 
 export function SchedulingStatsSection({ dateRange, visibleCharts }: SchedulingStatsSectionProps) {
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   const { data: studentData, isLoading: studentLoading, error: studentError } =
     useStudentStatsReport(dateRange.start, dateRange.end);

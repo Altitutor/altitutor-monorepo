@@ -5,14 +5,15 @@ import { useQueryClient } from '@tanstack/react-query';
 import {
   Button,
   DropdownMenu,
-  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { ArrowUpDown, Check, ChevronDown, Filter, MessageSquare } from 'lucide-react';
+import { ArrowUpDown, Check, ChevronDown, MessageSquare } from 'lucide-react';
+import { cn } from '@/shared/utils';
+import { CommunicationSourceFilter } from './CommunicationSourceFilter';
 import { Composer } from '@/features/messages/components/Composer';
 import {
   MessageThread,
@@ -39,11 +40,11 @@ import {
 import {
   useEntityCommunicationContext,
   useEntityCommunicationMessages,
-  type EntityCommunicationContact,
 } from '../hooks/useEntityCommunication';
 import {
   ACTIVITY_SOURCE_ID,
   communicationActivityAt,
+  communicationContactDetail,
   communicationFilterOptions,
   contactSourceId,
   defaultCommunicationSources,
@@ -59,6 +60,7 @@ interface EntityCommunicationPanelProps {
   entityType: CommunicationEntityType;
   entityId: string;
   enabled?: boolean;
+  className?: string;
 }
 
 function activityQueryKey(entityType: CommunicationEntityType, entityId: string) {
@@ -67,16 +69,11 @@ function activityQueryKey(entityType: CommunicationEntityType, entityId: string)
   return activityKeys.parent(entityId);
 }
 
-function recipientDetail(contact: EntityCommunicationContact, entityType: CommunicationEntityType): string {
-  const handle = contact.phoneE164 || contact.email || contact.kind;
-  if (contact.kind === entityType && !contact.isCurrent) return `${handle} · historical`;
-  return handle;
-}
-
 export function EntityCommunicationPanel({
   entityType,
   entityId,
   enabled = true,
+  className,
 }: EntityCommunicationPanelProps) {
   const queryClient = useQueryClient();
   const [mode, setMode] = useState<ComposeMode>('message');
@@ -108,7 +105,7 @@ export function EntityCommunicationPanel({
   const filterOptions = communicationFilterOptions({
     contacts: contacts.map((person) => ({
       ...person,
-      detail: recipientDetail(person, entityType),
+      detail: communicationContactDetail(person, entityType),
     })),
     groups: conversations
       .filter((conversation) => conversation.is_group_chat)
@@ -130,7 +127,7 @@ export function EntityCommunicationPanel({
       ...contacts.map((person) => ({
         id: person.id,
         label: person.label,
-        detail: recipientDetail(person, entityType),
+        detail: communicationContactDetail(person, entityType),
       })),
       ...conversations
         .filter((conversation) => conversation.is_group_chat)
@@ -220,7 +217,7 @@ export function EntityCommunicationPanel({
   };
 
   return (
-    <div className="flex h-full min-h-0 flex-col overflow-hidden">
+    <div className={cn('flex h-full min-h-0 flex-col overflow-hidden', className)}>
       <div className="flex flex-shrink-0 items-center justify-between gap-2 border-b bg-background px-3 py-2">
         <div className="flex min-w-0 items-center gap-2">
           {recipients.length > 0 ? (
@@ -287,36 +284,20 @@ export function EntityCommunicationPanel({
               </DropdownMenuRadioGroup>
             </DropdownMenuContent>
           </DropdownMenu>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" size="sm" className="h-7 shrink-0">
-                <Filter className="mr-1 h-3 w-3" />
-                <span className="text-xs">Filter</span>
-                <ChevronDown className="ml-1 h-3 w-3" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              {filterOptions.map((option) => (
-                <DropdownMenuCheckboxItem
-                  key={option.id}
-                  checked={sources.includes(option.id)}
-                  onCheckedChange={(checked) =>
-                    setSourceOverride((current) => {
-                      const base = current ?? sources;
-                      return checked
-                        ? base.includes(option.id)
-                          ? base
-                          : [...base, option.id]
-                        : base.filter((item) => item !== option.id);
-                    })
-                  }
-                  onSelect={(event) => event.preventDefault()}
-                >
-                  {option.label}
-                </DropdownMenuCheckboxItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
+          <CommunicationSourceFilter
+            options={filterOptions}
+            sources={sources}
+            onToggle={(optionId, checked) =>
+              setSourceOverride((current) => {
+                const base = current ?? sources;
+                return checked
+                  ? base.includes(optionId)
+                    ? base
+                    : [...base, optionId]
+                  : base.filter((item) => item !== optionId);
+              })
+            }
+          />
         </div>
       </div>
 

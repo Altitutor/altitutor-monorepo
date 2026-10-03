@@ -443,7 +443,7 @@ export function UcatLandingPricing() {
               triggerLabel="Join the waitlist"
               title="Join the online tutoring waitlist"
               description="Leave your contact details and Matt will follow up as plans for one-to-one online UCAT tutoring develop. Joining the waitlist is not a booking or guarantee of availability."
-              triggerClassName="inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white transition hover:bg-marketing-primary/90"
+              triggerClassName="inline-flex items-center justify-center gap-2 rounded-full bg-marketing-primary px-6 py-3.5 text-sm font-semibold text-white"
             />
           </div>
         </div>

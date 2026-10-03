@@ -1,4 +1,5 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
@@ -41,18 +42,18 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   const router = useRouter();
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+
   const { data: classDetails, isLoading } = useClassDetails(id, !!id);
   const { data: allSubjects = [] } = useSubjects();
   const { data: allStudentsData = [] } = useStudents();
   const { data: allStaffData = [] } = useStaff();
   const deleteClassMutation = useDeleteClass();
-  
+
   const classData = classDetails?.class || null;
   const subject = classDetails?.subject || null;
   const classStudents = classDetails?.students || [];
   const classStaff = classDetails?.staff || [];
-  
+
   const [isEditing, setIsEditing] = useState(false);
   const [activeTab, setActiveTab] = useState('details');
   const [isDeleting, setIsDeleting] = useState(false);
@@ -61,7 +62,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
 
   const handleAssignStaff = async (staffId: string) => {
     if (!classData) return;
-    
+
     try {
       await classesApi.assignStaff(classData.id, staffId);
       await invalidateClassSurfaces(queryClient, classData.id);
@@ -81,7 +82,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
 
   const handleRemoveStaff = async (staffId: string) => {
     if (!classData) return;
-    
+
     try {
       await classesApi.unassignStaff(classData.id, staffId);
       await invalidateClassSurfaces(queryClient, classData.id);
@@ -101,12 +102,12 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
 
   const handleDeleteClass = async () => {
     if (!classData) return;
-    
+
     try {
       setIsDeleting(true);
       await deleteClassMutation.mutateAsync(classData.id);
       router.push('/classes');
-      
+
       toast({
         title: 'Class deleted',
         description: 'Class has been deleted successfully.',
@@ -142,8 +143,8 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
 
   if (!classData) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -159,22 +160,12 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4">
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/classes')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {isEditing ? 'Edit Class' : 'Class Details'}
-          </h1>
-        </div>
+      <div className="flex items-center gap-2 mb-3">
+        <PrimaryEntityBreadcrumb />
+
+
         <ActionsMenu
           type="class"
           entityId={classData.id}

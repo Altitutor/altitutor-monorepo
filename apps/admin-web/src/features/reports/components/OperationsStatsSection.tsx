@@ -7,7 +7,7 @@ import {
 } from '../hooks/useIssuesReport';
 import { IssuesReportChart } from './IssuesReportChart';
 import type { ReportsDateRange, ReportsVisibleCharts } from './ReportsDateRangeCard';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 interface OperationsStatsSectionProps {
   dateRange: ReportsDateRange;
@@ -15,7 +15,7 @@ interface OperationsStatsSectionProps {
 }
 
 export function OperationsStatsSection({ dateRange, visibleCharts }: OperationsStatsSectionProps) {
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   const { data: issuesData, isLoading: issuesLoading, error: issuesError } = useIssuesReport(
     dateRange.start,

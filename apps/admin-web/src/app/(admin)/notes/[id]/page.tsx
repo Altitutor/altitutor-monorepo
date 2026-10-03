@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
-
-export default function LegacyNoteDetailRedirect({ params }: { params: { id: string } }) {
-  redirect(`/documents/${params.id}`);
-}
+"use client";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+export default function Page({ params }: { params: { id: string } }) { return <AccessoryRoute href={`/notes/${params.id}`} />; }

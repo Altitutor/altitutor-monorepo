@@ -14,7 +14,7 @@ import { Input, Badge, Button } from '@altitutor/ui';
 import { useDebounce } from '@/shared/hooks/useDebounce';
 import { useGlobalSearch, flattenGlobalSearchResults } from '@/shared/hooks/useGlobalSearch';
 import { getSubjectColorStyle, cn } from '@/shared/utils';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import type { ClassSummary, StaffSummary, StudentSummary } from '@/shared/api/search';
 
 export function GlobalSearch() {
@@ -23,7 +23,7 @@ export function GlobalSearch() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isOpen, setIsOpen] = useState(false);
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
 
   const debouncedSearch = useDebounce(searchQuery, 250);
 

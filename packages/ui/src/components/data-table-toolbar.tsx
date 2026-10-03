@@ -1,6 +1,7 @@
 'use client';
 
 import * as React from 'react';
+import { useMediaQuery } from '../hooks/use-media-query';
 import {
   LayoutGrid,
   ArrowUpDown,
@@ -153,12 +154,14 @@ export function DataTableToolbar({
   hideSearch = false,
   searchLeadingAccessory,
   searchAccessory,
-  compact = false,
+  compact: compactProp = false,
   searchFromInView = false,
   stemSearchFromOptions = [],
   searchFromViewGroups,
   columnViewGroups = [],
 }: DataTableToolbarProps) {
+  const narrow = !useMediaQuery('(min-width: 768px)');
+  const compact = compactProp || narrow;
   const [searchValue, setSearchValue] = React.useState(state.search);
   const debouncedSearch = useDebounce(searchValue, 300);
   const prevStateSearchRef = React.useRef(state.search);

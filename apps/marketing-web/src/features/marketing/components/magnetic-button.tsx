@@ -10,8 +10,9 @@ export function MagneticButton({
   className?: string;
 }) {
   return (
-    <span className={`${styles.magnetic} ${className}`}>
-      <span className={styles.fill} aria-hidden="true" />
+    <span
+      className={`${styles.magnetic} inline-flex items-center justify-center gap-2 rounded-full ${className}`}
+    >
       {children}
     </span>
   );

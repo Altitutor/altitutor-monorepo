@@ -8,7 +8,6 @@ import type {
   UnassignedTask,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
-  TrialStudentNotSignedUp,
   ProjectWithoutLead,
 } from '../types';
 
@@ -21,7 +20,6 @@ interface ReconciliationQueries {
   unassignedTasks: { data?: UnassignedTask[] };
   studentsWithoutClasses: { data?: StudentWithoutClasses[] };
   studentsWithoutPaymentMethod: { data?: StudentWithoutPaymentMethod[] };
-  trialStudentsNotSignedUp: { data?: TrialStudentNotSignedUp[] };
   projectsWithoutLead?: { data?: ProjectWithoutLead[] };
 }
 
@@ -41,7 +39,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
       ...(queries.unloggedSessions.data ?? []),
       ...(queries.unassignedClasses.data ?? []),
       ...(queries.studentsWithoutClasses.data ?? []),
-      ...(queries.trialStudentsNotSignedUp.data ?? []),
     ];
 
     const operationsItems = [
@@ -49,14 +46,9 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
       ...(queries.projectsWithoutLead?.data ?? []),
     ];
 
-    const trialItems = [
-      ...(queries.trialStudentsNotSignedUp.data ?? []),
-    ];
-
     return {
       financialItems,
       schedulingItems,
-      trialItems,
       operationsItems,
       hasAnyItems:
         financialItems.length > 0 ||
@@ -72,7 +64,6 @@ export function useReconciliationItems(queries: ReconciliationQueries) {
     queries.unassignedTasks.data,
     queries.studentsWithoutClasses.data,
     queries.studentsWithoutPaymentMethod.data,
-    queries.trialStudentsNotSignedUp.data,
     queries.projectsWithoutLead?.data,
   ]);
 }

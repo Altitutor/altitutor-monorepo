@@ -20,6 +20,7 @@ import { getSubjectColorStyle } from '@/shared/utils';
 import type { StudentSubsidyRow } from '../api/subsidies';
 import { deleteSubsidy } from '../api/subsidies';
 import { studentSubsidiesKeys } from './StudentBillingTab';
+import { activityKeys } from '@/features/activity/queryKeys';
 import { EditSubsidyModal } from './EditSubsidyModal';
 import { useBillingPricing } from '@/features/billing/hooks/useBillingPricing';
 
@@ -52,6 +53,7 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
         description: 'Subsidy deleted successfully',
       });
       queryClient.invalidateQueries({ queryKey: studentSubsidiesKeys.student(studentId) });
+      void queryClient.invalidateQueries({ queryKey: activityKeys.all });
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
@@ -67,6 +69,7 @@ export function StudentSubsidiesTable({ subsidies, studentId }: StudentSubsidies
   const handleEditSuccess = () => {
     setEditingSubsidy(null);
     queryClient.invalidateQueries({ queryKey: studentSubsidiesKeys.student(studentId) });
+    void queryClient.invalidateQueries({ queryKey: activityKeys.all });
   };
 
   return (

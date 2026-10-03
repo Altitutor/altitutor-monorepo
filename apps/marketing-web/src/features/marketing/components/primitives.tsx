@@ -3,7 +3,6 @@ import Link from "next/link";
 import { ArrowRight, ArrowUpRight, Plus } from "lucide-react";
 import type { ReactNode } from "react";
 import type { ContentBlock, ContentItem } from "../content";
-import motion from "./magnetic-button.module.css";
 import styles from "../marketing.module.css";
 
 export function Copy({
@@ -47,10 +46,9 @@ export function Button({
   children: ReactNode;
   secondary?: boolean;
 }) {
-  const className = `${motion.magnetic} ${styles.button} ${secondary ? styles.secondaryButton : ""}`;
+  const className = `${styles.button} ${secondary ? styles.secondaryButton : ""}`;
   const content = (
     <>
-      <span className={motion.fill} aria-hidden="true" />
       {children}
       <ArrowRight size={17} aria-hidden="true" />
     </>

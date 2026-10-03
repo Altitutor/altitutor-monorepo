@@ -6,7 +6,6 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import type { AggregatedConversation } from '@/features/messages/types';
-import { ensureConversationForRelated } from '@/features/messages/api/queries';
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { FileText, MessageCircle, CreditCard, Plus, Trash2, User } from 'lucide-react';
 import { getErrorMessage } from '@/shared/utils';
@@ -34,7 +33,6 @@ import type {
   UnassignedTask,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
-  TrialStudentNotSignedUp,
   ReconciliationItemType,
   ProjectWithoutLead,
 } from '../types';
@@ -125,7 +123,6 @@ interface ReconciliationActionsProps {
     | UnassignedTask
     | StudentWithoutClasses
     | StudentWithoutPaymentMethod
-    | TrialStudentNotSignedUp
     | ProjectWithoutLead
     | AggregatedConversation;
 }
@@ -137,20 +134,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
   const { toast } = useToast();
-
-  const handleMessageStudent = async (studentId: string) => {
-    setIsLoading(true);
-    try {
-      const conversationId = await ensureConversationForRelated(studentId, 'student');
-      if (conversationId) {
-        openWindow({ conversationId, title: 'Student' });
-      }
-    } catch (error) {
-      console.error('Failed to open conversation:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
 
   // Mutation for invoicing a single session
   const invoiceSessionMutation = useMutation({
@@ -393,15 +376,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         );
       }
 
-      if (type === 'trial_students_not_signed_up') {
-        const current = item as TrialStudentNotSignedUp;
-        return (
-          !!current.first_trial_session_id &&
-          hasTag(issue, (tag) => tag.student_id === current.student_id) &&
-          hasTag(issue, (tag) => tag.session_id === current.first_trial_session_id)
-        );
-      }
-
       if (type === 'projects_without_lead') {
         return false;
       }
@@ -423,26 +397,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
 
     if (error) throw error;
     return Array.from(new Set((data ?? []).map((row) => row.parent_id)));
-  };
-
-  const getFirstTrialSessionIdForStudent = async (studentId: string): Promise<string | null> => {
-    const supabase = getSupabaseClient();
-    const { data, error } = await supabase
-      .from('sessions_students')
-      .select('session_id, sessions!inner(type, start_at)')
-      .eq('student_id', studentId);
-
-    if (error) throw error;
-
-    const trialRows = (data ?? [])
-      .filter((row) => (row.sessions as { type: string } | null)?.type === 'TRIAL_SESSION')
-      .sort((a, b) => {
-        const aTime = new Date((a.sessions as { start_at: string } | null)?.start_at ?? 0).getTime();
-        const bTime = new Date((b.sessions as { start_at: string } | null)?.start_at ?? 0).getTime();
-        return aTime - bTime;
-      });
-
-    return trialRows[0]?.session_id ?? null;
   };
 
   const getIssueTagsForItem = async (): Promise<IssueTagDraft[]> => {
@@ -496,17 +450,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
       return dedupeTags([
         { student_id: current.student_id },
         { subject_id: current.subject_id },
-      ]);
-    }
-
-    if (type === 'trial_students_not_signed_up') {
-      const current = item as TrialStudentNotSignedUp;
-      const parentIds = await getParentIdsForStudent(current.student_id);
-      const sessionId = current.first_trial_session_id || await getFirstTrialSessionIdForStudent(current.student_id);
-      return dedupeTags([
-        { student_id: current.student_id },
-        ...parentIds.map((parentId) => ({ parent_id: parentId })),
-        ...(sessionId ? [{ session_id: sessionId }] : []),
       ]);
     }
 
@@ -787,22 +730,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         >
           <Plus className="h-4 w-4 mr-1" />
           Add Class
-        </Button>
-        {issueButton}
-      </div>
-    );
-  } else if (type === 'trial_students_not_signed_up') {
-    const student = item as TrialStudentNotSignedUp;
-    content = (
-      <div className="flex flex-nowrap gap-2 items-center">
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => handleMessageStudent(student.student_id)}
-          disabled={isLoading}
-        >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          Message
         </Button>
         {issueButton}
       </div>

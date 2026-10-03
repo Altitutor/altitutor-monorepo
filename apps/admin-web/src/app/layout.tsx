@@ -1,3 +1,4 @@
+import { AccessoryPanelProvider } from '@/shared/contexts/AccessoryPanelContext';
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './styles/globals.css'
@@ -11,7 +12,7 @@ import { CommandPaletteProvider } from '@/shared/contexts/CommandPaletteContext'
 import { ToastProviderWrapper } from '@/shared/components/toast-provider-wrapper'
 import { MainContentWrapper } from '@/shared/components/layouts/MainContentWrapper'
 import { QuickActionsProvider } from '@/shared/contexts/QuickActionsContext'
-import { EntityModalProvider } from '@/shared/contexts/EntityModalContext'
+import { EntityNavigationEvents } from '@/shared/contexts/EntityNavigation'
 import { HapticFeedbackProvider } from '@/shared/components/HapticFeedbackProvider'
 import { AdminShellProvider } from '@/shared/contexts/AdminShellContext'
 
@@ -52,13 +53,15 @@ export default function RootLayout({
                     <CommandPaletteProvider>
                       <QuickActionsProvider>
                         <AdminShellProvider>
-                          <EntityModalProvider>
-                            <div className="flex flex-col min-h-dvh bg-background">
-                              <MainContentWrapper>
-                                {children}
-                              </MainContentWrapper>
-                            </div>
-                          </EntityModalProvider>
+                          <AccessoryPanelProvider>
+                            <EntityNavigationEvents>
+                              <div className="flex flex-col min-h-dvh bg-background">
+                                <MainContentWrapper>
+                                  {children}
+                                </MainContentWrapper>
+                              </div>
+                            </EntityNavigationEvents>
+                          </AccessoryPanelProvider>
                         </AdminShellProvider>
                       </QuickActionsProvider>
                     </CommandPaletteProvider>

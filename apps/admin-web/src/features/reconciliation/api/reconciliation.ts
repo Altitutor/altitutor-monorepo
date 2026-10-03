@@ -10,7 +10,6 @@ import type {
   UnpaidInvoice,
   StudentWithoutClasses,
   StudentWithoutPaymentMethod,
-  TrialStudentNotSignedUp,
   UnassignedTask,
   VoidInvoiceSession,
   ProjectWithoutLead,
@@ -552,98 +551,6 @@ export const reconciliationApi = {
     return (data ?? []) as StudentWithoutPaymentMethod[];
   },
 
-  /**
-   * Get trial students who have at least one trial session in the past
-   */
-  getTrialStudentsNotSignedUp: async (): Promise<TrialStudentNotSignedUp[]> => {
-    const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-    // First, find all TRIAL_SESSION sessions that are in the past
-    const now = new Date().toISOString();
-    const { data: pastTrialSessions, error: sessionsError } = await supabase
-      .from('sessions')
-      .select('id, start_at')
-      .eq('type', 'TRIAL_SESSION')
-      .lt('start_at', now)
-      .order('start_at', { ascending: true });
-
-    if (sessionsError) throw sessionsError;
-
-    // If no past trial sessions found, return empty array
-    if (!pastTrialSessions || pastTrialSessions.length === 0) {
-      return [];
-    }
-
-    // Get student IDs who attended these past trial sessions, with session dates
-    const sessionIds = pastTrialSessions.map((s) => s.id);
-    const { data: sessionsStudentsData, error: sessionsStudentsError } = await supabase
-      .from('sessions_students')
-      .select('student_id, session_id, sessions!inner(start_at)')
-      .in('session_id', sessionIds);
-
-    if (sessionsStudentsError) throw sessionsStudentsError;
-
-    // Build a map of student_id -> first trial session date + session id
-    const studentFirstTrialSessionMap = new Map<string, { date: string; sessionId: string }>();
-    if (sessionsStudentsData) {
-      sessionsStudentsData.forEach((item) => {
-        const session = item.sessions as { start_at: string } | null;
-        if (session?.start_at) {
-          const studentId = item.student_id;
-          const existing = studentFirstTrialSessionMap.get(studentId);
-          if (!existing || new Date(session.start_at) < new Date(existing.date)) {
-            studentFirstTrialSessionMap.set(studentId, {
-              date: session.start_at,
-              sessionId: item.session_id,
-            });
-          }
-        }
-      });
-    }
-
-    // Get unique student IDs
-    const studentIdsWithPastTrialSessions = Array.from(studentFirstTrialSessionMap.keys());
-
-    // If no students found, return empty array
-    if (studentIdsWithPastTrialSessions.length === 0) {
-      return [];
-    }
-
-    // Now query trial students who have past trial sessions
-    // Note: Removed user_id IS NULL filter per user request - now includes all trial students with past sessions
-    const { data, error } = await supabase
-      .from('students')
-      .select('id, first_name, last_name, email, phone, status, user_id, created_at, updated_at')
-      .eq('status', 'TRIAL')
-      .in('id', studentIdsWithPastTrialSessions);
-
-    if (error) throw error;
-
-    // Map students with their first trial session date and sort by date ascending
-    const result = (data ?? []).map((student) => ({
-      student_id: student.id,
-      first_name: student.first_name,
-      last_name: student.last_name,
-      email: student.email,
-      phone: student.phone,
-      student_status: student.status,
-      user_id: student.user_id,
-      first_trial_session_date: studentFirstTrialSessionMap.get(student.id)?.date ?? null,
-      first_trial_session_id: studentFirstTrialSessionMap.get(student.id)?.sessionId ?? null,
-      created_at: student.created_at ?? '',
-      updated_at: student.updated_at ?? '',
-    })) as TrialStudentNotSignedUp[];
-
-    // Sort by first trial session date ascending
-    result.sort((a, b) => {
-      const dateA = a.first_trial_session_date ? new Date(a.first_trial_session_date).getTime() : 0;
-      const dateB = b.first_trial_session_date ? new Date(b.first_trial_session_date).getTime() : 0;
-      return dateA - dateB;
-    });
-
-    return result;
-  },
-
   getVoidInvoiceSessions: async (): Promise<VoidInvoiceSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data, error } = await (supabase as unknown as SupabaseWithViews)
@@ -715,7 +622,6 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     unloggedCount,
     unassignedClassesCount,
     studentsWithoutClassesCount,
-    trialCount,
     conversationsByContact,
     unassignedTasksCount,
     projectsNoLeadCount,
@@ -728,7 +634,6 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     countReconciliationViewRows('vadmin_reconciliation_unlogged_sessions'),
     countReconciliationViewRows('vadmin_reconciliation_unassigned_classes'),
     reconciliationApi.getStudentsWithoutClasses().then((r) => r.length),
-    reconciliationApi.getTrialStudentsNotSignedUp().then((r) => r.length),
     fetchConversationsByContact(),
     countUnassignedTasksExact(),
     countProjectsWithoutLeadExact(),
@@ -742,7 +647,7 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
 
   return {
     financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount + sessionBillingAdjustmentsCount,
-    scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount + trialCount,
+    scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount,
     communication: unreadContacts + followUpContacts,
     operations: unassignedTasksCount + projectsNoLeadCount,
   };

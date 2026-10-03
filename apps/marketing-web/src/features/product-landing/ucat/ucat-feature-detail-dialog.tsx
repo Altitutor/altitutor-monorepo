@@ -76,7 +76,7 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
       <DialogTrigger asChild>
         <button type="button" className="inline-flex">
           <MagneticButton
-            className={`border border-marketing-charcoal/12 bg-white px-4 py-2 text-sm font-semibold text-marketing-charcoal shadow-sm hover:border-marketing-charcoal/20 hover:bg-marketing-cream ${typo.secondarySans}`}
+            className={`border border-marketing-charcoal/12 bg-white px-4 py-2 text-sm font-semibold text-marketing-charcoal shadow-sm hover:border-marketing-charcoal/20 ${typo.secondarySans}`}
           >
             Learn more <ArrowRight className="size-4" aria-hidden />
           </MagneticButton>

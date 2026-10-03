@@ -1,5 +1,3 @@
-import { redirect } from 'next/navigation';
-
-export default function LegacyNotesIndexRedirect() {
-  redirect('/documents');
-}
+"use client";
+import { AccessoryRoute } from "@/shared/components/accessory-panel/AccessoryRoute";
+export default function Page() { return <AccessoryRoute href="/notes" />; }

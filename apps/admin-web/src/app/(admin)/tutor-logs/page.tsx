@@ -7,10 +7,10 @@ import { LogSessionModal } from '@/features/tutor-logs';
 import { QuickBooksExportModal } from '@/features/tutor-logs/components/QuickBooksExportModal';
 import { Plus, Download } from 'lucide-react';
 import { useCurrentStaff } from '@/shared/hooks';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 
 export default function TutorLogsPage() {
-  const entityModals = useEntityModals();
+  const entityModals = useEntityNavigation();
   const [tutorLogModalOpen, setTutorLogModalOpen] = useState(false);
   const [exportModalOpen, setExportModalOpen] = useState(false);
 

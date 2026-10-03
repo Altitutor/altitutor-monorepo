@@ -105,6 +105,7 @@ export function BookMeetingMenu({
       </DropdownMenuSub>
     ) : (
       <DropdownMenuItem key={option.kind} onSelect={() => run(option.kind)}>
+        <Calendar className="mr-2 h-4 w-4" />
         {option.label}
       </DropdownMenuItem>
     )

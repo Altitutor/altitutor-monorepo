@@ -1,5 +1,9 @@
 'use client';
+import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+import { StudentOnlineTab } from '@/features/students/components/StudentOnlineTab';
+import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
 
+import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { useState } from 'react';
 import { useCanonicalStudentId } from '@/features/student-merges/useCanonicalStudentId';
 import { useRouter } from 'next/navigation';
@@ -21,7 +25,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@altitutor/ui";
-import { SendStudentInviteDialog } from '@/features/students/components/SendStudentInviteDialog';
 import { useStudentDetails } from '@/features/students/hooks/useStudentsQuery';
 import { useQueryClient } from '@tanstack/react-query';
 import { 
@@ -36,7 +39,6 @@ import { ParentSearchPopover } from '@/features/students/components/ParentSearch
 import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
   useStudentEditFlow,
-  useStudentPasswordReset,
   useStudentMutations,
   useStudentModals,
   useAllParents,
@@ -53,7 +55,7 @@ import { DiscontinueStudentConfirmDialog } from '@/features/students/components/
 import { ReEnrollStudentConfirmDialog } from '@/features/students/components/ReEnrollStudentConfirmDialog';
 import { studentsApi } from '@/features/students/api';
 import { AdminLoadingSkeleton } from '@/shared/components';
-import { useEntityModals } from '@/shared/contexts/EntityModalContext';
+import { useEntityNavigation } from '@/shared/contexts/EntityNavigation';
 import {
   invalidateStudentClassSurfaces,
   invalidateStudentDetail,
@@ -66,8 +68,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const { data: currentStaff } = useCurrentStaff();
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
-  const entityModals = useEntityModals();
-  
+  const entityModals = useEntityNavigation();
+
   // Data fetching
   const { data: studentDetails, isLoading: loadingStudent } = useStudentDetails(id, !!id);
   const student = studentDetails?.student || null;
@@ -79,8 +81,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     initialSubjects: studentSubjects,
     initialParents: parents,
   });
-
-  const passwordReset = useStudentPasswordReset({ student });
 
   const mutations = useStudentMutations({
     studentId: id,
@@ -101,7 +101,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   const { data: studentClasses = [] } = useStudentClasses(id);
 
   // UI state
-  const [activeTab, setActiveTab] = useState('details');
+  const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'online', 'classes', 'activity', 'sessions', 'files', 'billing'] as const, 'details', 'tab');
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
   const [isDiscontinuationLinkOpen, setIsDiscontinuationLinkOpen] = useState(false);
@@ -112,7 +112,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   // Handle details submit
   const handleDetailsSubmit = async (data: DetailsFormData) => {
     if (!student) return;
-    
+
     await mutations.updateDetails(
       data,
       {
@@ -129,7 +129,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
   // Handle student deletion
   const handleDeleteStudent = async () => {
     if (!student) return;
-    
+
     try {
       await mutations.deleteStudent();
       modals.closeDeleteDialog();
@@ -191,13 +191,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       setActiveTab('details');
       editFlow.startEdit();
     },
-    onPasswordResetOrRegistration: () => {
-      passwordReset.openPasswordResetOrRegistration();
-      if (student?.user_id) {
-        setActiveTab('details');
-      }
-    },
-    passwordResetLabel: passwordReset.passwordResetLabel,
     onLogAbsence: modals.openLogAbsence,
     onBookTrialSession: modals.openBookTrialSession,
     onBookDraftingSession: modals.openBookDraftingSession,
@@ -226,8 +219,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   if (!student) {
     return (
-      <div className="p-6">
-        <div className="flex items-center gap-4 mb-6">
+      <div className="p-4">
+        <div className="flex items-center gap-2 mb-3">
           <Button
             variant="ghost"
             size="icon"
@@ -242,23 +235,15 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
     );
   }
 
+  const activityLayout = activeTab === 'activity';
+
   return (
-    <div className="p-6">
+    <div className={activityLayout ? 'flex h-full min-h-0 flex-col overflow-hidden' : 'p-4'}>
       {/* Header */}
-      <div className="flex items-center gap-4 mb-6">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => router.push('/students')}
-          className="border"
-        >
-          <ArrowLeft className="h-4 w-4" />
-        </Button>
-        <div className="flex-1">
-          <h1 className="text-3xl font-bold tracking-tight">
-            {editFlow.isEditing ? 'Edit Student' : 'Student Details'}
-          </h1>
-        </div>
+      <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
+        <PrimaryEntityBreadcrumb />
+        <NoteAlertPills entityType="student" entityId={student.id} />
+
         <ActionsMenu
           type="student"
           entityId={student.id}
@@ -271,9 +256,11 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       <SegmentedTabPanel
         value={activeTab}
         onValueChange={setActiveTab}
-        className="space-y-6"
+        className={activityLayout ? 'mt-3 flex min-h-0 flex-1 flex-col gap-3 px-4' : 'space-y-6'}
+        selectorClassName={activityLayout ? 'px-0' : undefined}
         options={[
           { value: 'details', label: 'Details' },
+          ...((studentDetails?.onlineRelationships?.length ?? 0) > 0 ? [{ value: 'online' as const, label: 'Online' }] : []),
           { value: 'classes', label: 'Classes' },
           { value: 'activity', label: 'Activity' },
           { value: 'sessions', label: 'Sessions' },
@@ -332,6 +319,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           )}
         </SegmentedTabPanelContent>
 
+        <SegmentedTabPanelContent when="online" activeTab={activeTab} className="space-y-6"><StudentOnlineTab student={student} /></SegmentedTabPanelContent>
         <SegmentedTabPanelContent when="classes" activeTab={activeTab} className="space-y-6">
           <ClassesTab
             student={student}
@@ -351,13 +339,12 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           <StudentBillingTab student={student} />
         </SegmentedTabPanelContent>
 
-        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="space-y-6">
-          <div className="h-[calc(100dvh-280px)] min-h-[420px]">
-            <EntityCommunicationPanel
-              entityType="student"
-              entityId={id}
-            />
-          </div>
+        <SegmentedTabPanelContent when="activity" activeTab={activeTab} className="-mx-4 flex min-h-0 flex-1 flex-col overflow-hidden">
+          <EntityCommunicationPanel
+            entityType="student"
+            entityId={id}
+            className="min-h-0 flex-1"
+          />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
 
@@ -406,16 +393,6 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           handleStudentUpdated();
         }}
       />
-
-      {/* Send Invite Dialog */}
-      {student && (
-        <SendStudentInviteDialog
-          isOpen={passwordReset.inviteDialogOpen}
-          onClose={passwordReset.closeInviteDialog}
-          student={student}
-          linkType={passwordReset.inviteDialogType}
-        />
-      )}
 
       {/* Delete Confirmation Dialog */}
       {student && (
