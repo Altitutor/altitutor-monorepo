@@ -17,7 +17,7 @@ export interface UseSessionModalDataProps {
 
 export interface ProcessedStudent {
   student: Tables<'students'>;
-  plannedStatus: 'attending' | 'attending-extra' | 'absent';
+  plannedStatus: 'attending' | 'attending-extra' | 'absent' | 'rescheduled';
   actualStatus: 'not-logged' | 'attended' | 'did-not-attend';
 }
 
@@ -394,7 +394,9 @@ export function useSessionModalData({ isOpen, sessionId }: UseSessionModalDataPr
   const studentsData = useMemo(() => {
     return sessionsStudents.map((ss) => {
       const plannedStatus: ProcessedStudent['plannedStatus'] = ss.planned_absence
-        ? 'absent'
+        ? ss.is_rescheduled
+          ? 'rescheduled'
+          : 'absent'
         : ss.is_extra
           ? 'attending-extra'
           : 'attending';

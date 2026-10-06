@@ -1,4 +1,5 @@
-import type { SupabaseClient } from '@supabase/supabase-js';
+import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
+import type { Database } from '../../../packages/shared/src/supabase/generated.ts';
 
 // ============================================================================
 // TYPES
@@ -32,7 +33,7 @@ type NotificationRecipient = { staff_id?: string; student_id?: string };
  * Resolver function type for notification recipients
  */
 type NotificationRecipientResolver = (
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ) => Promise<NotificationRecipient[]>;
 
@@ -40,7 +41,7 @@ type NotificationRecipientResolver = (
  * Resolve all students enrolled in a class
  */
 async function resolveClassStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.class_id) {
@@ -62,7 +63,7 @@ async function resolveClassStudents(
  * Resolve all staff assigned to a class
  */
 async function resolveClassStaff(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.class_id) {
@@ -84,7 +85,7 @@ async function resolveClassStaff(
  * Resolve all students and staff in a class
  */
 async function resolveClassAll(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.class_id) {
@@ -108,7 +109,7 @@ async function resolveClassAll(
  * Resolve all students enrolled in a session
  */
 async function resolveSessionStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
@@ -129,7 +130,7 @@ async function resolveSessionStudents(
  * Resolve all staff assigned to a session
  */
 async function resolveSessionStaff(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
@@ -146,11 +147,39 @@ async function resolveSessionStaff(
   return sessionStaff.map((ss: { staff_id: string }) => ({ staff_id: ss.staff_id }));
 }
 
+/** Notify session staff and the original booking creator, including on cancellation. */
+async function resolveSessionStaffAndBookingCreator(
+  supabase: SupabaseClient<Database>,
+  activityEvent: ActivityEvent
+): Promise<NotificationRecipient[]> {
+  if (!activityEvent.session_id) {
+    throw new Error('session_id required for session_staff_and_booking_creator recipient type');
+  }
+
+  const [assignments, booking] = await Promise.all([
+    supabase.from('sessions_staff').select('staff_id')
+      .eq('session_id', activityEvent.session_id),
+    supabase.from('domain_events').select('actor_staff_id')
+      .eq('event_name', 'session.created')
+      .eq('subject_type', 'session')
+      .eq('subject_id', activityEvent.session_id)
+      .order('recorded_at', { ascending: true }).limit(1).maybeSingle(),
+  ]);
+  if (assignments.error) throw assignments.error;
+  if (booking.error) throw booking.error;
+
+  const staffIds = new Set<string>(
+    (assignments.data ?? []).map((assignment: { staff_id: string }) => assignment.staff_id)
+  );
+  if (booking.data?.actor_staff_id) staffIds.add(booking.data.actor_staff_id);
+  return [...staffIds].map((staff_id) => ({ staff_id }));
+}
+
 /**
  * Resolve all students and staff in a session
  */
 async function resolveSessionAll(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.session_id) {
@@ -174,7 +203,7 @@ async function resolveSessionAll(
  * Resolve all admin staff (staff with role = 'ADMINSTAFF' and status = 'ACTIVE')
  */
 async function resolveAllAdminStaff(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   _activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   const { data: staff, error } = await supabase
@@ -196,7 +225,7 @@ async function resolveAllAdminStaff(
  * Resolve all staff (all active staff members regardless of role)
  */
 async function resolveAllStaff(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   _activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   const { data: staff, error } = await supabase
@@ -217,7 +246,7 @@ async function resolveAllStaff(
  * Resolve active students who have completed a UCAT signup/onboarding path.
  */
 async function resolveAllUcatStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   _activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   const recipients: NotificationRecipient[] = [];
@@ -246,7 +275,7 @@ async function resolveAllUcatStudents(
  * Determines the day from class_id (classes.day_of_week) or session_id (sessions.start_at)
  */
 async function resolveAdminStaffOnDay(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   let dayOfWeek: number | null = null;
@@ -362,7 +391,7 @@ async function resolveAdminStaffOnDay(
  * Uses entity_id (tutor_log_id) from activity event
  */
 async function resolveTutorLogStaff(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   if (!activityEvent.entity_id) {
@@ -383,7 +412,7 @@ async function resolveTutorLogStaff(
  * Resolve single recipient - handled by caller, returns empty array
  */
 async function resolveSingle(
-  _supabase: SupabaseClient<unknown>,
+  _supabase: SupabaseClient<Database>,
   _activityEvent: ActivityEvent
 ): Promise<NotificationRecipient[]> {
   // Single recipient is handled by the caller (backward compatibility)
@@ -405,6 +434,7 @@ const notificationRecipientResolvers: Record<string, NotificationRecipientResolv
   'class_all': resolveClassAll,
   'session_students': resolveSessionStudents,
   'session_staff': resolveSessionStaff,
+  'session_staff_and_booking_creator': resolveSessionStaffAndBookingCreator,
   'session_all': resolveSessionAll,
   'all_admin_staff': resolveAllAdminStaff,
   'all_staff': resolveAllStaff,
@@ -418,7 +448,7 @@ const notificationRecipientResolvers: Record<string, NotificationRecipientResolv
  * Uses the registry pattern for easy extensibility
  */
 export async function resolveNotificationRecipients(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   recipientType: string,
   activityEvent: ActivityEvent
 ): Promise<Array<{ staff_id?: string; student_id?: string }>> {
@@ -441,7 +471,7 @@ export interface MessageRecipientTarget {
 }
 
 type MessageRecipientResolver = (
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ) => Promise<MessageRecipientTarget[]>;
 
@@ -452,7 +482,7 @@ function dedupeTargets(targets: MessageRecipientTarget[]): MessageRecipientTarge
 }
 
 async function getTargetsForStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   studentIds: string[],
   includeParents: boolean
 ): Promise<MessageRecipientTarget[]> {
@@ -503,7 +533,7 @@ async function getTargetsForStudents(
 }
 
 async function resolveMessageClassStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.class_id) {
@@ -523,7 +553,7 @@ async function resolveMessageClassStudents(
 }
 
 async function resolveMessageClassStudentsAndParents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.class_id) {
@@ -543,7 +573,7 @@ async function resolveMessageClassStudentsAndParents(
 }
 
 async function resolveMessageSessionStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.session_id) {
@@ -562,7 +592,7 @@ async function resolveMessageSessionStudents(
 }
 
 async function resolveMessageSessionStudentsAndParents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.session_id) {
@@ -616,7 +646,7 @@ async function resolveMessageSessionStudentsAndParents(
 }
 
 async function resolveMessageStudentAndParents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.student_id) {
@@ -627,7 +657,7 @@ async function resolveMessageStudentAndParents(
 }
 
 async function resolveMessageTutorLogStudents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id) {
@@ -646,7 +676,7 @@ async function resolveMessageTutorLogStudents(
 }
 
 async function resolveMessageTutorLogStudentsAndParents(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id) {
@@ -665,7 +695,7 @@ async function resolveMessageTutorLogStudentsAndParents(
 }
 
 async function resolveMessageTutorLogAttendees(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   if (!activityEvent.entity_id || !activityEvent.session_id) {
@@ -725,7 +755,7 @@ async function resolveMessageTutorLogAttendees(
 }
 
 async function resolveMessageSingle(
-  _supabase: SupabaseClient<unknown>,
+  _supabase: SupabaseClient<Database>,
   _activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {
   return [];
@@ -756,7 +786,7 @@ const messageRecipientResolvers: Record<string, MessageRecipientResolver> = {
  * Uses the registry pattern for easy extensibility
  */
 export async function resolveMessageRecipients(
-  supabase: SupabaseClient<unknown>,
+  supabase: SupabaseClient<Database>,
   recipientType: string,
   activityEvent: ActivityEvent
 ): Promise<MessageRecipientTarget[]> {

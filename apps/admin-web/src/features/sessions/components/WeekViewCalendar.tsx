@@ -87,7 +87,7 @@ export function WeekViewCalendar({
     const diff = weekStart.getDate() - dayOfWeek + (dayOfWeek === 0 ? -6 : 1);
     weekStart.setDate(diff);
     weekStart.setHours(0, 0, 0, 0);
-    return weekStart >= minDate;
+    return weekStart > minDate;
   }, [currentWeekStart, minDate]);
 
   const handlePreviousWeek = () => {
@@ -141,6 +141,7 @@ export function WeekViewCalendar({
           variant="ghost"
           size="sm"
           onClick={handlePreviousWeek}
+          aria-label="Previous week"
           disabled={!canGoPrevious}
           className="p-2"
         >
@@ -155,6 +156,7 @@ export function WeekViewCalendar({
           variant="ghost"
           size="sm"
           onClick={handleNextWeek}
+          aria-label="Next week"
           className="p-2"
         >
           <ChevronRight className="h-4 w-4" />
@@ -197,7 +199,16 @@ export function WeekViewCalendar({
                     return (
                       <div
                         key={session.id}
+                        role="button"
+                        tabIndex={0}
+                        aria-pressed={isSelected}
                         onClick={() => onToggleSession(session.id)}
+                        onKeyDown={(event) => {
+                          if (event.key === 'Enter' || event.key === ' ') {
+                            event.preventDefault();
+                            onToggleSession(session.id);
+                          }
+                        }}
                         className={isSelected ? 'ring-2 ring-primary rounded-lg' : ''}
                       >
                         <SessionsCard
@@ -232,4 +243,3 @@ export function WeekViewCalendar({
     </div>
   );
 }
-

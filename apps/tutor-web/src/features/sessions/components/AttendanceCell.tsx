@@ -45,8 +45,8 @@ export function AttendanceCell({ status, linkTo, linkText, staffType, sessionTyp
         };
       case 'credited':
         return {
-          text: 'Credited',
-          className: 'bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400',
+          text: 'Absent',
+          className: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
         };
       case 'swapped':
         return {

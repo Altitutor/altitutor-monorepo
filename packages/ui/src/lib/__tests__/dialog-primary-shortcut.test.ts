@@ -129,3 +129,29 @@ describe('tryActivateDialogPrimaryAction', () => {
     expect(lowerClick).not.toHaveBeenCalled();
   });
 });
+
+
+describe('pane dialog shortcuts', () => {
+  afterEach(() => { document.body.innerHTML = ''; });
+
+  it('leaves Cmd+Enter in the accessory pane alone', () => {
+    const main = document.createElement('div');
+    main.setAttribute('data-dialog-scope', '');
+    document.body.appendChild(main);
+    const save = button('Save', { primary: true });
+    const root = dialogWithFooter([save]);
+    main.appendChild(root);
+    const sidebar = document.createElement('input');
+    document.body.appendChild(sidebar);
+    const onSave = jest.fn();
+    save.addEventListener('click', onSave);
+    const outside = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true });
+    sidebar.dispatchEvent(outside);
+    expect(tryActivateDialogPrimaryAction(root, outside)).toBe(false);
+    expect(onSave).not.toHaveBeenCalled();
+    const inside = new KeyboardEvent('keydown', { key: 'Enter', metaKey: true });
+    save.dispatchEvent(inside);
+    expect(tryActivateDialogPrimaryAction(root, inside)).toBe(true);
+    expect(onSave).toHaveBeenCalledTimes(1);
+  });
+});

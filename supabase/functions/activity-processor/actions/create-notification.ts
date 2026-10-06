@@ -19,7 +19,7 @@ export async function executeCreateNotification(
     student_id?: string;
     recipients?: {
       type: 'class_students' | 'class_staff' | 'class_all' | 
-            'session_students' | 'session_staff' | 'session_all' | 
+            'session_students' | 'session_staff' | 'session_staff_and_booking_creator' | 'session_all' |
             'single' | 'all_admin_staff' | 'all_staff' | 'all_ucat_students' | 'admin_staff_on_day';
     };
     variables?: Record<string, unknown>;

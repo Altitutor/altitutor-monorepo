@@ -7,6 +7,9 @@ import {
   groupConversationSourceId,
   messageSourceId,
   sourcesAfterRecipientChange,
+  communicationFilterOptions,
+  childActivitySourceId,
+  hasActivitySource,
 } from '../entityCommunication';
 
 const student = {
@@ -29,6 +32,16 @@ const parent = {
 };
 
 describe('entity communication defaults', () => {
+  it('offers each child independently even without a message contact', () => {
+    expect(communicationFilterOptions({ contacts: [], groups: [], children: [{ id: 'alex', label: 'Alex' }, { id: 'sam', label: 'Sam' }] })).toEqual([
+      { id: 'events', label: 'Activity' },
+      { id: childActivitySourceId('alex'), label: 'Alex activity' },
+      { id: childActivitySourceId('sam'), label: 'Sam activity' },
+    ]);
+    expect(hasActivitySource([contactSourceId(parent.id)])).toBe(false);
+    expect(hasActivitySource(['events'])).toBe(true);
+    expect(hasActivitySource([childActivitySourceId('alex')])).toBe(true);
+  });
   it('leaves linked parents unselected on a student', () => {
     expect(
       defaultCommunicationSources({

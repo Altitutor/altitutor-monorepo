@@ -1,4 +1,5 @@
 'use client';
+import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
 import { useState } from 'react';
@@ -23,7 +24,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useClassActions } from '@/features/classes/hooks/useClassActions';
 import { classesApi } from "@/features/classes/api";
-import { useClassDetails, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
+import { useClassDeleteImpact, useClassDetails, useDeleteClass } from '@/features/classes/hooks/useClassesQuery';
 import { useSubjects } from '@/features/subjects';
 import { useStudents } from '@/features/students/hooks/useStudentsQuery';
 import { useStaff } from '@/features/staff/hooks/useStaffQuery';
@@ -59,6 +60,8 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+
+  const { data: deleteImpact, isLoading: isDeleteImpactLoading, isError: isDeleteImpactError } = useClassDeleteImpact(id, isDeleteDialogOpen);
 
   const handleAssignStaff = async (staffId: string) => {
     if (!classData) return;
@@ -101,7 +104,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
   };
 
   const handleDeleteClass = async () => {
-    if (!classData) return;
+    if (!classData || !deleteImpact?.canDelete || isDeleteImpactLoading || isDeleteImpactError) return;
 
     try {
       setIsDeleting(true);
@@ -164,6 +167,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
         <PrimaryEntityBreadcrumb />
+        <IssuePill entityType="class" entityId={id} enabled />
 
 
         <ActionsMenu
@@ -240,8 +244,15 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
           <AlertDialogHeader>
             <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the class
-              {classData?.level ? ` "${classData.level}"` : ''} and all associated data from the database.
+            This permanently deletes the Class
+            {classData?.level ? ` "${classData.level}"` : ''} and {deleteImpact?.futureSessionCount ?? 0} pristine future Sessions.
+            {' '}Historical Sessions are never deleted.
+            {deleteImpact && !deleteImpact.canDelete
+              ? ` This Class also has ${deleteImpact.historicalSessionCount} historical and ${deleteImpact.protectedFutureSessionCount} protected future Sessions, so it cannot be deleted; make it inactive through Edit Class instead.`
+              : ''}
+
+              {isDeleteImpactLoading && ' Checking deletion impact…'}
+              {isDeleteImpactError && ' Unable to check deletion impact. Close this dialog and try again.'}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-4">
@@ -270,7 +281,7 @@ export default function ClassDetailPage({ params }: { params: { id: string } }) 
                 setIsDeleteDialogOpen(false);
                 setDeleteConfirmText('');
               }}
-              disabled={isDeleting || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
+              disabled={isDeleting || isDeleteImpactLoading || isDeleteImpactError || !deleteImpact?.canDelete || (classData?.level ? deleteConfirmText !== classData.level : deleteConfirmText !== 'DELETE')}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isDeleting ? (

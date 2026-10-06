@@ -105,7 +105,7 @@ export function MessagesDropdown() {
         .from('contacts')
         .select(`
           id,
-          phone_e164,
+          phone_e164, email,
           contact_type,
           students (id, first_name, last_name),
           parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
@@ -123,6 +123,12 @@ export function MessagesDropdown() {
   const linking = useUnknownNumberLinking({
     contactId: activeContactId,
     contact: activeContact,
+    onLinked: (contactId) => setDropdownSelection({
+      kind: 'contact',
+      contactId,
+      destinationAddress: dropdownSelection?.kind === 'contact' ? dropdownSelection.destinationAddress : undefined,
+      senderId: dropdownSelection?.kind === 'contact' ? dropdownSelection.senderId : undefined,
+    }),
     enabled: isOpen && view === 'thread',
   });
   
@@ -253,6 +259,8 @@ export function MessagesDropdown() {
                       <div className="flex-shrink-0 border-t">
                         <Composer 
                           contactId={activeContactId} 
+                          initialDestinationAddress={dropdownSelection?.kind === 'contact' ? dropdownSelection.destinationAddress : undefined}
+                          initialSenderId={dropdownSelection?.kind === 'contact' ? dropdownSelection.senderId : undefined}
                           onTyping={() => setIsSearching(false)}
                           draft={currentDraft}
                           onDraftChange={handleDraftChange}

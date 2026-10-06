@@ -162,6 +162,7 @@ function SortableFileItem({ file, onSolutionLink: _onSolutionLink, onSolutionUnl
         className="w-1/2 flex items-center gap-2 p-3 border rounded-lg bg-background min-w-0"
       >
         <button
+          aria-label={`Drag ${file.file.filename}`}
           type="button"
           className="cursor-grab active:cursor-grabbing touch-none flex-shrink-0"
           {...attributes}
@@ -242,6 +243,10 @@ function FileTypeSection({ type, files, allFiles: _allFiles, onSolutionLink, onS
         </span>
       </div>
       
+      <div className="grid grid-cols-2 gap-2 text-xs font-medium text-muted-foreground">
+        <span>File</span>
+        <span>Solutions</span>
+      </div>
       <div
         ref={setNodeRef}
         className={`space-y-2 p-3 rounded-lg transition-colors ${
@@ -396,24 +401,29 @@ export function DraggableFilesList({
       return;
     }
     
+    // A right-hand slot converts a file to solutions or moves existing solutions.
+    if (overData?.type === 'solution-drop') {
+      const targetFileId = overData.targetFileId as string;
+      if (targetFileId === activeFile.id || activeFile.is_solutions_of_id === targetFileId) return;
+      // A parent with its own solutions cannot become a solution itself.
+      if (localFiles.some(file => file.is_solutions_of_id === activeFile.id)) return;
+      const target = localFiles.find(file => file.id === targetFileId);
+      if (!target || target.is_solutions) return;
+      onSolutionLink(activeFile.id, targetFileId);
+      setLocalFiles(previous => previous.map(file => {
+        if (file.id === activeFile.id) {
+          return { ...file, is_solutions: true, is_solutions_of_id: targetFileId, type: target.type };
+        }
+        if (file.is_solutions_of_id === targetFileId) {
+          return { ...file, is_solutions_of_id: null };
+        }
+        return file;
+      }));
+      return;
+    }
+
     // Handle solution being dragged
     if (activeFile.is_solutions) {
-      // Solution dropped on another solution drop zone - relink
-      if (overData?.type === 'solution-drop') {
-        const targetFileId = overData.targetFileId as string;
-        // If it was previously linked, unlink it first
-        if (activeFile.is_solutions_of_id) {
-          onSolutionUnlink(activeFile.id);
-        }
-        // Link to new target
-        onSolutionLink(activeFile.id, targetFileId);
-        // Update local state
-        setLocalFiles(prev => prev.map(f => 
-          f.id === activeFile.id ? { ...f, is_solutions_of_id: targetFileId } : f
-        ));
-        return;
-      }
-      
       // Solution dropped on a file type section - unlink and convert to regular file
       if (overData?.type === 'file-type') {
         const newType = overData.fileType as Enums<'resource_type'>;
@@ -473,12 +483,6 @@ export function DraggableFilesList({
       }
       
       return; // Solutions can only be dropped on solution drops or type sections
-    }
-
-    // Handle solution linking (non-solution file dropped on solution drop - shouldn't happen, but handle it)
-    if (overData?.type === 'solution-drop') {
-      // This shouldn't happen, but if it does, ignore it
-      return;
     }
 
     // Handle file type change or reordering

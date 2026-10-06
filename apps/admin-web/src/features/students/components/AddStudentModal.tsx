@@ -27,8 +27,9 @@ import { splitStudentParentDrafts } from '../utils/studentParentDrafts';
 interface AddStudentModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStudentAdded: () => void;
+  onStudentAdded: (person?: { id: string }) => void;
   initialPhone?: string | null;
+  initialEmail?: string | null;
 }
 
 // Schema for form validation
@@ -103,7 +104,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone }: AddStudentModalProps) {
+export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone, initialEmail }: AddStudentModalProps) {
   const { toast } = useToast();
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -150,7 +151,8 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone 
   useEffect(() => {
     if (!isOpen) return;
     setValue('studentPhone', initialPhone || '');
-  }, [initialPhone, isOpen, setValue]);
+    setValue('studentEmail', initialEmail || '');
+  }, [initialEmail, initialPhone, isOpen, setValue]);
 
   const onSubmit: SubmitHandler<FormData> = async (formData: FormData) => {
     setIsSubmitting(true);
@@ -250,7 +252,7 @@ export function AddStudentModal({ isOpen, onClose, onStudentAdded, initialPhone 
       // Reset form and close modal
       reset();
       setSelectedSubjects([]);
-      onStudentAdded();
+      onStudentAdded(createdStudent ?? undefined);
       onClose();
     } catch (error) {
       console.error('Error adding student:', error);

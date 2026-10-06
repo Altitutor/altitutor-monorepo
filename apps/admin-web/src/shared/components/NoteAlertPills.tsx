@@ -16,10 +16,12 @@ export function NoteAlertPills({
   entityType,
   entityId,
   enabled = true,
+  className,
 }: {
   entityType: "student" | "parent" | "staff";
   entityId: string | null;
   enabled?: boolean;
+  className?: string;
 }) {
   const { data: notes = [] } = useAlertNotes(entityType, entityId, enabled);
   const setAlert = useSetNoteAlert();
@@ -28,7 +30,7 @@ export function NoteAlertPills({
 
   return (
     <div
-      className="flex min-w-0 flex-wrap items-center gap-2"
+      className={`flex min-w-0 flex-wrap items-center gap-2 ${className ?? ""}`}
       aria-label="Note alerts"
     >
       {notes.map((note) => {

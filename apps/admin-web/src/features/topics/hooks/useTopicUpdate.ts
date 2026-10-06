@@ -33,7 +33,7 @@ export interface FileReorderUpdate {
 
 export interface SolutionLink {
   solutionFileId: string;
-  targetFileId: string;
+  targetFileId: string | null;
 }
 
 export interface TopicUpdateParams {
@@ -151,27 +151,25 @@ export function useTopicUpdate() {
       solutionLinks: SolutionLink[],
       topicFiles: Array<Tables<'topics_files'> & { file: Tables<'files'> }>
     ): Promise<void> => {
+      // Clear occupied slots before writing any final links, so swapping
+      // two solutions cannot unlink a link written earlier in this save.
+      const targetIds = new Set(solutionLinks.map(link => link.targetFileId).filter(id => id !== null));
+      const previousSolutions = topicFiles.filter(file =>
+        file.is_solutions_of_id !== null && targetIds.has(file.is_solutions_of_id)
+      );
+      for (const previous of previousSolutions) {
+        await mutateSilently(updateTopicFile, {
+          id: previous.id,
+          data: { is_solutions_of_id: null },
+        });
+      }
+
       for (const link of solutionLinks) {
-        const targetFile = topicFiles.find((f) => f.id === link.targetFileId);
-        const previousSolutions = topicFiles.filter(
-          (f) =>
-            f.is_solutions &&
-            f.is_solutions_of_id === link.targetFileId &&
-            f.id !== link.solutionFileId
-        );
-
-        for (const previous of previousSolutions) {
-          await mutateSilently(updateTopicFile, {
-            id: previous.id,
-            data: {
-              is_solutions_of_id: null,
-            },
-          });
-        }
-
+        const targetFile = topicFiles.find(file => file.id === link.targetFileId);
         await mutateSilently(updateTopicFile, {
           id: link.solutionFileId,
           data: {
+            is_solutions: true,
             is_solutions_of_id: link.targetFileId,
             type: targetFile?.type,
           },

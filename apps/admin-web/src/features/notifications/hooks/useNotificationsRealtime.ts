@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { useToast } from '@altitutor/ui';
+import { useRouter } from 'next/navigation';
 import { useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { notificationsKeys } from '../api/queryKeys';
@@ -12,6 +14,8 @@ import type { SupabaseClient } from '@supabase/supabase-js';
  */
 export function useNotificationsRealtime(staffId: string) {
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+  const router = useRouter();
 
   useEffect(() => {
     if (!staffId) return;
@@ -28,7 +32,21 @@ export function useNotificationsRealtime(staffId: string) {
           table: 'notifications',
           filter: `staff_id=eq.${staffId}`,
         },
-        () => {
+        (payload) => {
+          const notification = payload.new as Database['public']['Tables']['notifications']['Row'];
+          const actionUrl = notification.action_url;
+          if (notification.notification_type === 'MESSAGE_DELIVERY_FAILED') {
+            toast({
+              title: notification.title,
+              description: notification.body ?? undefined,
+              variant: 'destructive',
+              action: actionUrl ? {
+                label: 'View message',
+                onClick: () => router.push(actionUrl),
+              } : undefined,
+            });
+          }
+          if (queryClient.isMutating({ mutationKey: notificationsKeys.dismiss })) return;
           // Invalidate notifications queries when new notification is inserted
           queryClient.invalidateQueries({ queryKey: notificationsKeys.notifications(staffId) });
           queryClient.invalidateQueries({ queryKey: notificationsKeys.unreadCount(staffId) });
@@ -43,6 +61,7 @@ export function useNotificationsRealtime(staffId: string) {
           filter: `staff_id=eq.${staffId}`,
         },
         () => {
+          if (queryClient.isMutating({ mutationKey: notificationsKeys.dismiss })) return;
           // Invalidate when read_at changes (notification marked as read)
           queryClient.invalidateQueries({ queryKey: notificationsKeys.notifications(staffId) });
           queryClient.invalidateQueries({ queryKey: notificationsKeys.unreadCount(staffId) });
@@ -57,5 +76,5 @@ export function useNotificationsRealtime(staffId: string) {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [staffId, queryClient]);
+  }, [staffId, queryClient, toast, router]);
 }

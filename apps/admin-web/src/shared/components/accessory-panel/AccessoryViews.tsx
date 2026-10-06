@@ -132,7 +132,7 @@ export function AccessoryView() {
       break;
   }
   return (
-    <div className="h-full min-h-0 [&_[data-entity-list-toolbar]]:border-b-0 [&_[data-pane-toolbar]]:px-4 [&_[data-pane-toolbar]]:py-2 [&_[data-pane-toolbar]]:min-h-14">
+    <div className="h-full min-h-0 [&_[data-work-item-toolbar]]:flex-nowrap [&_[data-work-item-toolbar]>div:first-child]:min-w-0 [&_[data-entity-list-toolbar]]:border-b-0 [&_[data-pane-toolbar]]:px-4 [&_[data-pane-toolbar]]:py-2 [&_[data-pane-toolbar]]:min-h-14">
       <Suspense fallback={<p className="p-4">Loading…</p>}>{content}</Suspense>
     </div>
   );

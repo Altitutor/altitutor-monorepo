@@ -16,7 +16,7 @@ export const tasksApi = {
   search: async (
     search: string,
     limit = 8,
-    options?: { excludeLinked?: boolean }
+    options?: { excludeLinked?: boolean; excludeCompleted?: boolean }
   ): Promise<Array<Pick<Tables<'tasks'>, 'id' | 'title' | 'status' | 'due_date' | 'priority'>>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const trimmed = search.trim();
@@ -32,6 +32,7 @@ export const tasksApi = {
         })
         .order('created_at', { ascending: false })
         .limit(limit);
+      if (options?.excludeCompleted) query = query.neq('status', 'done');
       if (excludeLinked) {
         query = query.is('issue_id', null).is('project_id', null);
       }
@@ -46,6 +47,7 @@ export const tasksApi = {
       .select('id, title, status, due_date, priority')
       .order('created_at', { ascending: false })
       .limit(limit);
+    if (options?.excludeCompleted) query = query.neq('status', 'done');
     if (excludeLinked) {
       query = query.is('issue_id', null).is('project_id', null);
     }

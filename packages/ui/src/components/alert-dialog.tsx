@@ -2,6 +2,7 @@
 
 import * as React from "react"
 import * as AlertDialogPrimitive from "@radix-ui/react-alert-dialog"
+import * as DialogPrimitive from "@radix-ui/react-dialog"
 
 import { cn } from "../lib/cn"
 import { handleModalInteractOutside } from "../lib/modal-interact-outside"
@@ -12,9 +13,28 @@ import {
 import { useDialogPrimaryActionShortcut } from "../hooks/use-dialog-primary-action-shortcut"
 import { buttonVariants } from "./button"
 
-const AlertDialog = AlertDialogPrimitive.Root
+import { Dialog, DialogContent } from "./dialog"
+import { useDialogScope } from "./dialog-scope"
 
-const AlertDialogTrigger = AlertDialogPrimitive.Trigger
+// Radix AlertDialog always locks the document. Use its nonmodal Dialog counterpart
+// inside a pane, preserving explicit confirmation and cancellation.
+const ScopedAlertContext = React.createContext(false);
+const AlertDialog = (props: React.ComponentProps<typeof AlertDialogPrimitive.Root>) => {
+  const scoped = Boolean(useDialogScope());
+  return (
+    <ScopedAlertContext.Provider value={scoped}>
+      {scoped ? <Dialog {...props} /> : <AlertDialogPrimitive.Root {...props} />}
+    </ScopedAlertContext.Provider>
+  );
+}
+
+const AlertDialogTrigger = React.forwardRef<
+  React.ElementRef<typeof AlertDialogPrimitive.Trigger>,
+  React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Trigger>
+>((props, ref) => React.useContext(ScopedAlertContext)
+  ? <DialogPrimitive.Trigger {...props} ref={ref} />
+  : <AlertDialogPrimitive.Trigger {...props} ref={ref} />);
+AlertDialogTrigger.displayName = "AlertDialogTrigger";
 
 const AlertDialogPortal = AlertDialogPrimitive.Portal
 
@@ -43,8 +63,9 @@ const AlertDialogContent = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Content>,
   AlertDialogContentProps
 >(({ className, onInteractOutside, primaryShortcut = true, ...props }, ref) => {
+  const scoped = React.useContext(ScopedAlertContext);
   const contentRef = React.useRef<HTMLDivElement | null>(null);
-  useDialogPrimaryActionShortcut(contentRef, primaryShortcut);
+  useDialogPrimaryActionShortcut(contentRef, primaryShortcut && !scoped);
 
   const handleInteractOutside = React.useCallback((e: Event) => {
     handleModalInteractOutside(e);
@@ -69,6 +90,28 @@ const AlertDialogContent = React.forwardRef<
     ...props,
     onInteractOutside: handleInteractOutside,
   };
+
+  if (scoped) {
+    return (
+      <DialogContent
+        {...props}
+        ref={mergedRef}
+        role="alertdialog"
+        hideCloseButton
+        dismissOnOverlay={false}
+        primaryShortcut={primaryShortcut}
+        className={className}
+        onInteractOutside={handleInteractOutside}
+        onOpenAutoFocus={(event) => {
+          props.onOpenAutoFocus?.(event);
+          if (!event.defaultPrevented) {
+            event.preventDefault();
+            contentRef.current?.querySelector<HTMLElement>(`[${DIALOG_CANCEL_ATTR}]`)?.focus();
+          }
+        }}
+      />
+    );
+  }
 
   return (
     <AlertDialogPortal>
@@ -122,25 +165,31 @@ AlertDialogFooter.displayName = "AlertDialogFooter"
 const AlertDialogTitle = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Title>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Title>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Title
-    ref={ref}
-    className={cn("text-lg font-semibold", className)}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const Component = React.useContext(ScopedAlertContext) ? DialogPrimitive.Title : AlertDialogPrimitive.Title;
+  return (
+    <Component
+      ref={ref}
+      className={cn("text-lg font-semibold", className)}
+      {...props}
+    />
+  );
+})
 AlertDialogTitle.displayName = AlertDialogPrimitive.Title.displayName
 
 const AlertDialogDescription = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Description>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Description>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Description
-    ref={ref}
-    className={cn("text-sm text-muted-foreground", className)}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const Component = React.useContext(ScopedAlertContext) ? DialogPrimitive.Description : AlertDialogPrimitive.Description;
+  return (
+    <Component
+      ref={ref}
+      className={cn("text-sm text-muted-foreground", className)}
+      {...props}
+    />
+  );
+})
 AlertDialogDescription.displayName =
   AlertDialogPrimitive.Description.displayName
 
@@ -160,18 +209,21 @@ AlertDialogAction.displayName = "AlertDialogAction"
 const AlertDialogCancel = React.forwardRef<
   React.ElementRef<typeof AlertDialogPrimitive.Cancel>,
   React.ComponentPropsWithoutRef<typeof AlertDialogPrimitive.Cancel>
->(({ className, ...props }, ref) => (
-  <AlertDialogPrimitive.Cancel
-    ref={ref}
-    className={cn(
-      buttonVariants({ variant: "outline" }),
-      "mt-2 sm:mt-0",
-      className
-    )}
-    {...{ [DIALOG_CANCEL_ATTR]: "" }}
-    {...props}
-  />
-))
+>(({ className, ...props }, ref) => {
+  const Component = React.useContext(ScopedAlertContext) ? DialogPrimitive.Close : AlertDialogPrimitive.Cancel;
+  return (
+    <Component
+      ref={ref}
+      className={cn(
+        buttonVariants({ variant: "outline" }),
+        "mt-2 sm:mt-0",
+        className
+      )}
+      {...{ [DIALOG_CANCEL_ATTR]: "" }}
+      {...props}
+    />
+  );
+})
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
 
 export {

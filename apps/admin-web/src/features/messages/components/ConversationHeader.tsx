@@ -68,6 +68,7 @@ interface Props {
   contact?: {
     id?: string;
     phone_e164?: string | null;
+    email?: string | null;
     contact_type: string;
     students?: {
       id: string;
@@ -214,7 +215,7 @@ export function ConversationHeader({
   };
 
   const issuePillProps = getIssuePillProps();
-  const hasUnknownPhone = Boolean(contact?.phone_e164);
+  const hasUnknownPhone = Boolean(contact?.phone_e164 || contact?.email);
   const canShowLinkActions = showUnknownNumberActions && hasUnknownPhone;
   const hasBookMeeting = getBookMeetingOptions(contact).length > 0;
   const readLabel = isUnread ? "Mark as read" : "Mark as unread";
@@ -369,7 +370,7 @@ export function ConversationHeader({
             getItemId={(item) => item.id}
             getItemLabel={(item) => item.label}
             searchPlaceholder="Search students..."
-            emptyMessage="No students without mobile number"
+            emptyMessage={contact?.phone_e164 ? "No students without mobile number" : "No students found"}
           />
         </DropdownMenuSubContent>
       </DropdownMenuSub>
@@ -386,7 +387,7 @@ export function ConversationHeader({
             getItemId={(item) => item.id}
             getItemLabel={(item) => item.label}
             searchPlaceholder="Search parents..."
-            emptyMessage="No parents without mobile number"
+            emptyMessage={contact?.phone_e164 ? "No parents without mobile number" : "No parents found"}
           />
         </DropdownMenuSubContent>
       </DropdownMenuSub>
@@ -403,7 +404,7 @@ export function ConversationHeader({
             getItemId={(item) => item.id}
             getItemLabel={(item) => item.label}
             searchPlaceholder="Search staff..."
-            emptyMessage="No staff without mobile number"
+            emptyMessage={contact?.phone_e164 ? "No staff without mobile number" : "No staff found"}
           />
         </DropdownMenuSubContent>
       </DropdownMenuSub>
@@ -554,7 +555,7 @@ export function ConversationHeader({
             </ActionLabel>
           )}
           {!compactActions && canShowLinkActions && (
-            <ActionLabel expanded={showLabels} label="Link number">
+            <ActionLabel expanded={showLabels} label="Link contact">
               <DropdownMenu
                 open={isLinkMenuOpen}
                 onOpenChange={setIsLinkMenuOpen}
@@ -568,7 +569,7 @@ export function ConversationHeader({
                     disabled={isLinkingPhone}
                   >
                     <Plus className="h-4 w-4" />
-                    {showLabels && <span>Link number</span>}
+                    {showLabels && <span>Link contact</span>}
                   </Button>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-64">

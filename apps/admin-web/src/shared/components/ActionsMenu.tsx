@@ -13,7 +13,7 @@ import {
   DropdownMenuTrigger,
   useToast,
 } from '@altitutor/ui';
-import { MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, UserCheck, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
+import { MessageSquare, MoreVertical, ExternalLink, Pencil, Mail, Calendar, Trash2, FileText, Download, CreditCard, UserX, UserCheck, Plus, Copy, Receipt, ClipboardCheck } from 'lucide-react';
 import type { LucideIcon } from 'lucide-react';
 import type { Editor } from '@tiptap/react';
 import type { JSONContent } from '@tiptap/core';
@@ -21,6 +21,8 @@ import { SESSION_QUICK_ACTIONS } from '@/shared/constants/quickActions';
 import { CreateIssueDialog } from '@/features/issues/components/CreateIssueDialog';
 import { RichTextTemplateMenuItems } from '@/features/rich-text-templates/components/RichTextTemplateMenuItems';
 import type { IssueTagInsert } from '@/features/issues/types';
+
+import { useOpenPersonMessages } from '@/features/messages/hooks/useOpenPersonMessages';
 
 interface BaseActionsMenuProps {
   onOpenInPage?: () => void;
@@ -40,6 +42,7 @@ interface StudentActionsMenuProps extends BaseActionsMenuProps {
   onBookSubsidyInterview?: () => void;
   /** Opens global book check-in with this student pre-selected */
   onBookCheckIn?: () => void;
+  onAddToHomeworkHelp?: () => void;
   onSendDiscontinuationLink?: () => void;
   onDiscontinue?: () => void;
   /** Re-enroll a discontinued student (status → ACTIVE) */
@@ -217,6 +220,18 @@ export function ActionsMenu(props: ActionsMenuProps) {
     return [];
   }, [props]);
 
+  const messageAction = useOpenPersonMessages(
+    props.type === 'student' || props.type === 'parent' || props.type === 'staff' ? props.type : null,
+    props.entityId,
+    props.copyTagDisplayText,
+  );
+  const messageMenuItem = messageAction.available ? (
+    <DropdownMenuItem disabled={messageAction.isOpening} onSelect={() => void messageAction.openMessages()}>
+      <MessageSquare className="h-4 w-4 mr-2" />
+      Message
+    </DropdownMenuItem>
+  ) : null;
+
   const canAddIssue = issueInitialTags.length > 0;
 
   const handleCopyId = async () => {
@@ -262,6 +277,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
           <DropdownMenuContent align="end">
 
             {copyMenuItem}
+          {messageMenuItem}
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={props.onEditDetails}>
               <Pencil className="h-4 w-4 mr-2" />
@@ -277,6 +293,12 @@ export function ActionsMenu(props: ActionsMenuProps) {
               <DropdownMenuItem onClick={props.onLogAbsence}>
                 <Calendar className="h-4 w-4 mr-2" />
                 Log absence
+              </DropdownMenuItem>
+            )}
+            {props.onAddToHomeworkHelp && (
+              <DropdownMenuItem onClick={props.onAddToHomeworkHelp}>
+                <Calendar className="h-4 w-4 mr-2" />
+                Add to homework help
               </DropdownMenuItem>
             )}
             <BookMeetingSubmenu
@@ -347,6 +369,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
         <DropdownMenuContent align="end">
 
           {copyMenuItem}
+          {messageMenuItem}
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={props.onEditDetails}>
             <Pencil className="h-4 w-4 mr-2" />
@@ -735,6 +758,7 @@ export function ActionsMenu(props: ActionsMenuProps) {
         <DropdownMenuContent align="end">
 
           {copyMenuItem}
+          {messageMenuItem}
           {props.onBookCheckIn && (
             <>
               <DropdownMenuSeparator />

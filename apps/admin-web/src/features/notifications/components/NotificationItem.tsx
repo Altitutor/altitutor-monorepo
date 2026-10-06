@@ -10,17 +10,13 @@ import type { Notification } from '../types';
 
 interface NotificationItemProps {
   notification: Notification;
-  isArmed?: boolean;
-  onArm: () => void;
-  onConfirmDismiss: () => void;
+  onDismiss: () => void;
   onOpen: () => void;
 }
 
 export function NotificationItem({
   notification,
-  isArmed = false,
-  onArm,
-  onConfirmDismiss,
+  onDismiss,
   onOpen,
 }: NotificationItemProps) {
   const router = useRouter();
@@ -75,21 +71,14 @@ export function NotificationItem({
           </p>
         </div>
         <Button
-          variant={isArmed ? 'destructive' : 'outline'}
+          variant="outline"
           size="icon"
           onClick={(e) => {
             e.stopPropagation();
-            if (isArmed) {
-              onConfirmDismiss();
-            } else {
-              onArm();
-            }
+            onDismiss();
           }}
-          className={cn(
-            'h-8 w-8 flex-shrink-0 transition-all duration-200',
-            isArmed && 'scale-110',
-          )}
-          aria-label={isArmed ? 'Confirm dismiss' : 'Dismiss'}
+          className="h-8 w-8 flex-shrink-0"
+          aria-label="Dismiss"
         >
           <X className="h-4 w-4" />
         </Button>

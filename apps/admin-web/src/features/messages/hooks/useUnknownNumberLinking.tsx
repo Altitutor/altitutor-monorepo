@@ -12,12 +12,14 @@ import { studentsKeys, useUpdateStudent } from '@/features/students/hooks/useStu
 import { useUpdateParent } from '@/features/parents/hooks/useParentsQuery';
 import { staffApi } from '@/features/staff/api/staff';
 import { staffKeys, useUpdateStaff } from '@/features/staff/hooks/useStaffQuery';
+import { linkEmailContact } from '../api/contacts';
 import { messagesKeys } from '@/features/messages/api/queryKeys';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 export type LinkableContact = {
   phone_e164?: string | null;
+  email?: string | null;
   students?: { id: string } | null;
   parents?: { id: string } | null;
   staff?: { id: string } | null;
@@ -41,8 +43,9 @@ export function useUnknownNumberLinking(args: {
   contactId: string | null;
   contact: LinkableContact | undefined;
   enabled?: boolean;
+  onLinked?: (contactId: string) => void;
 }): UnknownNumberHeaderProps & { linkingModals: ReactNode } {
-  const { contactId, contact, enabled = true } = args;
+  const { contactId, contact, enabled = true, onLinked } = args;
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const [isAddStudentOpen, setIsAddStudentOpen] = useState(false);
@@ -55,7 +58,8 @@ export function useUnknownNumberLinking(args: {
     Boolean(contact?.students?.id) ||
     Boolean(contact?.parents?.id) ||
     Boolean(contact?.staff?.id);
-  const showUnknownNumberActions = Boolean(contact?.phone_e164 && !hasLinkedEntity);
+  const showUnknownNumberActions = Boolean((contact?.phone_e164 || contact?.email) && !hasLinkedEntity);
+  const isEmailOnly = Boolean(contact?.email && !contact.phone_e164);
   const fetchEnabled = enabled && showUnknownNumberActions;
 
   const { data: students = [] } = useQuery({
@@ -71,7 +75,7 @@ export function useUnknownNumberLinking(args: {
     staleTime: 1000 * 60 * 3,
   });
   const { data: parentsWithoutPhone = [] } = useQuery({
-    queryKey: ['parents', 'without-phone'],
+    queryKey: ['parents', 'message-link-options', isEmailOnly],
     queryFn: async () => {
       const supabase = getSupabaseClient() as SupabaseClient<Database>;
       const { data, error } = await supabase
@@ -79,7 +83,7 @@ export function useUnknownNumberLinking(args: {
         .select('id, first_name, last_name, phone')
         .order('last_name', { ascending: true });
       if (error) throw error;
-      return (data ?? []).filter((parent) => !parent.phone?.trim());
+      return (data ?? []).filter((parent) => isEmailOnly || !parent.phone?.trim());
     },
     enabled: fetchEnabled,
   });
@@ -92,13 +96,13 @@ export function useUnknownNumberLinking(args: {
     () =>
       fetchEnabled
         ? students
-            .filter((student) => !student.phone?.trim())
+            .filter((student) => isEmailOnly || !student.phone?.trim())
             .map((student) => ({
               id: student.id,
               label: `${student.first_name ?? ''} ${student.last_name ?? ''}`.trim() || 'Unnamed student',
             }))
         : [],
-    [fetchEnabled, students]
+    [fetchEnabled, isEmailOnly, students]
   );
 
   const parentOptionsWithoutPhone = useMemo(
@@ -114,13 +118,13 @@ export function useUnknownNumberLinking(args: {
     () =>
       fetchEnabled
         ? staff
-            .filter((staffMember) => !staffMember.phone_number?.trim())
+            .filter((staffMember) => isEmailOnly || !staffMember.phone_number?.trim())
             .map((staffMember) => ({
               id: staffMember.id,
               label: `${staffMember.first_name ?? ''} ${staffMember.last_name ?? ''}`.trim() || 'Unnamed staff member',
             }))
         : [],
-    [fetchEnabled, staff]
+    [fetchEnabled, isEmailOnly, staff]
   );
 
   const handleOpenCreateStudent = () => {
@@ -140,8 +144,8 @@ export function useUnknownNumberLinking(args: {
 
   const invalidateAfterLink = async () => {
     await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ['contact', contactId] }),
-      queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() }),
+      queryClient.invalidateQueries({ queryKey: messagesKeys.all }),
+      queryClient.invalidateQueries({ queryKey: ['contact'] }),
       queryClient.invalidateQueries({ queryKey: ['students', 'list'] }),
       queryClient.invalidateQueries({ queryKey: ['parents', 'list'] }),
       queryClient.invalidateQueries({ queryKey: ['staff', 'list'] }),
@@ -172,11 +176,19 @@ export function useUnknownNumberLinking(args: {
     entityType: 'student' | 'parent' | 'staff',
     entityId: string
   ) => {
-    if (!contact?.phone_e164 || !contactId) return;
+    if ((!contact?.phone_e164 && !contact?.email) || !contactId) return;
     const phoneNumber = contact.phone_e164;
 
     setIsLinkingPhone(true);
     try {
+      if (isEmailOnly) {
+        const canonicalId = await linkEmailContact(contactId, entityType, entityId);
+        await invalidateAfterLink();
+        onLinked?.(canonicalId);
+        toast({ title: 'Apple ID linked', description: `Linked ${contact?.email} to the selected ${entityType}.` });
+        return;
+      }
+      if (!phoneNumber) return;
       if (entityType === 'student') {
         await updateStudent.mutateAsync({
           id: entityId,
@@ -203,7 +215,7 @@ export function useUnknownNumberLinking(args: {
       });
     } catch (error) {
       toast({
-        title: 'Failed to link phone number',
+        title: isEmailOnly ? 'Failed to link Apple ID' : 'Failed to link phone number',
         description: error instanceof Error ? error.message : 'Please try again.',
         variant: 'destructive',
       });
@@ -217,26 +229,41 @@ export function useUnknownNumberLinking(args: {
       <AddStudentModal
         isOpen={isAddStudentOpen}
         onClose={() => setIsAddStudentOpen(false)}
-        onStudentAdded={() => {
-          void invalidateAfterLink();
+        onStudentAdded={(person) => {
+          if (isEmailOnly && person?.id) {
+            void handleAssignNumberToExisting('student', person.id);
+          } else {
+            void invalidateAfterLink();
+          }
         }}
         initialPhone={prefillPhoneForModal}
+        initialEmail={isEmailOnly ? contact?.email : null}
       />
       <AddParentModal
         isOpen={isAddParentOpen}
         onClose={() => setIsAddParentOpen(false)}
-        onParentAdded={() => {
-          void invalidateAfterLink();
+        onParentAdded={(person) => {
+          if (isEmailOnly && person?.id) {
+            void handleAssignNumberToExisting('parent', person.id);
+          } else {
+            void invalidateAfterLink();
+          }
         }}
         initialPhone={prefillPhoneForModal}
+        initialEmail={isEmailOnly ? contact?.email : null}
       />
       <AddStaffModal
         isOpen={isAddStaffOpen}
         onClose={() => setIsAddStaffOpen(false)}
-        onStaffAdded={() => {
-          void invalidateAfterLink();
+        onStaffAdded={(person) => {
+          if (isEmailOnly && person?.id) {
+            void handleAssignNumberToExisting('staff', person.id);
+          } else {
+            void invalidateAfterLink();
+          }
         }}
         initialPhone={prefillPhoneForModal}
+        initialEmail={isEmailOnly ? contact?.email : null}
       />
     </>
   );

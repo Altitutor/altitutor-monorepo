@@ -77,13 +77,14 @@ export function getProjectFilterColumn(key: string): string {
 export const projectsApi = {
   search: async (
     search: string,
-    limit = 8
+    limit = 8,
+    options?: { excludeCompleted?: boolean }
   ): Promise<Array<Pick<Project, 'id' | 'name' | 'status' | 'target_date' | 'priority'>>> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const trimmed = search.trim();
 
     if (trimmed.length > 0) {
-      const { data, error } = await supabase
+      let query = supabase
         .from('projects')
         .select('id, name, status, target_date, priority')
         .textSearch('search_vector', trimmed, {
@@ -93,16 +94,20 @@ export const projectsApi = {
         .order('created_at', { ascending: false })
         .limit(limit);
 
+      if (options?.excludeCompleted) query = query.neq('status', 'completed');
+      const { data, error } = await query;
       if (error) throw error;
       return (data ?? []) as Array<Pick<Project, 'id' | 'name' | 'status' | 'target_date' | 'priority'>>;
     }
 
-    const { data, error } = await supabase
+    let query = supabase
       .from('projects')
       .select('id, name, status, target_date, priority')
       .order('created_at', { ascending: false })
       .limit(limit);
 
+    if (options?.excludeCompleted) query = query.neq('status', 'completed');
+    const { data, error } = await query;
     if (error) throw error;
     return (data ?? []) as Array<Pick<Project, 'id' | 'name' | 'status' | 'target_date' | 'priority'>>;
   },

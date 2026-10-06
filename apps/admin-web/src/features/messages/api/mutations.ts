@@ -4,7 +4,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useAuthStore } from '@/shared/lib/supabase/auth';
 import { messagesKeys } from './queryKeys';
-import { ensureConversationForContact } from './queries';
+import { fetchContactMessagingAddresses, ensureConversationForContact } from './queries';
 import {
   applyOptimisticUnread,
   markUnreadQueriesStale,
@@ -24,6 +24,7 @@ export function useSendMessage() {
       groupChatId?: string | null;
       body: string; 
       selectedSenderId: string;
+      destinationAddress?: string | null;
       resentFromMessageId?: string;
       onboarding?: { journeyId: string; purpose: 'registration_link' | 'ucat_link' | 'followup' };
       attachments?: Array<{
@@ -42,13 +43,9 @@ export function useSendMessage() {
         .eq('user_id', user?.id || '')
         .maybeSingle();
 
-      const { data: contact } = args.contactId
-        ? await supabase
-            .from('contacts')
-            .select('phone_e164, email')
-            .eq('id', args.contactId)
-            .maybeSingle()
-        : { data: null };
+      const addresses = args.contactId && !args.groupChatId
+        ? await fetchContactMessagingAddresses(args.contactId)
+        : null;
 
       // Get selected sender details
       const { data: sender } = await supabase
@@ -61,14 +58,19 @@ export function useSendMessage() {
         throw new Error('Selected sender not found');
       }
 
+      if (args.destinationAddress && args.destinationAddress !== addresses?.phone
+        && !(sender.provider === 'IMESSAGE' && args.destinationAddress === addresses?.email)) {
+        throw new Error('Selected destination is not available for this contact and sender');
+      }
       const toNumber = outboundMessageDestination({
         groupChatId: args.groupChatId,
-        phone: contact?.phone_e164,
-        email: contact?.email,
+        phone: addresses?.phone,
+        email: addresses?.email,
+        replyAddress: args.destinationAddress ?? addresses?.replyAddress,
         provider: sender.provider,
       });
       if (!toNumber) {
-        if (contact?.email && !contact.phone_e164 && !args.groupChatId && sender.provider !== 'IMESSAGE') {
+        if (addresses?.email && !addresses.phone && !args.groupChatId && sender.provider !== 'IMESSAGE') {
           throw new Error('This contact can only be reached by iMessage email. Select the iMessage number.');
         }
         throw new Error('Message destination not found');
@@ -190,6 +192,7 @@ export function useMarkRead() {
                 conversation_id: conv.id,
                 staff_id: staff.id,
                 last_read_message_id: args.lastMessageId,
+                auto_read_message_id: null,
                 last_read_at: new Date().toISOString(),
               }, { onConflict: 'conversation_id,staff_id' })
           )
@@ -265,6 +268,7 @@ export function useMarkConversationRead() {
           conversation_id: args.conversationId,
           staff_id: staff.id,
           last_read_message_id: args.lastMessageId,
+          auto_read_message_id: null,
           last_read_at: new Date().toISOString(),
         }, { onConflict: 'conversation_id,staff_id' });
       if (error) throw error;

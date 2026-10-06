@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { addDays, format, isValid, parseISO } from "date-fns";
 import { Button, SmartDatePickerPopover } from "@altitutor/ui";
 import { ChevronLeft, ChevronRight } from "lucide-react";
+import { DailyNoteCard } from "@/features/notes/components/DailyNoteCard";
+import { DashboardUpdatesCard } from "@/features/sessions/components/DashboardUpdatesCard";
 import { TodaySessionsCalendarView } from "@/features/sessions/components/TodaySessionsCalendarView";
 import { useEntityNavigation } from "@/shared/contexts/EntityNavigation";
 import { useUrlQueryParam } from "@/shared/hooks/useUrlQueryParam";
@@ -67,8 +69,16 @@ export function TodayView() {
           <ChevronRight className="h-4 w-4" />
         </Button>
       </div>
-      <div className="min-h-0 flex-1 overflow-auto p-4 pt-0">
+      <div className="min-h-0 flex-1 space-y-4 overflow-auto p-4 pt-0">
         <TodaySessionsCalendarView date={date} onOpenSession={openSession} />
+        <div className="h-72">
+          <DailyNoteCard key={date} date={date} />
+        </div>
+        <DashboardUpdatesCard
+          key={`updates:${date}`}
+          date={date}
+          onOpenSession={openSession}
+        />
       </div>
     </div>
   );

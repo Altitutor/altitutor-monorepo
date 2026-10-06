@@ -352,51 +352,7 @@ export async function ensureContactForPhoneNumber(phoneE164: string): Promise<st
 export async function ensureContactForEmail(email: string): Promise<string | null> {
   const handle = email.trim();
   if (!handle) return null;
-  const supabase = getSupabaseClient() as SupabaseClient<Database>;
-
-  const { data: existingContact } = await supabase
-    .from('contacts')
-    .select('id')
-    .eq('email', handle)
-    .maybeSingle();
-  if (existingContact?.id) return existingContact.id;
-
-  const contactData: TablesInsert<'contacts'> = {
-    contact_type: 'LEAD',
-    phone_e164: null,
-    email: handle,
-    student_id: null,
-    parent_id: null,
-    staff_id: null,
-    is_opted_out: false,
-  };
-
-  const { data: newContact, error: createError } = await supabase
-    .from('contacts')
-    .insert(contactData)
-    .select('id')
-    .single();
-
-  if (createError) {
-    if (createError.code === '23505') {
-      const { data: retryContact } = await supabase
-        .from('contacts')
-        .select('id')
-        .eq('email', handle)
-        .maybeSingle();
-      return retryContact?.id || null;
-    }
-    console.error('Error creating contact for email:', createError);
-    return null;
-  }
-
-  return newContact.id;
+  const { data, error } = await getSupabaseClient().rpc('resolve_messaging_email_contact', { p_email: handle });
+  if (error) throw error;
+  return data;
 }
-
-
-
-
-
-
-
-

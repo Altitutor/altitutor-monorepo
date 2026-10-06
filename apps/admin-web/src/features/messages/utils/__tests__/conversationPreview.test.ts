@@ -56,6 +56,30 @@ describe('sender badge names', () => {
 });
 
 describe('buildConversationPreview', () => {
+  it.each(['FAILED', 'UNDELIVERED'])('marks outbound %s messages as failed', (status) => {
+    expect(buildConversationPreview({
+      direction: 'OUTBOUND', status, body: 'Hello', attachmentCount: 0, senderName: 'Grace',
+    })?.failed).toBe(true);
+  });
+
+  it.each(['QUEUED', 'SENDING', 'SENT', 'DELIVERED', 'READ', 'AMBIGUOUS'])('does not mark %s messages as failed', (status) => {
+    expect(buildConversationPreview({
+      direction: 'OUTBOUND', status, body: 'Hello', attachmentCount: 0, senderName: 'Grace',
+    })?.failed).toBe(false);
+  });
+
+  it('does not mark inbound messages as failed', () => {
+    expect(buildConversationPreview({
+      direction: 'INBOUND', status: 'FAILED', body: 'Hello', attachmentCount: 0, senderName: 'Ada',
+    })?.failed).toBe(false);
+  });
+
+  it('marks failed attachment previews', () => {
+    expect(buildConversationPreview({
+      direction: 'OUTBOUND', status: 'FAILED', body: '', attachmentCount: 1, senderName: 'Grace',
+    })).toMatchObject({ text: 'Attachment', failed: true });
+  });
+
   it('returns null when there is nothing to show', () => {
     expect(buildConversationPreview({
       direction: 'INBOUND',
