@@ -6,6 +6,7 @@ import { useEffect } from 'react';
 import { AppState, Platform } from 'react-native';
 
 import { supabase } from '@/lib/supabase';
+import { studentWebUrl } from '@/lib/student-web';
 
 const storageKey = 'student-push-token';
 const channelId = 'student-updates';
@@ -20,12 +21,10 @@ Notifications.setNotificationHandler({
 });
 
 async function pushApi(method: 'GET' | 'POST' | 'PATCH' | 'DELETE', body?: unknown) {
-  const origin = process.env.EXPO_PUBLIC_STUDENT_WEB_URL;
-  if (!origin) throw new Error('Student web URL is not configured.');
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
   if (!data.session) throw new Error('Sign in to manage push notifications.');
-  const response = await fetch(new URL('/api/mobile-push', origin), {
+  const response = await fetch(studentWebUrl('/api/mobile-push'), {
     method,
     headers: {
       Authorization: `Bearer ${data.session.access_token}`,

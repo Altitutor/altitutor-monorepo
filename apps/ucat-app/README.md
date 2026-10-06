@@ -35,8 +35,20 @@ pnpm --filter @altitutor/ucat-app android
 runs `ucat-web` on port 3016 with an isolated `.next-ucat-native` build directory.
 Get the local public key from `supabase status` for the Expo environment file.
 On Android, forward ports with `adb reverse tcp:54321 tcp:54321` and
-`adb reverse tcp:3016 tcp:3016`. For a physical device, use reachable LAN origins
-for both services; localhost refers to the device itself.
+`adb reverse tcp:3016 tcp:3016`.
+
+For a physical iPhone, connect it and the computer to the same Wi-Fi and scan the
+Expo LAN QR code. In native development, localhost URLs automatically use the
+computer's Expo LAN address, keeping each service's port. You can keep
+`EXPO_PUBLIC_UCAT_WEB_URL=http://localhost:3004` for the usual `ucat-web` server,
+or port 3016 for `api:local`; local Supabase on port 54321 is resolved too.
+This applies to browser login and API requests. Reload Expo Go after updating.
+If the web server has a localhost-only binding, start it with
+`pnpm --filter ucat-web dev --hostname 0.0.0.0`. Allow local network access for
+Expo Go and incoming connections on the computer.
+
+Expo tunnels forward Metro only. For tunnel testing, explicitly set reachable
+web/Supabase URLs. Published builds and web previews use the configured URLs as-is.
 
 Existing accounts sign in with email/password. Account creation and password
 recovery open the UCAT website. API requests send the user's bearer token;

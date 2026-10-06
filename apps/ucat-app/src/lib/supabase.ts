@@ -6,6 +6,7 @@ import {
 } from "@supabase/supabase-js";
 import * as SecureStore from "expo-secure-store";
 import type { Database } from "@altitutor/shared";
+import { resolveServerUrl } from "@/lib/development-server-url";
 
 export const configured = Boolean(
   process.env.EXPO_PUBLIC_SUPABASE_URL &&
@@ -39,7 +40,7 @@ const storage = {
       : SecureStore.deleteItemAsync(key),
 };
 export const supabase: SupabaseClient<Database> = createClient<Database>(
-  process.env.EXPO_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co",
+  resolveServerUrl(process.env.EXPO_PUBLIC_SUPABASE_URL || "https://placeholder.supabase.co"),
   process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY || "placeholder",
   {
     auth: {

@@ -3,6 +3,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type { Database } from '@altitutor/shared';
 import 'react-native-url-polyfill/auto';
 import { Platform } from 'react-native';
+import { resolveServerUrl } from '@/lib/development-server-url';
 
 const url = process.env.EXPO_PUBLIC_SUPABASE_URL;
 const key = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
@@ -30,7 +31,7 @@ if (!url || !key) {
 }
 
 export const supabase: SupabaseClient<Database> = createClient<Database>(
-  url ?? 'https://placeholder.supabase.co',
+  resolveServerUrl(url ?? 'https://placeholder.supabase.co'),
   key ?? 'placeholder-anon-key',
   {
     auth: {
