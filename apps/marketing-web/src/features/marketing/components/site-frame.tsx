@@ -15,6 +15,7 @@ import { PageMotion } from "./page-motion";
 import { SectionNavigation } from "./section-navigation";
 import { Navigation } from "./navigation";
 import { SiteLogo } from "./site-logo";
+import { AnnouncementBanner } from "./announcement-banner";
 import styles from "../marketing.module.css";
 
 const companyLinks = [
@@ -36,6 +37,7 @@ const socialLinks = [
 export function SiteFrame({ children }: { children: ReactNode }) {
   return (
     <div className={styles.site}>
+      <AnnouncementBanner />
       <Navigation />
       <PageMotion>{children}</PageMotion>
       <SectionNavigation />
