@@ -111,6 +111,32 @@ for (const course of ["weekly-classes", "examprep"]) {
   });
 }
 
+test("UCAT feature trigger waits for hydration before accepting clicks @compat", async ({
+  page,
+}) => {
+  let releaseScripts: () => void = () => {};
+  const scriptsReleased = new Promise<void>((resolve) => {
+    releaseScripts = resolve;
+  });
+  await page.route("**/_next/static/**/*.js", async (route) => {
+    await scriptsReleased;
+    await route.continue();
+  });
+
+  const trigger = page.getByRole("button", { name: "Learn more" }).first();
+  try {
+    await page.goto("/ucat/", { waitUntil: "commit" });
+    await expect(trigger).toBeVisible();
+    await expect(trigger).toBeDisabled();
+  } finally {
+    releaseScripts();
+  }
+
+  await expect(trigger).toBeEnabled();
+  await trigger.click();
+  await expect(page.getByRole("dialog")).toBeVisible();
+});
+
 test("UCAT feature sheet animates from the bottom and can reopen @compat", async ({
   page,
 }) => {
