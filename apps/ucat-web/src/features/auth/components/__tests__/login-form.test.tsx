@@ -1,4 +1,6 @@
 import React from "react";
+import { AuthApiError, AuthRetryableFetchError } from "@supabase/supabase-js";
+import { captureException } from "@sentry/nextjs";
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { LoginForm } from "@/features/auth/components/login-form";
 import { savePendingLoginEmail } from "@/features/auth/lib/pending-login-email";
@@ -10,6 +12,8 @@ import { hasPasswordAuthHandoff } from "@/features/auth/lib/password-auth-handof
 
 const signInWithPassword = jest.fn();
 const navigateAfterAuth = jest.fn();
+
+jest.mock("@sentry/nextjs", () => ({ captureException: jest.fn() }));
 
 jest.mock("@/lib/supabase/client", () => ({
   getSupabaseBrowserClient: () => ({
@@ -88,9 +92,104 @@ describe("LoginForm", () => {
     expect(hasPasswordAuthHandoff("student-user")).toBe(true);
   });
 
+  it.each(["Load failed", "Failed to fetch"])(
+    "lets a student retry a returned auth transport failure: %s",
+    async (message) => {
+      signInWithPassword.mockResolvedValueOnce({
+        data: { user: null, session: null },
+        error: new AuthRetryableFetchError(message, 0),
+      });
+      render(<LoginForm initialEmail="student@example.com" />);
+      fireEvent.change(screen.getByLabelText("Password"), {
+        target: { value: "correct horse battery staple" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+      expect(await screen.findByRole("alert")).toHaveTextContent(
+        "We couldn’t connect to sign you in. Check your connection and try again.",
+      );
+      expect(
+        screen.queryByText("Incorrect email or password."),
+      ).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
+      expect(screen.getByLabelText("Password")).toHaveValue(
+        "correct horse battery staple",
+      );
+      expect(signInWithPassword).toHaveBeenCalledTimes(1);
+      expect(navigateAfterAuth).not.toHaveBeenCalled();
+      expect(getLastSignInMethod()).toBeNull();
+      expect(hasPasswordAuthHandoff("student-user")).toBe(false);
+
+      fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+      await waitFor(() => expect(navigateAfterAuth).toHaveBeenCalledTimes(1));
+      expect(signInWithPassword).toHaveBeenCalledTimes(2);
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
+  it("restores the form after a rejected sign-in request", async () => {
+    signInWithPassword.mockRejectedValueOnce(
+      new AuthRetryableFetchError("Failed to fetch", 0),
+    );
+    render(<LoginForm initialEmail="student@example.com" />);
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct horse battery staple" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t connect to sign you in. Check your connection and try again.",
+    );
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
+    expect(navigateAfterAuth).not.toHaveBeenCalled();
+    expect(signInWithPassword).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not blame credentials or connectivity for a retryable Auth outage", async () => {
+    signInWithPassword.mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: new AuthRetryableFetchError("Service unavailable", 503),
+    });
+    render(<LoginForm initialEmail="student@example.com" />);
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "Sign-in is temporarily unavailable. Please try again.",
+    );
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
+    expect(navigateAfterAuth).not.toHaveBeenCalled();
+  });
+
+  it("reports unexpected rejected requests and restores retry controls", async () => {
+    const failure = new Error("Unexpected SDK failure");
+    signInWithPassword.mockRejectedValueOnce(failure);
+    render(<LoginForm initialEmail="student@example.com" />);
+    fireEvent.change(screen.getByLabelText("Password"), {
+      target: { value: "correct password" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "We couldn’t sign you in. Please try again.",
+    );
+    expect(screen.getByRole("button", { name: "Sign in" })).toBeEnabled();
+    expect(captureException).toHaveBeenCalledWith(failure);
+    expect(navigateAfterAuth).not.toHaveBeenCalled();
+    expect(
+      screen.queryByText("Unexpected SDK failure"),
+    ).not.toBeInTheDocument();
+  });
+
   it("keeps password failures generic", async () => {
     signInWithPassword.mockResolvedValue({
-      error: { message: "User not found in auth.users" },
+      error: new AuthApiError(
+        "User not found in auth.users",
+        400,
+        "invalid_credentials",
+      ),
     });
     render(<LoginForm initialEmail="unknown@example.com" />);
     fireEvent.change(screen.getByLabelText("Password"), {
