@@ -1,4 +1,5 @@
-import { Alert, Linking } from "react-native";
+import { openPrivacyPolicy } from "@/features/settings/open-privacy-policy";
+import { Alert } from "react-native";
 import { Action, Group, Row, Screen } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
@@ -19,7 +20,7 @@ export default function Settings() {
       <Action
         title="Privacy policy"
         secondary
-        onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
+        onPress={() => void openPrivacyPolicy()}
       />
       <Action
         title="Sign out"

@@ -1,5 +1,6 @@
+import { openPrivacyPolicy } from "@/features/settings/open-privacy-policy";
 import { useState } from "react";
-import { Linking, Pressable, useWindowDimensions, Text, View } from "react-native";
+import { Pressable, useWindowDimensions, Text, View } from "react-native";
 import { Stack } from "expo-router/stack";
 import { StatusBar } from "expo-status-bar";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -195,7 +196,7 @@ export default function Login() {
         )}
         <Text
           accessibilityRole="link"
-          onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
+          onPress={() => void openPrivacyPolicy()}
           style={{ color: c.accent, fontSize: 14, textAlign: "center" }}
         >
           Privacy policy
