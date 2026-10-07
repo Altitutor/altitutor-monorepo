@@ -294,7 +294,7 @@ jobs:
           if [ "${{ github.ref_name }}" = "main" ] || [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             pnpm --filter ucat-web exec playwright install --with-deps chromium firefox webkit chrome msedge &
           else
-            pnpm --filter ucat-web exec playwright install --with-deps chromium &
+            pnpm --filter ucat-web exec playwright install --with-deps chromium webkit &
           fi
           playwright_pid=$!
           node scripts/start-local-supabase.mjs --exclude studio,imgproxy,logflare,vector,postgres-meta,mailpit
@@ -329,8 +329,8 @@ jobs:
       - name: Run marketing browser journeys
         if: needs.web-system-tests-needed.outputs.marketing == 'true'
         env:
-          CI_RELEASE_GATE: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
-          MARKETING_E2E_FULL_BROWSER_MATRIX: ${{ (github.ref_name == 'main' || github.event_name == 'workflow_dispatch') && 'true' || 'false' }}
+          CI_RELEASE_GATE: "true"
+          MARKETING_E2E_FULL_BROWSER_MATRIX: "true"
         run: |
           trap 'rm -rf apps/marketing-web/.next-e2e' EXIT
           pnpm --filter marketing-web test:e2e
