@@ -37,7 +37,7 @@ export default function Settings() {
                 onPress: () => {
                   haptic("warning");
                   void disablePushNotifications()
-                    .then(() => supabase.auth.signOut())
+                    .then(() => supabase.auth.signOut({ scope: "local" }))
                     .then(({ error }) => {
                       if (error) Alert.alert("Unable to sign out", error.message);
                     })

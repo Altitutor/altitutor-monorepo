@@ -29,7 +29,7 @@ export const authApi = {
    * Log out and invalidate the session
    */
   logout: async () => {
-    const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.signOut();
+    const { error } = await (getSupabaseClient() as SupabaseClient<Database>).auth.signOut({ scope: 'local' });
     if (error) throw error;
     return { message: 'Logged out successfully' };
   },

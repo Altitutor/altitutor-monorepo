@@ -61,7 +61,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     user,
     isLoading,
     signOut: async () => {
-      await supabase.auth.signOut();
+      await supabase.auth.signOut({ scope: "local" });
       queryClient.removeQueries({ queryKey: ["ucat-access"] });
       setUser(null);
     },
