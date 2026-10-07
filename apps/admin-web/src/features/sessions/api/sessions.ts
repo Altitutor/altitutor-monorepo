@@ -560,7 +560,13 @@ export const sessionsApi = {
         student_id: studentId,
       };
       const { data, error } = await (getSupabaseClient() as SupabaseClient<Database>).from('sessions_students').insert(payload).select().single();
-      if (error) throw error;
+      if (error) {
+        // The existing unique constraint also protects stale or concurrent callers.
+        if (error.code === '23505' && error.message.includes('sessions_students_unique_session_student')) {
+          throw new Error('This student is already in this session.');
+        }
+        throw error;
+      }
       return data as Tables<'sessions_students'>;
     } catch (error) {
       console.error('Error adding student to session:', error);

@@ -1,4 +1,5 @@
 'use client';
+import { IssuePill } from '@/features/issues';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 import { StaffPayTierTab } from '@/features/staff/components/modal/tabs/StaffPayTierTab';
 import { useAdminPageViewParam } from '@/shared/hooks/useAdminPageViewParam';
@@ -170,6 +171,7 @@ export default function StaffDetailPage({ params }: { params: { id: string } }) 
       {/* Header */}
       <div className={activityLayout ? 'flex shrink-0 items-center gap-2 border-b bg-background px-4 py-2' : 'mb-3 flex items-center gap-2 border-b pb-3'}>
         <PrimaryEntityBreadcrumb />
+        <IssuePill entityType="staff" entityId={id} enabled />
         <NoteAlertPills entityType="staff" entityId={staffMember.id} />
 
         <ActionsMenu

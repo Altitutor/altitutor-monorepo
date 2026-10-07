@@ -1,5 +1,39 @@
 import { expect, test } from "@playwright/test";
 
+test("course sidebar clears the header with the announcement visible and dismissed", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/classes/weekly-classes/");
+  const sidebar = page.getByRole("navigation", { name: "Course sections" });
+  await sidebar.getByRole("link").last().click();
+  const header = page.getByRole("banner");
+  const expectSidebarClear = async () => {
+    await expect
+      .poll(async () => {
+        return sidebar.evaluate(
+          (element) =>
+            element.getBoundingClientRect().top -
+            parseFloat(getComputedStyle(element).top),
+        );
+      })
+      .toBeLessThanOrEqual(1);
+    await expect
+      .poll(async () => {
+        const sidebarBounds = await sidebar.boundingBox();
+        const headerBounds = await header.boundingBox();
+        if (!sidebarBounds || !headerBounds) return -1;
+        return sidebarBounds.y - (headerBounds.y + headerBounds.height);
+      })
+      .toBeGreaterThanOrEqual(16);
+  };
+  await expectSidebarClear();
+  await page
+    .getByRole("button", { name: "Dismiss medicine interview announcement" })
+    .click();
+  await expectSidebarClear();
+});
+
 const publicSurfaces = [
   {
     path: "/ucat/",
@@ -26,9 +60,10 @@ for (const surface of publicSurfaces) {
 
     const response = await page.goto(surface.path);
 
-    expect(response?.ok(), `${surface.path} must return a successful response`).toBe(
-      true,
-    );
+    expect(
+      response?.ok(),
+      `${surface.path} must return a successful response`,
+    ).toBe(true);
     await expect(
       page.getByRole("heading", { level: 1, name: surface.heading }),
     ).toBeVisible();

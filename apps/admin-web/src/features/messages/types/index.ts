@@ -55,6 +55,7 @@ export type Sender = {
 export type ConversationMessagePreview = {
   senderName: string;
   text: string;
+  failed?: boolean;
   /** INBOUND is from the contact. OUTBOUND is to the contact. */
   direction: 'INBOUND' | 'OUTBOUND';
 };
@@ -103,6 +104,8 @@ export type GroupConversation = {
 export type ContactConversationSelection = {
   kind: 'contact';
   contactId: string;
+  destinationAddress?: string;
+  senderId?: string;
 };
 
 export type GroupConversationSelection = {

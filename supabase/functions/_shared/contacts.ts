@@ -1,4 +1,3 @@
-// @ts-nocheck
 import type { SupabaseClient } from 'jsr:@supabase/supabase-js@2';
 
 /**
@@ -19,12 +18,13 @@ export async function findOrCreateContact(
 
   // Try to find existing contact by phone
   if (phone) {
-    const { data: contactByPhone } = await supabase
+    const { data: contactByPhone, error: phoneError } = await supabase
       .from('contacts')
-      .select('id')
+      .select('id, email')
       .eq('phone_e164', phone)
       .maybeSingle();
     
+    if (phoneError) throw phoneError;
     if (contactByPhone?.id) {
       // Update email if provided and contact doesn't have one
       if (email && !contactByPhone.email) {
@@ -37,24 +37,11 @@ export async function findOrCreateContact(
     }
   }
 
-  // Try to find existing contact by email
+  // Resolve profile matches and existing Apple ID threads atomically.
   if (email) {
-    const { data: contactByEmail } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('email', email)
-      .maybeSingle();
-    
-    if (contactByEmail?.id) {
-      // Update phone if provided and contact doesn't have one
-      if (phone && !contactByEmail.phone_e164) {
-        await supabase
-          .from('contacts')
-          .update({ phone_e164: phone })
-          .eq('id', contactByEmail.id);
-      }
-      return contactByEmail.id;
-    }
+    const { data, error } = await supabase.rpc('resolve_messaging_email_contact', { p_email: email });
+    if (error) throw error;
+    return data as string;
   }
 
   // Create new contact
@@ -83,22 +70,25 @@ export async function findContactByIdentifier(
   identifier: string
 ): Promise<string | null> {
   // Try phone first
-  const { data: contactByPhone } = await supabase
+  const { data: contactByPhone, error: phoneError } = await supabase
     .from('contacts')
     .select('id')
     .eq('phone_e164', identifier)
     .maybeSingle();
   
+  if (phoneError) throw phoneError;
   if (contactByPhone?.id) {
     return contactByPhone.id;
   }
 
-  // Try email
-  const { data: contactByEmail } = await supabase
+  // Read-only lookup for participant removal; do not create or assign a contact.
+  const { data: contacts, error } = await supabase
     .from('contacts')
-    .select('id')
-    .eq('email', identifier)
-    .maybeSingle();
-  
-  return contactByEmail?.id || null;
+    .select('id, student_id, parent_id, staff_id')
+    .ilike('email', identifier.trim().replace(/[\\%_]/g, '\\$&'));
+  if (error) throw error;
+  const linked = (contacts ?? []).filter((contact) => contact.student_id || contact.parent_id || contact.staff_id);
+  if (linked.length === 1) return linked[0].id;
+  if (linked.length > 1) return null;
+  return contacts?.length === 1 ? contacts[0].id : null;
 }

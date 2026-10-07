@@ -12,6 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 export type ContactWithRelations = {
   id: string;
   phone_e164: string | null;
+  email: string | null;
   contact_type: string;
   student_id: string | null;
   parent_id: string | null;
@@ -82,7 +83,7 @@ export async function getContactById(contactId: string): Promise<ContactWithRela
     .from('contacts')
     .select(`
       id,
-      phone_e164,
+      phone_e164, email,
       contact_type,
       student_id,
       parent_id,
@@ -107,4 +108,19 @@ export async function getContactById(contactId: string): Promise<ContactWithRela
   
   if (error) throw error;
   return data as ContactWithRelations | null;
+}
+
+/** Link an Apple ID without replacing the person's profile email or phone. */
+export async function linkEmailContact(
+  contactId: string,
+  entityType: 'student' | 'parent' | 'staff',
+  entityId: string,
+): Promise<string> {
+  const { data, error } = await getSupabaseClient().rpc('link_messaging_email_contact', {
+    p_contact_id: contactId,
+    p_entity_type: entityType,
+    p_entity_id: entityId,
+  });
+  if (error) throw error;
+  return data;
 }

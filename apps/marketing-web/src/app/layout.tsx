@@ -57,6 +57,8 @@ export const metadata: Metadata = {
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
   publisher: SITE_NAME,
+  // iOS phone detection can turn the footer ACN into a link before hydration.
+  formatDetection: { telephone: false },
 };
 
 export const viewport: Viewport = {

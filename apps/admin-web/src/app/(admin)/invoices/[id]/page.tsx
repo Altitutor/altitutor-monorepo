@@ -1,13 +1,13 @@
-'use client';
-import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
+"use client";
+import { PrimaryEntityBreadcrumb } from "@/shared/components/PrimaryEntityBreadcrumb";
 
-import { useRouter } from 'next/navigation';
-import { Button, Separator, Badge } from '@altitutor/ui';
-import { ArrowLeft } from 'lucide-react';
-import { ActionsMenu } from '@/shared/components/ActionsMenu';
-import { ViewStudentModal } from '@/features/students/components/ViewStudentModal';
-import { SessionModal } from '@/features/sessions/components/SessionModal';
-import { cn } from '@/shared/utils';
+import { useRouter } from "next/navigation";
+import { Button, Separator, Badge } from "@altitutor/ui";
+import { ArrowLeft } from "lucide-react";
+import { ActionsMenu } from "@/shared/components/ActionsMenu";
+import { ViewStudentModal } from "@/features/students/components/ViewStudentModal";
+import { SessionModal } from "@/features/sessions/components/SessionModal";
+import { cn } from "@/shared/utils";
 import {
   useInvoiceData,
   useInvoiceModals,
@@ -19,18 +19,25 @@ import {
   calculateLineItemsSubtotal,
   formatInvoiceTagText,
   CreditNoteDialog,
-} from '@/features/billing';
-import { useState } from 'react';
-import { useToast } from '@altitutor/ui';
-import { getErrorMessage } from '@/shared/utils';
-import { format } from 'date-fns';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { AdminLoadingSkeleton } from '@/shared/components';
-import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
-import { invalidateInvoiceDetail } from '@/shared/lib/query-invalidation';
-import { InvoiceActivityTab } from '@/features/activity/components';
+} from "@/features/billing";
+import { useState } from "react";
+import { useToast } from "@altitutor/ui";
+import { getErrorMessage } from "@/shared/utils";
+import { format } from "date-fns";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { AdminLoadingSkeleton } from "@/shared/components";
+import {
+  PropertyForm,
+  PropertyFormRow,
+} from "@/shared/components/PropertyForm";
+import { invalidateInvoiceDetail } from "@/shared/lib/query-invalidation";
+import { InvoiceActivityTab } from "@/features/activity/components";
 
-export default function InvoiceDetailPage({ params }: { params: { id: string } }) {
+export default function InvoiceDetailPage({
+  params,
+}: {
+  params: { id: string };
+}) {
   const { id } = params;
   const router = useRouter();
   const { toast } = useToast();
@@ -49,20 +56,65 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
   const { invoice, invoiceItems, creditNotes, isLoading } = invoiceData;
 
   // Fetch Stripe details for retry information
-  const { data: stripeDetails } = useQuery({
-    queryKey: ['invoice-stripe-details', id],
+  const {
+    data: stripeDetails,
+    isLoading: isLoadingStripeDetails,
+    isError: isStripeDetailsError,
+  } = useQuery({
+    queryKey: ["invoice-stripe-details", id],
     queryFn: async () => {
       if (!id) return null;
       const response = await fetch(`/api/invoices/${id}/stripe-details`);
       if (!response.ok) {
-        throw new Error('Failed to fetch Stripe details');
+        throw new Error("Failed to fetch Stripe details");
       }
-      return response.json();
+      return response.json() as Promise<{
+        attempt_count: number;
+        next_payment_attempt: number | null;
+        auto_retry_active: boolean;
+        last_payment_error?: { code?: string; message?: string } | null;
+      }>;
     },
     enabled: !!id && !!invoice?.stripe_invoice_id,
     staleTime: 1000 * 60, // 1 minute
   });
 
+  const isRefunded = !!invoice?.is_refunded;
+
+  const totalCreditSettlementCents = creditNotes
+    .filter((note) => note.status !== "void")
+    .reduce((sum, note) => {
+      type CreditNoteWithSettlement = typeof note & {
+        refund_amount_cents?: number | null;
+        credit_amount_cents?: number | null;
+        out_of_band_amount_cents?: number | null;
+      };
+
+      const noteWithSettlement = note as CreditNoteWithSettlement;
+      const refund = noteWithSettlement.refund_amount_cents ?? 0;
+      const credit = noteWithSettlement.credit_amount_cents ?? 0;
+      const outOfBand = noteWithSettlement.out_of_band_amount_cents ?? 0;
+      const settlement = refund + credit + outOfBand;
+      return sum + (settlement > 0 ? settlement : note.amount_cents);
+    }, 0);
+
+  const invoiceTotalCents =
+    invoice?.total_cents ?? invoice?.amount_due_cents ?? 0;
+
+  const isFullyCredited =
+    totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;
+
+  // Extract last payment error from metadata
+  type InvoiceMetadata = {
+    last_payment_error?: {
+      code?: string;
+      message?: string;
+      type?: string;
+    } | null;
+  };
+  const metadata = (invoice?.metadata as InvoiceMetadata | null) ?? null;
+  const lastPaymentError =
+    stripeDetails?.last_payment_error ?? metadata?.last_payment_error ?? null;
   const collectionMethod = invoice?.collection_method;
 
   const handleSendInvoiceEmail = async () => {
@@ -70,31 +122,32 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
     setIsLoadingAction(true);
     try {
       const response = await fetch(`/api/invoices/${id}/send-invoice`, {
-        method: 'POST',
+        method: "POST",
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to send invoice');
+        throw new Error(error.error || "Failed to send invoice");
       }
 
       const result = await response.json();
       const recipients = result.sent || [];
-      const recipientText = recipients.length > 0 
-        ? `Sent to: ${recipients.join(', ')}`
-        : 'Invoice email sent successfully';
+      const recipientText =
+        recipients.length > 0
+          ? `Sent to: ${recipients.join(", ")}`
+          : "Invoice email sent successfully";
 
       toast({
-        title: 'Success',
+        title: "Success",
         description: recipientText,
       });
       await invalidateInvoiceDetail(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
-        title: 'Error',
-        description: errorMessage || 'Failed to send invoice',
-        variant: 'destructive',
+        title: "Error",
+        description: errorMessage || "Failed to send invoice",
+        variant: "destructive",
       });
     } finally {
       setIsLoadingAction(false);
@@ -106,10 +159,16 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
 
     // Check if there's a future retry scheduled
     if (stripeDetails?.next_payment_attempt) {
-      const nextAttemptDate = new Date(stripeDetails.next_payment_attempt * 1000);
-      const formattedDate = format(nextAttemptDate, 'MMM d, yyyy h:mm a');
+      const nextAttemptDate = new Date(
+        stripeDetails.next_payment_attempt * 1000,
+      );
+      const formattedDate = format(nextAttemptDate, "MMM d, yyyy h:mm a");
 
-      if (!confirm(`Are you sure you want to attempt this payment now? This payment will already be automatically attempted at ${formattedDate}.`)) {
+      if (
+        !confirm(
+          `Are you sure you want to attempt this payment now? This payment will already be automatically attempted at ${formattedDate}.`,
+        )
+      ) {
         return;
       }
     }
@@ -117,44 +176,80 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
     setIsLoadingAction(true);
     try {
       const response = await fetch(`/api/invoices/${id}/charge-card`, {
-        method: 'POST',
+        method: "POST",
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to charge card');
+        throw new Error(error.error || "Failed to charge card");
       }
 
       toast({
-        title: 'Success',
-        description: 'Payment attempt initiated successfully',
+        title: "Success",
+        description: "Payment attempt initiated successfully",
       });
 
       await invalidateInvoiceDetail(queryClient, id);
     } catch (error: unknown) {
       const errorMessage = getErrorMessage(error);
       toast({
-        title: 'Error',
-        description: errorMessage || 'Failed to charge card',
-        variant: 'destructive',
+        title: "Error",
+        description: errorMessage || "Failed to charge card",
+        variant: "destructive",
       });
     } finally {
       setIsLoadingAction(false);
     }
   };
 
+  const canInvoiceAcceptCreditNote =
+    !!invoice &&
+    (invoice.status === "open" || invoice.status === "paid") &&
+    !!invoice.stripe_invoice_id;
+
+  const handleOpenCreditNoteDialog = () => {
+    if (!id || !invoice) return;
+    if (isRefunded) {
+      toast({
+        title: "Cannot add credit note",
+        description: "This invoice has already been refunded.",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (isFullyCredited) {
+      toast({
+        title: "Cannot add credit note",
+        description: "This invoice has already been fully credited.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsCreditNoteOpen(true);
+  };
+
   // Centralized action handlers
   const invoiceActions = useInvoiceActions({
     invoiceId: id,
     invoice,
-    onDownloadPdf: invoice?.invoice_pdf ? () => {
-      window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
-    } : undefined,
-    onSendInvoice: collectionMethod === 'send_invoice' && invoice?.status !== 'paid' ? handleSendInvoiceEmail : undefined,
-    onChargeCard: collectionMethod === 'charge_automatically' && invoice?.status !== 'paid' ? handleChargeCard : undefined,
+    onDownloadPdf: invoice?.invoice_pdf
+      ? () => {
+          window.open(invoice.invoice_pdf!, "_blank", "noopener,noreferrer");
+        }
+      : undefined,
+    onSendInvoice:
+      collectionMethod === "send_invoice" && invoice?.status !== "paid"
+        ? handleSendInvoiceEmail
+        : undefined,
+    onChargeCard:
+      collectionMethod === "charge_automatically" && invoice?.status !== "paid"
+        ? handleChargeCard
+        : undefined,
     onAddCreditNote:
-      invoice && (invoice.status === 'open' || invoice.status === 'paid') && invoice.stripe_invoice_id
-        ? () => setIsCreditNoteOpen(true)
+      invoice &&
+      (invoice.status === "open" || invoice.status === "paid") &&
+      invoice.stripe_invoice_id
+        ? handleOpenCreditNoteDialog
         : undefined,
     isLoadingAction,
   });
@@ -177,12 +272,14 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/invoices')}
+            onClick={() => router.push("/invoices")}
             className="border"
           >
             <ArrowLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-3xl font-bold tracking-tight">Invoice Not Found</h1>
+          <h1 className="text-3xl font-bold tracking-tight">
+            Invoice Not Found
+          </h1>
         </div>
       </div>
     );
@@ -192,17 +289,34 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
     <div className="p-4">
       {/* Header */}
       <div className="flex items-center gap-2 mb-3">
-        <PrimaryEntityBreadcrumb label={formatInvoiceTagText({invoiceDate:invoice.invoice_date,lineItemDescriptions:invoiceItems.map(item=>item.description || "Invoice item"),status:invoice.status})} />
-
+        <PrimaryEntityBreadcrumb
+          label={formatInvoiceTagText({
+            invoiceDate: invoice.invoice_date,
+            lineItemDescriptions: invoiceItems.map(
+              (item) => item.description || "Invoice item",
+            ),
+            status: invoice.status,
+          })}
+        />
 
         <ActionsMenu
           type="invoice"
           entityId={id}
           copyTagDisplayText={formatInvoiceTagText({
             invoiceDate: invoice.invoice_date,
-            lineItemDescriptions: invoiceItems.map((item) => item.description || 'Invoice item'),
+            lineItemDescriptions: invoiceItems.map(
+              (item) => item.description || "Invoice item",
+            ),
             status: invoice.status,
           })}
+          isAddCreditNoteDisabled={
+            canInvoiceAcceptCreditNote && (isFullyCredited || isRefunded)
+          }
+          addCreditNoteDisabledReason={
+            isRefunded
+              ? "This invoice has already been refunded."
+              : "This invoice has already been fully credited."
+          }
           {...invoiceActions}
         />
       </div>
@@ -229,32 +343,108 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
               </div>
             </PropertyFormRow>
             <PropertyFormRow label="Invoice date">
-              <div className="text-sm">{formatInvoiceDate(invoice.invoice_date)}</div>
+              <div className="text-sm">
+                {formatInvoiceDate(invoice.invoice_date)}
+              </div>
             </PropertyFormRow>
             <PropertyFormRow label="Status">
               <div className="text-sm">
-                {getInvoiceStatusBadge(toInvoiceStatusPayload(invoice))}
+                {getInvoiceStatusBadge(toInvoiceStatusPayload({
+                    ...invoice,
+                    credit_notes: creditNotes.filter(note => note.status !== 'void').map(note => ({
+                      refund_amount_cents: note.refund_amount_cents,
+                      credit_amount_cents: note.credit_amount_cents,
+                      created_at: note.created_at,
+                    })),
+                  }))}
               </div>
             </PropertyFormRow>
             {subtotalCents !== null && subtotalCents !== undefined && (
               <PropertyFormRow label="Subtotal">
                 <div className="text-sm">
-                  {formatInvoiceAmount(subtotalCents, invoice.currency || 'AUD')}
+                  {formatInvoiceAmount(
+                    subtotalCents,
+                    invoice.currency || "AUD",
+                  )}
                 </div>
               </PropertyFormRow>
             )}
             {totalCents !== null && totalCents !== undefined && (
               <PropertyFormRow label="Total">
                 <div className="text-sm">
-                  {formatInvoiceAmount(totalCents, invoice.currency || 'AUD')}
+                  {formatInvoiceAmount(totalCents, invoice.currency || "AUD")}
                 </div>
               </PropertyFormRow>
             )}
             <PropertyFormRow label="Amount due">
               <div className="text-sm font-semibold">
-                {formatInvoiceAmount(invoice.amount_due_cents, invoice.currency || 'AUD')}
+                {formatInvoiceAmount(
+                  invoice.amount_due_cents,
+                  invoice.currency || "AUD",
+                )}
               </div>
             </PropertyFormRow>
+            <PropertyFormRow label="Collection method">
+              <div>
+                <Badge variant="outline">
+                  {collectionMethod === "charge_automatically"
+                    ? "Charge Automatically"
+                    : collectionMethod === "send_invoice"
+                      ? "Send Invoice"
+                      : "—"}
+                </Badge>
+              </div>
+            </PropertyFormRow>
+            {collectionMethod === "charge_automatically" &&
+              lastPaymentError && (
+                <PropertyFormRow label="Last payment error">
+                  <div className="text-sm text-destructive">
+                    {lastPaymentError.code}: {lastPaymentError.message}
+                  </div>
+                </PropertyFormRow>
+              )}
+            {collectionMethod === "charge_automatically" && (
+              <>
+                <PropertyFormRow label="Attempt count">
+                  <div className="text-sm">
+                    {isStripeDetailsError
+                      ? "Unable to load"
+                      : isLoadingStripeDetails
+                        ? "Loading..."
+                        : (stripeDetails?.attempt_count ?? "—")}
+                  </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Next payment attempt">
+                  <div className="text-sm">
+                    {isStripeDetailsError
+                      ? "Unable to load"
+                      : isLoadingStripeDetails
+                        ? "Loading..."
+                        : stripeDetails?.next_payment_attempt
+                          ? format(
+                              new Date(
+                                stripeDetails.next_payment_attempt * 1000,
+                              ),
+                              "MMM d, yyyy h:mm a",
+                            )
+                          : "No retry scheduled"}
+                  </div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Auto retry active">
+                  <div className="text-sm">
+                    {isStripeDetailsError ? (
+                      "Unable to load"
+                    ) : isLoadingStripeDetails ? (
+                      "Loading..."
+                    ) : stripeDetails?.auto_retry_active ? (
+                      <Badge variant="default">Yes</Badge>
+                    ) : (
+                      <Badge variant="secondary">No</Badge>
+                    )}
+                  </div>
+                </PropertyFormRow>
+              </>
+            )}
           </PropertyForm>
         </div>
 
@@ -272,7 +462,8 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                   key={item.id}
                   className={cn(
                     "flex items-start justify-between p-3 rounded-md border",
-                    item.session_id && "cursor-pointer hover:bg-muted/50 transition-colors"
+                    item.session_id &&
+                      "cursor-pointer hover:bg-muted/50 transition-colors",
                   )}
                   onClick={() => {
                     if (item.session_id) {
@@ -282,11 +473,19 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                 >
                   <div className="flex-1">
                     <div className="flex items-center gap-2">
-                      <span className={cn("text-sm", item.is_subsidy && "text-muted-foreground line-through")}>
-                        {item.description || 'Invoice item'}
+                      <span
+                        className={cn(
+                          "text-sm",
+                          item.is_subsidy &&
+                            "text-muted-foreground line-through",
+                        )}
+                      >
+                        {item.description || "Invoice item"}
                       </span>
                       {item.is_subsidy && (
-                        <Badge variant="outline" className="text-xs">Subsidy</Badge>
+                        <Badge variant="outline" className="text-xs">
+                          Subsidy
+                        </Badge>
                       )}
                     </div>
                     {item.session_id && (
@@ -310,8 +509,10 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
               {/* Show warning if line items don't match total */}
               {Math.abs(totalAmount - lineItemsSubtotal) > 1 && (
                 <div className="text-xs text-muted-foreground mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
-                  Note: Line items total (${(lineItemsSubtotal / 100).toFixed(2)}) differs from invoice total. 
-                  This may indicate missing fee items or other charges not yet synced from Stripe.
+                  Note: Line items total ($
+                  {(lineItemsSubtotal / 100).toFixed(2)}) differs from invoice
+                  total. This may indicate missing fee items or other charges
+                  not yet synced from Stripe.
                 </div>
               )}
             </div>
@@ -338,10 +539,15 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <Badge variant="destructive" className="text-xs">Refunded</Badge>
+                        <Badge variant="destructive" className="text-xs">
+                          Refunded
+                        </Badge>
                         {invoice.refunded_at && (
                           <span className="text-xs text-muted-foreground">
-                            {format(new Date(invoice.refunded_at), 'MMM d, yyyy h:mm a')}
+                            {format(
+                              new Date(invoice.refunded_at),
+                              "MMM d, yyyy h:mm a",
+                            )}
                           </span>
                         )}
                       </div>
@@ -361,23 +567,33 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                       key={creditNote.id}
                       className={cn(
                         "p-3 rounded-md border",
-                        creditNote.status === 'void' && "opacity-60 bg-muted/30"
+                        creditNote.status === "void" &&
+                          "opacity-60 bg-muted/30",
                       )}
                     >
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <Badge 
-                              variant={creditNote.status === 'void' ? 'outline' : 'secondary'} 
+                            <Badge
+                              variant={
+                                creditNote.status === "void"
+                                  ? "outline"
+                                  : "secondary"
+                              }
                               className="text-xs"
                             >
                               Credit Note
                             </Badge>
-                            {creditNote.status === 'void' && (
-                              <Badge variant="outline" className="text-xs">Void</Badge>
+                            {creditNote.status === "void" && (
+                              <Badge variant="outline" className="text-xs">
+                                Void
+                              </Badge>
                             )}
                             <span className="text-xs text-muted-foreground">
-                              {format(new Date(creditNote.created_at), 'MMM d, yyyy')}
+                              {format(
+                                new Date(creditNote.created_at),
+                                "MMM d, yyyy",
+                              )}
                             </span>
                           </div>
                           {creditNote.reason && (
@@ -388,9 +604,40 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
                           <div className="text-xs text-muted-foreground">
                             Status: {creditNote.status}
                           </div>
+                          {(creditNote.refund_amount_cents ?? 0) > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Refunded{" "}
+                              {formatInvoiceAmount(
+                                creditNote.refund_amount_cents!,
+                                creditNote.currency,
+                              )}
+                            </div>
+                          )}
+                          {(creditNote.credit_amount_cents ?? 0) > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Credited to balance{" "}
+                              {formatInvoiceAmount(
+                                creditNote.credit_amount_cents!,
+                                creditNote.currency,
+                              )}
+                            </div>
+                          )}
+                          {(creditNote.out_of_band_amount_cents ?? 0) > 0 && (
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Settled externally{" "}
+                              {formatInvoiceAmount(
+                                creditNote.out_of_band_amount_cents!,
+                                creditNote.currency,
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
-                          -{formatInvoiceAmount(creditNote.amount_cents, creditNote.currency)}
+                          -
+                          {formatInvoiceAmount(
+                            creditNote.amount_cents,
+                            creditNote.currency,
+                          )}
                         </div>
                       </div>
                     </div>
@@ -404,8 +651,7 @@ export default function InvoiceDetailPage({ params }: { params: { id: string } }
         <Separator />
 
         {/* Actions */}
-        <div>
-        </div>
+        <div></div>
       </div>
 
       {/* Student Modal */}

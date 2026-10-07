@@ -18,12 +18,18 @@ export function outboundMessageDestination(input: {
   phone?: string | null;
   email?: string | null;
   provider?: string | null;
+  replyAddress?: string | null;
 }): string | null {
   const groupChatId = trimmed(input.groupChatId);
   if (groupChatId) return groupChatId;
   const phone = trimmed(input.phone);
+  const email = trimmed(input.email);
+  const replyAddress = trimmed(input.replyAddress);
+  if (replyAddress && phone && replyAddress === phone) return phone;
+  if (input.provider === 'IMESSAGE' && replyAddress && email
+    && replyAddress.toLowerCase() === email.toLowerCase()) return email;
   if (phone) return phone;
-  if (input.provider === 'IMESSAGE') return trimmed(input.email);
+  if (input.provider === 'IMESSAGE') return email;
   return null;
 }
 

@@ -5,6 +5,7 @@ export type ConversationPreviewDirection = 'INBOUND' | 'OUTBOUND';
 export type ConversationMessagePreview = {
   senderName: string;
   text: string;
+  failed?: boolean;
   /** INBOUND is from the contact. OUTBOUND is to the contact. */
   direction: ConversationPreviewDirection;
 };
@@ -96,6 +97,7 @@ export function participantSenderBadgeName(
 
 export function buildConversationPreview(input: {
   direction: string;
+  status?: string | null;
   body: string | null | undefined;
   attachmentCount: number;
   senderName: string;
@@ -105,6 +107,7 @@ export function buildConversationPreview(input: {
   return {
     senderName: input.senderName,
     text,
+    failed: input.direction === 'OUTBOUND' && (input.status === 'FAILED' || input.status === 'UNDELIVERED'),
     direction: input.direction === 'OUTBOUND' ? 'OUTBOUND' : 'INBOUND',
   };
 }

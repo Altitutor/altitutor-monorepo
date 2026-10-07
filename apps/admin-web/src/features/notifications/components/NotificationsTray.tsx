@@ -21,7 +21,6 @@ interface NotificationsTrayProps {
 
 export function NotificationsTray({ staffId }: NotificationsTrayProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const [armedIds, setArmedIds] = useState<Set<string>>(new Set());
   const { data: notifications = [], isLoading } = useNotifications(staffId);
   const { data: unreadCount = 0 } = useUnreadCount(staffId);
   const markReadMutation = useMarkNotificationRead();
@@ -30,21 +29,9 @@ export function NotificationsTray({ staffId }: NotificationsTrayProps) {
 
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open);
-    if (!open) {
-      setArmedIds(new Set());
-    }
   };
 
-  const handleArm = (notificationId: string) => {
-    setArmedIds((prev) => new Set(prev).add(notificationId));
-  };
-
-  const handleConfirmDismiss = (notificationId: string) => {
-    setArmedIds((prev) => {
-      const next = new Set(prev);
-      next.delete(notificationId);
-      return next;
-    });
+  const handleDismiss = (notificationId: string) => {
     dismissMutation.mutate({ notificationId, staffId });
   };
 
@@ -105,9 +92,7 @@ export function NotificationsTray({ staffId }: NotificationsTrayProps) {
               <NotificationItem
                 key={notification.id}
                 notification={notification}
-                isArmed={armedIds.has(notification.id)}
-                onArm={() => handleArm(notification.id)}
-                onConfirmDismiss={() => handleConfirmDismiss(notification.id)}
+                onDismiss={() => handleDismiss(notification.id)}
                 onOpen={() => {
                   handleOpenNotification(notification);
                   if (notification.action_url) {

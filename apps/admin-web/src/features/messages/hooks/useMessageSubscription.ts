@@ -45,6 +45,7 @@ export function useMessageSubscription() {
         queryClient.invalidateQueries({ queryKey: messagesKeys.conversations() });
         queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
         queryClient.invalidateQueries({ queryKey: messagesKeys.messages(row.conversation_id) });
+        queryClient.invalidateQueries({ queryKey: [...messagesKeys.all, 'addresses'] });
         queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
         queryClient.invalidateQueries({ queryKey: ['entity-communication', 'messages'] });
 
@@ -128,6 +129,14 @@ export function useMessageSubscription() {
             },
           },
         });
+      })
+      .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'messages' }, () => {
+        // Delivery callbacks can clear unread state or restore it after failure.
+        queryClient.invalidateQueries({ queryKey: messagesKeys.all });
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'conversation_reads' }, () => {
+        queryClient.invalidateQueries({ queryKey: messagesKeys.conversationsByContactBase() });
+        queryClient.invalidateQueries({ queryKey: messagesKeys.unreadCount() });
       })
       .subscribe((status: string) => {
         if (status === 'SUBSCRIPTION_ERROR') {

@@ -104,6 +104,9 @@ export function tryActivateDialogPrimaryAction(
   // outside dialogs. TipTap (contenteditable) and normal dialog textareas still
   // activate the dialog primary action (e.g. Next / Save).
   const target = event.target;
+  // Pane dialogs must not consume the other pane's keyboard shortcuts.
+  if (root.closest('[data-dialog-scope]') &&
+      (!(target instanceof Node) || !root.contains(target))) return false;
   if (
     target instanceof Element &&
     target.closest("[data-dialog-primary-shortcut-ignore]")

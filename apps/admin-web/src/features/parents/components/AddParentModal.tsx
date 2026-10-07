@@ -25,6 +25,7 @@ interface AddParentModalProps {
   onClose: () => void;
   onParentAdded: (parent?: Tables<'parents'>) => void;
   initialPhone?: string | null;
+  initialEmail?: string | null;
 }
 
 // Schema for form validation
@@ -45,7 +46,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }: AddParentModalProps) {
+export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone, initialEmail }: AddParentModalProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const createParentMutation = useCreateParent();
@@ -140,7 +141,8 @@ export function AddParentModal({ isOpen, onClose, onParentAdded, initialPhone }:
   useEffect(() => {
     if (!isOpen) return;
     setValue('phone', initialPhone || '');
-  }, [initialPhone, isOpen, setValue]);
+    setValue('email', initialEmail || '');
+  }, [initialEmail, initialPhone, isOpen, setValue]);
 
   return (
     <AdminDialogShell

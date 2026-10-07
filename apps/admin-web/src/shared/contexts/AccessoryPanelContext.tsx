@@ -39,6 +39,20 @@ export const accessoryFamily = (kind: AccessoryKind) =>
       document: "documents",
     }) as Partial<Record<AccessoryKind, AccessoryKind>>
   )[kind] ?? kind;
+
+function messagesConversationId(query: string, fallback?: string) {
+  const params = new URLSearchParams(query);
+  return (
+    params.get("contact") ??
+    params.get("group") ??
+    params.get("conversation") ??
+    fallback
+  );
+}
+
+function isMessagesListTab(tab: Pick<AccessoryTab, "kind" | "id" | "query">) {
+  return tab.kind === "messages" && !messagesConversationId(tab.query, tab.id);
+}
 export type AccessoryTab = {
   owner?: AccessoryOwner;
   key: string;
@@ -50,12 +64,14 @@ export type AccessoryTab = {
 };
 type Workspace = {
   tabs: AccessoryTab[];
+  recentlyClosed: AccessoryTab[];
   activeKey: string | null;
   expanded: boolean;
   width: number;
 };
 const empty: Workspace = {
   tabs: [],
+  recentlyClosed: [],
   activeKey: null,
   expanded: false,
   width: 520,
@@ -105,18 +121,30 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
           "tabs" in saved &&
           Array.isArray(saved.tabs)
         ) {
-          const valid = saved.tabs.filter(
-            (tab): tab is AccessoryTab =>
-              !!tab &&
-              typeof tab.key === "string" &&
-              kinds.includes(tab.kind) &&
-              typeof tab.title === "string" &&
-              typeof tab.query === "string" &&
-              (tab.id === undefined || typeof tab.id === "string"),
-          );
+          const readTabs = (tabs: unknown[]) => tabs
+            .filter(
+              (tab): tab is AccessoryTab =>
+                !!tab && typeof tab === "object" &&
+                "key" in tab && "kind" in tab && "title" in tab && "query" in tab &&
+                typeof tab.key === "string" &&
+                kinds.includes(tab.kind as AccessoryKind) &&
+                typeof tab.title === "string" &&
+                typeof tab.query === "string" &&
+                (!("id" in tab) || tab.id === undefined || typeof tab.id === "string"),
+            )
+            .map((tab) =>
+              tab.kind === "messages"
+                ? {
+                    ...tab,
+                    id: messagesConversationId(tab.query, tab.id),
+                  }
+                : tab,
+            );
+          const valid = readTabs(saved.tabs);
           const data = saved as Partial<Workspace>;
           next = {
             tabs: valid,
+            recentlyClosed: readTabs(Array.isArray(data.recentlyClosed) ? data.recentlyClosed : []).slice(0, 10),
             activeKey: valid.some((t) => t.key === data.activeKey)
               ? data.activeKey!
               : (valid[0]?.key ?? null),
@@ -145,19 +173,31 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
   const openTab = useCallback(
     (tab: Omit<AccessoryTab, "key" | "query"> & { query?: string }) => {
       setWorkspace((current) => {
-        const existing = current.tabs.find(
-          (t) => t.kind === tab.kind && t.id === tab.id,
+        const query = tab.query ?? "";
+        const id =
+          tab.kind === "messages"
+            ? messagesConversationId(query, tab.id)
+            : tab.id;
+        const existing = current.tabs.find((t) => {
+          if (t.kind !== tab.kind) return false;
+          if (tab.kind === "messages" && !id) return isMessagesListTab(t);
+          return t.id === id;
+        });
+        const recentlyClosed = current.recentlyClosed.filter((closed) =>
+          closed.kind !== tab.kind || closed.id !== id,
         );
         if (existing)
-          return { ...current, activeKey: existing.key, expanded: true };
+          return { ...current, recentlyClosed, activeKey: existing.key, expanded: true };
         const next = {
           ...tab,
-          query: tab.query ?? "",
+          id,
+          query,
           key: crypto.randomUUID(),
         };
         return {
           ...current,
           tabs: [...current.tabs, next],
+          recentlyClosed,
           activeKey: next.key,
           expanded: true,
         };
@@ -207,10 +247,15 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
     (key: string) =>
       setWorkspace((current) => {
         const index = current.tabs.findIndex((t) => t.key === key);
+        if (index < 0) return current;
+        const closed = current.tabs[index];
         const tabs = current.tabs.filter((t) => t.key !== key);
         return {
           ...current,
           tabs,
+          recentlyClosed: [closed, ...current.recentlyClosed.filter((tab) =>
+            tab.kind !== closed.kind || tab.id !== closed.id,
+          )].slice(0, 10),
           activeKey:
             current.activeKey === key
               ? (tabs[Math.min(index, tabs.length - 1)]?.key ?? null)
@@ -226,13 +271,12 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
         tabs: current.tabs.map((t) => {
           if (t.key !== key) return t;
           if (t.query === query) return t;
-          const params = new URLSearchParams(query);
           return {
             ...t,
             query,
             id:
-              t.kind === "messages" && t.id
-                ? (params.get("contact") ?? params.get("group") ?? t.id)
+              t.kind === "messages"
+                ? messagesConversationId(query)
                 : t.id,
           };
         }),

@@ -13,15 +13,23 @@ import { ensurePanelResizeGuardInstalled } from "../lib/panel-resize-guard"
 import { useDialogPrimaryActionShortcut } from "../hooks/use-dialog-primary-action-shortcut"
 import "../styles/dialog-bottom-sheet.css"
 
-const Dialog = DialogPrimitive.Root
+import { useDialogScope, useRegisterScopedDialog } from "./dialog-scope"
+
+const Dialog = (props: React.ComponentProps<typeof DialogPrimitive.Root>) => {
+  const scope = useDialogScope();
+  return <DialogPrimitive.Root {...props} modal={scope ? false : props.modal} />;
+}
 
 const DialogTrigger = DialogPrimitive.Trigger
 
 const DialogPortal = ({
   ...props
-}: DialogPrimitive.DialogPortalProps) => (
-  <DialogPrimitive.Portal {...props} />
-)
+}: DialogPrimitive.DialogPortalProps) => {
+  const scope = useDialogScope();
+  // Wait for the pane's portal host instead of briefly portaling to the body.
+  if (scope && !scope.container) return null;
+  return <DialogPrimitive.Portal {...props} container={scope?.container ?? props.container} />;
+}
 DialogPortal.displayName = DialogPrimitive.Portal.displayName
 
 const DialogClose = DialogPrimitive.Close
@@ -49,12 +57,16 @@ interface DialogContentProps
   /** When false, Cmd/Ctrl+Enter will not activate the primary footer action. */
   primaryShortcut?: boolean;
   overlayClassName?: string;
+  dismissOnOverlay?: boolean;
 }
 
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   DialogContentProps
->(({ className, children, hideCloseButton = false, mobilePresentation = "fullscreen", primaryShortcut = true, overlayClassName, ...props }, ref) => {
+>(({ className, children, hideCloseButton = false, mobilePresentation = "fullscreen", primaryShortcut = true, overlayClassName, dismissOnOverlay = true, ...props }, ref) => {
+  const scope = useDialogScope();
+  const [mounted, setMounted] = React.useState(false);
+  useRegisterScopedDialog(scope, mounted);
   const setDateTimeFocusRef = useModalNativeDateTimeFocusGuards<HTMLDivElement>();
   const contentRef = React.useRef<HTMLDivElement | null>(null);
   useDialogPrimaryActionShortcut(contentRef, primaryShortcut);
@@ -63,11 +75,20 @@ const DialogContent = React.forwardRef<
   }, []);
   const handleInteractOutside = React.useCallback((e: Event) => {
     handleModalInteractOutside(e);
-  }, []);
+    // Only the local backdrop may dismiss a pane dialog. Sidebar interactions
+    // (including focus) must leave it open, and callers can still veto dismissal.
+    if (scope) {
+      const target = (e as CustomEvent<{ originalEvent?: Event }>).detail?.originalEvent?.target;
+      const backdrop = target instanceof HTMLElement &&
+        target.matches('[data-slot="dialog-overlay"]') && scope.container?.contains(target);
+      if (!backdrop || !dismissOnOverlay) e.preventDefault();
+    }
+  }, [scope, dismissOnOverlay]);
 
   const mergedRef = React.useCallback(
     (node: HTMLDivElement | null) => {
       contentRef.current = node;
+      setMounted(Boolean(node));
       setDateTimeFocusRef(node);
       if (typeof ref === 'function') {
         ref(node);
@@ -82,10 +103,14 @@ const DialogContent = React.forwardRef<
 
   return (
     <DialogPortal>
-      <DialogOverlay
-        data-mobile-bottom-sheet={isBottomSheet ? "true" : undefined}
-        className={cn(isBottomSheet && "max-md:bg-black/60", overlayClassName)}
-      />
+      {scope ? (
+        <div data-slot="dialog-overlay" className={cn("fixed inset-0 z-50 bg-black/80", overlayClassName)} />
+      ) : (
+        <DialogOverlay
+          data-mobile-bottom-sheet={isBottomSheet ? "true" : undefined}
+          className={cn(isBottomSheet && "max-md:bg-black/60", overlayClassName)}
+        />
+      )}
       <DialogPrimitive.Content
         ref={mergedRef}
         data-slot="dialog-content"
@@ -106,10 +131,20 @@ const DialogContent = React.forwardRef<
               ),
           className,
         )}
-        onInteractOutside={handleInteractOutside}
-        onPointerDownOutside={handleInteractOutside}
-        onFocusOutside={handleInteractOutside}
         {...props}
+        onInteractOutside={(event) => {
+          if (scope || !props.onInteractOutside) handleInteractOutside(event);
+          props.onInteractOutside?.(event);
+        }}
+        onPointerDownOutside={(event) => {
+          if (scope || !props.onPointerDownOutside) handleInteractOutside(event);
+          props.onPointerDownOutside?.(event);
+        }}
+        onFocusOutside={(event) => {
+          if (scope) event.preventDefault();
+          else if (!props.onFocusOutside) handleInteractOutside(event);
+          props.onFocusOutside?.(event);
+        }}
       >
         {children}
         {!hideCloseButton ? (

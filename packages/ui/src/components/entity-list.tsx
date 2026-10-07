@@ -455,7 +455,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {/* Toolbar */}
       {!hideToolbar && (
-        <div data-entity-list-toolbar data-pane-toolbar className="flex flex-wrap items-center gap-2 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
+        <div data-entity-list-toolbar data-work-item-toolbar data-pane-toolbar className="flex flex-wrap items-center gap-2 p-2 border-b flex-shrink-0 w-full overflow-hidden min-w-0">
           {onSearchChange ? (
             <div className="flex h-10 min-w-[220px] flex-1 items-center rounded-md border border-input bg-background px-2 ring-offset-background transition-colors focus-within:ring-2 focus-within:ring-ring focus-within:ring-offset-2">
               <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">

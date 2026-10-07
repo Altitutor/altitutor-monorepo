@@ -74,6 +74,7 @@ type LastMessageSummary = {
 
 type MessagePreviewRow = {
   id: string;
+  status: string;
   conversation_id: string;
   body: string;
   direction: string;
@@ -89,6 +90,7 @@ type MessagePreviewRow = {
 
 const MESSAGE_PREVIEW_SELECT = `
   id,
+  status,
   conversation_id,
   body,
   direction,
@@ -193,6 +195,7 @@ function latestMessageForConversation(
   const preview = substantive && !substantive.is_reaction
     ? buildConversationPreview({
       direction: substantive.direction,
+      status: substantive.status,
       body: substantive.body,
       attachmentCount: substantive.message_attachments?.length ?? 0,
       senderName: substantive.direction === 'OUTBOUND'
@@ -668,13 +671,19 @@ export async function fetchConversationList(
     signal,
   );
 
+  const unreadRpc = supabase.rpc('get_unread_message_conversation_ids', {
+    p_conversation_ids: typedConversations.map((conversation) => conversation.id),
+  });
+  const { data: unreadIds, error: unreadError } = await (signal ? unreadRpc.abortSignal(signal) : unreadRpc);
+  if (unreadError) throw unreadError;
+  const unreadConversations = new Set(unreadIds ?? []);
+
   const byContact = new Map<string, AggregatedConversation>();
   const groups: GroupConversation[] = [];
 
   for (const conv of typedConversations) {
     const contactId = conv.contact_id;
     const lastMessage = lastMessageFromConversation(conv);
-
     if (conv.is_group_chat && conv.group_chat_id) {
       const participants = (conv.group_chat_participants ?? []).map((participant) => {
         const contact = participant.contacts;
@@ -702,11 +711,7 @@ export async function fetchConversationList(
           substantiveByConversationId,
           (message) => participantSenderBadgeName(message.from_number_e164, participants),
         ),
-        // Match navbar badge: unread only when tip is inbound and unread.
-        unreadCount:
-          !conv.conversation_reads?.length && lastMessage?.direction === 'INBOUND'
-            ? 1
-            : 0,
+        unreadCount: unreadConversations.has(conv.id) ? 1 : 0,
       });
       continue;
     }
@@ -746,11 +751,7 @@ export async function fetchConversationList(
       );
     }
 
-    // Outbound tip / history-only threads are not unread (badge uses the same rule).
-    if (
-      (!conv.conversation_reads || conv.conversation_reads.length === 0) &&
-      lastMessage?.direction === 'INBOUND'
-    ) {
+    if (unreadConversations.has(conv.id)) {
       aggregated.unreadCount++;
     }
   }
@@ -920,7 +921,7 @@ export async function getContactHeader(contactId: string) {
     .from('contacts')
     .select(`
       id,
-      phone_e164,
+      phone_e164, email,
       contact_type,
       students (id, first_name, last_name),
       parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
@@ -1016,3 +1017,28 @@ export type ThreadMessage = MessageWithRelations & {
   sender: SenderInfo['sender'];
   conversation_owned_number_id: string | null;
 };
+
+export async function fetchContactMessagingAddresses(contactId: string) {
+  const supabase = getSupabaseClient();
+  const [{ data: contact, error: contactError }, { data: inbound, error: inboundError }] = await Promise.all([
+    supabase.from('contacts').select('phone_e164, email').eq('id', contactId).single(),
+    supabase.from('messages')
+      .select('from_number_e164, conversations!inner(contact_id)')
+      .eq('conversations.contact_id', contactId)
+      .eq('direction', 'INBOUND').eq('is_reaction', false)
+      .order('created_at', { ascending: false }).order('id', { ascending: false })
+      .limit(1).maybeSingle(),
+  ]);
+  if (contactError) throw contactError;
+  if (inboundError) throw inboundError;
+  return { phone: contact.phone_e164?.trim() || null, email: contact.email?.trim().toLowerCase() || null, replyAddress: inbound?.from_number_e164 ?? null };
+}
+
+export function useContactMessagingAddresses(contactId: string | null) {
+  return useQuery({
+    queryKey: [...messagesKeys.all, 'addresses', contactId],
+    queryFn: () => contactId ? fetchContactMessagingAddresses(contactId) : null,
+    enabled: Boolean(contactId),
+    staleTime: 0,
+  });
+}

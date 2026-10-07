@@ -1,15 +1,17 @@
 'use client';
 import { PrimaryEntityBreadcrumb } from '@/shared/components/PrimaryEntityBreadcrumb';
 
+import { useQueryClient } from '@tanstack/react-query';
+import { subjectsKeys } from '@/features/subjects/hooks/useSubjectsQuery';
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button, SearchableSelectFieldTrigger } from "@altitutor/ui";
+import { Button, Label, SearchableSelectFieldTrigger } from "@altitutor/ui";
 import { 
   AlertTriangle,
   Loader2,
   Pencil,
   Trash2,
-  ArrowLeft
+  ArrowLeft, Plus
 } from 'lucide-react';
 import { subjectsApi } from '@/features/subjects/api';
 import type { Tables, TablesUpdate } from '@altitutor/shared';
@@ -41,12 +43,14 @@ import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useToast } from "@altitutor/ui";
 import { Separator } from "@altitutor/ui";
-import { TopicsHierarchy, AddTopicModal } from '@/features/topics';
-import { useTopics } from '@/features/topics/hooks';
+import { TopicsHierarchy, AddTopicModal, DraggableTopicsList } from '@/features/topics';
+import { useTopics, useRootTopics, useUpdateTopicIndices } from '@/features/topics/hooks';
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useSubjectActions } from '@/features/subjects/hooks/useSubjectActions';
 import { AdminLoadingSkeleton } from '@/shared/components';
 import { PropertyForm, PropertyFormRow } from '@/shared/components/PropertyForm';
+
+import { SubjectImageField } from '@/features/subjects/components/SubjectImageField';
 
 const CURRICULUM_OPTIONS: { id: string; label: string }[] = [
   { id: 'SACE', label: 'SACE' },
@@ -82,6 +86,7 @@ const formSchema = z.object({
 export default function SubjectDetailPage({ params }: { params: { id: string } }) {
   const { id } = params;
   const router = useRouter();
+  const queryClient = useQueryClient();
   const [subject, setSubject] = useState<Tables<'subjects'> | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -95,6 +100,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
   const [isAddTopicModalOpen, setIsAddTopicModalOpen] = useState(false);
   const [addTopicParentId, setAddTopicParentId] = useState<string | undefined>(undefined);
 
+  const [reorderedTopics, setReorderedTopics] = useState<Array<{ id: string; index: number }>>([]);
+  const { data: rootTopics = [] } = useRootTopics(id);
+  const updateIndicesMutation = useUpdateTopicIndices();
   const { data: allTopics = [], refetch: refetchTopics } = useTopics();
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -161,6 +169,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         color: subject.color || null,
       });
     }
+    setReorderedTopics([]);
     setIsEditing(false);
   };
 
@@ -180,6 +189,10 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
 
       const updated = await subjectsApi.updateSubject(subject.id, updatedData);
 
+      if (reorderedTopics.length > 0) {
+        await updateIndicesMutation.mutateAsync(reorderedTopics);
+        setReorderedTopics([]);
+      }
       setSubject(updated);
       setIsEditing(false);
 
@@ -291,6 +304,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         {isEditing ? (
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <SubjectImageField subjectId={subject.id} onImageChanged={() => void queryClient.invalidateQueries({ queryKey: subjectsKeys.all })} />
               <FormField
                 control={form.control}
                 name="name"
@@ -449,6 +463,38 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
               />
 
               <Separator className="my-6" />
+
+                  {/* Root Topics Section - Always show in edit mode */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <Label>Root Topics</Label>
+                        <p className="text-sm text-muted-foreground mt-1">
+                          {rootTopics.length > 0 ? 'Drag to reorder' : 'No topics yet'}
+                        </p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        type="button"
+                        onClick={() => {
+                          setIsAddTopicModalOpen(true);
+                          setAddTopicParentId(undefined);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add topic
+                      </Button>
+                    </div>
+                    {rootTopics.length > 0 && (
+                      <DraggableTopicsList
+                        topics={rootTopics}
+                        onReorder={(updates) => {
+                          setReorderedTopics(updates);
+                        }}
+                      />
+                    )}
+                  </div>
 
               <div className="pt-4">
                 <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => {

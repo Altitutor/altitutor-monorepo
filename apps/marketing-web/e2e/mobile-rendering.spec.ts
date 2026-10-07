@@ -2,10 +2,62 @@ import { expect, test } from "@playwright/test";
 
 test.use({ viewport: { width: 393, height: 852 } });
 
-test("medical interview trial call to action fits a narrow phone @compat", async ({ page }) => {
+test("announcement stays on one line on a narrow phone @compat", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 320, height: 852 });
+  await page.goto("/");
+  const banner = page.getByRole("complementary", {
+    name: "Medicine interview course announcement",
+  });
+  const link = banner.getByRole("link");
+  await expect(link).toBeVisible();
+  await expect(link).toHaveAttribute(
+    "href",
+    "/classes/medical-interview-preparation/",
+  );
+  const dimensions = await link.evaluate((element) => {
+    const style = getComputedStyle(element);
+    return {
+      height: element.getBoundingClientRect().height,
+      singleLineHeight:
+        parseFloat(style.lineHeight) +
+        parseFloat(style.paddingTop) +
+        parseFloat(style.paddingBottom),
+      width: element.clientWidth,
+      scrollWidth: element.scrollWidth,
+    };
+  });
+  expect(dimensions.height).toBeLessThanOrEqual(
+    dimensions.singleLineHeight + 1,
+  );
+  expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.width);
+  await banner
+    .getByRole("button", { name: "Dismiss medicine interview announcement" })
+    .click();
+  await expect(banner).toBeHidden();
+});
+
+test("server HTML disables automatic iOS phone linking @compat", async ({
+  request,
+}) => {
+  const response = await request.get("/");
+  expect(response.ok()).toBe(true);
+  const html = await response.text();
+  expect(html).toMatch(
+    /<meta name="format-detection" content="telephone=no"\s*\/>/,
+  );
+  expect(html).toContain("Altitutor Pty Ltd · ACN 639 197 167");
+});
+
+test("medical interview trial call to action fits a narrow phone @compat", async ({
+  page,
+}) => {
   await page.setViewportSize({ width: 320, height: 852 });
   await page.goto("/classes/medical-interview-preparation/");
-  await expect(page.getByRole("link", { name: "Book a free trial" }).last()).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Book a free trial" }).last(),
+  ).toBeVisible();
   expect(
     await page.evaluate(() => document.documentElement.scrollWidth),
   ).toBeLessThanOrEqual(320);

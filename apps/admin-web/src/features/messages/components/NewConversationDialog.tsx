@@ -24,7 +24,7 @@ import { navHoverStyles, navItemTransitionStyles } from '@altitutor/ui';
 interface NewConversationDialogProps {
   isOpen: boolean;
   onClose: () => void;
-  onConversationSelected: (conversationId: string) => void;
+  onConversationSelected: (conversationId: string, destinationAddress?: string, senderId?: string) => void;
   ownedNumberId?: string | null;
 }
 
@@ -407,7 +407,7 @@ export function NewConversationDialog({
       const contactId = await ensureContactForEmail(email);
       if (!contactId) throw new Error('Failed to create contact');
       const conversationId = await ensureConversationForContact(contactId, imessageOwnedNumberId);
-      onConversationSelected(conversationId);
+      onConversationSelected(conversationId, email.toLowerCase(), imessageOwnedNumberId);
       onClose();
     } catch (err) {
       console.error('Error creating email conversation:', err);

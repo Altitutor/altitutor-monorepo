@@ -116,7 +116,7 @@ const actionFormSchema = z.object({
   notification_body: z.string().optional(),
   action_url: z.string().optional(),
   target_staff_id: z.string().optional(),
-  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_all', 'all_admin_staff', 'all_staff', 'all_ucat_students', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
+  notification_recipient_type: z.enum(['single', 'class_students', 'class_staff', 'class_all', 'session_students', 'session_staff', 'session_staff_and_booking_creator', 'session_all', 'all_admin_staff', 'all_staff', 'all_ucat_students', 'admin_staff_on_day', 'tutor_log_staff']).optional(),
 }).refine((data) => {
   if (data.action_type === 'SEND_MESSAGE') {
     return !!data.message_content && data.message_content.trim().length > 0 && !!data.selected_sender_id;
@@ -245,7 +245,7 @@ export function CreateEditActionDialog({
       const config = action.action_config as unknown as ActionConfig;
       
       // Determine recipient types from config and validate against entity type
-      let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_all' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day' | 'tutor_log_staff' = 'single';
+      let notificationRecipientType: 'single' | 'class_students' | 'class_staff' | 'class_all' | 'session_students' | 'session_staff' | 'session_staff_and_booking_creator' | 'session_all' | 'all_admin_staff' | 'all_staff' | 'admin_staff_on_day' | 'tutor_log_staff' = 'single';
       if (action.action_type === 'CREATE_NOTIFICATION' && 'recipients' in config && config.recipients?.type) {
         const recipientType = config.recipients.type;
         const isClassType = recipientType.startsWith('class_');
@@ -261,7 +261,7 @@ export function CreateEditActionDialog({
             (isTutorLogType && isTutorLogEntity) ||
             isGlobalType ||
             (isAdminStaffOnDay && (hasClassId || hasSessionId))) {
-          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_staff' || recipientType === 'class_all' || recipientType === 'session_students' || recipientType === 'session_staff' || recipientType === 'session_all' || recipientType === 'all_admin_staff' || recipientType === 'all_staff' || recipientType === 'admin_staff_on_day' || recipientType === 'tutor_log_staff') {
+          if (recipientType === 'single' || recipientType === 'class_students' || recipientType === 'class_staff' || recipientType === 'class_all' || recipientType === 'session_students' || recipientType === 'session_staff' || recipientType === 'session_staff_and_booking_creator' || recipientType === 'session_all' || recipientType === 'all_admin_staff' || recipientType === 'all_staff' || recipientType === 'admin_staff_on_day' || recipientType === 'tutor_log_staff') {
             notificationRecipientType = recipientType;
           }
         }
@@ -1046,6 +1046,7 @@ export function CreateEditActionDialog({
                         ? [
                             { id: 'session_students', label: 'All Students in Session' },
                             { id: 'session_staff', label: 'All Staff in Session' },
+                            { id: 'session_staff_and_booking_creator', label: 'Session Staff & Booking Creator' },
                             { id: 'session_all', label: 'All Students & Staff in Session' },
                           ]
                         : []),

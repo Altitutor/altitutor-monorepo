@@ -22,6 +22,10 @@ import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
 import { AccessoryView } from "./AccessoryViews";
 import { Button } from "@altitutor/ui";
 import { AccessoryIcon } from "./AccessoryIcon";
+import { useUnreadConversationCount } from "@/features/messages/api/queries";
+import { MessageUnreadBadge } from "@/features/messages/components/MessageUnreadBadge";
+import { RecentlyClosedTabs } from "./RecentlyClosedTabs";
+import { AccessoryRootViews } from "./AccessoryRootViews";
 import { AccessoryTabPicker } from "./AccessoryTabPicker";
 
 type CloseGate = (next?: () => void) => void;
@@ -117,6 +121,7 @@ function TabContent({
   );
 }
 export function AccessoryTabs() {
+  const { data: unreadCount = 0 } = useUnreadConversationCount();
   const panel = useAccessoryPanel();
   const gates = useRef(new Map<string, CloseGate>());
   const registerGate = useCallback((key: string, gate: CloseGate | null) => {
@@ -191,6 +196,7 @@ export function AccessoryTabs() {
               >
                 <AccessoryIcon kind={tab.kind} />
                 <span className="truncate">{tab.title}</span>
+                {tab.kind === "messages" && !tab.id && <MessageUnreadBadge count={unreadCount} />}
                 {panelShortcut(tab.kind) && <ShortcutKeys id={panelShortcut(tab.kind)!} />}
               </button>
               {tab.key === panel.activeKey &&
@@ -259,12 +265,9 @@ export function AccessoryTabs() {
             />
           ))
         ) : (
-          <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-            <p className="text-sm text-muted-foreground">
-              Open messages, tasks, issues, projects or documents alongside your
-              work.
-            </p>
-            <AccessoryTabPicker />
+          <div className="flex h-full flex-col items-center gap-4 overflow-auto p-6 text-center">
+            <AccessoryRootViews />
+            <RecentlyClosedTabs />
           </div>
         )}
       </div>

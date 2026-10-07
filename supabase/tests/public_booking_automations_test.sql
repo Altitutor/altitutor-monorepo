@@ -25,8 +25,9 @@ SELECT ok(
     WHERE rule.name = 'Notify admins of new trial or subsidy sessions'
       AND action.action_type = 'CREATE_NOTIFICATION'
       AND action.action_config->>'title' = 'New {session.type_label} booked'
+      AND action.action_config->'recipients'->>'type' = 'session_staff_and_booking_creator'
   ),
-  'Admin new-booking notify title names the booked session type'
+  'New-booking notify names the session type and targets session staff and booking creator'
 );
 
 SELECT ok(
@@ -58,9 +59,9 @@ SELECT ok(
     WHERE rule.name = 'Notify admins of cancelled trial or subsidy sessions'
       AND action.action_type = 'CREATE_NOTIFICATION'
       AND action.action_config->>'notification_type' = 'PUBLIC_BOOKING_CANCELLED'
-      AND action.action_config->'recipients'->>'type' = 'all_admin_staff'
+      AND action.action_config->'recipients'->>'type' = 'session_staff_and_booking_creator'
   ),
-  'Admin cancellation notify fans out to all admin staff'
+  'Cancellation notify targets session staff and original booking creator'
 );
 
 SELECT ok(

@@ -3,6 +3,7 @@ const config = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
+    '\\.(css|less|scss|sass)$': '<rootDir>/jest.style-mock.js',
     '^@/components/(.*)$': '<rootDir>/src/components/$1',
     '^@/lib/(.*)$': '<rootDir>/src/lib/$1',
     '^@/(.*)$': '<rootDir>/src/$1',
@@ -48,4 +49,3 @@ const config = {
 };
 
 module.exports = config;
-

@@ -125,6 +125,7 @@ describe('Contact Query Hooks', () => {
       const mockContact = {
         id: contactId,
         phone_e164: '+1234567890',
+        email: null,
         contact_type: 'STUDENT',
         student_id: 'student-1',
         parent_id: null,

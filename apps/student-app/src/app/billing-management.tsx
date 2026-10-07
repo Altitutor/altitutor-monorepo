@@ -3,13 +3,14 @@ import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 import { WebView } from 'react-native-webview';
 
 import { useTheme } from '@/hooks/use-theme';
+import { studentWebUrl } from '@/lib/student-web';
 import { useAuth } from '@/providers/auth-provider';
 
 export default function BillingManagementScreen() {
   const router = useRouter();
   const theme = useTheme();
   const { session } = useAuth();
-  const billingUrl = `${process.env.EXPO_PUBLIC_STUDENT_WEB_URL ?? 'https://student.altitutor.com'}/auth/mobile-session`;
+  const billingUrl = studentWebUrl('/auth/mobile-session');
 
   return (
     <>

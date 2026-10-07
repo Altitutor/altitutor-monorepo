@@ -354,7 +354,8 @@ describe('SessionDetailsTab', () => {
       ],
     });
 
-    expect(screen.getByText(/Credited \(02\/01\/2026\)/)).toBeInTheDocument();
+    expect(screen.getByText("Absent")).toBeInTheDocument();
+    expect(screen.queryByText(/Credited \(/)).not.toBeInTheDocument();
     const row = screen.getByText('Credited Student').closest('tr');
     const rowButtons = within(row as HTMLElement).getAllByRole('button');
     await user.click(rowButtons[rowButtons.length - 1]);
@@ -564,4 +565,24 @@ describe('SessionDetailsTab', () => {
     await user.click(screen.getByRole('button', { name: 'Pat Parent' }));
     expect(onOpenParent).toHaveBeenCalledWith('p1');
   });
+});
+
+
+it('opens absence actions from each student and staff row dropdown', async () => {
+  const user = userEvent.setup();
+  const onLogAbsenceStudent = jest.fn();
+  const onLogAbsenceStaff = jest.fn();
+  renderComponent({ onLogAbsenceStudent, onLogAbsenceStaff });
+  const studentRow = screen.getByText('Extra Student').closest('tr')!;
+  expect(within(studentRow).queryByRole('button', { name: /log absence/i })).not.toBeInTheDocument();
+  const studentButtons = within(studentRow).getAllByRole('button');
+  await user.click(studentButtons[studentButtons.length - 1]);
+  await user.click(await screen.findByRole('menuitem', { name: 'Log Absence' }));
+  expect(onLogAbsenceStudent).toHaveBeenCalledWith('student-extra');
+  const staffRow = screen.getByText('Staff Member').closest('tr')!;
+  expect(within(staffRow).queryByRole('button', { name: /log absence/i })).not.toBeInTheDocument();
+  const staffButtons = within(staffRow).getAllByRole('button');
+  await user.click(staffButtons[staffButtons.length - 1]);
+  await user.click(await screen.findByRole('menuitem', { name: 'Log Absence' }));
+  expect(onLogAbsenceStaff).toHaveBeenCalledWith('staff-1');
 });

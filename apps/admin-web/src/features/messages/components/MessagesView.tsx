@@ -6,7 +6,8 @@ import { ConversationList } from '@/features/messages/components/ConversationLis
 import { MessageThread } from '@/features/messages/components/MessageThread';
 import { ConversationHeader } from '@/features/messages/components/ConversationHeader';
 import { Composer } from '@/features/messages/components/Composer';
-import { useState, useEffect } from 'react';
+import { useState, useEffect, type ReactNode } from 'react';
+import { NoteAlertPills } from '@/shared/components/NoteAlertPills';
 import { usePanelMediaQuery } from '@/shared/hooks/usePanelMediaQuery';
 import { usePaneNavigation } from '@/shared/hooks/usePaneNavigation';
 import { useAccessoryTab } from '@/shared/contexts/AccessoryTabContext';
@@ -22,11 +23,10 @@ import {
 import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useUnknownNumberLinking } from '@/features/messages/hooks/useUnknownNumberLinking';
 import { AccessoryBreadcrumb } from '@/shared/components/accessory-panel/AccessoryBreadcrumb';
-import { CommunicationSourceFilter } from '@/features/activity/components/CommunicationSourceFilter';
+import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
   linkedConversationEntity,
-  useConversationCommunicationFeed,
-} from '@/features/activity/hooks/useConversationCommunicationFeed';
+} from '@/features/activity/lib/entityCommunication';
 import {
   isContactConversation,
   isGroupConversation,
@@ -47,6 +47,7 @@ export function MessagesView() {
   const contactParam = searchParams.get('contact');
   const groupParam = searchParams.get('group');
   const [activeContactId, setActiveContactId] = useState<string | null>(contactParam);
+  const [composeIntent, setComposeIntent] = useState<{ contactId: string; destinationAddress?: string; senderId?: string } | null>(null);
   const [activeGroupId, setActiveGroupId] = useState<string | null>(groupParam);
   const [mobileView, setMobileView] = useState<'list' | 'thread'>(contactParam || groupParam ? 'thread' : 'list');
   const isDesktopSplitPane = usePanelMediaQuery('(min-width: 768px)');
@@ -111,7 +112,7 @@ export function MessagesView() {
         .from('contacts')
         .select(`
           id,
-          phone_e164,
+          phone_e164, email,
           contact_type,
           students (id, first_name, last_name),
           parents (id, first_name, last_name, parents_students (students (id, first_name, last_name))),
@@ -135,10 +136,15 @@ export function MessagesView() {
     } else if (groupId) {
       setActiveGroupId(groupId);
       setActiveContactId(null);
-    } else if (!activeContactId && !conversationParam) {
-      // Auto-select most recent contact when no URL param
+    } else if (
+      !tabScope &&
+      !activeContactId &&
+      !activeGroupId &&
+      !conversationParam
+    ) {
+      // Full /messages page: auto-select most recent contact when no URL param.
+      // Accessory tabs stay on the conversation list until the user picks one.
       (async () => {
-        // This will be handled by the hook, but we can select the first one
         const supabase = getSupabaseClient();
         const { data } = await supabase
           .from('conversations')
@@ -153,6 +159,10 @@ export function MessagesView() {
           router.push(`/messages?${params.toString()}`);
         }
       })();
+    } else if (!contactId && !groupId) {
+      setActiveContactId(null);
+      setActiveGroupId(null);
+      setMobileView('list');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -202,8 +212,9 @@ export function MessagesView() {
       ? { kind: 'contact', contactId: activeContactId }
       : null;
 
-  useAccessoryTitle(activeSelection ? conversationTitle : null);
+  useAccessoryTitle(activeSelection ? conversationTitle : 'Messages');
   const handleConversationSelect = (selection: ConversationSelection) => {
+    setComposeIntent(selection.kind === 'contact' ? selection : null);
     setMobileView('thread');
     const params = new URLSearchParams(searchParams.toString());
     params.delete('conversation');
@@ -226,12 +237,6 @@ export function MessagesView() {
   };
 
   const linkedEntity = linkedConversationEntity(activeContact);
-  const communication = useConversationCommunicationFeed({
-    entityType: linkedEntity?.type ?? null,
-    entityId: linkedEntity?.id ?? null,
-    contactId: activeContactId,
-    enabled: Boolean(linkedEntity && activeContactId && !activeGroupId),
-  });
 
   const handleTitleClick = () => {
     if (!linkedEntity) return;
@@ -247,7 +252,66 @@ export function MessagesView() {
   const linking = useUnknownNumberLinking({
     contactId: activeContactId,
     contact: activeContact,
+    onLinked: (contactId) => handleConversationSelect({
+      kind: 'contact',
+      contactId,
+      destinationAddress: composeIntent?.contactId === activeContactId ? composeIntent.destinationAddress : undefined,
+      senderId: composeIntent?.contactId === activeContactId ? composeIntent.senderId : undefined,
+    }),
   });
+
+  const renderConversationHeader = (filterControl?: ReactNode) => (
+    <>
+      <ConversationHeader
+        filterControl={filterControl}
+        compactActions
+        paneHeader
+        title={conversationTitle}
+        titleSlot={
+          tabScope ? (
+            <AccessoryBreadcrumb onCurrentClick={linkedEntity ? handleTitleClick : undefined} />
+          ) : undefined
+        }
+        onSearchToggle={() => setIsSearching(!isSearching)}
+        onTitleClick={linkedEntity ? handleTitleClick : undefined}
+        onBack={handleBack}
+        showBackButton={
+          !tabScope && !isDesktopSplitPane && mobileView === 'thread'
+        }
+        backButtonClassName="md:hidden"
+        isUnread={activeSelection ? (activeGroup ? isActiveGroupUnread : isActiveUnread) : undefined}
+        onToggleRead={activeSelection ? handleToggleReadHeader : undefined}
+        contact={activeContact}
+        showUnknownNumberActions={linking.showUnknownNumberActions}
+        isLinkingPhone={linking.isLinkingPhone}
+        studentOptionsWithoutPhone={linking.studentOptionsWithoutPhone}
+        parentOptionsWithoutPhone={linking.parentOptionsWithoutPhone}
+        staffOptionsWithoutPhone={linking.staffOptionsWithoutPhone}
+        onCreateStudent={linking.onCreateStudent}
+        onCreateParent={linking.onCreateParent}
+        onCreateStaff={linking.onCreateStaff}
+        onAssignStudent={linking.onAssignStudent}
+        onAssignParent={linking.onAssignParent}
+        onAssignStaff={linking.onAssignStaff}
+        extraMenuItems={
+          activeGroup ? (
+            <GroupConversationActions
+              variant="menu"
+              conversationId={activeGroup.conversationId}
+              currentName={activeGroup.groupName}
+            />
+              ) : undefined
+            }
+          />
+      {tabScope && linkedEntity ? (
+        <NoteAlertPills
+          entityType={linkedEntity.type}
+          entityId={linkedEntity.id}
+          className="shrink-0 border-b px-4 py-2"
+        />
+      ) : null}
+    </>
+  );
 
   return (
     <div className="p-0 h-full overflow-hidden">
@@ -277,99 +341,44 @@ export function MessagesView() {
           flex-1 flex-col min-w-0
           ${mobileView === 'list' ? 'hidden md:flex' : 'flex'}
         `}>
-          <ConversationHeader 
-            compactActions
-            paneHeader
-            title={conversationTitle}
-            titleSlot={
-              tabScope ? (
-                <AccessoryBreadcrumb onCurrentClick={linkedEntity ? handleTitleClick : undefined} />
-              ) : undefined
-            }
-            filterControl={
-              linkedEntity ? (
-                <CommunicationSourceFilter
-                  compact
-                  options={communication.filterOptions}
-                  sources={communication.sources}
-                  onToggle={communication.toggleSource}
-                />
-              ) : undefined
-            }
-            onSearchToggle={() => setIsSearching(!isSearching)}
-            onTitleClick={linkedEntity ? handleTitleClick : undefined}
-            onBack={handleBack}
-            showBackButton={!isDesktopSplitPane && mobileView === 'thread'}
-            backButtonClassName="md:hidden"
-            isUnread={activeSelection ? (activeGroup ? isActiveGroupUnread : isActiveUnread) : undefined}
-            onToggleRead={activeSelection ? handleToggleReadHeader : undefined}
-            contact={activeContact}
-            showUnknownNumberActions={linking.showUnknownNumberActions}
-            isLinkingPhone={linking.isLinkingPhone}
-            studentOptionsWithoutPhone={linking.studentOptionsWithoutPhone}
-            parentOptionsWithoutPhone={linking.parentOptionsWithoutPhone}
-            staffOptionsWithoutPhone={linking.staffOptionsWithoutPhone}
-            onCreateStudent={linking.onCreateStudent}
-            onCreateParent={linking.onCreateParent}
-            onCreateStaff={linking.onCreateStaff}
-            onAssignStudent={linking.onAssignStudent}
-            onAssignParent={linking.onAssignParent}
-            onAssignStaff={linking.onAssignStaff}
-            extraMenuItems={
-              activeGroup ? (
-                <GroupConversationActions
-                  variant="menu"
-                  conversationId={activeGroup.conversationId}
-                  currentName={activeGroup.groupName}
-                />
-              ) : undefined
-            }
-          />
+          {!tabScope || !linkedEntity || !activeContactId ? renderConversationHeader() : null}
           <div className="flex-1 flex flex-col min-h-0">
-            {activeContactId || activeGroup ? (
+            {linkedEntity && activeContactId ? (
+              <EntityCommunicationPanel
+                key={`${linkedEntity.type}:${linkedEntity.id}:${activeContactId}`}
+                entityType={linkedEntity.type}
+                entityId={linkedEntity.id}
+                initialContactId={activeContactId}
+                initialDestinationAddress={composeIntent?.contactId === activeContactId ? composeIntent.destinationAddress : undefined}
+                initialSenderId={composeIntent?.contactId === activeContactId ? composeIntent.senderId : undefined}
+                defaultShowActivity={false}
+                renderHeader={tabScope ? renderConversationHeader : undefined}
+                isSearching={isSearching}
+                searchTerm={searchTerm}
+                onSearchTermChange={setSearchTerm}
+                onExitSearch={() => setIsSearching(false)}
+              />
+            ) : activeContactId || activeGroup ? (
               <>
-                {linkedEntity && communication.errorMessage ? (
-                  <p role="alert" className="flex-shrink-0 px-3 py-2 text-sm text-destructive">
-                    {communication.errorMessage}
-                  </p>
-                ) : null}
-                {linkedEntity && communication.waiting ? (
-                  <div className="flex flex-1 items-center justify-center text-sm text-muted-foreground">
-                    Loading…
-                  </div>
-                ) : (
-                  <MessageThread
-                    contactId={activeContactId}
-                    conversationId={activeGroup?.conversationId}
-                    ownedNumberId={linkedEntity ? null : selectedOwnedNumberId}
-                    isSearching={isSearching}
-                    searchTerm={searchTerm}
-                    onSearchTermChange={setSearchTerm}
-                    onExitSearch={() => setIsSearching(false)}
-                    onResentViaSms={(smsOwnedNumberId) => {
-                      setSelectedOwnedNumberId(null);
-                      setComposerSenderId(smsOwnedNumberId);
-                    }}
-                    feed={
-                      linkedEntity
-                        ? {
-                            key: `${linkedEntity.type}:${linkedEntity.id}:${activeContactId}:${communication.sources.join(',')}`,
-                            messages: communication.messages,
-                            entries: communication.entries,
-                            hasMore: communication.hasMore,
-                            loadMore: communication.loadMore,
-                            labelForConversation: communication.labelForConversation,
-                          }
-                        : undefined
-                    }
-                  />
-                )}
-                {linkedEntity ? communication.formDialog : null}
+                <MessageThread
+                  contactId={activeContactId}
+                  conversationId={activeGroup?.conversationId}
+                  ownedNumberId={selectedOwnedNumberId}
+                  isSearching={isSearching}
+                  searchTerm={searchTerm}
+                  onSearchTermChange={setSearchTerm}
+                  onExitSearch={() => setIsSearching(false)}
+                  onResentViaSms={(smsOwnedNumberId) => {
+                    setSelectedOwnedNumberId(null);
+                    setComposerSenderId(smsOwnedNumberId);
+                  }}
+                />
                 <Composer 
                   contactId={activeContactId} 
+                  initialDestinationAddress={composeIntent?.contactId === activeContactId ? composeIntent.destinationAddress : undefined}
                   conversationId={activeGroup?.conversationId}
                   groupChatId={activeGroup?.groupChatId}
-                  initialSenderId={activeGroup?.ownedNumberId}
+                  initialSenderId={activeGroup?.ownedNumberId ?? (composeIntent?.contactId === activeContactId ? composeIntent.senderId : undefined)}
                   preferredSenderId={composerSenderId}
                   onTyping={() => setIsSearching(false)}
                   draft={currentDraft}

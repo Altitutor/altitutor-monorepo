@@ -25,7 +25,15 @@ export function AccessoryBreadcrumb({
       <button
         type="button"
         className="shrink-0 text-muted-foreground hover:text-foreground"
-        onClick={() => scope.navigate({ kind: family, title })}
+        onClick={() =>
+          scope.navigate({
+            kind: family,
+            title,
+            // Messages keeps the same kind for list + thread; clear the
+            // conversation query so this crumb returns to the inbox.
+            ...(family === "messages" ? { query: "" } : {}),
+          })
+        }
       >
         {title}
       </button>

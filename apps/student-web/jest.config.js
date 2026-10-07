@@ -3,6 +3,7 @@ const config = {
   testEnvironment: 'jsdom',
   setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
   moduleNameMapper: {
+    '\\.(css|less|scss|sass)$': '<rootDir>/jest.style-mock.js',
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@altitutor/shared$': '<rootDir>/../../packages/shared/src/index.ts',
     '^@altitutor/shared/(.*)$': '<rootDir>/../../packages/shared/src/$1',

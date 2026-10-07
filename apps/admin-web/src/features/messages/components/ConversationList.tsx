@@ -14,7 +14,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@altitutor/ui';
-import { Plus, Mail, Filter, Search, X, Check } from 'lucide-react';
+import { Plus, Mail, Filter, Search, X, Check, AlertCircle } from 'lucide-react';
 import { cn } from '@/shared/utils';
 import { messagesKeys } from '../api/queryKeys';
 import { NewConversationDialog } from './NewConversationDialog';
@@ -191,7 +191,7 @@ export function ConversationList({
 
   const hasAnyFiltersApplied = activeFilter !== 'all';
 
-  const handleNewConversation = async (conversationId: string) => {
+  const handleNewConversation = async (conversationId: string, destinationAddress?: string, senderId?: string) => {
     // Get contactId from conversation
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
     const { data: conv } = await supabase
@@ -201,7 +201,7 @@ export function ConversationList({
       .maybeSingle();
     
     if (conv?.contact_id) {
-      onSelect({ kind: 'contact', contactId: conv.contact_id });
+      onSelect({ kind: 'contact', contactId: conv.contact_id, destinationAddress, senderId });
     }
     setIsNewConversationDialogOpen(false);
     // Invalidate conversations to refresh the list
@@ -440,6 +440,12 @@ function ConversationPreviewText({ preview }: { preview: ConversationMessagePrev
       className="line-clamp-2 break-words text-xs leading-4 text-muted-foreground"
       title={preview.text}
     >
+      {preview.failed && (
+        <span className="mr-1 inline-flex items-center gap-0.5 rounded-full bg-destructive/10 px-1.5 text-destructive align-middle">
+          <AlertCircle className="h-3 w-3" aria-hidden="true" />
+          Failed
+        </span>
+      )}
       <span
         className={cn(
           'mr-1 inline rounded px-1 font-medium',

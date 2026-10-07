@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect, type ReactNode } from 'react';
-import { useSendMessage, useMarkRead } from '../api/mutations';
+import { outboundMessageDestination } from '../utils/messagingHandle';
+import { useContactMessagingAddresses } from '../api/queries';
+import { useSendMessage } from '../api/mutations';
 import { MessageTemplatesPicker } from './MessageTemplatesPicker';
 import { replaceVariables } from '../utils/variableReplacer';
 import { replaceVariablesForParent } from '../utils/variableReplacerParent';
@@ -31,6 +33,7 @@ interface Props {
   conversationId?: string | null;
   groupChatId?: string | null;
   initialSenderId?: string | null;
+  initialDestinationAddress?: string | null;
   preferredSenderId?: string | null;
   onTyping?: () => void;
   onBeforeSend?: (messageBody: string, selectedSenderId: string) => Promise<string | null>;
@@ -48,6 +51,7 @@ export function Composer({
   conversationId,
   groupChatId,
   initialSenderId,
+  initialDestinationAddress,
   preferredSenderId,
   onTyping, 
   onBeforeSend,
@@ -62,11 +66,12 @@ export function Composer({
   const setText = draft !== undefined && onDraftChange ? onDraftChange : setInternalText;
   
   const [selectedSenderId, setSelectedSenderId] = useState<string | null>(initialSenderId ?? null);
+  const [destinationAddress, setDestinationAddress] = useState(initialDestinationAddress ?? '');
+  const { data: messagingAddresses } = useContactMessagingAddresses(groupChatId ? null : contactId);
   const [isGeneratingTokens, setIsGeneratingTokens] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [variablesMenuOpen, setVariablesMenuOpen] = useState(false);
   const send = useSendMessage();
-  const markRead = useMarkRead();
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -88,7 +93,8 @@ export function Composer({
   
   useEffect(() => {
     setSelectedSenderId(initialSenderId ?? preferredSenderId ?? null);
-  }, [contactId, groupChatId, initialSenderId, preferredSenderId]);
+    setDestinationAddress(initialDestinationAddress ?? '');
+  }, [contactId, groupChatId, initialDestinationAddress, initialSenderId, preferredSenderId]);
 
   useEffect(() => {
     if (preferredSenderId) {
@@ -237,13 +243,14 @@ export function Composer({
         await onBeforeSend(body, selectedSenderId);
       }
       
-      const result = await send.mutateAsync({
+      await send.mutateAsync({
         contactId,
         onboarding,
         conversationId,
         groupChatId,
         body: body || '', // Allow empty body if attachments exist
         selectedSenderId,
+        destinationAddress: isIMessageSender && !groupChatId ? destinationAddress || undefined : undefined,
         attachments: successfulAttachments.map(att => ({
           storageUrl: att.storageUrl!,
           filename: att.file.name,
@@ -251,11 +258,6 @@ export function Composer({
           sizeBytes: att.file.size,
         })),
       });
-
-      // Mark conversation as read when sending a message
-      if (contactId) {
-        markRead.mutate({ contactId, lastMessageId: result.messageId });
-      }
 
       // Clear attachments after successful send
       clearAll();
@@ -481,6 +483,23 @@ export function Composer({
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
       >
+        {isIMessageSender && messagingAddresses?.phone && messagingAddresses.email && (
+          <label className="flex items-center gap-2 text-sm">
+            <span className="shrink-0">Send to</span>
+            <select
+              aria-label="Message destination"
+              className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
+              value={destinationAddress}
+              onChange={(event) => setDestinationAddress(event.target.value)}
+              disabled={send.isPending}
+            >
+              <option value="">Automatic: {outboundMessageDestination({ ...messagingAddresses, provider: 'IMESSAGE' })}</option>
+              <option value={messagingAddresses.phone}>Phone: {messagingAddresses.phone}</option>
+              <option value={messagingAddresses.email}>Apple ID: {messagingAddresses.email}</option>
+            </select>
+          </label>
+        )}
+
         {/* Textarea row */}
         <div className="relative">
           <textarea

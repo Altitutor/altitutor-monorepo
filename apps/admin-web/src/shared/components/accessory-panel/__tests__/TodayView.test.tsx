@@ -17,6 +17,12 @@ jest.mock("@/features/sessions/components/TodaySessionsCalendarView", () => ({
     <output data-testid="calendar-date">{date}</output>
   ),
 }));
+jest.mock("@/features/notes/components/DailyNoteCard", () => ({
+  DailyNoteCard: ({ date }: { date: string }) => <output data-testid="daily-note-date">{date}</output>,
+}));
+jest.mock("@/features/sessions/components/DashboardUpdatesCard", () => ({
+  DashboardUpdatesCard: ({ date }: { date: string }) => <output data-testid="updates-date">{date}</output>,
+}));
 beforeEach(() => {
   global.ResizeObserver = class {
     observe() {}
@@ -36,6 +42,8 @@ test("day arrows change the calendar and tab title, returning to today restores 
   await user.click(screen.getByRole("button", { name: "Next day" }));
   expect(screen.getByTestId("calendar-date")).toHaveTextContent("2026-10-04");
   expect(useAccessoryTitle).toHaveBeenLastCalledWith("4 Oct");
+  expect(screen.getByTestId("daily-note-date")).toHaveTextContent("2026-10-04");
+  expect(screen.getByTestId("updates-date")).toHaveTextContent("2026-10-04");
   await user.click(screen.getByRole("button", { name: "Previous day" }));
   expect(useAccessoryTitle).toHaveBeenLastCalledWith("Today");
 });

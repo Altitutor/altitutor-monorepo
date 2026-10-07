@@ -1,19 +1,30 @@
-export const ACTIVITY_SOURCE_ID = 'events';
-export const EMAIL_SOURCE_ID = 'email';
+export const ACTIVITY_SOURCE_ID = "events";
+export const EMAIL_SOURCE_ID = "email";
+
+export function childActivitySourceId(studentId: string): string {
+  return `activity:student:${studentId}`;
+}
+
+export function hasActivitySource(sources: string[]): boolean {
+  return sources.some(
+    (source) =>
+      source === ACTIVITY_SOURCE_ID || source.startsWith("activity:student:"),
+  );
+}
 
 /** Thread order for activity cards mixed with messages. */
-export type CommunicationTimeSort = 'logged' | 'effective';
+export type CommunicationTimeSort = "logged" | "effective";
 
 export function communicationActivityAt(
   event: { recorded_at: string; effective_at: string },
   sort: CommunicationTimeSort,
 ): string {
-  if (sort === 'effective') return event.effective_at || event.recorded_at;
+  if (sort === "effective") return event.effective_at || event.recorded_at;
   return event.recorded_at;
 }
 
-export type CommunicationEntityType = 'student' | 'staff' | 'parent';
-export type CommunicationContactKind = 'student' | 'staff' | 'parent';
+export type CommunicationEntityType = "student" | "staff" | "parent";
+export type CommunicationContactKind = "student" | "staff" | "parent";
 
 export interface CommunicationContactRef {
   id: string;
@@ -37,11 +48,14 @@ export function groupConversationSourceId(conversationId: string): string {
 }
 
 export function isThreadMessageSource(sourceId: string): boolean {
-  return sourceId.startsWith('contact:') || sourceId.startsWith('group:');
+  return sourceId.startsWith("contact:") || sourceId.startsWith("group:");
 }
 
 /** Keep activity and email toggles, and show only the chosen number or group. */
-export function sourcesAfterRecipientChange(current: string[], recipientSourceId: string): string[] {
+export function sourcesAfterRecipientChange(
+  current: string[],
+  recipientSourceId: string,
+): string[] {
   const kept = current.filter((sourceId) => !isThreadMessageSource(sourceId));
   return kept.includes(recipientSourceId) ? kept : [...kept, recipientSourceId];
 }
@@ -71,7 +85,8 @@ export function communicationContactDetail(
   entityType: CommunicationEntityType,
 ): string {
   const handle = contact.phoneE164 || contact.email || contact.kind;
-  if (contact.kind === entityType && !contact.isCurrent) return `${handle} · historical`;
+  if (contact.kind === entityType && !contact.isCurrent)
+    return `${handle} · historical`;
   return handle;
 }
 
@@ -80,40 +95,80 @@ export function defaultRecipientId(input: {
   entityType: CommunicationEntityType;
   contacts: CommunicationContactRef[];
 }): string {
-  const own = input.contacts.filter((contact) => contact.kind === input.entityType);
-  return own.find((contact) => contact.isCurrent)?.id ?? own[0]?.id ?? '';
+  const own = input.contacts.filter(
+    (contact) => contact.kind === input.entityType,
+  );
+  return own.find((contact) => contact.isCurrent)?.id ?? own[0]?.id ?? "";
 }
 
 export function messageSourceId(input: {
   conversation: CommunicationConversationRef;
   contact: CommunicationContactRef | null;
 }): string {
-  if (input.conversation.isGroup) return groupConversationSourceId(input.conversation.id);
+  if (input.conversation.isGroup)
+    return groupConversationSourceId(input.conversation.id);
   const contactId = input.contact?.id ?? input.conversation.contactId;
-  return contactId ? contactSourceId(contactId) : 'unknown';
+  return contactId ? contactSourceId(contactId) : "unknown";
 }
 
 export function communicationFilterOptions(input: {
   contacts: Array<CommunicationContactRef & { detail?: string }>;
   groups: Array<{ id: string; label: string }>;
   includeEmail?: boolean;
+  children?: Array<{ id: string; label: string }>;
 }): Array<{ id: string; label: string }> {
-  const options = [{ id: ACTIVITY_SOURCE_ID, label: 'Activity' }];
+  const options = [{ id: ACTIVITY_SOURCE_ID, label: "Activity" }];
+  for (const child of input.children ?? []) {
+    options.push({
+      id: childActivitySourceId(child.id),
+      label: `${child.label} activity`,
+    });
+  }
   for (const contact of input.contacts) {
     options.push({
       id: contactSourceId(contact.id),
-      label: contact.detail ? `${contact.label} · ${contact.detail}` : `${contact.label} texts`,
+      label: contact.detail
+        ? `${contact.label} · ${contact.detail}`
+        : `${contact.label} texts`,
     });
   }
   for (const group of input.groups) {
-    options.push({ id: groupConversationSourceId(group.id), label: group.label });
+    options.push({
+      id: groupConversationSourceId(group.id),
+      label: group.label,
+    });
   }
-  if (input.includeEmail) options.push({ id: EMAIL_SOURCE_ID, label: 'Emails' });
+  if (input.includeEmail)
+    options.push({ id: EMAIL_SOURCE_ID, label: "Emails" });
   return options;
 }
 
-const LEGACY_MESSAGE_TAB = 'messages';
+const LEGACY_MESSAGE_TAB = "messages";
 
 export function resolveCombinedActivityTab(tab: string): string {
-  return tab === LEGACY_MESSAGE_TAB ? 'activity' : tab;
+  return tab === LEGACY_MESSAGE_TAB ? "activity" : tab;
+}
+
+export function linkedConversationEntity(
+  contact:
+    | {
+        contact_type?: string | null;
+        students?: { id: string } | null;
+        parents?: { id: string } | null;
+        staff?: { id: string } | null;
+      }
+    | null
+    | undefined,
+): { type: CommunicationEntityType; id: string } | null {
+  if (!contact) return null;
+  if (contact.contact_type === "STUDENT" && contact.students?.id) {
+    return { type: "student", id: contact.students.id };
+  }
+  if (contact.contact_type === "PARENT" && contact.parents?.id) {
+    return { type: "parent", id: contact.parents.id };
+  }
+  if (contact.contact_type === "STAFF" && contact.staff?.id) {
+    return { type: "staff", id: contact.staff.id };
+  }
+  return null;
 }

@@ -101,3 +101,5 @@ export {
   isDialogPrimaryShortcutEvent,
 } from './lib/dialog-primary-shortcut';
 export * from './lib/stored-image-html-renderer';
+
+export { DialogScope, DialogScopeProvider, DialogScopePane } from "./components/dialog-scope";

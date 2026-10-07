@@ -287,7 +287,7 @@ export function AdminShiftDetailView({
               <SegmentedTabPanelContent
                 when="details"
                 activeTab={activeTab}
-                className="absolute inset-0 overflow-y-auto"
+                className="relative"
               >
                 <div className="p-6">
                   <AdminShiftInfoTab
@@ -304,7 +304,7 @@ export function AdminShiftDetailView({
               <SegmentedTabPanelContent
                 when="staff"
                 activeTab={activeTab}
-                className="absolute inset-0 overflow-y-auto"
+                className="relative"
               >
                 <div className="p-6">
                   <AdminShiftStaffTab
@@ -322,7 +322,7 @@ export function AdminShiftDetailView({
               <SegmentedTabPanelContent
                 when="sessions"
                 activeTab={activeTab}
-                className="absolute inset-0 overflow-hidden flex flex-col"
+                className="relative flex flex-col"
               >
                 <div className="h-full p-6">
                   <AdminShiftSessionsTab
@@ -336,7 +336,7 @@ export function AdminShiftDetailView({
               <SegmentedTabPanelContent
                 when="activity"
                 activeTab={activeTab}
-                className="absolute inset-0 overflow-y-auto"
+                className="relative"
               >
                 <div className="p-6">
                   {adminShiftId && (

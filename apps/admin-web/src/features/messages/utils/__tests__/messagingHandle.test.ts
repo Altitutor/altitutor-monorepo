@@ -25,6 +25,23 @@ describe('outboundMessageDestination', () => {
     })).toBeNull();
   });
 
+  it('replies to the Apple ID even when the contact also has a phone', () => {
+    expect(outboundMessageDestination({ phone: '+61412345678', email: 'person@icloud.com',
+      provider: 'IMESSAGE', replyAddress: ' PERSON@icloud.com ' })).toBe('person@icloud.com');
+  });
+
+  it('uses the phone for SMS and for replies from the phone', () => {
+    expect(outboundMessageDestination({ phone: '+61412345678', email: 'person@icloud.com',
+      provider: 'TWILIO', replyAddress: 'person@icloud.com' })).toBe('+61412345678');
+    expect(outboundMessageDestination({ phone: '+61412345678', email: 'person@icloud.com',
+      provider: 'IMESSAGE', replyAddress: '+61412345678' })).toBe('+61412345678');
+  });
+
+  it('does not send to an unrelated address from historical messages', () => {
+    expect(outboundMessageDestination({ phone: '+61412345678', email: 'person@icloud.com',
+      provider: 'IMESSAGE', replyAddress: 'someone.else@icloud.com' })).toBe('+61412345678');
+  });
+
   it('keeps a phone destination and a group chat id', () => {
     expect(outboundMessageDestination({
       phone: '+61412345678',

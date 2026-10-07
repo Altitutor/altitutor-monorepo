@@ -13,6 +13,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import { ActionsMenu } from '@/shared/components/ActionsMenu';
 import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickActions } from '@/shared/contexts/QuickActionsContext';
+import { AddToHomeworkHelpDialog } from '@/features/students/components/AddToHomeworkHelpDialog';
 import { LogAbsenceDialog } from '@/features/sessions/components/absences/LogAbsenceDialog';
 import { BookSessionModal } from '@/features/bookings/components/BookSessionModal';
 import {
@@ -35,6 +36,8 @@ import {
 import { StudentSessionsTab } from '@/features/students/components/StudentSessionsTab';
 import { StudentBillingTab } from '@/features/students/components/StudentBillingTab';
 import { StudentFiles } from '@/features/students/components/StudentFiles';
+import { AddParentModal } from '@/features/parents/components/AddParentModal';
+import { parentsKeys } from '@/features/parents/hooks/useParentsQuery';
 import { ParentSearchPopover } from '@/features/students/components/ParentSearchPopover';
 import { EntityCommunicationPanel } from '@/features/activity/components/EntityCommunicationPanel';
 import {
@@ -102,6 +105,8 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
 
   // UI state
   const [activeTab, setActiveTab] = useAdminPageViewParam(['details', 'online', 'classes', 'activity', 'sessions', 'files', 'billing'] as const, 'details', 'tab');
+  const [isAddParentModalOpen, setIsAddParentModalOpen] = useState(false);
+  const [isHomeworkHelpOpen, setIsHomeworkHelpOpen] = useState(false);
   const [isEnrollModalOpen, setIsEnrollModalOpen] = useState(false);
   const [isDiscontinueDialogOpen, setIsDiscontinueDialogOpen] = useState(false);
   const [isDiscontinuationLinkOpen, setIsDiscontinuationLinkOpen] = useState(false);
@@ -192,6 +197,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
       editFlow.startEdit();
     },
     onLogAbsence: modals.openLogAbsence,
+    onAddToHomeworkHelp: () => setIsHomeworkHelpOpen(true),
     onBookTrialSession: modals.openBookTrialSession,
     onBookDraftingSession: modals.openBookDraftingSession,
     onBookSubsidyInterview: modals.openBookSubsidyInterview,
@@ -294,6 +300,7 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
                   allParents={allParents}
                   selectedParents={editFlow.tempStudentParents}
                   onSelectParent={editFlow.assignParent}
+                  onCreateNewParent={() => setIsAddParentModalOpen(true)}
                 />
               ) : undefined
             }
@@ -347,6 +354,26 @@ export default function StudentDetailPage({ params }: { params: { id: string } }
           />
         </SegmentedTabPanelContent>
       </SegmentedTabPanel>
+
+      <AddParentModal
+        isOpen={isAddParentModalOpen}
+        onClose={() => setIsAddParentModalOpen(false)}
+        onParentAdded={async newParent => {
+          if (!newParent) return;
+          await Promise.all([
+            queryClient.invalidateQueries({ queryKey: ['students', 'all-parents'] }),
+            queryClient.invalidateQueries({ queryKey: parentsKeys.lists() }),
+          ]);
+          editFlow.assignParent(newParent);
+          setIsAddParentModalOpen(false);
+        }}
+      />
+      <AddToHomeworkHelpDialog
+        key={student.id}
+        isOpen={isHomeworkHelpOpen}
+        onClose={() => setIsHomeworkHelpOpen(false)}
+        student={student}
+      />
 
       {/* Log Absence Dialog */}
       {currentStaff && (

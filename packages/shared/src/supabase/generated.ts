@@ -2209,6 +2209,7 @@ export type Database = {
       }
       conversation_reads: {
         Row: {
+          auto_read_message_id: string | null
           conversation_id: string
           created_at: string | null
           id: string
@@ -2218,6 +2219,7 @@ export type Database = {
           updated_at: string | null
         }
         Insert: {
+          auto_read_message_id?: string | null
           conversation_id: string
           created_at?: string | null
           id?: string
@@ -2227,6 +2229,7 @@ export type Database = {
           updated_at?: string | null
         }
         Update: {
+          auto_read_message_id?: string | null
           conversation_id?: string
           created_at?: string | null
           id?: string
@@ -2236,6 +2239,20 @@ export type Database = {
           updated_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "conversation_reads_auto_read_message_id_fkey"
+            columns: ["auto_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "conversation_reads_auto_read_message_id_fkey"
+            columns: ["auto_read_message_id"]
+            isOneToOne: false
+            referencedRelation: "vadmin_reconciliation_unreplied_messages"
+            referencedColumns: ["last_message_id_detail"]
+          },
           {
             foreignKeyName: "conversation_reads_conversation_id_fkey"
             columns: ["conversation_id"]
@@ -41092,6 +41109,10 @@ export type Database = {
       }
       get_ucat_subject_id: { Args: never; Returns: string }
       get_unread_contact_conversation_count: { Args: never; Returns: number }
+      get_unread_message_conversation_ids: {
+        Args: { p_conversation_ids?: string[] }
+        Returns: string[]
+      }
       has_admin_mcp_access: { Args: never; Returns: boolean }
       has_student_selected_subjects: {
         Args: { student_id: string }
@@ -41224,6 +41245,14 @@ export type Database = {
       }
       issue_student_registration_public_token: {
         Args: { p_student_id: string }
+        Returns: string
+      }
+      link_messaging_email_contact: {
+        Args: {
+          p_contact_id: string
+          p_entity_id: string
+          p_entity_type: string
+        }
         Returns: string
       }
       list_ucat_study_plan_maintenance_anomalies: {
@@ -41574,6 +41603,10 @@ export type Database = {
       }
       resolve_merged_student_id: {
         Args: { p_student_id: string }
+        Returns: string
+      }
+      resolve_messaging_email_contact: {
+        Args: { p_email: string }
         Returns: string
       }
       resolve_overlapping_student_subsidies: { Args: never; Returns: undefined }

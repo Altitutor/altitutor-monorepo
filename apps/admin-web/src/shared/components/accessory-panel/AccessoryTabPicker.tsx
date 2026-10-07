@@ -1,6 +1,6 @@
 "use client";
-import { ShortcutKeys } from '@/shared/shortcuts/ShortcutKeys';
-import { panelShortcut } from '@/shared/shortcuts/registry';
+import { ShortcutKeys } from "@/shared/shortcuts/ShortcutKeys";
+import { panelShortcut } from "@/shared/shortcuts/registry";
 import { useState } from "react";
 import {
   Button,
@@ -17,45 +17,92 @@ import { Plus } from "lucide-react";
 import {
   useAccessoryPanel,
   type AccessoryKind,
+  type AccessoryDestination,
 } from "@/shared/contexts/AccessoryPanelContext";
 import { useEntitySearch } from "@/shared/hooks/useEntitySearch";
-import { useConversationList } from "@/features/messages/api/queries";
+import {
+  useConversationList,
+  useUnreadConversationCount,
+} from "@/features/messages/api/queries";
 import { formatContactName } from "@/features/messages/utils/formatContactName";
 import { isContactConversation } from "@/features/messages/types";
 import { AccessoryIcon } from "./AccessoryIcon";
-const views: { kind: AccessoryKind; title: string }[] = [
-  { kind: "today", title: "Today" },
-  { kind: "messages", title: "Messages" },
-  { kind: "tasks", title: "Tasks" },
-  { kind: "issues", title: "Issues" },
-  { kind: "projects", title: "Projects" },
-  { kind: "documents", title: "Documents" },
-];
+import { accessoryRootViews } from "./AccessoryRootViews";
+import { MessageUnreadBadge } from "@/features/messages/components/MessageUnreadBadge";
 export function AccessoryTabPicker() {
   const panel = useAccessoryPanel();
+  const { data: unreadCount = 0 } = useUnreadConversationCount();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
   const { results, isLoading, hasError } = useEntitySearch({
     search,
     enabled: open,
     types: ["tasks", "issues", "projects", "notes"],
+    excludeCompleted: true,
   });
   const {
     data: conversations,
     isLoading: conversationsLoading,
     isError: conversationsError,
   } = useConversationList(undefined, { enabled: open });
-  const choose = (tab: {
-    kind: AccessoryKind;
-    title: string;
-    id?: string;
-    query?: string;
-  }) => {
+  const choose = (tab: AccessoryDestination) => {
     panel?.openTab(tab);
     setOpen(false);
     setSearch("");
   };
   const term = search.trim().toLowerCase();
+  const matchingViews = accessoryRootViews.filter((view) =>
+    view.title.toLowerCase().includes(term),
+  );
+  const recentTabs = (panel?.recentlyClosed ?? []).filter((tab) =>
+    tab.title.toLowerCase().includes(term),
+  );
+  const records =
+    term.length >= 2
+      ? results.flatMap((result) => {
+          const kind: AccessoryKind | null =
+            result.type === "task"
+              ? "task"
+              : result.type === "issue"
+                ? "issue"
+                : result.type === "project"
+                  ? "project"
+                  : result.type === "note"
+                    ? "document"
+                    : null;
+          const data = result.data as {
+            title?: string | null;
+            name?: string | null;
+            status?: string | null;
+          };
+          if (
+            !kind ||
+            (["task", "issue", "project"].includes(kind) &&
+              ["done", "completed", "resolved"].includes(data.status ?? ""))
+          )
+            return [];
+          return [
+            { kind, id: result.id, title: data.title ?? data.name ?? kind },
+          ];
+        })
+      : [];
+  const matchingConversations =
+    term.length >= 2
+      ? (conversations ?? [])
+          .filter((item) => {
+            const title = isContactConversation(item)
+              ? formatContactName({ contacts: item.contact })
+              : (item.groupName ?? "Group conversation");
+            return (
+              title.toLowerCase().includes(term) ||
+              (!isContactConversation(item) &&
+                item.participantNames.some((name) =>
+                  name.toLowerCase().includes(term),
+                ))
+            );
+          })
+          .slice(0, 12)
+      : [];
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -79,103 +126,112 @@ export function AccessoryTabPicker() {
             placeholder="Search views, conversations, tasks…"
           />
           <CommandList>
-            <CommandGroup heading="Views">
-              {views
-                .filter((view) => view.title.toLowerCase().includes(term))
-                .map((view) => (
-                  <CommandItem key={view.kind} onSelect={() => choose(view)}>
+            {matchingViews.length > 0 && (
+              <CommandGroup heading="Views">
+                {matchingViews.map((view) => (
+                  <CommandItem
+                    key={view.kind}
+                    value={`view:${view.kind}`}
+                    onSelect={() => choose(view)}
+                  >
                     <AccessoryIcon
                       kind={view.kind}
                       className="mr-2 h-4 w-4 shrink-0"
                     />
                     {view.title}
-                    {panelShortcut(view.kind) && <ShortcutKeys id={panelShortcut(view.kind)!} always />}
+                    {view.kind === "messages" && (
+                      <MessageUnreadBadge
+                        count={unreadCount}
+                        className="ml-2"
+                      />
+                    )}
+                    {panelShortcut(view.kind) && (
+                      <ShortcutKeys id={panelShortcut(view.kind)!} always />
+                    )}
                   </CommandItem>
                 ))}
-            </CommandGroup>
-            {term.length >= 2 && (
-              <>
-                <CommandGroup heading="Records">
-                  {results.map((result) => {
-                    const kind: AccessoryKind | null =
-                      result.type === "task"
-                        ? "task"
-                        : result.type === "issue"
-                          ? "issue"
-                          : result.type === "project"
-                            ? "project"
-                            : result.type === "note"
-                              ? "document"
-                              : null;
-                    if (!kind) return null;
-                    const data = result.data as {
-                      title?: string | null;
-                      name?: string | null;
-                    };
-                    const title = data.title ?? data.name ?? kind;
-                    return (
-                      <CommandItem
-                        key={`${kind}:${result.id}`}
-                        value={`${kind}:${result.id}`}
-                        onSelect={() => choose({ kind, id: result.id, title })}
-                      >
-                        <AccessoryIcon
-                          kind={kind}
-                          className="mr-2 h-4 w-4 shrink-0"
-                        />
-                        <span className="mr-2 text-xs text-muted-foreground">
-                          {kind}
-                        </span>
-                        {title}
-                      </CommandItem>
-                    );
-                  })}
-                </CommandGroup>
-                <CommandGroup heading="Conversations">
-                  {(conversations ?? [])
-                    .filter((item) => {
-                      const title = isContactConversation(item)
-                        ? formatContactName({ contacts: item.contact })
-                        : (item.groupName ?? "Group conversation");
-                      return (
-                        title.toLowerCase().includes(term) ||
-                        (!isContactConversation(item) &&
-                          item.participantNames.some((name) =>
-                            name.toLowerCase().includes(term),
-                          ))
-                      );
-                    })
-                    .slice(0, 12)
-                    .map((item) => {
-                      const contact = isContactConversation(item);
-                      const id = contact ? item.contactId : item.conversationId;
-                      const title = contact
-                        ? formatContactName({ contacts: item.contact })
-                        : (item.groupName ?? "Group conversation");
-                      return (
-                        <CommandItem
-                          key={`messages:${id}`}
-                          value={`messages:${id}`}
-                          onSelect={() =>
-                            choose({
-                              kind: "messages",
-                              id,
-                              title,
-                              query: `${contact ? "contact" : "group"}=${encodeURIComponent(id)}`,
-                            })
-                          }
-                        >
-                          <AccessoryIcon
-                            kind="messages"
-                            className="mr-2 h-4 w-4 shrink-0"
-                          />
-                          {title}
-                        </CommandItem>
-                      );
-                    })}
-                </CommandGroup>
-              </>
+              </CommandGroup>
             )}
+            {recentTabs.length > 0 && (
+              <CommandGroup heading="Recently closed">
+                {recentTabs.map((tab) => (
+                  <CommandItem
+                    key={tab.key}
+                    value={`recent:${tab.key}`}
+                    onSelect={() => choose(tab)}
+                  >
+                    <AccessoryIcon
+                      kind={tab.kind}
+                      className="mr-2 h-4 w-4 shrink-0"
+                    />
+                    <span className="truncate">{tab.title}</span>
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {records.length > 0 && (
+              <CommandGroup heading="Records">
+                {records.map((record) => (
+                  <CommandItem
+                    key={`${record.kind}:${record.id}`}
+                    value={`${record.kind}:${record.id}`}
+                    onSelect={() => choose(record)}
+                  >
+                    <AccessoryIcon
+                      kind={record.kind}
+                      className="mr-2 h-4 w-4 shrink-0"
+                    />
+                    <span className="mr-2 text-xs text-muted-foreground">
+                      {record.kind}
+                    </span>
+                    {record.title}
+                  </CommandItem>
+                ))}
+              </CommandGroup>
+            )}
+            {matchingConversations.length > 0 && (
+              <CommandGroup heading="Conversations">
+                {matchingConversations.map((item) => {
+                  const contact = isContactConversation(item);
+                  const id = contact ? item.contactId : item.conversationId;
+                  const title = contact
+                    ? formatContactName({ contacts: item.contact })
+                    : (item.groupName ?? "Group conversation");
+                  return (
+                    <CommandItem
+                      key={`messages:${id}`}
+                      value={`messages:${id}`}
+                      onSelect={() =>
+                        choose({
+                          kind: "messages",
+                          id,
+                          title,
+                          query: `${contact ? "contact" : "group"}=${encodeURIComponent(id)}`,
+                        })
+                      }
+                    >
+                      <AccessoryIcon
+                        kind="messages"
+                        className="mr-2 h-4 w-4 shrink-0"
+                      />
+                      {title}
+                    </CommandItem>
+                  );
+                })}
+              </CommandGroup>
+            )}
+            {!matchingViews.length &&
+              !recentTabs.length &&
+              !records.length &&
+              !matchingConversations.length &&
+              !isLoading &&
+              !conversationsLoading &&
+              !hasError &&
+              !conversationsError && (
+                <p className="p-3 text-sm text-muted-foreground">
+                  No results found.
+                </p>
+              )}
             {(isLoading || conversationsLoading) && (
               <p className="p-3 text-sm text-muted-foreground">Searching…</p>
             )}

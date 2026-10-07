@@ -27,8 +27,9 @@ import { showEntityCreatedToast } from '@/shared/utils';
 interface AddStaffModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onStaffAdded: () => void;
+  onStaffAdded: (person?: { id: string }) => void;
   initialPhone?: string | null;
+  initialEmail?: string | null;
 }
 
 // Schema for form validation
@@ -81,7 +82,7 @@ const formSchema = z.object({
 
 type FormData = z.infer<typeof formSchema>;
 
-export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: AddStaffModalProps) {
+export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone, initialEmail }: AddStaffModalProps) {
   const { toast } = useToast();
   const router = useRouter();
   const createStaffMutation = useCreateStaff();
@@ -198,7 +199,7 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
       // Reset form and close modal
       reset();
       setSelectedSubjects([]);
-      onStaffAdded();
+      onStaffAdded(createdStaff ?? undefined);
       onClose();
     } catch (error) {
       console.error('Error adding staff:', error);
@@ -247,7 +248,8 @@ export function AddStaffModal({ isOpen, onClose, onStaffAdded, initialPhone }: A
   useEffect(() => {
     if (!isOpen) return;
     setValue('phoneNumber', initialPhone || '');
-  }, [initialPhone, isOpen, setValue]);
+    setValue('email', initialEmail || '');
+  }, [initialEmail, initialPhone, isOpen, setValue]);
 
   return (
     <AdminDialogShell

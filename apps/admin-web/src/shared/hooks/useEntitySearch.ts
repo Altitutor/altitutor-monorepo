@@ -20,6 +20,7 @@ export interface UseEntitySearchOptions {
   search: string;
   enabled?: boolean;
   debounceMs?: number;
+  excludeCompleted?: boolean;
   types?: (keyof typeof entityTypes)[];
 }
 
@@ -31,6 +32,7 @@ export function useEntitySearch({
   search, 
   enabled = true, 
   debounceMs = 250,
+  excludeCompleted = false,
   types = ['students', 'staff', 'parents', 'classes', 'subjects', 'tasks', 'issues', 'projects', 'topics', 'files', 'notes']
 }: UseEntitySearchOptions) {
   const debouncedSearch = useDebounce(search, debounceMs);
@@ -162,9 +164,9 @@ export function useEntitySearch({
   });
 
   const tasksQuery = useQuery({
-    queryKey: ['entity-search-tasks', trimmedSearch],
+    queryKey: ['entity-search-tasks', trimmedSearch, excludeCompleted],
     queryFn: async () => {
-      const result = await tasksApi.search(trimmedSearch, entityTypes.tasks.limit);
+      const result = await tasksApi.search(trimmedSearch, entityTypes.tasks.limit, { excludeCompleted });
       return result.map((task) => ({
         type: 'task' as const,
         id: task.id,
@@ -176,9 +178,9 @@ export function useEntitySearch({
   });
 
   const issuesQuery = useQuery({
-    queryKey: ['entity-search-issues', trimmedSearch],
+    queryKey: ['entity-search-issues', trimmedSearch, excludeCompleted],
     queryFn: async () => {
-      const result = await issuesApi.search(trimmedSearch, entityTypes.issues.limit);
+      const result = await issuesApi.search(trimmedSearch, entityTypes.issues.limit, { excludeCompleted });
       return result.map((issue) => ({
         type: 'issue' as const,
         id: issue.id,
@@ -190,9 +192,9 @@ export function useEntitySearch({
   });
 
   const projectsQuery = useQuery({
-    queryKey: ['entity-search-projects', trimmedSearch],
+    queryKey: ['entity-search-projects', trimmedSearch, excludeCompleted],
     queryFn: async () => {
-      const result = await projectsApi.search(trimmedSearch, entityTypes.projects.limit);
+      const result = await projectsApi.search(trimmedSearch, entityTypes.projects.limit, { excludeCompleted });
       return result.map((project) => ({
         type: 'project' as const,
         id: project.id,

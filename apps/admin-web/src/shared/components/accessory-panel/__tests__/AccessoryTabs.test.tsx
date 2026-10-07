@@ -6,6 +6,9 @@ import {
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
 import { EntityNavigationEvents } from "@/shared/contexts/EntityNavigation";
 import { AccessoryTabs } from "../AccessoryTabs";
+jest.mock("@/features/messages/api/queries", () => ({
+  useUnreadConversationCount: () => ({ data: 3 }),
+}));
 jest.mock("@/features/topics/components", () => ({
   FilePreviewModal: () => null,
   GenericFilePreviewModal: () => null,
@@ -161,4 +164,15 @@ test("the active list tab owns its persistent List/Board controls", async () => 
   expect(
     screen.getByRole("button", { name: "Issues board view" }),
   ).toHaveAttribute("aria-pressed", "true");
+});
+
+
+it("offers every root view in an empty panel and opens the chosen view", () => {
+  render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
+  for (const title of ["Messages", "Today", "Tasks", "Issues", "Projects", "Documents"]) {
+    expect(screen.getByRole("button", { name: new RegExp(title) })).toBeInTheDocument();
+  }
+  expect(screen.getByLabelText("3 unread conversations")).toHaveTextContent("3");
+  fireEvent.click(screen.getByRole("button", { name: "Today" }));
+  expect(tabs()).toEqual([expect.objectContaining({ kind: "today", title: "Today" })]);
 });

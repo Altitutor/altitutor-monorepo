@@ -220,6 +220,23 @@
   box-shadow: 0 8px 32px #0a294114;
   backdrop-filter: blur(var(--marketing-glass-blur));
 }
+.site:has([data-announcement-banner]) {
+  padding-top: var(--announcement-height, calc(52px + env(safe-area-inset-top)));
+}
+.site:has([data-announcement-banner]) .navigation {
+  top: calc(24px + var(--announcement-height, 52px + env(safe-area-inset-top)));
+}
+.site:has([data-announcement-banner]) :is(section, [id]) {
+  scroll-margin-top: calc(110px + var(--announcement-height, 52px + env(safe-area-inset-top)));
+}
+@media (max-width: 800px) {
+  .site:has([data-announcement-banner]) {
+    padding-top: var(--announcement-height, calc(76px + env(safe-area-inset-top)));
+  }
+  .site:has([data-announcement-banner]) .navigation {
+    top: calc(16px + var(--announcement-height, 76px + env(safe-area-inset-top)));
+  }
+}
 .brand {
   display: inline-flex;
   flex-shrink: 0;
@@ -1208,6 +1225,9 @@
   color: #536d7b;
   border-left: 1px solid var(--hairline);
   padding-left: 20px;
+}
+.site:has([data-announcement-banner]) .courseNav {
+  top: calc(130px + var(--announcement-height, 52px + env(safe-area-inset-top)));
 }
 .courseNav a:hover {
   color: var(--primary);
