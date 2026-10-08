@@ -27,6 +27,7 @@ type UcatFeatureDetailDialogProps = {
 
 export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProps) {
   const [open, setOpen] = useState(false);
+  const [hydrated, setHydrated] = useState(false);
   const reduceMotion = useReducedMotion();
   const Icon = feature.icon;
 
@@ -34,6 +35,10 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
   const dragOffsetRef = useRef(0);
   const [dragOffset, setDragOffset] = useState(0);
   const [isDraggingSheet, setIsDraggingSheet] = useState(false);
+
+  useEffect(() => {
+    setHydrated(true);
+  }, []);
 
   useEffect(() => {
     if (!open) {
@@ -74,7 +79,7 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <button type="button" className="inline-flex">
+        <button type="button" className="inline-flex" disabled={!hydrated}>
           <MagneticButton
             className={`border border-marketing-charcoal/12 bg-white px-4 py-2 text-sm font-semibold text-marketing-charcoal shadow-sm hover:border-marketing-charcoal/20 ${typo.secondarySans}`}
           >

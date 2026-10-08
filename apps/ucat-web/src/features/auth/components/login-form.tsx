@@ -2,6 +2,8 @@
 
 import React, { FormEvent, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { isAuthRetryableFetchError } from "@supabase/supabase-js";
+import { captureException } from "@sentry/nextjs";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@altitutor/ui";
 import { MARKETING_TOKENS } from "@altitutor/shared";
@@ -21,6 +23,13 @@ import {
 import { savePasswordAuthHandoff } from "@/features/auth/lib/password-auth-handoff";
 
 const { typography: typo } = MARKETING_TOKENS;
+
+function retryableSignInMessage(error: unknown): string | null {
+  if (!isAuthRetryableFetchError(error)) return null;
+  return error.status === 0
+    ? "We couldn’t connect to sign you in. Check your connection and try again."
+    : "Sign-in is temporarily unavailable. Please try again.";
+}
 
 export function LoginForm({
   redirectTo = "/dashboard",
@@ -59,15 +68,22 @@ export function LoginForm({
     setIsSubmitting(true);
     setError(null);
 
-    const { data, error: signInError } = await supabase.auth.signInWithPassword(
-      {
-        email,
-        password,
-      },
-    );
+    let result;
+    try {
+      result = await supabase.auth.signInWithPassword({ email, password });
+    } catch (cause) {
+      const retryMessage = retryableSignInMessage(cause);
+      if (!retryMessage) captureException(cause);
+      setError(retryMessage ?? "We couldn’t sign you in. Please try again.");
+      setIsSubmitting(false);
+      return;
+    }
 
+    const { data, error: signInError } = result;
     if (signInError) {
-      setError("Incorrect email or password.");
+      setError(
+        retryableSignInMessage(signInError) ?? "Incorrect email or password.",
+      );
       setIsSubmitting(false);
       return;
     }

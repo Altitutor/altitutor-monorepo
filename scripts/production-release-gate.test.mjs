@@ -653,3 +653,14 @@ test("the UCAT native app instruments Sentry and keeps manual store submit avail
     /Store submit is only allowed for the production profile/u,
   );
 });
+
+test("marketing Safari journeys run before main", async () => {
+  const workflow = await readFile(ciWorkflowPath, "utf8");
+  const marketingStep = workflow.slice(
+    workflow.indexOf("      - name: Run marketing browser journeys"),
+    workflow.indexOf("      - name: Run student browser journeys"),
+  );
+  assert.match(marketingStep, /MARKETING_E2E_FULL_BROWSER_MATRIX: "true"/u);
+  assert.match(marketingStep, /CI_RELEASE_GATE: "true"/u);
+  assert.match(workflow, /playwright install --with-deps chromium webkit &/u);
+});
