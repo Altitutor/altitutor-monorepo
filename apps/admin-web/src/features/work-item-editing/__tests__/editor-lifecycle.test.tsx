@@ -190,6 +190,29 @@ it("debounces typing but saves metadata alone immediately", async () => {
   expect(patch.mock.calls[1][2]).toEqual({ description: changed });
   expect(result.current.editor.dirty).toBe(false);
 });
+it.each<EditKind>(["task", "issue", "project", "document"])(
+  "%s acknowledges a save without replacing the unchanged form content",
+  async (kind) => {
+    patch.mockImplementation(async (_kind, _id, changes) => {
+      server = JSON.parse(
+        JSON.stringify({
+          ...server,
+          ...changes,
+          admin_revision: Number(server.admin_revision) + 1,
+        }),
+      ) as EditRecord;
+      return snapshot(server);
+    });
+    const { result } = setup(kind);
+    await ready(result);
+    const field = kind === "document" ? "content" : "description";
+    edit(result, field, changed);
+    const localContent = result.current.form.getValues(field);
+    await tick(600);
+    expect(result.current.editor.dirty).toBe(false);
+    expect(result.current.form.getValues(field)).toBe(localContent);
+  },
+);
 it("saves intentional clearing and ignores JSON key order", async () => {
   const { result } = setup();
   await ready(result);

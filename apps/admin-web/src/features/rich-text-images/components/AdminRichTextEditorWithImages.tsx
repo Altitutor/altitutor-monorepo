@@ -47,7 +47,21 @@ function contentSignature(
   content: JSONContent | string | null | undefined,
 ): string {
   if (!content) return '';
-  return typeof content === 'string' ? content : JSON.stringify(content);
+  let json: unknown = content;
+  if (typeof content === 'string') {
+    try {
+      json = JSON.parse(content);
+    } catch {
+      return content;
+    }
+  }
+  // A jsonb save echo can reorder keys. It must not reset local-edit state and
+  // briefly restore the older image-refresh snapshot before the new one loads.
+  return JSON.stringify(json, (_key, item: unknown) =>
+    item && typeof item === 'object' && !Array.isArray(item)
+      ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)))
+      : item,
+  );
 }
 
 function contentForRefresh(
@@ -131,7 +145,7 @@ export const AdminRichTextEditorWithImages = forwardRef<
     const handleChange = useCallback(
       (json: JSONContent) => {
         hasLocalEditRef.current = true;
-        lastEmittedSignatureRef.current = JSON.stringify(json);
+        lastEmittedSignatureRef.current = contentSignature(json);
         onChange(json);
       },
       [onChange],

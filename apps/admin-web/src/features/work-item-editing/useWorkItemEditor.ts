@@ -187,7 +187,10 @@ export function useWorkItemEditor<T extends FieldValues>({
             s.invalid.delete(field);
             s.baseline[field] = latestNormalized[field];
             s.expected[field] = latest.record[field];
-            setField(field, latest.record);
+            // Acknowledging our own unchanged value must not rehydrate the
+            // form/editor. Only an actual saved-value change needs syncing.
+            if (!same(full[field], latestNormalized[field]))
+              setField(field, latest.record);
           } else {
             s.pending.add(field);
           }
