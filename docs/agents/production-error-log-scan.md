@@ -48,7 +48,8 @@ an error and no results. An aggregate access check does not advance scan cursors
 ## Scan and disposition
 
 1. Capture a fixed run-end UTC timestamp. Read each source's successful cursor
-   from the Obsidian ledger; query from that cursor minus one hour through the
+   from the new Dev maintenance continuity document linked by `issue-tracker.md`
+   (verified five-part historical snapshots on DEV-1; archive ALTI-508 is read-only provenance); query from that cursor minus one hour through the
    run end. First run: scan the preceding 24 hours, recording that initial bound.
    Catch up missed runs in windows no larger than 24 hours. Check available
    retention and report any expired interval instead of claiming it was scanned.

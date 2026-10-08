@@ -133,7 +133,9 @@ export const absencesApi = {
         `,
         )
         .eq('student_id', studentId)
-        .eq('planned_absence', false);
+        .eq('planned_absence', false)
+        .eq('session.status', 'ACTIVE')
+        .is('session.calendar_tombstone_until', null);
 
       // Only filter by start_at if we're not allowing past sessions
       if (!allowPastSessions) {

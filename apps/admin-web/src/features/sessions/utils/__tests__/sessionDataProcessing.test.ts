@@ -191,9 +191,10 @@ describe('processSessionStudents', () => {
 
     const result = processSessionStudents(sessionsStudents, {}, false);
 
-    expect(result[0].plannedStatus).toBe('rescheduled');
+    expect(result[0].plannedStatus).toBe('absent');
     expect(result[0].rescheduledDate).toContain('10:00');
     expect(result[0].rescheduledSessionId).toBe('session-2');
+    expect(result[0].absenceTreatment).toBe('replacement');
   });
 
   it('should process student with credited absence', () => {
@@ -213,8 +214,9 @@ describe('processSessionStudents', () => {
 
     const result = processSessionStudents(sessionsStudents, {}, false);
 
-    expect(result[0].plannedStatus).toBe('credited');
-    expect(result[0].creditedDisplayDate).toBe('20/02/2026');
+    expect(result[0].plannedStatus).toBe('absent');
+    expect(result[0].absenceTreatmentRecordedDate).toBe('20/02/2026');
+    expect(result[0].absenceTreatment).toBe('credit');
   });
 
   it('should process unplanned student', () => {

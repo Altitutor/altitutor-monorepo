@@ -36,10 +36,16 @@ jest.mock("@altitutor/ui", () => ({
   Button: ({
     children,
     onClick,
+    "aria-label": ariaLabel,
   }: {
     children: ReactNode;
     onClick?: () => void;
-  }) => <button onClick={onClick}>{children}</button>,
+    "aria-label"?: string;
+  }) => (
+    <button aria-label={ariaLabel} onClick={onClick}>
+      {children}
+    </button>
+  ),
   AlertDialog: ({ children, open }: { children: ReactNode; open: boolean }) =>
     open ? <>{children}</> : null,
   ...Object.fromEntries(
@@ -186,6 +192,7 @@ jest.mock("@/features/sessions/components/SessionDetailsTab", () => ({
     mockDetailsProps = props;
     return (
       <>
+        <div data-testid="day-field">{props.dayNavigation}</div>
         {props.onLogAbsenceStudent && (
           <button onClick={() => props.onLogAbsenceStudent?.("student-target")}>
             Log student absence
@@ -594,4 +601,19 @@ it("navigates to adjacent class session pages", () => {
   // Buttons are mocked without DOM attributes; labels come from their dates.
   fireEvent.click(screen.getAllByRole("button")[0]);
   expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
+});
+
+it("renders previous/next navigation in the Day field and opens the selected sibling", () => {
+  render(<SessionDetailPage params={{ id: "session" }} />);
+  const day = screen.getByTestId("day-field");
+  const previous = screen.getByRole("button", {
+    name: "Previous session in class",
+  });
+  const next = screen.getByRole("button", { name: "Next session in class" });
+  expect(day).toContainElement(previous);
+  expect(day).toContainElement(next);
+  fireEvent.click(previous);
+  expect(mockPush).toHaveBeenCalledWith("/sessions/previous");
+  fireEvent.click(next);
+  expect(mockPush).toHaveBeenCalledWith("/sessions/next");
 });

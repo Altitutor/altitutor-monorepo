@@ -8,6 +8,7 @@
 import { format } from 'date-fns';
 import {
   type StudentAttendanceStatus,
+  type AbsenceBillingTreatment,
   type StaffAttendanceStatus,
   type StudentPlannedStatus,
   type StudentActualStatus,
@@ -90,32 +91,15 @@ export type StaffAttendanceContext = {
 export function deriveStudentPlannedStatus(
   input: StudentAttendanceInput,
   context: StudentAttendanceContext
-): {
-  status: StudentPlannedStatus;
-  rescheduledSessionId: string;
-  rescheduledDate: string;
-} {
+): { status: StudentPlannedStatus } {
   const { plannedStudentIds } = context;
   const isUnplanned = (input.sessions_students_id === null || input.sessions_students_id === undefined) && input.is_extra;
   const wasTrialPlanned = input.was_trial ?? false;
 
   let status: StudentPlannedStatus = STUDENT_PLANNED_STATUSES.ATTENDING;
-  let rescheduledSessionId = '';
-  let rescheduledDate = '';
 
   if (input.planned_absence && !isUnplanned) {
     status = STUDENT_PLANNED_STATUSES.ABSENT;
-    if (input.is_rescheduled && input.rescheduled_session?.session) {
-      status = STUDENT_PLANNED_STATUSES.RESCHEDULED;
-      rescheduledSessionId = input.rescheduled_session.session.id;
-      if (input.rescheduled_session.session.start_at) {
-        const startDate = new Date(input.rescheduled_session.session.start_at);
-        const timeStr = input.rescheduled_session.session.class?.start_time || '';
-        rescheduledDate = `${format(startDate, 'EEE dd/MM')} ${timeStr}`.trim();
-      }
-    } else if (input.is_credited) {
-      status = STUDENT_PLANNED_STATUSES.CREDITED;
-    }
   } else if (isUnplanned) {
     status = STUDENT_PLANNED_STATUSES.UNPLANNED;
   } else if (input.is_extra && input.student_id && plannedStudentIds.has(input.student_id)) {
@@ -128,7 +112,7 @@ export function deriveStudentPlannedStatus(
       : STUDENT_PLANNED_STATUSES.ATTENDING;
   }
 
-  return { status, rescheduledSessionId, rescheduledDate };
+  return { status };
 }
 
 /**
@@ -166,21 +150,38 @@ function formatCreditedDay(iso: string | null | undefined): string {
   }
 }
 
+/** Translate legacy persistence flags into a separate billing treatment. */
+export function deriveStudentAbsenceTreatment(
+  input: Pick<
+    StudentAttendanceInput,
+    'planned_absence' | 'is_extra' | 'sessions_students_id' | 'is_rescheduled' | 'is_credited'
+  >
+): AbsenceBillingTreatment | null {
+  if (!input.planned_absence || !isPlannedSessionStudent(input)) return null;
+  if (input.is_rescheduled) return 'replacement';
+  if (input.is_credited) return 'credit';
+  return 'charge';
+}
+
 export function deriveStudentAttendanceStatus(
   input: StudentAttendanceInput,
   context: StudentAttendanceContext
 ): StudentAttendanceStatus {
   const planned = deriveStudentPlannedStatus(input, context);
   const actualStatus = deriveStudentActualStatus(input, context);
-  const creditedDisplayDate =
-    planned.status === STUDENT_PLANNED_STATUSES.CREDITED ? formatCreditedDay(input.credited_at) : '';
+  const absenceTreatment = deriveStudentAbsenceTreatment(input);
+  const replacement = absenceTreatment === 'replacement' ? input.rescheduled_session?.session : null;
+  const rescheduledDate = replacement?.start_at
+    ? `${format(new Date(replacement.start_at), 'EEE dd/MM')} ${replacement.class?.start_time ?? ''}`.trim()
+    : '';
 
   return {
     plannedStatus: planned.status,
     actualStatus,
-    rescheduledSessionId: planned.rescheduledSessionId,
-    rescheduledDate: planned.rescheduledDate,
-    creditedDisplayDate,
+    absenceTreatment,
+    rescheduledSessionId: replacement?.id ?? '',
+    rescheduledDate,
+    absenceTreatmentRecordedDate: absenceTreatment === 'credit' ? formatCreditedDay(input.credited_at) : '',
   };
 }
 
@@ -318,7 +319,9 @@ export function buildStaffAttendanceMap(
   return attendance;
 }
 
-export function isPlannedSessionStudent(input: StudentAttendanceInput): boolean {
+export function isPlannedSessionStudent(
+  input: Pick<StudentAttendanceInput, 'sessions_students_id' | 'is_extra'>
+): boolean {
   const isUnplanned =
     (input.sessions_students_id === null || input.sessions_students_id === undefined) &&
     Boolean(input.is_extra);

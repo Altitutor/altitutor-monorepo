@@ -31,6 +31,11 @@ import {
   PropertyFormRow,
 } from "@/shared/components/PropertyForm";
 import { invalidateInvoiceDetail } from "@/shared/lib/query-invalidation";
+import {
+  storedCreditNoteDetails,
+  formatCreditNoteReason,
+  type CreditNoteDetails,
+} from "@/features/billing/utils/creditNoteDetails";
 import { InvoiceActivityTab } from "@/features/activity/components";
 
 export default function InvoiceDetailPage({
@@ -53,7 +58,12 @@ export default function InvoiceDetailPage({
 
   const modals = useInvoiceModals();
 
-  const { invoice, invoiceItems, creditNotes, isLoading } = invoiceData;
+  const {
+    invoice,
+    invoiceItems,
+    creditNotes: storedCreditNotes,
+    isLoading,
+  } = invoiceData;
 
   // Fetch Stripe details for retry information
   const {
@@ -64,11 +74,16 @@ export default function InvoiceDetailPage({
     queryKey: ["invoice-stripe-details", id],
     queryFn: async () => {
       if (!id) return null;
-      const response = await fetch(`/api/invoices/${id}/stripe-details`);
+      const response = await fetch(
+        `/api/invoices/${id}/stripe-details?include_credit_notes=true`,
+      );
       if (!response.ok) {
         throw new Error("Failed to fetch Stripe details");
       }
       return response.json() as Promise<{
+        credit_notes?: CreditNoteDetails[];
+        amount_paid_cents?: number;
+        amount_remaining_cents?: number;
         attempt_count: number;
         next_payment_attempt: number | null;
         auto_retry_active: boolean;
@@ -79,30 +94,29 @@ export default function InvoiceDetailPage({
     staleTime: 1000 * 60, // 1 minute
   });
 
+  const creditNotesById = new Map(
+    storedCreditNotes.map((note) => [
+      note.stripe_credit_note_id,
+      storedCreditNoteDetails(note),
+    ]),
+  );
+  for (const note of stripeDetails?.credit_notes ?? [])
+    creditNotesById.set(note.stripe_credit_note_id, note);
+  const creditNotes = [...creditNotesById.values()].sort((a, b) =>
+    b.created_at.localeCompare(a.created_at),
+  );
+
   const isRefunded = !!invoice?.is_refunded;
 
-  const totalCreditSettlementCents = creditNotes
+  const totalCreditNotesCents = creditNotes
     .filter((note) => note.status !== "void")
-    .reduce((sum, note) => {
-      type CreditNoteWithSettlement = typeof note & {
-        refund_amount_cents?: number | null;
-        credit_amount_cents?: number | null;
-        out_of_band_amount_cents?: number | null;
-      };
-
-      const noteWithSettlement = note as CreditNoteWithSettlement;
-      const refund = noteWithSettlement.refund_amount_cents ?? 0;
-      const credit = noteWithSettlement.credit_amount_cents ?? 0;
-      const outOfBand = noteWithSettlement.out_of_band_amount_cents ?? 0;
-      const settlement = refund + credit + outOfBand;
-      return sum + (settlement > 0 ? settlement : note.amount_cents);
-    }, 0);
+    .reduce((sum, note) => sum + note.amount_cents, 0);
 
   const invoiceTotalCents =
     invoice?.total_cents ?? invoice?.amount_due_cents ?? 0;
 
   const isFullyCredited =
-    totalCreditSettlementCents >= invoiceTotalCents && invoiceTotalCents > 0;
+    totalCreditNotesCents >= invoiceTotalCents && invoiceTotalCents > 0;
 
   // Extract last payment error from metadata
   type InvoiceMetadata = {
@@ -255,7 +269,11 @@ export default function InvoiceDetailPage({
   });
 
   // Computed values
-  const totalAmount = invoice?.amount_due_cents || 0;
+  const totalAmount =
+    invoice?.total_cents ??
+    invoice?.subtotal_cents ??
+    invoice?.amount_due_cents ??
+    0;
   const totalAmountFormatted = `$${(totalAmount / 100).toFixed(2)}`;
   const lineItemsSubtotal = calculateLineItemsSubtotal(invoiceItems);
   const subtotalCents = invoice?.subtotal_cents;
@@ -349,14 +367,20 @@ export default function InvoiceDetailPage({
             </PropertyFormRow>
             <PropertyFormRow label="Status">
               <div className="text-sm">
-                {getInvoiceStatusBadge(toInvoiceStatusPayload({
+                {getInvoiceStatusBadge(
+                  toInvoiceStatusPayload({
                     ...invoice,
-                    credit_notes: creditNotes.filter(note => note.status !== 'void').map(note => ({
-                      refund_amount_cents: note.refund_amount_cents,
-                      credit_amount_cents: note.credit_amount_cents,
-                      created_at: note.created_at,
-                    })),
-                  }))}
+                    credit_notes: creditNotes
+                      .filter((note) => note.status !== "void")
+                      .map((note) => ({
+                        amount_cents: note.amount_cents,
+                        out_of_band_amount_cents: note.out_of_band_amount_cents,
+                        refund_amount_cents: note.refund_amount_cents,
+                        credit_amount_cents: note.credit_amount_cents,
+                        created_at: note.created_at,
+                      })),
+                  }),
+                )}
               </div>
             </PropertyFormRow>
             {subtotalCents !== null && subtotalCents !== undefined && (
@@ -376,10 +400,29 @@ export default function InvoiceDetailPage({
                 </div>
               </PropertyFormRow>
             )}
-            <PropertyFormRow label="Amount due">
+            <PropertyFormRow label="Amount paid">
+              <div className="text-sm">
+                {formatInvoiceAmount(
+                  stripeDetails?.amount_paid_cents ?? invoice.amount_paid_cents,
+                  invoice.currency || "AUD",
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Payment recorded on this invoice, before refunds. Balance
+                  credits are separate.
+                </p>
+              </div>
+            </PropertyFormRow>
+            <PropertyFormRow
+              label={
+                invoice.status === "paid"
+                  ? "Amount remaining"
+                  : "Invoice amount due"
+              }
+            >
               <div className="text-sm font-semibold">
                 {formatInvoiceAmount(
-                  invoice.amount_due_cents,
+                  stripeDetails?.amount_remaining_cents ??
+                    (invoice.status === "paid" ? 0 : invoice.amount_due_cents),
                   invoice.currency || "AUD",
                 )}
               </div>
@@ -502,17 +545,47 @@ export default function InvoiceDetailPage({
 
               {/* Total */}
               <div className="flex items-center justify-between pt-3 border-t font-semibold">
-                <div className="text-sm">Total:</div>
+                <div className="text-sm">Original invoice total</div>
                 <div className="text-sm">{totalAmountFormatted}</div>
               </div>
 
-              {/* Show warning if line items don't match total */}
+              {totalCreditNotesCents > 0 && (
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span>Credit notes applied</span>
+                    <span>
+                      -
+                      {formatInvoiceAmount(
+                        totalCreditNotesCents,
+                        invoice.currency || "AUD",
+                      )}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between font-semibold">
+                    <span>Net invoice value</span>
+                    <span>
+                      {formatInvoiceAmount(
+                        Math.max(0, totalAmount - totalCreditNotesCents),
+                        invoice.currency || "AUD",
+                      )}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Original invoice total minus credit notes. This is not the
+                    amount paid or refunded. See Refunds &amp; Credits for each
+                    credit note’s outcome.
+                  </p>
+                </div>
+              )}
+
+              {/* Compare original charges, independently of payments and credits. */}
               {Math.abs(totalAmount - lineItemsSubtotal) > 1 && (
                 <div className="text-xs text-muted-foreground mt-2 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded">
                   Note: Line items total ($
-                  {(lineItemsSubtotal / 100).toFixed(2)}) differs from invoice
-                  total. This may indicate missing fee items or other charges
-                  not yet synced from Stripe.
+                  {(lineItemsSubtotal / 100).toFixed(2)}) differs from the
+                  original invoice total. Check for taxes, discounts, fees or
+                  line items not yet synced from Stripe. Credit notes are listed
+                  separately and do not change the original line items.
                 </div>
               )}
             </div>
@@ -598,39 +671,78 @@ export default function InvoiceDetailPage({
                           </div>
                           {creditNote.reason && (
                             <div className="text-sm text-muted-foreground mb-1">
-                              {creditNote.reason}
+                              Reason:{" "}
+                              {formatCreditNoteReason(creditNote.reason)}
                             </div>
                           )}
                           <div className="text-xs text-muted-foreground">
                             Status: {creditNote.status}
                           </div>
-                          {(creditNote.refund_amount_cents ?? 0) > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Refunded{" "}
-                              {formatInvoiceAmount(
-                                creditNote.refund_amount_cents!,
-                                creditNote.currency,
-                              )}
+                          {creditNote.memo && (
+                            <div className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                              Memo: {creditNote.memo}
                             </div>
                           )}
-                          {(creditNote.credit_amount_cents ?? 0) > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Credited to balance{" "}
-                              {formatInvoiceAmount(
-                                creditNote.credit_amount_cents!,
-                                creditNote.currency,
-                              )}
+                          {creditNote.internal_note && (
+                            <div className="text-sm text-muted-foreground mt-1 whitespace-pre-wrap">
+                              Internal note: {creditNote.internal_note}
                             </div>
                           )}
-                          {(creditNote.out_of_band_amount_cents ?? 0) > 0 && (
-                            <div className="text-xs text-muted-foreground mt-1">
-                              Settled externally{" "}
-                              {formatInvoiceAmount(
-                                creditNote.out_of_band_amount_cents!,
-                                creditNote.currency,
-                              )}
-                            </div>
-                          )}
+                          {creditNote.status === "void" ? (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              Voided credit note — not included in the net
+                              invoice value.
+                            </p>
+                          ) : !creditNote.outcome_verified ? (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {isLoadingStripeDetails
+                                ? "Loading credit note outcome…"
+                                : "Credit note outcome unavailable. Check Stripe for the payment breakdown."}
+                            </p>
+                          ) : null}
+                          {creditNote.status !== "void" &&
+                            (creditNote.pre_payment_amount_cents ?? 0) > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Reduced unpaid invoice amount (before payment){" "}
+                                {formatInvoiceAmount(
+                                  creditNote.pre_payment_amount_cents!,
+                                  creditNote.currency,
+                                )}
+                              </div>
+                            )}
+                          {creditNote.status !== "void" &&
+                            creditNote.outcome_verified &&
+                            (creditNote.refund_amount_cents ?? 0) > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Refund (after payment){" "}
+                                {formatInvoiceAmount(
+                                  creditNote.refund_amount_cents!,
+                                  creditNote.currency,
+                                )}
+                              </div>
+                            )}
+                          {creditNote.status !== "void" &&
+                            creditNote.outcome_verified &&
+                            (creditNote.credit_amount_cents ?? 0) > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Credited to customer balance (after payment){" "}
+                                {formatInvoiceAmount(
+                                  creditNote.credit_amount_cents!,
+                                  creditNote.currency,
+                                )}
+                              </div>
+                            )}
+                          {creditNote.status !== "void" &&
+                            creditNote.outcome_verified &&
+                            (creditNote.out_of_band_amount_cents ?? 0) > 0 && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                Settled externally (after payment){" "}
+                                {formatInvoiceAmount(
+                                  creditNote.out_of_band_amount_cents!,
+                                  creditNote.currency,
+                                )}
+                              </div>
+                            )}
                         </div>
                         <div className="text-sm font-medium text-green-600 dark:text-green-400 ml-4">
                           -

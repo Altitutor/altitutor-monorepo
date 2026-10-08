@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { AccountClassBadge, Badge, Separator, Button, Input, Label, SearchableSelect, SearchableSelectFieldTrigger, SmartDatePickerField } from '@altitutor/ui';
 import { MoreVertical, MessageSquare, AlertTriangle, RotateCcw, Trash2, Pencil } from 'lucide-react';
 import { Controller, useForm } from 'react-hook-form';
@@ -9,6 +9,8 @@ import * as z from 'zod';
 import { formatSessionLongDate } from '../utils/session-helpers';
 import { formatSessionTimeRangeForDisplay, type SessionTimeInput } from '@altitutor/shared';
 import { Supabase } from '@altitutor/shared';
+import { AbsenceTreatmentCell } from './AbsenceTreatmentCell';
+import type { ProcessedStudentData } from '../utils/sessionDataProcessing';
 import { AttendanceCell } from './AttendanceCell';
 import { StudentAvatar } from './StudentAvatar';
 import { TutorLogAvatar } from './TutorLogAvatar';
@@ -93,27 +95,7 @@ function toLocalTimeString(iso: string | null | undefined): string {
 type SessionDetailsTabProps = {
   session: SessionDetailsSession | null;
   tutorLog: SessionDetailsTutorLog | null;
-  studentsData: Array<{
-    student: Tables<'students'>;
-    sessionsStudentsId: string | null;
-    rescheduledSessionsStudentsId: string | null;
-    plannedStatus:
-      | 'attending'
-      | 'attending-extra'
-      | 'attending-trial'
-      | 'attending-extra-trial'
-      | 'absent'
-      | 'rescheduled'
-      | 'credited'
-      | 'unplanned';
-    actualStatus: 'not-logged' | 'attended' | 'attended-trial' | 'did-not-attend';
-    rescheduledDate: string;
-    rescheduledSessionId?: string;
-    creditedDisplayDate: string;
-    invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
-    plannedAbsence: boolean;
-    hasInvoiceItems: boolean;
-  }>;
+  studentsData: ProcessedStudentData[];
   staffData: Array<{
     staff: Tables<'staff'>;
     sessionsStaffId: string | null;
@@ -174,6 +156,7 @@ type SessionDetailsTabProps = {
   onMeetingAddParent?: (parent: Tables<'parents'>) => Promise<void>;
   onRemoveParentFromSession?: (parentId: string, parentName: string) => void;
   /** Edit mode: when true, show edit form instead of view */
+  dayNavigation?: ReactNode;
   isEditing?: boolean;
   onEdit?: () => void;
   onCancelEdit?: () => void;
@@ -215,6 +198,7 @@ export function SessionDetailsTab({
   onMeetingAddStaff,
   onMeetingAddParent,
   onRemoveParentFromSession,
+  dayNavigation,
   isEditing = false,
   onEdit,
   onCancelEdit: _onCancelEdit,
@@ -470,7 +454,7 @@ export function SessionDetailsTab({
           </form>
         ) : (
           <SessionInfoGrid
-            day={session.start_at ? formatSessionLongDate(session.start_at) : '—'}
+            day={dayNavigation ?? (session.start_at ? formatSessionLongDate(session.start_at) : '—')}
             time={formatSessionTimeRangeForDisplay(session as SessionTimeInput, formatTime)}
             timeSubline={
               session.type ? (
@@ -550,6 +534,7 @@ export function SessionDetailsTab({
                         <>
                           <TableHead>Planned Attendance</TableHead>
                           <TableHead>Actual Attendance</TableHead>
+                          <TableHead>Absence Treatment</TableHead>
                           <TableHead>Invoice</TableHead>
                         </>
                       ) : (
@@ -576,29 +561,19 @@ export function SessionDetailsTab({
                         {allowAbsenceLogging ? (
                           <>
                             <TableCell>
-                              <AttendanceCell
-                                status={data.plannedStatus}
-                                linkTo={
-                                  data.plannedStatus === 'rescheduled' && data.rescheduledSessionId
-                                    ? {
-                                        type: 'session',
-                                        id: data.rescheduledSessionId,
-                                        onClick: () =>
-                                          data.rescheduledSessionId && onOpenSession(data.rescheduledSessionId),
-                                      }
-                                    : undefined
-                                }
-                                linkText={
-                                  data.plannedStatus === 'rescheduled'
-                                    ? data.rescheduledDate
-                                    : data.plannedStatus === 'credited' && data.creditedDisplayDate
-                                      ? data.creditedDisplayDate
-                                      : undefined
-                                }
-                              />
+                              <AttendanceCell status={data.plannedStatus} />
                             </TableCell>
                             <TableCell>
                               <AttendanceCell status={data.actualStatus} />
+                            </TableCell>
+                            <TableCell>
+                              <AbsenceTreatmentCell
+                                treatment={data.absenceTreatment}
+                                recordedDate={data.absenceTreatmentRecordedDate}
+                                replacementSessionId={data.rescheduledSessionId}
+                                replacementSessionLabel={data.rescheduledDate}
+                                onOpenSession={onOpenSession}
+                              />
                             </TableCell>
                             <TableCell>
                               {(() => {
@@ -639,7 +614,7 @@ export function SessionDetailsTab({
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               {allowAbsenceLogging &&
-                              (data.plannedStatus === 'credited' || data.plannedStatus === 'rescheduled') &&
+                              (data.absenceTreatment === 'credit' || data.absenceTreatment === 'replacement') &&
                               data.sessionsStudentsId &&
                               onUndoLogAbsenceStudent ? (
                                 <DropdownMenuItem
@@ -651,7 +626,7 @@ export function SessionDetailsTab({
                                       studentId: data.student.id,
                                       studentName: studentName || 'Student',
                                       sessionsStudentsId: data.sessionsStudentsId!,
-                                      action: data.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
+                                      action: data.absenceTreatment === 'replacement' ? 'reschedule' : 'credit',
                                       rescheduledSessionId: data.rescheduledSessionId,
                                     });
                                   }}

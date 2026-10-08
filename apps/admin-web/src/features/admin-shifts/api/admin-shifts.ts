@@ -241,6 +241,8 @@ export const adminShiftsApi = {
         .from('sessions')
         .select('*')
         .eq('admin_shift_id', id)
+        .eq('status', 'ACTIVE')
+        .is('calendar_tombstone_until', null)
         .order('start_at', { ascending: true });
 
       if (sessionsError) throw sessionsError;

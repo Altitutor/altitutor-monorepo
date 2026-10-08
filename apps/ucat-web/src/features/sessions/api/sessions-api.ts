@@ -2,7 +2,7 @@ import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import type { Database } from "@altitutor/shared";
 
 type StudentSessionRow =
-  Database["public"]["Views"]["vstudent_sessions"]["Row"];
+  Database["public"]["Views"]["vstudent_operational_sessions"]["Row"];
 type StudentSessionResourceRow =
   Database["public"]["Views"]["vstudent_ucat_sessions_resources"]["Row"];
 
@@ -93,7 +93,7 @@ export async function getStudentUcatSessions(): Promise<StudentUcatSession[]> {
   const supabase = getClient();
 
   const { data: sessionsData, error: sessionsError } = await supabase
-    .from("vstudent_sessions")
+    .from("vstudent_operational_sessions")
     .select("*");
   if (sessionsError) throw sessionsError;
 

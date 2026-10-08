@@ -117,9 +117,11 @@ export const tutorLogsApi = {
       const nowIso = new Date().toISOString();
 
       const { data: sessions, error: sessionsError } = await supabase
-        .from('vtutor_sessions')
+        .from('vtutor_operational_sessions')
         .select('*')
         .in('session_type', ['CLASS', 'CHECK_IN'])
+        .eq('session_status', 'ACTIVE')
+        .is('calendar_tombstone_until', null)
         .lte('start_at', nowIso)
         .order('start_at', { ascending: false });
 

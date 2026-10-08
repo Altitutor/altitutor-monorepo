@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useToast } from "@altitutor/ui";
-import { useAccessoryPanel } from "@/shared/contexts/AccessoryPanelContext";
+import { useAccessoryPanelActions } from "@/shared/contexts/AccessoryPanelContext";
 import {
   ensureContactForStudent,
   ensureContactForParent,
@@ -20,7 +20,7 @@ export function useOpenPersonMessages(
   id?: string,
   title?: string,
 ) {
-  const panel = useAccessoryPanel();
+  const panel = useAccessoryPanelActions();
   const { toast } = useToast();
   const [isOpening, setIsOpening] = useState(false);
   const openMessages = async () => {

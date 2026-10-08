@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Button, Label, Textarea } from '@altitutor/ui';
 import { useStudentFutureSessions, useLogAbsences } from '../../hooks';
 import { useMissingStudentSession, useInitialStudentForAbsence } from '../../hooks/useAbsenceInitialData';
@@ -16,7 +16,7 @@ import type {
   RescheduleSession,
   StudentSession,
 } from '../../types/absence';
-import { Search, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Search, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { AdminDialogShell } from '@/shared/components';
 import { Input } from '@altitutor/ui';
 import { useStudentsSearchForAbsence } from '@/features/students/hooks';
@@ -53,6 +53,8 @@ export function LogAbsenceDialog({
   const [hasInitialized, setHasInitialized] = useState(false);
   const [reasonNote, setReasonNote] = useState('');
   const [billingWarning, setBillingWarning] = useState<string | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionInProgress = useRef(false);
   const [billingStatus, setBillingStatus] = useState<AbsenceBillingStatus | undefined>();
 
   // Student search and pagination
@@ -205,7 +207,7 @@ export function LogAbsenceDialog({
       targetSession?: RescheduleSession;
     }>,
   ) => {
-    if (!selectedStudent) return;
+    if (!selectedStudent || submissionInProgress.current) return;
 
     const newRescheduledMap = new Map<string, RescheduleSession>();
 
@@ -248,7 +250,9 @@ export function LogAbsenceDialog({
   };
 
   const handleFinalConfirm = async (decisionsToSubmit: AbsenceDecision[]) => {
-    if (!selectedStudent) return;
+    if (!selectedStudent || submissionInProgress.current) return;
+    submissionInProgress.current = true;
+    setIsSubmitting(true);
 
     // Snapshot sessions before mutation - query invalidation removes processed sessions from API
     const sessionsSnapshot = [...selectedSessionsArray];
@@ -284,6 +288,9 @@ export function LogAbsenceDialog({
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'An unexpected error occurred');
       setStep('error');
+    } finally {
+      submissionInProgress.current = false;
+      setIsSubmitting(false);
     }
   };
 
@@ -544,6 +551,7 @@ export function LogAbsenceDialog({
           <div className="flex w-full justify-between">
             <Button
               variant="outline"
+              disabled={isSubmitting}
               onClick={() => {
                 setDecisions([]);
                 setRescheduledSessionsMap(new Map());
@@ -556,15 +564,15 @@ export function LogAbsenceDialog({
             <Button
               onClick={handleConfirmAndSubmit}
               disabled={
-                !decisions.every((d) => {
+                isSubmitting || !decisions.every((d) => {
                   if (!d.action) return false;
                   if (d.action === 'reschedule' && !d.targetSessionId) return false;
                   return true;
                 }) || decisions.length === 0
               }
             >
-              Confirm All Actions
-              <ChevronRight className="h-4 w-4 ml-2" />
+              {isSubmitting ? 'Processing absences...' : 'Confirm All Actions'}
+              {isSubmitting ? <Loader2 className="h-4 w-4 ml-2 animate-spin" aria-hidden="true" /> : <ChevronRight className="h-4 w-4 ml-2" />}
             </Button>
           </div>
         );
@@ -592,15 +600,24 @@ export function LogAbsenceDialog({
   return (
     <AdminDialogShell
       fillHeight
+      closeDisabled={isSubmitting}
       open={isOpen}
-      onClose={onClose}
+      onClose={() => { if (!submissionInProgress.current) onClose(); }}
       title={getStepTitle()}
       subtitle={getStepDescription()}
       contentClassName="md:max-w-4xl"
       bodyClassName="min-h-0"
       footer={renderFooter()}
     >
-      {renderStepContent()}
+      {isSubmitting && (
+        <div role="status" className="mb-4 flex items-center gap-2 rounded-md border bg-muted/50 p-3 text-sm">
+          <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
+          Saving absences and applying billing changes. This may take a few seconds.
+        </div>
+      )}
+      <fieldset disabled={isSubmitting} aria-busy={isSubmitting} className="contents">
+        {renderStepContent()}
+      </fieldset>
     </AdminDialogShell>
   );
 }

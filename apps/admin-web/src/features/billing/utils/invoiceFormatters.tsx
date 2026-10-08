@@ -34,11 +34,22 @@ export type InvoiceStatusPayload = {
   refunded_via_cn_at?: string | null;
   credited_at?: string | null;
   credit_notes?: Array<{
+    status?: string | null;
+    amount_cents?: number | null;
+    out_of_band_amount_cents?: number | null;
     refund_amount_cents?: number | null;
     credit_amount_cents?: number | null;
     created_at: string;
   }> | null;
 };
+
+function isCreditAdjustment(note: NonNullable<InvoiceStatusPayload['credit_notes']>[number]): boolean {
+  return (note.credit_amount_cents ?? 0) > 0 || (
+    (note.amount_cents ?? 0) > 0 &&
+    (note.refund_amount_cents ?? 0) === 0 &&
+    (note.out_of_band_amount_cents ?? 0) === 0
+  );
+}
 
 export type InvoiceStatusBadgeOptions = {
   onOpenInvoice?: (invoiceId: string) => void;
@@ -48,10 +59,10 @@ export type InvoiceStatusBadgeOptions = {
  * Get status badges for an invoice. Centralized display everywhere.
  *
  * Behaviour:
- * - draft/open/void/uncollectible/disputed: single pill
+ * - draft/open/void/uncollectible/disputed: base status pill
  * - paid: if paid_at present → "Paid ({date})"
  * - refunded: if credit note with refund_amount_cents > 0 OR refunded_at → "Refunded ({date})"
- * - credited: if credit note with credit_amount_cents > 0 → "Credited ({date})"
+ * - credited: if a credit note reduces charges or credits customer balance → "Credited ({date})"
  * - Shows as many pills as criteria are met
  */
 export function getInvoiceStatusBadge(
@@ -60,6 +71,7 @@ export function getInvoiceStatusBadge(
 ): ReactNode {
   if (!invoice) return null;
 
+  const creditNotes = (invoice.credit_notes ?? []).filter(note => note.status !== 'void');
   const pills: { key: string; label: string; variant: InvoiceStatusBadgeVariant }[] = [];
 
   // Simple statuses: single pill, no dates
@@ -80,32 +92,31 @@ export function getInvoiceStatusBadge(
       const paidLabel = paidAt ? `Paid (${formatShortDate(paidAt)})` : 'Paid';
       pills.push({ key: 'paid', label: paidLabel, variant: PAID_INVOICE_BADGE_VARIANT });
     }
-
-    // Refunded pill: credit note with refund_amount_cents > 0 OR refunded_at
-    const hasRefundCn = (invoice.credit_notes ?? []).some((cn) => (cn.refund_amount_cents ?? 0) > 0);
-    const refundedAt = invoice.refunded_at ?? invoice.refunded_via_cn_at ?? null;
-    const isRefunded = !!refundedAt || hasRefundCn;
-    if (isRefunded) {
-      const dateForRefund =
-        refundedAt ??
-        (invoice.credit_notes ?? []).find((cn) => (cn.refund_amount_cents ?? 0) > 0)?.created_at;
-      const refundedLabel = dateForRefund ? `Refunded (${formatShortDate(dateForRefund)})` : 'Refunded';
-      pills.push({ key: 'refunded', label: refundedLabel, variant: 'destructive' });
-    }
-
-    // Credited pill: credit note with credit_amount_cents > 0
-    const hasCreditCn = (invoice.credit_notes ?? []).some((cn) => (cn.credit_amount_cents ?? 0) > 0);
-    const creditedAt = invoice.credited_at ?? null;
-    const isCredited = !!creditedAt || hasCreditCn;
-    if (isCredited) {
-      const dateForCredit =
-        creditedAt ??
-        (invoice.credit_notes ?? []).find((cn) => (cn.credit_amount_cents ?? 0) > 0)?.created_at;
-      const creditedLabel = dateForCredit ? `Credited (${formatShortDate(dateForCredit)})` : 'Credited';
-      pills.push({ key: 'credited', label: creditedLabel, variant: 'outline' });
-    }
   }
 
+  // Refunded pill: credit note with refund_amount_cents > 0 OR refunded_at
+  const hasRefundCn = creditNotes.some((cn) => (cn.refund_amount_cents ?? 0) > 0);
+  const refundedAt = invoice.refunded_at ?? invoice.refunded_via_cn_at ?? null;
+  const isRefunded = !!refundedAt || hasRefundCn;
+  if (isRefunded) {
+    const dateForRefund =
+      refundedAt ??
+      creditNotes.find((cn) => (cn.refund_amount_cents ?? 0) > 0)?.created_at;
+    const refundedLabel = dateForRefund ? `Refunded (${formatShortDate(dateForRefund)})` : 'Refunded';
+    pills.push({ key: 'refunded', label: refundedLabel, variant: 'destructive' });
+  }
+
+  // Credited pill: credit note with credit_amount_cents > 0
+  const hasCreditCn = creditNotes.some((cn) => isCreditAdjustment(cn));
+  const creditedAt = invoice.credited_at ?? null;
+  const isCredited = !!creditedAt || hasCreditCn;
+  if (isCredited) {
+    const dateForCredit =
+      creditedAt ??
+      creditNotes.find((cn) => isCreditAdjustment(cn))?.created_at;
+    const creditedLabel = dateForCredit ? `Credited (${formatShortDate(dateForCredit)})` : 'Credited';
+    pills.push({ key: 'credited', label: creditedLabel, variant: 'outline' });
+  }
   if (pills.length === 0) return null;
 
   const pillsEl = pills.map((pill) => (

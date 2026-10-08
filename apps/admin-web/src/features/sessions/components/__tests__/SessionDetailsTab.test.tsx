@@ -39,7 +39,8 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
           plannedStatus: 'attending-extra',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -51,7 +52,8 @@ function renderComponent(overrides: Partial<React.ComponentProps<typeof SessionD
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -184,7 +186,8 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra-trial',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -211,7 +214,8 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -240,7 +244,8 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: { status: 'paid' },
           plannedAbsence: false,
           hasInvoiceItems: true,
@@ -284,7 +289,8 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending-extra',
           actualStatus: 'attended',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -336,17 +342,18 @@ describe('SessionDetailsTab', () => {
 
   it('shows undo log absence for credited students', async () => {
     const user = userEvent.setup();
-    renderComponent({
+    const { onUndoLogAbsenceStudent } = renderComponent({
       staffData: [],
       studentsData: [
         {
           student: { id: 'student-credited', first_name: 'Credited', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-credited',
           rescheduledSessionsStudentsId: null,
-          plannedStatus: 'credited',
+          plannedStatus: 'absent',
+          absenceTreatment: 'credit',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '02/01/2026',
+          absenceTreatmentRecordedDate: '02/01/2026',
           invoiceStatus: null,
           plannedAbsence: true,
           hasInvoiceItems: false,
@@ -354,28 +361,33 @@ describe('SessionDetailsTab', () => {
       ],
     });
 
-    expect(screen.getByText("Absent")).toBeInTheDocument();
+    expect(screen.getByText('Absent')).toBeInTheDocument();
+    expect(screen.getByRole('columnheader', { name: 'Absence Treatment' })).toBeInTheDocument();
+    expect(screen.getByText('Credit')).toBeInTheDocument();
+    expect(screen.getByText('Unlogged')).toBeInTheDocument();
     expect(screen.queryByText(/Credited \(/)).not.toBeInTheDocument();
     const row = screen.getByText('Credited Student').closest('tr');
     const rowButtons = within(row as HTMLElement).getAllByRole('button');
     await user.click(rowButtons[rowButtons.length - 1]);
-    expect(await screen.findByText('Undo Log Absence')).toBeInTheDocument();
+    await user.click(await screen.findByText('Undo Log Absence'));
+    expect(onUndoLogAbsenceStudent).toHaveBeenCalledWith(expect.objectContaining({ action: 'credit' }));
   });
 
   it('shows undo log absence for rescheduled students', async () => {
     const user = userEvent.setup();
-    renderComponent({
+    const { onUndoLogAbsenceStudent } = renderComponent({
       staffData: [],
       studentsData: [
         {
           student: { id: 'student-rescheduled', first_name: 'Rescheduled', last_name: 'Student' } as Tables<'students'>,
           sessionsStudentsId: 'ss-rescheduled',
           rescheduledSessionsStudentsId: 'ss-target',
-          plannedStatus: 'rescheduled',
+          plannedStatus: 'absent',
+          absenceTreatment: 'replacement',
           actualStatus: 'not-logged',
           rescheduledDate: 'Tue 01/01 10:00',
           rescheduledSessionId: 'session-target',
-          creditedDisplayDate: '',
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: true,
           hasInvoiceItems: false,
@@ -383,11 +395,14 @@ describe('SessionDetailsTab', () => {
       ],
     });
 
+    expect(screen.getByText('Absent')).toBeInTheDocument();
+    expect(screen.getByText('Replacement: Tue 01/01 10:00')).toBeInTheDocument();
     const row = screen.getByText('Rescheduled Student').closest('tr');
     expect(row).not.toBeNull();
     const rowButtons = within(row as HTMLElement).getAllByRole('button');
     await user.click(rowButtons[rowButtons.length - 1]);
-    expect(await screen.findByText('Undo Log Absence')).toBeInTheDocument();
+    await user.click(await screen.findByText('Undo Log Absence'));
+    expect(onUndoLogAbsenceStudent).toHaveBeenCalledWith(expect.objectContaining({ action: 'reschedule' }));
   });
 
   it('shows undo log absence for absent staff', async () => {
@@ -454,7 +469,8 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -490,7 +506,8 @@ describe('SessionDetailsTab', () => {
           plannedStatus: 'attending',
           actualStatus: 'not-logged',
           rescheduledDate: '',
-          creditedDisplayDate: '',
+          absenceTreatment: null,
+          absenceTreatmentRecordedDate: '',
           invoiceStatus: null,
           plannedAbsence: false,
           hasInvoiceItems: false,
@@ -585,4 +602,11 @@ it('opens absence actions from each student and staff row dropdown', async () =>
   await user.click(staffButtons[staffButtons.length - 1]);
   await user.click(await screen.findByRole('menuitem', { name: 'Log Absence' }));
   expect(onLogAbsenceStaff).toHaveBeenCalledWith('staff-1');
+});
+
+
+it('renders the date navigation inside Session Information’s Day value', () => {
+  renderComponent({ dayNavigation: <button>Choose session date</button> });
+  const label = screen.getByText('Day:');
+  expect(label.nextElementSibling).toContainElement(screen.getByRole('button', { name: 'Choose session date' }));
 });

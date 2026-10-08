@@ -81,7 +81,10 @@ export function useUnloggedSessionsForStaff(staffId: string | null | undefined) 
 
         const loggedSessionIds = new Set((existingLogs || []).map((log: { session_id: string }) => log.session_id));
         const unloggedSessions = (rpcData.sessions || []).filter(
-          (s: Tables<'sessions'>) => !loggedSessionIds.has(s.id)
+          (s: Tables<'sessions'>) =>
+            s.status === 'ACTIVE' &&
+            s.calendar_tombstone_until === null &&
+            !loggedSessionIds.has(s.id)
         );
 
         return {

@@ -31,18 +31,16 @@ import {
 const NAV = [
   { segment: 'financial', href: '/reconciliation/financial', label: 'Financial' },
   { segment: 'scheduling', href: '/reconciliation/scheduling', label: 'Scheduling' },
-  { segment: 'communication', href: '/reconciliation/communication', label: 'Communication' },
   { segment: 'operations', href: '/reconciliation/operations', label: 'Operations' },
 ] as const;
 
 function tabCountForSegment(
   segment: (typeof NAV)[number]['segment'],
-  counts: { financial: number; scheduling: number; communication: number; operations: number } | undefined
+  counts: { financial: number; scheduling: number; operations: number } | undefined
 ): number | undefined {
   if (!counts) return undefined;
   if (segment === 'financial') return counts.financial;
   if (segment === 'scheduling') return counts.scheduling;
-  if (segment === 'communication') return counts.communication;
   return counts.operations;
 }
 
@@ -54,7 +52,7 @@ export function ReconciliationShell({ children }: { children: React.ReactNode })
   const counts = tabCounts.data;
   const totalItems =
     counts !== undefined
-      ? counts.financial + counts.scheduling + counts.communication + counts.operations
+      ? counts.financial + counts.scheduling + counts.operations
       : undefined;
 
   const formatBadge = (segment: (typeof NAV)[number]['segment']): string | null => {

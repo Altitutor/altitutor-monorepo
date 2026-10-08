@@ -52,7 +52,7 @@ export const absencesApi = {
 
   /**
    * Get current student's future sessions with session-student enrollment details
-   * Uses vstudent_session_base view to get sessions with session_student_id
+   * Uses vstudent_operational_session_base view to get sessions with session_student_id
    */
   getStudentFutureSessions: async (weeksAhead: number = 8): Promise<StudentSession[]> => {
     const supabase = getSupabaseClient() as SupabaseClient<Database>;
@@ -60,9 +60,9 @@ export const absencesApi = {
     const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
 
     try {
-      // Get sessions from vstudent_session_base view (includes session_student_id)
+      // Get sessions from vstudent_operational_session_base view (includes session_student_id)
       const { data, error } = await supabase
-        .from('vstudent_session_base')
+        .from('vstudent_operational_session_base')
         .select('*')
         .gte('start_at', now.toISOString())
         .eq('planned_absence', false)
@@ -83,7 +83,7 @@ export const absencesApi = {
         })
         .map((session) => {
           // Extract class and subject from the view data
-          // vstudent_session_base includes class and subject fields
+          // vstudent_operational_session_base includes class and subject fields
           const mappedSession = {
             id: session.session_id,
             start_at: session.start_at,
@@ -91,7 +91,7 @@ export const absencesApi = {
             class_id: session.class_id,
             type: session.session_type,
             billing_type: null,
-            status: 'SCHEDULED' as const,
+            status: 'ACTIVE' as const,
             subject_id: session.subject_id,
             created_at: session.session_created_at,
             updated_at: session.session_updated_at,

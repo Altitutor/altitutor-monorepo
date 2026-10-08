@@ -18,7 +18,7 @@ jest.mock("next/navigation", () => ({
 }));
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
   ...jest.requireActual("@/shared/contexts/AccessoryPanelContext"),
-  useAccessoryPanel: () => ({ updateQuery, openTab }),
+  useAccessoryPanelActions: () => ({ updateQuery, openTab }),
 }));
 jest.mock("@/shared/contexts/AccessoryTabContext", () => ({
   useAccessoryTab: () => ({ tab, navigate }),

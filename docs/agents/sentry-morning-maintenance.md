@@ -1,7 +1,7 @@
 # Morning production-error maintenance
 
 Run this workflow for scheduled production-error maintenance in
-`Altitutor/altitutor-monorepo`. Obsidian is authoritative for investigation,
+`Altitutor/altitutor-monorepo`. Linear is authoritative for investigation,
 priority, blockers, and fix progress. Sentry and Supabase hold error evidence;
 GitHub holds implementation and review. Read this file afresh each run.
 
@@ -9,10 +9,18 @@ Read `docs/agents/production-error-tracking.md` for ticket identity, state
 transitions, migration of prior Sentry handoffs, and the durable run ledger.
 Create one ticket per underlying bug; link every related source to that ticket.
 
+## Adoption hold
+
+The previous `morning-sentry-triage-and-fixes` automation is PAUSED and its saved
+prompt still writes to Obsidian. Do not resume it until its prompt is replaced
+and phase-two execution architecture is approved. Reading this revised guide
+does not change an already-running session or the saved automation prompt.
+The migration itself installs no runner and performs no production scan.
+
 ## Execution contract
 
 Each scheduled invocation executes this workflow through reconciliation. Load
-current state from Obsidian, Sentry, Supabase, and GitHub; the setup chat is not
+current state from Linear, Sentry, Supabase, and GitHub; the setup chat is not
 run state. After access checks, continue immediately with inventory and fixes.
 For each actionable bug, deliver a validated fix and draft PR, or save actual
 investigation attempts and the specific evidence or dependency blocking a fix.
@@ -26,7 +34,7 @@ run requires a concrete interruption or blocker and a durable resume point.
 
 ## Authority and boundaries
 
-The owner authorizes Obsidian maintenance tickets and ledger updates, read-only
+The owner authorizes Linear maintenance tickets and ledger updates, read-only
 production Supabase log scans, autonomous Sentry issue comments, resolution of verified
 fixes, confident noise classification, targeted code fixes on separate branches,
 and changes to local or remote **development** environments needed to reproduce
@@ -44,7 +52,7 @@ conventions and human decisions. Read tracker handoffs before investigation.
 
 ## 1. Inventory and reconcile
 
-Read the Obsidian maintenance ledger and all open maintenance tickets first,
+Read the new Dev maintenance continuity document linked in `issue-tracker.md` (verified five-part snapshots on DEV-1; archive ALTI-508 is historical provenance) and all open maintenance issues first,
 including pending deployments and failed Sentry synchronization. Migrate existing
 Sentry handoffs into their canonical tickets as described in the tracking guide.
 Run the read-only Supabase scan in `docs/agents/production-error-log-scan.md` and
@@ -89,7 +97,7 @@ combine its findings with the Sentry inventory below before prioritizing fixes.
    `search_sentry_tools`, then invoke them with `execute_sentry_tool`. Retrieve
    enough history to find the latest complete handoff and subsequent human
    replies. Also check previously tracked fixes even if native Sentry resolution
-   removed them from the unresolved query. Read the canonical Obsidian ticket
+   removed them from the unresolved query. Read the canonical Linear issue
    for durable investigation state and Sentry activity for new evidence or human
    decisions. Task history is only a pointer to those records.
 5. Resume prior work when a human reply, relevant event evidence, changed code,
@@ -127,8 +135,8 @@ Choose an evidence-backed disposition:
 
 Correlate duplicate symptoms only when evidence establishes the same cause. One
 targeted branch may address multiple proven-related Sentry groups, with a handoff
-and fix reference on every group, all linking to one Obsidian ticket. Log-only
-bugs get Obsidian tickets without manufacturing Sentry events. Distinct causes
+and fix reference on every group, all linking to one Linear ticket. Log-only
+bugs get Linear tickets without manufacturing Sentry events. Distinct causes
 get separate branches. Native
 Sentry status changes can affect a group across environments: inspect mixed
 groups and record any remaining development failure before resolving/ignoring.
@@ -139,8 +147,8 @@ as a substitute for triage.
 ## 3. Diagnose and fix
 
 1. Fetch current remote refs and create an isolated worktree on
-   `codex/production-error-<ALTI-id>-<short-description>` from the verified production
-   branch (`origin/main` at setup). Search Obsidian, Sentry, and GitHub for existing work
+   `codex/production-error-<DEV-id>-<short-description>` from the verified production
+   branch (`origin/main` at setup). Search Linear, Sentry, and GitHub for existing work
    first. Preserve the owner's checkout and uncommitted changes. Keep durable
    worktrees available while their fixes are pending.
 2. **Clear code cause:** when event evidence maps directly to an unambiguous
@@ -153,7 +161,7 @@ as a substitute for triage.
    minimization, ranked hypotheses, and instrumentation phases. Try local first
    when it can reproduce the relevant conditions; use remote development when
    hosted auth, RLS, runtime, or integration behavior matters. Publish meaningful
-   hypothesis evidence in the Obsidian ticket without waiting for an interactive checkpoint.
+   hypothesis evidence in the Linear ticket without waiting for an interactive checkpoint.
 4. Before development writes, verify the actual Supabase project reference and
    every downstream endpoint/credential is development/test. Use
    `docs/agents/development-web-smoke-testing.md` and the local-only
@@ -193,9 +201,9 @@ Commit each fix with the demonstrated cause, validation, and a separate
 `Fixes <SENTRY-SHORT-ID>` line for every issue actually fixed. Push the feature
 branch and open a draft PR against `main` for the owner to review. Include the
 same fix references in the PR description so squash-merge can retain them.
-Also reference the Obsidian ALTI ID. Log-only fixes use that ID and have no Sentry
+Also reference the current Linear DEV ID (retain legacy ALTI aliases as provenance). Log-only fixes use that ID and have no Sentry
 fix line. Record the branch, head SHA, PR URL, tests, and next step in the
-Obsidian ticket; post a short ticket/PR reference to each linked Sentry issue. If checks, commit, push, or PR creation fail, retain the work and record
+Linear ticket; post a short ticket/PR reference to each linked Sentry issue. If checks, commit, push, or PR creation fail, retain the work and record
 the precise blocker; label the work unvalidated or unpublished as appropriate.
 
 Verify Sentry recognizes the commit/PR reference. The GitHub integration for
@@ -220,13 +228,13 @@ Read back changes; after a write timeout, check activity before retrying.
 Reconcile both inventories against final outcomes and check for new Sentry issues
 once more. Every discovered item must be resolved, verified noise, linked to a
 pending fix, or investigated with a concrete next step. Persist Supabase scan
-coverage, dispositions, and checkpoints in the Obsidian run ledger. Separate
+coverage, dispositions, and checkpoints in the new Dev run continuity document linked in `issue-tracker.md`. Separate
 successful scanning from completion of fixes: advancing a scan cursor requires
 all its findings to be durably recorded, not all bugs to be fixed.
 
 Time/access/tool failures make a run **partial**: record unprocessed IDs/counts,
 source/time coverage gaps, and next steps. An untouched queue item is not an
-investigated bug. If Obsidian writes fail, preserve evidence and existing work,
+investigated bug. If Linear writes fail, preserve evidence and existing work,
 report the blocker, and stop starting fixes that cannot be handed off. If only
 Sentry synchronization fails, queue that failure in the ticket and continue
 independent work. Resume partial work by impact on the next run.

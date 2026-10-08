@@ -5,7 +5,7 @@ import type { Tables } from '@altitutor/shared';
 import { renderWithProviders } from '@/shared/test-utils';
 import { SessionsTableRow, type SessionsTableRowProps } from '../SessionsTableRow';
 import type { UseSessionsTableModalsReturn } from '../../hooks/useSessionsTableModals';
-import type { SessionTableStudent } from '../../types/sessions-table';
+import type { SessionTableStaff, SessionTableStudent } from '../../types/sessions-table';
 import { useInvoiceSessionMutation } from '../../hooks/useInvoiceSessionMutation';
 
 jest.mock('../../hooks/useInvoiceSessionMutation');
@@ -52,6 +52,17 @@ function createStudent(): SessionTableStudent {
   } as SessionTableStudent;
 }
 
+function createStaff(overrides: Partial<SessionTableStaff> = {}): SessionTableStaff {
+  return {
+    id: 'staff-1',
+    first_name: 'Alex',
+    last_name: 'Tutor',
+    planned_absence: false,
+    sessions_staff_id: 'sstaff-1',
+    ...overrides,
+  } as SessionTableStaff;
+}
+
 function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): SessionsTableRowProps {
   const session = createBaseSession();
   const student = createStudent();
@@ -67,6 +78,10 @@ function createBaseProps(overrides: Partial<SessionsTableRowProps> = {}): Sessio
     isLogAbsenceDialogOpen: false,
     openLogAbsenceDialog: () => {},
     closeLogAbsenceDialog: () => Promise.resolve(),
+    staffAbsenceSessionId: null,
+    isLogStaffAbsenceDialogOpen: false,
+    openLogStaffAbsenceDialog: () => {},
+    closeLogStaffAbsenceDialog: () => Promise.resolve(),
     selectedClassId: null,
     isClassModalOpen: false,
     openClassModal: () => {},
@@ -286,5 +301,127 @@ describe('SessionsTableRow - invoice column', () => {
 
     const link = screen.getByRole('button', { name: /ALT-1234.*\$102\.08.*Paid \(2 Jan\)/i });
     expect(link).toBeInTheDocument();
+  });
+});
+
+
+describe('SessionsTableRow - absence treatment', () => {
+  beforeEach(() => {
+    mockUseInvoiceSessionMutation.mockReturnValue({ mutate: jest.fn(), isPending: false } as unknown as ReturnType<typeof useInvoiceSessionMutation>);
+  });
+
+  it.each([
+    [false, false, 'Charge'],
+    [false, true, 'Credit'],
+    [true, false, 'Replacement'],
+  ] as const)('shows absent independently of %s/%s treatment flags', (is_rescheduled, is_credited, label) => {
+    const student = { ...createStudent(), planned_absence: true, is_rescheduled, is_credited };
+    renderRow(createBaseProps({ visibleColumns: ['planned_attendance', 'actual_attendance', 'absence_treatment'], sessionStudents: { 'session-1': [student] } }));
+    expect(screen.getByText('Absent')).toBeInTheDocument();
+    expect(screen.getByText('Unlogged')).toBeInTheDocument();
+    expect(screen.getByText(label)).toBeInTheDocument();
+  });
+
+  it('opens the linked replacement session from the treatment column', async () => {
+    const onOpenSession = jest.fn();
+    const student = { ...createStudent(), planned_absence: true, is_rescheduled: true, rescheduled_session: { session: { id: 'target-session', start_at: null, class: null } } };
+    renderRow(createBaseProps({ visibleColumns: ['planned_attendance', 'absence_treatment'], sessionStudents: { 'session-1': [student] }, onOpenSession }));
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Replacement' }));
+    expect(onOpenSession).toHaveBeenCalledWith('target-session');
+  });
+});
+
+describe('SessionsTableRow - staff log / undo absence actions', () => {
+  beforeEach(() => {
+    mockUseInvoiceSessionMutation.mockReturnValue({
+      mutate: jest.fn(),
+      isPending: false,
+    } as unknown as ReturnType<typeof useInvoiceSessionMutation>);
+  });
+
+  function createStaffAttendanceProps(
+    staff: SessionTableStaff,
+    overrides: Partial<SessionsTableRowProps> = {},
+  ): SessionsTableRowProps {
+    return createBaseProps({
+      isStudentAttendanceView: false,
+      isStaffAttendanceView: true,
+      studentId: undefined,
+      staffId: staff.id,
+      sessionStudents: { 'session-1': [] },
+      sessionStaff: { 'session-1': [staff as unknown as Tables<'staff'>] },
+      onUndoLogAbsenceStaff: jest.fn(),
+      currentStaff: { id: 'current-staff-1' },
+      ...overrides,
+    });
+  }
+
+  it('shows log staff absence when staff has no logged absence', async () => {
+    const openLogStaffAbsenceDialog = jest.fn();
+    const user = userEvent.setup();
+    const props = createStaffAttendanceProps(createStaff({ planned_absence: false }));
+    props.modals = { ...props.modals, openLogStaffAbsenceDialog };
+
+    renderRow(props);
+    await user.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Log staff absence')).toBeInTheDocument();
+    expect(screen.queryByText('Undo log absence')).not.toBeInTheDocument();
+
+    await user.click(screen.getByText('Log staff absence'));
+    expect(openLogStaffAbsenceDialog).toHaveBeenCalledWith('session-1');
+  });
+
+  it('shows log staff absence as disabled when the session already has a tutor log', async () => {
+    const openLogStaffAbsenceDialog = jest.fn();
+    const user = userEvent.setup();
+    const props = createStaffAttendanceProps(createStaff({ planned_absence: false }), {
+      tutorLogs: {
+        'session-1': {
+          id: 'tutor-log-1',
+          created_by: 'current-staff-1',
+          created_by_name: { first_name: 'Pat', last_name: 'Admin' },
+        },
+      },
+    });
+    props.modals = { ...props.modals, openLogStaffAbsenceDialog };
+
+    renderRow(props);
+    await user.click(screen.getByRole('button', { name: '' }));
+
+    const logItem = screen.getByText('Log staff absence');
+    expect(logItem).toBeInTheDocument();
+    expect(screen.queryByText('Undo log absence')).not.toBeInTheDocument();
+
+    await user.click(logItem);
+    expect(openLogStaffAbsenceDialog).not.toHaveBeenCalled();
+  });
+
+  it('shows undo log absence when staff has a planned absence', async () => {
+    const user = userEvent.setup();
+    renderRow(createStaffAttendanceProps(createStaff({ planned_absence: true })));
+
+    await user.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Undo log absence')).toBeInTheDocument();
+    expect(screen.queryByText('Log staff absence')).not.toBeInTheDocument();
+  });
+
+  it('shows undo log absence when staff is swapped', async () => {
+    const user = userEvent.setup();
+    renderRow(
+      createStaffAttendanceProps(
+        createStaff({
+          planned_absence: true,
+          is_swapped: true,
+          swapped_staff: { id: 'staff-2', first_name: 'Sam', last_name: 'Cover' },
+        }),
+      ),
+    );
+
+    await user.click(screen.getByRole('button'));
+
+    expect(screen.getByText('Undo log absence')).toBeInTheDocument();
+    expect(screen.queryByText('Log staff absence')).not.toBeInTheDocument();
   });
 });

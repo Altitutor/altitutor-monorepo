@@ -375,7 +375,7 @@ export const studentsApi = {
 
     const studentIds = transformedStudents.map((student) => student.id);
     if (studentIds.length > 0) {
-      const { studentSubjects } = await studentsApi.getDetailsForStudentIds(studentIds);
+      const { studentSubjects, studentClasses } = await studentsApi.getDetailsForStudentIds(studentIds);
 
       const { data: parentRows, error: parentsError } = await supabase
         .from('parents_students')
@@ -396,6 +396,8 @@ export const studentsApi = {
       });
 
       transformedStudents.forEach((student) => {
+        // The minimal RPC omits relationships; use the enrolments already fetched for this page.
+        student.classes = studentClasses[student.id] || [];
         const byId = new Map<string, Tables<'subjects'>>();
         (studentSubjects[student.id] || []).forEach((subject) => {
           byId.set(subject.id, subject);
@@ -558,7 +560,9 @@ export const studentsApi = {
         supabase
           .from('sessions_students')
           .select('sessions!inner(*)')
-          .eq('student_id', studentId),
+          .eq('student_id', studentId)
+          .eq('sessions.status', 'ACTIVE')
+          .is('sessions.calendar_tombstone_until', null),
 
         supabase
           .from('student_online_product_relationships')

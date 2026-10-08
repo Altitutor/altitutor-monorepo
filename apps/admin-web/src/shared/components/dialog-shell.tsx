@@ -44,6 +44,7 @@ export function AdminDialogShell({
   fillHeight = false,
   showExpand,
   hideHeader = false,
+  closeDisabled = false,
   contentClassName,
   bodyClassName,
   dialogContentProps,
@@ -64,6 +65,8 @@ export function AdminDialogShell({
   showExpand?: boolean;
   /** Omit the built-in header when children provide their own chrome (e.g. entity detail views). */
   hideHeader?: boolean;
+  /** Keep an in-flight operation visible until it completes. */
+  closeDisabled?: boolean;
   contentClassName?: string;
   bodyClassName?: string;
   dialogContentProps?: Omit<ComponentPropsWithoutRef<typeof DialogContent>, 'className' | 'children'>;
@@ -80,7 +83,7 @@ export function AdminDialogShell({
   }, [open, defaultExpanded]);
 
   const requestClose = () => {
-    if (isPanelResizeActive()) return;
+    if (closeDisabled || isPanelResizeActive()) return;
     onClose();
   };
 
@@ -110,7 +113,7 @@ export function AdminDialogShell({
             <div className="px-6 py-4">
               <div className="flex items-start justify-between gap-4">
                 <div className="flex min-w-0 flex-1 items-start gap-3">
-                  <Button type="button" variant="outline" size="icon" onClick={requestClose} className="shrink-0">
+                  <Button type="button" variant="outline" size="icon" disabled={closeDisabled} onClick={requestClose} className="shrink-0">
                     <X className="h-4 w-4" />
                     <span className="sr-only">Close</span>
                   </Button>

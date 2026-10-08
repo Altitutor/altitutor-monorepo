@@ -2,6 +2,7 @@ import type { Tables } from '@altitutor/shared';
 import type { InvoiceStatusPayload } from '@/features/billing/utils/invoiceFormatters';
 import type {
   StudentPlannedStatus,
+  AbsenceBillingTreatment,
   StudentActualStatus,
   StaffPlannedStatus,
   StaffActualStatus,
@@ -25,7 +26,8 @@ export type ProcessedStudentData = {
   actualStatus: StudentActualStatus;
   rescheduledDate: string;
   rescheduledSessionId?: string;
-  creditedDisplayDate: string;
+  absenceTreatment: AbsenceBillingTreatment | null;
+  absenceTreatmentRecordedDate: string;
   invoiceStatus: InvoiceStatusPayload | null;
   plannedAbsence: boolean;
   hasInvoiceItems: boolean;
@@ -145,7 +147,8 @@ export function processSessionStudents(
       actualStatus: attendanceStatus.actualStatus,
       rescheduledDate: attendanceStatus.rescheduledDate,
       rescheduledSessionId: attendanceStatus.rescheduledSessionId,
-      creditedDisplayDate: attendanceStatus.creditedDisplayDate,
+      absenceTreatment: attendanceStatus.absenceTreatment,
+      absenceTreatmentRecordedDate: attendanceStatus.absenceTreatmentRecordedDate,
       invoiceStatus: ss.invoice_status_payload || null,
       plannedAbsence: ss.planned_absence || false,
       hasInvoiceItems: !!ss.invoice_status_payload,

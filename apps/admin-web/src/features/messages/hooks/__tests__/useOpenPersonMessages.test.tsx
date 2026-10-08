@@ -8,7 +8,7 @@ const mockEnsureParent = jest.fn();
 const mockEnsureStaff = jest.fn();
 jest.mock("@altitutor/ui", () => ({ useToast: () => ({ toast: mockToast }) }));
 jest.mock("@/shared/contexts/AccessoryPanelContext", () => ({
-  useAccessoryPanel: () => ({ openTab: mockOpenTab }),
+  useAccessoryPanelActions: () => ({ openTab: mockOpenTab }),
 }));
 jest.mock("../../utils/contactHelpers", () => ({
   ensureContactForStudent: (...args: unknown[]) => mockEnsureStudent(...args),

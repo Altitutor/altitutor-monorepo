@@ -202,6 +202,8 @@ export async function getStudentsBySessionDate(date: string): Promise<Tables<'st
   const { data: sessions, error: sessionsError } = await supabase
     .from('sessions')
     .select('id')
+    .eq('status', 'ACTIVE')
+    .is('calendar_tombstone_until', null)
     .gte('start_at', startIso)
     .lte('start_at', endIso);
   

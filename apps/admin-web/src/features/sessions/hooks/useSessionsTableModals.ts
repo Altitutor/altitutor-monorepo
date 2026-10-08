@@ -16,6 +16,12 @@ export interface UseSessionsTableModalsReturn {
   openLogAbsenceDialog: (sessionId: string) => void;
   closeLogAbsenceDialog: () => Promise<void>;
 
+  // Log staff absence (staff attendance view)
+  staffAbsenceSessionId: string | null;
+  isLogStaffAbsenceDialogOpen: boolean;
+  openLogStaffAbsenceDialog: (sessionId: string) => void;
+  closeLogStaffAbsenceDialog: () => Promise<void>;
+
   // Class modal
   selectedClassId: string | null;
   isClassModalOpen: boolean;
@@ -36,6 +42,8 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
   >(undefined);
   const [studentAbsenceSessionId, setStudentAbsenceSessionId] = useState<string | null>(null);
   const [isLogAbsenceDialogOpen, setIsLogAbsenceDialogOpen] = useState(false);
+  const [staffAbsenceSessionId, setStaffAbsenceSessionId] = useState<string | null>(null);
+  const [isLogStaffAbsenceDialogOpen, setIsLogStaffAbsenceDialogOpen] = useState(false);
   const [isLogSessionModalOpen, setIsLogSessionModalOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [isClassModalOpen, setIsClassModalOpen] = useState(false);
@@ -63,6 +71,17 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
   const closeLogAbsenceDialog = useCallback(async () => {
     setIsLogAbsenceDialogOpen(false);
     setStudentAbsenceSessionId(null);
+    await refetch();
+  }, [refetch]);
+
+  const openLogStaffAbsenceDialog = useCallback((sessionId: string) => {
+    setStaffAbsenceSessionId(sessionId);
+    setIsLogStaffAbsenceDialogOpen(true);
+  }, []);
+
+  const closeLogStaffAbsenceDialog = useCallback(async () => {
+    setIsLogStaffAbsenceDialogOpen(false);
+    setStaffAbsenceSessionId(null);
     await refetch();
   }, [refetch]);
 
@@ -99,6 +118,10 @@ export function useSessionsTableModals(refetch: () => void | Promise<unknown>): 
     isLogAbsenceDialogOpen,
     openLogAbsenceDialog,
     closeLogAbsenceDialog,
+    staffAbsenceSessionId,
+    isLogStaffAbsenceDialogOpen,
+    openLogStaffAbsenceDialog,
+    closeLogStaffAbsenceDialog,
     selectedClassId,
     isClassModalOpen,
     openClassModal,

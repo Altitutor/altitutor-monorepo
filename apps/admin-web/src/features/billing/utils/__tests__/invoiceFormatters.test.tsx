@@ -182,3 +182,24 @@ describe('calculateLineItemsSubtotal', () => {
     expect(calculateLineItemsSubtotal(items)).toBe(25000);
   });
 });
+
+
+describe('credit note status badges', () => {
+  it('shows Open and Credited for a note reducing unpaid charges without a balance settlement', () => {
+    const { getByText } = render(getInvoiceStatusBadge({ status: 'open', credit_notes: [{ amount_cents: 4500, created_at: '2026-10-07' }] }));
+    expect(getByText('Open')).toBeInTheDocument();
+    expect(getByText('Credited (7 Oct)')).toBeInTheDocument();
+  });
+
+  it('ignores voided notes rather than showing a completed adjustment', () => {
+    const { queryByText } = render(getInvoiceStatusBadge({ status: 'paid', credit_notes: [{ status: 'void', amount_cents: 4500, credit_amount_cents: 4500, created_at: '2026-10-07' }] }));
+    expect(queryByText(/Credited/)).not.toBeInTheDocument();
+  });
+
+  it('shows refunded without also treating a refund as customer credit', () => {
+    const { getByText, queryByText } = render(getInvoiceStatusBadge({ status: 'paid', credit_notes: [{ amount_cents: 4500, refund_amount_cents: 4500, created_at: '2026-10-07' }] }));
+    expect(getByText('Paid')).toBeInTheDocument();
+    expect(getByText('Refunded (7 Oct)')).toBeInTheDocument();
+    expect(queryByText(/Credited/)).not.toBeInTheDocument();
+  });
+});

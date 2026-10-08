@@ -20,6 +20,8 @@ import { ReconciliationActions } from './ReconciliationActions';
 import { EditTaskDialog } from '@/features/tasks/components/EditTaskDialog';
 import { useSubjects } from '@/features/subjects';
 import { getSubjectColorStyle, cn } from '@/shared/utils';
+import { AbsenceTreatmentCell } from '@/features/sessions/components/AbsenceTreatmentCell';
+import { deriveStudentAbsenceTreatment } from '@/features/sessions/utils/attendanceDerivation';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { invalidateTaskAssignmentSurfaces } from '@/shared/lib/query-invalidation';
 import type { DataTableState, Tables } from '@altitutor/shared';
@@ -40,9 +42,6 @@ import { getStatusLabel } from '@/features/tasks/utils/taskUtils';
 import type { TaskStatus } from '@/features/tasks/types';
 import type { ProjectStatus, ProjectPriority } from '@/features/projects/types';
 import { getProjectStatusLabel, getProjectPriorityLabel } from '@/features/projects/utils/projectUtils';
-import { useConversationsByContact } from '@/features/messages/api/queries';
-import type { AggregatedConversation } from '@/features/messages/types';
-import { formatContactName } from '@/features/messages/utils/formatContactName';
 import { useReconciliationHandlers } from './ReconciliationActions';
 
 export function SessionBillingAdjustmentsTable({
@@ -81,36 +80,6 @@ export function SessionBillingAdjustmentsTable({
       )}
     />
   );
-}
-
-/** Handlers used to open student / staff / parent modals from a message contact row. */
-type ContactProfileHandlers = {
-  onOpenStudent: (id: string) => void;
-  onOpenStaff: (id: string) => void;
-  onOpenParent: (id: string) => void;
-};
-
-function contactRowOpensProfile(contact: AggregatedConversation['contact'] | null): boolean {
-  if (!contact) return false;
-  if (contact.contact_type === 'STUDENT' && contact.student_id) return true;
-  if (contact.contact_type === 'STAFF' && contact.staff_id) return true;
-  if (contact.contact_type === 'PARENT' && contact.parent_id) return true;
-  return false;
-}
-
-function openContactProfile(contact: AggregatedConversation['contact'] | null, handlers: ContactProfileHandlers) {
-  if (!contact) return;
-  if (contact.contact_type === 'STUDENT' && contact.student_id) {
-    handlers.onOpenStudent(contact.student_id);
-    return;
-  }
-  if (contact.contact_type === 'STAFF' && contact.staff_id) {
-    handlers.onOpenStaff(contact.staff_id);
-    return;
-  }
-  if (contact.contact_type === 'PARENT' && contact.parent_id) {
-    handlers.onOpenParent(contact.parent_id);
-  }
 }
 
 function emptyToolbarState(search: string): DataTableState {
@@ -299,7 +268,7 @@ export function UninvoicedSessionsTable({ items, isLoading }: { items: Uninvoice
       title="Uninvoiced Sessions"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Session', 'Planned', 'Actual']}
+      columns={['Date', 'Student', 'Session', 'Planned', 'Actual', 'Absence Treatment']}
       renderRow={(item, index) => {
         const wasTrialPlanned = item.was_trial ?? false;
         // Calculate planned attendance status
@@ -309,18 +278,10 @@ export function UninvoicedSessionsTable({ items, isLoading }: { items: Uninvoice
           | 'attending-trial'
           | 'attending-extra-trial'
           | 'absent'
-          | 'rescheduled'
-          | 'credited'
           | 'unplanned' = 'attending';
 
         if (item.planned_absence) {
-          if (item.is_rescheduled) {
-            plannedStatus = 'rescheduled';
-          } else if (item.is_credited) {
-            plannedStatus = 'credited';
-          } else {
-            plannedStatus = 'absent';
-          }
+          plannedStatus = 'absent';
         } else if (item.is_extra) {
           plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
         } else {
@@ -358,17 +319,13 @@ export function UninvoicedSessionsTable({ items, isLoading }: { items: Uninvoice
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <AttendanceCell
-                status={plannedStatus}
-                linkText={
-                  plannedStatus === 'credited' && item.absence_credited_at
-                    ? format(new Date(item.absence_credited_at), 'dd/MM/yyyy')
-                    : undefined
-                }
-              />
+              <AttendanceCell status={plannedStatus} />
             </TableCell>
             <TableCell>
               <AttendanceCell status={actualStatus} />
+            </TableCell>
+            <TableCell>
+              <AbsenceTreatmentCell treatment={deriveStudentAbsenceTreatment(item)} />
             </TableCell>
             <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="uninvoiced_sessions" item={item} />
@@ -387,7 +344,7 @@ export function VoidInvoiceSessionsTable({ items, isLoading }: { items: VoidInvo
       title="Sessions on void invoices only"
       items={items}
       isLoading={isLoading}
-      columns={['Date', 'Student', 'Session', 'Invoice number', 'Planned', 'Actual']}
+      columns={['Date', 'Student', 'Session', 'Invoice number', 'Planned', 'Actual', 'Absence Treatment']}
       renderRow={(item, index) => {
         const wasTrialPlanned = item.was_trial ?? false;
         let plannedStatus:
@@ -396,18 +353,10 @@ export function VoidInvoiceSessionsTable({ items, isLoading }: { items: VoidInvo
           | 'attending-trial'
           | 'attending-extra-trial'
           | 'absent'
-          | 'rescheduled'
-          | 'credited'
           | 'unplanned' = 'attending';
 
         if (item.planned_absence) {
-          if (item.is_rescheduled) {
-            plannedStatus = 'rescheduled';
-          } else if (item.is_credited) {
-            plannedStatus = 'credited';
-          } else {
-            plannedStatus = 'absent';
-          }
+          plannedStatus = 'absent';
         } else if (item.is_extra) {
           plannedStatus = wasTrialPlanned ? 'attending-extra-trial' : 'attending-extra';
         } else {
@@ -452,17 +401,13 @@ export function VoidInvoiceSessionsTable({ items, isLoading }: { items: VoidInvo
               </ReconciliationTableLinkButton>
             </TableCell>
             <TableCell>
-              <AttendanceCell
-                status={plannedStatus}
-                linkText={
-                  plannedStatus === 'credited' && item.absence_credited_at
-                    ? format(new Date(item.absence_credited_at), 'dd/MM/yyyy')
-                    : undefined
-                }
-              />
+              <AttendanceCell status={plannedStatus} />
             </TableCell>
             <TableCell>
               <AttendanceCell status={actualStatus} />
+            </TableCell>
+            <TableCell>
+              <AbsenceTreatmentCell treatment={deriveStudentAbsenceTreatment(item)} />
             </TableCell>
             <TableCell className={ACTIONS_CELL}>
               <ReconciliationActions type="void_invoice_sessions" item={item} />
@@ -678,86 +623,6 @@ export function UnassignedClassesTable({ items, isLoading }: { items: Unassigned
           </TableCell>
         </TableRow>
       )}
-    />
-  );
-}
-
-export function UnreadMessagesTable() {
-  const { data: conversations, isPending } = useConversationsByContact();
-  const handlers = useReconciliationHandlers();
-
-  const unreadItems = (conversations ?? []).filter((c) => c.unreadCount > 0);
-
-  return (
-    <ReconciliationTable
-      title="Unread messages"
-      items={unreadItems}
-      isLoading={isPending}
-      columns={['Last message', 'Contact']}
-      renderRow={(item, index) => {
-        const lastAt = item.latestMessageAt ? new Date(item.latestMessageAt) : null;
-        const lastTime = lastAt ? format(lastAt, 'MMM d, yyyy HH:mm') : '—';
-        const contactName = item.contact ? formatContactName({ contacts: item.contact }) : 'Unknown';
-        const canOpenProfile = contactRowOpensProfile(item.contact);
-
-        return (
-          <TableRow key={item.contactId ?? index}>
-            <TableCell>{lastTime}</TableCell>
-            <TableCell>
-              <ReconciliationTableLinkButton
-                className="font-medium"
-                onClick={() => openContactProfile(item.contact, handlers)}
-                disabled={!canOpenProfile}
-              >
-                {contactName}
-              </ReconciliationTableLinkButton>
-            </TableCell>
-            <TableCell className={ACTIONS_CELL}>
-              <ReconciliationActions type="reconciliation_contact_messages" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
-    />
-  );
-}
-
-export function MessagesToFollowUpTable() {
-  const { data: conversations, isPending } = useConversationsByContact();
-  const handlers = useReconciliationHandlers();
-
-  const toFollowUpItems = (conversations ?? []).filter((c) => c.conversations.some((conv) => conv.needs_follow_up));
-
-  return (
-    <ReconciliationTable
-      title="Messages to follow up"
-      items={toFollowUpItems}
-      isLoading={isPending}
-      columns={['Last message', 'Contact']}
-      renderRow={(item, index) => {
-        const lastAt = item.latestMessageAt ? new Date(item.latestMessageAt) : null;
-        const lastTime = lastAt ? format(lastAt, 'MMM d, yyyy HH:mm') : '—';
-        const contactName = item.contact ? formatContactName({ contacts: item.contact }) : 'Unknown';
-        const canOpenProfile = contactRowOpensProfile(item.contact);
-
-        return (
-          <TableRow key={item.contactId ?? index}>
-            <TableCell>{lastTime}</TableCell>
-            <TableCell>
-              <ReconciliationTableLinkButton
-                className="font-medium"
-                onClick={() => openContactProfile(item.contact, handlers)}
-                disabled={!canOpenProfile}
-              >
-                {contactName}
-              </ReconciliationTableLinkButton>
-            </TableCell>
-            <TableCell className={ACTIONS_CELL}>
-              <ReconciliationActions type="reconciliation_contact_messages" item={item} />
-            </TableCell>
-          </TableRow>
-        );
-      }}
     />
   );
 }

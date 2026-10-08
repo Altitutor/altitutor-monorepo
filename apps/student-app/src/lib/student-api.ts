@@ -6,7 +6,7 @@ import { studentWebUrl } from '@/lib/student-web';
 import { supabase } from '@/lib/supabase';
 export { readPaymentMethod, type PaymentMethod } from '@/lib/payment-method';
 
-export type StudentSession = Database['public']['Views']['vstudent_session_base']['Row'];
+export type StudentSession = Database['public']['Views']['vstudent_operational_session_base']['Row'];
 export type StudentClass = Database['public']['Views']['vstudent_classes']['Row'];
 export type StudentClassDetail = Database['public']['Views']['vstudent_class_detail']['Row'];
 export type StudentProfile = Database['public']['Views']['vstudent_profile']['Row'];
@@ -18,7 +18,7 @@ export type StudentSubscription = Database['public']['Views']['vstudent_subscrip
 export type StudentSubscriptionWithSubject = StudentSubscription & {
   subject: Pick<ResourceSubject, 'name' | 'short_name' | 'long_name'> | null;
 };
-export type StudentSessionDetail = Database['public']['Views']['vstudent_session_detail']['Row'];
+export type StudentSessionDetail = Database['public']['Views']['vstudent_operational_session_detail']['Row'];
 export type ResourceSubject = Database['public']['Views']['vstudent_online_subjects']['Row'];
 export type ResourceTopic = Database['public']['Views']['vstudent_topics']['Row'];
 
@@ -113,7 +113,7 @@ export const studentApi = {
   async listUpcomingSessions(): Promise<StudentSession[]> {
     const now = new Date().toISOString();
     const { data, error } = await supabase
-      .from('vstudent_session_base')
+      .from('vstudent_operational_session_base')
       .select('*')
       .gte('start_at', now)
       .order('start_at', { ascending: true })
@@ -124,7 +124,7 @@ export const studentApi = {
 
   async listDashboardSessions(): Promise<StudentSession[]> {
     const { data, error } = await supabase
-      .from('vstudent_session_base')
+      .from('vstudent_operational_session_base')
       .select('*')
       .gte('start_at', startOfAdelaideDay().toISOString())
       .order('start_at', { ascending: true })
@@ -166,7 +166,7 @@ export const studentApi = {
 
   async listClassSessions(classId: string): Promise<StudentSession[]> {
     const { data, error } = await supabase
-      .from('vstudent_session_base')
+      .from('vstudent_operational_session_base')
       .select('*')
       .eq('class_id', classId)
       .order('start_at', { ascending: false })
@@ -177,7 +177,7 @@ export const studentApi = {
 
   async getSession(sessionId: string): Promise<StudentSessionDetail | null> {
     const { data, error } = await supabase
-      .from('vstudent_session_detail')
+      .from('vstudent_operational_session_detail')
       .select('*')
       .eq('session_id', sessionId)
       .maybeSingle();

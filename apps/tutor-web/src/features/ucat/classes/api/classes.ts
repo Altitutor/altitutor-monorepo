@@ -4,7 +4,7 @@ import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { proseMirrorToPlainText } from '@/features/ucat/shared/lib/rich-text'
 
-type SessionRow = Database['public']['Views']['vtutor_sessions']['Row']
+type SessionRow = Database['public']['Views']['vtutor_operational_sessions']['Row']
 type ResourceRow = Database['public']['Views']['vtutor_ucat_sessions_resources']['Row'] & {
   question_stem_id?: string | null
 }
@@ -24,7 +24,7 @@ export const ucatClassesApi = {
     const supabase = getSupabaseClient() as SupabaseClient<Database>
 
     const { data: sessionsData, error: sessionsError } = await supabase
-      .from('vtutor_sessions')
+      .from('vtutor_operational_sessions')
       .select('*')
       .eq('class_id', classId)
       .order('start_at', { ascending: true })

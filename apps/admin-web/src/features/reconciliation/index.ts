@@ -4,7 +4,6 @@ export { ReconciliationShell } from './components/ReconciliationShell';
 export {
   ReconciliationFinancialTab,
   ReconciliationSchedulingTab,
-  ReconciliationCommunicationTab,
   ReconciliationOperationsTab,
   ReconciliationFamilyTab,
 } from './components/ReconciliationTabViews';

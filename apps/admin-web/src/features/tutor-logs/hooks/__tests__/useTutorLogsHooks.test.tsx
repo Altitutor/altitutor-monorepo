@@ -239,11 +239,30 @@ describe('Tutor Logs Hooks', () => {
   });
 
   describe('useUnloggedSessionsForStaff', () => {
+    it('excludes inactive and cancellation-tombstoned sessions from picker results', async () => {
+      (mockSupabase.rpc as jest.Mock).mockResolvedValue({
+        data: {
+          sessions: [
+            { id: 'active', status: 'ACTIVE', calendar_tombstone_until: null },
+            { id: 'inactive', status: 'INACTIVE', calendar_tombstone_until: null },
+            { id: 'cancelled', status: 'ACTIVE', calendar_tombstone_until: '2026-12-01T00:00:00Z' },
+          ],
+        },
+        error: null,
+      });
+      mockUnloggedFromQueries(mockSupabase, []);
+      const { result } = renderHook(() => useUnloggedSessionsForStaff('staff-1'), {
+        wrapper: createWrapper(),
+      });
+      await waitFor(() => expect(result.current.isSuccess).toBe(true));
+      expect(result.current.data?.sessions.map((session) => session.id)).toEqual(['active']);
+    });
+
     it('should fetch unlogged sessions for staff', async () => {
       const mockRpcResult = {
         sessions: [
-          { id: 'session-1', start_at: '2024-01-01T10:00:00Z' },
-          { id: 'session-2', start_at: '2024-01-02T10:00:00Z' },
+          { id: 'session-1', start_at: '2024-01-01T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
+          { id: 'session-2', start_at: '2024-01-02T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
         ],
         sessionStudents: { 'session-1': [], 'session-2': [] },
         sessionStaff: { 'session-1': [], 'session-2': [] },
@@ -277,8 +296,8 @@ describe('Tutor Logs Hooks', () => {
     it('should filter out sessions with existing tutor logs', async () => {
       const mockRpcResult = {
         sessions: [
-          { id: 'session-1', start_at: '2024-01-01T10:00:00Z' },
-          { id: 'session-2', start_at: '2024-01-02T10:00:00Z' },
+          { id: 'session-1', start_at: '2024-01-01T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
+          { id: 'session-2', start_at: '2024-01-02T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
         ],
         sessionStudents: {},
         sessionStaff: {},
@@ -312,9 +331,9 @@ describe('Tutor Logs Hooks', () => {
     it('should include receiving check-ins for adminstaff', async () => {
       const mockRpcResult = {
         sessions: [
-          { id: 'class-1', type: 'CLASS', start_at: '2024-01-01T10:00:00Z' },
-          { id: 'check-in-host', type: 'CHECK_IN', start_at: '2024-01-02T10:00:00Z' },
-          { id: 'check-in-receiver', type: 'CHECK_IN', start_at: '2024-01-03T10:00:00Z' },
+          { id: 'class-1', type: 'CLASS', start_at: '2024-01-01T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
+          { id: 'check-in-host', type: 'CHECK_IN', start_at: '2024-01-02T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
+          { id: 'check-in-receiver', type: 'CHECK_IN', start_at: '2024-01-03T10:00:00Z', status: 'ACTIVE', calendar_tombstone_until: null },
         ],
         sessionStudents: {},
         sessionStaff: {},

@@ -4,7 +4,7 @@ import { cn } from '@/shared/utils/index';
 import { formatTutorLogStaffAttendanceLabel } from '@altitutor/shared/pay-tiers';
 
 type AttendanceCellProps = {
-  status: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'rescheduled' | 'credited' | 'swapped' | 'attending-trial' | 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged' | 'unplanned';
+  status: 'attending' | 'attending-extra' | 'attending-trial' | 'attending-extra-trial' | 'absent' | 'swapped' | 'attending-trial' | 'attended' | 'attended-trial' | 'did-not-attend' | 'not-logged' | 'unplanned';
   linkTo?: {
     type: 'session' | 'staff';
     id: string;
@@ -43,16 +43,6 @@ export function AttendanceCell({ status, linkTo, linkText, staffType, sessionTyp
           text: 'Absent',
           className: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
         };
-      case 'rescheduled':
-        return {
-          text: `Rescheduled${linkText ? `: ${linkText}` : ''}`,
-          className: 'bg-yellow-50 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400',
-        };
-      case 'credited':
-        return {
-          text: 'Absent',
-          className: 'bg-red-50 text-red-700 dark:bg-red-900/20 dark:text-red-400',
-        };
       case 'swapped':
         return {
           text: `Swapped${linkText ? `: ${linkText}` : ''}`,
@@ -80,7 +70,7 @@ export function AttendanceCell({ status, linkTo, linkText, staffType, sessionTyp
         };
       case 'not-logged':
         return {
-          text: '—',
+          text: 'Unlogged',
           className: 'text-muted-foreground',
         };
       case 'unplanned':

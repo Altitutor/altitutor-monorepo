@@ -39,3 +39,14 @@ GRANT SELECT ON public.ucat_student_study_plan_exposure_debts
   TO service_role;
 
 GRANT SELECT ON public.vmarketing_staff_profiles TO anon;
+
+-- Operational schedule facades are read-only, as granted by the lifecycle
+-- migration. Preserve that contract after the local hosted-grant emulation.
+REVOKE ALL ON public.vtutor_operational_sessions,
+  public.vtutor_operational_session_detail, public.vtutor_operational_sessions_students,
+  public.vstudent_operational_sessions, public.vstudent_operational_session_detail,
+  public.vstudent_operational_session_base FROM PUBLIC, anon, authenticated, service_role;
+GRANT SELECT ON public.vtutor_operational_sessions,
+  public.vtutor_operational_session_detail, public.vtutor_operational_sessions_students,
+  public.vstudent_operational_sessions, public.vstudent_operational_session_detail,
+  public.vstudent_operational_session_base TO authenticated, service_role;

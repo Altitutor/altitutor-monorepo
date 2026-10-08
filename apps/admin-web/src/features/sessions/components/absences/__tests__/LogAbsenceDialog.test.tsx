@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import type { ReactNode } from 'react';
 import { LogAbsenceDialog } from '../LogAbsenceDialog';
 
@@ -38,13 +38,18 @@ jest.mock('@/shared/components', () => ({
     footer,
     title,
     subtitle,
+    closeDisabled,
+    onClose,
   }: {
     children: ReactNode;
     footer: ReactNode;
     title: string;
     subtitle: string;
+    closeDisabled?: boolean;
+    onClose: () => void;
   }) => (
     <div>
+      <button disabled={closeDisabled} onClick={onClose}>Close</button>
       <h1>{title}</h1>
       <p>{subtitle}</p>
       {children}
@@ -163,4 +168,38 @@ describe('LogAbsenceDialog', () => {
     expect(await screen.findByText(/Absence saved; billing queued for retry\./)).toBeInTheDocument();
     expect(screen.getByTestId('billing-status')).toHaveTextContent('queued');
   });
+});
+
+
+it('shows progress and prevents repeat submissions while billing is processing', async () => {
+  mutateAsync.mockReset();
+  let finish!: (result: { success: boolean }) => void;
+  mutateAsync.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+  render(<LogAbsenceDialog isOpen onClose={jest.fn()} staffId="staff-1" initialStudentId="student-1" initialSessionId="session-1" />);
+  await screen.findByRole('heading', { name: 'Process Absences' });
+  fireEvent.click(screen.getByRole('button', { name: 'Choose credit' }));
+  fireEvent.click(screen.getByRole('button', { name: /Confirm All Actions/ }));
+  expect(screen.getByRole('button', { name: /Processing absences/ })).toBeDisabled();
+  expect(screen.getByRole('status')).toHaveTextContent('Saving absences and applying billing changes');
+  expect(screen.getByRole('button', { name: 'Previous' })).toBeDisabled();
+  expect(screen.getByRole('button', { name: 'Close' })).toBeDisabled();
+  expect(screen.getByLabelText('Internal note (optional)')).toBeDisabled();
+  fireEvent.click(screen.getByRole('button', { name: /Processing absences/ }));
+  expect(mutateAsync).toHaveBeenCalledTimes(1);
+  await act(async () => finish({ success: true }));
+  expect(await screen.findByText('Message')).toBeInTheDocument();
+});
+
+
+it('releases the submission lock and allows retry after a failed request', async () => {
+  mutateAsync.mockReset();
+  mutateAsync.mockRejectedValueOnce(new Error('Billing request failed'));
+  render(<LogAbsenceDialog isOpen onClose={jest.fn()} staffId="staff-1" initialStudentId="student-1" initialSessionId="session-1" />);
+  await screen.findByRole('heading', { name: 'Process Absences' });
+  fireEvent.click(screen.getByRole('button', { name: 'Choose credit' }));
+  fireEvent.click(screen.getByRole('button', { name: /Confirm All Actions/ }));
+  expect(await screen.findByText('Billing request failed')).toBeInTheDocument();
+  expect(screen.queryByRole('status')).not.toBeInTheDocument();
+  fireEvent.click(screen.getByRole('button', { name: 'Go Back' }));
+  expect(screen.getByRole('button', { name: /Confirm All Actions/ })).toBeEnabled();
 });

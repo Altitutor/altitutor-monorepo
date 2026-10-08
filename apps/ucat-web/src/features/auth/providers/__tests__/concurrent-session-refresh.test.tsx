@@ -20,7 +20,7 @@ const mockedGetClient = jest.mocked(getSupabaseBrowserClient);
 const VIEWS = [
   "vstudent_profile",
   "vstudent_ucat_my_access",
-  "vstudent_sessions",
+  "vstudent_operational_sessions",
 ] as const;
 type View = (typeof VIEWS)[number];
 
@@ -156,7 +156,7 @@ describe("concurrent server cookie refresh", () => {
             );
           }
           return reply(
-            view === "vstudent_sessions"
+            view === "vstudent_operational_sessions"
               ? []
               : view === "vstudent_profile"
                 ? { onboarding_progress: null }

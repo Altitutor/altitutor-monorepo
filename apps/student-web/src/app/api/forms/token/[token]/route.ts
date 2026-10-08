@@ -99,8 +99,8 @@ export async function GET(_request: Request, { params }: { params: { token: stri
     if (!classId) return [];
     const now = new Date().toISOString();
     const [{ data: mostRecentPast }, { data: futureSessions }] = await Promise.all([
-      admin.from('sessions').select('id, class_id, start_at').eq('class_id', classId).lte('start_at', now).order('start_at', { ascending: false }).limit(1),
-      admin.from('sessions').select('id, class_id, start_at').eq('class_id', classId).gt('start_at', now).order('start_at').limit(16),
+      admin.from('sessions').select('id, class_id, start_at').eq('status', 'ACTIVE').is('calendar_tombstone_until', null).eq('class_id', classId).lte('start_at', now).order('start_at', { ascending: false }).limit(1),
+      admin.from('sessions').select('id, class_id, start_at').eq('status', 'ACTIVE').is('calendar_tombstone_until', null).eq('class_id', classId).gt('start_at', now).order('start_at').limit(16),
     ]);
     return [...(mostRecentPast ?? []), ...(futureSessions ?? [])];
   }));
@@ -180,8 +180,8 @@ export async function POST(request: Request, { params }: { params: { token: stri
       }
       const now = new Date().toISOString();
       const [{ data: mostRecentPast }, { data: futureSessions }] = await Promise.all([
-        admin.from('sessions').select('id').eq('class_id', classId).lte('start_at', now).order('start_at', { ascending: false }).limit(1),
-        admin.from('sessions').select('id').eq('class_id', classId).gt('start_at', now).order('start_at').limit(16),
+        admin.from('sessions').select('id').eq('status', 'ACTIVE').is('calendar_tombstone_until', null).eq('class_id', classId).lte('start_at', now).order('start_at', { ascending: false }).limit(1),
+        admin.from('sessions').select('id').eq('status', 'ACTIVE').is('calendar_tombstone_until', null).eq('class_id', classId).gt('start_at', now).order('start_at').limit(16),
       ]);
       const allowedSessionIds = new Set([...(mostRecentPast ?? []), ...(futureSessions ?? [])].map((session) => session.id));
       if (!allowedSessionIds.has(selection.sessionId)) {
@@ -191,6 +191,8 @@ export async function POST(request: Request, { params }: { params: { token: stri
         .from('sessions')
         .select('id, start_at')
         .eq('id', selection.sessionId)
+        .eq('status', 'ACTIVE')
+        .is('calendar_tombstone_until', null)
         .eq('class_id', classId)
         .maybeSingle();
       if (!selectedSession?.start_at) {

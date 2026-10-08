@@ -2,7 +2,7 @@ import * as React from 'react';
 
 export interface SessionInfoGridProps {
   /** Day display (e.g. "Friday 24/10/2025" or "—") */
-  day: string;
+  day: React.ReactNode;
   /** Time range display (e.g. "2:00 PM - 4:00 PM" or "—") */
   time: string;
   /** Optional line under time (e.g. session type badge) */
@@ -21,7 +21,7 @@ export function SessionInfoGrid({ day, time, timeSubline, subjectNode, classNode
   return (
     <div className="grid grid-cols-2 gap-x-4 gap-y-3">
       <div className="text-sm font-medium text-muted-foreground">Day:</div>
-      <div className="text-sm">{day}</div>
+      <div className="text-sm min-w-0">{day}</div>
 
       <div className="text-sm font-medium text-muted-foreground">Time:</div>
       <div className="text-sm">

@@ -4,10 +4,7 @@ import { useMemo, useState, createContext, useContext } from 'react';
 import { Button, DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@altitutor/ui';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
-import { useChatStore } from '@/features/messages/state/chatStore';
-import type { AggregatedConversation } from '@/features/messages/types';
-import { formatContactName } from '@/features/messages/utils/formatContactName';
-import { FileText, MessageCircle, CreditCard, Plus, Trash2, User } from 'lucide-react';
+import { FileText, CreditCard, Plus, Trash2, User } from 'lucide-react';
 import { getErrorMessage } from '@/shared/utils';
 import { useToast } from '@altitutor/ui';
 import { format } from 'date-fns';
@@ -123,13 +120,11 @@ interface ReconciliationActionsProps {
     | UnassignedTask
     | StudentWithoutClasses
     | StudentWithoutPaymentMethod
-    | ProjectWithoutLead
-    | AggregatedConversation;
+    | ProjectWithoutLead;
 }
 
 export function ReconciliationActions({ type, item }: ReconciliationActionsProps) {
   const router = useRouter();
-  const openWindow = useChatStore((s) => s.openWindow);
   const handlers = useReconciliationHandlers();
   const [isLoading, setIsLoading] = useState(false);
   const queryClient = useQueryClient();
@@ -380,10 +375,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
         return false;
       }
 
-      if (type === 'reconciliation_contact_messages') {
-        return false;
-      }
-
       return false;
     });
   }, [candidateIssues, item, type]);
@@ -454,10 +445,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     }
 
     if (type === 'projects_without_lead') {
-      return [];
-    }
-
-    if (type === 'reconciliation_contact_messages') {
       return [];
     }
 
@@ -554,7 +541,7 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
     }
   };
 
-  const issueButton = type === 'reconciliation_contact_messages' ? null : (
+  const issueButton = (
     matchedIssues.length === 0 ? (
       <Button
         variant="outline"
@@ -743,26 +730,6 @@ export function ReconciliationActions({ type, item }: ReconciliationActionsProps
           Edit project
         </Button>
         {issueButton}
-      </div>
-    );
-  } else if (type === 'reconciliation_contact_messages') {
-    const row = item as AggregatedConversation;
-    const contactName = row.contact ? formatContactName({ contacts: row.contact }) : 'Unknown';
-    const convId = row.conversations[0]?.id;
-
-    content = (
-      <div className="flex flex-nowrap gap-2 items-center">
-        <Button
-          variant="default"
-          size="sm"
-          onClick={() => {
-            if (convId) openWindow({ conversationId: convId, title: contactName });
-          }}
-          disabled={!convId}
-        >
-          <MessageCircle className="h-4 w-4 mr-1" />
-          Message
-        </Button>
       </div>
     );
   }

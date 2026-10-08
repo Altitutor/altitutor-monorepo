@@ -102,6 +102,9 @@ type AccessoryPanel = Workspace & {
   toggle: () => void;
 };
 const Context = createContext<AccessoryPanel | null>(null);
+type AccessoryPanelActions = Omit<AccessoryPanel, keyof Workspace>;
+// Navigation and editors need stable actions, not subscriptions to every tab and width change.
+const ActionsContext = createContext<AccessoryPanelActions | null>(null);
 
 export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
   const { user } = useAuthStore();
@@ -308,9 +311,8 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       setWorkspace((current) => ({ ...current, expanded: !current.expanded })),
     [],
   );
-  const value = useMemo(
+  const actions = useMemo<AccessoryPanelActions>(
     () => ({
-      ...workspace,
       openTab,
       navigateTab,
       selectTab,
@@ -322,7 +324,6 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       toggle,
     }),
     [
-      workspace,
       openTab,
       navigateTab,
       selectTab,
@@ -334,12 +335,18 @@ export function AccessoryPanelProvider({ children }: { children: ReactNode }) {
       toggle,
     ],
   );
+  const value = useMemo(() => ({ ...workspace, ...actions }), [workspace, actions]);
   return (
-    <Context.Provider value={value}>
-      {loadedKey === storageKey ? children : null}
-    </Context.Provider>
+    <ActionsContext.Provider value={actions}>
+      <Context.Provider value={value}>
+        {loadedKey === storageKey ? children : null}
+      </Context.Provider>
+    </ActionsContext.Provider>
   );
 }
 export function useAccessoryPanel() {
   return useContext(Context);
+}
+export function useAccessoryPanelActions() {
+  return useContext(ActionsContext);
 }

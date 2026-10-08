@@ -1,5 +1,6 @@
 "use client";
 import {
+  memo,
   useCallback,
   useEffect,
   useMemo,
@@ -13,6 +14,7 @@ import { panelShortcut } from "@/shared/shortcuts/registry";
 import { List, Columns, X } from "lucide-react";
 import {
   useAccessoryPanel,
+  useAccessoryPanelActions,
   type AccessoryTab,
   type AccessoryDestination,
   accessoryFamily,
@@ -29,7 +31,7 @@ import { AccessoryRootViews } from "./AccessoryRootViews";
 import { AccessoryTabPicker } from "./AccessoryTabPicker";
 
 type CloseGate = (next?: () => void) => void;
-function TabContent({
+const TabContent = memo(function TabContent({
   tab,
   active,
   registerGate,
@@ -40,7 +42,7 @@ function TabContent({
   registerGate: (key: string, gate: CloseGate | null) => void;
   gates: React.MutableRefObject<Map<string, CloseGate>>;
 }) {
-  const panel = useAccessoryPanel();
+  const panel = useAccessoryPanelActions();
   const closeTab = panel?.closeTab;
   const close = useCallback(() => closeTab?.(tab.key), [closeTab, tab.key]);
   const registerClose = useCallback(
@@ -119,7 +121,7 @@ function TabContent({
       </AccessoryTabContext.Provider>
     </div>
   );
-}
+});
 export function AccessoryTabs() {
   const { data: unreadCount = 0 } = useUnreadConversationCount();
   const panel = useAccessoryPanel();
