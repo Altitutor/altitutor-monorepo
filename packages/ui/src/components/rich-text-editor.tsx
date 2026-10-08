@@ -38,6 +38,15 @@ import 'katex/dist/katex.min.css';
 const UPLOAD_PLACEHOLDER_PREFIX = '__UPLOAD_';
 const UPLOAD_PLACEHOLDER_SUFFIX = '__';
 
+// Saved jsonb can reorder object keys without changing the document. Comparing
+// canonical JSON keeps those acknowledgements from resetting content/selection.
+const editorJsonSignature = (value: unknown) => JSON.stringify(
+  value,
+  (_key, item: unknown) => item && typeof item === 'object' && !Array.isArray(item)
+    ? Object.fromEntries(Object.entries(item).sort(([a], [b]) => a.localeCompare(b)))
+    : item,
+);
+
 /**
  * Extracts image files from pasted HTML (data: and blob: URLs) and returns
  * files in order plus HTML with those srcs replaced by __UPLOAD_0__, __UPLOAD_1__, etc.
@@ -1181,7 +1190,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       if (!editor || !editor.isEditable || !transaction.docChanged) return;
 
       const json = editor.getJSON();
-      const jsonString = JSON.stringify(json);
+      const jsonString = editorJsonSignature(json);
       const debounceMs = debounceMsRef.current;
 
       if (debounceMs > 0 && onChangeRef.current) {
@@ -1194,7 +1203,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
           if (!editor || editor.isDestroyed) return;
           const pending = pendingDebouncedJsonRef.current;
           if (!pending) return;
-          const s = JSON.stringify(pending);
+          const s = editorJsonSignature(pending);
           if (s === lastEmittedJsonRef.current) return;
           lastEmittedJsonRef.current = s;
           onChangeRef.current?.(pending);
@@ -1233,14 +1242,20 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
     let isEcho = false;
 
-    if (typeof incomingContent === 'string') {
-      if (isMarkdown) {
-        isEcho = incomingContent === lastEmittedMarkdownRef.current;
-      } else {
-        isEcho = incomingContent === lastEmittedJsonRef.current;
-      }
+    if (isMarkdown && typeof incomingContent === 'string') {
+      isEcho = incomingContent === lastEmittedMarkdownRef.current;
     } else {
-      isEcho = JSON.stringify(incomingContent) === lastEmittedJsonRef.current;
+      try {
+        const json = typeof incomingContent === 'string'
+          ? JSON.parse(incomingContent)
+          : incomingContent;
+        const signature = editorJsonSignature(json);
+        isEcho = signature === lastEmittedJsonRef.current
+          || signature === editorJsonSignature(editor.getJSON());
+      } catch {
+        // Plain strings are also supported content, but are not JSON echoes.
+        isEcho = false;
+      }
     }
 
     if (isEcho) {
@@ -1275,7 +1290,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
 
     lastContentPropRef.current = incomingContent;
     if (!isMarkdown) {
-      lastEmittedJsonRef.current = JSON.stringify(editor.getJSON());
+      lastEmittedJsonRef.current = editorJsonSignature(editor.getJSON());
     } else {
       lastEmittedMarkdownRef.current = editor.getMarkdown();
     }
@@ -1290,7 +1305,7 @@ export const RichTextEditor = forwardRef<RichTextEditorRef, RichTextEditorProps>
       }
       const pending = pendingDebouncedJsonRef.current;
       if (pending && onChangeRef.current) {
-        const s = JSON.stringify(pending);
+        const s = editorJsonSignature(pending);
         if (s !== lastEmittedJsonRef.current) {
           lastEmittedJsonRef.current = s;
           onChangeRef.current(pending);
