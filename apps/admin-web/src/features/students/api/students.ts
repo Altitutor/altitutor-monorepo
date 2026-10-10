@@ -114,6 +114,7 @@ export const studentsApi = {
     searchFields?: StudentSearchField[];
     products?: string[];
     entitlements?: string[];
+    accountClasses?: Array<'external' | 'internal_test'>;
     limit?: number;
     offset?: number;
     orderBy?: 'first_name' | 'last_name' | 'online_since';
@@ -124,6 +125,7 @@ export const studentsApi = {
       searchFields = ['name', 'email', 'phone'],
       products = [],
       entitlements = [],
+      accountClasses = [],
       limit = 50,
       offset = 0,
       orderBy = 'last_name',
@@ -134,6 +136,7 @@ export const studentsApi = {
       p_search: search.trim() || undefined,
       p_products: products.length > 0 ? products : undefined,
       p_entitlements: entitlements.length > 0 ? entitlements : undefined,
+      p_account_classes: accountClasses.length > 0 ? accountClasses : undefined,
       p_limit: limit,
       p_offset: offset,
       p_order_by: orderBy,

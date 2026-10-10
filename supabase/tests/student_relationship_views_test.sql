@@ -1,5 +1,5 @@
 BEGIN;
-SELECT plan(12);
+SELECT plan(14);
 
 SELECT is(
   to_regprocedure('public.search_students_admin(text,text[],uuid[],boolean,boolean,integer,integer,text,boolean,text,text)')::text,
@@ -40,6 +40,10 @@ VALUES
     'TRIAL',
     'fc000000-0000-4000-8000-000000000030'
   );
+
+UPDATE public.students
+SET account_class = 'internal_test'
+WHERE id = 'fc000000-0000-4000-8000-000000000001';
 
 INSERT INTO public.student_online_product_relationships (
   student_id,
@@ -134,6 +138,28 @@ SELECT is(
   ) ->> 'total')::bigint,
   0::bigint,
   'online search does not match email when restricted to name'
+);
+
+SELECT is(
+  (public.search_online_students_admin(
+    p_search => 'Relationship',
+    p_account_classes => ARRAY['external']::text[],
+    p_limit => 20,
+    p_offset => 0
+  ) ->> 'total')::bigint,
+  1::bigint,
+  'online search can exclude internal test accounts'
+);
+
+SELECT is(
+  (public.search_online_students_admin(
+    p_search => 'Relationship',
+    p_account_classes => ARRAY['internal_test']::text[],
+    p_limit => 20,
+    p_offset => 0
+  ) ->> 'total')::bigint,
+  1::bigint,
+  'online search can include only internal test accounts'
 );
 
 CREATE TEMP TABLE in_person_result AS

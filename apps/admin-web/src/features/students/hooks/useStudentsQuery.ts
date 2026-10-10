@@ -24,6 +24,7 @@ export interface UseOnlineStudentsListParams {
   searchFields?: StudentSearchField[];
   products?: string[];
   entitlements?: string[];
+  accountClasses?: Array<'external' | 'internal_test'>;
   page?: number;
   pageSize?: number;
   orderBy?: 'first_name' | 'last_name' | 'online_since';
@@ -36,6 +37,7 @@ export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
     searchFields = ['name', 'email', 'phone'],
     products = [],
     entitlements = [],
+    accountClasses = [],
     page = 1,
     pageSize = 50,
     orderBy = 'last_name',
@@ -49,6 +51,7 @@ export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
       searchFields,
       products,
       entitlements,
+      accountClasses,
       page,
       pageSize,
       orderBy,
@@ -59,6 +62,7 @@ export function useOnlineStudentsMinimal(params: UseOnlineStudentsListParams) {
       searchFields,
       products,
       entitlements,
+      accountClasses,
       limit: pageSize,
       offset,
       orderBy,
