@@ -18,6 +18,7 @@ import {
 import { ServerTiming } from "@/lib/performance/server-timing";
 import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
+import { getRejectedStudyPlanDiagnostics } from "@/features/practice/server/rejected-study-plan-diagnostics";
 
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
@@ -199,7 +200,20 @@ export async function POST(request: NextRequest) {
   timing.mark("insert");
 
   if (insertError || !inserted) {
-    captureApiError(insertError, "/api/ucat/practice-sessions");
+    const diagnostics =
+      insertError?.code === "22023" &&
+      insertError.message === "invalid_study_plan_task"
+        ? await getRejectedStudyPlanDiagnostics(supabaseAdmin, {
+            studentId: student.id,
+            taskId: insertPayload.study_plan_task_id,
+            sectionId: insertPayload.ucat_section_id,
+          })
+        : undefined;
+    captureApiError(
+      insertError,
+      "/api/ucat/practice-sessions",
+      diagnostics ? { study_plan_start: diagnostics } : undefined,
+    );
     return NextResponse.json(
       { error: insertError?.message ?? "Failed to create practice session" },
       { status: 500 },
