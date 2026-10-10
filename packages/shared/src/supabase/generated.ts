@@ -43765,6 +43765,7 @@ export type Database = {
       }
       search_online_students_admin: {
         Args: {
+          p_account_classes?: string[]
           p_ascending?: boolean
           p_entitlements?: string[]
           p_limit?: number
