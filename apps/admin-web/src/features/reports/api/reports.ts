@@ -832,6 +832,8 @@ async function fetchSessionsWithStudentsForReport(
       sessions_students(id)
     `
     )
+    .eq('status', 'ACTIVE')
+    .is('calendar_tombstone_until', null)
     .gte('start_at', startIso)
     .lte('start_at', endIso)
     .not('class_id', 'is', null);
@@ -1015,6 +1017,8 @@ async function fetchTrialSessionsForReport(
       sessions_staff(staff:staff!sessions_staff_staff_id_fkey(first_name, last_name))
     `
     )
+    .eq('status', 'ACTIVE')
+    .is('calendar_tombstone_until', null)
     .gte('start_at', startIso)
     .lte('start_at', endIso)
     .eq('sessions_students.was_trial', true)
@@ -1530,6 +1534,8 @@ async function fetchSessionsStudentsForPredictedRevenue(
   const { data: sessionsData, error: sessErr } = await supabase
     .from('sessions')
     .select('id, start_at, end_at, subject_id, billing_type')
+    .eq('status', 'ACTIVE')
+    .is('calendar_tombstone_until', null)
     .gte('start_at', startIso)
     .lte('start_at', endIso);
 

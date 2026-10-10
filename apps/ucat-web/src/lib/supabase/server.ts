@@ -2,6 +2,7 @@ import { cookies, headers } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { createGatewayReadFetch } from "./gateway-read-fetch";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 export async function getSupabaseServerClient(
@@ -48,7 +49,7 @@ export async function getSupabaseServerClient(
         },
         global: {
           headers: { Authorization: authorization },
-          ...(globalFetch ? { fetch: globalFetch } : {}),
+          fetch: createGatewayReadFetch(supabaseUrl, globalFetch),
         },
       }),
     );
@@ -78,7 +79,7 @@ export async function getSupabaseServerClient(
       cookieOptions: {
         name: "student-auth",
       },
-      ...(globalFetch ? { global: { fetch: globalFetch } } : {}),
+      global: { fetch: createGatewayReadFetch(supabaseUrl, globalFetch) },
     }) as unknown as SupabaseClient<Database>,
   );
 }

@@ -2,6 +2,8 @@ import type { Tables, TablesInsert, TablesUpdate } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { getInvoiceCreditNotesByInvoiceIds } from '@/features/billing/api/invoice-credit-notes';
+import type { InvoiceStatusPayload } from '@/features/billing/utils/invoiceFormatters';
 import { dateStringToUtcStart, dateStringToUtcEnd } from '@/shared/utils/datetime';
 
 // Type definitions for RPC responses and joined queries
@@ -168,8 +170,8 @@ export const sessionsApi = {
   },
 
   /**
-   * Get all sessions with their attendees and staff using optimized RPC function
-   * This replaces the previous multi-query approach with a single RPC call
+   * Get sessions, attendees and staff through the optimized RPC, then enrich
+   * invoice badges with batched reads of their financial adjustments.
    */
   getAllSessionsWithDetails: async (args?: { rangeStart?: string; rangeEnd?: string; includeInactive?: boolean; search?: string; studentId?: string; staffId?: string; parentId?: string; classId?: string; adminShiftId?: string; types?: string[]; orderBy?: string; ascending?: boolean }): Promise<{ 
     sessions: Tables<'sessions'>[]; 
@@ -344,6 +346,17 @@ export const sessionsApi = {
         }>;
       });
       
+      const invoicePayloads = Object.values(sessionStudents).flatMap(students =>
+        students.flatMap(student => student.invoice_status_payload ? [student.invoice_status_payload] : [])
+      );
+      const creditNotesByInvoice = await getInvoiceCreditNotesByInvoiceIds(
+        supabase,
+        invoicePayloads.flatMap(payload => payload.invoice_id ? [payload.invoice_id] : [])
+      );
+      for (const payload of invoicePayloads) {
+        if (payload.invoice_id) payload.credit_notes = creditNotesByInvoice[payload.invoice_id] ?? [];
+      }
+
       // Transform sessionStaff - RPC returns full staff objects with additional fields
       const sessionStaff: Record<string, Array<Tables<'staff'> & {
         planned_absence?: boolean;
@@ -858,15 +871,7 @@ export const sessionsApi = {
       if (invoiceItemsError) throw invoiceItemsError;
 
       // Build invoice_status_payload map for centralized badge display
-      type InvoicePayload = {
-        invoice_id?: string | null;
-        status: string;
-        paid_at?: string | null;
-        refunded_at?: string | null;
-        refunded_via_cn_at?: string | null;
-        credited_at?: string | null;
-      };
-      const invoiceStatusPayloadMap: Record<string, InvoicePayload | null> = {};
+      const invoiceStatusPayloadMap: Record<string, InvoiceStatusPayload | null> = {};
       (
         invoiceItemsData as Array<{
           sessions_students_id?: string | null;
@@ -886,6 +891,14 @@ export const sessionsApi = {
           };
         }
       });
+
+      const creditNotesByInvoice = await getInvoiceCreditNotesByInvoiceIds(
+        supabase,
+        Object.values(invoiceStatusPayloadMap).flatMap(payload => payload?.invoice_id ? [payload.invoice_id] : [])
+      );
+      for (const payload of Object.values(invoiceStatusPayloadMap)) {
+        if (payload?.invoice_id) payload.credit_notes = creditNotesByInvoice[payload.invoice_id] ?? [];
+      }
 
       // Calculate is_extra flag: student is extra if session has class_id but student is not enrolled
       const session = sessionData as Tables<'sessions'>;
@@ -1196,13 +1209,13 @@ export const sessionsApi = {
       'id, type, class_id, start_at, end_at, original_start_at, original_end_at, short_name, long_name';
 
     const [byStart, byOriginal] = await Promise.all([
-      supabase.from('sessions').select(select).gte('start_at', start).lte('start_at', end).eq('status', 'ACTIVE'),
+      supabase.from('sessions').select(select).gte('start_at', start).lte('start_at', end).eq('status', 'ACTIVE').is('calendar_tombstone_until', null),
       supabase
         .from('sessions')
         .select(select)
         .gte('original_start_at', start)
         .lte('original_start_at', end)
-        .eq('status', 'ACTIVE')
+        .eq('status', 'ACTIVE').is('calendar_tombstone_until', null)
         .not('original_start_at', 'is', null),
     ]);
 

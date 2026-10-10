@@ -808,6 +808,8 @@ export const classesApi = {
         .from('sessions')
         .select('*')
         .eq('class_id', classId)
+        .eq('status', 'ACTIVE')
+        .is('calendar_tombstone_until', null)
         .gte('start_at', new Date().toISOString())
         .order('start_at', { ascending: true })
         .limit(5);

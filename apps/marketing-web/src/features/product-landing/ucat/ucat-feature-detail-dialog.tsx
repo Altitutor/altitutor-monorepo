@@ -8,7 +8,6 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@altitutor/ui";
 import { ArrowRight } from "lucide-react";
 import type { UcatFeature } from "./ucat-feature-data";
@@ -78,15 +77,19 @@ export function UcatFeatureDetailDialog({ feature }: UcatFeatureDetailDialogProp
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <button type="button" className="inline-flex" disabled={!hydrated}>
-          <MagneticButton
-            className={`border border-marketing-charcoal/12 bg-white px-4 py-2 text-sm font-semibold text-marketing-charcoal shadow-sm hover:border-marketing-charcoal/20 ${typo.secondarySans}`}
-          >
-            Learn more <ArrowRight className="size-4" aria-hidden />
-          </MagneticButton>
-        </button>
-      </DialogTrigger>
+      {/* Open-only: WebKit click retries after the overlay covers a toggle trigger close the sheet. */}
+      <button
+        type="button"
+        className="inline-flex"
+        disabled={!hydrated}
+        onClick={() => setOpen(true)}
+      >
+        <MagneticButton
+          className={`border border-marketing-charcoal/12 bg-white px-4 py-2 text-sm font-semibold text-marketing-charcoal shadow-sm hover:border-marketing-charcoal/20 ${typo.secondarySans}`}
+        >
+          Learn more <ArrowRight className="size-4" aria-hidden />
+        </MagneticButton>
+      </button>
       <DialogContent
         mobilePresentation="bottom-sheet"
         className={`flex h-[90vh] max-h-[min(90vh,calc(100dvh-2rem))] w-full flex-col gap-0 overflow-hidden border-marketing-charcoal/10 bg-marketing-cream p-0 text-marketing-charcoal shadow-[0_12px_48px_rgb(0,0,0,0.12)] ring-1 ring-black/[0.08] md:h-[90vh] md:max-h-[min(90vh,calc(100dvh-2rem))] md:max-w-4xl md:rounded-[1.75rem] ${

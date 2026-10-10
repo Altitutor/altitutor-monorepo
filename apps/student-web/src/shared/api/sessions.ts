@@ -8,8 +8,8 @@ import {
   isHomeworkHelpSessionType,
   mergeUniquePeople,
 } from '@/features/sessions/utils/session-helpers';
-type StudentSessionBase = Database['public']['Views']['vstudent_session_base']['Row'];
-type StudentSessionDetail = Database['public']['Views']['vstudent_session_detail']['Row'];
+type StudentSessionBase = Database['public']['Views']['vstudent_operational_session_base']['Row'];
+type StudentSessionDetail = Database['public']['Views']['vstudent_operational_session_detail']['Row'];
 
 export interface StudentSessionWithStaff extends Omit<StudentSessionBase, 'staff' | 'students'> {
   staff: Array<{
@@ -147,7 +147,7 @@ export type SessionTutorLogResources = {
 export const studentSessionsApi = {
   /**
    * List all sessions for the current student within a date range
-   * Uses vstudent_session_base which includes staff as JSON
+   * Uses vstudent_operational_session_base which includes staff as JSON
    */
   list: async (rangeStart: string, rangeEnd: string): Promise<StudentSessionWithStaff[]> => {
     const supabase = getSupabaseClient();
@@ -156,7 +156,7 @@ export const studentSessionsApi = {
     const utcEnd = dateStringToUtcEnd(rangeEnd);
 
     const { data, error } = await supabase
-      .from('vstudent_session_base')
+      .from('vstudent_operational_session_base')
       .select('*')
       .gte('start_at', utcStart)
       .lte('start_at', utcEnd)
@@ -173,14 +173,14 @@ export const studentSessionsApi = {
 
   /**
    * Get a single session with all details
-   * Uses vstudent_session_detail view which includes students and staff
+   * Uses vstudent_operational_session_detail view which includes students and staff
    */
   getSessionWithDetails: async (sessionId: string) => {
     const supabase = getSupabaseClient();
 
     try {
       const { data, error } = await supabase
-        .from('vstudent_session_detail')
+        .from('vstudent_operational_session_detail')
         .select('*')
         .eq('session_id', sessionId)
         .maybeSingle();
@@ -203,7 +203,7 @@ export const studentSessionsApi = {
       const utcEnd = dateStringToUtcEnd(sessionDay);
 
       const { data: sameDaySessions, error: sameDayError } = await supabase
-        .from('vstudent_session_detail')
+        .from('vstudent_operational_session_detail')
         .select('*')
         .eq('session_type', 'HOMEWORK_HELP')
         .gte('start_at', utcStart)

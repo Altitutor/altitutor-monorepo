@@ -61,7 +61,7 @@ export const classesApi = {
   getSessions: async (classId: string) => {
     const supabase = getSupabaseClient();
     const { data, error } = await supabase
-      .from('vstudent_sessions')
+      .from('vstudent_operational_sessions')
       .select('*')
       .eq('class_id', classId)
       .order('start_at', { ascending: false });

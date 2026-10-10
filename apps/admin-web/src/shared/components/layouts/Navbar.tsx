@@ -47,7 +47,10 @@ export function Navbar() {
             size="icon"
             onClick={toggleMobileMenu}
             aria-pressed={isMobileMenuOpen}
-            className={cn("relative md:relative hidden h-9 w-9 flex-shrink-0", isMobileMenuOpen && navLinkActiveStyles)}
+            aria-expanded={isMobileMenuOpen}
+            aria-controls="admin-mobile-sidebar"
+            aria-keyshortcuts="Alt+ArrowLeft"
+            className={cn("relative inline-flex h-9 w-9 flex-shrink-0 md:hidden", isMobileMenuOpen && navLinkActiveStyles)}
             aria-label={isMobileMenuOpen ? "Close menu" : "Open menu"}
           >
             <PanelLeft className="h-4 w-4" /><span className="absolute top-full left-0"><ShortcutKeys id="left" /></span>

@@ -201,6 +201,8 @@ export const tutorLogsApi = {
         `)
         .in('id', sessionIds)
         .eq('type', 'CLASS')
+        .eq('status', 'ACTIVE')
+        .is('calendar_tombstone_until', null)
         .lte('start_at', today.toISOString())
         .order('start_at', { ascending: false });
 

@@ -2,7 +2,6 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { Database } from '@altitutor/shared';
 import { tasksApi } from '@/features/tasks/api/tasks';
-import { fetchConversationsByContact } from '@/features/messages/api/queries';
 import type {
   UninvoicedSession,
   UnloggedSession,
@@ -622,7 +621,6 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     unloggedCount,
     unassignedClassesCount,
     studentsWithoutClassesCount,
-    conversationsByContact,
     unassignedTasksCount,
     projectsNoLeadCount,
     sessionBillingAdjustmentsCount,
@@ -634,21 +632,14 @@ export async function getReconciliationTabCounts(): Promise<ReconciliationTabCou
     countReconciliationViewRows('vadmin_reconciliation_unlogged_sessions'),
     countReconciliationViewRows('vadmin_reconciliation_unassigned_classes'),
     reconciliationApi.getStudentsWithoutClasses().then((r) => r.length),
-    fetchConversationsByContact(),
     countUnassignedTasksExact(),
     countProjectsWithoutLeadExact(),
     countReconciliationViewRows('vadmin_reconciliation_session_billing_adjustments'),
   ]);
 
-  const unreadContacts = conversationsByContact.filter((c) => c.unreadCount > 0).length;
-  const followUpContacts = conversationsByContact.filter((c) =>
-    c.conversations.some((conv) => conv.needs_follow_up),
-  ).length;
-
   return {
     financial: uninvoicedCount + voidCount + unpaidCount + noPaymentCount + sessionBillingAdjustmentsCount,
     scheduling: unloggedCount + unassignedClassesCount + studentsWithoutClassesCount,
-    communication: unreadContacts + followUpContacts,
     operations: unassignedTasksCount + projectsNoLeadCount,
   };
 }

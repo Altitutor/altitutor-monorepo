@@ -1,5 +1,6 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
+import { createGatewayReadFetch } from "./gateway-read-fetch";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 
 /**
@@ -17,10 +18,13 @@ export const supabaseAdmin = (() => {
 
   if (!supabaseUrl || !serviceRoleKey) return null;
 
-  return instrumentSupabaseClient(createClient<Database>(supabaseUrl, serviceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-    },
-  }));
+  return instrumentSupabaseClient(
+    createClient<Database>(supabaseUrl, serviceRoleKey, {
+      global: { fetch: createGatewayReadFetch(supabaseUrl) },
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
+      },
+    }),
+  );
 })();

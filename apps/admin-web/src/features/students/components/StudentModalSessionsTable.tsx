@@ -20,6 +20,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useSessionsTable } from '@/features/sessions/hooks/useSessionsTable';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
+import { AbsenceTreatmentCell } from '@/features/sessions/components/AbsenceTreatmentCell';
 import { AttendanceCell } from '@/features/sessions/components/AttendanceCell';
 import { processStudentSessionData } from '@/features/sessions/utils/modalSessionProcessing';
 import { openAdminInvoiceModal } from '@/features/sessions/utils/openAdminInvoiceModal';
@@ -199,6 +200,7 @@ export function StudentModalSessionsTable({
               <TableHead>Subject</TableHead>
               <TableHead>Planned Attendance</TableHead>
               <TableHead>Actual Attendance</TableHead>
+              <TableHead>Absence Treatment</TableHead>
               <TableHead>Invoice</TableHead>
               <TableHead></TableHead>
             </TableRow>
@@ -206,7 +208,7 @@ export function StudentModalSessionsTable({
           <TableBody>
             {processedSessions.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center h-24">
+                <TableCell colSpan={8} className="text-center h-24">
                   {state.search ? 'No sessions match your search' : 'No sessions found'}
                 </TableCell>
               </TableRow>
@@ -241,27 +243,19 @@ export function StudentModalSessionsTable({
                     <TableCell>
                       <AttendanceCell
                         status={processed.plannedStatus}
-                        linkTo={
-                          processed.plannedStatus === 'rescheduled' && processed.rescheduledSessionId
-                            ? {
-                                type: 'session',
-                                id: processed.rescheduledSessionId,
-                                onClick: () =>
-                                  processed.rescheduledSessionId && handleSessionClick(processed.rescheduledSessionId),
-                              }
-                            : undefined
-                        }
-                        linkText={
-                          processed.plannedStatus === 'rescheduled'
-                            ? processed.rescheduledDate
-                            : processed.plannedStatus === 'credited' && processed.creditedDisplayDate
-                              ? processed.creditedDisplayDate
-                              : undefined
-                        }
                       />
                     </TableCell>
                     <TableCell>
                       <AttendanceCell status={processed.actualStatus} />
+                    </TableCell>
+                    <TableCell>
+                      <AbsenceTreatmentCell
+                        treatment={processed.absenceTreatment}
+                        recordedDate={processed.absenceTreatmentRecordedDate}
+                        replacementSessionId={processed.rescheduledSessionId}
+                        replacementSessionLabel={processed.rescheduledDate}
+                        onOpenSession={handleSessionClick}
+                      />
                     </TableCell>
                     <TableCell>
                       {(() => {
@@ -292,7 +286,7 @@ export function StudentModalSessionsTable({
                             <Copy className="h-4 w-4 mr-2" />
                             Copy ID
                           </DropdownMenuItem>
-                          {!processed.invoiceStatus && !tutorLogs[session.id] && processed.plannedStatus !== 'absent' && processed.plannedStatus !== 'rescheduled' && processed.plannedStatus !== 'credited' && (
+                          {!processed.invoiceStatus && !tutorLogs[session.id] && processed.plannedStatus !== 'absent' && (
                             <DropdownMenuItem onClick={() => {
                               setActionSessionId(session.id);
                               setIsLogAbsenceDialogOpen(true);

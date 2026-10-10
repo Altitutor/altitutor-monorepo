@@ -3,7 +3,6 @@
  */
 
 import {
-  deriveStudentPlannedStatus,
   deriveStudentActualStatus,
   deriveStudentAttendanceStatus,
   deriveStaffPlannedStatus,
@@ -26,7 +25,7 @@ import type {
   StaffAttendanceContext,
 } from '../attendanceDerivation';
 
-describe('deriveStudentPlannedStatus', () => {
+describe('student planned attendance and absence treatment', () => {
   const baseContext: StudentAttendanceContext = {
     hasTutorLog: false,
     plannedStudentIds: new Set(['student-1', 'student-2']),
@@ -41,9 +40,9 @@ describe('deriveStudentPlannedStatus', () => {
       was_trial: false,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.ATTENDING);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ATTENDING);
   });
 
   it('should return attending-trial when student was trial', () => {
@@ -55,9 +54,9 @@ describe('deriveStudentPlannedStatus', () => {
       was_trial: true,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.ATTENDING_TRIAL);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ATTENDING_TRIAL);
   });
 
   it('should return attending-extra for extra student who is also planned', () => {
@@ -69,9 +68,9 @@ describe('deriveStudentPlannedStatus', () => {
       was_trial: false,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.ATTENDING_EXTRA);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ATTENDING_EXTRA);
   });
 
   it('should return attending-extra-trial for extra trial student who is also planned', () => {
@@ -83,9 +82,9 @@ describe('deriveStudentPlannedStatus', () => {
       was_trial: true,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.ATTENDING_EXTRA_TRIAL);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ATTENDING_EXTRA_TRIAL);
   });
 
   it('should return absent for planned absence', () => {
@@ -97,12 +96,12 @@ describe('deriveStudentPlannedStatus', () => {
       was_trial: false,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
   });
 
-  it('should return rescheduled when session is rescheduled', () => {
+  it('keeps planned attendance absent with a linked replacement', () => {
     const input: StudentAttendanceInput = {
       student_id: 'student-1',
       sessions_students_id: 'ss-1',
@@ -117,14 +116,15 @@ describe('deriveStudentPlannedStatus', () => {
       },
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.RESCHEDULED);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
+    expect(result.absenceTreatment).toBe('replacement');
     expect(result.rescheduledSessionId).toBe('session-2');
     expect(result.rescheduledDate).toContain('10:00');
   });
 
-  it('should return credited when absence is credited', () => {
+  it('keeps planned attendance absent with credit treatment', () => {
     const input: StudentAttendanceInput = {
       student_id: 'student-1',
       sessions_students_id: 'ss-1',
@@ -132,9 +132,10 @@ describe('deriveStudentPlannedStatus', () => {
       is_credited: true,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.CREDITED);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
+    expect(result.absenceTreatment).toBe('credit');
   });
 
   it('should return unplanned for unplanned extra student', () => {
@@ -145,12 +146,12 @@ describe('deriveStudentPlannedStatus', () => {
       is_extra: true,
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.UNPLANNED);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.UNPLANNED);
   });
 
-  it('should prioritize rescheduled over credited', () => {
+  it('prioritizes replacement treatment when both legacy flags are set', () => {
     const input: StudentAttendanceInput = {
       student_id: 'student-1',
       sessions_students_id: 'ss-1',
@@ -165,9 +166,39 @@ describe('deriveStudentPlannedStatus', () => {
       },
     };
 
-    const result = deriveStudentPlannedStatus(input, baseContext);
+    const result = deriveStudentAttendanceStatus(input, baseContext);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.RESCHEDULED);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
+    expect(result.absenceTreatment).toBe('replacement');
+  });
+});
+
+describe('absence treatment remains separate from actual attendance', () => {
+  const context: StudentAttendanceContext = { hasTutorLog: true, plannedStudentIds: new Set(['student-1']) };
+
+  it.each([
+    [false, false, 'charge'],
+    [false, true, 'credit'],
+    [true, false, 'replacement'],
+  ] as const)('preserves the selected treatment when the absent student actually attends (%s, %s)', (is_rescheduled, is_credited, treatment) => {
+    const result = deriveStudentAttendanceStatus({ student_id: 'student-1', sessions_students_id: 'ss-1', planned_absence: true, is_rescheduled, is_credited, actual_attended: true }, context);
+    expect(result.plannedStatus).toBe('absent');
+    expect(result.actualStatus).toBe('attended');
+    expect(result.absenceTreatment).toBe(treatment);
+  });
+
+  it('keeps replacement treatment when the joined replacement session is unavailable', () => {
+    const result = deriveStudentAttendanceStatus({ planned_absence: true, is_rescheduled: true, rescheduled_session: null }, context);
+    expect(result.plannedStatus).toBe('absent');
+    expect(result.absenceTreatment).toBe('replacement');
+    expect(result.rescheduledSessionId).toBe('');
+  });
+
+  it.each([
+    { planned_absence: false, is_credited: true },
+    { planned_absence: true, is_extra: true, sessions_students_id: null, is_credited: true },
+  ])('does not infer treatment from stale flags or an unplanned student', input => {
+    expect(deriveStudentAttendanceStatus(input, context).absenceTreatment).toBeNull();
   });
 });
 
@@ -244,10 +275,10 @@ describe('deriveStudentAttendanceStatus', () => {
     expect(result.actualStatus).toBe(STUDENT_ACTUAL_STATUSES.ATTENDED_TRIAL);
     expect(result.rescheduledSessionId).toBe('');
     expect(result.rescheduledDate).toBe('');
-    expect(result.creditedDisplayDate).toBe('');
+    expect(result.absenceTreatmentRecordedDate).toBe('');
   });
 
-  it('includes credited display date when absence credited', () => {
+  it('includes the selection date for credit treatment', () => {
     const input: StudentAttendanceInput = {
       student_id: 'student-1',
       sessions_students_id: 'ss-1',
@@ -261,8 +292,8 @@ describe('deriveStudentAttendanceStatus', () => {
       plannedStudentIds: new Set(),
     };
     const result = deriveStudentAttendanceStatus(input, context);
-    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.CREDITED);
-    expect(result.creditedDisplayDate).toBe('10/03/2026');
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
+    expect(result.absenceTreatmentRecordedDate).toBe('10/03/2026');
   });
 });
 
@@ -538,10 +569,10 @@ describe('Edge cases and complex scenarios', () => {
       plannedStudentIds: new Set(['student-1', 'student-2']), // student-3 not in set
     };
 
-    const result = deriveStudentPlannedStatus(input, context);
+    const result = deriveStudentAttendanceStatus(input, context);
 
     // Should be regular attending, not attending-extra
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.ATTENDING);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ATTENDING);
   });
 
   it('should handle rescheduled date formatting correctly', () => {
@@ -564,9 +595,9 @@ describe('Edge cases and complex scenarios', () => {
       plannedStudentIds: new Set(),
     };
 
-    const result = deriveStudentPlannedStatus(input, context);
+    const result = deriveStudentAttendanceStatus(input, context);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.RESCHEDULED);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
     expect(result.rescheduledDate).toContain('14:30');
   });
 
@@ -590,9 +621,9 @@ describe('Edge cases and complex scenarios', () => {
       plannedStudentIds: new Set(),
     };
 
-    const result = deriveStudentPlannedStatus(input, context);
+    const result = deriveStudentAttendanceStatus(input, context);
 
-    expect(result.status).toBe(STUDENT_PLANNED_STATUSES.RESCHEDULED);
+    expect(result.plannedStatus).toBe(STUDENT_PLANNED_STATUSES.ABSENT);
     expect(result.rescheduledDate).toBeTruthy();
   });
 });

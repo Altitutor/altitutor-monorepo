@@ -9,7 +9,6 @@ import { useReconciliationTabCounts } from '../api/queries';
 const STAT_ROWS = [
   { key: 'financial' as const, label: 'Financial', href: '/reconciliation/financial' },
   { key: 'scheduling' as const, label: 'Scheduling', href: '/reconciliation/scheduling' },
-  { key: 'communication' as const, label: 'Communication', href: '/reconciliation/communication' },
   { key: 'operations' as const, label: 'Operations', href: '/reconciliation/operations' },
 ];
 
@@ -57,7 +56,7 @@ export function DashboardReconciliationCard() {
 
   const total =
     counts !== undefined
-      ? counts.financial + counts.scheduling + counts.communication + counts.operations
+      ? counts.financial + counts.scheduling + counts.operations
       : undefined;
 
   return (

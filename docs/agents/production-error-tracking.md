@@ -1,13 +1,13 @@
 # Production-error tracking
 
 Used by `sentry-morning-maintenance.md`. Read `issue-tracker.md` and
-`triage-labels.md` for canonical Obsidian locations, frontmatter, and labels.
+`triage-labels.md` for canonical Linear access, identity, and labels.
 Keep investigation in one ticket; Sentry comments carry a concise status and
 ticket/PR reference. Supabase-only bugs need no synthetic Sentry event.
 
 ## Identity and handoff
 
-Before creating a ticket, search existing notes by Sentry numeric/short ID,
+Before creating a ticket, search existing Linear issues and comments by Sentry numeric/short ID,
 Supabase signature, affected code, and cause. Correlate sources only with evidence
 of a shared cause. Use `maintenance_key` as a durable lookup key: initially
 `sentry:altitutor:<numeric-id>` or
@@ -17,14 +17,12 @@ request/user IDs, secrets, and incidental values from signatures; retain operati
 error code, and distinguishing cause. Merge ticket knowledge without deleting
 human notes; redirect duplicate tickets to the canonical one.
 
-The installed issue-creation helper is at
-`/Users/matthewchua/Documents/Matt Remote/_scripts/new_altitutor_issue.py`.
-Set `OBSIDIAN_VAULT_PATH=/Users/matthewchua/Documents/Matt Remote` explicitly:
-the helper's legacy defaults do not identify this vault. Serialize ID allocation
-and check for an existing ticket again before creation. If the helper moves,
-follow `issue-tracker.md` discovery/fallback rules.
+Create or update the canonical Dev (DEV) issue through Linear. Do not use the
+retired vault issue allocator or import/export helpers. Linear allocates current
+issue IDs; preserve legacy aliases and stable keys in a structured metadata
+section in the description. Search again immediately before creating.
 
-Retain canonical frontmatter and add:
+Retain source keys and delivery stage in a structured description metadata block:
 
 ```yaml
 labels: [bug, production-maintenance, needs-triage]
@@ -39,7 +37,7 @@ sentry_sync_pending: false
 
 Only one triage state label applies at a time; preserve unrelated labels. Record
 claim owner, timestamp, branch, worktree path, and next action before coding.
-Check active work before taking over a stale claim. Reread notes before edits to
+Check active work before taking over a stale claim. Reread the issue and comments before edits to
 preserve human changes. Native Sentry activity remains authoritative evidence of
 new events and human decisions; conflicting decisions require reconciliation,
 not blindly overwriting one system from the other.
@@ -62,19 +60,19 @@ Sentry synchronization: <per-issue status, confirmation or pending retry>
 ```
 
 Save minimal sanitized log evidence in the ticket before log retention removes
-it. Source links alone are insufficient for expiring logs. Do not publish local
-vault contents or credentials to GitHub; PRs need the ALTI ID and self-contained
-technical context. Sentry notes use the ALTI ID and note title as a lookup
+it. Source links alone are insufficient for expiring logs. Do not publish unrelated local
+vault contents or credentials to GitHub; PRs need the current DEV ID and self-contained
+technical context. Sentry notes use the current DEV ID (retain legacy ALTI aliases as provenance) and note title as a lookup
 reference, plus the PR URL when available.
 
 ## Ticket stages and Sentry status
 
 `maintenance_stage` is additional workflow metadata, not a new board status.
 
-| Stage | Obsidian board status / triage label | Linked Sentry issues |
+| Stage | Linear state / triage label | Linked Sentry issues |
 | --- | --- | --- |
 | investigating | Triage / needs-triage | Unresolved; ticket reference |
-| needs-info | Needs Grill / needs-info | Unresolved; concise blocker |
+| needs-info | Backlog / needs-info | Unresolved; concise blocker |
 | fixing | In Progress / ready-for-agent | Unresolved |
 | pr-ready | In Review / ready-for-agent; Ready to Merge only after review | Unresolved or native pending resolution; PR linked |
 | awaiting-deployment | In Review / ready-for-agent | Preserve native commit/release resolution; verify deployment next run |
@@ -96,18 +94,23 @@ New same-cause failures in the fixed production release reopen the ticket and
 relevant Sentry issues. Old releases, delayed events, and pending deployments
 require attribution before calling something a regression.
 
-## Migration and run ledger
+## Imported evidence and run continuity
 
 On first encounter, import useful previous Sentry maintenance notes and linked
-work into the existing or new Obsidian ticket. Record the Sentry activity IDs or
-timestamps imported, and leave one Sentry note directing future work to the ALTI
+work into the existing or new Linear issue. Record the Sentry activity IDs or
+timestamps imported, and leave one Sentry note directing future work to the DEV
 ticket. Preserve original comments. Subsequent runs import only new evidence or
 human replies. Create tickets for actionable bugs, not every raw log or confident
 noise item. Already-fixed issues can be resolved directly with evidence.
 
-The operational ledger is
-`/Users/matthewchua/Documents/Matt Remote/Areas/Altitutor/Production Error Maintenance.md`,
-outside the Issues folder so it does not become a bug on the board. Keep:
+The imported maintenance continuity, scan coverage, source cursors and noise
+dispositions are verified in the five new Dev continuity documents linked in
+`issue-tracker.md`; [DEV-1](https://linear.app/altitutor/issue/DEV-1/verify-obsidian-source-migration-evidence-and-recoverable-cleanup) hosts exact raw evidence and recovery receipts. Archive
+ALTI-508 remains read-only historical provenance. The original dated
+ledger sections are historical evidence; migration is not a new production scan.
+Keep current operational continuity in that Linear document and issue handoffs,
+not in an Obsidian ledger. Keep:
+
 
 - Per-project/per-source last completely inventoried Supabase UTC end time,
   query/filter version, overlap, coverage gaps, and next window to retry.
@@ -118,8 +121,8 @@ outside the Issues folder so it does not become a bug on the board. Keep:
 
 Fresh ledger timestamps are null until a real scan succeeds. Advance a source
 cursor only after its full window is read and every finding is recorded in a
-ticket or ledger disposition. Persist partial progress before moving on; never
+Linear issue or continuity-document disposition. Persist partial progress before moving on; never
 advance failed sources merely because another source succeeded. Noise entries
 and unchanged needs-info tickets are revisited only when new evidence changes
 their rationale. Raw credentials and sensitive log payloads belong in neither
-the ledger nor tickets.
+the continuity document nor issues.

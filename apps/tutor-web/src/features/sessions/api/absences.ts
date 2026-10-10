@@ -61,9 +61,9 @@ export const absencesApi = {
     const maxDate = new Date(now.getTime() + weeksAhead * 7 * 24 * 60 * 60 * 1000);
 
     try {
-      // Get sessions_students records for this student from vtutor_sessions_students view
+      // Get sessions_students records for this student from vtutor_operational_sessions_students view
       const { data, error } = await supabase
-        .from('vtutor_sessions_students')
+        .from('vtutor_operational_sessions_students')
         .select('*')
         .eq('student_id', studentId)
         .eq('planned_absence', false)
@@ -72,7 +72,7 @@ export const absencesApi = {
       if (error) throw error;
 
       // Transform, filter by date range, and sort the data client-side
-      type SessionStudentRow = Database['public']['Views']['vtutor_sessions_students']['Row'] & {
+      type SessionStudentRow = Database['public']['Views']['vtutor_operational_sessions_students']['Row'] & {
         id?: string | null
         session_created_at?: string | null
         session_updated_at?: string | null
@@ -161,9 +161,9 @@ export const absencesApi = {
     const { originalSessionId, studentId, dateRangeDays } = params;
 
     try {
-      // First, get the original session details from vtutor_sessions view
+      // First, get the original session details from vtutor_operational_sessions view
       const { data: originalSession, error: originalError } = await supabase
-        .from('vtutor_sessions')
+        .from('vtutor_operational_sessions')
         .select('*')
         .eq('session_id', originalSessionId)
         .maybeSingle();
@@ -186,9 +186,9 @@ export const absencesApi = {
       // Ensure start date is not in the past
       const effectiveStartDate = startDate < now ? now : startDate;
 
-      // Get sessions with the same subject, different class, within date range from vtutor_sessions view
+      // Get sessions with the same subject, different class, within date range from vtutor_operational_sessions view
       const { data: sessions, error: sessionsError } = await supabase
-        .from('vtutor_sessions')
+        .from('vtutor_operational_sessions')
         .select('*')
         .eq('subject_id', subjectId)
         .neq('class_id', originalSession.class_id)
@@ -198,9 +198,9 @@ export const absencesApi = {
 
       if (sessionsError) throw sessionsError;
 
-      // Get sessions where student is already enrolled from vtutor_sessions_students view
+      // Get sessions where student is already enrolled from vtutor_operational_sessions_students view
       const { data: existingEnrollments, error: enrollmentsError } = await supabase
-        .from('vtutor_sessions_students')
+        .from('vtutor_operational_sessions_students')
         .select('session_id')
         .eq('student_id', studentId)
         .eq('planned_absence', false);
@@ -212,7 +212,7 @@ export const absencesApi = {
       );
 
       // Filter out sessions where student is already enrolled
-      type VtutorSessionRow = Database['public']['Views']['vtutor_sessions']['Row']
+      type VtutorSessionRow = Database['public']['Views']['vtutor_operational_sessions']['Row']
       const availableSessions: RescheduleSession[] = (sessions || [])
         .filter((session: VtutorSessionRow) => !enrolledSessionIds.has(session.session_id ?? ''))
         .map((session: VtutorSessionRow) => {
@@ -253,11 +253,11 @@ export const absencesApi = {
           } as RescheduleSession;
         });
 
-      // Get student counts for each session from vtutor_sessions_students view
+      // Get student counts for each session from vtutor_operational_sessions_students view
       if (availableSessions.length > 0) {
         const sessionIds = availableSessions.map((s) => s.id);
         const { data: studentCounts, error: countError } = await supabase
-          .from('vtutor_sessions_students')
+          .from('vtutor_operational_sessions_students')
           .select('session_id')
           .in('session_id', sessionIds)
           .eq('planned_absence', false);

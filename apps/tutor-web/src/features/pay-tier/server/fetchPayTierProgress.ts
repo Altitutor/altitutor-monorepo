@@ -74,7 +74,7 @@ async function fetchCheckIns(
   promotions: StaffTierPromotionRecord[]
 ): Promise<PayTierCheckIn[]> {
   const { data, error } = await client
-    .from('vtutor_session_detail')
+    .from('vtutor_operational_session_detail')
     .select('session_id, start_at, end_at, session_type, subject_name, staff')
     .eq('session_type', 'CHECK_IN')
     .order('start_at', { ascending: false });

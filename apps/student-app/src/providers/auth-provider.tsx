@@ -48,7 +48,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
       session,
       async signOut() {
         await disablePushNotifications();
-        const { error } = await supabase.auth.signOut();
+        const { error } = await supabase.auth.signOut({ scope: "local" });
         if (error) throw error;
       },
     }),

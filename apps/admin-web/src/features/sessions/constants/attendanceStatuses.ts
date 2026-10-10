@@ -14,12 +14,13 @@ export const STUDENT_PLANNED_STATUSES = {
   ATTENDING_TRIAL: 'attending-trial',
   ATTENDING_EXTRA_TRIAL: 'attending-extra-trial',
   ABSENT: 'absent',
-  RESCHEDULED: 'rescheduled',
-  CREDITED: 'credited',
   UNPLANNED: 'unplanned',
 } as const;
 
 export type StudentPlannedStatus = typeof STUDENT_PLANNED_STATUSES[keyof typeof STUDENT_PLANNED_STATUSES];
+
+/** Financial treatment selected for a planned student absence. */
+export type AbsenceBillingTreatment = 'charge' | 'credit' | 'replacement';
 
 /**
  * Actual attendance statuses for students
@@ -65,8 +66,9 @@ export type StudentAttendanceStatus = {
   actualStatus: StudentActualStatus;
   rescheduledSessionId: string;
   rescheduledDate: string;
-  /** Formatted dd/MM/yyyy when planned absence was credited (sessions_students.credited_at). */
-  creditedDisplayDate: string;
+  absenceTreatment: AbsenceBillingTreatment | null;
+  /** Date the credit treatment was selected, not confirmation of a financial credit. */
+  absenceTreatmentRecordedDate: string;
 };
 
 /**

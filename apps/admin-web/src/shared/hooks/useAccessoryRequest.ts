@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useRef } from "react";
 import {
-  useAccessoryPanel,
+  useAccessoryPanelActions,
   type AccessoryKind,
 } from "@/shared/contexts/AccessoryPanelContext";
 import { useAccessoryTab } from "@/shared/contexts/AccessoryTabContext";
@@ -11,7 +11,7 @@ export function useAccessoryRequest(
   id: string | null,
   onClose: () => void,
 ) {
-  const panel = useAccessoryPanel();
+  const panel = useAccessoryPanelActions();
   const scope = useAccessoryTab();
   const openTab = scope?.navigate ?? panel?.openTab;
   const close = useRef(onClose);

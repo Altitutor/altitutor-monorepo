@@ -2,7 +2,7 @@
 import { useMemo } from "react";
 import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import {
-  useAccessoryPanel,
+  useAccessoryPanelActions,
   type AccessoryKind,
   accessoryFamily,
 } from "@/shared/contexts/AccessoryPanelContext";
@@ -43,7 +43,7 @@ export function usePaneNavigation() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const panel = useAccessoryPanel();
+  const panel = useAccessoryPanelActions();
   const scope = useAccessoryTab();
   return useMemo(() => {
     const navigate = (href: string, options?: { scroll?: boolean }) => {

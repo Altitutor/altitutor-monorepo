@@ -17,6 +17,7 @@ import { Check, X, MoreVertical, ExternalLink, Copy, Calendar, RotateCcw, Trash2
 import type { Tables } from '@altitutor/shared';
 import { cn } from '@/shared/utils/index';
 import { TutorLogAvatar } from './TutorLogAvatar';
+import { AbsenceTreatmentCell } from './AbsenceTreatmentCell';
 import { AttendanceCell } from './AttendanceCell';
 import { getInvoiceStatusBadge } from '@/features/billing/utils/invoiceFormatters';
 import { getStudentAttendanceStatus, getStaffAttendanceStatus } from '../utils/sessionsTableAttendance';
@@ -26,8 +27,8 @@ import { SessionTableClassColumn } from './SessionTableClassColumn';
 import type { SessionTableStudent, SessionTableStaff } from '../types/sessions-table';
 import type { UseSessionsTableModalsReturn } from '../hooks/useSessionsTableModals';
 import { useInvoiceSessionMutation } from '../hooks/useInvoiceSessionMutation';
-import { STUDENT_PLANNED_STATUSES } from '../constants/attendanceStatuses';
-import type { StudentPlannedStatus } from '../constants/attendanceStatuses';
+import { STAFF_PLANNED_STATUSES, STUDENT_PLANNED_STATUSES } from '../constants/attendanceStatuses';
+import type { StaffPlannedStatus, StudentPlannedStatus } from '../constants/attendanceStatuses';
 import { SessionInvoiceCell } from './SessionInvoiceCell';
 import type { SessionInvoiceDetails, SessionInvoicePreview } from '../hooks/useStudentSessionBillingDetails';
 
@@ -38,11 +39,12 @@ type TutorLogMap = Record<
 
 function studentHasLoggedAbsence(planned: StudentPlannedStatus | undefined): boolean {
   if (!planned) return false;
-  return (
-    planned === STUDENT_PLANNED_STATUSES.ABSENT ||
-    planned === STUDENT_PLANNED_STATUSES.RESCHEDULED ||
-    planned === STUDENT_PLANNED_STATUSES.CREDITED
-  );
+  return planned === STUDENT_PLANNED_STATUSES.ABSENT;
+}
+
+function staffHasLoggedAbsence(planned: StaffPlannedStatus | undefined): boolean {
+  if (!planned) return false;
+  return planned === STAFF_PLANNED_STATUSES.ABSENT || planned === STAFF_PLANNED_STATUSES.SWAPPED;
 }
 
 export interface SessionsTableRowProps {
@@ -275,25 +277,7 @@ export function SessionsTableRow({
               );
               const attendance = getStudentAttendanceStatus(selectedStudent, hasTutorLog, plannedStudentIds);
               return (
-                <AttendanceCell
-                  status={attendance.plannedStatus}
-                  linkTo={
-                    attendance.plannedStatus === 'rescheduled' && attendance.rescheduledSessionId
-                      ? {
-                          type: 'session',
-                          id: attendance.rescheduledSessionId,
-                          onClick: () => onOpenSession?.(attendance.rescheduledSessionId),
-                        }
-                      : undefined
-                  }
-                  linkText={
-                    attendance.plannedStatus === 'rescheduled'
-                      ? attendance.rescheduledDate
-                      : attendance.plannedStatus === 'credited' && attendance.creditedDisplayDate
-                        ? attendance.creditedDisplayDate
-                        : undefined
-                  }
-                />
+                <AttendanceCell status={attendance.plannedStatus} />
               );
             })()
           ) : isStaffAttendanceView ? (
@@ -346,6 +330,27 @@ export function SessionsTableRow({
           ) : (
             <span className="text-muted-foreground text-sm">-</span>
           )}
+        </TableCell>
+      )}
+      {isStudentAttendanceView && visibleColumns.includes('absence_treatment') && (
+        <TableCell>
+          {(() => {
+            const student = studentList.find((row) => row.id === studentId) || studentList[0];
+            if (!student) return <span className="text-muted-foreground">—</span>;
+            const plannedStudentIds = new Set(
+              studentList.filter((row) => row.sessions_students_id != null).map((row) => row.id)
+            );
+            const attendance = getStudentAttendanceStatus(student, hasTutorLog, plannedStudentIds);
+            return (
+              <AbsenceTreatmentCell
+                treatment={attendance.absenceTreatment}
+                recordedDate={attendance.absenceTreatmentRecordedDate}
+                replacementSessionId={attendance.rescheduledSessionId}
+                replacementSessionLabel={attendance.rescheduledDate}
+                onOpenSession={onOpenSession}
+              />
+            );
+          })()}
         </TableCell>
       )}
       {visibleColumns.includes('invoice') && (
@@ -423,6 +428,7 @@ export function SessionsTableRow({
             onRemoveStaffFromSession={onRemoveStaffFromSession}
             onRemoveParentFromSession={onRemoveParentFromSession}
             modals={modals}
+            currentStaff={currentStaff}
             onCopySessionId={onCopySessionId}
             router={router}
             toast={toast}
@@ -496,7 +502,7 @@ function SessionsTableRowStudentActions({
   const canUndoStudent =
     onUndoLogAbsenceStudent &&
     selectedStudent?.sessions_students_id &&
-    (attendance?.plannedStatus === 'credited' || attendance?.plannedStatus === 'rescheduled');
+    (attendance?.absenceTreatment === 'credit' || attendance?.absenceTreatment === 'replacement');
   const rescheduledSession =
     selectedStudent?.rescheduled_session?.session?.id &&
     allSessions.find((s) => s.id === selectedStudent.rescheduled_session?.session?.id);
@@ -523,7 +529,7 @@ function SessionsTableRowStudentActions({
       : !selectedStudent?.sessions_students_id
         ? 'Student enrollment data is missing for this session.'
         : attendance?.plannedStatus === STUDENT_PLANNED_STATUSES.ABSENT
-          ? 'Only credited or rescheduled absences can be undone.'
+          ? 'Only absences with credit or replacement treatment can be undone.'
           : 'This absence cannot be undone.';
   const removeStudentReason = canRemoveStudent
     ? ''
@@ -583,7 +589,7 @@ function SessionsTableRowStudentActions({
                   studentId: selectedStudent.id,
                   studentName,
                   sessionsStudentsId: selectedStudent.sessions_students_id!,
-                  action: attendance.plannedStatus === 'rescheduled' ? 'reschedule' : 'credit',
+                  action: attendance.absenceTreatment === 'replacement' ? 'reschedule' : 'credit',
                   rescheduledSessionTitle,
                   sessionShortName,
                 });
@@ -648,6 +654,7 @@ interface SessionsTableRowDefaultActionsProps {
   onRemoveStaffFromSession?: (sessionId: string, staffId: string, staffName: string, sessionShortName?: string) => void;
   onRemoveParentFromSession?: (sessionId: string, sessionShortName?: string) => void;
   modals: UseSessionsTableModalsReturn;
+  currentStaff: { id: string } | null | undefined;
   onCopySessionId: (id: string, displayText: string) => Promise<void>;
   router: { push: (path: string) => void };
   toast: ReturnType<typeof useToast>['toast'];
@@ -665,19 +672,34 @@ function SessionsTableRowDefaultActions({
   onRemoveStaffFromSession,
   onRemoveParentFromSession,
   modals,
+  currentStaff,
   onCopySessionId,
   router,
   toast,
 }: SessionsTableRowDefaultActionsProps) {
   const selectedStaff = staffList.find((s) => s.id === staffId) || staffList[0];
   const staffAttendance = selectedStaff ? getStaffAttendanceStatus(selectedStaff, hasTutorLog) : null;
+  const loggedStaffAbsence = staffHasLoggedAbsence(staffAttendance?.plannedStatus);
+  const canLogStaffAbsence = !!selectedStaff && !!staffId && !hasTutorLog;
+  const canOpenStaffAbsenceDialog = !!currentStaff && !!staffId;
   const canUndoStaff =
     onUndoLogAbsenceStaff &&
     selectedStaff?.sessions_staff_id &&
-    (staffAttendance?.plannedStatus === 'absent' || staffAttendance?.plannedStatus === 'swapped');
+    loggedStaffAbsence;
   const canRemoveStaff = !hasTutorLog && !!onRemoveStaffFromSession && !!selectedStaff;
+  const logStaffAbsenceReason = hasTutorLog
+    ? 'Session already has a tutor log.'
+    : !selectedStaff
+      ? 'No staff member found for this session.'
+      : !staffId
+        ? 'Staff context is required to log an absence.'
+        : '';
   const undoStaffReason =
-    canUndoStaff && selectedStaff && staffAttendance ? '' : 'No logged absence to undo for this staff.';
+    canUndoStaff && selectedStaff && staffAttendance
+      ? ''
+      : !selectedStaff?.sessions_staff_id
+        ? 'Staff enrollment data is missing for this session.'
+        : 'No logged absence to undo for this staff.';
   const removeStaffReason = canRemoveStaff
     ? ''
     : hasTutorLog
@@ -692,7 +714,31 @@ function SessionsTableRowDefaultActions({
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        {onUndoLogAbsenceStaff && (
+        {staffId && !loggedStaffAbsence && (
+          <>
+            <DropdownMenuItem
+              className={cn(
+                !(canLogStaffAbsence && canOpenStaffAbsenceDialog) && 'opacity-60 text-muted-foreground',
+              )}
+              onClick={(e) => {
+                e.stopPropagation();
+                if (canLogStaffAbsence && canOpenStaffAbsenceDialog) {
+                  modals.openLogStaffAbsenceDialog(session.id);
+                } else {
+                  toast({
+                    description: logStaffAbsenceReason || 'Cannot log absence.',
+                    variant: 'destructive',
+                  });
+                }
+              }}
+            >
+              <Calendar className="h-4 w-4 mr-2" />
+              Log staff absence
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+          </>
+        )}
+        {onUndoLogAbsenceStaff && loggedStaffAbsence && (
           <>
             <DropdownMenuItem
               className={cn(!(canUndoStaff && selectedStaff && staffAttendance) && 'opacity-60 text-muted-foreground')}

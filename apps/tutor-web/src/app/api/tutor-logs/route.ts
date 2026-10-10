@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
     // Verify the session is accessible by this tutor (check vtutor_sessions view)
     const { data: sessionAccess, error: sessionError } = await userClient
       .from('vtutor_sessions')
-      .select('session_id, start_at, session_type')
+      .select('session_id, start_at, session_type, session_status, calendar_tombstone_until')
       .eq('session_id', body.sessionId)
       .maybeSingle();
     
@@ -92,9 +92,16 @@ export async function POST(request: NextRequest) {
 
     type SessionAccess = Pick<
       Database['public']['Views']['vtutor_sessions']['Row'],
-      'session_id' | 'start_at' | 'session_type'
+      'session_id' | 'start_at' | 'session_type' | 'session_status' | 'calendar_tombstone_until'
     >;
     const typedSessionAccess = sessionAccess as SessionAccess;
+
+    if (typedSessionAccess.session_status !== 'ACTIVE' || typedSessionAccess.calendar_tombstone_until !== null) {
+      return NextResponse.json(
+        { error: 'Cannot log an inactive or cancelled session.' },
+        { status: 400 }
+      );
+    }
 
     // Block logging until the session has started (start_at is a UTC instant in DB)
     if (!hasSessionStarted(typedSessionAccess.start_at)) {

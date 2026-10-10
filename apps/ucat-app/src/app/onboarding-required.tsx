@@ -58,7 +58,7 @@ export default function OnboardingRequired() {
         disabled={busy}
         onPress={() => {
           void disablePushNotifications()
-            .then(() => supabase.auth.signOut())
+            .then(() => supabase.auth.signOut({ scope: "local" }))
             .then(({ error }) => {
               if (error) setError(error);
             })

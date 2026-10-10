@@ -1,4 +1,5 @@
-import { Alert, Linking } from "react-native";
+import { openPrivacyPolicy } from "@/features/settings/open-privacy-policy";
+import { Alert } from "react-native";
 import { Action, Group, Row, Screen } from "@/components/ui";
 import { haptic } from "@/lib/haptics";
 import { supabase } from "@/lib/supabase";
@@ -19,7 +20,7 @@ export default function Settings() {
       <Action
         title="Privacy policy"
         secondary
-        onPress={() => void Linking.openURL("https://altitutor.com/mobile-privacy/")}
+        onPress={() => void openPrivacyPolicy()}
       />
       <Action
         title="Sign out"
@@ -37,7 +38,7 @@ export default function Settings() {
                 onPress: () => {
                   haptic("warning");
                   void disablePushNotifications()
-                    .then(() => supabase.auth.signOut())
+                    .then(() => supabase.auth.signOut({ scope: "local" }))
                     .then(({ error }) => {
                       if (error) Alert.alert("Unable to sign out", error.message);
                     })

@@ -302,7 +302,9 @@ export const staffApi = {
         supabase
           .from('sessions_staff')
           .select('sessions!inner(*)')
-          .eq('staff_id', staffId),
+          .eq('staff_id', staffId)
+          .eq('sessions.status', 'ACTIVE')
+          .is('sessions.calendar_tombstone_until', null),
       ]);
 
       if (subjectsResult.error) throw subjectsResult.error;

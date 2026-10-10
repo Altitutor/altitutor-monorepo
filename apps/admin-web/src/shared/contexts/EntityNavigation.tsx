@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePaneNavigation } from "@/shared/hooks/usePaneNavigation";
-import { useAccessoryPanel } from "./AccessoryPanelContext";
+import { useAccessoryPanelActions } from "./AccessoryPanelContext";
 import {
   FilePreviewModal,
   GenericFilePreviewModal,
@@ -64,7 +64,7 @@ const primaryRoutes: Record<string, string> = {
 };
 export function useEntityNavigation(): EntityNavigationType {
   const { router } = usePaneNavigation();
-  const panel = useAccessoryPanel();
+  const panel = useAccessoryPanelActions();
   const scope = useAccessoryTab();
   const openTab = scope?.navigate ?? panel?.openTab;
   const collapse = panel?.collapse;
@@ -148,7 +148,7 @@ function getEntityTypeFromEventName(eventName: string): EntityType | null {
 export function EntityNavigationEvents({ children }: { children: ReactNode }) {
   const { openEntity } = useEntityNavigation();
   const { router } = usePaneNavigation();
-  const panel = useAccessoryPanel();
+  const panel = useAccessoryPanelActions();
   const openTab = panel?.openTab;
   const collapse = panel?.collapse;
   const [file, setFile] = useState<{

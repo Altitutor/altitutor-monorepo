@@ -25,7 +25,7 @@ import { useSessionsTable } from '../hooks/useSessionsTable';
 import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
 import { useDataTable } from '@/shared/hooks/useDataTable';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { LogAbsenceDialog } from './absences';
+import { LogAbsenceDialog, LogStaffAbsenceDialog } from './absences';
 import { SessionsTableRow } from './SessionsTableRow';
 import { useUninvoicedSessions } from '@/features/reconciliation/api/queries';
 import { useStudentSessionBillingDetails } from '../hooks/useStudentSessionBillingDetails';
@@ -134,7 +134,7 @@ export function SessionsTable({
   const defaultSort = useMemo(() => ({ field: 'start_at', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => {
     if (isStudentAttendanceView) {
-      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'invoice'];
+      return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'absence_treatment', 'invoice'];
     }
     if (isStaffAttendanceView) {
       return ['date', 'time', 'class', 'planned_attendance', 'actual_attendance', 'tutor_log'];
@@ -291,6 +291,7 @@ export function SessionsTable({
         { key: 'class', label: 'Subject' },
         { key: 'planned_attendance', label: 'Planned Attendance' },
         { key: 'actual_attendance', label: 'Actual Attendance' },
+        { key: 'absence_treatment', label: 'Absence Treatment' },
         { key: 'invoice', label: 'Invoice' },
       ];
     }
@@ -459,6 +460,7 @@ export function SessionsTable({
               )}
               {state.visibleColumns.includes('planned_attendance') && <TableHead>Planned Attendance</TableHead>}
               {state.visibleColumns.includes('actual_attendance') && <TableHead>Actual Attendance</TableHead>}
+              {isStudentAttendanceView && state.visibleColumns.includes('absence_treatment') && <TableHead>Absence Treatment</TableHead>}
               {state.visibleColumns.includes('invoice') && <TableHead>Invoice</TableHead>}
               {state.visibleColumns.includes('tutor_log') && <TableHead>Tutor Log</TableHead>}
               <TableHead></TableHead>
@@ -563,6 +565,18 @@ export function SessionsTable({
           staffId={currentStaff.id}
           initialStudentId={studentId}
           initialSessionId={modals.studentAbsenceSessionId}
+          allowPastSessions={true}
+        />
+      )}
+
+      {/* Log Staff Absence Dialog (staff attendance view) */}
+      {currentStaff && modals.staffAbsenceSessionId && staffId && (
+        <LogStaffAbsenceDialog
+          isOpen={modals.isLogStaffAbsenceDialogOpen}
+          onClose={modals.closeLogStaffAbsenceDialog}
+          staffId={currentStaff.id}
+          initialStaffId={staffId}
+          initialSessionId={modals.staffAbsenceSessionId}
           allowPastSessions={true}
         />
       )}

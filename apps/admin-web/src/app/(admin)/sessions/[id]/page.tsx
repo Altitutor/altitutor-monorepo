@@ -27,6 +27,7 @@ import { LogSessionModal, EditTutorLogDialog } from "@/features/tutor-logs";
 import { useCurrentStaff } from "@/shared/hooks";
 import { formatTime } from "@/shared/utils/datetime";
 import {
+  formatSessionLongDate,
   formatSessionNavigationDate,
   getAdjacentSessionSiblings,
   getSessionNavigationLabel,
@@ -414,76 +415,6 @@ function SessionDetailView({ id }: { id: string }) {
         <PrimaryEntityBreadcrumb label={sessionTitle || undefined} />
 
         <IssuePill entityType="session" entityId={id} enabled />
-        {classId ? (
-          <div className="flex items-center gap-1 md:gap-2">
-            {previousClassSession ? (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-14 flex-col gap-0.5 py-1"
-                onClick={() => handleOpenSession(previousClassSession.id)}
-                aria-label="Previous session in class"
-                title={`Previous session: ${getSessionNavigationLabel(previousClassSession)}`}
-              >
-                <ChevronLeft className="h-4 w-4" />
-                <span className="text-[10px] font-normal leading-none text-muted-foreground">
-                  {formatSessionNavigationDate(previousClassSession.start_at)}
-                </span>
-              </Button>
-            ) : null}
-            <div className="hidden md:block">
-              <SearchableSelect<Tables<"sessions">>
-                items={classSessions}
-                value={selectedClassSession}
-                onValueChange={(selectedSession) => {
-                  if (selectedSession) handleOpenSession(selectedSession.id);
-                }}
-                getItemId={(classSession) => classSession.id}
-                getItemLabel={getSessionNavigationLabel}
-                getItemValue={(classSession) =>
-                  [
-                    getSessionNavigationLabel(classSession),
-                    classSession.long_name,
-                    classSession.short_name,
-                  ]
-                    .filter(Boolean)
-                    .join(" ")
-                }
-                searchPlaceholder="Search session dates or times…"
-                emptyMessage="No class sessions found."
-                loading={classSessionsQuery.isLoading}
-                disabled={
-                  classSessionsQuery.isLoading || classSessions.length === 0
-                }
-                contentWidth="280px"
-                align="end"
-                trigger={
-                  <SearchableSelectFieldTrigger
-                    className="h-10 w-24 px-2 text-sm"
-                    aria-label="Select class session"
-                  >
-                    {formatSessionNavigationDate(session.start_at)}
-                  </SearchableSelectFieldTrigger>
-                }
-              />
-            </div>
-            {nextClassSession ? (
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-10 w-14 flex-col gap-0.5 py-1"
-                onClick={() => handleOpenSession(nextClassSession.id)}
-                aria-label="Next session in class"
-                title={`Next session: ${getSessionNavigationLabel(nextClassSession)}`}
-              >
-                <ChevronRight className="h-4 w-4" />
-                <span className="text-[10px] font-normal leading-none text-muted-foreground">
-                  {formatSessionNavigationDate(nextClassSession.start_at)}
-                </span>
-              </Button>
-            ) : null}
-          </div>
-        ) : null}
 
         <ActionsMenu
           type="session"
@@ -521,6 +452,84 @@ function SessionDetailView({ id }: { id: string }) {
           <SessionDetailsTab
             key={`session-details-${id}-${isEditing}`}
             session={session}
+            dayNavigation={
+              classId ? (
+                <div className="flex flex-wrap items-center gap-1">
+                  {previousClassSession ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-14 flex-col gap-0.5 py-1"
+                      onClick={() => handleOpenSession(previousClassSession.id)}
+                      aria-label="Previous session in class"
+                      title={`Previous session: ${getSessionNavigationLabel(previousClassSession)}`}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      <span className="text-[10px] font-normal leading-none text-muted-foreground">
+                        {formatSessionNavigationDate(
+                          previousClassSession.start_at,
+                        )}
+                      </span>
+                    </Button>
+                  ) : null}
+                  <div className="min-w-0">
+                    <SearchableSelect<Tables<"sessions">>
+                      items={classSessions}
+                      value={selectedClassSession}
+                      onValueChange={(selectedSession) => {
+                        if (selectedSession)
+                          handleOpenSession(selectedSession.id);
+                      }}
+                      getItemId={(classSession) => classSession.id}
+                      getItemLabel={getSessionNavigationLabel}
+                      getItemValue={(classSession) =>
+                        [
+                          getSessionNavigationLabel(classSession),
+                          classSession.long_name,
+                          classSession.short_name,
+                        ]
+                          .filter(Boolean)
+                          .join(" ")
+                      }
+                      searchPlaceholder="Search session dates or times…"
+                      emptyMessage="No class sessions found."
+                      loading={classSessionsQuery.isLoading}
+                      disabled={
+                        classSessionsQuery.isLoading ||
+                        classSessions.length === 0
+                      }
+                      contentWidth="280px"
+                      align="end"
+                      trigger={
+                        <SearchableSelectFieldTrigger
+                          className="h-10 max-w-full px-2 text-sm"
+                          aria-label="Select class session"
+                        >
+                          {session.start_at
+                            ? formatSessionLongDate(session.start_at)
+                            : "—"}
+                        </SearchableSelectFieldTrigger>
+                      }
+                    />
+                  </div>
+                  {nextClassSession ? (
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      className="h-10 w-14 flex-col gap-0.5 py-1"
+                      onClick={() => handleOpenSession(nextClassSession.id)}
+                      aria-label="Next session in class"
+                      title={`Next session: ${getSessionNavigationLabel(nextClassSession)}`}
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                      <span className="text-[10px] font-normal leading-none text-muted-foreground">
+                        {formatSessionNavigationDate(nextClassSession.start_at)}
+                      </span>
+                    </Button>
+                  ) : null}
+                </div>
+              ) : null
+            }
             studentsData={studentsData}
             staffData={staffData}
             tutorLog={tutorLog}

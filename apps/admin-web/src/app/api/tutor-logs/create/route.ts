@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     const { data: sessionToLog, error: sessionToLogError } = await supabase
       .from('sessions')
-      .select('id')
+      .select('id, status, calendar_tombstone_until')
       .eq('id', data.sessionId)
       .maybeSingle();
 
@@ -87,6 +87,13 @@ export async function POST(request: Request) {
 
     if (!sessionToLog) {
       return NextResponse.json({ error: 'Session not found' }, { status: 404 });
+    }
+
+    if (sessionToLog.status !== 'ACTIVE' || sessionToLog.calendar_tombstone_until !== null) {
+      return NextResponse.json(
+        { error: 'Cannot log an inactive or cancelled session.' },
+        { status: 400 }
+      );
     }
 
     const { data: assignment, error: assignmentError } = await supabase

@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 
 test.use({ viewport: { width: 393, height: 852 } });
 
@@ -137,14 +137,21 @@ test("UCAT feature trigger waits for hydration before accepting clicks @compat",
   await expect(page.getByRole("dialog")).toBeVisible();
 });
 
+async function openUcatFeatureSheet(page: Page) {
+  const trigger = page.getByRole("button", { name: "Learn more" }).first();
+  await expect(trigger).toBeEnabled();
+  await trigger.click();
+  const sheet = page.getByRole("dialog");
+  await expect(sheet).toBeVisible();
+  return sheet;
+}
+
 test("UCAT feature sheet animates from the bottom and can reopen @compat", async ({
   page,
 }) => {
   await page.goto("/ucat/");
   for (let attempt = 0; attempt < 2; attempt++) {
-    await page.getByRole("button", { name: "Learn more" }).first().click();
-    const sheet = page.getByRole("dialog");
-    await expect(sheet).toBeVisible();
+    const sheet = await openUcatFeatureSheet(page);
     await expect(sheet).toHaveCSS(
       "animation-name",
       "ui-dialog-bottom-sheet-in",

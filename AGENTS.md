@@ -30,7 +30,9 @@ Altitutor monorepo (pnpm + Turborepo).
 
 ## Tracking
 
-- Issues/specs live in Obsidian (not Linear). See `docs/agents/issue-tracker.md`.
+- Verified tracker: Altitutor workspace `928fdb63-c8a2-4540-8ab0-a3d0293d03bb`, Dev (`DEV`) team `a477ee8f-c947-4a6d-a1d8-3575d9185a32`. Verify both through the connector before writes. All170 Obsidian sources are mapped to DEV issues; exact migration evidence and recoverable cleanup receipts are on [DEV-1](https://linear.app/altitutor/issue/DEV-1/verify-obsidian-source-migration-evidence-and-recoverable-cleanup). Icebox is present and excluded from agent execution unless Matthew explicitly promotes an issue. The old `altitutor-archive` workspace is read-only; Every Language is unrelated. Browser fallback is forbidden. See `docs/agents/issue-tracker.md`.
+
+- Issues/specs and durable progress live in the Altitutor Linear workspace. See `docs/agents/issue-tracker.md`.
 - Stress-test plans with `/grill-with-docs`
 
 ## Development portal testing
@@ -41,7 +43,7 @@ Altitutor monorepo (pnpm + Turborepo).
 
 ### Issue tracker
 
-Issues live as Obsidian markdown notes under `Areas/Altitutor/Issues/` in the Matt Remote vault. See `docs/agents/issue-tracker.md`.
+Linear is canonical for scheduled and manually started Codex work. Link or create the relevant Dev (DEV) issue before implementation; publish durable progress, candidate SHA, verification evidence, and human-review links there. Icebox is excluded from agent work unless Matthew explicitly asks to move it out. Read the current issue and check claims before taking over work. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 

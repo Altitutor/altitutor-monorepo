@@ -169,3 +169,28 @@ the OAuth application connected. Disconnecting removes the admin grant first, th
 revokes the OAuth grant; if OAuth revocation fails, the page reports the partial
 success and permits retrying. Reconnection requires authorisation and a new explicit
 admin grant. These controls do not affect other administrators’ grants.
+
+### OAuth refresh failures after portal logout
+
+Ordinary app logout must use `signOut({ scope: 'local' })`. Supabase's default
+`global` scope deletes every session for the user, including sessions issued to
+OAuth clients. Existing access tokens can work until they expire, after which
+`POST /auth/v1/oauth/token` fails with `refresh_token_not_found`. OAuth consent and
+`admin_mcp_grants` can remain present even though the session has been deleted.
+Password-reset cleanup intentionally retains global logout.
+
+The local reproduction runs a real PKCE authorization, code exchange and refresh,
+then compares default logout (refresh fails) with local logout (refresh succeeds):
+
+```bash
+python3 scripts/diagnostics/oauth-refresh-logout.py
+```
+
+Inspect production Supabase Auth logs for `/oauth/token` and
+`refresh_token_not_found`, and correlate them with the tool-call time. Portal
+logout events also appear in `auth.audit_log_entries`. Vercel logs for `/api/mcp`
+only cover requests that reach the MCP server; refresh failures can occur before
+that request. MCP authorization currently returns unauthorized without recording
+the underlying reason in Sentry. Reconnect an affected client to obtain a new
+session after the logout fix is deployed; an existing deleted session cannot be
+restored by changing the application code.

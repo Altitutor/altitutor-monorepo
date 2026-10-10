@@ -15,7 +15,7 @@ created: 2026-08-15
 
 # Show Apple iMessage vs SMS on Mac-bridge messages
 
-Obsidian issue tracker was not reachable from this agent. This spec lives in the repo until it can be copied into `Areas/Altitutor/Issues/`.
+Retained technical reference. Linear is the canonical tracker; do not export this spec to Obsidian. No exact matching destination for this separate Apple transport-visibility spec was verified during the 2026-10-08 issue migration. Resolve its ownership and current implementation against [DEV-1](https://linear.app/altitutor/issue/DEV-1/verify-obsidian-source-migration-evidence-and-recoverable-cleanup) and the [verified Dev mapping](https://linear.app/altitutor/document/verified-170-source-obsidian-to-dev-migration-mapping-3ca727ab8dfc) before creating or implementing work. The read-only archive audit is historical provenance. The messaging retry issue is related context, not an equivalent scope.
 
 Triage: `ready-for-agent` / `Ready to Implement`. Grilled 2026-08-15. Related (separate, in progress on the Mac connector): first-contact DM create-then-send. That fix does not persist Apple service or change AdminWeb colours.
 

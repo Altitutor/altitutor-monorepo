@@ -43,21 +43,25 @@ describe('tutorLogsApi.getUnloggedSessions', () => {
         session_type: 'CHECK_IN',
         start_at: '2024-01-03T10:00:00Z',
       },
-    ];
+      { session_id: 'inactive', session_type: 'CLASS', start_at: '2024-01-01T10:00:00Z', session_status: 'INACTIVE' },
+      { session_id: 'tombstoned', session_type: 'CLASS', start_at: '2024-01-01T10:00:00Z', calendar_tombstone_until: '2024-05-01T00:00:00Z' },
+    ].map((session) => ({ session_status: 'ACTIVE', calendar_tombstone_until: null, ...session }));
 
+    let requestedStatus: string | null = null;
+    let excludeTombstones = false;
     let requestedSessionTypes: string[] | null = null;
     const sessionQuery = {
       select: jest.fn(),
       in: jest.fn(),
       eq: jest.fn(),
+      is: jest.fn(),
       lte: jest.fn(),
       order: jest.fn().mockImplementation(async () => ({
-        data:
-          requestedSessionTypes == null
-            ? sessions
-            : sessions.filter((session) =>
-                requestedSessionTypes?.includes(session.session_type),
-              ),
+        data: sessions.filter((session) =>
+          (requestedSessionTypes == null || requestedSessionTypes.includes(session.session_type)) &&
+          (requestedStatus == null || session.session_status === requestedStatus) &&
+          (!excludeTombstones || session.calendar_tombstone_until === null),
+        ),
         error: null,
       })),
     };
@@ -68,6 +72,11 @@ describe('tutorLogsApi.getUnloggedSessions', () => {
     });
     sessionQuery.eq.mockImplementation((column: string, value: string) => {
       if (column === 'session_type') requestedSessionTypes = [value];
+      if (column === 'session_status') requestedStatus = value;
+      return sessionQuery;
+    });
+    sessionQuery.is.mockImplementation((column: string) => {
+      if (column === 'calendar_tombstone_until') excludeTombstones = true;
       return sessionQuery;
     });
     sessionQuery.lte.mockReturnValue(sessionQuery);
@@ -114,7 +123,7 @@ describe('tutorLogsApi.getUnloggedSessions', () => {
     detailQuery.select.mockReturnValue(detailQuery);
 
     const from = jest.fn((table: string) => {
-      if (table === 'vtutor_sessions') return sessionQuery;
+      if (table === 'vtutor_operational_sessions') return sessionQuery;
       if (table === 'vtutor_tutor_log') return logQuery;
       if (table === 'vtutor_session_detail') return detailQuery;
       throw new Error(`Unexpected table: ${table}`);

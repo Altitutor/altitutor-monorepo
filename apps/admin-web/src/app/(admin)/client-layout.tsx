@@ -2,6 +2,7 @@
 
 import { AdminShortcuts } from '@/shared/shortcuts/AdminShortcuts';
 import { ProfileMenu } from '@/shared/components/layouts/ProfileMenu';
+import { MobileSidebar } from '@/shared/components/layouts/MobileSidebar';
 import { AccessoryPanelLayout } from '@/shared/components/accessory-panel/AccessoryPanelLayout';
 
 import React, { useState, useEffect } from 'react';
@@ -442,113 +443,17 @@ function AdminNavMenu({
 }
 
 function MobileMenu({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const pathname = usePathname();
-  const dragStartYRef = React.useRef<number | null>(null);
-  const dragOffsetRef = React.useRef(0);
-  const [dragOffset, setDragOffset] = useState(0);
-
-  useEffect(() => {
-    if (isOpen) {
-      document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = '';
-    }
-    return () => {
-      document.body.style.overflow = '';
-    };
-  }, [isOpen]);
-
-  useEffect(() => {
-    if (!isOpen) return;
-
-    const handleClickOutside = (event: MouseEvent) => {
-      const target = event.target as HTMLElement;
-      if (target.hasAttribute('data-mobile-menu-overlay')) {
-        onClose();
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [isOpen, onClose]);
-
-  // Close menu when route changes
-  useEffect(() => {
-    onClose();
-  }, [pathname, onClose]);
-
-  useEffect(() => {
-    if (!isOpen) {
-      dragStartYRef.current = null;
-      dragOffsetRef.current = 0;
-      setDragOffset(0);
-    }
-  }, [isOpen]);
-
-  const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
-    dragStartYRef.current = event.touches[0]?.clientY ?? null;
-    dragOffsetRef.current = 0;
-    setDragOffset(0);
-  };
-
-  const handleTouchMove = (event: React.TouchEvent<HTMLDivElement>) => {
-    if (dragStartYRef.current == null) return;
-    const nextOffset = Math.max(0, (event.touches[0]?.clientY ?? dragStartYRef.current) - dragStartYRef.current);
-    dragOffsetRef.current = nextOffset;
-    setDragOffset(nextOffset);
-  };
-
-  const handleTouchEnd = () => {
-    if (dragOffsetRef.current > 96) {
-      onClose();
-    }
-    dragStartYRef.current = null;
-    dragOffsetRef.current = 0;
-    setDragOffset(0);
-  };
-
   return (
-    <>
-      {/* Overlay */}
-      {isOpen && (
-        <div
-          data-mobile-menu-overlay
-          className="fixed inset-x-0 bottom-0 top-[var(--navbar-height)] z-[70] bg-black/60 transition-opacity md:hidden"
-          onClick={onClose}
-        />
-      )}
-
-      <div
-        className={cn(
-          "fixed inset-x-0 bottom-0 z-[80] flex h-[88dvh] max-h-[calc(100dvh-var(--navbar-height))] flex-col overflow-hidden rounded-t-3xl bg-card ring-1 ring-black/10 transition-transform duration-300 ease-out dark:ring-white/10 md:hidden",
-          dragStartYRef.current != null && "transition-none",
-          isOpen ? "translate-y-0" : "translate-y-full"
-        )}
-        style={isOpen && dragOffset > 0 ? { transform: `translateY(${dragOffset}px)` } : undefined}
-      >
-        <div className="flex flex-col h-full">
-          <div
-            className="flex h-14 touch-pan-y items-center border-b px-4"
-            onTouchStart={handleTouchStart}
-            onTouchMove={handleTouchMove}
-            onTouchEnd={handleTouchEnd}
-            onTouchCancel={handleTouchEnd}
-          >
-            <h2 className="text-lg font-semibold">Altitutor Admin</h2>
-          </div>
-
-          <ScrollArea className="flex-1">
-            <nav className="flex flex-col gap-1 p-2">
-              <AdminNavMenu onAccessoryNavigate={onClose} />
-            </nav>
-          </ScrollArea>
-
-          <div className="border-t p-2">
-            <ProfileMenu onNavigate={onClose} />
-          </div>
-        </div>
+    <MobileSidebar isOpen={isOpen} onClose={onClose}>
+      <ScrollArea className="min-h-0 flex-1">
+        <nav className="flex flex-col gap-1 p-2">
+          <AdminNavMenu onAccessoryNavigate={onClose} />
+        </nav>
+      </ScrollArea>
+      <div className="border-t p-2">
+        <ProfileMenu onNavigate={onClose} />
       </div>
-    </>
+    </MobileSidebar>
   );
 }
 

@@ -7,7 +7,8 @@ import {
   type ReactNode,
   type CSSProperties,
 } from "react";
-import { DialogScopeProvider, DialogScopePane } from "@altitutor/ui";
+import { DialogScopeProvider, DialogScopePane, useMediaQuery } from "@altitutor/ui";
+import { usePathname, useSearchParams } from "next/navigation";
 import styles from "./accessory-panel.module.css";
 import { ResponsivePane } from "@/shared/hooks/usePanelMediaQuery";
 import { AccessoryTabs } from "@/shared/components/accessory-panel/AccessoryTabs";
@@ -19,19 +20,33 @@ const DIVIDER_WIDTH = 8;
 
 export function AccessoryPanelLayout({ children }: { children: ReactNode }) {
   const panel = useAccessoryPanel();
+  const desktop = useMediaQuery("(min-width: 768px)");
+  const pathname = usePathname();
+  const search = useSearchParams().toString();
+  const primaryHref = `${pathname}?${search}`;
+  const previousPrimaryHref = useRef(primaryHref);
   const container = useRef<HTMLDivElement>(null);
   const [availableWidth, setAvailableWidth] = useState(0);
   const width = panel?.width ?? 520;
   const setWidth = panel?.setWidth ?? (() => {});
   const [dragging, setDragging] = useState(false);
   const docked =
-    availableWidth >= MIN_MAIN_WIDTH + MIN_DETAIL_WIDTH + DIVIDER_WIDTH;
+    desktop && availableWidth >= MIN_MAIN_WIDTH + MIN_DETAIL_WIDTH + DIVIDER_WIDTH;
   const maximumWidth = Math.max(
     MIN_DETAIL_WIDTH,
     availableWidth - MIN_MAIN_WIDTH - DIVIDER_WIDTH,
   );
   const actualWidth = Math.min(width, maximumWidth);
   const expanded = panel?.expanded ?? false;
+  const collapse = panel?.collapse;
+
+  useEffect(() => {
+    if (previousPrimaryHref.current !== primaryHref) {
+      previousPrimaryHref.current = primaryHref;
+      // Next links and browser history also navigate the primary pane, bypassing usePaneNavigation.
+      if (!docked) collapse?.();
+    }
+  }, [primaryHref, docked, collapse]);
 
   useEffect(() => {
     const node = container.current;

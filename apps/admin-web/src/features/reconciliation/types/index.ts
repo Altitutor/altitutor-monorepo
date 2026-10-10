@@ -198,9 +198,6 @@ export interface SessionBillingAdjustmentIssue {
   updated_at: string;
 }
 
-// Reconciliation Category Types
-export type ReconciliationCategory = 'financial' | 'scheduling' | 'communication';
-
 // Unassigned Task (task with no assignee)
 export interface UnassignedTask {
   id: string;
@@ -234,7 +231,6 @@ export interface ProjectWithoutLead {
 export interface ReconciliationTabCounts {
   financial: number;
   scheduling: number;
-  communication: number;
   operations: number;
 }
 
@@ -258,27 +254,4 @@ export type ReconciliationItemType =
   | 'unassigned_tasks'
   | 'students_without_classes'
   | 'students_without_payment_method'
-  | 'projects_without_lead'
-  | 'reconciliation_contact_messages';
-
-export interface ReconciliationCategoryData {
-  category: ReconciliationCategory;
-  items: {
-    uninvoiced_sessions?: UninvoicedSession[];
-    unpaid_invoices?: UnpaidInvoice[];
-    unlogged_sessions?: UnloggedSession[];
-    unassigned_classes?: UnassignedClass[];
-    unassigned_tasks?: UnassignedTask[];
-    students_without_classes?: StudentWithoutClasses[];
-    students_without_payment_method?: StudentWithoutPaymentMethod[];
-  };
-  counts: {
-    uninvoiced_sessions: number;
-    unpaid_invoices: number;
-    unlogged_sessions: number;
-    unassigned_classes: number;
-    unassigned_tasks: number;
-    students_without_classes: number;
-    students_without_payment_method: number;
-  };
-}
+  | 'projects_without_lead';

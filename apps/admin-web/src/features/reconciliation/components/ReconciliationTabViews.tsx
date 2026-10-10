@@ -9,8 +9,6 @@ import {
   UnloggedSessionsTable,
   UnassignedClassesTable,
   UnassignedTasksTable,
-  UnreadMessagesTable,
-  MessagesToFollowUpTable,
   StudentsWithoutClassesTable,
   StudentsWithoutPaymentMethodTable,
   ProjectsWithoutLeadTable,
@@ -131,15 +129,6 @@ export function ReconciliationSchedulingTab() {
         items={data.studentsWithoutClasses.data ?? []}
         isLoading={data.studentsWithoutClasses.isLoading}
       />
-    </div>
-  );
-}
-
-export function ReconciliationCommunicationTab() {
-  return (
-    <div className="space-y-6 mt-6">
-      <UnreadMessagesTable />
-      <MessagesToFollowUpTable />
     </div>
   );
 }

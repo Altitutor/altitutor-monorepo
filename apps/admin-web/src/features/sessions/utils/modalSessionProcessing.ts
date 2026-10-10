@@ -1,6 +1,7 @@
 import type { Tables } from '@altitutor/shared';
 import type {
   StudentPlannedStatus,
+  AbsenceBillingTreatment,
   StudentActualStatus,
   StaffPlannedStatus,
   StaffActualStatus,
@@ -20,7 +21,8 @@ export type ProcessedStudentSessionData = {
   actualStatus: StudentActualStatus;
   rescheduledDate: string;
   rescheduledSessionId: string;
-  creditedDisplayDate: string;
+  absenceTreatment: AbsenceBillingTreatment | null;
+  absenceTreatmentRecordedDate: string;
   invoiceStatus: import('@/features/billing/utils/invoiceFormatters').InvoiceStatusPayload | null;
 };
 
@@ -92,7 +94,8 @@ export function processStudentSessionData(
     actualStatus: attendanceStatus.actualStatus,
     rescheduledDate: attendanceStatus.rescheduledDate,
     rescheduledSessionId: attendanceStatus.rescheduledSessionId,
-    creditedDisplayDate: attendanceStatus.creditedDisplayDate,
+    absenceTreatment: attendanceStatus.absenceTreatment,
+    absenceTreatmentRecordedDate: attendanceStatus.absenceTreatmentRecordedDate,
     invoiceStatus: studentData.invoice_status_payload || null,
   };
 }
