@@ -33,6 +33,7 @@ export * from "./constants/online-products";
 export * from "./auth/verified-request";
 export * from "./auth/session-verification";
 export * from "./observability/sentry-environment";
+export * from "./observability/sentry-collection";
 export * from "./session-billing/obligation";
 export * from "./session-billing/adjustment";
 export * from "./session-billing/future-invoices";

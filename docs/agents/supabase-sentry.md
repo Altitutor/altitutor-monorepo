@@ -9,7 +9,9 @@ scope because Supabase can reuse Deno isolates between requests.
 Create a dedicated Sentry project using the **Deno** platform. Put its DSN in
 `SUPABASE_SENTRY_DSN` in both `secrets/.env.development` and
 `secrets/.env.production`. The same project DSN can be used for both; Sentry
-separates their events using the environment tag.
+separates their events using the environment tag. Automatic collection is now
+production-only; development requires a deliberate test opt-in. See
+[sentry-collection.md](sentry-collection.md).
 
 Deploy through the repository's secrets system:
 
@@ -18,7 +20,7 @@ Deploy through the repository's secrets system:
 ```
 
 The script maps `SUPABASE_SENTRY_DSN` to `SENTRY_DSN` in each Supabase project
-and derives `SENTRY_ENVIRONMENT` from the deployment target:
+and derives `SENTRY_ENVIRONMENT` and `SENTRY_DEPLOYMENT_ENVIRONMENT` from the deployment target:
 
 - `.env.development` project → `development`
 - `.env.production` project → `production`

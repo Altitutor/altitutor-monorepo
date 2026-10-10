@@ -1374,7 +1374,14 @@ export const studentsApi = {
       return updated as Tables<'parents'>;
     } catch (error) {
       console.error('Error updating parent:', error);
-      throw new Error(`Failed to update parent: ${error instanceof Error ? error.message : error}`);
+      const message = error instanceof Error ? error.message
+        : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+          ? error.message : undefined;
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+      if (code === 'P0001' && message && /^Phone number .+ is already associated with a student \(ID: .+\)$/.test(message)) {
+        throw new Error('This phone number is already linked to a student. Use a different number for the parent, or check the student contact details.');
+      }
+      throw new Error(message ? `Failed to update parent: ${message}` : 'Failed to update parent. Please try again.');
     }
   },
 

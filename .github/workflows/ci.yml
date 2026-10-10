@@ -33,6 +33,15 @@ concurrency:
   cancel-in-progress: true
 
 env:
+  SENTRY_DISABLED: 'true'
+  NEXT_PUBLIC_SENTRY_DISABLED: 'true'
+  EXPO_PUBLIC_SENTRY_DISABLED: 'true'
+  SENTRY_TEST_OPT_IN: 'false'
+  NEXT_PUBLIC_SENTRY_TEST_OPT_IN: 'false'
+  EXPO_PUBLIC_SENTRY_TEST_OPT_IN: 'false'
+  SENTRY_DSN: ''
+  NEXT_PUBLIC_SENTRY_DSN: ''
+  EXPO_PUBLIC_SENTRY_DSN: ''
   # PRs compare with their base branch; development calls compare with the prior commit.
   # An empty filter is reserved for full production verification and manual runs.
   TURBO_FILTER: ${{ github.event_name == 'pull_request' && format('...[origin/{0}]', github.base_ref) || (github.event_name == 'push' && inputs.full_run == false && '...[HEAD^]' || '') }}

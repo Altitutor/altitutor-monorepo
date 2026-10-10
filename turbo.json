@@ -7,6 +7,10 @@
     "package.json",
     "turbo.json"
   ],
+  "globalPassThroughEnv": [
+    "CI", "VERCEL_ENV", "VERCEL_TARGET_ENV",
+    "SENTRY_*", "NEXT_PUBLIC_SENTRY_*", "EXPO_PUBLIC_SENTRY_*"
+  ],
   "tasks": {
     "dev": {
       "cache": false,
@@ -14,7 +18,11 @@
     },
     "build": {
       "dependsOn": ["^build"],
-      "env": ["ALTITUTOR_CI_BUILD"],
+      "env": [
+        "ALTITUTOR_CI_BUILD", "VERCEL_ENV", "VERCEL_TARGET_ENV",
+        "SENTRY_DISABLED", "SENTRY_TEST_OPT_IN",
+        "NEXT_PUBLIC_SENTRY_*", "EXPO_PUBLIC_SENTRY_*"
+      ],
       "outputs": [".next/**", "dist/**", "build/**"]
     },
     "lint": { "dependsOn": ["^build"] },
