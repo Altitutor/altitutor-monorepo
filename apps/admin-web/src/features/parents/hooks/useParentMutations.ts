@@ -4,6 +4,7 @@ import { useToast } from '@altitutor/ui';
 import { studentsApi } from '@/features/students/api/students';
 import { parentsKeys } from './useParentsQuery';
 import type { ParentDetailsFormData } from '@/features/students/components/tabs/ParentDetailsTab';
+import { ParentPhoneConflictError } from '../api/errors';
 
 interface UseParentMutationsProps {
   parentId: string;
@@ -73,6 +74,10 @@ export function useParentMutations({
         description: errorMessage,
         variant: 'destructive',
       });
+      // This policy conflict is already reported by Supabase and shown above.
+      // The form discards its async submit promise; rethrowing would create a
+      // second unhandled-rejection event for the same failed parent update.
+      if (error instanceof ParentPhoneConflictError) return;
       throw error;
     } finally {
       setIsUpdatingDetails(false);

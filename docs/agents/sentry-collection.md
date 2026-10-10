@@ -71,6 +71,24 @@ routes/codes/messages and disabled/uninitialized SDKs keep their manual capture.
 This depends on the current Supabase instrumentation contract; keep the regression
 test when updating Sentry.
 
+Admin inbox reads that pass a caller `AbortSignal` use `throwOnError` to inspect
+the original exception before reporting. Only an `AbortError` paired with an
+aborted caller signal whose reason is also `AbortError` is an expected
+cancellation. React Query aborts this signal when its last observer unmounts or
+the query is canceled. An active signal, missing signal, unknown abort reason,
+timeout, database error, or permission failure still reports. Unexpected errors
+on this path are captured once with `inbox.operation` and `inbox.signal_state`;
+the existing retry policy is preserved. This handling is limited to the inbox
+list, preview, reaction-preview and unread-count/ID reads. It does not classify
+every historical Safari abort as expected or filter AbortError messages globally.
+
+The exact parent `P0001` student-phone conflict becomes a typed form outcome.
+The parent editor displays the actionable message, keeps edits open and skips
+student assignment changes. It consumes that outcome after the toast rather
+than creating a second unhandled-rejection event. The original automatic
+Supabase error remains visible, and other parent errors still reject. The
+contact uniqueness policy is unchanged.
+
 ## Replays and deployment considerations
 
 Normal-session replay sampling is zero everywhere. UCAT retains its existing

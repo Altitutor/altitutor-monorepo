@@ -20,6 +20,7 @@ import {
   participantSenderBadgeName,
 } from '../utils/conversationPreview';
 import { messagingHandle } from '../utils/messagingHandle';
+import { executeCancelableInboxQuery } from './cancelable-query';
 
 // Re-export types for backward compatibility
 export type { Sender, AggregatedConversation } from '../types';
@@ -124,7 +125,7 @@ async function fetchMessagePreviewsById(
       .select(MESSAGE_PREVIEW_SELECT)
       .in('id', chunk);
     if (signal) query = query.abortSignal(signal);
-    const { data, error } = await query;
+    const { data, error } = await executeCancelableInboxQuery(query, signal, 'message-preview');
     if (error) throw error;
     return (data ?? []) as MessagePreviewRow[];
   }));
@@ -159,7 +160,7 @@ async function fetchLatestNonReactionPreviews(
           .order('created_at', { ascending: false })
           .limit(1);
         if (signal) query = query.abortSignal(signal);
-        const { data, error } = await query;
+        const { data, error } = await executeCancelableInboxQuery(query, signal, 'reaction-preview');
         if (error) throw error;
         const row = ((data ?? []) as MessagePreviewRow[])[0];
         if (row) byConversation.set(conversationId, row);
@@ -223,7 +224,7 @@ function lastMessageFromConversation(conv: {
 export async function fetchUnreadConversationCount(signal?: AbortSignal): Promise<number> {
   const supabase = getSupabaseClient();
   const rpc = supabase.rpc('get_unread_contact_conversation_count');
-  const { data, error } = await (signal ? rpc.abortSignal(signal) : rpc);
+  const { data, error } = await executeCancelableInboxQuery(signal ? rpc.abortSignal(signal) : rpc, signal, 'unread-count');
   if (error) throw error;
   return data ?? 0;
 }
@@ -653,7 +654,7 @@ export async function fetchConversationList(
     query = query.eq('owned_number_id', ownedNumberId);
   }
 
-  const { data: conversations, error } = await query;
+  const { data: conversations, error } = await executeCancelableInboxQuery(query, signal, 'conversation-list');
 
   if (error) throw error;
 
@@ -674,7 +675,7 @@ export async function fetchConversationList(
   const unreadRpc = supabase.rpc('get_unread_message_conversation_ids', {
     p_conversation_ids: typedConversations.map((conversation) => conversation.id),
   });
-  const { data: unreadIds, error: unreadError } = await (signal ? unreadRpc.abortSignal(signal) : unreadRpc);
+  const { data: unreadIds, error: unreadError } = await executeCancelableInboxQuery(signal ? unreadRpc.abortSignal(signal) : unreadRpc, signal, 'unread-ids');
   if (unreadError) throw unreadError;
   const unreadConversations = new Set(unreadIds ?? []);
 

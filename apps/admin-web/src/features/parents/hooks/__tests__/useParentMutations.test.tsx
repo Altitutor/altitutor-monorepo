@@ -7,11 +7,18 @@ import { act, waitFor } from '@testing-library/react';
 import { useParentMutations } from '../useParentMutations';
 import { studentsApi } from '@/features/students/api/students';
 import { renderHookWithProviders } from '@/shared/test-utils';
+import { getSupabaseClient } from '@/shared/lib/supabase/client';
 
 // Mock dependencies
 jest.mock('@/features/students/api/students');
+jest.mock('@/shared/lib/supabase/client', () => ({ getSupabaseClient: jest.fn() }));
 
 const mockStudentsApi = studentsApi as jest.Mocked<typeof studentsApi>;
+const mockToast = jest.fn();
+jest.mock('@altitutor/ui', () => ({
+  ...jest.requireActual<typeof import('@altitutor/ui')>('@altitutor/ui'),
+  useToast: () => ({ toast: mockToast }),
+}));
 
 describe('useParentMutations', () => {
   const mockParentId = 'parent-1';
@@ -26,6 +33,32 @@ describe('useParentMutations', () => {
   });
 
   describe('updateDetails', () => {
+    it('handles a confirmed phone conflict once, keeping the edit open and skipping student changes', async () => {
+      const actual = jest.requireActual<typeof import('@/features/students/api/students')>('@/features/students/api/students');
+      mockStudentsApi.updateParent.mockImplementation(actual.studentsApi.updateParent);
+      const query = {
+        update: jest.fn().mockReturnThis(), eq: jest.fn().mockReturnThis(), select: jest.fn().mockReturnThis(),
+        single: jest.fn().mockResolvedValue({ data: null, error: {
+          code: 'P0001',
+          message: 'Phone number fixture-number is already associated with a student (ID: fixture-student)',
+        } }),
+      };
+      jest.mocked(getSupabaseClient).mockReturnValue({ from: () => query } as unknown as ReturnType<typeof getSupabaseClient>);
+      const { result } = renderHookWithProviders(() => useParentMutations({ parentId: mockParentId, onSuccess: mockOnSuccess }));
+      await act(async () => {
+        await expect(result.current.updateDetails({ firstName: 'Fixture', lastName: 'Parent', phone: 'fixture-number', email: '' }, {
+          toAdd: ['fixture-student'], toRemove: [],
+        })).resolves.toBeUndefined();
+      });
+      expect(mockOnSuccess).not.toHaveBeenCalled();
+      expect(mockToast).toHaveBeenCalledTimes(1);
+      expect(mockToast).toHaveBeenCalledWith({ title: 'Error', variant: 'destructive',
+        description: 'This phone number is already linked to a student. Use a different number for the parent, or check the student contact details.',
+      });
+      expect(mockStudentsApi.assignStudentToParent).not.toHaveBeenCalled();
+      expect(result.current.isUpdatingDetails).toBe(false);
+    });
+
     it('should update parent details successfully', async () => {
       const { result } = renderHookWithProviders(() =>
         useParentMutations({ parentId: mockParentId, onSuccess: mockOnSuccess })
