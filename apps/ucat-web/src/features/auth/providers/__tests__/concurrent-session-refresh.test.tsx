@@ -10,11 +10,18 @@ import { useUcatAccess } from "@/features/ucat-access/hooks/use-ucat-access";
 import { useStudentUcatSessions } from "@/features/sessions/hooks/use-sessions";
 import { getSupabaseBrowserClient } from "@/lib/supabase/client";
 import { recoverTransientBrowserSession } from "@/lib/supabase/recover-transient-session";
+import { createBrowserAuthDiagnostics } from "@/features/auth/lib/browser-auth-diagnostics";
+import * as Sentry from "@sentry/nextjs";
 
 jest.mock("@/lib/supabase/client", () => ({
   getSupabaseBrowserClient: jest.fn(),
 }));
-jest.mock("@sentry/nextjs", () => ({ setUser: jest.fn() }));
+jest.mock("@sentry/nextjs", () => ({
+  setUser: jest.fn(),
+  addBreadcrumb: jest.fn(),
+  addEventProcessor: jest.fn(),
+  captureException: jest.fn(),
+}));
 
 const mockedGetClient = jest.mocked(getSupabaseBrowserClient);
 const VIEWS = [
@@ -68,6 +75,7 @@ describe("concurrent server cookie refresh", () => {
     });
     jest.restoreAllMocks();
     mockedGetClient.mockReset();
+    jest.clearAllMocks();
   });
 
   it.each([
@@ -165,13 +173,20 @@ describe("concurrent server cookie refresh", () => {
         }
         throw new Error(`Unexpected test request: ${url.pathname}`);
       };
+      const diagnostics = createBrowserAuthDiagnostics(
+        "https://test.supabase.co",
+        anonKey,
+        fakeFetch,
+      );
       const client = recoverTransientBrowserSession(
-        createBrowserClient<Database>("https://test.supabase.co", anonKey, {
-          isSingleton: false,
-          cookieOptions: { name: cookieName },
-          auth: { detectSessionInUrl: false, autoRefreshToken: false },
-          global: { fetch: fakeFetch },
-        }) as SupabaseClient<Database>,
+        diagnostics.observeClient(
+          createBrowserClient<Database>("https://test.supabase.co", anonKey, {
+            isSingleton: false,
+            cookieOptions: { name: cookieName },
+            auth: { detectSessionInUrl: false, autoRefreshToken: false },
+            global: { fetch: diagnostics.fetch },
+          }) as SupabaseClient<Database>,
+        ),
       );
       mockedGetClient.mockReturnValue(client);
       const signIn = await client.auth.setSession({
@@ -232,14 +247,63 @@ describe("concurrent server cookie refresh", () => {
         timeout: 5000,
       });
       expect(refreshCalls).toBe(cookieChange === "temporarily-cleared" ? 0 : 1);
-      expect(viewCalls.slice(-3).map(({ view }) => view).sort()).toEqual(
-        [...VIEWS].sort(),
-      );
+      expect(
+        viewCalls
+          .slice(-3)
+          .map(({ view }) => view)
+          .sort(),
+      ).toEqual([...VIEWS].sort());
       expect(viewCalls.slice(-3).map(({ role }) => role)).toEqual([
         expectedRole,
         expectedRole,
         expectedRole,
       ]);
+      const processor = jest
+        .mocked(Sentry.addEventProcessor)
+        .mock.calls.at(-1)?.[0];
+      const event = await processor?.(
+        {
+          exception: {
+            values: [
+              {
+                value:
+                  "permission denied for view vstudent_operational_sessions",
+                mechanism: { type: "auto.db.supabase.postgres" },
+              },
+            ],
+          },
+        },
+        {},
+      );
+      if (expectedErrors) {
+        expect(Sentry.addBreadcrumb).toHaveBeenCalledTimes(3);
+        const recent = Object.values(event?.contexts?.ucat_auth_boundary ?? {});
+        expect(recent).toEqual(
+          expect.arrayContaining([
+            expect.objectContaining({
+              kind: "session-end",
+              session_present: false,
+              cookie_present: false,
+            }),
+            expect.objectContaining({
+              kind: "request-end",
+              operation: "sessions",
+              credential_mode: "anonymous-key",
+              response_status: 401,
+            }),
+          ]),
+        );
+        const serialized = JSON.stringify(event?.contexts?.ucat_auth_boundary);
+        expect(serialized).not.toMatch(
+          /student-1|refresh-1|browser-refreshed|server-refreshed|student-auth-/,
+        );
+        expect(serialized).not.toContain(accessToken);
+        expect(serialized).not.toContain(anonKey);
+      } else {
+        expect(event).not.toHaveProperty("contexts.ucat_auth_boundary");
+        expect(Sentry.addBreadcrumb).not.toHaveBeenCalled();
+      }
+      expect(Sentry.captureException).not.toHaveBeenCalled();
       expect(Boolean((await client.auth.getSession()).data.session)).toBe(
         !expectedErrors,
       );
