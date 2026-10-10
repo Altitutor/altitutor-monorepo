@@ -1,6 +1,6 @@
 BEGIN;
 SET LOCAL TIME ZONE 'Australia/Adelaide';
-SELECT plan(7);
+SELECT plan(12);
 
 DELETE FROM public.ucat_student_study_plan_generations
 WHERE student_id = '10000000-0000-0000-0000-000000000003';
@@ -49,6 +49,31 @@ SELECT is(
   'in_progress',
   'creating a linked resumable attempt activates the task'
 );
+
+SELECT ok(
+  has_function_privilege('service_role',
+    'public.ucat_study_plan_task_has_active_work(uuid)', 'EXECUTE'),
+  'the server task mutation client can execute the active-work guard'
+);
+SELECT ok(
+  NOT has_function_privilege('authenticated',
+    'public.ucat_study_plan_task_has_active_work(uuid)', 'EXECUTE'),
+  'Students cannot call the privileged active-work guard directly'
+);
+SELECT ok(
+  NOT has_function_privilege('anon',
+    'public.ucat_study_plan_task_has_active_work(uuid)', 'EXECUTE'),
+  'anonymous clients cannot call the privileged active-work guard'
+);
+
+SET LOCAL ROLE service_role;
+SELECT ok(
+  public.ucat_study_plan_task_has_active_work(
+    'ed000000-0000-4000-8000-000000000002'
+  ),
+  'the unskip guard detects resumable work as the actual server caller'
+);
+RESET ROLE;
 
 SELECT ok(
   public.discard_ucat_exam_attempt(
@@ -101,6 +126,15 @@ SELECT is(
   'manual',
   'Study plan Discard records a manual skip'
 );
+
+SET LOCAL ROLE service_role;
+SELECT ok(
+  NOT public.ucat_study_plan_task_has_active_work(
+    'ed000000-0000-4000-8000-000000000002'
+  ),
+  'the unskip guard detects no active work after discard as the server caller'
+);
+RESET ROLE;
 
 SELECT * FROM finish();
 ROLLBACK;
