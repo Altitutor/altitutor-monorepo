@@ -1055,6 +1055,26 @@ test.describe("personalised Study plan", () => {
     if (!session?.id)
       throw new Error("The practice session was not persisted.");
 
+    // A saved practice session does not mean its active attempt is ready yet.
+    // Wait through the real reader before refresh can cancel the initial begin.
+    await expect
+      .poll(
+        async () => {
+          const response = await page.request.get(
+            "/api/ucat/exam-attempts/active",
+          );
+          if (!response.ok()) return null;
+          const body = (await response.json()) as {
+            active: { kind: string; resourceId: string } | null;
+          };
+          return body.active?.kind === "practice"
+            ? body.active.resourceId
+            : null;
+        },
+        { timeout: 30_000 },
+      )
+      .toBe(session.id);
+
     await page.reload();
     await expect(page).toHaveURL((url) => url.pathname === "/exam");
 
