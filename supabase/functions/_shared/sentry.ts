@@ -1,12 +1,15 @@
+import { edgeFunctionSentryCollection } from "./sentry-collection.ts";
 import * as Sentry from "npm:@sentry/deno@10.65.0";
 
 const FLUSH_TIMEOUT_MS = 2_000;
 const sentryDsn = Deno.env.get("SENTRY_DSN")?.trim();
 
+const collection = edgeFunctionSentryCollection((name) => Deno.env.get(name));
+
 Sentry.init({
   dsn: sentryDsn,
-  enabled: Boolean(sentryDsn),
-  environment: Deno.env.get("SENTRY_ENVIRONMENT")?.trim() || "unknown",
+  enabled: collection.errors,
+  environment: collection.environment,
   release: Deno.env.get("DENO_DEPLOYMENT_ID")?.trim() || undefined,
   defaultIntegrations: false,
   sendDefaultPii: false,
@@ -47,7 +50,7 @@ export function serveWithSentry(
   functionName: string,
   handler: EdgeFunctionHandler,
 ): void {
-  if (!sentryDsn) {
+  if (!collection.errors) {
     Deno.serve((request: Request) => handler(request, disabledReporter));
     return;
   }

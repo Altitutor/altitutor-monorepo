@@ -1,23 +1,28 @@
+import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/react-native";
 import { isRunningInExpoGo } from "expo";
 import {
   filterExpectedUcatAppError,
   nativeSentryTracePropagationTargets,
-  resolveNativeSentryEnvironment,
-  shouldEnableNativeSentry,
 } from "./sentry";
 
 const dsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const collection = resolveSentryCollection({
+  dsn,
+  deploymentEnvironment: process.env.EXPO_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT,
+  explicitEnvironment: process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT,
+  nodeEnvironment: __DEV__ ? "development" : "production",
+  ci: process.env.CI,
+  disabled: process.env.EXPO_PUBLIC_SENTRY_DISABLED,
+  testOptIn: process.env.EXPO_PUBLIC_SENTRY_TEST_OPT_IN,
+});
 
 Sentry.init({
   dsn,
-  enabled: shouldEnableNativeSentry(dsn),
+  enabled: collection.errors,
   sendDefaultPii: false,
-  environment: resolveNativeSentryEnvironment({
-    explicit: process.env.EXPO_PUBLIC_SENTRY_ENVIRONMENT,
-    isDev: __DEV__,
-  }),
-  tracesSampleRate: __DEV__ ? 1 : 0.1,
+  environment: collection.environment,
+  tracesSampleRate: collection.errors ? 0.1 : 0,
   enableNativeFramesTracking: !isRunningInExpoGo(),
   beforeSend: filterExpectedUcatAppError,
   tracePropagationTargets: nativeSentryTracePropagationTargets(

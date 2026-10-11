@@ -101,9 +101,15 @@ export default defineConfig({
     // The student root redirects to login. Probe that route so Playwright waits
     // on this server.
     url: `${baseURL}/login`,
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: false,
     timeout: 300_000,
     env: {
+      SENTRY_DISABLED: "true",
+      NEXT_PUBLIC_SENTRY_DISABLED: "true",
+      SENTRY_TEST_OPT_IN: "false",
+      NEXT_PUBLIC_SENTRY_TEST_OPT_IN: "false",
+      SENTRY_DSN: "",
+      NEXT_PUBLIC_SENTRY_DSN: "",
       ...readLocalSupabaseEnvironment(),
       NEXT_PUBLIC_ADMIN_PORTAL_URL: "http://localhost:3000",
       NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: "pk_test_fake",

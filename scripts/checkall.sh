@@ -3,6 +3,11 @@
 # build, database contracts, and UCAT critical browser journeys.
 set -euo pipefail
 
+# Verification must never send telemetry, even when invoked with copied deployment env.
+export SENTRY_DISABLED=true NEXT_PUBLIC_SENTRY_DISABLED=true EXPO_PUBLIC_SENTRY_DISABLED=true
+export SENTRY_TEST_OPT_IN=false NEXT_PUBLIC_SENTRY_TEST_OPT_IN=false EXPO_PUBLIC_SENTRY_TEST_OPT_IN=false
+export SENTRY_DSN= NEXT_PUBLIC_SENTRY_DSN= EXPO_PUBLIC_SENTRY_DSN=
+
 root="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$root"
 

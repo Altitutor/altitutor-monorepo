@@ -8,7 +8,10 @@
       "developmentClient": true,
       "distribution": "internal",
       "environment": "development",
-      "channel": "development"
+      "channel": "development",
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT": "development"
+      }
     },
     "development-simulator": {
       "extends": "development",
@@ -19,7 +22,10 @@
     "preview": {
       "distribution": "internal",
       "environment": "preview",
-      "channel": "preview"
+      "channel": "preview",
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT": "preview"
+      }
     },
     "preview-simulator": {
       "extends": "preview",
@@ -30,7 +36,10 @@
     "production": {
       "autoIncrement": true,
       "environment": "production",
-      "channel": "production"
+      "channel": "production",
+      "env": {
+        "EXPO_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT": "production"
+      }
     }
   },
   "submit": {
