@@ -5,6 +5,7 @@ import type {
   LearningModuleRow,
 } from "@/features/learning/types";
 import { assertOkOrQuotaExceeded } from "@/lib/ucat/quota/parse-quota-error";
+import { StudyPlanLessonConflictError } from "@/features/learning/lib/lesson-start-error";
 
 async function parseJson<T>(response: Response): Promise<T> {
   await assertOkOrQuotaExceeded(response);
@@ -46,6 +47,17 @@ export const learningApi = {
         body: JSON.stringify({ studyPlanTaskId }),
       },
     );
+    if (!response.ok && response.status === 500) {
+      const body = (await response
+        .clone()
+        .json()
+        .catch(() => ({}))) as {
+        error?: unknown;
+      };
+      if (body.error === "invalid_study_plan_learning_task") {
+        throw new StudyPlanLessonConflictError();
+      }
+    }
     return parseJson<{ created: boolean }>(response);
   },
 
