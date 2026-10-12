@@ -8,6 +8,7 @@ import {
 } from '@altitutor/shared';
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import type { SupabaseClient } from '@supabase/supabase-js';
+import { ParentPhoneConflictError } from '@/features/parents/api/errors';
 
 /** DataTable may send both `has` and `none`; treat that as no filter. */
 function exclusiveHasNoneFilter(values: string[] | undefined): 'has' | 'none' | undefined {
@@ -1377,7 +1378,14 @@ export const studentsApi = {
       return updated as Tables<'parents'>;
     } catch (error) {
       console.error('Error updating parent:', error);
-      throw new Error(`Failed to update parent: ${error instanceof Error ? error.message : error}`);
+      const message = error instanceof Error ? error.message
+        : error && typeof error === 'object' && 'message' in error && typeof error.message === 'string'
+          ? error.message : undefined;
+      const code = error && typeof error === 'object' && 'code' in error ? error.code : undefined;
+      if (code === 'P0001' && message && /^Phone number .+ is already associated with a student \(ID: .+\)$/.test(message)) {
+        throw new ParentPhoneConflictError();
+      }
+      throw new Error(message ? `Failed to update parent: ${message}` : 'Failed to update parent. Please try again.');
     }
   },
 

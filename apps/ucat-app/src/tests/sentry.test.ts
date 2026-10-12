@@ -3,37 +3,7 @@ import { test } from "node:test";
 import {
   filterExpectedUcatAppError,
   nativeSentryTracePropagationTargets,
-  resolveNativeSentryEnvironment,
-  shouldEnableNativeSentry,
 } from "../lib/sentry";
-
-test("native Sentry stays off until a DSN is configured", () => {
-  assert.equal(shouldEnableNativeSentry(undefined), false);
-  assert.equal(shouldEnableNativeSentry("   "), false);
-  assert.equal(
-    shouldEnableNativeSentry("https://public@o0.ingest.sentry.io/1"),
-    true,
-  );
-});
-
-test("native Sentry environment prefers an explicit tag over the bundle mode", () => {
-  assert.equal(
-    resolveNativeSentryEnvironment({ explicit: "preview", isDev: true }),
-    "preview",
-  );
-  assert.equal(
-    resolveNativeSentryEnvironment({ explicit: "  production  ", isDev: true }),
-    "production",
-  );
-  assert.equal(
-    resolveNativeSentryEnvironment({ isDev: true }),
-    "development",
-  );
-  assert.equal(
-    resolveNativeSentryEnvironment({ isDev: false }),
-    "production",
-  );
-});
 
 test("native tracing headers stay on UCAT origins", () => {
   const targets = nativeSentryTracePropagationTargets(
@@ -76,4 +46,18 @@ test("expected student outcomes are not reported as native crashes", () => {
   );
   const unexpected = { message: "Native exam sync failed" };
   assert.equal(filterExpectedUcatAppError(unexpected), unexpected);
+});
+
+test('native filtering retains unexpected messages containing an expected phrase', () => {
+  const failures = [
+    'Unexpected sync failure: Please sign in again',
+    'Unable to complete sign-in. Please sign in again.',
+    'invalid_study_plan_task',
+    'permission denied for function ucat_study_plan_task_has_active_work',
+    'Failed to fetch',
+  ];
+  for (const message of failures) {
+    const event = { message };
+    assert.equal(filterExpectedUcatAppError(event), event);
+  }
 });

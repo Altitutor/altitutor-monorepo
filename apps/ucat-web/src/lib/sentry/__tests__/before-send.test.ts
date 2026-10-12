@@ -19,3 +19,19 @@ describe("filterExpectedUcatWebError", () => {
     expect(filterExpectedUcatWebError(event)).toBe(event);
   });
 });
+
+it.each([
+  'Unexpected failure after Invalid login credentials',
+  'permission denied for function ucat_study_plan_task_has_active_work',
+  'invalid_study_plan_task',
+  'HTTP 400: database schema mismatch',
+  'Failed to fetch',
+  'ValidationError: server response does not match schema',
+])('retains unconfirmed failures: %s', (message) => {
+  const event = { exception: { values: [{ value: message }] } };
+  expect(filterExpectedUcatWebError(event)).toBe(event);
+});
+it('retains an unexpected exception alongside an expected cause', () => {
+  const event = { exception: { values: [{ value: 'Unexpected study-plan failure' }, { value: 'Invalid login credentials' }] } };
+  expect(filterExpectedUcatWebError(event)).toBe(event);
+});

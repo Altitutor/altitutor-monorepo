@@ -46,6 +46,16 @@ export type SkillTrainerAttemptReview = {
   }>;
 };
 
+/** A missing, discarded or disabled run cannot accept any more play actions. */
+export class SkillTrainerAttemptUnavailableError extends Error {
+  constructor() {
+    super(
+      "This run is no longer available. Return to the trainer to start a new run.",
+    );
+    this.name = "SkillTrainerAttemptUnavailableError";
+  }
+}
+
 export const skillTrainerApi = {
   async listTrainers(): Promise<SkillTrainerCatalogRow[]> {
     const res = await fetch("/api/ucat/skill-trainers");
@@ -108,6 +118,7 @@ export const skillTrainerApi = {
 
   async getAttempt(attemptId: string): Promise<SkillTrainerAttemptState> {
     const res = await fetch(`/api/ucat/skill-trainer-attempts/${attemptId}`);
+    if (res.status === 404) throw new SkillTrainerAttemptUnavailableError();
     if (!res.ok) throw new Error("Failed to load attempt");
     const json = (await res.json()) as { attempt: SkillTrainerAttemptState };
     return json.attempt;
@@ -145,6 +156,7 @@ export const skillTrainerApi = {
         }),
       },
     );
+    if (res.status === 404) throw new SkillTrainerAttemptUnavailableError();
     if (!res.ok) {
       const json = (await res.json()) as { error?: string };
       const error = new Error(json.error ?? "Action failed") as Error & {

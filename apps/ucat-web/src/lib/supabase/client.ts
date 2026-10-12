@@ -3,6 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { Database } from "@altitutor/shared";
 import { instrumentSupabaseClient } from "@/lib/sentry/instrument-supabase-client";
 import { recoverTransientBrowserSession } from "@/lib/supabase/recover-transient-session";
+import { createBrowserAuthDiagnostics } from "@/features/auth/lib/browser-auth-diagnostics";
 
 let browserClient: SupabaseClient<Database> | null = null;
 
@@ -44,6 +45,10 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
     );
   }
 
+  const diagnostics =
+    typeof window !== "undefined" && process.env.NEXT_PUBLIC_SENTRY_DSN
+      ? createBrowserAuthDiagnostics(supabaseUrl, supabaseAnonKey)
+      : null;
   const client = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey, {
     // Auth callbacks exchange PKCE codes explicitly. Automatic detection can
     // consume the code and remove it from the URL before the callback route
@@ -55,12 +60,15 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
       name: "student-auth",
     },
     isSingleton: true,
+    ...(diagnostics ? { global: { fetch: diagnostics.fetch } } : {}),
   }) as unknown as SupabaseClient<Database>;
 
   browserClient = instrumentSupabaseClient(
     typeof window === "undefined"
       ? client
-      : recoverTransientBrowserSession(client),
+      : recoverTransientBrowserSession(
+          diagnostics ? diagnostics.observeClient(client) : client,
+        ),
   );
 
   return browserClient;

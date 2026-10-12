@@ -2,8 +2,7 @@ const EXPECTED_UCAT_APP_OUTCOMES = [
   "QUOTA_EXCEEDED",
   "Invalid login credentials",
   "Please sign in to continue.",
-  "Please sign in again",
-  "Your session has ended",
+  "Your session has ended. Please sign in again.",
 ] as const;
 
 export type NativeSentryEvent = {
@@ -16,22 +15,6 @@ export type NativeSentryEvent = {
 export type NativeSentryHint = {
   originalException?: unknown;
 };
-
-export function shouldEnableNativeSentry(dsn: string | undefined): boolean {
-  return Boolean(dsn?.trim());
-}
-
-export function resolveNativeSentryEnvironment({
-  explicit,
-  isDev,
-}: {
-  explicit?: string;
-  isDev: boolean;
-}): string {
-  const configured = explicit?.trim();
-  if (configured) return configured;
-  return isDev ? "development" : "production";
-}
 
 export function nativeSentryTracePropagationTargets(
   webUrl: string | undefined,
@@ -69,7 +52,7 @@ function originalExceptionMessage(
 function isExpectedUcatAppOutcome(message: string | undefined): boolean {
   return Boolean(
     message &&
-      EXPECTED_UCAT_APP_OUTCOMES.some((outcome) => message.includes(outcome)),
+      EXPECTED_UCAT_APP_OUTCOMES.some((outcome) => message === outcome),
   );
 }
 
@@ -77,10 +60,8 @@ export function filterExpectedUcatAppError<TEvent extends NativeSentryEvent>(
   event: TEvent,
   hint?: NativeSentryHint,
 ): TEvent | null {
-  const messages = [
-    event.message,
-    ...(event.exception?.values?.map((value) => value.value) ?? []),
-    originalExceptionMessage(hint?.originalException),
-  ];
-  return messages.some(isExpectedUcatAppOutcome) ? null : event;
+  const original = originalExceptionMessage(hint?.originalException);
+  const exceptions = event.exception?.values?.map((value) => value.value) ?? [];
+  const messages = exceptions.length ? [...exceptions, ...(original ? [original] : [])] : [original ?? event.message];
+  return messages.length > 0 && messages.every(isExpectedUcatAppOutcome) ? null : event;
 }
