@@ -1,3 +1,4 @@
+import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 import {
   filterMobileAuthTelemetry,
@@ -6,23 +7,29 @@ import {
 import { sanitizeStudentAnalyticsUrl } from "@/shared/lib/analytics/posthog";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+const hostname = typeof window === "undefined" ? undefined : window.location.hostname;
+const collection = resolveSentryCollection({
+  dsn,
+  hostname,
+  productionHosts: ["student.altitutor.com"],
+  deploymentEnvironment: process.env.NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT,
+  explicitEnvironment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
+  nodeEnvironment: process.env.NODE_ENV,
+  disabled: process.env.NEXT_PUBLIC_SENTRY_DISABLED,
+  testOptIn: process.env.NEXT_PUBLIC_SENTRY_TEST_OPT_IN,
+});
 
-// Production builds also run in previews and local smoke tests.
-const replayEnabled =
-  process.env.NODE_ENV === "production" &&
-  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") === "production" &&
-  typeof window !== "undefined" &&
-  !isMobileAuthBrowserContext() &&
-  window.location.hostname === "student.altitutor.com";
+const replayEnabled = collection.errors && !isMobileAuthBrowserContext();
 
 Sentry.init({
   dsn,
-  enabled: Boolean(dsn),
-  environment:
-    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+  enabled: collection.feedback,
+  environment: collection.environment,
+  sendClientReports: collection.errors,
   sendDefaultPii: false,
-  tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
+  tracesSampleRate: collection.errors ? 0.1 : 0,
   beforeSend(event) {
+    if (!collection.errors && event.type !== "feedback") return null;
     const filtered = filterMobileAuthTelemetry(event);
     if (!filtered) return null;
     if (filtered.request?.url) {
@@ -30,11 +37,12 @@ Sentry.init({
     }
     return filtered;
   },
-  beforeSendTransaction: filterMobileAuthTelemetry,
+  beforeSendTransaction: (event) => collection.errors ? filterMobileAuthTelemetry(event) : null,
   beforeBreadcrumb: filterMobileAuthTelemetry,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,
-  integrations: [
+  integrations: (defaults) => [
+    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession"),
     ...(replayEnabled
       ? [
           Sentry.replayIntegration({

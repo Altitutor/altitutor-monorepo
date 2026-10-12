@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "motion/react";
 import { Download } from "lucide-react";
@@ -36,6 +37,7 @@ import { quotaRouteFallback } from "@/features/ucat-access/lib/quota-route-fallb
 import type { LearningModuleBlockRow } from "@/features/learning/types";
 import { QuotaExceededError } from "@/lib/ucat/quota/parse-quota-error";
 import { useUcatStaggerMotion } from "@/shared/hooks/use-ucat-stagger-motion";
+import { StudyPlanLessonConflictError } from "@/features/learning/lib/lesson-start-error";
 
 type LearningLessonPageProps = {
   lessonId: string;
@@ -239,7 +241,7 @@ export function LearningLessonPage({
   studyPlanTaskId,
 }: LearningLessonPageProps) {
   const queryClient = useQueryClient();
-  const { data, isLoading, error } = useLearningLesson(
+  const { data, isLoading, error, retry } = useLearningLesson(
     lessonId,
     studyPlanTaskId,
   );
@@ -459,7 +461,30 @@ export function LearningLessonPage({
       </p>
     );
   }
-  if (error || !lesson) {
+  if (error instanceof StudyPlanLessonConflictError) {
+    return (
+      <div role="alert" className="space-y-3">
+        <p>This Study-plan task is no longer available.</p>
+        <p className="text-sm text-muted-foreground">
+          Return to your current Study plan to continue.
+        </p>
+        <Button asChild variant="outline">
+          <Link href="/study-plan">Back to Study plan</Link>
+        </Button>
+      </div>
+    );
+  }
+  if (error) {
+    return (
+      <div role="alert" className="space-y-3">
+        <p className="text-sm text-destructive">Could not load this lesson.</p>
+        <Button variant="outline" onClick={() => void retry()}>
+          Try again
+        </Button>
+      </div>
+    );
+  }
+  if (!lesson) {
     return <p className="text-sm text-destructive">Lesson not found.</p>;
   }
 

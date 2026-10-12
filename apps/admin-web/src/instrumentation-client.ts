@@ -1,24 +1,34 @@
+import { resolveSentryCollection } from "@altitutor/shared";
 import * as Sentry from "@sentry/nextjs";
 
 const dsn = process.env.NEXT_PUBLIC_SENTRY_DSN;
+const hostname = typeof window === "undefined" ? undefined : window.location.hostname;
+const collection = resolveSentryCollection({
+  dsn,
+  hostname,
+  productionHosts: ["admin.altitutor.com"],
+  deploymentEnvironment: process.env.NEXT_PUBLIC_SENTRY_DEPLOYMENT_ENVIRONMENT,
+  explicitEnvironment: process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT,
+  nodeEnvironment: process.env.NODE_ENV,
+  disabled: process.env.NEXT_PUBLIC_SENTRY_DISABLED,
+  testOptIn: process.env.NEXT_PUBLIC_SENTRY_TEST_OPT_IN,
+});
 
-// Production builds also run in previews and local smoke tests.
-const replayEnabled =
-  process.env.NODE_ENV === "production" &&
-  (process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || "production") === "production" &&
-  typeof window !== "undefined" &&
-  window.location.hostname === "admin.altitutor.com";
+const replayEnabled = collection.errors;
 
 Sentry.init({
   dsn,
-  enabled: Boolean(dsn),
-  environment:
-    process.env.NEXT_PUBLIC_SENTRY_ENVIRONMENT || process.env.NODE_ENV,
+  enabled: collection.feedback,
+  environment: collection.environment,
+  sendClientReports: collection.errors,
   sendDefaultPii: false,
-  tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
+  beforeSend: (event) => collection.errors || event.type === "feedback" ? event : null,
+  beforeSendTransaction: (event) => collection.errors ? event : null,
+  tracesSampleRate: collection.errors ? 0.1 : 0,
   replaysSessionSampleRate: 0,
   replaysOnErrorSampleRate: replayEnabled ? 0.1 : 0,
-  integrations: [
+  integrations: (defaults) => [
+    ...defaults.filter((integration) => collection.errors || integration.name !== "BrowserSession"),
     ...(replayEnabled
       ? [
           Sentry.replayIntegration({

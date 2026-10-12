@@ -11,12 +11,6 @@ type UcatWebSentryHint = {
   originalException?: unknown;
 };
 
-const EXPECTED_UCAT_WEB_OUTCOMES = [
-  "QUOTA_EXCEEDED",
-  "Invalid login credentials",
-  "Object Not Found Matching Id",
-] as const;
-
 function originalExceptionMessage(
   originalException: unknown,
 ): string | undefined {
@@ -28,10 +22,17 @@ function originalExceptionMessage(
 }
 
 function isExpectedUcatWebOutcome(message: string | undefined): boolean {
-  return Boolean(
-    message &&
-      EXPECTED_UCAT_WEB_OUTCOMES.some((outcome) => message.includes(outcome)),
-  );
+  if (message === "Invalid login credentials") return true;
+  // Retain only the established extension rejection signature, not arbitrary
+  // failures that happen to contain one of these words.
+  if (message && /^Non-Error promise rejection captured with value: Object Not Found Matching Id:\d+, MethodName:update, ParamCount:4$/.test(message)) return true;
+  if (!message?.startsWith("QUOTA_EXCEEDED:")) return false;
+  try {
+    const quota: unknown = JSON.parse(message.slice("QUOTA_EXCEEDED:".length));
+    return Boolean(quota && typeof quota === "object" && "code" in quota && quota.code === "QUOTA_EXCEEDED");
+  } catch {
+    return false;
+  }
 }
 
 export function filterExpectedUcatWebError<TEvent extends UcatWebSentryEvent>(
@@ -39,11 +40,8 @@ export function filterExpectedUcatWebError<TEvent extends UcatWebSentryEvent>(
   hint?: UcatWebSentryHint,
 ): TEvent | null {
   if (!filterMobileAuthTelemetry(event)) return null;
-  const messages = [
-    event.message,
-    ...(event.exception?.values?.map((value) => value.value) ?? []),
-    originalExceptionMessage(hint?.originalException),
-  ];
-
-  return messages.some(isExpectedUcatWebOutcome) ? null : event;
+  const original = originalExceptionMessage(hint?.originalException);
+  const exceptions = event.exception?.values?.map((value) => value.value) ?? [];
+  const messages = exceptions.length ? [...exceptions, ...(original ? [original] : [])] : [original ?? event.message];
+  return messages.length > 0 && messages.every(isExpectedUcatWebOutcome) ? null : event;
 }
