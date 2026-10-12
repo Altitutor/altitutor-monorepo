@@ -42,6 +42,7 @@ const formSchema = z.object({
   curriculum: z.enum(['SACE', 'IB', 'PRESACE', 'PRIMARY', 'MEDICINE']).nullable(),
   discipline: z.enum(['MATHEMATICS', 'SCIENCE', 'HUMANITIES', 'ENGLISH', 'ART', 'LANGUAGE', 'MEDICINE']).nullable(),
   level: z.string().nullable(),
+  show_on_marketing_profiles: z.boolean(),
 });
 
 type FormData = z.infer<typeof formSchema>;
@@ -79,6 +80,7 @@ export function EditSubjectModal({
       curriculum: null,
       discipline: null,
       level: null,
+      show_on_marketing_profiles: true,
     },
   });
 
@@ -99,6 +101,7 @@ export function EditSubjectModal({
         curriculum: subject.curriculum,
         discipline: subject.discipline,
         level: subject.level,
+        show_on_marketing_profiles: subject.show_on_marketing_profiles,
       });
     }
   }, [subject, form]);
@@ -132,6 +135,7 @@ export function EditSubjectModal({
         curriculum: values.curriculum,
         discipline: values.discipline,
         level: values.level,
+        show_on_marketing_profiles: values.show_on_marketing_profiles,
       };
 
       const updated = await subjectsApi.updateSubject(subject.id, updatedData);
@@ -223,6 +227,17 @@ export function EditSubjectModal({
                 {form.formState.errors.name && (
                   <p className="text-sm text-destructive">{form.formState.errors.name.message}</p>
                 )}
+              </div>
+
+              <div className="space-y-2">
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" {...form.register('show_on_marketing_profiles')} />
+                  Show on public tutor profiles
+                </label>
+                <p className="text-sm text-muted-foreground">
+                  Applies to every tutor. Changes appear after the daily website refresh,
+                  or use Refresh website in a staff member’s website settings.
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

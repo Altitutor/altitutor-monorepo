@@ -14711,6 +14711,7 @@ export type Database = {
           long_name: string | null
           name: string
           short_name: string | null
+          show_on_marketing_profiles: boolean
           updated_at: string | null
           year_level: number | null
         }
@@ -14724,6 +14725,7 @@ export type Database = {
           long_name?: string | null
           name: string
           short_name?: string | null
+          show_on_marketing_profiles?: boolean
           updated_at?: string | null
           year_level?: number | null
         }
@@ -14737,6 +14739,7 @@ export type Database = {
           long_name?: string | null
           name?: string
           short_name?: string | null
+          show_on_marketing_profiles?: boolean
           updated_at?: string | null
           year_level?: number | null
         }
@@ -42996,6 +42999,7 @@ export type Database = {
           long_name: string | null
           name: string
           short_name: string | null
+          show_on_marketing_profiles: boolean
           updated_at: string | null
           year_level: number | null
         }[]
@@ -43106,6 +43110,7 @@ export type Database = {
           long_name: string | null
           name: string
           short_name: string | null
+          show_on_marketing_profiles: boolean
           updated_at: string | null
           year_level: number | null
         }[]

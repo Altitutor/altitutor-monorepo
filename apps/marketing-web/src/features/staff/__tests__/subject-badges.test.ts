@@ -41,11 +41,11 @@ test("keeps genuinely different subject names and omits empty names", () => {
   ]);
 });
 
-test("never advertises Homework Help as a teaching badge", () => {
+test("formats all supplied subjects; visibility is controlled by the public view", () => {
   expect(
     subjectBadges([
       { name: "Homework Help", curriculum: null },
       { name: "UCAT", curriculum: null },
     ]),
-  ).toEqual(["UCAT"]);
+  ).toEqual(["Homework Help", "UCAT"]);
 });

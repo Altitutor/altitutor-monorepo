@@ -41,8 +41,8 @@ const DAY_OPTIONS = [
 
 interface ClassInfoTabProps {
   classData: Tables<'classes'>;
-  subject?: Tables<'subjects'> | null;
-  subjects: Tables<'subjects'>[];
+  subject?: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null;
+  subjects: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>[];
   isEditing: boolean;
   isLoading: boolean;
   readOnly?: boolean;

@@ -102,8 +102,8 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
     }));
   
   // Build subject objects from flattened fields for compatibility
-  const classSubjects = useMemo<Record<string, Tables<'subjects'>>>(() => {
-    const subjects: Record<string, Tables<'subjects'>> = {};
+  const classSubjects = useMemo<Record<string, Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>>>(() => {
+    const subjects: Record<string, Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>> = {};
     tutorClasses.forEach((cls) => {
       // Only create subject if we have required fields (id and name are required)
       if (cls.subject_id && cls.id && cls.subject_name) {
@@ -147,7 +147,7 @@ export function ClassesTable({ addModalState: _addModalState }: ClassesTableProp
     if (!subject) {
       return { style: {}, textColorClass: 'text-gray-800', defaultClass: 'bg-gray-100 text-gray-800' };
     }
-    const { style, textColorClass } = getSubjectColorStyle(subject as Tables<'subjects'>);
+    const { style, textColorClass } = getSubjectColorStyle(subject as Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>);
     const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
     return { style, textColorClass, defaultClass };
   };

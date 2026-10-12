@@ -51,6 +51,7 @@ describe('tutorLogsTableHelpers', () => {
 
     const mockSubjects: Record<string, Tables<'subjects'>> = {
       'subject-1': {
+        show_on_marketing_profiles: true,
         id: 'subject-1',
         name: 'Mathematics',
         curriculum: 'SACE',

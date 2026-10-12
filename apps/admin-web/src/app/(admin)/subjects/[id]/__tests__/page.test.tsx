@@ -12,6 +12,7 @@ const subject = {
   curriculum: "SACE",
   discipline: "MATHEMATICS",
   level: null,
+  show_on_marketing_profiles: true,
   color: "#123456",
 };
 
@@ -138,4 +139,25 @@ it("preserves unsaved subject details when its image changes", async () => {
   expect(screen.getByLabelText("Subject Name")).toHaveValue("New name");
   expect(mockGet).toHaveBeenCalledTimes(1);
   expect(mockInvalidate).toHaveBeenCalledWith({ queryKey: ["subjects"] });
+});
+
+it("saves public profile visibility without changing subject identity", async () => {
+  await edit();
+  fireEvent.click(screen.getByRole("checkbox", { name: "Show on public tutor profiles" }));
+  fireEvent.click(screen.getByText("Save Changes"));
+  await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(
+    "subject", expect.objectContaining({ name: "Maths", show_on_marketing_profiles: false }),
+  ));
+});
+
+it("loads and re-enables a hidden subject with no year level", async () => {
+  mockGet.mockResolvedValue({ ...subject, name: "Medicine Interview", year_level: null, show_on_marketing_profiles: false });
+  await edit();
+  const checkbox = screen.getByRole("checkbox", { name: "Show on public tutor profiles" });
+  expect(checkbox).not.toBeChecked();
+  fireEvent.click(checkbox);
+  fireEvent.click(screen.getByText("Save Changes"));
+  await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith(
+    "subject", expect.objectContaining({ name: "Medicine Interview", year_level: null, show_on_marketing_profiles: true }),
+  ));
 });

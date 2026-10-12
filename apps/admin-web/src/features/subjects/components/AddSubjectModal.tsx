@@ -47,6 +47,7 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
     curriculum: '',
     discipline: '',
     level: '',
+    show_on_marketing_profiles: true,
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -69,6 +70,7 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
         curriculum: formData.curriculum ? (formData.curriculum as Enums<'subject_curriculum'>) : null,
         discipline: formData.discipline ? (formData.discipline as Enums<'subject_discipline'>) : null,
         level: formData.level || null,
+        show_on_marketing_profiles: formData.show_on_marketing_profiles,
       } as TablesInsert<'subjects'>;
 
       const created = await subjectsApi.createSubject(subjectData);
@@ -112,6 +114,20 @@ export function AddSubjectModal({ isOpen, onClose, onSubjectAdded }: AddSubjectM
         
         <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto p-6 pb-24">
           <div className="grid gap-4 py-4">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={formData.show_on_marketing_profiles}
+                  onChange={(event) => setFormData((prev) => ({
+                    ...prev,
+                    show_on_marketing_profiles: event.target.checked,
+                  }))}
+                />
+                Show on public tutor profiles
+              </label>
+              <p className="text-sm text-muted-foreground">Applies to every tutor.</p>
+            </div>
             <div className="grid grid-cols-4 items-center gap-4">
               <Label htmlFor="name" className="text-right">
                 Name

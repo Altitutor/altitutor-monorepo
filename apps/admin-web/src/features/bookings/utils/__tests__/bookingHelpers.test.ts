@@ -109,6 +109,7 @@ describe('formatStudentDisplay', () => {
 describe('formatSubjectDisplay', () => {
   it('should return long_name when set', () => {
     const subject: Tables<'subjects'> = {
+      show_on_marketing_profiles: true,
       id: 'subject-1',
       name: 'Mathematics',
       curriculum: 'IB',
@@ -127,6 +128,7 @@ describe('formatSubjectDisplay', () => {
 
   it('should return empty string when long_name is null', () => {
     const subject: Tables<'subjects'> = {
+      show_on_marketing_profiles: true,
       id: 'subject-1',
       name: 'English',
       curriculum: 'SACE',
