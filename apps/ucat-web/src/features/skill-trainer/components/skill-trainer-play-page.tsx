@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { captureException } from "@sentry/nextjs";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { RotateCcw } from "lucide-react";
@@ -22,7 +23,10 @@ import {
 import type { UcatSkillTrainerKey } from "@altitutor/shared";
 import { RichContentBlock } from "@/features/question-engine/components/rich-content-block";
 import { useSidebarOverride } from "@/features/layout/context/sidebar-override-context";
-import { skillTrainerApi } from "@/features/skill-trainer/api/skill-trainer-api";
+import {
+  skillTrainerApi,
+  SkillTrainerAttemptUnavailableError,
+} from "@/features/skill-trainer/api/skill-trainer-api";
 import type {
   SkillTrainerAttemptState,
   SubmitActionPayload,
@@ -382,6 +386,8 @@ export function SkillTrainerPlayPage({
     effectiveInitialState,
   );
   const [loading, setLoading] = useState(effectiveInitialState == null);
+  const [attemptUnavailable, setAttemptUnavailable] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [numericInput, setNumericInput] = useState("");
   const [numpadInput, setNumpadInput] = useState<string[]>([]);
@@ -400,6 +406,7 @@ export function SkillTrainerPlayPage({
   const expiryWaitTimeoutRef = useRef<number | null>(null);
   const initialStartPromiseRef =
     useRef<Promise<SkillTrainerAttemptState> | null>(null);
+  const attemptUnavailableRef = useRef(false);
   const stateRef = useRef<SkillTrainerAttemptState | null>(
     effectiveInitialState,
   );
@@ -420,9 +427,30 @@ export function SkillTrainerPlayPage({
   const { confirmDiscard } = useLeaveGuard(inProgress, state?.attempt.id);
 
   const applyState = useCallback((next: SkillTrainerAttemptState | null) => {
+    if (next && attemptUnavailableRef.current) return;
     stateRef.current = next;
     setState(next);
   }, []);
+
+  const handleAttemptLoadFailure = useCallback(
+    (error: unknown) => {
+      if (error instanceof SkillTrainerAttemptUnavailableError) {
+        attemptUnavailableRef.current = true;
+        applyState(null);
+        setAttemptUnavailable(true);
+        setRefreshFailed(false);
+        setActionError(error.message);
+        return;
+      }
+      captureException(error);
+      if (attemptUnavailableRef.current) return;
+      setRefreshFailed(true);
+      setActionError(
+        error instanceof Error ? error.message : "Failed to load attempt",
+      );
+    },
+    [applyState],
+  );
 
   useEffect(() => {
     if (embedded) return;
@@ -446,6 +474,7 @@ export function SkillTrainerPlayPage({
   );
 
   const refresh = useCallback(async () => {
+    if (attemptUnavailableRef.current) return null;
     if (localMode) {
       if (initialState) {
         setState((current) => {
@@ -461,8 +490,10 @@ export function SkillTrainerPlayPage({
     if (currentAttemptId) {
       next = await skillTrainerApi.getAttempt(currentAttemptId);
     } else {
-      initialStartPromiseRef.current ??=
-        skillTrainerApi.startAttempt(trainerKey, studyPlanTaskId);
+      initialStartPromiseRef.current ??= skillTrainerApi.startAttempt(
+        trainerKey,
+        studyPlanTaskId,
+      );
       try {
         next = await initialStartPromiseRef.current;
       } catch (error) {
@@ -509,10 +540,10 @@ export function SkillTrainerPlayPage({
         return;
       }
       expiryWaitTimeoutRef.current = null;
-      void refresh();
+      void refresh().catch(handleAttemptLoadFailure);
     };
     refreshWhenActionSettles();
-  }, [localMode, refresh]);
+  }, [handleAttemptLoadFailure, localMode, refresh]);
 
   useEffect(() => {
     return () => {
@@ -642,18 +673,38 @@ export function SkillTrainerPlayPage({
           payload,
           prev.attempt.version,
         );
+        if (attemptUnavailableRef.current) return;
         trackResult(next, prev, localFeedback, actionOrigin);
         applyState(next);
         if (next.isCompleted) return;
       } catch (err) {
+        if (attemptUnavailableRef.current) {
+          if (
+            !(err instanceof SkillTrainerAttemptUnavailableError) &&
+            !(err as { stale?: boolean } | null)?.stale
+          )
+            captureException(err);
+          return;
+        }
+        if (err instanceof SkillTrainerAttemptUnavailableError) {
+          handleAttemptLoadFailure(err);
+          return;
+        }
         if ((err as { stale?: boolean }).stale) {
-          const canonical = await skillTrainerApi.getAttempt(
-            currentState.attempt.id,
-          );
-          applyState(canonical);
-          setActionError(
-            "This attempt changed in another tab. Your latest state has been restored.",
-          );
+          try {
+            const canonical = await skillTrainerApi.getAttempt(
+              currentState.attempt.id,
+            );
+            if (attemptUnavailableRef.current) return;
+            applyState(canonical);
+            setActionError(
+              "This attempt changed in another tab. Your latest state has been restored.",
+            );
+          } catch (error) {
+            if (!(error instanceof SkillTrainerAttemptUnavailableError))
+              applyState(prev);
+            handleAttemptLoadFailure(error);
+          }
           return;
         }
         if (optimisticNext || optimisticProgressNext) {
@@ -668,6 +719,7 @@ export function SkillTrainerPlayPage({
     },
     [
       applyState,
+      handleAttemptLoadFailure,
       localItemsById,
       localMode,
       resetActionInputs,
@@ -790,6 +842,13 @@ export function SkillTrainerPlayPage({
     setActionError(null);
     try {
       if (await confirmDiscard()) {
+        // Navigation may be delayed or the page retained; stop using the discarded run now.
+        attemptUnavailableRef.current = true;
+        applyState(null);
+        setAttemptUnavailable(true);
+        setActionError(
+          "This run is no longer available. Return to the trainer to start a new run.",
+        );
         router.push(`/skill-trainer/${slug}`);
       }
     } catch (error) {
@@ -797,7 +856,7 @@ export function SkillTrainerPlayPage({
         error instanceof Error ? error.message : "Failed to discard attempt",
       );
     }
-  }, [confirmDiscard, router, slug]);
+  }, [applyState, confirmDiscard, router, slug]);
 
   if (loading) {
     return (
@@ -813,9 +872,16 @@ export function SkillTrainerPlayPage({
   }
   if (!state) {
     return (
-      <p className="text-sm text-destructive">
-        {actionError ?? "Could not start skill trainer."}
-      </p>
+      <div className="space-y-4">
+        <p role="alert" className="text-sm text-destructive">
+          {actionError ?? "Could not start skill trainer."}
+        </p>
+        {attemptUnavailable ? (
+          <Button onClick={() => router.push(`/skill-trainer/${slug}`)}>
+            Return to trainer
+          </Button>
+        ) : null}
+      </div>
     );
   }
 
@@ -880,7 +946,22 @@ export function SkillTrainerPlayPage({
         </div>
 
         {actionError ? (
-          <p className="text-sm text-destructive">{actionError}</p>
+          <div className="space-y-2">
+            <p role="alert" className="text-sm text-destructive">
+              {actionError}
+            </p>
+            {refreshFailed ? (
+              <Button
+                onClick={() => {
+                  setRefreshFailed(false);
+                  setActionError(null);
+                  void refresh().catch(handleAttemptLoadFailure);
+                }}
+              >
+                Retry loading run
+              </Button>
+            ) : null}
+          </div>
         ) : null}
 
         {!hasRenderableContent ? (
