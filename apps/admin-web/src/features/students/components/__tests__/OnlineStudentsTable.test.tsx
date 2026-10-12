@@ -63,6 +63,11 @@ describe('OnlineStudentsTable', () => {
 
     render(<OnlineStudentsTable />);
 
+    expect(mockedUseOnlineStudentsMinimal).toHaveBeenCalledWith(
+      expect.objectContaining({
+        accountClasses: ['external'],
+      }),
+    );
     expect(screen.getAllByText('Dual Student')).toHaveLength(1);
     const studentRow = screen.getByText('Dual Student').closest('tr');
     expect(studentRow).not.toBeNull();

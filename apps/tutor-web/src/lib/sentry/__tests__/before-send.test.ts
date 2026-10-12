@@ -18,3 +18,12 @@ describe('filterExpectedTutorWebError', () => {
     expect(filterExpectedTutorWebError(event)).toBe(event)
   })
 })
+
+it('retains unexpected failures that merely mention an expected outcome', () => {
+  const event = { message: 'Unexpected transaction failure after delete_blocked_by_dependency' };
+  expect(filterExpectedTutorWebError(event)).toBe(event);
+});
+it('retains unexpected exceptions alongside domain validation causes', () => {
+  const event = { exception: { values: [{ value: 'Unexpected database failure' }, { value: 'public_set_contains_private_stem' }] } };
+  expect(filterExpectedTutorWebError(event)).toBe(event);
+});

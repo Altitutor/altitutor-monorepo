@@ -35,6 +35,7 @@ describe('useStudentSubjects', () => {
   it('should fetch student subjects when studentId is provided', async () => {
     const mockSubjects: Tables<'subjects'>[] = [
       {
+        show_on_marketing_profiles: true,
         id: '1',
         name: 'Mathematics',
         curriculum: 'SACE',
@@ -48,6 +49,7 @@ describe('useStudentSubjects', () => {
         updated_at: new Date().toISOString(),
       },
       {
+        show_on_marketing_profiles: true,
         id: '2',
         name: 'English',
         curriculum: 'SACE',

@@ -107,7 +107,7 @@ export const tutorLogsApi = {
     class?: { 
       id: string;
       level?: string | null;
-      subject?: Database['public']['Tables']['subjects']['Row'] 
+      subject?: Omit<Database['public']['Tables']['subjects']['Row'], 'show_on_marketing_profiles'>
     } 
   }>> => {
     const supabase = (getSupabaseClient() as SupabaseClient<Database>);
@@ -172,7 +172,7 @@ export const tutorLogsApi = {
         class?: {
           id: string;
           level?: string | null;
-          subject?: Database['public']['Tables']['subjects']['Row'];
+          subject?: Omit<Database['public']['Tables']['subjects']['Row'], 'show_on_marketing_profiles'>;
         };
       };
       

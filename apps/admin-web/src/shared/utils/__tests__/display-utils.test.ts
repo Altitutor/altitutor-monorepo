@@ -58,6 +58,7 @@ describe('display utilities', () => {
 
   describe('getSubjectColorStyle', () => {
     const mockSubject: Tables<'subjects'> = {
+      show_on_marketing_profiles: true,
       id: 'subject-1',
       name: 'Mathematics',
       short_name: 'MATH',
@@ -111,6 +112,7 @@ describe('display utilities', () => {
 
   describe('getSubjectColorHex', () => {
     const mockSubject: Tables<'subjects'> = {
+      show_on_marketing_profiles: true,
       id: 'subject-1',
       name: 'Mathematics',
       short_name: 'MATH',

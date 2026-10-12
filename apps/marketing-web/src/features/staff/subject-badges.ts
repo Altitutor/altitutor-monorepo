@@ -12,7 +12,7 @@ export function subjectBadges(subjects: TeachingSubject[]): string[] {
   const unique = new Map<string, { label: string; order: number }>();
   for (const subject of subjects) {
     const name = subject.name.trim();
-    if (!name || name.toLowerCase() === "homework help") continue;
+    if (!name) continue;
     const curriculum = subject.curriculum?.trim().toUpperCase() ?? "";
     const prefix = curriculumLabels[curriculum];
     const label = prefix ? `${prefix} ${name}` : name;

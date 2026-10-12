@@ -2,6 +2,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { learningApi } from "@/features/learning/api/learning-api";
+import { StudyPlanLessonConflictError } from "@/features/learning/lib/lesson-start-error";
 import type {
   BlockProgressPayload,
   LearningLessonDetail,
@@ -107,6 +108,8 @@ export function useLearningLesson(
   lessonId: string | null,
   studyPlanTaskId: string | null,
 ) {
+  const queryClient = useQueryClient();
+  const defaultRetry = queryClient.getDefaultOptions().queries?.retry;
   const start = useQuery({
     queryKey: [
       ...learningKeys.all,
@@ -117,6 +120,13 @@ export function useLearningLesson(
     queryFn: () => learningApi.startLesson(lessonId!, studyPlanTaskId),
     enabled: lessonId != null,
     staleTime: Number.POSITIVE_INFINITY,
+    retry: (failureCount, error) => {
+      if (error instanceof StudyPlanLessonConflictError) return false;
+      if (typeof defaultRetry === "function")
+        return defaultRetry(failureCount, error);
+      if (typeof defaultRetry === "boolean") return defaultRetry;
+      return failureCount < (defaultRetry ?? 3);
+    },
   });
   const lesson = useQuery({
     queryKey: learningKeys.lesson(lessonId ?? ""),
@@ -125,8 +135,9 @@ export function useLearningLesson(
   });
   return {
     ...lesson,
-    isLoading: start.isPending || lesson.isPending,
+    isLoading: start.isPending || (start.isSuccess && lesson.isPending),
     error: start.error ?? lesson.error,
+    retry: () => (start.isError ? start.refetch() : lesson.refetch()),
   };
 }
 

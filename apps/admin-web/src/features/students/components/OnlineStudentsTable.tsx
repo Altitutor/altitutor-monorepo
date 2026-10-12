@@ -34,7 +34,7 @@ function formatDate(value: string): string {
 }
 
 export function OnlineStudentsTable() {
-  const defaultFilters = useMemo(() => ({}), []);
+  const defaultFilters = useMemo(() => ({ accountClass: ['external'] }), []);
   const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['student', 'products', 'online_since'], []);
   const {
@@ -51,7 +51,7 @@ export function OnlineStudentsTable() {
     defaultFilters,
     defaultSort,
     defaultVisibleColumns,
-    filterKeys: ['product', 'entitlement'],
+    filterKeys: ['product', 'entitlement', 'accountClass'],
   });
   const [selectedStudentId, setSelectedStudentId] = useState<string | null>(null);
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
@@ -61,6 +61,7 @@ export function OnlineStudentsTable() {
     searchFields,
     products: state.filters.product as string[] | undefined,
     entitlements: state.filters.entitlement as string[] | undefined,
+    accountClasses: state.filters.accountClass as Array<'external' | 'internal_test'> | undefined,
     page: state.page,
     pageSize: state.pageSize,
     orderBy: (state.sortBy || 'last_name') as 'first_name' | 'last_name' | 'online_since',
@@ -82,6 +83,14 @@ export function OnlineStudentsTable() {
       options: [
         { label: 'Free', value: 'FREE' },
         { label: 'Unlimited', value: 'PAID' },
+      ],
+    },
+    {
+      key: 'accountClass',
+      label: 'Account',
+      options: [
+        { label: 'External', value: 'external' },
+        { label: 'Internal test', value: 'internal_test' },
       ],
     },
   ], []);

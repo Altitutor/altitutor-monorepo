@@ -73,14 +73,6 @@
         {
           "name": "UCAT",
           "curriculum": null
-        },
-        {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 3
@@ -151,14 +143,6 @@
         {
           "name": "Mathematics",
           "curriculum": "PRESACE"
-        },
-        {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 5
@@ -196,10 +180,6 @@
           "curriculum": "SACE"
         },
         {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
           "name": "Science",
           "curriculum": "PRESACE"
         },
@@ -210,10 +190,6 @@
         {
           "name": "Mathematics",
           "curriculum": "PRESACE"
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 6
@@ -304,14 +280,6 @@
         {
           "name": "Science",
           "curriculum": "PRESACE"
-        },
-        {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 8
@@ -353,16 +321,8 @@
           "curriculum": "PRESACE"
         },
         {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
           "name": "Mathematics",
           "curriculum": "PRESACE"
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         },
         {
           "name": "English",
@@ -446,10 +406,6 @@
         {
           "name": "UCAT",
           "curriculum": null
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 10
@@ -505,10 +461,6 @@
         {
           "name": "UCAT",
           "curriculum": null
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 13
@@ -536,10 +488,6 @@
         {
           "name": "Specialist Mathematics",
           "curriculum": "SACE"
-        },
-        {
-          "name": "Homework Help",
-          "curriculum": null
         },
         {
           "name": "Science",
@@ -576,10 +524,6 @@
         {
           "name": "Biology",
           "curriculum": "SACE"
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 14
@@ -754,10 +698,6 @@
           "curriculum": "PRESACE"
         },
         {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
           "name": "Science",
           "curriculum": "PRESACE"
         },
@@ -847,10 +787,6 @@
         {
           "name": "Mathematical Methods",
           "curriculum": "SACE"
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         }
       ],
       "display_order": 19
@@ -950,10 +886,6 @@
           "curriculum": null
         },
         {
-          "name": "Medicine Interview",
-          "curriculum": null
-        },
-        {
           "name": "Biology",
           "curriculum": "SACE"
         }
@@ -1045,10 +977,6 @@
           "curriculum": "SACE"
         },
         {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
           "name": "Mathematical Methods",
           "curriculum": "SACE"
         },
@@ -1091,10 +1019,6 @@
         {
           "name": "Mathematics",
           "curriculum": "PRIMARY"
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         },
         {
           "name": "Physics",
@@ -1180,20 +1104,12 @@
           "curriculum": null
         },
         {
-          "name": "Homework Help",
-          "curriculum": null
-        },
-        {
           "name": "Chemistry",
           "curriculum": "SACE"
         },
         {
           "name": "Mathematical Methods",
           "curriculum": "SACE"
-        },
-        {
-          "name": "Medicine Interview",
-          "curriculum": null
         },
         {
           "name": "Chemistry",

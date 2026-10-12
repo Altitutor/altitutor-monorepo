@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { LOGIN_CHUNK_RECOVERY_SCRIPT } from "@/features/auth/lib/login-chunk-recovery";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProviders } from "@/components/providers/app-providers";
@@ -36,6 +37,12 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <script
+          id="ucat-login-chunk-recovery-script"
+          dangerouslySetInnerHTML={{ __html: LOGIN_CHUNK_RECOVERY_SCRIPT }}
+        />
+      </head>
       <body className={inter.className}>
         <UcatPostHogProvider>
           <AppProviders>{children}</AppProviders>

@@ -127,6 +127,7 @@ else
 
     # Environment is configuration derived from the target, not a stored secret.
     deploy_supabase_secret "SENTRY_ENVIRONMENT" "development" "$DEV_PROJECT_REF" "development"
+    deploy_supabase_secret "SENTRY_DEPLOYMENT_ENVIRONMENT" "development" "$DEV_PROJECT_REF" "development"
     deploy_supabase_secret "UCAT_EMAIL_ENVIRONMENT" "development" "$DEV_PROJECT_REF" "development"
     
     rm -f "$temp_input"
@@ -172,6 +173,7 @@ else
 
     # Environment is configuration derived from the target, not a stored secret.
     deploy_supabase_secret "SENTRY_ENVIRONMENT" "production" "$PROD_PROJECT_REF" "production"
+    deploy_supabase_secret "SENTRY_DEPLOYMENT_ENVIRONMENT" "production" "$PROD_PROJECT_REF" "production"
     deploy_supabase_secret "UCAT_EMAIL_ENVIRONMENT" "production" "$PROD_PROJECT_REF" "production"
     
     rm -f "$temp_input"

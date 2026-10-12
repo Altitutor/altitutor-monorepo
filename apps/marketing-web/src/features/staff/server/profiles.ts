@@ -95,7 +95,7 @@ const readProfiles = unstable_cache(
       throw new Error(`Staff profiles unavailable (${response.status})`);
     return parseStaffProfiles(await response.json(), url);
   },
-  ["staff-profiles-v3"],
+  ["staff-profiles-v4"],
   { revalidate: 86400, tags: [STAFF_PROFILES_TAG] },
 );
 

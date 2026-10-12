@@ -9,7 +9,7 @@ import { getSubjectColorHex, getSubjectColorStyle } from '@/shared/utils';
 
 interface TimetableViewProps {
   classes: Tables<'classes'>[];
-  classSubjects?: Record<string, Tables<'subjects'>>;
+  classSubjects?: Record<string, Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>>;
   classStudents?: Record<string, Tables<'students'>[]>;
   classStaff?: Record<string, Tables<'staff'>[]>;
   onClassClick: (cls: Tables<'classes'>) => void;

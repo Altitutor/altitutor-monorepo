@@ -47,7 +47,7 @@ export function formatDateTime(date: Date | string): string {
  * Get subject long name from database column
  * Falls back to empty string if not available
  */
-export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
+export function formatSubjectDisplay(subject: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>): string {
   return subject.long_name || '';
 }
 
@@ -55,7 +55,7 @@ export function formatSubjectDisplay(subject: Tables<'subjects'>): string {
  * Get subject short name from database column
  * Falls back to empty string if not available
  */
-export function formatSubjectShortName(subject: Tables<'subjects'>): string {
+export function formatSubjectShortName(subject: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'>): string {
   return subject.short_name || '';
 }
 
@@ -65,7 +65,7 @@ export function formatSubjectShortName(subject: Tables<'subjects'>): string {
  */
 export function formatClassName(
   classData: Pick<Tables<'classes'>, 'long_name' | 'day_of_week' | 'start_time' | 'end_time'>,
-  subject?: Tables<'subjects'> | null
+  subject?: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null
 ): string {
   if (classData.long_name?.trim()) {
     return classData.long_name.trim();
@@ -85,7 +85,7 @@ export function formatClassName(
  */
 export function formatClassShortName(
   classData: Pick<Tables<'classes'>, 'short_name' | 'day_of_week' | 'start_time'>,
-  subject?: Tables<'subjects'> | null
+  subject?: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null
 ): string {
   if (classData.short_name?.trim()) {
     return classData.short_name.trim();
@@ -140,7 +140,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
  * Returns an object with backgroundColor style and appropriate text color class
  */
 export function getSubjectColorStyle(
-  subject: Tables<'subjects'> | null | undefined
+  subject: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null | undefined
 ): { style: React.CSSProperties; textColorClass: string } {
   const defaultStyle = { backgroundColor: undefined };
   const defaultTextClass = 'text-gray-800';
@@ -164,7 +164,7 @@ export function getSubjectColorStyle(
 /**
  * Get subject color as hex string, with fallback
  */
-export function getSubjectColorHex(subject: Tables<'subjects'> | null | undefined): string | null {
+export function getSubjectColorHex(subject: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null | undefined): string | null {
   if (!subject?.color) return null;
   return subject.color.startsWith('#') ? subject.color : `#${subject.color}`;
 }

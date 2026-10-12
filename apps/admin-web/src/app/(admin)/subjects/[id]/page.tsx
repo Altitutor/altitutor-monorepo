@@ -76,6 +76,7 @@ const formSchema = z.object({
   curriculum: z.enum(['SACE','IB','PRESACE','PRIMARY','MEDICINE']).nullable(),
   discipline: z.enum(['MATHEMATICS','SCIENCE','HUMANITIES','ENGLISH','ART','LANGUAGE','MEDICINE']).nullable(),
   level: z.string().nullable(),
+  show_on_marketing_profiles: z.boolean(),
   color: z.union([
     z.string().regex(/^#[0-9A-Fa-f]{6}$/, "Color must be a valid hex code (e.g., #FF5733)"),
     z.literal(''),
@@ -113,6 +114,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
       curriculum: null,
       discipline: null,
       level: null,
+      show_on_marketing_profiles: true,
       color: null,
     },
   });
@@ -131,6 +133,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         curriculum: subject.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE' | null,
         discipline: subject.discipline as 'MATHEMATICS' | 'SCIENCE' | 'HUMANITIES' | 'ENGLISH' | 'ART' | 'LANGUAGE' | 'MEDICINE' | null,
         level: subject.level,
+        show_on_marketing_profiles: subject.show_on_marketing_profiles,
         color: subject.color || null,
       });
     }
@@ -166,6 +169,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         curriculum: subject.curriculum,
         discipline: subject.discipline,
         level: subject.level,
+        show_on_marketing_profiles: subject.show_on_marketing_profiles,
         color: subject.color || null,
       });
     }
@@ -184,6 +188,7 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
         curriculum: values.curriculum as 'SACE' | 'IB' | 'PRESACE' | 'PRIMARY' | 'MEDICINE' | null,
         discipline: values.discipline as 'MATHEMATICS' | 'SCIENCE' | 'HUMANITIES' | 'ENGLISH' | 'ART' | 'LANGUAGE' | 'MEDICINE' | null,
         level: values.level,
+        show_on_marketing_profiles: values.show_on_marketing_profiles,
         color: values.color || null,
       };
 
@@ -462,6 +467,33 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                 )}
               />
 
+              <FormField
+                control={form.control}
+                name="show_on_marketing_profiles"
+                render={({ field }) => (
+                  <FormItem>
+                    <div className="flex items-center gap-2">
+                      <FormControl>
+                        <input
+                          type="checkbox"
+                          name={field.name}
+                          ref={field.ref}
+                          checked={field.value}
+                          onBlur={field.onBlur}
+                          onChange={(event) => field.onChange(event.target.checked)}
+                        />
+                      </FormControl>
+                      <FormLabel>Show on public tutor profiles</FormLabel>
+                    </div>
+                    <FormDescription>
+                      Applies to every tutor. Changes appear after the daily website refresh,
+                      or use Refresh website in a staff member’s website settings.
+                    </FormDescription>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <Separator className="my-6" />
 
                   {/* Root Topics Section - Always show in edit mode */}
@@ -590,6 +622,9 @@ export default function SubjectDetailPage({ params }: { params: { id: string } }
                 </PropertyFormRow>
                 <PropertyFormRow label="Level">
                   <div>{subject.level || '-'}</div>
+                </PropertyFormRow>
+                <PropertyFormRow label="Public tutor profiles">
+                  <div>{subject.show_on_marketing_profiles ? 'Shown' : 'Hidden'}</div>
                 </PropertyFormRow>
                 <PropertyFormRow label="Color">
                   <div className="flex items-center gap-2">

@@ -28,18 +28,15 @@ function originalExceptionMessage(originalException: unknown): string | undefine
 }
 
 function isExpectedUcatDomainOutcome(message: string | undefined): boolean {
-  return Boolean(message && EXPECTED_UCAT_DOMAIN_OUTCOMES.some((code) => message.includes(code)))
+  return Boolean(message && EXPECTED_UCAT_DOMAIN_OUTCOMES.some((code) => (code.endsWith(':') ? message.startsWith(code) : message === code)))
 }
 
 export function filterExpectedTutorWebError<TEvent extends TutorWebSentryEvent>(
   event: TEvent,
   hint?: TutorWebSentryHint,
 ): TEvent | null {
-  const messages = [
-    event.message,
-    ...(event.exception?.values?.map((value) => value.value) ?? []),
-    originalExceptionMessage(hint?.originalException),
-  ]
-
-  return messages.some(isExpectedUcatDomainOutcome) ? null : event
+  const original = originalExceptionMessage(hint?.originalException)
+  const exceptions = event.exception?.values?.map((value) => value.value) ?? []
+  const messages = exceptions.length ? [...exceptions, ...(original ? [original] : [])] : [original ?? event.message]
+  return messages.length > 0 && messages.every(isExpectedUcatDomainOutcome) ? null : event
 }

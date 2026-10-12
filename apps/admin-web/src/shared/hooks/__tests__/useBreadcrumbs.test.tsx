@@ -310,6 +310,7 @@ describe('useBreadcrumbs', () => {
     mockUsePathname.mockReturnValue(`/subjects/${subjectId}/topics/${topicId}`);
 
     mockSubjectsApi.getSubject.mockResolvedValue({
+      show_on_marketing_profiles: true,
       id: subjectId,
       name: 'Mathematics',
       short_name: 'MATH',
@@ -408,6 +409,7 @@ describe('useBreadcrumbs', () => {
         long_name: null,
       },
       subject: {
+        show_on_marketing_profiles: true,
         id: 'subject-1',
         name: 'Mathematics',
         short_name: 'MATH',

@@ -5,7 +5,7 @@ import type { Database, Tables } from '@altitutor/shared';
 
 type VtutorClassDetailRow = Database['public']['Views']['vtutor_class_detail']['Row'];
 
-function buildSubjectFromClassDetail(detail: VtutorClassDetailRow): Tables<'subjects'> | null {
+function buildSubjectFromClassDetail(detail: VtutorClassDetailRow): Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null {
   if (!detail.subject_id) return null;
 
   const displayParts: string[] = [];
@@ -74,7 +74,7 @@ export interface UseClassModalDataReturn {
   students: Tables<'students'>[];
   staff: Tables<'staff'>[];
   classData: Tables<'classes'> | null;
-  subject: Tables<'subjects'> | null;
+  subject: Omit<Tables<'subjects'>, 'show_on_marketing_profiles'> | null;
   isLoading: boolean;
   refresh: () => Promise<void>;
 }
