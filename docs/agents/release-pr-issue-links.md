@@ -15,7 +15,7 @@ edit, on `main` pushes, and through **Release PR issue links → Run workflow**.
 Manual reruns discover all open release PRs and pick up corrected source metadata.
 It writes only between `<!-- altitutor-release-links:start -->` and
 `<!-- altitutor-release-links:end -->`; surrounding human text is preserved.
-Missing, duplicated, or reversed markers fail without writing. An unchanged
+Incomplete, duplicated, or reversed markers fail without writing. An unchanged
 body is not patched, preventing edit loops. Do not put these markers inside a
 code fence, quote or HTML comment; the generated directives need normal body text.
 

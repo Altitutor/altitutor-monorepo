@@ -76,6 +76,18 @@ test("contradictory intent is flagged instead of upgraded", () => {
   assert.match(result, /DEV-3: conflicting explicit intents/);
 });
 
+test("nested shorter and mixed-character fences never expose example closing links", () => {
+  for (const text of [
+    "````md\n```js\nFixes DEV-999\n```\n````\nRefs DEV-2",
+    "~~~md\n```js\nFixes DEV-999\n```\n~~~\nRefs DEV-2",
+    "```md\n```not-a-close\nFixes DEV-999\n```\nRefs DEV-2",
+  ]) {
+    const result = renderReleaseLinks(snapshot(text));
+    assert.doesNotMatch(result, /^Fixes DEV-999$/m);
+    assert.match(result, /^Refs DEV-2$/m);
+  }
+});
+
 test("generated source sections cannot become evidence for later closing links", () => {
   const result = renderReleaseLinks(
     snapshot(

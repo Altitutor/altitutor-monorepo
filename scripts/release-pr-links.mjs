@@ -51,11 +51,22 @@ function parseLinks(text) {
     [...text.matchAll(ISSUE)].map((match) => match[0].toUpperCase()),
   );
   const intents = new Map();
-  let fenced = false;
+  let fence;
   let commented = false;
   let generated = false;
   for (const raw of text.split(/\r?\n/u)) {
     const line = raw.trim();
+    const delimiter = /^ {0,3}(`{3,}|~{3,})(.*)$/u.exec(raw);
+    if (fence) {
+      if (
+        delimiter &&
+        delimiter[1][0] === fence.character &&
+        delimiter[1].length >= fence.length &&
+        delimiter[2].trim() === ""
+      )
+        fence = undefined;
+      continue;
+    }
     if (line.includes(START)) generated = true;
     if (generated) {
       if (line.includes(END)) generated = false;
@@ -66,11 +77,11 @@ function parseLinks(text) {
       if (line.includes("-->")) commented = false;
       continue;
     }
-    if (/^(?:```|~~~)/u.test(line)) {
-      fenced = !fenced;
+    if (delimiter && (delimiter[1][0] !== "`" || !delimiter[2].includes("`"))) {
+      fence = { character: delimiter[1][0], length: delimiter[1].length };
       continue;
     }
-    if (fenced || /^\s{4}|^\t/u.test(raw)) continue;
+    if (/^\s{4}|^\t/u.test(raw)) continue;
     const directive = line.match(DIRECTIVE);
     if (!directive) continue;
     let list = directive[2];
