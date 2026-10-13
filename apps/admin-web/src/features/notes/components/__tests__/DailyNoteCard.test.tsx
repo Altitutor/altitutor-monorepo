@@ -3,10 +3,14 @@ import type { JSONContent } from "@altitutor/ui";
 import { DailyNoteCard } from "../DailyNoteCard";
 
 const mutate = jest.fn();
+let mockDailyNote: { id: string; content: JSONContent | string } = {
+  id: "daily-note-1",
+  content: "",
+};
 
 jest.mock("../../api/dailyQueries", () => ({
   useDailyNote: () => ({
-    data: { id: "daily-note-1", content: "" },
+    data: mockDailyNote,
     isLoading: false,
   }),
   useUpdateDailyNote: () => ({
@@ -58,6 +62,7 @@ describe("DailyNoteCard autosave", () => {
   beforeEach(() => {
     jest.useFakeTimers();
     mutate.mockClear();
+    mockDailyNote = { id: "daily-note-1", content: "" };
   });
 
   afterEach(() => {
@@ -135,5 +140,48 @@ describe("DailyNoteCard autosave", () => {
     unmount();
 
     expect(mutate).toHaveBeenCalledTimes(2);
+  });
+
+  it("does not replace loaded note content with the stale initial debounce value", () => {
+    mockDailyNote = {
+      id: "daily-note-1",
+      content: {
+        type: "doc",
+        content: [
+          {
+            type: "paragraph",
+            content: [{ type: "text", text: "Already saved" }],
+          },
+        ],
+      },
+    };
+
+    render(<DailyNoteCard date="2026-10-13" />);
+    act(() => {
+      jest.advanceTimersByTime(1000);
+    });
+
+    expect(mutate).not.toHaveBeenCalled();
+  });
+
+  it("persists a pending edit before switching to another date", () => {
+    const { rerender } = render(<DailyNoteCard date="2026-10-13" />);
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Type note" }));
+    });
+
+    mockDailyNote = { id: "daily-note-2", content: "" };
+    rerender(<DailyNoteCard date="2026-10-14" />);
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        id: "daily-note-1",
+        date: "2026-10-13",
+        updates: expect.objectContaining({
+          content: expect.objectContaining({ type: "doc" }),
+        }),
+      }),
+      expect.any(Object),
+    );
   });
 });

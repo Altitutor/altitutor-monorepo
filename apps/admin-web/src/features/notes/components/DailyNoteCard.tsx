@@ -32,6 +32,7 @@ export function DailyNoteCard({ date }: { date: string }) {
   const lastSavedContentRef = useRef<string>("");
   const lastSubmittedContentRef = useRef<string>("");
   const latestContentRef = useRef<JSONContent | string>("");
+  const isDebouncedContentCurrentRef = useRef(false);
   const saveContextRef = useRef({
     noteId: note?.id,
     date,
@@ -56,51 +57,65 @@ export function DailyNoteCard({ date }: { date: string }) {
     const contentJson = JSON.stringify(nextContent);
     lastSavedContentRef.current = contentJson;
     lastSubmittedContentRef.current = contentJson;
+    isDebouncedContentCurrentRef.current = false;
     setIsInitialized(true);
   }, [note]);
 
   const debouncedContentTrigger = useDebounce(content, 1000);
 
-  const saveContent = useCallback((nextContent: JSONContent | string) => {
-    const context = saveContextRef.current;
-    if (!context.noteId) return;
+  const saveContent = useCallback(
+    (nextContent: JSONContent | string, context = saveContextRef.current) => {
+      if (!context.noteId) return;
 
-    const contentJson = JSON.stringify(nextContent);
-    if (contentJson === lastSubmittedContentRef.current) return;
-    lastSubmittedContentRef.current = contentJson;
+      const contentJson = JSON.stringify(nextContent);
+      if (contentJson === lastSubmittedContentRef.current) return;
+      lastSubmittedContentRef.current = contentJson;
 
-    context.mutate(
-      {
-        id: context.noteId,
-        date: context.date,
-        updates: { content: nextContent },
-        silent: true,
-        updatedBy: context.updatedBy,
-      },
-      {
-        onSuccess: () => {
-          lastSavedContentRef.current = contentJson;
+      context.mutate(
+        {
+          id: context.noteId,
+          date: context.date,
+          updates: { content: nextContent },
+          silent: true,
+          updatedBy: context.updatedBy,
         },
-        onError: () => {
-          if (lastSubmittedContentRef.current === contentJson) {
-            lastSubmittedContentRef.current = lastSavedContentRef.current;
-          }
+        {
+          onSuccess: () => {
+            if (currentNoteIdRef.current === context.noteId) {
+              lastSavedContentRef.current = contentJson;
+            }
+          },
+          onError: () => {
+            if (
+              currentNoteIdRef.current === context.noteId &&
+              lastSubmittedContentRef.current === contentJson
+            ) {
+              lastSubmittedContentRef.current = lastSavedContentRef.current;
+            }
+          },
         },
-      },
-    );
-  }, []);
+      );
+    },
+    [],
+  );
 
   useEffect(() => {
     if (!isInitialized || !note) return;
+    if (!isDebouncedContentCurrentRef.current) {
+      const debouncedContentJson = JSON.stringify(debouncedContentTrigger);
+      const latestContentJson = JSON.stringify(latestContentRef.current);
+      if (debouncedContentJson !== latestContentJson) return;
+      isDebouncedContentCurrentRef.current = true;
+    }
     saveContent(debouncedContentTrigger);
   }, [debouncedContentTrigger, isInitialized, note, saveContent]);
 
-  useEffect(
-    () => () => {
-      saveContent(latestContentRef.current);
-    },
-    [saveContent],
-  );
+  useEffect(() => {
+    const context = saveContextRef.current;
+    return () => {
+      saveContent(latestContentRef.current, context);
+    };
+  }, [date, note?.id, saveContent]);
 
   const handleContentChange = useCallback((nextContent: JSONContent) => {
     latestContentRef.current = nextContent;
