@@ -111,9 +111,14 @@ export function DailyNoteCard({ date }: { date: string }) {
   }, [debouncedContentTrigger, isInitialized, note, saveContent]);
 
   useEffect(() => {
-    const context = saveContextRef.current;
+    const noteId = note?.id;
+    const contextDate = date;
     return () => {
-      saveContent(latestContentRef.current, context);
+      saveContent(latestContentRef.current, {
+        ...saveContextRef.current,
+        noteId,
+        date: contextDate,
+      });
     };
   }, [date, note?.id, saveContent]);
 

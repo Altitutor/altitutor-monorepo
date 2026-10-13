@@ -7,6 +7,7 @@ let mockDailyNote: { id: string; content: JSONContent | string } = {
   id: "daily-note-1",
   content: "",
 };
+let mockCurrentStaff: { id: string } | undefined = { id: "staff-1" };
 
 jest.mock("../../api/dailyQueries", () => ({
   useDailyNote: () => ({
@@ -22,7 +23,7 @@ jest.mock("../../api/dailyQueries", () => ({
 
 jest.mock("@/shared/hooks", () => ({
   ...jest.requireActual("@/shared/hooks"),
-  useCurrentStaff: () => ({ data: { id: "staff-1" } }),
+  useCurrentStaff: () => ({ data: mockCurrentStaff }),
 }));
 
 jest.mock("@/shared/hooks/useMentionSuggestions", () => ({
@@ -63,6 +64,7 @@ describe("DailyNoteCard autosave", () => {
     jest.useFakeTimers();
     mutate.mockClear();
     mockDailyNote = { id: "daily-note-1", content: "" };
+    mockCurrentStaff = { id: "staff-1" };
   });
 
   afterEach(() => {
@@ -181,6 +183,25 @@ describe("DailyNoteCard autosave", () => {
           content: expect.objectContaining({ type: "doc" }),
         }),
       }),
+      expect.any(Object),
+    );
+  });
+
+  it("uses staff attribution that loads after the daily note", () => {
+    mockCurrentStaff = undefined;
+    const { rerender, unmount } = render(
+      <DailyNoteCard date="2026-10-13" />,
+    );
+    act(() => {
+      fireEvent.click(screen.getByRole("button", { name: "Type note" }));
+    });
+
+    mockCurrentStaff = { id: "staff-late" };
+    rerender(<DailyNoteCard date="2026-10-13" />);
+    unmount();
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ updatedBy: "staff-late" }),
       expect.any(Object),
     );
   });
