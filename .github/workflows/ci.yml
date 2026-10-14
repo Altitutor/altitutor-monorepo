@@ -10,22 +10,9 @@ on:
         required: false
         type: boolean
         default: true
+  # Required checks must report for every PR, including documentation-only work.
+  # Browser/database jobs retain their existing path-based selection below.
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'supabase/functions/**'
-      - 'supabase/migrations/**'
-      - 'supabase/scripts/**'
-      - 'supabase/seed/**'
-      - 'supabase/config.toml'
-      - 'supabase/templates/**'
-      - 'scripts/**'
-      - 'turbo.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/**'
   workflow_dispatch:
 
 concurrency:
