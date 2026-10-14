@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Card, CardContent, type JSONContent } from "@altitutor/ui";
 import { Check, CloudOff, Loader2 } from "lucide-react";
 import { useDailyNote, useUpdateDailyNote } from "../api/dailyQueries";
@@ -30,6 +30,21 @@ export function DailyNoteCard({ date }: { date: string }) {
   const [isInitialized, setIsInitialized] = useState(false);
   const currentNoteIdRef = useRef<string | null>(null);
   const lastSavedContentRef = useRef<string>("");
+  const lastSubmittedContentRef = useRef<string>("");
+  const latestContentRef = useRef<JSONContent | string>("");
+  const isDebouncedContentCurrentRef = useRef(false);
+  const saveContextRef = useRef({
+    noteId: note?.id,
+    date,
+    updatedBy: currentStaff?.id ?? null,
+    mutate: updateDailyNote.mutate,
+  });
+  saveContextRef.current = {
+    noteId: note?.id,
+    date,
+    updatedBy: currentStaff?.id ?? null,
+    mutate: updateDailyNote.mutate,
+  };
 
   useEffect(() => {
     if (!note) return;
@@ -38,35 +53,79 @@ export function DailyNoteCard({ date }: { date: string }) {
     currentNoteIdRef.current = note.id;
     const nextContent = (note.content as JSONContent | string | null) ?? "";
     setContent(nextContent);
-    lastSavedContentRef.current = JSON.stringify(nextContent);
+    latestContentRef.current = nextContent;
+    const contentJson = JSON.stringify(nextContent);
+    lastSavedContentRef.current = contentJson;
+    lastSubmittedContentRef.current = contentJson;
+    isDebouncedContentCurrentRef.current = false;
     setIsInitialized(true);
   }, [note]);
 
   const debouncedContentTrigger = useDebounce(content, 1000);
 
+  const saveContent = useCallback(
+    (nextContent: JSONContent | string, context = saveContextRef.current) => {
+      if (!context.noteId) return;
+
+      const contentJson = JSON.stringify(nextContent);
+      if (contentJson === lastSubmittedContentRef.current) return;
+      lastSubmittedContentRef.current = contentJson;
+
+      context.mutate(
+        {
+          id: context.noteId,
+          date: context.date,
+          updates: { content: nextContent },
+          silent: true,
+          updatedBy: context.updatedBy,
+        },
+        {
+          onSuccess: () => {
+            if (currentNoteIdRef.current === context.noteId) {
+              lastSavedContentRef.current = contentJson;
+            }
+          },
+          onError: () => {
+            if (
+              currentNoteIdRef.current === context.noteId &&
+              lastSubmittedContentRef.current === contentJson
+            ) {
+              lastSubmittedContentRef.current = lastSavedContentRef.current;
+            }
+          },
+        },
+      );
+    },
+    [],
+  );
+
   useEffect(() => {
     if (!isInitialized || !note) return;
+    if (!isDebouncedContentCurrentRef.current) {
+      const debouncedContentJson = JSON.stringify(debouncedContentTrigger);
+      const latestContentJson = JSON.stringify(latestContentRef.current);
+      if (debouncedContentJson !== latestContentJson) return;
+      isDebouncedContentCurrentRef.current = true;
+    }
+    saveContent(debouncedContentTrigger);
+  }, [debouncedContentTrigger, isInitialized, note, saveContent]);
 
-    const contentJson = JSON.stringify(content);
-    if (contentJson === lastSavedContentRef.current) return;
+  useEffect(() => {
+    const noteId = note?.id;
+    const contextDate = date;
+    return () => {
+      saveContent(latestContentRef.current, {
+        ...saveContextRef.current,
+        noteId,
+        date: contextDate,
+      });
+    };
+  }, [date, note?.id, saveContent]);
 
-    lastSavedContentRef.current = contentJson;
-    updateDailyNote.mutate({
-      id: note.id,
-      date,
-      updates: { content },
-      silent: true,
-      updatedBy: currentStaff?.id ?? null,
-    });
-  }, [
-    content,
-    date,
-    debouncedContentTrigger,
-    isInitialized,
-    note,
-    updateDailyNote,
-    currentStaff?.id,
-  ]);
+  const handleContentChange = useCallback((nextContent: JSONContent) => {
+    latestContentRef.current = nextContent;
+    setContent(nextContent);
+  }, []);
 
   return (
     <Card className="flex h-full min-h-0 flex-col overflow-hidden">
@@ -104,7 +163,8 @@ export function DailyNoteCard({ date }: { date: string }) {
           <div className="flex min-h-0 flex-1 flex-col border-t px-4 pt-3 pb-3">
             <NoteEditor
               content={content}
-              onChange={setContent}
+              onChange={handleContentChange}
+              onChangeDebounceMs={0}
               placeholder="Write daily notes..."
               mentionSuggestions={mentionSuggestions}
               fillContainer
