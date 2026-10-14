@@ -18,7 +18,7 @@ import {
 import { ServerTiming } from "@/lib/performance/server-timing";
 import { resolvePracticeTimingScope } from "@/features/practice/model/practice-timing-policy";
 import type { PracticeReviewTiming } from "@/features/practice/lib/session-storage";
-import { getRejectedStudyPlanDiagnostics } from "@/features/practice/server/rejected-study-plan-diagnostics";
+import { getRejectedStudyPlanDiagnostics } from "@/features/study-plan/server/rejected-start-diagnostics";
 
 export async function POST(request: NextRequest) {
   const timing = new ServerTiming();
@@ -204,6 +204,7 @@ export async function POST(request: NextRequest) {
       insertError?.code === "22023" &&
       insertError.message === "invalid_study_plan_task"
         ? await getRejectedStudyPlanDiagnostics(supabaseAdmin, {
+            operation: "practice",
             studentId: student.id,
             taskId: insertPayload.study_plan_task_id,
             sectionId: insertPayload.ucat_section_id,
