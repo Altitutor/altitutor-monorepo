@@ -55,7 +55,7 @@ jobs:
 
       - name: Check production release gate
         run: |
-          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs
+          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs scripts/release-pr-links.test.mjs
 
       - name: Require a new native runtime for native changes
         run: node scripts/check-expo-runtime-version.mjs "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^' }}"
