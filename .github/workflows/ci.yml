@@ -10,22 +10,9 @@ on:
         required: false
         type: boolean
         default: true
+  # Required checks must report for every PR, including documentation-only work.
+  # Browser/database jobs retain their existing path-based selection below.
   pull_request:
-    paths:
-      - 'apps/**'
-      - 'packages/**'
-      - 'supabase/functions/**'
-      - 'supabase/migrations/**'
-      - 'supabase/scripts/**'
-      - 'supabase/seed/**'
-      - 'supabase/config.toml'
-      - 'supabase/templates/**'
-      - 'scripts/**'
-      - 'turbo.json'
-      - 'package.json'
-      - 'pnpm-lock.yaml'
-      - 'pnpm-workspace.yaml'
-      - '.github/workflows/**'
   workflow_dispatch:
 
 concurrency:
@@ -68,7 +55,7 @@ jobs:
 
       - name: Check production release gate
         run: |
-          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs
+          node --test scripts/production-release-gate.test.mjs scripts/production-web-smoke.test.mjs scripts/start-local-supabase.test.mjs scripts/ucat-production-smoke.test.mjs scripts/ucat-system-test-paths.test.mjs scripts/web-system-test-paths.test.mjs scripts/release-pr-links.test.mjs
 
       - name: Require a new native runtime for native changes
         run: node scripts/check-expo-runtime-version.mjs "${{ github.event_name == 'pull_request' && format('origin/{0}', github.base_ref) || 'HEAD^' }}"
