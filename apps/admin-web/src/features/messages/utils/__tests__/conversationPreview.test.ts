@@ -45,7 +45,26 @@ describe('sender badge names', () => {
   });
 
   it('uses the staff first name for outbound messages', () => {
-    expect(outboundSenderBadgeName({ first_name: 'Grace', last_name: 'Hopper' })).toBe('Grace');
+    expect(outboundSenderBadgeName(
+      { first_name: 'Grace', last_name: 'Hopper' },
+      { provider: 'IMESSAGE', imessageTempGuid: 'command-id', status: 'SENT' },
+    )).toBe('Grace');
+  });
+
+  it.each([
+    { provider: 'IMESSAGE' as const, imessageTempGuid: 'command-id', status: 'SENT' },
+    { provider: 'IMESSAGE' as const, imessageTempGuid: null, status: 'QUEUED' },
+    { provider: 'TWILIO' as const, imessageTempGuid: null, status: 'SENT' },
+  ])('labels an automated $provider outbound message as System', (origin) => {
+    expect(outboundSenderBadgeName(null, origin)).toBe('System');
+  });
+
+  it('labels an outbound message sent directly from the iMessage Mac as Staff', () => {
+    expect(outboundSenderBadgeName(null, {
+      provider: 'IMESSAGE',
+      imessageTempGuid: null,
+      status: 'SENT',
+    })).toBe('Staff');
   });
 
   it('matches a group sender by phone', () => {
