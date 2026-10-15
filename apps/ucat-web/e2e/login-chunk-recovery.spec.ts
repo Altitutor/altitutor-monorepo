@@ -130,6 +130,26 @@ test("@critical persistent chunk failure keeps an independent retry usable after
   await page.waitForTimeout(1000);
   expect(documents).toBe(2);
   await expect(retry).toBeFocused();
+  const diagnostics = await page.evaluate(() => window.__ucatChunkDiagnostics);
+  expect(diagnostics).toMatchObject({
+    records: expect.arrayContaining([
+      expect.objectContaining({
+        kind: "resource-error",
+        chunk: expect.stringMatching(/^error-[a-f0-9]+\.js$/),
+      }),
+      expect.objectContaining({ kind: "auto-reload" }),
+      expect.objectContaining({ kind: "fallback" }),
+      expect.objectContaining({ kind: "react-hydration", reactCode: "423" }),
+    ]),
+  });
+  const serialized = JSON.stringify(diagnostics);
+  expect(serialized.length).toBeLessThanOrEqual(4096);
+  expect(serialized).not.toMatch(
+    /https?:|redirect|communications|settings|dpl_/,
+  );
+  expect(
+    await page.evaluate(() => sessionStorage.getItem("ucat-chunk-diagnostics")),
+  ).toBeNull();
   blocked = false;
   await retry.click();
   await expectUsableLogin(page);

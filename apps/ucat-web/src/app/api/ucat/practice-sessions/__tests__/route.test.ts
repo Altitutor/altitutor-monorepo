@@ -51,6 +51,7 @@ function failedInsertFixture(
     maybeSingle: jest.fn(async () => ({
       data: {
         id: taskId,
+        student_id: studentId,
         status: "skipped",
         task_type: "practice",
         section_id: sectionId,
@@ -65,7 +66,7 @@ function failedInsertFixture(
     eq: jest.fn().mockReturnThis(),
     abortSignal: jest.fn().mockReturnThis(),
     maybeSingle: jest.fn(async () => ({
-      data: { superseded_at: null },
+      data: { id: generationId, student_id: studentId, superseded_at: null },
       error: null,
     })),
   };

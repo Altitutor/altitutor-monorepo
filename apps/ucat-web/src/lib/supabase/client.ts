@@ -68,6 +68,7 @@ export function getSupabaseBrowserClient(): SupabaseClient<Database> {
       ? client
       : recoverTransientBrowserSession(
           diagnostics ? diagnostics.observeClient(client) : client,
+          diagnostics?.observeRecovery,
         ),
   );
 

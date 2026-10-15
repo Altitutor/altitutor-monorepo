@@ -100,14 +100,23 @@ export async function ensureLessonStarted(
     rpc: (
       name: "start_ucat_learning_module",
       params: Record<string, unknown>,
-    ) => Promise<{ data: unknown; error: { message: string } | null }>;
+    ) => Promise<{
+      data: unknown;
+      error: { message: string; code?: string } | null;
+    }>;
   };
   const { data, error } = await rpcClient.rpc("start_ucat_learning_module", {
     p_student_id: studentId,
     p_learning_module_id: lessonId,
     p_study_plan_task_id: studyPlanTaskId,
   });
-  if (error) throw new Error(error.message);
+  if (error) {
+    const failure = new Error(error.message);
+    if (typeof error.code === "string" && /^[0-9A-Z]{5}$/.test(error.code)) {
+      Object.assign(failure, { code: error.code });
+    }
+    throw failure;
+  }
   const result = data as
     | { status: "started"; created: boolean }
     | { status: "quota_exceeded"; quota: Record<string, unknown> }
