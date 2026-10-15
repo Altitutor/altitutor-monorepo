@@ -8,26 +8,33 @@ interface StaffAvatarProps {
   lastName: string;
 }
 
-export function StaffAvatar({ firstName, lastName }: StaffAvatarProps) {
-  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
-  const fullName = `${firstName} ${lastName}`;
-  
+function MessageAuthorAvatar({ initials, label }: { initials: string; label: string }) {
   return (
     <TooltipProvider>
       <Tooltip>
         <TooltipTrigger asChild>
-          <div 
+          <div
+            aria-label={label}
             className="w-6 h-6 rounded-full bg-muted flex items-center justify-center text-muted-foreground text-xs font-medium flex-shrink-0"
           >
             {initials}
           </div>
         </TooltipTrigger>
         <TooltipContent>
-          <p>{fullName}</p>
+          <p>{label}</p>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
 
+export function StaffAvatar({ firstName, lastName }: StaffAvatarProps) {
+  const initials = `${firstName.charAt(0)}${lastName.charAt(0)}`.toUpperCase();
+  const fullName = `${firstName} ${lastName}`;
 
+  return <MessageAuthorAvatar initials={initials} label={fullName} />;
+}
+
+export function SystemAvatar() {
+  return <MessageAuthorAvatar initials="S" label="System" />;
+}

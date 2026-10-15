@@ -15,6 +15,12 @@ type NamedPerson = {
   last_name?: string | null;
 } | null | undefined;
 
+type OutboundMessageOrigin = {
+  provider: string | null | undefined;
+  imessageTempGuid: string | null | undefined;
+  status: string | null | undefined;
+};
+
 type PreviewContact = {
   phone_e164?: string | null;
   email?: string | null;
@@ -22,6 +28,10 @@ type PreviewContact = {
   parents?: NamedPerson;
   staff?: NamedPerson;
 } | null | undefined;
+
+function firstNamedPerson(staff: NamedPerson | NamedPerson[]): NamedPerson {
+  return Array.isArray(staff) ? staff[0] : staff;
+}
 
 export function countsAsUnrepliedMessage(
   message: { direction: string | null | undefined; isReaction: boolean } | null | undefined,
@@ -59,9 +69,24 @@ export function contactSenderBadgeName(contact: PreviewContact): string {
 
 export function outboundSenderBadgeName(
   staff: NamedPerson | NamedPerson[],
+  origin: OutboundMessageOrigin,
 ): string {
-  const person = Array.isArray(staff) ? staff[0] : staff;
-  return personBadgeName(person, 'Staff');
+  const person = firstNamedPerson(staff);
+  if (person) return personBadgeName(person, 'Staff');
+  return isSystemOutboundMessage(staff, origin) ? 'System' : 'Staff';
+}
+
+export function isSystemOutboundMessage(
+  staff: NamedPerson | NamedPerson[],
+  origin: OutboundMessageOrigin,
+): boolean {
+  const person = firstNamedPerson(staff);
+  if (person) return false;
+
+  const isDirectMacMessage = origin.provider === 'IMESSAGE'
+    && !origin.imessageTempGuid
+    && origin.status !== 'QUEUED';
+  return !isDirectMacMessage;
 }
 
 function phoneDigits(value: string | null | undefined): string {

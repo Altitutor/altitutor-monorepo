@@ -59,13 +59,17 @@ export function ResourcePdfPages({
   url,
   filename,
   className,
+  onReady,
 }: {
   url: string;
   filename: string;
   className?: string;
+  onReady?: (loadedUrl: string) => void;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const pagesRef = useRef<HTMLDivElement>(null);
+  const onReadyRef = useRef(onReady);
+  onReadyRef.current = onReady;
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>(
     'loading',
   );
@@ -119,7 +123,10 @@ export function ResourcePdfPages({
           if (cancelled) return;
           pages.appendChild(canvas);
         }
-        if (!cancelled) setStatus('ready');
+        if (!cancelled) {
+          setStatus('ready');
+          onReadyRef.current?.(url);
+        }
       } catch {
         if (!cancelled) setStatus('error');
       }

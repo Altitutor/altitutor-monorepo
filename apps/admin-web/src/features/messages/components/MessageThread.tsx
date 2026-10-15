@@ -5,7 +5,7 @@ import { type ThreadMessage, useMessages, useMessagesForContact, useContactHeade
 import { getSupabaseClient } from '@/shared/lib/supabase/client';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { formatMessageDate, formatMessageStatus, formatDaySeparator, isDifferentDay } from '../utils/formatDate';
-import { StaffAvatar } from './StaffAvatar';
+import { StaffAvatar, SystemAvatar } from './StaffAvatar';
 import { X, File, Download, Music, Play, Pause } from 'lucide-react';
 import { Input, Button, Badge, type JSONContent } from '@altitutor/ui';
 import { messagesKeys } from '../api/queryKeys';
@@ -40,6 +40,7 @@ import {
   reactionTypeToLabel,
   type MessageReaction,
 } from '../utils/reactions';
+import { isSystemOutboundMessage } from '../utils/conversationPreview';
 
 type IssueTagDraft = Omit<IssueTagInsert, 'issue_id'>;
 
@@ -864,6 +865,14 @@ export function MessageThread({
                 .replace(/OBJ/gi, '')
                 .trim() || '';
               const isMacBridge = asOwnedNumberProvider(m.sender?.provider) === 'IMESSAGE';
+              const isSystemAuthor = direction === 'OUTBOUND' && Boolean(m.sender) && isSystemOutboundMessage(
+                m.staff,
+                {
+                  provider: m.sender?.provider,
+                  imessageTempGuid: m.imessage_temp_guid,
+                  status: m.status,
+                },
+              );
               const showError = direction === 'OUTBOUND' &&
                 isMacBridge &&
                 (m.status === 'FAILED' || m.status === 'AMBIGUOUS') &&
@@ -887,6 +896,7 @@ export function MessageThread({
                         lastName={m.staff.last_name}
                       />
                     )}
+                    {isSystemAuthor ? <SystemAvatar /> : null}
                     {direction === 'INBOUND' && partyName && (
                       <StaffAvatar
                         staffId={m.conversation_id}

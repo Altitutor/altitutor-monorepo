@@ -54,7 +54,7 @@ type ConversationRow = {
     parents: Pick<Tables<'parents'>, 'id' | 'first_name' | 'last_name'> | null;
     staff: Pick<Tables<'staff'>, 'id' | 'first_name' | 'last_name'> | null;
   } | null;
-  owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'label'> | null;
+  owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'label' | 'provider'> | null;
   conversation_reads: Array<Pick<Tables<'conversation_reads'>, 'id' | 'last_read_message_id' | 'last_read_at'>>;
   group_chat_participants?: Array<{
     contact_id: string;
@@ -81,6 +81,7 @@ type MessagePreviewRow = {
   direction: string;
   is_reaction: boolean;
   reaction_type: string | null;
+  imessage_temp_guid: string | null;
   from_number_e164: string | null;
   staff: { first_name: string | null; last_name: string | null } | Array<{
     first_name: string | null;
@@ -97,6 +98,7 @@ const MESSAGE_PREVIEW_SELECT = `
   direction,
   is_reaction,
   reaction_type,
+  imessage_temp_guid,
   from_number_e164,
   staff:created_by_staff_id(first_name, last_name),
   message_attachments(id)
@@ -200,7 +202,11 @@ function latestMessageForConversation(
       body: substantive.body,
       attachmentCount: substantive.message_attachments?.length ?? 0,
       senderName: substantive.direction === 'OUTBOUND'
-        ? outboundSenderBadgeName(substantive.staff)
+        ? outboundSenderBadgeName(substantive.staff, {
+          provider: conv.owned_numbers?.provider,
+          imessageTempGuid: substantive.imessage_temp_guid,
+          status: substantive.status,
+        })
         : inboundSenderName(substantive),
     })
     : null;
@@ -283,6 +289,16 @@ export type MessageWithRelations = Tables<'messages'> & {
   message_attachments: Array<Pick<Tables<'message_attachments'>, 'id' | 'storage_url' | 'filename' | 'mime_type' | 'size_bytes'>>;
 };
 
+type ConversationMessageSender = Pick<
+  Tables<'owned_numbers'>,
+  'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'
+>;
+
+type ConversationMessageContext = {
+  owned_number_id: string;
+  owned_numbers: ConversationMessageSender | null;
+};
+
 export function useMessages(conversationId: string) {
   return useInfiniteQuery({
     queryKey: messagesKeys.messages(conversationId),
@@ -301,8 +317,18 @@ export function useMessages(conversationId: string) {
         query = query.lt('created_at', pageParam);
       }
       
-      const { data, error } = await query;
+      const conversationQuery = supabase
+        .from('conversations')
+        .select('owned_number_id, owned_numbers(id, phone_e164, alphanumeric_sender_id, sender_type, label, provider)')
+        .eq('id', conversationId)
+        .maybeSingle();
+
+      const [messagesResult, conversationResult] = await Promise.all([query, conversationQuery]);
+      const { data, error } = messagesResult;
       if (error) throw error;
+      if (conversationResult.error) throw conversationResult.error;
+
+      const conversation = conversationResult.data as ConversationMessageContext | null;
       
       const messages = (data || []) as MessageWithRelations[];
       const nextCursor = messages.length === PAGE_SIZE 
@@ -312,8 +338,8 @@ export function useMessages(conversationId: string) {
       return {
         items: messages.map((message) => ({
           ...message,
-          sender: null,
-          conversation_owned_number_id: null,
+          sender: conversation?.owned_numbers ?? null,
+          conversation_owned_number_id: conversation?.owned_number_id ?? null,
         })),
         nextCursor,
       };
@@ -810,12 +836,12 @@ export function useConversationList(
 type ConversationForContact = {
   id: string;
   owned_number_id: string;
-  owned_numbers: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'> | null;
+  owned_numbers: ConversationMessageSender | null;
 };
 
 type SenderInfo = {
   owned_number_id: string;
-  sender: Pick<Tables<'owned_numbers'>, 'id' | 'phone_e164' | 'alphanumeric_sender_id' | 'sender_type' | 'label' | 'provider'> | null;
+  sender: ConversationMessageSender | null;
 };
 
 export function useMessagesForContact(contactId: string | null, ownedNumberId?: string | null) {
