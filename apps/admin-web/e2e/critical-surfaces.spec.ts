@@ -39,7 +39,8 @@ test('an admin can reach Student and Class operations', async ({ page }) => {
     });
   }
 
-  await page.getByRole('button', { name: 'Add Class' }).click();
+  await page.getByRole('button', { name: 'Add', exact: true }).click();
+  await page.getByRole('menuitem', { name: 'Add class', exact: true }).click();
   await expect(
     page.getByText('Step 1 of 3: Offering details').last(),
   ).toBeVisible();
