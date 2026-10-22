@@ -3,8 +3,9 @@ import { NextResponse, type NextRequest } from "next/server";
 export const dynamic = "force-dynamic";
 
 const UCAT_APP_ORIGIN =
-  process.env.UCAT_APP_ORIGIN ??
-  process.env.NEXT_PUBLIC_UCAT_APP_ORIGIN ??
+  process.env.UCAT_APP_ORIGIN ||
+  process.env.NEXT_PUBLIC_UCAT_APP_ORIGIN ||
+  process.env.NEXT_PUBLIC_UCAT_URL ||
   (process.env.NODE_ENV === "development"
     ? "http://localhost:3004"
     : "https://ucat.altitutor.com");

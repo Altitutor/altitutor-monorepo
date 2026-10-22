@@ -431,7 +431,80 @@ function fixture(
   };
 }
 
+function addGeneralCurriculum(input: PreparationEngineInput) {
+  const placements = [
+    "orientation",
+    "orientation",
+    "later_learning",
+    "later_learning",
+    "pre_exam",
+  ] as const;
+  input.content.learningModules.push(
+    ...placements.map((journeyPlacement, index) => ({
+      id: `general-${index + 1}`,
+      title: [
+        "UCAT foundations",
+        "Interface essentials",
+        "Pacing methods",
+        "Effective review",
+        "Exam transition",
+      ][index]!,
+      sectionId: null,
+      sectionNumber: null,
+      journeyPlacement,
+      authoredOrder: index,
+      priority: "essential" as const,
+      estimatedMinutes: 10,
+      completionPercent: 0,
+      relevanceScore: 1,
+    })),
+  );
+}
+
 export const PREPARATION_SANDBOX_PERSONAS = {
+  "general-orientation": fixture(
+    "general-orientation",
+    "General curriculum: beginner",
+    "Orientation comes before section loops.",
+    addGeneralCurriculum,
+  ),
+  "general-later-learning": fixture(
+    "general-later-learning",
+    "General curriculum: later Learning",
+    "Essential section lessons are complete; general methods remain relevant.",
+    (input) => {
+      input.content.learningModules.forEach((module) => {
+        module.completionPercent = 100;
+      });
+      addGeneralCurriculum(input);
+    },
+  ),
+  "general-transition": fixture(
+    "general-transition",
+    "General curriculum: Exam transition",
+    "The horizon crosses the week before Exam phase.",
+    (input) => {
+      setExperiencedEvidence(
+        input,
+        { vr: 0.7, dm: 0.72, qr: 0.74 },
+        { vr: 0.8, dm: 0.8, qr: 0.8 },
+      );
+      input.goal.planningDate = addDays(input.clock.today, 70);
+      input.goal.profile.testDate = input.goal.planningDate;
+      addGeneralCurriculum(input);
+    },
+  ),
+  "general-late-entry": fixture(
+    "general-late-entry",
+    "General curriculum: late beginner",
+    "Orientation precedes overdue Pre-Exam instruction; Later Learning still needs evidence.",
+    (input) => {
+      input.goal.planningDate = addDays(input.clock.today, 20);
+      input.goal.profile.testDate = input.goal.planningDate;
+      addGeneralCurriculum(input);
+    },
+  ),
+
   "new-student": fixture(
     "new-student",
     "New student",
@@ -648,6 +721,34 @@ export const PREPARATION_SANDBOX_PERSONAS = {
 } satisfies Record<string, PreparationSandboxCase>;
 
 export const PREPARATION_SANDBOX_JOURNEYS: PreparationSandboxJourney[] = [
+  {
+    key: "general-curriculum",
+    label: "General curriculum",
+    description: "Cross-cutting instruction throughout preparation.",
+    checkpoints: [
+      {
+        fixtureKey: "general-orientation",
+        label: "Beginner orientation",
+        description: "Grouped orientation before section methods.",
+      },
+      {
+        fixtureKey: "general-later-learning",
+        label: "Later Learning",
+        description: "General methods after section instruction.",
+      },
+      {
+        fixtureKey: "general-transition",
+        label: "Exam phase approaching",
+        description: "Date-based placement within the horizon.",
+      },
+      {
+        fixtureKey: "general-late-entry",
+        label: "Late beginner",
+        description: "Orientation and overdue transition instruction.",
+      },
+    ],
+  },
+
   {
     key: "foundations",
     label: "First-time Student",

@@ -461,9 +461,17 @@ export function StudyPlanCompanion({
     () => getTodayStudyPlanProgress(currentPlanTasks),
     [currentPlanTasks],
   );
-  const planActions = useStudyPlanTaskActions(primary?.planTask ?? null);
+  const planActions = useStudyPlanTaskActions(
+    primary?.planTask ?? null,
+    true,
+    undefined,
+    "companion-primary",
+  );
   const secondaryPlanActions = useStudyPlanTaskActions(
     secondary?.planTask ?? null,
+    true,
+    undefined,
+    "companion-secondary",
   );
   const actionContent = useMemo(() => {
     if (!nextAction) return null;

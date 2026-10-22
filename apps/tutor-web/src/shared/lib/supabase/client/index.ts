@@ -39,7 +39,7 @@ function getBrowserClient() {
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key',
       {
         cookieOptions: {
-          name: 'tutor-auth',
+          name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "tutor-auth",
         },
         isSingleton: true,
       }
@@ -56,7 +56,7 @@ function getBrowserClient() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
       cookieOptions: {
-        name: 'tutor-auth',
+        name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "tutor-auth",
       },
       isSingleton: true,
     }

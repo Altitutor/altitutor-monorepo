@@ -1,3 +1,5 @@
+import type { LearningModuleJourneyPlacement } from "@altitutor/shared";
+import { addDays } from "@/features/study-plan/lib/dates";
 import type {
   StudyPlanCategorySignal,
   StudyPlanLearningModule,
@@ -14,6 +16,29 @@ import {
 } from "@/features/preparation/lib/sjt-allocation-policy";
 import { learningLoopTargetQuestionCount } from "@/features/preparation/lib/policy";
 import { estimateQuestionReviewMinutes } from "@/features/preparation/lib/review-duration-policy";
+
+const GENERAL_LESSON_POLICIES = {
+  orientation: {
+    studentReason:
+      "Get familiar with UCAT preparation before section learning.",
+    milestone: 350,
+  },
+  later_learning: {
+    studentReason:
+      "Consolidate your methods as you finish the core section lessons.",
+    milestone: 320,
+  },
+  pre_exam: {
+    studentReason: "Prepare for the transition into exam-focused study.",
+    milestone: 330,
+  },
+} satisfies Record<
+  Exclude<LearningModuleJourneyPlacement, "section_learning">,
+  {
+    studentReason: string;
+    milestone: number;
+  }
+>;
 
 export const LEARNING_MODULE_SESSION_MINUTES = 20;
 
@@ -41,6 +66,8 @@ export type PreparationActivityObjective =
   | "warm_up";
 
 export type PreparationActivityCandidate = {
+  /** A future curriculum milestone, visible to the calendar but not immediate guidance. */
+  availableFrom?: string;
   id: string;
   kind: PreparationActivityKind;
   requirement: "required" | "optional";
@@ -211,6 +238,98 @@ export function rankActivityCandidates(
   const signalBySection = new Map(
     input.signals.map((item) => [item.sectionId, item]),
   );
+  const cognitiveSections = input.sections.filter(
+    (section) => section.sectionNumber <= 3,
+  );
+  const familiar =
+    input.completedMockCount > 0 ||
+    (cognitiveSections.length === 3 &&
+      (cognitiveSections.every((section) =>
+        input.learningModules.some(
+          (module) =>
+            module.sectionId === section.id && module.completionPercent >= 100,
+        ),
+      ) ||
+        cognitiveSections.every(
+          (section) =>
+            (signalBySection.get(section.id)
+              ?.representativeSectionEquivalents ?? 0) >= 0.5,
+        )));
+  const laterLearningEligible =
+    cognitiveSections.length === 3 &&
+    cognitiveSections.every((section) => {
+      const route = input.readiness.sections.find(
+        (item) => item.sectionId === section.id,
+      )?.learningRoute;
+      if (route === "accuracy" || route === "experience") return true;
+      const essential = input.learningModules.filter(
+        (module) =>
+          module.sectionId === section.id && module.priority === "essential",
+      );
+      return (
+        essential.length > 0 &&
+        essential.filter((module) => module.completionPercent >= 100).length /
+          essential.length >=
+          0.75
+      );
+    });
+  const preExamStartsOn = addDays(input.planningDate, -67);
+  const preExamInHorizon = preExamStartsOn <= addDays(input.today, 20);
+  const eligibleGeneralLessons = input.learningModules
+    .filter(
+      (module) =>
+        input.today < input.planningDate &&
+        module.sectionId == null &&
+        ((module.journeyPlacement === "orientation" && !familiar) ||
+          (module.journeyPlacement === "later_learning" &&
+            laterLearningEligible) ||
+          (module.journeyPlacement === "pre_exam" && preExamInHorizon)) &&
+        module.completionPercent < 100 &&
+        module.priority !== "optional" &&
+        module.priority !== "excluded",
+    )
+    .sort(
+      (a, b) =>
+        Number(b.priority === "essential") -
+          Number(a.priority === "essential") ||
+        (a.authoredOrder ?? Number.MAX_SAFE_INTEGER) -
+          (b.authoredOrder ?? Number.MAX_SAFE_INTEGER) ||
+        a.id.localeCompare(b.id),
+    );
+  for (const [index, module] of eligibleGeneralLessons.entries()) {
+    const placement = module.journeyPlacement;
+    if (!placement || placement === "section_learning") continue;
+    const policy = GENERAL_LESSON_POLICIES[placement];
+    result.push(
+      candidate({
+        ...(module.journeyPlacement === "pre_exam" &&
+        preExamStartsOn > input.today
+          ? { availableFrom: preExamStartsOn }
+          : {}),
+        id: `instruction:${module.id}`,
+        kind: "instruction",
+        requirement: "required",
+        sectionId: null,
+        learningModuleId: module.id,
+        scope: "full_exam",
+        dose: { questionCount: null, sectionEquivalents: 0 },
+        duration: {
+          practiceMinutes: Math.max(1, module.estimatedMinutes),
+          reviewMinutes: 0,
+        },
+        objective: "complete_instruction",
+        reasonCode: `activity.${module.journeyPlacement}`,
+        studentReason: policy.studentReason,
+        ranking: factors({
+          milestone: policy.milestone - index,
+          weakness: 0,
+          uncertainty: 0,
+          targetGap: 0,
+          tagSampling: 0,
+        }),
+      }),
+    );
+  }
   const equalTarget = input.targetScore / 3;
   const debtFor = (sectionId: string, categoryId: string | null) =>
     (input.missedExposureDebt ?? [])
@@ -320,6 +439,7 @@ export function rankActivityCandidates(
           (item) =>
             item.completionPercent < 100 &&
             item.priority !== "optional" &&
+            item.priority !== "excluded" &&
             item.sectionId === section.id,
         )
         .sort(
@@ -689,6 +809,8 @@ export function selectActivityCandidates(
   candidates: PreparationActivityCandidate[],
   selection: ActivityCandidateSelection,
 ): PreparationActivityCandidate[] {
+  if (selection.experience !== "plan")
+    candidates = candidates.filter((item) => !item.availableFrom);
   const required = candidates.filter((item) => item.requirement === "required");
   if (selection.experience === "plan") return required;
   if (selection.experience === "guidance") return required.slice(0, 2);

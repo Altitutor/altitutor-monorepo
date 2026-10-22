@@ -142,8 +142,8 @@ function formatDate(value: string) {
 function formUrl(audience: FormAudience, token: string) {
   const isDevelopment = process.env.NODE_ENV === 'development';
   const baseUrl = audience === 'student'
-    ? (isDevelopment ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com'))
-    : (isDevelopment ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com'));
+    ? (process.env.NEXT_PUBLIC_STUDENT_URL || (isDevelopment ? 'http://localhost:3001' : 'https://student.altitutor.com'))
+    : (process.env.NEXT_PUBLIC_TUTOR_URL || (isDevelopment ? 'http://localhost:3002' : 'https://tutor.altitutor.com'));
   return `${baseUrl.replace(/\/$/, '')}/form/${token}`;
 }
 
