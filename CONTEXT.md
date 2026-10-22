@@ -505,6 +505,14 @@
 
 - **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
 
+- **Interview reading prompt** — The prompt of the first question in a station, shown during reading time and used for that station's printed prompt. Reordering the prepared station's questions changes its reading prompt; the station has no independently authored prompt.
+
+- **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, reading or question time. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student.
+
+- **Answered interview question** — A question for which the tutor has entered feedback. Question navigation alone does not make a question answered.
+
+- **Interview tutor access** — Access to interview content and teaching for tutors with the Medicine interview subject, following the subject-based access pattern used for UCAT. Any tutor participating in a round may release its results once all student results are ready.
+
 ## UCAT content
 
 - **UCAT question difficulty** — The proportion of the target UCAT candidate cohort expected to answer a question incorrectly on first exposure under realistic section timing and without assistance. It ranges from 0 to 1, with higher values meaning harder; `null` means unknown. Before representative response data exists it is an authored estimate, and once sufficient data exists it may be updated from observed first-exposure performance without changing its meaning.

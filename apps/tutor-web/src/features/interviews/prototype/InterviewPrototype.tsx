@@ -3,18 +3,29 @@
 // DEV-8 THROWAWAY: Three live tutor layouts at /interviews/prototype?variant=A|B|C.
 // Question: how should watching, writing, and circuit coordination share the screen?
 // All data and transitions below are simulated, in memory, and NOT a proposed backend.
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { Button } from "@altitutor/ui";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  Button,
+} from "@altitutor/ui";
 import {
   ArrowRight,
   Check,
   ChevronDown,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
   Circle,
   ClipboardList,
   Clock3,
+  LogOut,
+  Pencil,
   Mic,
   MicOff,
   Pause,
@@ -27,8 +38,9 @@ import {
   WifiOff,
 } from "lucide-react";
 import { PrototypeSwitcher } from "@/shared/components/prototype-switcher";
-import { tutorSurfaceCard } from "@/shared/lib/tutor-visual";
-import { cn } from "@/shared/utils";
+import { tutorBtnOutline, tutorSurfaceCard } from "@/shared/lib/tutor-visual";
+import { cn, navActiveStyles } from "@/shared/utils";
+import { usePrototypeLeaveGuard } from "./use-prototype-leave-guard";
 
 const variants = [
   { key: "A", name: "Watch, then write" },
@@ -45,6 +57,8 @@ const phases = [
 type Phase = (typeof phases)[number];
 const questions = [
   {
+    prompt:
+      "You are a medical student on placement. A fellow student tells you they are struggling and have been missing clinical sessions. They ask you to keep the conversation between the two of you.",
     title: "How would you approach this conversation?",
     rubric:
       "Acknowledge the student’s feelings. Explore their perspective without assumptions. Explain confidentiality and its limits. Use open questions before proposing action.",
@@ -68,8 +82,14 @@ const stations = [
   { name: "Teamwork", tutor: "Aisha", student: "Isabella Smith" },
   { name: "Problem solving", tutor: "Oliver", student: "Lucas Brown" },
 ];
-const prompt =
-  "You are a medical student on placement. A fellow student tells you they are struggling and have been missing clinical sessions. They ask you to keep the conversation between the two of you.";
+// Reading/printing always uses the FIRST question's prompt, never a station field.
+const prompt = questions[0].prompt;
+
+function formatTime(seconds: number) {
+  return `${Math.floor(seconds / 60)
+    .toString()
+    .padStart(2, "0")}:${(seconds % 60).toString().padStart(2, "0")}`;
+}
 
 function Pill({
   children,
@@ -100,8 +120,31 @@ export function InterviewPrototype() {
   const params = useSearchParams();
   const variant = variants.some((item) => item.key === params.get("variant"))
     ? params.get("variant")
-    : "A";
-  const [phase, setPhase] = useState<Phase>("Questions");
+    : "C";
+  const [phase, setPhaseState] = useState<Phase>("Questions");
+  const [clock, setClock] = useState(() => ({
+    epoch: Date.now(),
+    carriedMs: 0,
+  }));
+  const [now, setNow] = useState(() => Date.now());
+  const [toolbarOpen, setToolbarOpen] = useState(true);
+  const [showPrototypeControls, setShowPrototypeControls] = useState(false);
+  const leaveGuard = usePrototypeLeaveGuard();
+  const [rubrics, setRubrics] = useState(questions.map((item) => item.rubric));
+  const [editingRubric, setEditingRubric] = useState<number | null>(null);
+  const [rubricDraft, setRubricDraft] = useState("");
+  const [delivery, setDelivery] = useState("Online");
+  const [inPersonClaims, setInPersonClaims] = useState<(string | null)[]>([
+    null,
+    "Noah Williams",
+    "Olivia Patel",
+    "Ethan Nguyen",
+    "Isabella Smith",
+    null,
+  ]);
+  const [pendingStudent, setPendingStudent] = useState<string | null>(null);
+  const [claimMessage, setClaimMessage] = useState("");
+  const [startOverride, setStartOverride] = useState(false);
   const [mode, setMode] = useState("Feedback");
   const [view, setView] = useState("Tutor");
   const [question, setQuestion] = useState(0);
@@ -121,7 +164,73 @@ export function InterviewPrototype() {
   const [rubric, setRubric] = useState(false);
   const [othersDone, setOthersDone] = useState(false);
   const [ready, setReady] = useState(false);
-  const student = stations[(rotation - 1) % stations.length].student;
+  const student =
+    delivery === "In person"
+      ? (inPersonClaims[0] ?? "Choose arriving student")
+      : stations[(rotation - 1) % stations.length].student;
+  const setPhase = useCallback((next: Phase) => {
+    const timestamp = Date.now();
+    setPhaseState(next);
+    setClock({ epoch: timestamp, carriedMs: 0 });
+    setNow(timestamp);
+  }, []);
+  const elapsedMs = paused
+    ? clock.carriedMs
+    : clock.carriedMs + now - clock.epoch;
+  const elapsedSeconds = Math.max(0, Math.floor(elapsedMs / 1000));
+  const countingDown = phase === "Reading" || phase === "Questions";
+  const seconds = countingDown
+    ? Math.max(0, (phase === "Reading" ? 120 : 480) - elapsedSeconds)
+    : elapsedSeconds;
+  const togglePause = () => {
+    const timestamp = Date.now();
+    setClock({
+      epoch: timestamp,
+      carriedMs: paused
+        ? clock.carriedMs
+        : clock.carriedMs + timestamp - clock.epoch,
+    });
+    setNow(timestamp);
+    setPaused(!paused);
+  };
+  useEffect(() => {
+    if (paused) return;
+    const interval = window.setInterval(() => setNow(Date.now()), 250);
+    return () => window.clearInterval(interval);
+  }, [paused]);
+  useEffect(() => {
+    if (paused || seconds > 0) return;
+    if (phase === "Reading") setPhase("Questions");
+    else if (phase === "Questions") setPhase("Feedback");
+  }, [paused, phase, seconds, setPhase]);
+
+  const applyStudentClaim = (name: string) => {
+    if (inPersonClaims.slice(1).includes(name)) {
+      setClaimMessage(
+        "That student is already at another station. Choose someone else.",
+      );
+      setPendingStudent(null);
+      return;
+    }
+    setInPersonClaims((claims) =>
+      claims.map((claim, index) => (index === 0 ? name : claim)),
+    );
+    setPendingStudent(null);
+    setClaimMessage("");
+  };
+  const chooseStudent = (name: string) => {
+    if (!name || name === inPersonClaims[0]) return;
+    if (inPersonClaims.slice(1).includes(name)) {
+      setClaimMessage("That student is already at another station.");
+      return;
+    }
+    if (
+      inPersonClaims[0] &&
+      (notes.some((note) => note.trim()) || score !== "")
+    )
+      setPendingStudent(name);
+    else applyStudentClaim(name);
+  };
   const ownVisible =
     phase === "Questions" ||
     (mode === "Feedback" && (phase === "Reading" || phase === "Feedback"));
@@ -129,8 +238,6 @@ export function InterviewPrototype() {
     phase === "Reading" ||
     phase === "Questions" ||
     (phase === "Feedback" && mode === "Feedback");
-  const remaining =
-    phase === "Reading" ? "01:30" : phase === "Questions" ? "04:32" : "—";
   const state = {
     variant,
     view,
@@ -149,8 +256,13 @@ export function InterviewPrototype() {
     camera,
     ready,
     othersDone,
+    delivery,
+    inPersonClaims,
+    answered: notes.map((note) => note.trim().length > 0),
+    rubrics,
+    phaseSeconds: seconds,
     storage: "in-memory only",
-    timers: "static example; not realtime",
+    timers: "local wall-clock simulation; no multi-client sync",
     media: "placeholder; not connected",
     controlPolicy: "any tutor explicitly advances; disconnect does not pause",
   };
@@ -173,6 +285,10 @@ export function InterviewPrototype() {
       setReady(true);
       return;
     }
+    if (phase === "Waiting" && delivery === "Online" && disconnected) {
+      setStartOverride(true);
+      return;
+    }
     if (phase === "Finished" && rotation < 6) {
       setRotation(rotation + 1);
       setPhase("Waiting");
@@ -181,6 +297,7 @@ export function InterviewPrototype() {
       setQuestion(0);
       setNotes(["", "", ""]);
       setScore("");
+      setInPersonClaims([null, null, null, null, null, null]);
       return;
     }
     setPhase(phases[Math.min(phases.indexOf(phase) + 1, phases.length - 1)]);
@@ -194,6 +311,7 @@ export function InterviewPrototype() {
     setOthersDone(false);
     setReady(false);
     setQuestion(0);
+    setEditingRubric(null);
     setScore("");
     setNotes([
       "Identifies the need to listen first. Good empathy; explore confidentiality more clearly.",
@@ -213,14 +331,16 @@ export function InterviewPrototype() {
         >
           {muted ? <MicOff size={17} /> : <Mic size={17} />}
         </Button>
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label={camera ? "Disable demo camera" : "Enable demo camera"}
-          onClick={() => setCamera(!camera)}
-        >
-          {camera ? <Video size={17} /> : <VideoOff size={17} />}
-        </Button>
+        {delivery === "Online" && (
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label={camera ? "Disable demo camera" : "Enable demo camera"}
+            onClick={() => setCamera(!camera)}
+          >
+            {camera ? <Video size={17} /> : <VideoOff size={17} />}
+          </Button>
+        )}
         <span className="ml-1 text-xs text-muted-foreground">
           Your controls · simulated
         </span>
@@ -238,81 +358,118 @@ export function InterviewPrototype() {
     </div>
   );
 
-  const video = (compact = false, studentView = false) => (
-    <div
-      className={cn(
-        "relative flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-white",
-        compact ? "min-h-48" : "min-h-64 xl:min-h-80",
-      )}
-    >
-      <div className="absolute inset-0 bg-gradient-to-br from-slate-700/40 via-transparent to-sky-950/70" />
-      <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1">
-        <span className="rounded-md bg-black/25 px-2 py-1 text-[10px] tracking-widest">
-          VIDEO PLACEHOLDER
-        </span>
-        {recordingEnabled &&
-          (phase === "Questions" ||
-            (phase === "Feedback" && mode === "Feedback")) && (
-            <span
-              className={cn(
-                "rounded-md px-2 py-1 text-[10px]",
-                recordingFailed ? "bg-amber-100 text-amber-900" : "bg-black/25",
-              )}
-            >
-              <span className="mr-1 text-red-400">●</span>
-              {recordingFailed ? "Recording unavailable" : "Recording · demo"}
-            </span>
-          )}
-      </div>
-      <div
+  const video = (compact = false, studentView = false) =>
+    delivery === "In person" ? (
+      <section
         className={cn(
-          "z-10 flex items-center justify-center rounded-full bg-slate-600/60 font-light",
-          compact ? "h-12 w-12 text-lg" : "h-20 w-20 text-2xl",
+          tutorSurfaceCard,
+          "flex min-h-64 flex-col items-center justify-center gap-4 p-6 text-center",
         )}
       >
-        {!tutorReceives && !studentView ? (
-          <VideoOff size={24} />
-        ) : disconnected ? (
-          <WifiOff size={30} />
-        ) : studentView ? (
-          "JL"
-        ) : (
-          student
-            .split(" ")
-            .map((part) => part[0])
-            .join("")
-        )}
-      </div>
-      <p className={cn("z-10", compact ? "mt-2 text-sm" : "mt-4 text-lg")}>
-        {!tutorReceives && !studentView
-          ? "Media off for this phase"
-          : disconnected
-            ? "Reconnecting to student…"
-            : studentView
-              ? "Your interviewer"
-              : student}
-      </p>
-      {!compact && (
-        <p className="z-10 mt-1 px-5 text-center text-xs text-slate-400">
-          {disconnected
-            ? "The interview continues. Rejoin your current station when connected."
-            : "No camera or microphone is accessed in this prototype."}
+        <Mic size={28} className="text-muted-foreground" />
+        <div>
+          <h2 className="text-lg font-medium">
+            {inPersonClaims[0] ?? "Waiting for a student"}
+          </h2>
+          <p className="mt-2 text-sm text-muted-foreground">
+            In-person interview · audio only
+          </p>
+        </div>
+        <Pill tone={recordingFailed ? "amber" : "neutral"}>
+          {!recordingEnabled
+            ? "Recording off"
+            : recordingFailed
+              ? "Recording unavailable"
+              : !inPersonClaims[0]
+                ? "Choose a student to record"
+                : phase === "Questions" ||
+                    (phase === "Feedback" && mode === "Feedback")
+                  ? "Audio recording · demo"
+                  : "Recording starts with question time"}
+        </Pill>
+        <p className="text-xs text-muted-foreground">
+          No microphone is accessed in this prototype.
         </p>
-      )}
-      <div className="absolute bottom-4 left-4 text-xs text-slate-300">
-        {compact ? "Station 1" : "Station 1 · Ethical reasoning"}
-      </div>
+      </section>
+    ) : (
       <div
         className={cn(
-          "absolute bottom-3 right-3 flex items-center justify-center rounded-lg border border-white/10 bg-slate-700 text-xs",
-          compact ? "h-8 w-12" : "h-14 w-20",
+          "relative flex flex-col items-center justify-center overflow-hidden rounded-2xl bg-slate-900 text-white",
+          compact ? "min-h-48" : "min-h-64 xl:min-h-80",
         )}
       >
-        {camera ? "You" : <VideoOff size={18} />}
-        {muted && <MicOff size={12} className="ml-2" />}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-700/40 via-transparent to-sky-950/70" />
+        <div className="absolute left-3 top-3 z-10 flex flex-wrap gap-1">
+          <span className="rounded-md bg-black/25 px-2 py-1 text-[10px] tracking-widest">
+            VIDEO PLACEHOLDER
+          </span>
+          {recordingEnabled &&
+            (phase === "Questions" ||
+              (phase === "Feedback" && mode === "Feedback")) && (
+              <span
+                className={cn(
+                  "rounded-md px-2 py-1 text-[10px]",
+                  recordingFailed
+                    ? "bg-amber-100 text-amber-900"
+                    : "bg-black/25",
+                )}
+              >
+                <span className="mr-1 text-red-400">●</span>
+                {recordingFailed ? "Recording unavailable" : "Recording · demo"}
+              </span>
+            )}
+        </div>
+        <div
+          className={cn(
+            "z-10 flex items-center justify-center rounded-full bg-slate-600/60 font-light",
+            compact ? "h-12 w-12 text-lg" : "h-20 w-20 text-2xl",
+          )}
+        >
+          {!tutorReceives && !studentView ? (
+            <VideoOff size={24} />
+          ) : disconnected ? (
+            <WifiOff size={30} />
+          ) : studentView ? (
+            "JL"
+          ) : (
+            student
+              .split(" ")
+              .map((part) => part[0])
+              .join("")
+          )}
+        </div>
+        <p className={cn("z-10", compact ? "mt-2 text-sm" : "mt-4 text-lg")}>
+          {!tutorReceives && !studentView
+            ? "Media off for this phase"
+            : disconnected
+              ? "Reconnecting to student…"
+              : studentView
+                ? "Your interviewer"
+                : student}
+        </p>
+        {!compact && (
+          <p className="z-10 mt-1 px-5 text-center text-xs text-slate-400">
+            {disconnected
+              ? "The interview continues. Rejoin your current station when connected."
+              : "No camera or microphone is accessed in this prototype."}
+          </p>
+        )}
+        <div className="absolute bottom-4 left-4 text-xs text-slate-300">
+          {compact || studentView
+            ? "Station 1"
+            : "Station 1 · Ethical reasoning"}
+        </div>
+        <div
+          className={cn(
+            "absolute bottom-3 right-3 flex items-center justify-center rounded-lg border border-white/10 bg-slate-700 text-xs",
+            compact ? "h-8 w-12" : "h-14 w-20",
+          )}
+        >
+          {camera ? "You" : <VideoOff size={18} />}
+          {muted && <MicOff size={12} className="ml-2" />}
+        </div>
       </div>
-    </div>
-  );
+    );
 
   const circuit = (horizontal = false) => (
     <section className={cn(tutorSurfaceCard, "p-4")}>
@@ -341,9 +498,7 @@ export function InterviewPrototype() {
               key={station.name}
               className={cn(
                 "rounded-xl p-3",
-                index === 0
-                  ? "bg-sky-50 text-slate-900 ring-1 ring-sky-100"
-                  : "bg-muted/30",
+                index === 0 ? navActiveStyles : "bg-muted/30",
               )}
             >
               <div className="flex items-center gap-2">
@@ -355,7 +510,9 @@ export function InterviewPrototype() {
                 </span>
               </div>
               <p className="mt-2 truncate text-xs">
-                {stations[(index + rotation - 1) % stations.length].student}
+                {delivery === "In person"
+                  ? (inPersonClaims[index] ?? "No student selected")
+                  : stations[(index + rotation - 1) % stations.length].student}
               </p>
               <div className="mt-1.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
                 <Circle
@@ -409,13 +566,16 @@ export function InterviewPrototype() {
               onClick={() => setQuestion(index)}
               className={cn(
                 "rounded-lg px-3 py-1.5 text-xs",
-                index === question
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted",
+                index === question ? navActiveStyles : "hover:bg-muted/60",
               )}
+              aria-pressed={index === question}
             >
               Q{index + 1}
-              {notes[index] && " •"}
+              {!notes[index].trim() && (
+                <span className="ml-2 rounded-full border px-1.5 py-0.5 text-[9px] text-muted-foreground">
+                  Unanswered
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -432,6 +592,7 @@ export function InterviewPrototype() {
                 <h3 className="text-sm font-medium leading-relaxed">
                   {item.title}
                 </h3>
+                {!notes[index].trim() && <Pill>Unanswered</Pill>}
               </div>
               <textarea
                 aria-label={`Feedback for question ${index + 1}`}
@@ -450,11 +611,67 @@ export function InterviewPrototype() {
                 )}
               />
               {(rubric || single) && (
-                <div className="rounded-xl bg-sky-50/70 p-3 text-xs leading-relaxed text-slate-600">
-                  <strong className="mb-1 block text-slate-800">
-                    Rubric · example
-                  </strong>
-                  {item.rubric}
+                <div className="rounded-xl bg-muted/40 p-4 text-xs leading-relaxed">
+                  <div className="mb-2 flex items-center justify-between">
+                    <strong>Rubric</strong>
+                    {editingRubric !== index && (
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-7 gap-1 px-2 text-xs"
+                        onClick={() => {
+                          setEditingRubric(index);
+                          setRubricDraft(rubrics[index]);
+                        }}
+                      >
+                        <Pencil size={12} />
+                        Edit
+                        <span className="sr-only">
+                          {" "}
+                          rubric for question {index + 1}
+                        </span>
+                      </Button>
+                    )}
+                  </div>
+                  {editingRubric === index ? (
+                    <div className="space-y-3">
+                      <textarea
+                        aria-label={`Rubric for question ${index + 1}`}
+                        className="min-h-28 w-full rounded-lg border bg-background p-3 text-sm"
+                        value={rubricDraft}
+                        onChange={(event) => setRubricDraft(event.target.value)}
+                      />
+                      <p className="text-muted-foreground">
+                        Updates the shared rubric, including active rounds.
+                        Simulated in this prototype.
+                      </p>
+                      <div className="flex justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={tutorBtnOutline}
+                          onClick={() => setEditingRubric(null)}
+                        >
+                          Cancel
+                        </Button>
+                        <Button
+                          size="sm"
+                          onClick={() => {
+                            setRubrics((values) =>
+                              values.map((value, rubricIndex) =>
+                                rubricIndex === index ? rubricDraft : value,
+                              ),
+                            );
+                            setEditingRubric(null);
+                          }}
+                        >
+                          Save rubric
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <p className="text-muted-foreground">{rubrics[index]}</p>
+                  )}
                 </div>
               )}
             </div>
@@ -496,7 +713,8 @@ export function InterviewPrototype() {
         <div className="flex justify-between px-5 py-3">
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
+            className={tutorBtnOutline}
             disabled={question === 0}
             onClick={() => setQuestion(question - 1)}
           >
@@ -504,7 +722,8 @@ export function InterviewPrototype() {
           </Button>
           <Button
             size="sm"
-            variant="ghost"
+            variant="outline"
+            className={tutorBtnOutline}
             disabled={question === 2}
             onClick={() => setQuestion(question + 1)}
           >
@@ -519,7 +738,7 @@ export function InterviewPrototype() {
     <details className={cn(tutorSurfaceCard, "px-5 py-4")}>
       <summary className="cursor-pointer text-xs font-medium">
         Reading prompt{" "}
-        <span className="ml-2 text-muted-foreground">Student-facing</span>
+        <span className="ml-2 text-muted-foreground">From question 1</span>
       </summary>
       <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
         {prompt}
@@ -531,9 +750,7 @@ export function InterviewPrototype() {
     <div className="grid gap-5 xl:grid-cols-[1fr_220px]">
       <section className={cn(tutorSurfaceCard, "p-6")}>
         <Pill tone="blue">Student view · illustrative</Pill>
-        <h2 className="mb-6 mt-4 text-xl font-semibold">
-          Station 1 · Ethical reasoning
-        </h2>
+        <h2 className="mb-6 mt-4 text-xl font-semibold">Station 1</h2>
         {ownVisible ? (
           video(false, true)
         ) : (
@@ -569,8 +786,7 @@ export function InterviewPrototype() {
           </div>
         )}
         <div className="mt-5 text-xs text-muted-foreground">
-          This student preview is inside the tutor shell for discussion. Real
-          media is not connected.
+          Prototype · real media is not connected.
         </div>
       </section>
       <section className={cn(tutorSurfaceCard, "h-fit p-5")}>
@@ -581,14 +797,14 @@ export function InterviewPrototype() {
               className={cn(
                 "flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs",
                 index === 0
-                  ? "bg-primary text-primary-foreground"
-                  : "bg-muted text-muted-foreground",
+                  ? navActiveStyles
+                  : "bg-muted/30 text-muted-foreground",
               )}
             >
               {index + 1}
             </span>
             <div className="text-xs">
-              {station.name}
+              Station {index + 1}
               <div className="mt-1 text-[10px] text-muted-foreground">
                 {index === 0 ? "Current station" : "Still to come"}
               </div>
@@ -599,210 +815,478 @@ export function InterviewPrototype() {
     </div>
   );
 
-  return (
-    <div className="space-y-5 pb-28 pt-6">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="text-xs text-muted-foreground">
-          Interviews <span className="mx-2">/</span> Live mock{" "}
-          <span className="mx-2">/</span> UI exploration
+  const timerCard = (
+    <section
+      data-phase-timer
+      className={cn(tutorSurfaceCard, "flex items-center gap-4 px-5 py-3")}
+      aria-label={`${phase} timer`}
+    >
+      <Clock3 size={20} className="text-muted-foreground" />
+      <div>
+        <div className="text-xs font-medium">
+          {phase === "Questions" ? "Question time" : `${phase} time`}
+          {paused && " · Paused"}
         </div>
-        <Pill tone="amber">Prototype · all activity is simulated</Pill>
-      </div>
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <div className="mb-2 text-[10px] font-medium uppercase tracking-[.18em] text-muted-foreground">
-            Medicine interviews
-          </div>
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Thursday MMI practice
-          </h1>
-          <p className="mt-2 text-sm text-muted-foreground">
-            Station 1 · Ethical reasoning <span className="mx-2">·</span>{" "}
-            {student}
-          </p>
-        </div>
-        <div className="flex items-center gap-3">
-          <Pill tone={disconnected ? "amber" : "green"}>
-            {disconnected ? <WifiOff size={12} /> : <Wifi size={12} />}
-            {disconnected ? "Connection issue · demo" : "Connected · demo"}
-          </Pill>
-          <div className="rounded-xl border px-4 py-2 text-right">
-            <div className="text-[10px] text-muted-foreground">
-              {paused ? "Paused · demo" : phase}
-            </div>
-            <div className="font-mono text-xl font-medium tabular-nums">
-              {remaining}
-            </div>
-          </div>
+        <div className="mt-0.5 text-[10px] text-muted-foreground">
+          {countingDown ? "Time remaining" : "Time elapsed"}
         </div>
       </div>
+      <div
+        role="timer"
+        aria-live="off"
+        className="ml-4 font-mono text-3xl font-medium tabular-nums"
+      >
+        {formatTime(seconds)}
+      </div>
+    </section>
+  );
 
-      <div className="flex flex-wrap items-center justify-between gap-3 border-y py-3">
-        <div className="flex gap-1 rounded-xl bg-muted/60 p-1">
-          {["Tutor", "Student"].map((item) => (
-            <button
-              key={item}
-              onClick={() => setView(item)}
+  return (
+    <div className="flex h-dvh flex-col overflow-hidden bg-background">
+      <header className="shrink-0 border-b bg-card">
+        <div className="flex min-h-10 items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex items-center gap-3 text-xs">
+            <span className="font-semibold">Altitutor · Interviews</span>
+            <span className="hidden text-muted-foreground sm:inline">
+              Thursday MMI practice
+            </span>
+            <Pill>Prototype</Pill>
+          </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={
+              toolbarOpen
+                ? "Collapse interview toolbar"
+                : "Expand interview toolbar"
+            }
+            aria-expanded={toolbarOpen}
+            onClick={() => setToolbarOpen(!toolbarOpen)}
+            className="gap-2 text-xs"
+          >
+            {toolbarOpen ? "Hide controls" : "Show controls"}
+            {toolbarOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+          </Button>
+        </div>
+        {toolbarOpen && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-dashed px-4 py-3 sm:px-6">
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex gap-1 rounded-xl border p-1">
+                {["Tutor", "Student"].map((item) => (
+                  <button
+                    key={item}
+                    onClick={() => setView(item)}
+                    aria-pressed={view === item}
+                    className={cn(
+                      "rounded-lg px-3 py-1.5 text-xs",
+                      view === item && navActiveStyles,
+                    )}
+                  >
+                    {item} preview
+                  </button>
+                ))}
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className={tutorBtnOutline}
+                onClick={() => setShowPrototypeControls(!showPrototypeControls)}
+                aria-expanded={showPrototypeControls}
+              >
+                Prototype controls
+              </Button>
+            </div>
+            <div className="flex items-center gap-2">
+              {view === "Tutor" && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className={cn(tutorBtnOutline, "gap-2")}
+                  onClick={togglePause}
+                >
+                  {paused ? <Play size={14} /> : <Pause size={14} />}
+                  {paused ? "Resume interview" : "Pause interview"}
+                </Button>
+              )}
+              <Button
+                size="sm"
+                variant="outline"
+                className={cn(tutorBtnOutline, "gap-2")}
+                onClick={leaveGuard.requestExit}
+              >
+                <LogOut size={14} />
+                Exit interview
+              </Button>
+            </div>
+          </div>
+        )}
+      </header>
+
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div
+          className={cn(
+            "mx-auto max-w-[1600px] space-y-5 px-4 py-5 sm:px-6 lg:px-8",
+            showPrototypeControls ? "pb-28" : "pb-8",
+          )}
+        >
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
+                <ShieldCheck size={14} />
+                {mode} mode<span>·</span>
+                {delivery}
+              </div>
+              <h1 className="text-xl font-semibold tracking-tight">
+                {view === "Student"
+                  ? "Station 1"
+                  : "Station 1 · Ethical reasoning"}
+              </h1>
+              {view === "Tutor" && (
+                <p className="mt-1 text-sm text-muted-foreground">{student}</p>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Pill tone={disconnected ? "amber" : "green"}>
+                {disconnected ? <WifiOff size={12} /> : <Wifi size={12} />}
+                {disconnected ? "Connection interrupted" : "Connected · demo"}
+              </Pill>
+              {view === "Tutor" || phase === "Reading" ? (
+                timerCard
+              ) : (
+                <Pill>
+                  {phase}
+                  {paused && " · Paused"}
+                </Pill>
+              )}
+            </div>
+          </div>
+
+          {view === "Tutor" && delivery === "In person" && (
+            <section
               className={cn(
-                "rounded-lg px-4 py-1.5 text-xs",
-                view === item && "bg-background font-medium shadow-sm",
+                tutorSurfaceCard,
+                "flex flex-wrap items-center justify-between gap-4 p-4",
               )}
             >
-              {item} preview
-            </button>
-          ))}
-        </div>
-        <div className="flex items-center gap-3 text-xs text-muted-foreground">
-          <ShieldCheck size={14} />
-          {mode} mode
-          <span className="hidden sm:inline">· 6 tutors · 6 students</span>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setPaused(!paused)}
-            className="gap-1.5 rounded-lg"
-          >
-            {paused ? <Play size={13} /> : <Pause size={13} />}
-            {paused ? "Resume" : "Pause"} · demo
-          </Button>
+              <div>
+                <h2 className="text-sm font-semibold">
+                  Who is at your station?
+                </h2>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Choose the student you can see. There is no assigned station
+                  order.
+                </p>
+              </div>
+              <label className="flex items-center gap-2 text-xs">
+                Student
+                <select
+                  aria-label="Student at your station"
+                  value={inPersonClaims[0] ?? ""}
+                  disabled={phase === "Feedback" || phase === "Finished"}
+                  onChange={(event) => chooseStudent(event.target.value)}
+                  className="min-w-56 rounded-xl border bg-background p-3 text-sm"
+                >
+                  <option value="">Choose arriving student</option>
+                  {stations.map((station) => {
+                    const occupied = inPersonClaims
+                      .slice(1)
+                      .includes(station.student);
+                    return (
+                      <option
+                        key={station.student}
+                        value={station.student}
+                        disabled={occupied}
+                      >
+                        {station.student}
+                        {occupied ? " · at another station" : ""}
+                      </option>
+                    );
+                  })}
+                </select>
+              </label>
+              {claimMessage && (
+                <p role="alert" className="w-full text-xs text-amber-700">
+                  {claimMessage}
+                </p>
+              )}
+            </section>
+          )}
+
+          {(disconnected ||
+            (recordingFailed && recordingEnabled) ||
+            paused) && (
+            <div
+              role="status"
+              className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
+            >
+              {paused ? "Interview paused. " : ""}
+              {disconnected
+                ? "Connection interrupted. The interview continues; reconnect to the current station. "
+                : ""}
+              {recordingFailed && recordingEnabled
+                ? "Recording unavailable. The interview can continue. "
+                : ""}
+              <span className="block pt-1 text-xs">
+                Simulated state for UI review.
+              </span>
+            </div>
+          )}
+          {view === "Student" ? (
+            studentPreview
+          ) : variant === "A" ? (
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_230px]">
+              <div className="space-y-4">
+                {video()}
+                {controls}
+                {promptCard}
+                {marking()}
+              </div>
+              {circuit()}
+            </div>
+          ) : variant === "B" ? (
+            <div className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]">
+              <div className="space-y-4">
+                {promptCard}
+                {marking()}
+                {controls}
+              </div>
+              <div className="space-y-4">
+                {video(true)}
+                {circuit()}
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-5">
+              {circuit(true)}
+              <div className="grid items-start gap-5 lg:grid-cols-2">
+                <div className="space-y-4">
+                  {video()}
+                  {promptCard}
+                  {controls}
+                </div>
+                {marking(true)}
+              </div>
+            </div>
+          )}
+
+          {showPrototypeControls && (
+            <section className="rounded-xl border border-dashed p-4 text-xs">
+              <h2 className="font-semibold">
+                Prototype controls & visible state
+              </h2>
+              <p className="mt-2 text-muted-foreground">
+                All data is in memory. Timers run locally and advance reading →
+                questions → feedback. No video, recording, server saves or
+                multi-client realtime is connected.
+              </p>
+              <div className="my-4 flex flex-wrap items-center gap-4">
+                <label className="flex items-center gap-2">
+                  Phase
+                  <select
+                    className="rounded-lg border bg-background p-2"
+                    value={phase}
+                    onChange={(event) => setPhase(event.target.value as Phase)}
+                  >
+                    {phases.map((item) => (
+                      <option key={item}>{item}</option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  Mode
+                  <select
+                    className="rounded-lg border bg-background p-2"
+                    value={mode}
+                    onChange={(event) => setMode(event.target.value)}
+                  >
+                    <option>Feedback</option>
+                    <option>Exam</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  Delivery
+                  <select
+                    className="rounded-lg border bg-background p-2"
+                    value={delivery}
+                    onChange={(event) => {
+                      setDelivery(event.target.value);
+                      setNotes(["", "", ""]);
+                      setScore("");
+                    }}
+                  >
+                    <option>Online</option>
+                    <option>In person</option>
+                  </select>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={disconnected}
+                    onChange={(event) => setDisconnected(event.target.checked)}
+                  />
+                  Connection lost
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={recordingFailed}
+                    onChange={(event) =>
+                      setRecordingFailed(event.target.checked)
+                    }
+                  />
+                  Recording failed
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={recordingEnabled}
+                    onChange={(event) =>
+                      setRecordingEnabled(event.target.checked)
+                    }
+                  />
+                  Recording enabled
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={othersDone}
+                    onChange={(event) => setOthersDone(event.target.checked)}
+                  />
+                  Other stations finished
+                </label>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={tutorBtnOutline}
+                  disabled={!countingDown || paused}
+                  onClick={() => {
+                    const timestamp = Date.now();
+                    setClock({
+                      epoch: timestamp,
+                      carriedMs: ((phase === "Reading" ? 120 : 480) - 3) * 1000,
+                    });
+                    setNow(timestamp);
+                  }}
+                >
+                  Jump to final 3 seconds
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={reset}
+                  className={cn(tutorBtnOutline, "gap-1")}
+                >
+                  <RotateCcw size={13} />
+                  Reset example
+                </Button>
+              </div>
+              <details>
+                <summary className="cursor-pointer text-muted-foreground">
+                  Full relevant state
+                </summary>
+                <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-muted p-3 text-[10px]">
+                  {JSON.stringify(state, null, 2)}
+                </pre>
+              </details>
+              <PrototypeSwitcher variants={variants} defaultVariant="C" />
+            </section>
+          )}
         </div>
       </div>
-      {(disconnected || (recordingFailed && recordingEnabled) || paused) && (
-        <div
-          role="status"
-          className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900"
-        >
-          {paused ? "Interview paused in this demo. " : ""}
-          {disconnected
-            ? "Connection interrupted. Your feedback remains in this tab. "
-            : ""}
-          {recordingFailed && recordingEnabled
-            ? "Recording unavailable. The tutor can still continue the interview. "
-            : ""}
-          <span className="block pt-1 text-xs">
-            These controls explore the UI; they do not test real network
-            recovery.
-          </span>
-        </div>
-      )}
-      {view === "Student" ? (
-        studentPreview
-      ) : variant === "A" ? (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_230px]">
-          <div className="space-y-4">
-            {video()}
-            {controls}
-            {promptCard}
-            {marking()}
-          </div>
-          {circuit()}
-        </div>
-      ) : variant === "B" ? (
-        <div className="grid items-start gap-5 xl:grid-cols-[minmax(0,1fr)_300px]">
-          <div className="space-y-4">
-            {promptCard}
-            {marking()}
-            {controls}
-          </div>
-          <div className="space-y-4">
-            {video(true)}
-            {circuit()}
-          </div>
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {circuit(true)}
-          <div className="grid items-start gap-5 xl:grid-cols-2">
-            <div className="space-y-4">
-              {video()}
-              {promptCard}
-              {controls}
-            </div>
-            {marking(true)}
-          </div>
-        </div>
-      )}
 
-      <details className="rounded-xl border border-dashed p-4 text-xs" open>
-        <summary className="cursor-pointer font-medium">
-          Prototype controls & visible state
-        </summary>
-        <p className="mt-2 text-muted-foreground">
-          Compare layouts with the floating arrows. Inputs survive layout
-          changes, but reset on refresh. Phase times are examples. No backend,
-          media, saving, or realtime is connected.
-        </p>
-        <div className="my-4 flex flex-wrap items-center gap-3">
-          <label className="flex items-center gap-2">
-            Phase
-            <select
-              className="rounded-lg border bg-background p-2"
-              value={phase}
-              onChange={(event) => setPhase(event.target.value as Phase)}
+      <AlertDialog
+        open={leaveGuard.open}
+        onOpenChange={(open) => {
+          if (!open) leaveGuard.cancelExit();
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave this live interview?</AlertDialogTitle>
+            <AlertDialogDescription>
+              The interview will continue for everyone else. This prototype
+              keeps your edits only in this tab; leaving will discard them.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              className={tutorBtnOutline}
+              onClick={leaveGuard.cancelExit}
             >
-              {phases.map((item) => (
-                <option key={item}>{item}</option>
-              ))}
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            Mode
-            <select
-              className="rounded-lg border bg-background p-2"
-              value={mode}
-              onChange={(event) => setMode(event.target.value)}
+              Stay in interview
+            </Button>
+            <Button variant="destructive" onClick={leaveGuard.confirmExit}>
+              Leave interview
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog
+        open={pendingStudent !== null}
+        onOpenChange={(open) => {
+          if (!open) setPendingStudent(null);
+        }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Move this feedback to {pendingStudent}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              You have already entered feedback or a score for{" "}
+              {inPersonClaims[0]}. Confirm that these entries belong to{" "}
+              {pendingStudent} before changing the student.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              className={tutorBtnOutline}
+              onClick={() => setPendingStudent(null)}
             >
-              <option>Feedback</option>
-              <option>Exam</option>
-            </select>
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={disconnected}
-              onChange={(event) => setDisconnected(event.target.checked)}
-            />{" "}
-            Connection lost
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={recordingFailed}
-              onChange={(event) => setRecordingFailed(event.target.checked)}
-            />{" "}
-            Recording failed
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={recordingEnabled}
-              onChange={(event) => setRecordingEnabled(event.target.checked)}
-            />
-            Recording enabled for this interview
-          </label>
-          <label className="flex items-center gap-2">
-            <input
-              type="checkbox"
-              checked={othersDone}
-              onChange={(event) => setOthersDone(event.target.checked)}
-            />{" "}
-            Other stations finished
-          </label>
-          <Button variant="ghost" size="sm" onClick={reset} className="gap-1">
-            <RotateCcw size={13} />
-            Reset
-          </Button>
-        </div>
-        <details>
-          <summary className="cursor-pointer text-muted-foreground">
-            Full relevant state
-          </summary>
-          <pre className="mt-3 max-h-64 overflow-auto rounded-lg bg-muted p-3 text-[10px]">
-            {JSON.stringify(state, null, 2)}
-          </pre>
-        </details>
-      </details>
-      <PrototypeSwitcher variants={variants} />
+              Keep current student
+            </Button>
+            <Button
+              onClick={() => {
+                if (pendingStudent) applyStudentClaim(pendingStudent);
+              }}
+            >
+              Confirm student change
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+      <AlertDialog open={startOverride} onOpenChange={setStartOverride}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Start with a student disconnected?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              The reading timer will run for everyone. The disconnected student
+              can rejoin the current phase later.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button
+              variant="outline"
+              className={tutorBtnOutline}
+              onClick={() => setStartOverride(false)}
+            >
+              Wait for connection
+            </Button>
+            <Button
+              onClick={() => {
+                setStartOverride(false);
+                setPhase("Reading");
+              }}
+            >
+              Start anyway
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

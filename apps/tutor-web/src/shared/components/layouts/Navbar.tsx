@@ -25,7 +25,7 @@ import { useNotificationsRealtime } from '@/features/notifications';
 import { TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
 import { cn } from '@/shared/utils';
 import { tutorBtnOutline } from '@/shared/lib/tutor-visual';
-import { shouldHideNavbar } from '@/shared/lib/shell-layout';
+import { shouldHideNavbar, isInterviewPrototypeFullscreenPath } from '@/shared/lib/shell-layout';
 import { openUserFeedback } from '@/lib/sentry/open-user-feedback';
 
 export function Navbar() {
@@ -52,6 +52,7 @@ export function Navbar() {
   useNotificationsRealtime(staffRecord?.id ?? '');
 
   useEffect(() => {
+    if (isInterviewPrototypeFullscreenPath(pathname)) return;
     const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
         e.preventDefault();
@@ -64,7 +65,7 @@ export function Navbar() {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette]);
+  }, [isCommandPaletteOpen, toggleCommandPalette, closeCommandPalette, pathname]);
 
   if (shouldHideNavbar(pathname) && !formResponseSubmitted) {
     return null;

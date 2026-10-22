@@ -39,6 +39,7 @@ import {
 import { getTutorResourceSubjectHref } from '@/features/resources/lib/helpers';
 import type { LucideIcon } from 'lucide-react';
 import { TUTOR_CONTENT_MAX, TUTOR_SHELL_PAD_X } from '@/shared/lib/tutor-layout';
+import { isInterviewPrototypeFullscreenPath } from '@/shared/lib/shell-layout';
 
 interface SidebarNavProps extends React.HTMLAttributes<HTMLDivElement> {
   collapsed: boolean;
@@ -618,6 +619,7 @@ export default function TutorClientLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const { isOpen: isMobileMenuOpen, close: closeMobileMenu } = useMobileMenu();
   const ucatAccess = useUcatAccess();
@@ -627,6 +629,8 @@ export default function TutorClientLayout({
   const toggleSidebar = () => {
     setCollapsed(!collapsed);
   };
+
+  if (isInterviewPrototypeFullscreenPath(pathname)) return <>{children}</>;
 
   return (
     <>

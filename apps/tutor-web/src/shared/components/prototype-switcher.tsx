@@ -7,15 +7,19 @@ import { ArrowLeft, ArrowRight } from "lucide-react";
 // Throwaway UI review control; deliberately unavailable in production.
 export function PrototypeSwitcher({
   variants,
+  defaultVariant,
 }: {
   variants: { key: string; name: string }[];
+  defaultVariant?: string;
 }) {
   const router = useRouter();
   const pathname = usePathname();
   const params = useSearchParams();
   const current = Math.max(
     0,
-    variants.findIndex((variant) => variant.key === params.get("variant")),
+    variants.findIndex(
+      (variant) => variant.key === (params.get("variant") ?? defaultVariant),
+    ),
   );
   const cycle = useCallback(
     (direction: number) => {
