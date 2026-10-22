@@ -72,9 +72,6 @@ export function EntityToolbar<TItem>({
   viewContent?: React.ReactNode;
 }) {
   const view = useToolbarView();
-  const dateColumns = rightPills.filter(
-    (pill) => pill.filterable !== false && pill.filterType === "date-range",
-  );
   const definitions = new Map<string, DataTableFilterDefinition>();
   for (const column of [statusColumn, ...columnDefs]) {
     if (column && column.filterable !== false)
@@ -101,6 +98,9 @@ export function EntityToolbar<TItem>({
         options: pill.filterOptions,
       });
   }
+  const dateColumns = rightPills.filter(
+    (pill) => definitions.get(pill.key)?.type === "date-range",
+  );
   const toolbarFilters = { ...filters };
   for (const pill of dateColumns) {
     const stored = filters[pill.key]?.[0] as StoredDateRange | undefined;
@@ -152,7 +152,9 @@ export function EntityToolbar<TItem>({
       onFiltersChange={changeFilters}
       filterDefinitions={[...definitions.values()]}
       sortOptions={sortOptions}
-      onSortChange={(key, direction) => onSortChange(key ?? "name", direction)}
+      onSortChange={(key, direction) =>
+        onSortChange(key ?? "name", key === null ? "asc" : direction)
+      }
       groupByOptions={groupOptions}
       onGroupByChange={onGroupByChange}
       groupByRequired={groupByRequired}

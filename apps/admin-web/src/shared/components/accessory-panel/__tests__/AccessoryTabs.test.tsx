@@ -157,16 +157,14 @@ test("the active list tab owns its persistent View menu", async () => {
   render(<AccessoryPanelProvider><Harness /></AccessoryPanelProvider>);
   await userEvent.click(await screen.findByText('Start'));
   await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-  await userEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-  await userEvent.click(await screen.findByRole('menuitemcheckbox', { name: 'Board' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Board' }));
   expect(new URLSearchParams(tabs()[0].query).get('view')).toBe('board');
   await userEvent.keyboard('{Escape}{Escape}');
   await userEvent.click(screen.getByText('Open issue'));
   expect(screen.queryByRole('button', { name: 'Display options' })).not.toBeInTheDocument();
   await userEvent.click(screen.getByText('Back to issues'));
   await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-  await userEvent.click(screen.getByRole('menuitem', { name: 'View' }));
-  expect(await screen.findByRole('menuitemcheckbox', { name: 'Board' })).toHaveAttribute('aria-checked', 'true');
+  expect(await screen.findByRole('button', { name: 'Board' })).toHaveAttribute('aria-pressed', 'true');
   expect(new URLSearchParams(tabs()[0].query).get('search')).toBe('math');
 });
 

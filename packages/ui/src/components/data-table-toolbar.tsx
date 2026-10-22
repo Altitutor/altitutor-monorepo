@@ -6,13 +6,11 @@ import * as React from "react";
 import { useMediaQuery } from "../hooks/use-media-query";
 import {
   LayoutGrid,
-  ArrowUpDown,
+  List,
   ArrowUp,
   ArrowDown,
-  Filter,
   X,
   Search,
-  Layers,
   SlidersHorizontal,
 } from "lucide-react";
 import type {
@@ -30,14 +28,12 @@ import {
   DropdownMenu,
   DropdownMenuCheckboxItem,
   DropdownMenuContent,
-  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
+import { Popover, PopoverContent, PopoverTrigger } from "./popover";
+import { ToolbarSelectRow } from "./toolbar-select-row";
 import { SearchableSelectInline } from "./searchable-select-inline";
 import { ToolbarFiltersMenu, ToolbarFilterPills } from "./toolbar-filters";
 import type { ToolbarConditionFilters } from "./toolbar-filter-pill";
@@ -171,8 +167,8 @@ export function DataTableToolbar({
   searchLeadingAccessory,
   searchAccessory,
   compact: compactProp = false,
-  searchFromInView = true,
-  stemSearchFromOptions = [],
+  searchFromInView: _searchFromInView = false,
+  stemSearchFromOptions: _stemSearchFromOptions = [],
   searchFromViewGroups,
   columnViewGroups = [],
 }: DataTableToolbarProps) {
@@ -289,29 +285,6 @@ export function DataTableToolbar({
   const resolvedDefaultVisibleColumns =
     defaultVisibleColumns ?? state.defaultVisibleColumns;
 
-  const toggleColumnVisibility = (
-    group: DataTableColumnViewGroup,
-    columnKey: string,
-    checked: boolean,
-  ) => {
-    if (
-      !checked &&
-      group.visibleColumns.length === 1 &&
-      group.visibleColumns.includes(columnKey)
-    ) {
-      return;
-    }
-    const next = checked
-      ? [...group.visibleColumns, columnKey]
-      : group.visibleColumns.filter((key) => key !== columnKey);
-    group.onVisibleColumnsChange(
-      ensureAtLeastOneVisibleColumn(
-        next,
-        group.columnDefinitions.map((column) => column.key),
-      ),
-    );
-  };
-
   const handleVisibleColumnsChange = React.useCallback(
     (columns: string[]) => {
       onVisibleColumnsChange(
@@ -397,38 +370,39 @@ export function DataTableToolbar({
     handleVisibleColumnsChange,
   ]);
 
-  const searchFromControl =
-    searchFromEnabled && !searchFromInView ? (
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
+  const searchFromControl = searchFromEnabled ? (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className={cn(
+            "h-7 shrink-0 rounded-full text-xs",
+            compact ? "size-7 px-0" : "px-2",
+            controlClassName,
+          )}
+          aria-label={`Search from ${searchFromSummary}`}
+        >
+          <Search
+            className={cn("h-3.5 w-3.5 opacity-70", !compact && "sm:mr-1")}
+          />
+          <span
             className={cn(
-              "h-7 shrink-0 rounded-full text-xs",
-              compact ? "size-7 px-0" : "px-2",
-              controlClassName,
+              "max-w-[9rem] truncate",
+              compact ? "sr-only" : "hidden sm:inline",
             )}
-            aria-label={`Search from ${searchFromSummary}`}
           >
-            <Search
-              className={cn("h-3.5 w-3.5 opacity-70", !compact && "sm:mr-1")}
-            />
-            <span
-              className={cn(
-                "max-w-[9rem] truncate",
-                compact ? "sr-only" : "hidden sm:inline",
-              )}
-            >
-              {searchFromSummary}
-            </span>
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="start" className="w-[220px]">
-          <DropdownMenuLabel>Search from</DropdownMenuLabel>
-          <DropdownMenuSeparator />
-          {searchFromOptions.map((option) => (
+            {searchFromSummary}
+          </span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[220px]">
+        <DropdownMenuLabel>Search from</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        {searchFromViewGroupsResolved
+          .flatMap((group) => group.options)
+          .map((option) => (
             <DropdownMenuCheckboxItem
               key={option.value}
               checked={activeSearchFromValues.includes(option.value)}
@@ -438,9 +412,9 @@ export function DataTableToolbar({
               {option.label}
             </DropdownMenuCheckboxItem>
           ))}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    ) : null;
+      </DropdownMenuContent>
+    </DropdownMenu>
+  ) : null;
   const defaultSearchLeadingAccessory = (
     <span className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground">
       <Search className="h-3.5 w-3.5" />
@@ -488,6 +462,8 @@ export function DataTableToolbar({
             />
             {searchValue && (
               <button
+                type="button"
+                aria-label="Clear search"
                 onClick={() => setSearchValue("")}
                 className="shrink-0 text-muted-foreground hover:text-foreground"
               >
@@ -498,8 +474,8 @@ export function DataTableToolbar({
         ) : null}
         {!hideSearch && searchAccessory}
 
-        <DropdownMenu open={filterOpen} onOpenChange={setFilterOpen}>
-          <DropdownMenuTrigger asChild>
+        <Popover open={filterOpen} onOpenChange={setFilterOpen}>
+          <PopoverTrigger asChild>
             <Button
               type="button"
               variant="outline"
@@ -515,293 +491,244 @@ export function DataTableToolbar({
                 </span>
               ) : null}
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent
+          </PopoverTrigger>
+          <PopoverContent
             align="end"
-            className="max-h-[min(75vh,600px)] w-[min(320px,90vw)] overflow-y-auto"
+            aria-label="Display options"
+            className="max-h-[min(80vh,700px)] w-[min(420px,calc(100vw-24px))] overflow-y-auto p-0"
           >
-            <DropdownMenuLabel className="flex items-center gap-2">
-              <Filter className="h-3.5 w-3.5" />
-              Filters
-            </DropdownMenuLabel>
-            {quickFilters.length ? (
-              <div className="flex flex-wrap gap-1 px-2 py-1">
-                {quickFilters.map((filter) => (
+            {view ? (
+              <div className="flex gap-2 border-b p-4" aria-label="View layout">
+                {view.options.map((option) => (
                   <Button
-                    key={filter.id}
+                    key={option.value}
                     type="button"
-                    variant="outline"
-                    size="sm"
-                    className="h-7 text-xs"
-                    onClick={() => onQuickFilterApply(filter)}
+                    variant={
+                      view.value === option.value ? "secondary" : "ghost"
+                    }
+                    className="flex-1 rounded-full"
+                    aria-pressed={view.value === option.value}
+                    onClick={() => view.onChange(option.value)}
                   >
-                    {filter.name}
+                    {option.value === "board" ? (
+                      <LayoutGrid className="mr-2 h-4 w-4" />
+                    ) : (
+                      <List className="mr-2 h-4 w-4" />
+                    )}
+                    {option.label}
                   </Button>
                 ))}
               </div>
             ) : null}
-            <ToolbarFiltersMenu {...filtersProps} />
-            {filterFooter != null ? (
-              <>
-                <DropdownMenuSeparator />
-                {filterFooter}
-              </>
-            ) : null}
-            {effectiveActiveFilterCount ? (
-              <DropdownMenuItem onSelect={handleClearAllFilters}>
-                Clear all filters
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            {sortOptions.length ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <ArrowUpDown className="mr-2 h-3.5 w-3.5" />
-                  Sort
-                  <span className="ml-auto pl-3 text-xs text-muted-foreground">
-                    {
-                      sortOptions.find((option) => option.key === state.sortBy)
-                        ?.label
-                    }
-                  </span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-64 p-0">
-                  <SearchableSelectInline
-                    items={sortOptions}
-                    value={
-                      sortOptions.find(
-                        (option) => option.key === state.sortBy,
-                      ) ?? null
-                    }
-                    onValueChange={(option) =>
-                      onSortChange(
-                        option?.key ?? null,
-                        option
-                          ? option.key === state.sortBy
-                            ? state.sortDirection
-                            : "asc"
-                          : "desc",
-                      )
-                    }
-                    getItemId={(option) => option.key}
-                    getItemLabel={(option) => option.label}
-                    searchPlaceholder="Search sort options..."
-                    allowClear
-                    clearLabel="None"
-                  />
-                  {state.sortBy ? (
-                    <div className="flex gap-1 border-t p-2">
-                      {(["asc", "desc"] as const).map((direction) => (
-                        <Button
-                          key={direction}
-                          type="button"
-                          variant={
-                            state.sortDirection === direction
-                              ? "secondary"
-                              : "ghost"
-                          }
-                          size="sm"
-                          className="flex-1"
-                          onClick={() => onSortChange(state.sortBy, direction)}
-                        >
-                          {direction === "asc" ? (
-                            <ArrowUp className="mr-1 h-3.5 w-3.5" />
-                          ) : (
-                            <ArrowDown className="mr-1 h-3.5 w-3.5" />
-                          )}
-                          {direction === "asc" ? "Ascending" : "Descending"}
-                        </Button>
-                      ))}
-                    </div>
-                  ) : null}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ) : null}
-            {groupByOptions.length ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <Layers className="mr-2 h-3.5 w-3.5" />
-                  Group by
-                  <span className="ml-auto pl-3 text-xs text-muted-foreground">
-                    {
+            {groupByOptions.length || sortOptions.length || viewContent ? (
+              <div className="border-b px-4 py-3">
+                {groupByOptions.length ? (
+                  <ToolbarSelectRow
+                    label="Group by"
+                    summary={
                       groupByOptions.find(
                         (option) => option.key === state.groupBy,
-                      )?.label
+                      )?.label ?? "No grouping"
                     }
-                  </span>
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="w-60 p-0">
-                  <SearchableSelectInline
-                    items={groupByOptions}
-                    value={
-                      groupByOptions.find(
-                        (option) => option.key === state.groupBy,
-                      ) ?? null
-                    }
-                    onValueChange={(option) =>
-                      onGroupByChange(option?.key ?? null)
-                    }
-                    getItemId={(option) => option.key}
-                    getItemLabel={(option) => option.label}
-                    searchPlaceholder="Search groups..."
-                    allowClear={!groupByRequired}
-                    clearLabel="None"
-                  />
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
-            ) : null}
-            {view ||
-            viewContent ||
-            columnViewGroups.length ||
-            columnDefinitions.length ||
-            (searchFromInView &&
-              (stemSearchFromOptions.length ||
-                searchFromViewGroupsResolved.length)) ? (
-              <DropdownMenuSub>
-                <DropdownMenuSubTrigger>
-                  <LayoutGrid className="mr-2 h-3.5 w-3.5" />
-                  View
-                </DropdownMenuSubTrigger>
-                <DropdownMenuSubContent className="max-h-[min(70vh,480px)] w-72 overflow-y-auto p-0">
-                  {view ? (
-                    <>
-                      <DropdownMenuLabel>Layout</DropdownMenuLabel>
-                      {view.options.map((option) => (
-                        <DropdownMenuCheckboxItem
-                          key={option.value}
-                          checked={view.value === option.value}
-                          onCheckedChange={() => view.onChange(option.value)}
-                          onSelect={(event) => event.preventDefault()}
-                        >
-                          {option.label}
-                        </DropdownMenuCheckboxItem>
-                      ))}
-                      <DropdownMenuSeparator />
-                    </>
-                  ) : null}
-                  {viewContent}
-                  {columnViewGroups.length > 0
-                    ? columnViewGroups.map((group, groupIndex) => (
-                        <div key={group.heading}>
-                          {groupIndex > 0 && <DropdownMenuSeparator />}
-                          <DropdownMenuLabel className="px-2 py-1.5">
-                            {group.heading}
-                          </DropdownMenuLabel>
-                          {group.columnDefinitions.map((col) => (
-                            <DropdownMenuCheckboxItem
-                              key={col.key}
-                              checked={group.visibleColumns.includes(col.key)}
-                              disabled={
-                                group.visibleColumns.length === 1 &&
-                                group.visibleColumns.includes(col.key)
-                              }
-                              onCheckedChange={(checked) =>
-                                toggleColumnVisibility(
-                                  group,
-                                  col.key,
-                                  checked === true,
-                                )
-                              }
-                              onSelect={(event) => event.preventDefault()}
-                              className="pl-8"
-                            >
-                              {col.label}
-                            </DropdownMenuCheckboxItem>
-                          ))}
-                        </div>
-                      ))
-                    : columnDefinitions.length > 0 && (
-                        <>
-                          <DropdownMenuLabel className="px-2 py-1.5">
-                            {searchFromInView &&
-                            searchFromViewGroupsResolved.length > 0
-                              ? "Question stems"
-                              : columnHeading}
-                          </DropdownMenuLabel>
-                          <SearchableSelectInline<DataTableColumnDefinition>
-                            items={columnDefinitions}
-                            value={columnDefinitions.filter((c) =>
-                              state.visibleColumns.includes(c.key),
+                    persistenceKey={`${filterPersistenceKey}:group`}
+                  >
+                    <SearchableSelectInline
+                      items={groupByOptions}
+                      value={
+                        groupByOptions.find(
+                          (option) => option.key === state.groupBy,
+                        ) ?? null
+                      }
+                      onValueChange={(option) =>
+                        onGroupByChange(option?.key ?? null)
+                      }
+                      getItemId={(option) => option.key}
+                      getItemLabel={(option) => option.label}
+                      searchPlaceholder="Search groups..."
+                      allowClear={!groupByRequired}
+                      clearLabel="No grouping"
+                    />
+                  </ToolbarSelectRow>
+                ) : null}
+                {sortOptions.length ? (
+                  <>
+                    <ToolbarSelectRow
+                      label="Sort"
+                      summary={
+                        sortOptions.find(
+                          (option) => option.key === state.sortBy,
+                        )?.label ?? "None"
+                      }
+                      persistenceKey={`${filterPersistenceKey}:sort`}
+                    >
+                      <SearchableSelectInline
+                        items={sortOptions}
+                        value={
+                          sortOptions.find(
+                            (option) => option.key === state.sortBy,
+                          ) ?? null
+                        }
+                        onValueChange={(option) =>
+                          onSortChange(
+                            option?.key ?? null,
+                            option
+                              ? option.key === state.sortBy
+                                ? state.sortDirection
+                                : "asc"
+                              : "desc",
+                          )
+                        }
+                        getItemId={(option) => option.key}
+                        getItemLabel={(option) => option.label}
+                        searchPlaceholder="Search sort options..."
+                        allowClear
+                        clearLabel="None"
+                      />
+                    </ToolbarSelectRow>
+                    {state.sortBy ? (
+                      <div
+                        className="flex justify-end gap-1 pb-1"
+                        aria-label="Sort direction"
+                      >
+                        {(["asc", "desc"] as const).map((direction) => (
+                          <Button
+                            key={direction}
+                            type="button"
+                            variant={
+                              state.sortDirection === direction
+                                ? "secondary"
+                                : "ghost"
+                            }
+                            size="sm"
+                            aria-pressed={state.sortDirection === direction}
+                            onClick={() =>
+                              onSortChange(state.sortBy, direction)
+                            }
+                          >
+                            {direction === "asc" ? (
+                              <ArrowUp className="mr-1 h-3.5 w-3.5" />
+                            ) : (
+                              <ArrowDown className="mr-1 h-3.5 w-3.5" />
                             )}
-                            onValueChange={(cols) => {
-                              if (cols.length === 0 && !allowEmptyColumns) {
-                                return;
-                              }
-                              handleVisibleColumnsChange(
-                                cols.map((c) => c.key),
-                              );
-                            }}
-                            getItemId={(c) => c.key}
-                            getItemLabel={(c) => c.label}
-                            searchPlaceholder="Search columns..."
-                            emptyMessage="No columns found"
-                            multiSelect
-                          />
-                          {searchFromInView &&
-                            stemSearchFromOptions.map((option) => (
-                              <DropdownMenuCheckboxItem
-                                key={option.value}
-                                checked={activeSearchFromValues.includes(
-                                  option.value,
-                                )}
-                                onCheckedChange={() =>
-                                  toggleSearchFromValue(option.value)
-                                }
-                                className="pl-8"
-                              >
-                                {option.label}
-                              </DropdownMenuCheckboxItem>
-                            ))}
-                        </>
-                      )}
-                  {searchFromInView &&
-                    searchFromViewGroupsResolved.length > 0 &&
-                    onSearchFromChange && (
-                      <>
-                        {(columnViewGroups.length > 0 ||
-                          columnDefinitions.length > 0) && (
-                          <DropdownMenuSeparator />
-                        )}
-                        {searchFromViewGroupsResolved.map(
-                          (group, groupIndex) => (
-                            <div key={group.heading}>
-                              {groupIndex > 0 && <DropdownMenuSeparator />}
-                              <DropdownMenuLabel className="px-2 py-1.5">
-                                {group.heading}
-                              </DropdownMenuLabel>
-                              {group.options.map((option) => (
-                                <DropdownMenuCheckboxItem
-                                  key={option.value}
-                                  checked={activeSearchFromValues.includes(
-                                    option.value,
-                                  )}
-                                  onCheckedChange={() =>
-                                    toggleSearchFromValue(option.value)
-                                  }
-                                  className="pl-8"
-                                >
-                                  {option.label}
-                                </DropdownMenuCheckboxItem>
-                              ))}
-                            </div>
-                          ),
-                        )}
-                      </>
-                    )}
-
-                  {viewLayoutChangeCount ? (
-                    <>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem onSelect={handleResetViewLayout}>
-                        Reset column layout to default
-                      </DropdownMenuItem>
-                    </>
-                  ) : null}
-                </DropdownMenuSubContent>
-              </DropdownMenuSub>
+                            {direction === "asc" ? "Ascending" : "Descending"}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </>
+                ) : null}
+                {viewContent}
+              </div>
             ) : null}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            {filterDefinitions.length ||
+            conditionFilters?.fields.length ||
+            quickFilters.length ||
+            filterFooter ? (
+              <div className="border-b px-4 py-3">
+                <p className="mb-1 text-xs font-medium">Filters</p>
+                {quickFilters.length ? (
+                  <div className="flex flex-wrap gap-1 py-2">
+                    {quickFilters.map((filter) => (
+                      <Button
+                        key={filter.id}
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        className="h-7 text-xs"
+                        onClick={() => onQuickFilterApply(filter)}
+                      >
+                        {filter.name}
+                      </Button>
+                    ))}
+                  </div>
+                ) : null}
+                <ToolbarFiltersMenu {...filtersProps} />
+                {filterFooter}
+                {effectiveActiveFilterCount ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={handleClearAllFilters}
+                  >
+                    Clear all filters
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+            {columnViewGroups.length || columnDefinitions.length ? (
+              <div className="px-4 py-3">
+                <p className="mb-1 text-xs font-medium">View properties</p>
+                {columnViewGroups.length ? (
+                  columnViewGroups.map((group) => (
+                    <ToolbarSelectRow
+                      key={group.heading}
+                      label={group.heading}
+                      summary={`${group.visibleColumns.length} selected`}
+                      persistenceKey={`${filterPersistenceKey}:columns:${group.heading}`}
+                    >
+                      <SearchableSelectInline<DataTableColumnDefinition>
+                        items={group.columnDefinitions}
+                        value={group.columnDefinitions.filter((column) =>
+                          group.visibleColumns.includes(column.key),
+                        )}
+                        onValueChange={(columns) =>
+                          group.onVisibleColumnsChange(
+                            ensureAtLeastOneVisibleColumn(
+                              columns.map((column) => column.key),
+                              group.columnDefinitions.map(
+                                (column) => column.key,
+                              ),
+                            ),
+                          )
+                        }
+                        getItemId={(column) => column.key}
+                        getItemLabel={(column) => column.label}
+                        searchPlaceholder="Search columns..."
+                        multiSelect
+                      />
+                    </ToolbarSelectRow>
+                  ))
+                ) : (
+                  <ToolbarSelectRow
+                    label={columnHeading}
+                    summary={`${state.visibleColumns.length} selected`}
+                    persistenceKey={`${filterPersistenceKey}:columns`}
+                  >
+                    <SearchableSelectInline<DataTableColumnDefinition>
+                      items={columnDefinitions}
+                      value={columnDefinitions.filter((column) =>
+                        state.visibleColumns.includes(column.key),
+                      )}
+                      onValueChange={(columns) => {
+                        if (columns.length || allowEmptyColumns)
+                          handleVisibleColumnsChange(
+                            columns.map((column) => column.key),
+                          );
+                      }}
+                      getItemId={(column) => column.key}
+                      getItemLabel={(column) => column.label}
+                      searchPlaceholder="Search columns..."
+                      multiSelect
+                    />
+                  </ToolbarSelectRow>
+                )}
+                {viewLayoutChangeCount ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="mt-2 text-xs"
+                    onClick={handleResetViewLayout}
+                  >
+                    Reset column layout to default
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
+          </PopoverContent>
+        </Popover>
       </div>
       <ToolbarFilterPills
         {...filtersProps}

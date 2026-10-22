@@ -27,7 +27,7 @@ it.each([['Responses', FormResponsesPage], ['Reports', FormReportsPage]] as cons
   '%s filters by a specific text answer and can clear the condition', async (_name, Page) => {
     render(<Page />);
     await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-    await userEvent.click(await screen.findByRole('menuitem', { name: 'Student feedback · Q1: How was it?' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Filter Student feedback · Q1: How was it?' }));
     const input = screen.queryByRole('textbox', { name: /How was it\? contains/ });
     if (!input) await userEvent.click(screen.getByRole('button', { name: /Edit .*How was it\? contains/ }));
     await userEvent.type(screen.getByRole('textbox', { name: /How was it\? contains/ }), 'helpful');
@@ -46,9 +46,9 @@ it.each([['Responses', FormResponsesPage], ['Reports', FormReportsPage]] as cons
 it('displays a subject name in both the choice menu and selected filter', async () => {
   render(<FormResponsesPage />);
   await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-  await userEvent.click(await screen.findByRole('menuitem', { name: 'Student feedback · Q2: Subjects' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Choose Student feedback · Q2: Subjects' }));
   await userEvent.click(await screen.findByRole('option', { name: 'Mathematics' }));
-  await userEvent.keyboard('{Escape}');
+  await userEvent.click(screen.getByRole('button', {name: 'Display options'}));
   const pill = screen.getByRole('group', { name: 'Student feedback · Q2: Subjects filter' });
   expect(within(pill).getByRole('button', { name: /Change value/ })).toHaveTextContent('Mathematics');
   expect(screen.queryByText('subject-uuid')).not.toBeInTheDocument();
@@ -57,7 +57,7 @@ it('displays a subject name in both the choice menu and selected filter', async 
 it('edits the operator and field directly from the condition pill', async () => {
   render(<FormResponsesPage />);
   await userEvent.click(screen.getByRole('button', { name: 'Display options' }));
-  await userEvent.click(await screen.findByRole('menuitem', { name: 'Student feedback · Q1: How was it?' }));
+  await userEvent.click(await screen.findByRole('button', { name: 'Filter Student feedback · Q1: How was it?' }));
   if (!screen.queryByRole('textbox', { name: /How was it\? contains/ })) await userEvent.click(screen.getByRole('button', { name: /Edit .*How was it\? contains/ }));
   await userEvent.type(screen.getByRole('textbox', { name: /How was it\? contains/ }), 'helpful');
   await userEvent.click(screen.getByRole('button', { name: /Change operator for .*How was it\?/ }));
@@ -66,6 +66,6 @@ it('edits the operator and field directly from the condition pill', async () => 
   expect(screen.getByRole('group', { name: 'Student feedback · Q1: How was it? filter' })).toHaveTextContent('does not contain');
   await userEvent.click(screen.getByRole('button', { name: /Change field for .*How was it\?/ }));
   await userEvent.click(await screen.findByRole('option', { name: 'Student feedback · Q2: Subjects' }));
-  expect(screen.getByRole('group', { name: 'Student feedback · Q2: Subjects filter' })).toHaveTextContent('Select choices');
+  expect(screen.getByRole('group', { name: 'Student feedback · Q2: Subjects filter' })).toHaveTextContent('Select values');
   expect(screen.queryByRole('group', { name: 'Student feedback · Q1: How was it? filter' })).not.toBeInTheDocument();
 });

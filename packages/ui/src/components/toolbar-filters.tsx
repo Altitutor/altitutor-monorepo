@@ -5,13 +5,7 @@ import type {
   DataTableFilterDefinition,
   DataTableFilterOption,
 } from "@altitutor/shared";
-import {
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSub,
-  DropdownMenuSubContent,
-  DropdownMenuSubTrigger,
-} from "./dropdown-menu";
+import { ToolbarSelectRow } from "./toolbar-select-row";
 import { SearchableSelectInline } from "./searchable-select-inline";
 import { DateRangeFilter } from "./date-range-filter";
 import { Input } from "./input";
@@ -59,6 +53,7 @@ function filterSummary(
       return definition.nullOptionLabel ?? "Empty";
     const from = filters[definition.minKey ?? definition.fromKey ?? ""]?.[0];
     const to = filters[definition.maxKey ?? definition.toKey ?? ""]?.[0];
+    if ((from == null || from === "") && (to == null || to === "")) return "";
     return [
       from == null || from === "" ? "Any" : String(from),
       to == null || to === "" ? "Any" : String(to),
@@ -250,57 +245,73 @@ export function ToolbarFiltersMenu(props: ToolbarFiltersProps) {
       {props.definitions
         .filter((definition) => definition.filterable !== false)
         .map((definition) => (
-          <DropdownMenuSub
+          <ToolbarSelectRow
             key={definition.key}
-            persistOpenOnRemountKey={`${props.persistenceKey}:${definition.key}`}
+            label={definition.label}
+            summary={filterSummary(definition, props.filters)}
+            persistenceKey={`${props.persistenceKey}:${definition.key}`}
           >
-            <DropdownMenuSubTrigger>{definition.label}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-[min(320px,90vw)] p-0">
-              <FilterValueEditor {...props} definition={definition} />
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
+            <FilterValueEditor {...props} definition={definition} />
+          </ToolbarSelectRow>
         ))}
       {props.conditions?.fields.length ? (
-        <DropdownMenuLabel className="text-xs text-muted-foreground">
+        <p className="pt-3 pb-1 text-xs font-medium text-muted-foreground">
           Question answers
-        </DropdownMenuLabel>
+        </p>
       ) : null}
-      {props.conditions?.fields.map((field) =>
-        field.type === "text" ? (
-          <DropdownMenuItem
+      {props.conditions?.fields.map((field) => {
+        const condition = props.conditions!.value.find(
+          (item) => item.fieldKey === field.key,
+        );
+        return field.type === "text" ? (
+          <div
             key={field.key}
-            onSelect={() => {
-              const existing = props.conditions!.value.find(
-                (condition) => condition.fieldKey === field.key,
-              );
-              updateCondition(
-                props.conditions!,
-                existing ?? {
-                  fieldKey: field.key,
-                  operator: "contains",
-                  values: [],
-                },
-              );
-              props.closeMenu();
-            }}
+            className="flex items-center justify-between gap-4 py-1.5"
           >
-            {field.label}
-          </DropdownMenuItem>
+            <span className="min-w-0 text-sm text-muted-foreground">
+              {field.label}
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-label={`Filter ${field.label}`}
+              onClick={() => {
+                updateCondition(
+                  props.conditions!,
+                  condition ?? {
+                    fieldKey: field.key,
+                    operator: "contains",
+                    values: [],
+                  },
+                );
+                props.closeMenu();
+              }}
+            >
+              {condition?.values[0] || "Enter text…"}
+            </Button>
+          </div>
         ) : (
-          <DropdownMenuSub key={field.key}>
-            <DropdownMenuSubTrigger>{field.label}</DropdownMenuSubTrigger>
-            <DropdownMenuSubContent className="w-[min(320px,90vw)] p-0">
-              <ChoiceConditionEditor
-                field={field}
-                condition={props.conditions!.value.find(
-                  (condition) => condition.fieldKey === field.key,
-                )}
-                conditions={props.conditions!}
-              />
-            </DropdownMenuSubContent>
-          </DropdownMenuSub>
-        ),
-      )}
+          <ToolbarSelectRow
+            key={field.key}
+            label={field.label}
+            summary={condition?.values
+              .map(
+                (value) =>
+                  field.options?.find((option) => option.value === value)
+                    ?.label ?? "Unavailable choice",
+              )
+              .join(", ")}
+            persistenceKey={`${props.persistenceKey}:question:${field.key}`}
+          >
+            <ChoiceConditionEditor
+              field={field}
+              condition={condition}
+              conditions={props.conditions!}
+            />
+          </ToolbarSelectRow>
+        );
+      })}
     </>
   );
 }
@@ -365,7 +376,7 @@ export function ToolbarFilterPills(
           props.onChange(next);
         }}
         operator={operator}
-        value={filterSummary(definition, props.filters)}
+        value={filterSummary(definition, props.filters) || "Select values…"}
         valueEditor={<FilterValueEditor {...props} definition={definition} />}
         onRemove={() => {
           setDraftField(null);
@@ -430,7 +441,7 @@ export function ToolbarFilterPills(
                   field?.options?.find((option) => option.value === value)
                     ?.label ?? "Unavailable choice",
               )
-              .join(", ") || "Select choices…"
+              .join(", ") || "Select values…"
           )
         }
         valueEditor={
