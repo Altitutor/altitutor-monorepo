@@ -51,6 +51,7 @@ export function snapshotSettings(input: {
   parentId: string | null
   index: number
   accessScope: string
+  journeyPlacement?: string | null
   studyPlanPriority: string
   studyPlanCategoryIds: string[]
   studyPlanTagIds: string[]

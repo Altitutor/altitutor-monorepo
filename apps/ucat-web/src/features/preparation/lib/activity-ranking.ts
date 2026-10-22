@@ -261,7 +261,8 @@ export function rankActivityCandidates(
             laterLearningEligible) ||
           (module.journeyPlacement === "pre_exam" && preExamInHorizon)) &&
         module.completionPercent < 100 &&
-        module.priority !== "optional",
+        module.priority !== "optional" &&
+        module.priority !== "excluded",
     )
     .sort(
       (a, b) =>
@@ -421,6 +422,7 @@ export function rankActivityCandidates(
           (item) =>
             item.completionPercent < 100 &&
             item.priority !== "optional" &&
+            item.priority !== "excluded" &&
             item.sectionId === section.id,
         )
         .sort(

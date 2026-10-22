@@ -142,7 +142,7 @@ export type StudyPlanLearningModule = {
   title: string;
   sectionId: string | null;
   sectionNumber: number | null;
-  priority: "essential" | "recommended" | "optional";
+  priority: "essential" | "recommended" | "optional" | "excluded";
   estimatedMinutes: number;
   completionPercent: number;
   relevanceScore: number;

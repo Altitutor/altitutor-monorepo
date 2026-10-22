@@ -464,6 +464,10 @@ describe("prepareStudent", () => {
       })),
     );
     const result = prepareStudent(fixture);
+    expect(result.plan.tasks[0]?.launchConfig).toMatchObject({
+      sectionName: "General",
+      nextMilestone: "Complete this general lesson.",
+    });
     expect(
       result.plan.tasks.slice(0, 2).map((task) => task.learningModuleId),
     ).toEqual(["intro-a", "intro-b"]);

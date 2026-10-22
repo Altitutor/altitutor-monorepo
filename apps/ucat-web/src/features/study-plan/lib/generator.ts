@@ -1048,8 +1048,12 @@ export function generateStudyPlan(
           (activity.kind === "mock" ? 1 : null),
         nextMilestone:
           sectionReadiness?.nextMilestone ??
-          "Rehearse the complete exam under realistic conditions.",
-        sectionName: section?.name ?? "Full UCAT",
+          (activity.kind === "instruction"
+            ? "Complete this general lesson."
+            : "Rehearse the complete exam under realistic conditions."),
+        sectionName:
+          section?.name ??
+          (activity.kind === "instruction" ? "General" : "Full UCAT"),
         practiceMinutes:
           materializedPractice?.practiceMinutes ??
           activity.duration.practiceMinutes,

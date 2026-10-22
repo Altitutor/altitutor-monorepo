@@ -212,7 +212,7 @@ function StudyPlanJourney({ run }: { run: PreparationSandboxRun }) {
         (module) => module.sectionId == null && !module.journeyPlacement,
       ) ? (
         <section className="rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4">
-          <h2 className="font-semibold">Unclassified general lessons</h2>
+          <h2 className="font-semibold">Unclassified sectionless lessons</h2>
           <p className="mt-1 text-sm">
             These lessons need an authored placement before preparation can
             schedule them.

@@ -698,6 +698,8 @@ export function UcatLearningModuleEditorShell({
           sectionId={editor.sectionId}
           parentId={editor.parentId}
           accessScope={editor.accessScope}
+          journeyPlacement={editor.journeyPlacement}
+          onJourneyPlacementChange={editor.setJourneyPlacement}
           studyPlanPriority={editor.studyPlanPriority}
           studyPlanCategoryIds={editor.studyPlanCategoryIds}
           studyPlanTagIds={editor.studyPlanTagIds}
@@ -733,6 +735,7 @@ export function UcatLearningModuleEditorShell({
                   status: editor.status,
                   iconKey: editor.iconKey,
                   estimatedMinutes: editor.estimatedMinutes,
+                  journeyPlacement: editor.journeyPlacement,
                   studyPlanPriority: editor.studyPlanPriority,
                   studyPlanCategoryIds: editor.studyPlanCategoryIds,
                   studyPlanTagIds: editor.studyPlanTagIds,
