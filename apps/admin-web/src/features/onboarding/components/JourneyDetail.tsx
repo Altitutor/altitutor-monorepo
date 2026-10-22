@@ -250,14 +250,18 @@ export function JourneyDetail({
         defaultExpanded
         headerActions={
           <div className="flex flex-wrap gap-2">
-            {journey.student_id && (
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/students/${journey.student_id}`}>View student</Link>
-              </Button>
-            )}
             <Badge variant="outline">{stages[lifecycle(journey)]}</Badge>
             <ActionBadges actions={actions} />
           </div>
+        }
+        headerExtra={
+          journey.student_id && (
+            <div className="px-6 pb-4">
+              <Button variant="outline" size="sm" asChild>
+                <Link href={`/students/${journey.student_id}`}>View student</Link>
+              </Button>
+            </div>
+          )
         }
         bodyClassName="!p-0 !overflow-hidden"
       >
