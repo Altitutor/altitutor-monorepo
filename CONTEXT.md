@@ -1216,6 +1216,15 @@
 - **Learning module study-plan priority** — Tutor-managed classification controlling whether a learning module lesson is considered by the Study plan: Essential, Recommended, Optional, or Excluded. While a section remains in Learning, incomplete Essential lessons remain strongly prioritised in authored order and cannot disappear merely because their dated task was missed; demonstrated readiness or exam proximity may still advance the section without universal module completion. Recommended lessons follow only after the Essential tier, while Optional and Excluded lessons are not automatically prescribed.
   _Avoid_: Hard-coded module list, catalog order as importance, inferred priority from title
 
+- **Learning module journey placement** — The authored point in UCAT preparation at which a lesson belongs: Section learning, Orientation, Later Learning, or Pre-Exam. Placement is independent of Study-plan priority and informs both the Study plan and Next-step guidance.
+  _Avoid_: Lesson priority, global section sequence
+
+- **General learning lesson** — A deliberately sectionless Learning module lesson with Orientation, Later Learning, or Pre-Exam journey placement. Its completion is independent of each cognitive section's Learning graduation; an unclassified sectionless lesson is not automatically a General learning lesson.
+  _Avoid_: Unassigned section lesson, fourth cognitive section
+
+- **Orientation lesson** — A General learning lesson introducing UCAT preparation before a beginner's section learning and benchmarks are scheduled. Its position guides the Student's preparation without restricting access to later activities or requiring completion before the Student may proceed.
+  _Avoid_: Mandatory onboarding, prerequisite access gate
+
 - **Learning module practice associations** — Optional many-to-many links from a learning module lesson to the existing Question stem categories and Question tags that it teaches. Categories represent broad question formats; tags represent finer skills, methods, or traps. Separate category and tag junctions preserve those meanings and allow hierarchy-aware matching at section, parent, or descendant level; no separate Study plan taxonomy is created.
   _Avoid_: Study-plan tags, category arrays, polymorphic taxonomy link
 
