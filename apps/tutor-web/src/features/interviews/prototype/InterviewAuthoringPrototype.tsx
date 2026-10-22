@@ -40,6 +40,7 @@ import {
 } from "lucide-react";
 import { PrototypeSwitcher } from "@/shared/components/prototype-switcher";
 import { InterviewRoundSetupPrototype } from "./InterviewRoundSetupPrototype";
+import { InterviewResultsPrototype } from "./InterviewResultsPrototype";
 import {
   tutorBtnOutline,
   tutorBtnPrimary,
@@ -124,11 +125,13 @@ export function InterviewAuthoringPrototype() {
   const screen =
     params.get("screen") === "bank"
       ? "bank"
-      : params.get("screen") === "setup"
-        ? "setup"
-        : params.get("screen") === "builder"
-          ? "builder"
-          : "interviews";
+      : params.get("screen") === "results"
+        ? "results"
+        : params.get("screen") === "setup"
+          ? "setup"
+          : params.get("screen") === "builder"
+            ? "builder"
+            : "interviews";
   const comparing = params.get("compare") === "1";
   const variant =
     comparing && ["A", "B", "C"].includes(params.get("variant") ?? "")
@@ -297,7 +300,7 @@ export function InterviewAuthoringPrototype() {
     const query = new URLSearchParams(params.toString());
     query.set("screen", next);
     if (next === "setup") {
-      query.set("variant", "B");
+      query.set("variant", "A");
       query.delete("compare");
     }
     if (interviewId) query.set("interview", interviewId);
@@ -1341,6 +1344,17 @@ export function InterviewAuthoringPrototype() {
     );
   }
 
+  if (screen === "results") {
+    return (
+      <InterviewResultsPrototype
+        key={selectedInterview.id}
+        interview={selectedInterview}
+        questions={questions}
+        onBack={() => switchScreen("builder")}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 pb-28">
       {screen === "builder" && (
@@ -1382,6 +1396,15 @@ export function InterviewAuthoringPrototype() {
               onClick={() => switchScreen("setup", selectedInterview.id)}
             >
               Set up round
+            </Button>
+          )}
+          {screen === "builder" && (
+            <Button
+              variant="outline"
+              className={tutorBtnOutline}
+              onClick={() => switchScreen("results", selectedInterview.id)}
+            >
+              Results prototype
             </Button>
           )}
           {screen === "bank" && (

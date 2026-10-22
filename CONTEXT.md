@@ -507,6 +507,12 @@
 
 - **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
 
+- **Interview tutor assignment** — A tutor's responsibility for one station throughout a round. Assignments are fixed once the round starts; another tutor cannot take over that station mid-round.
+
+- **Partial interview result** — A result containing a station explicitly marked not assessed with a reason. That station is excluded from the total possible points; the result is labelled partial. A missing score alone is not an agreed exception or a zero.
+
+- **Interview result correction** — A draft change to an already released score or written feedback. Students continue to see the previous release until the correction is explicitly released. Available recordings are released alongside scores and written feedback.
+
 - **Interview reading prompt** — The prompt of the first question in a station, shown during reading time and used for that station's printed prompt. Reordering the prepared station's questions changes its reading prompt; the station has no independently authored prompt.
 
 - **In-person interview student claim** — A tutor's selection of the student physically arriving at their station during waiting, reading or question time. In-person interviews have no system-assigned station order, and a student cannot be claimed by two tutors simultaneously; correcting a student after feedback or a score exists requires confirmation that those entries belong to the newly selected student.

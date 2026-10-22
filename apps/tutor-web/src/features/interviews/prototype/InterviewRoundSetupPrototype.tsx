@@ -3,7 +3,7 @@
 // DEV-8 THROWAWAY: three round-setup layouts on the authoring route, via ?variant=.
 // A guided flow, B a roster workspace, C a circuit board. All operations are local.
 import { useState, type ReactNode } from "react";
-import { useSearchParams } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   Button,
@@ -141,9 +141,12 @@ export function InterviewRoundSetupPrototype({
   onBack: () => void;
 }) {
   const params = useSearchParams();
-  const variant = ["A", "B", "C"].includes(params.get("variant") ?? "")
-    ? params.get("variant")
-    : "B";
+  const router = useRouter();
+  const comparing = params.get("compare") === "1";
+  const variant =
+    comparing && ["A", "B", "C"].includes(params.get("variant") ?? "")
+      ? params.get("variant")
+      : "A";
   const [step, setStep] = useState(0);
   const [delivery, setDelivery] = useState<"online" | "in-person">("online");
   const [mode, setMode] = useState<"exam" | "feedback">("exam");
@@ -478,7 +481,7 @@ export function InterviewRoundSetupPrototype({
   const assignmentTable = (
     <Panel
       title="Tutor assignments"
-      detail="Tutors stay at their station for the whole round. Only Medicine interview tutors are listed."
+      detail="Tutor assignments are fixed once the round starts. Only Medicine interview tutors are listed."
     >
       <div className="divide-y">
         {interview.stations.map((station, i) => (
@@ -737,7 +740,7 @@ export function InterviewRoundSetupPrototype({
               : `${delivery === "online" ? "Online" : "In person"} · ${mode === "exam" ? "Exam mode" : "Feedback mode"} · Recording ${recording ? "on" : "off"}`}
           </p>
         </div>
-        {stage !== "setup" && (
+        {(stage === "scheduled" || stage === "lobby") && (
           <Button
             variant="outline"
             className={tutorBtnOutline}
@@ -1107,7 +1110,28 @@ export function InterviewRoundSetupPrototype({
           </pre>
         </div>
       </details>
-      <PrototypeSwitcher variants={variants} defaultVariant="B" />
+      {comparing ? (
+        <PrototypeSwitcher variants={variants} defaultVariant="A" />
+      ) : (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>Chosen layout: A · guided setup</span>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              const query = new URLSearchParams(params.toString());
+              query.set("compare", "1");
+              query.set("variant", "A");
+              router.replace(
+                `/interviews/prototype/authoring?${query.toString()}`,
+                { scroll: false },
+              );
+            }}
+          >
+            Compare earlier layouts
+          </Button>
+        </div>
+      )}
 
       <Dialog
         open={dialog !== null}
