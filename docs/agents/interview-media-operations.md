@@ -58,3 +58,37 @@ Official references: [Daily room configuration](https://docs.daily.co/reference/
 [meeting tokens](https://docs.daily.co/reference/rest-api/meeting-tokens/create-meeting-token),
 [recording start](https://docs.daily.co/reference/rest-api/rooms/recordings/start),
 [recording access links](https://docs.daily.co/reference/rest-api/recordings/get-recording-link).
+
+## Verified local provider exercise — 23 October 2026
+
+Implementation commits `b2b65d1db` and `633719a96` passed `pnpm checkall`, including
+the twelve-party HTTP command races. The latter fixes stale authenticated reads
+by disabling fetch caching in both portals' server clients. Student browser
+checks confirmed the published score remains visible while corrections are draft.
+
+With explicitly configured local Daily credentials and an owned disposable
+database, twelve synthetic SDK clients exercised the production ticket/API path:
+
+- Six concurrent pairs joined; exam reading delivered student media only to
+  tutors, and questions delivered playable audio/video in both directions.
+- All six cloud recordings started. A student disconnected and rejoined without
+  pausing the round. Early completion stopped only that pair; pause stopped all
+  pairs, and resume reconnected the five unfinished pairs.
+- The question deadline stopped exam media. All eleven recording segments from
+  the initial and resumed sessions became ready. Protected tutor playback decoded
+  854 × 480 video.
+- A separate feedback-mode pair had two-way reading without recording, recorded
+  questions and verbal feedback, and stopped after feedback completion. After
+  explicit release, protected student playback decoded 854 × 480 video.
+- The actual tutor UI captured and uploaded two in-person audio segments, then
+  flushed and stopped at the exam feedback boundary. Playback returned valid mono
+  Opus at approximately 64 kbps. Anonymous access returned 401 and unreleased
+  student access returned 404.
+
+These runs used fake cameras/microphones on one machine and network. They do not
+prove reliability across twelve independent devices or networks. Observed phase
+rejoins took roughly 3–5 seconds; cloud recording confirmation took roughly 6–9
+seconds after the question phase began in the six-pair run. Recording startup is
+asynchronous, so the first instant of an answer is not guaranteed to be captured.
+Provider outage/backoff and retention logic have automated coverage; the local
+exercise does not substitute for deployment configuration or a real-device pilot.
