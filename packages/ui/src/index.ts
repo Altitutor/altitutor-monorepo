@@ -12,6 +12,8 @@ export * from './components/command';
 export * from './components/smart-date-picker';
 export * from './components/data-table';
 export * from './components/data-table-toolbar';
+export * from './components/toolbar-filter-pill';
+export * from './components/toolbar-view';
 export * from './components/dialog';
 export * from './components/dropdown-menu';
 export * from './components/entity-list';
@@ -103,3 +105,7 @@ export {
 export * from './lib/stored-image-html-renderer';
 
 export { DialogScope, DialogScopeProvider, DialogScopePane } from "./components/dialog-scope";
+
+export * from "./components/toolbar-saved-views";
+
+export * from "./components/entity-collection";

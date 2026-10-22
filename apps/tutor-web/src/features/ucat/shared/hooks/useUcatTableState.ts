@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo, useState } from 'react'
-import type { DataTableState, QuickFilter } from '@altitutor/shared'
+import { getViewSettings, type DataTableState, type QuickFilter } from '@altitutor/shared'
 
 export function useUcatTableState(
   initialVisibleColumns: string[],
@@ -31,7 +31,7 @@ export function useUcatTableState(
       onGroupByChange: (field: string | null) => setState((prev) => ({ ...prev, groupBy: field })),
       onVisibleColumnsChange: (columns: string[]) => setState((prev) => ({ ...prev, visibleColumns: columns })),
       onQuickFilterApply: (qf: QuickFilter) =>
-        setState((prev) => ({ ...prev, filters: qf.config as Record<string, unknown[]>, page: 1 })),
+        setState((prev) => ({ ...prev, ...(getViewSettings(qf.config) ?? {filters:qf.config}), page: 1 })),
       onReset: () =>
         setState((prev) => ({ ...prev, search: '', filters: {}, sortBy: null, sortDirection: 'desc', groupBy: null, page: 1 })),
       onPageChange: (page: number) => setState((prev) => ({ ...prev, page })),

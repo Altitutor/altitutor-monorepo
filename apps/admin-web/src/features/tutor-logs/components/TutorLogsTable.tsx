@@ -228,7 +228,7 @@ export function TutorLogsTable({
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="tutor_logs"
           filterSearchValues={{
             staff: staffFilterSearch,
             student: studentFilterSearch,
@@ -251,8 +251,8 @@ export function TutorLogsTable({
           <TableHeader>
             <TableRow>
               {state.visibleColumns.includes('date') && (
-                <TableHead 
-                  className="cursor-pointer" 
+                <TableHead
+                  className="cursor-pointer"
                   onClick={() => setSort('session_start_at', state.sortBy === 'session_start_at' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
                 >
                   Session Date
@@ -283,10 +283,10 @@ export function TutorLogsTable({
                 const staffAtt = staffAttendance[log.id] || [];
                 const studentAtt = studentAttendance[log.id] || [];
                 const logTopics = topics[log.id] || [];
-                
+
                 return (
-                  <TableRow 
-                    key={log.id} 
+                  <TableRow
+                    key={log.id}
                     className="cursor-pointer hover:bg-muted/50"
                     onClick={() => handleRowClick(log.id)}
                   >
@@ -342,9 +342,9 @@ export function TutorLogsTable({
                       <TableCell>
                         <div className="flex flex-wrap gap-1">
                           {studentAtt.map((att) => (
-                            <Badge 
-                              key={att.student_id} 
-                              variant={att.attended ? "default" : "destructive"} 
+                            <Badge
+                              key={att.student_id}
+                              variant={att.attended ? "default" : "destructive"}
                               className="text-xs"
                             >
                               {att.first_name} {att.last_name}

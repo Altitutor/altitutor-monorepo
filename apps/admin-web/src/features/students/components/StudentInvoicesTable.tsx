@@ -232,7 +232,7 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="invoices"
         searchPlaceholder="Search invoice numbers..."
         isLoading={isFetching}
       />

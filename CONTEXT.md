@@ -412,6 +412,9 @@
 - **Form response** — One submitted answer set for a specific form version. The respondent and the subject of the response may be different people, such as a parent submitting a response about a student; a response may optionally be linked to one session when collected during that session.
   _Avoid_: Survey result, submission
 
+- **Form answer filter** — A condition on the answer to one specific Form question that selects whole Form responses, preserving their other answers for review and reporting. Each condition specifies how an answer must match; several question conditions must all match.
+  _Avoid_: Recorded-by filter, question search
+
 - **Student exit request** — A one-time, staff-initiated request for an authenticated student to submit a form before a scheduled unenrolment or discontinuation. It identifies the student and their final session dates, and becomes inactive when staff resolve the exit manually or the request is no longer applicable.
   _Avoid_: Form response, public form link, unenrolment form
 
@@ -1384,3 +1387,5 @@
 
 - **Event automation trigger** — An automation trigger that matches an exact Lifecycle event name and may apply conditions to its stable event or live entity context. A relative-time trigger remains a separate scheduled trigger anchored to a Session start and is not represented as a Lifecycle event.
   _Avoid_: Row trigger, changed-column automation, scheduled event
+
+- **Saved view**: A named preset of a screen's layout, answer/metadata filters, grouping, ordering and visible properties. Applying a view replaces those display settings; draft edits do not affect the screen until saved. Existing filter-only presets remain readable with that screen's defaults. Personal and shared scope follow the existing saved-preset permissions.

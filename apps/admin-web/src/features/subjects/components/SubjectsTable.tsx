@@ -19,7 +19,7 @@ import {
   TablePagination,
   Label,
 } from "@altitutor/ui";
-import { 
+import {
   ArrowUpDown,
   X,
   Palette,
@@ -44,7 +44,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('subjects');
-  
+
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'name', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['curriculum', 'year_level', 'name', 'code', 'color'], []);
@@ -68,7 +68,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
   const [selectedSubjectId, setSelectedSubjectId] = useState<string | null>(null);
   const [isViewModalOpen, setIsViewModalOpen] = useState(false);
-  
+
   // Select mode state
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedSubjectIds, setSelectedSubjectIds] = useState<Set<string>>(new Set());
@@ -78,12 +78,12 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   const { toast } = useToast();
 
   // React Query hook for data fetching with server-side filtering and pagination
-  const { 
-    data: subjectsData, 
-    isLoading, 
-    error, 
+  const {
+    data: subjectsData,
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useQuery({
     queryKey: ['subjects-list', state.search, state.filters, state.sortBy, state.sortDirection, state.page, state.pageSize],
     queryFn: () => subjectsApi.list({
@@ -102,7 +102,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
   const subjects = subjectsData?.subjects || [];
   const total = subjectsData?.total || 0;
-  
+
   // Get unique year levels from all subjects for filter dropdown
   const { data: allSubjectsData } = useQuery({
     queryKey: ['subjects-all-year-levels'],
@@ -112,7 +112,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     }),
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
-  
+
   const uniqueYearLevels = useMemo(() => {
     const allSubjects = allSubjectsData?.subjects || [];
     const yearLevels = new Set<number>();
@@ -161,7 +161,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
   useEffect(() => {
     setPage(1);
   }, [state.search, state.filters, setPage]);
-  
+
   const handleSubjectClick = (id: string, e?: React.MouseEvent) => {
     // Don't open modal if clicking checkbox or in select mode
     if (isSelectMode || (e?.target as HTMLElement)?.closest('input[type="checkbox"]')) {
@@ -197,17 +197,17 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
   const handleBulkColorChange = async () => {
     if (selectedSubjectIds.size === 0) return;
-    
+
     try {
       setIsBulkUpdating(true);
       const colorToSet = bulkColor === '#000000' ? null : bulkColor;
       await subjectsApi.bulkUpdateColors(Array.from(selectedSubjectIds), colorToSet);
-      
+
       toast({
         title: "Colors updated",
         description: `Updated color for ${selectedSubjectIds.size} subject${selectedSubjectIds.size > 1 ? 's' : ''}.`,
       });
-      
+
       setIsBulkColorDialogOpen(false);
       setSelectedSubjectIds(new Set());
       setIsSelectMode(false);
@@ -223,7 +223,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
       setIsBulkUpdating(false);
     }
   };
-  
+
 
   const handleSubjectUpdated = () => {
     refetch();
@@ -245,13 +245,13 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="subjects"
           searchPlaceholder="Search subjects..."
           isLoading={true}
         />
-        
+
         <SkeletonTable rows={8} columns={state.visibleColumns.length + (isSelectMode ? 1 : 0)} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading subjects...
         </div>
@@ -264,8 +264,8 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
     return (
       <div className="text-red-500 p-4">
         Failed to load subjects. Please try again.
-        <button 
-          onClick={() => refetch()} 
+        <button
+          onClick={() => refetch()}
           className="ml-2 text-blue-600 hover:text-blue-800 underline"
         >
           Retry
@@ -327,7 +327,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="subjects"
           searchPlaceholder="Search subjects..."
           isLoading={isFetching}
         />
@@ -396,10 +396,10 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
                 const { style, textColorClass } = getSubjectColorStyle(subject);
                 const defaultClass = !subject.color ? 'bg-gray-100 text-gray-800' : '';
                 const shortName = subject?.short_name ?? subject?.long_name ?? subject?.name ?? '';
-                
+
                 return (
-                  <TableRow 
-                    key={subject.id} 
+                  <TableRow
+                    key={subject.id}
                     className={cn(
                       !isSelectMode && "cursor-pointer",
                       isSelected && "bg-muted/50"
@@ -482,7 +482,7 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
         onPageSizeChange={setPageSize}
       />
 
-      <ViewSubjectModal 
+      <ViewSubjectModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         subjectId={selectedSubjectId}
@@ -554,4 +554,4 @@ export function SubjectsTable({ onRefresh: _onRefresh, onViewSubject: _onViewSub
 
     </div>
   );
-} 
+}

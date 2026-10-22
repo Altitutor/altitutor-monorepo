@@ -1,4 +1,5 @@
 'use client'
+import type { ToolbarFilterEditorContext } from '@altitutor/ui'
 
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
@@ -1129,44 +1130,44 @@ export function UcatQuestionsPage() {
           if (filterKey === 'question_set_id') setSetFilterSearch(value)
         }}
         customFilterContent={{
-          audit: (
+          audit: (context:ToolbarFilterEditorContext) => (
             <AuditCatalogFilterMenu
               runs={catalogAuditRuns.data ?? []}
-              selectedValues={(tableState.state.filters.audit ?? []).map(String)}
+              selectedValues={(context.filters.audit ?? []).map(String)}
               onSelectedValuesChange={(values) => {
-                const filters = { ...tableState.state.filters }
+                const filters = { ...context.filters }
                 if (values.length > 0) filters.audit = values
                 else delete filters.audit
-                tableState.actions.onFiltersChange(filters)
+                context.onChange(filters)
               }}
             />
           ),
-          id: (
+          id: (context:ToolbarFilterEditorContext) => (
             <QuestionStemIdFilter
-              ids={(tableState.state.filters.id ?? []).map(String)}
+              ids={(context.filters.id ?? []).map(String)}
               onChange={(ids) => {
-                const filters = { ...tableState.state.filters }
+                const filters = { ...context.filters }
                 if (ids.length > 0) filters.id = ids
                 else delete filters.id
-                tableState.actions.onFiltersChange(filters)
+                context.onChange(filters)
               }}
             />
           ),
-          created_at_range: (
+          created_at_range: (context:ToolbarFilterEditorContext) => (
             <CreatedAtDateTimeRangeFilter
               fromValue={String(
-                tableState.state.filters[CREATED_AT_FROM_FILTER_KEY]?.[0] ?? '',
+                context.filters[CREATED_AT_FROM_FILTER_KEY]?.[0] ?? '',
               )}
               toValue={String(
-                tableState.state.filters[CREATED_AT_TO_FILTER_KEY]?.[0] ?? '',
+                context.filters[CREATED_AT_TO_FILTER_KEY]?.[0] ?? '',
               )}
               onChange={(from, to) => {
-                const filters = { ...tableState.state.filters }
+                const filters = { ...context.filters }
                 if (from) filters[CREATED_AT_FROM_FILTER_KEY] = [from]
                 else delete filters[CREATED_AT_FROM_FILTER_KEY]
                 if (to) filters[CREATED_AT_TO_FILTER_KEY] = [to]
                 else delete filters[CREATED_AT_TO_FILTER_KEY]
-                tableState.actions.onFiltersChange(filters)
+                context.onChange(filters)
               }}
             />
           ),

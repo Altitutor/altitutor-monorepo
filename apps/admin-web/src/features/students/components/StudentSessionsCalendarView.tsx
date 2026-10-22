@@ -190,7 +190,8 @@ export function StudentSessionsCalendarView({
                             const left = (idx * columnWidth) + 2.5;
                             
                             const cls = data?.classesById?.[s.class_id ?? ''];
-                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
@@ -208,6 +209,7 @@ export function StudentSessionsCalendarView({
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={s}
                                   classData={cls}
                                   subject={subj}
@@ -246,7 +248,8 @@ export function StudentSessionsCalendarView({
                             const left = column * columnWidth + 2.5;
                             
                             const cls = data?.classesById?.[s.class_id ?? ''];
-                            const subj = cls?.subject_id ? data?.subjectsById?.[cls.subject_id] : undefined;
+                            const subjectId = s.subject_id ?? cls?.subject_id;
+                            const subj = subjectId ? data?.subjectsById?.[subjectId] : undefined;
                             const sessionStudents = (data?.sessionStudents?.[s.id] ?? []) as Array<Tables<'students'> & { planned_absence?: boolean; is_extra?: boolean }>;
                             const sessionStaff = (data?.sessionStaff?.[s.id] ?? []) as Array<Tables<'staff'> & { planned_absence?: boolean; is_swapped_in?: boolean }>;
                             
@@ -264,6 +267,7 @@ export function StudentSessionsCalendarView({
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={s}
                                   classData={cls}
                                   subject={subj}

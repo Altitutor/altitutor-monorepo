@@ -42,4 +42,7 @@ export * from "./session-billing/future-invoices";
 export * from './ucat-founder-offers';
 export * from './tutor-log/attendance-form';
 
+export * from "./utils/saved-views";
+
+export * from "./utils/filter-operators";
 export * from "./ucat/learning-module-placement";

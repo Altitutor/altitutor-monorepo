@@ -1,3 +1,4 @@
+import { filterQueryCandidates } from '@altitutor/shared';
 import { useQuery } from '@tanstack/react-query';
 import { issuesApi } from './issues';
 import { issueKeys } from './queryKeys';
@@ -24,8 +25,8 @@ export function useIssues(filters?: IssueFilters) {
   useIssuesRealtimeInvalidation();
 
   return useQuery({
-    queryKey: issueKeys.list(JSON.stringify(filters || {})),
-    queryFn: () => issuesApi.list(filters),
+    queryKey: issueKeys.list(JSON.stringify(filterQueryCandidates(filters) || {})),
+    queryFn: () => issuesApi.list(filterQueryCandidates(filters)),
   });
 }
 
