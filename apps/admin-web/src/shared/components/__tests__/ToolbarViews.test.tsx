@@ -299,6 +299,21 @@ it("edits date endpoints independently and changes the date comparison", async (
     within(pill).getByRole("button", { name: "Change end date for Date" }),
   ).toHaveTextContent("2026-10-22");
   await userEvent.click(
+    within(pill).getByRole("button", { name: "Change end date for Date" }),
+  );
+  await userEvent.type(
+    await screen.findByPlaceholderText("Type a date..."),
+    "2026-10-10{Enter}",
+  );
+  await waitFor(() =>
+    expect(
+      JSON.parse(screen.getByLabelText("Date state").textContent!).to,
+    ).toEqual(["2026-10-10"]),
+  );
+  expect(
+    JSON.parse(screen.getByLabelText("Date state").textContent!).from,
+  ).toEqual(["2026-10-01"]);
+  await userEvent.click(
     within(pill).getByRole("button", { name: "Change operator for Date" }),
   );
   await userEvent.click(await screen.findByRole("option", { name: /^after$/ }));

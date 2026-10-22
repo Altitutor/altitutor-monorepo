@@ -250,7 +250,8 @@ function DateFilterSegments({
         <SmartDatePickerPopover
           key={part.label}
           value={part.value || null}
-          onChange={(value) => {
+          onChange={(isoValue) => {
+            const value = isoValue?.split("T")[0] ?? null;
             const next = { ...filters };
             if (operator === "between") {
               if (value) next[part.key] = [value];
