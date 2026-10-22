@@ -136,14 +136,14 @@ export async function POST(request: NextRequest) {
       // For staff, check their role to determine which app to send them to
       const staffRole = 'role' in record ? record.role : undefined;
       if (staffRole === 'TUTOR') {
-        const baseUrl = isDev ? 'http://localhost:3002' : (process.env.NEXT_PUBLIC_TUTOR_URL || 'https://tutor.altitutor.com');
+        const baseUrl = process.env.NEXT_PUBLIC_TUTOR_URL || (isDev ? 'http://localhost:3002' : 'https://tutor.altitutor.com');
         inviteUrl = `${baseUrl}/invite/${token}`;
       } else {
-        const baseUrl = isDev ? 'http://localhost:3000' : (process.env.NEXT_PUBLIC_ADMIN_URL || 'https://admin.altitutor.com');
+        const baseUrl = process.env.NEXT_PUBLIC_ADMIN_URL || (isDev ? 'http://localhost:3000' : 'https://admin.altitutor.com');
         inviteUrl = `${baseUrl}/invite/${token}`;
       }
     } else {
-      const baseUrl = isDev ? 'http://localhost:3001' : (process.env.NEXT_PUBLIC_STUDENT_URL || 'https://student.altitutor.com');
+      const baseUrl = process.env.NEXT_PUBLIC_STUDENT_URL || (isDev ? 'http://localhost:3001' : 'https://student.altitutor.com');
       inviteUrl = `${baseUrl}/invite/${token}`;
     }
 
