@@ -48,7 +48,10 @@ def control_directory(repository):
 
 
 def process_identity(pid):
+    # Receipts are compared across callers whose sanitized environments may
+    # have different timezones/locales. Keep ps's birth timestamp canonical.
     result = subprocess.run(['ps', '-p', str(pid), '-o', 'lstart=,command='],
+                            env=dict(os.environ, TZ='UTC', LC_ALL='C'),
                             capture_output=True, text=True, check=True)
     return result.stdout.strip()
 
@@ -138,7 +141,8 @@ def execution_lock(runtime, *, shared=False):
 
 
 def group_identity(pid):
-    return subprocess.check_output(['ps', '-p', str(pid), '-o', 'lstart=,pgid='], text=True).strip()
+    return subprocess.check_output(['ps', '-p', str(pid), '-o', 'lstart=,pgid='],
+                                   env=dict(os.environ, TZ='UTC', LC_ALL='C'), text=True).strip()
 
 
 def finish_executions(control, data):
