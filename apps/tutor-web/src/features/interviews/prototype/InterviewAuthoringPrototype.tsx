@@ -1,13 +1,18 @@
 "use client";
 
-// DEV-8 THROWAWAY: three bank + builder structures on the protected tutor route.
-// Question: table/dialog, persistent preview, or visual overview for authoring?
+// DEV-8 THROWAWAY: selected bank B, builder A, and an interviews table.
+// Earlier structural variants remain available only in explicit comparison mode.
 // All content is mock and in memory; this is not the implementation's data layer.
-import { useState, type ReactNode } from "react";
+import { useState, type ReactNode, type SetStateAction } from "react";
+import type { DataTableState } from "@altitutor/shared";
+import type { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Button,
+  DataTable,
+  DataTableToolbar,
+  DropdownMenuCheckboxItem,
   Dialog,
   DialogContent,
   DialogDescription,
@@ -16,6 +21,7 @@ import {
 } from "@altitutor/ui";
 import {
   Archive,
+  ArrowLeft,
   ArrowDown,
   ArrowUp,
   BookOpen,
@@ -40,12 +46,15 @@ import {
   tutorSurfaceCard,
   tutorTableBodyRow,
   tutorTableHeaderRow,
+  tutorDataTableProps,
+  tutorToolbarProps,
 } from "@/shared/lib/tutor-visual";
 import { cn, navActiveStyles } from "@/shared/utils";
 import {
   initialCategories,
   initialQuestions,
-  initialStations,
+  initialInterviews,
+  type PrototypeInterview,
   initialTags,
   type PrototypeQuestion,
   type PrototypeStation,
@@ -56,6 +65,16 @@ const variants = [
   { key: "B", name: "Browse beside your work" },
   { key: "C", name: "Category cards & station board" },
 ];
+const initialToolbarState = (): DataTableState => ({
+  search: "",
+  filters: {},
+  sortBy: null,
+  sortDirection: "asc",
+  groupBy: null,
+  page: 1,
+  pageSize: 20,
+  visibleColumns: ["category", "tags", "seconds"],
+});
 const fieldClass =
   "w-full rounded-xl border bg-background px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 const pillClass =
@@ -101,19 +120,77 @@ export function AuthoringVariantC({ overview }: { overview: ReactNode }) {
 export function InterviewAuthoringPrototype() {
   const router = useRouter();
   const params = useSearchParams();
-  const variant = ["A", "B", "C"].includes(params.get("variant") ?? "")
-    ? params.get("variant")
-    : "A";
-  const screen = params.get("screen") === "builder" ? "builder" : "bank";
+  const screen =
+    params.get("screen") === "bank"
+      ? "bank"
+      : params.get("screen") === "builder"
+        ? "builder"
+        : "interviews";
+  const comparing = params.get("compare") === "1";
+  const variant =
+    comparing && ["A", "B", "C"].includes(params.get("variant") ?? "")
+      ? params.get("variant")
+      : screen === "bank"
+        ? "B"
+        : "A";
   const [questions, setQuestions] = useState(initialQuestions);
   const [categories, setCategories] = useState(initialCategories);
   const [tags, setTags] = useState(initialTags);
-  const [stations, setStations] = useState(initialStations);
+  const [interviews, setInterviews] = useState(initialInterviews);
+  const selectedInterview =
+    interviews.find((interview) => interview.id === params.get("interview")) ??
+    interviews[0];
+  const {
+    stations,
+    name: interviewName,
+    readingMinutes,
+    questionMinutes,
+  } = selectedInterview;
+  const updateInterview = (patch: Partial<PrototypeInterview>) =>
+    setInterviews((current) =>
+      current.map((interview) =>
+        interview.id === selectedInterview.id
+          ? { ...interview, ...patch }
+          : interview,
+      ),
+    );
+  const setStations = (next: SetStateAction<PrototypeStation[]>) =>
+    setInterviews((current) =>
+      current.map((interview) =>
+        interview.id === selectedInterview.id
+          ? {
+              ...interview,
+              stations:
+                typeof next === "function" ? next(interview.stations) : next,
+            }
+          : interview,
+      ),
+    );
+  const setInterviewName = (name: string) => updateInterview({ name });
+  const setReadingMinutes = (value: number) =>
+    updateInterview({ readingMinutes: value });
+  const setQuestionMinutes = (value: number) =>
+    updateInterview({ questionMinutes: value });
   const [selectedStationId, setSelectedStationId] = useState("s1");
   const [selectedQuestionId, setSelectedQuestionId] = useState("q1");
-  const [search, setSearch] = useState("");
-  const [categoryFilter, setCategoryFilter] = useState("all");
-  const [tagFilter, setTagFilter] = useState("all");
+  const [questionToolbar, setQuestionToolbar] = useState(initialToolbarState);
+  const [interviewToolbar, setInterviewToolbar] = useState<DataTableState>(
+    () => ({
+      ...initialToolbarState(),
+      visibleColumns: ["stations", "questions", "timing", "points"],
+    }),
+  );
+  const [searchScopes, setSearchScopes] = useState([
+    "question",
+    "prompt",
+    "rubric",
+  ]);
+  const categoryFilter = String(questionToolbar.filters.category?.[0] ?? "all");
+  const setCategoryFilter = (value: string) =>
+    setQuestionToolbar((current) => ({
+      ...current,
+      filters: { ...current.filters, category: value === "all" ? [] : [value] },
+    }));
   const [showArchived, setShowArchived] = useState(false);
   const [questionDraft, setQuestionDraft] = useState<PrototypeQuestion | null>(
     null,
@@ -125,21 +202,64 @@ export function InterviewAuthoringPrototype() {
   const [bankPicker, setBankPicker] = useState(false);
   const [stationDialog, setStationDialog] = useState(false);
   const [printPreview, setPrintPreview] = useState<string | "all" | null>(null);
-  const [interviewName, setInterviewName] = useState("Thursday MMI practice");
-  const [readingMinutes, setReadingMinutes] = useState(2);
-  const [questionMinutes, setQuestionMinutes] = useState(8);
   const [notice, setNotice] = useState("");
   const selectedStation =
     stations.find((station) => station.id === selectedStationId) ?? stations[0];
-  const filtered = questions.filter(
-    (question) =>
-      question.archived === showArchived &&
-      (categoryFilter === "all" || question.categoryId === categoryFilter) &&
-      (tagFilter === "all" || question.tagIds.includes(tagFilter)) &&
-      `${question.question} ${question.prompt} ${question.rubric}`
-        .toLowerCase()
-        .includes(search.toLowerCase()),
-  );
+  const filtered = questions
+    .filter(
+      (question) =>
+        question.archived === showArchived &&
+        (!questionToolbar.filters.category?.length ||
+          questionToolbar.filters.category.includes(question.categoryId)) &&
+        (!questionToolbar.filters.tags?.length ||
+          question.tagIds.some((tag) =>
+            questionToolbar.filters.tags.includes(tag),
+          )) &&
+        searchScopes
+          .map((scope) =>
+            scope === "prompt"
+              ? question.prompt
+              : scope === "rubric"
+                ? question.rubric
+                : question.question,
+          )
+          .join(" ")
+          .toLowerCase()
+          .includes(questionToolbar.search.toLowerCase()),
+    )
+    .sort((a, b) => {
+      const direction = questionToolbar.sortDirection === "asc" ? 1 : -1;
+      if (questionToolbar.sortBy === "seconds")
+        return (a.seconds - b.seconds) * direction;
+      if (questionToolbar.sortBy === "question")
+        return a.question.localeCompare(b.question) * direction;
+      return 0;
+    });
+  const filteredInterviews = interviews
+    .filter(
+      (interview) =>
+        interview.name
+          .toLowerCase()
+          .includes(interviewToolbar.search.toLowerCase()) &&
+        (!interviewToolbar.filters.stations?.length ||
+          interviewToolbar.filters.stations.includes(
+            String(interview.stations.length),
+          )),
+    )
+    .sort((a, b) => {
+      const direction = interviewToolbar.sortDirection === "asc" ? 1 : -1;
+      if (interviewToolbar.sortBy === "name")
+        return a.name.localeCompare(b.name) * direction;
+      if (interviewToolbar.sortBy === "stations")
+        return (a.stations.length - b.stations.length) * direction;
+      if (interviewToolbar.sortBy === "points")
+        return (
+          (a.stations.reduce((n, station) => n + station.maximum, 0) -
+            b.stations.reduce((n, station) => n + station.maximum, 0)) *
+          direction
+        );
+      return 0;
+    });
   const selectedQuestion =
     filtered.find((question) => question.id === selectedQuestionId) ??
     filtered[0];
@@ -156,19 +276,46 @@ export function InterviewAuthoringPrototype() {
   const getQuestion = (id: string) =>
     questions.find((question) => question.id === id);
   const usedAt = (id: string) =>
-    stations.filter((station) => station.questionIds.includes(id));
+    interviews.flatMap((interview) =>
+      interview.stations
+        .filter((station) => station.questionIds.includes(id))
+        .map((station) => ({
+          ...station,
+          interviewId: interview.id,
+          interviewName: interview.name,
+        })),
+    );
   const clearFilters = () => {
-    setSearch("");
-    setCategoryFilter("all");
-    setTagFilter("all");
+    setQuestionToolbar(initialToolbarState());
+    setSearchScopes(["question", "prompt", "rubric"]);
     setShowArchived(false);
   };
-  const switchScreen = (next: string) => {
+  const switchScreen = (next: string, interviewId?: string) => {
     const query = new URLSearchParams(params.toString());
     query.set("screen", next);
-    router.replace(`/interviews/prototype/authoring?${query.toString()}`, {
+    if (interviewId) query.set("interview", interviewId);
+    router.push(`/interviews/prototype/authoring?${query.toString()}`, {
       scroll: false,
     });
+  };
+  const openInterview = (interview: PrototypeInterview) => {
+    setSelectedStationId(interview.stations[0]?.id ?? "");
+    setNotice("");
+    switchScreen("builder", interview.id);
+  };
+  const createInterview = () => {
+    const id = `interview-${Date.now()}`;
+    const interview: PrototypeInterview = {
+      id,
+      name: "Untitled interview",
+      readingMinutes: 2,
+      questionMinutes: 8,
+      stations: [
+        { id: `${id}-1`, name: "New station", maximum: 6, questionIds: [] },
+      ],
+    };
+    setInterviews((current) => [...current, interview]);
+    openInterview(interview);
   };
   const updateStation = (id: string, patch: Partial<PrototypeStation>) =>
     setStations((current) =>
@@ -281,50 +428,90 @@ export function InterviewAuthoringPrototype() {
     </span>
   );
   const filters = (
-    <div className="flex flex-wrap items-center gap-2">
-      <label className="relative min-w-52 flex-1">
-        <Search
-          size={15}
-          className="absolute left-3 top-3 text-muted-foreground"
-        />
-        <input
-          aria-label="Search questions"
-          placeholder="Search questions and prompts…"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-          className={cn(fieldClass, "pl-9")}
-        />
-      </label>
-      <select
-        aria-label="Filter category"
-        value={categoryFilter}
-        onChange={(event) => setCategoryFilter(event.target.value)}
-        className={cn(fieldClass, "w-auto max-w-64")}
-      >
-        <option value="all">All categories</option>
-        {categories.map((category) => (
-          <option key={category.id} value={category.id}>
-            {categoryPath(category)}
-          </option>
-        ))}
-      </select>
-      <select
-        aria-label="Filter tag"
-        value={tagFilter}
-        onChange={(event) => setTagFilter(event.target.value)}
-        className={cn(fieldClass, "w-auto")}
-      >
-        <option value="all">All tags</option>
-        {tags.map((tag) => (
-          <option key={tag.id} value={tag.id}>
-            {tag.name}
-          </option>
-        ))}
-      </select>
-      <Button variant="ghost" size="sm" onClick={clearFilters}>
-        Clear
-      </Button>
-    </div>
+    <section aria-label="Question bank toolbar">
+      <DataTableToolbar
+        key={screen === "bank" ? "bank-toolbar" : "picker-toolbar"}
+        state={questionToolbar}
+        onSearchChange={(search) =>
+          setQuestionToolbar((current) => ({ ...current, search }))
+        }
+        onFiltersChange={(filters) =>
+          setQuestionToolbar((current) => ({ ...current, filters }))
+        }
+        onSortChange={(sortBy, sortDirection) =>
+          setQuestionToolbar((current) => ({
+            ...current,
+            sortBy,
+            sortDirection,
+          }))
+        }
+        onGroupByChange={(groupBy) =>
+          setQuestionToolbar((current) => ({ ...current, groupBy }))
+        }
+        onVisibleColumnsChange={(visibleColumns) =>
+          setQuestionToolbar((current) => ({ ...current, visibleColumns }))
+        }
+        onQuickFilterApply={() => {}}
+        onReset={clearFilters}
+        filterDefinitions={[
+          {
+            key: "category",
+            label: "Category",
+            options: categories.map((category) => ({
+              label: categoryPath(category),
+              value: category.id,
+            })),
+            searchable: true,
+          },
+          {
+            key: "tags",
+            label: "Tags",
+            options: tags.map((tag) => ({ label: tag.name, value: tag.id })),
+            searchable: true,
+          },
+        ]}
+        sortOptions={[
+          { key: "question", label: "Question" },
+          { key: "seconds", label: "Suggested time" },
+        ]}
+        columnDefinitions={
+          screen === "bank"
+            ? [
+                { key: "category", label: "Category", visibleByDefault: true },
+                { key: "tags", label: "Tags", visibleByDefault: true },
+                {
+                  key: "seconds",
+                  label: "Suggested time",
+                  visibleByDefault: true,
+                },
+              ]
+            : []
+        }
+        defaultVisibleColumns={["category", "tags", "seconds"]}
+        searchPlaceholder="Search interview questions"
+        searchFromOptions={[
+          { value: "question", label: "Question text" },
+          { value: "prompt", label: "Prompt" },
+          { value: "rubric", label: "Rubric" },
+        ]}
+        searchFromValue={searchScopes}
+        onSearchFromChange={(scopes) =>
+          setSearchScopes(scopes.length ? scopes : ["question"])
+        }
+        filterFooter={
+          <DropdownMenuCheckboxItem
+            checked={showArchived}
+            onCheckedChange={setShowArchived}
+            onSelect={(event) => event.preventDefault()}
+          >
+            Show archived only
+          </DropdownMenuCheckboxItem>
+        }
+        showDeletedActive={showArchived}
+        onClearShowDeleted={() => setShowArchived(false)}
+        {...tutorToolbarProps}
+      />
+    </section>
   );
   const categoryNavigation = (
     <aside className={cn(tutorSurfaceCard, "p-3")}>
@@ -439,7 +626,7 @@ export function InterviewAuthoringPrototype() {
         </p>
       </div>
       <div className="border-t pt-4">
-        <h3 className="mb-2 text-xs font-medium">Used in this interview</h3>
+        <h3 className="mb-2 text-xs font-medium">Used in interviews</h3>
         {usedAt(question.id).length ? (
           usedAt(question.id).map((station) => (
             <button
@@ -447,16 +634,16 @@ export function InterviewAuthoringPrototype() {
               className="mb-2 flex w-full items-center justify-between rounded-lg bg-muted/40 px-3 py-2 text-left text-xs"
               onClick={() => {
                 setSelectedStationId(station.id);
-                switchScreen("builder");
+                switchScreen("builder", station.interviewId);
               }}
             >
-              {interviewName} · {station.name}
+              {station.interviewName} · {station.name}
               <ChevronRight size={14} />
             </button>
           ))
         ) : (
           <p className="text-xs text-muted-foreground">
-            Not used in this interview yet.
+            Not used in an interview yet.
           </p>
         )}
       </div>
@@ -550,12 +737,20 @@ export function InterviewAuthoringPrototype() {
           onClick={() => setSelectedQuestionId(question.id)}
         >
           <div className="mb-2 text-[10px] text-muted-foreground">
-            {categoryLabel(question.categoryId)} · {duration(question.seconds)}
+            {questionToolbar.visibleColumns.includes("category") &&
+              categoryLabel(question.categoryId)}
+            {questionToolbar.visibleColumns.includes("category") &&
+              questionToolbar.visibleColumns.includes("seconds") &&
+              " · "}
+            {questionToolbar.visibleColumns.includes("seconds") &&
+              duration(question.seconds)}
           </div>
           <h3 className="text-sm font-medium leading-relaxed">
             {question.question}
           </h3>
-          <div className="mt-3">{tagBadges(question)}</div>
+          {questionToolbar.visibleColumns.includes("tags") && (
+            <div className="mt-3">{tagBadges(question)}</div>
+          )}
         </button>
       ))}
       {!filtered.length && emptyBank}
@@ -980,8 +1175,168 @@ export function InterviewAuthoringPrototype() {
     </div>
   );
 
+  const interviewColumns: ColumnDef<PrototypeInterview>[] = [
+    {
+      id: "name",
+      header: "Interview",
+      cell: ({ row }) => (
+        <button
+          className="py-3 text-left text-sm font-medium hover:underline"
+          onClick={(event) => {
+            event.stopPropagation();
+            openInterview(row.original);
+          }}
+        >
+          {row.original.name || "Untitled interview"}
+        </button>
+      ),
+    },
+    {
+      id: "stations",
+      header: "Stations",
+      cell: ({ row }) => row.original.stations.length,
+    },
+    {
+      id: "questions",
+      header: "Questions",
+      cell: ({ row }) =>
+        row.original.stations.reduce(
+          (total, station) => total + station.questionIds.length,
+          0,
+        ),
+    },
+    {
+      id: "timing",
+      header: "Time per station",
+      cell: ({ row }) => (
+        <div className="text-xs">
+          <span>{row.original.readingMinutes} min reading</span>
+          <div className="mt-1 text-muted-foreground">
+            {row.original.questionMinutes} min questions
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: "points",
+      header: "Total points",
+      cell: ({ row }) =>
+        row.original.stations.reduce(
+          (total, station) => total + station.maximum,
+          0,
+        ),
+    },
+    {
+      id: "open",
+      header: () => <span className="sr-only">Open interview</span>,
+      cell: ({ row }) => (
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label={`Open ${row.original.name}`}
+          onClick={(event) => {
+            event.stopPropagation();
+            openInterview(row.original);
+          }}
+        >
+          <ChevronRight size={16} />
+        </Button>
+      ),
+    },
+  ];
+  const interviewsTable = (
+    <div className="space-y-4">
+      <DataTableToolbar
+        state={interviewToolbar}
+        onSearchChange={(search) =>
+          setInterviewToolbar((current) => ({ ...current, search }))
+        }
+        onFiltersChange={(filters) =>
+          setInterviewToolbar((current) => ({ ...current, filters }))
+        }
+        onSortChange={(sortBy, sortDirection) =>
+          setInterviewToolbar((current) => ({
+            ...current,
+            sortBy,
+            sortDirection,
+          }))
+        }
+        onGroupByChange={(groupBy) =>
+          setInterviewToolbar((current) => ({ ...current, groupBy }))
+        }
+        onVisibleColumnsChange={(visibleColumns) =>
+          setInterviewToolbar((current) => ({ ...current, visibleColumns }))
+        }
+        onQuickFilterApply={() => {}}
+        onReset={() =>
+          setInterviewToolbar({
+            ...initialToolbarState(),
+            visibleColumns: ["stations", "questions", "timing", "points"],
+          })
+        }
+        searchPlaceholder="Search interviews"
+        filterDefinitions={[
+          {
+            key: "stations",
+            label: "Station count",
+            options: [
+              ...new Set(
+                interviews.map((interview) => interview.stations.length),
+              ),
+            ]
+              .sort((a, b) => a - b)
+              .map((count) => ({
+                label: `${count} stations`,
+                value: String(count),
+              })),
+          },
+        ]}
+        sortOptions={[
+          { key: "name", label: "Interview name" },
+          { key: "stations", label: "Station count" },
+          { key: "points", label: "Total points" },
+        ]}
+        columnDefinitions={[
+          { key: "stations", label: "Stations", visibleByDefault: true },
+          { key: "questions", label: "Questions", visibleByDefault: true },
+          { key: "timing", label: "Time per station", visibleByDefault: true },
+          { key: "points", label: "Total points", visibleByDefault: true },
+        ]}
+        defaultVisibleColumns={["stations", "questions", "timing", "points"]}
+        {...tutorToolbarProps}
+      />
+      <p className="text-xs text-muted-foreground">
+        {filteredInterviews.length} interviews
+      </p>
+      <DataTable
+        columns={[
+          interviewColumns[0],
+          ...interviewToolbar.visibleColumns.flatMap((id) =>
+            interviewColumns.filter((column) => column.id === id),
+          ),
+          interviewColumns[5],
+        ]}
+        data={filteredInterviews}
+        onRowClick={openInterview}
+        getRowClassName={() => "cursor-pointer"}
+        {...tutorDataTableProps}
+      />
+    </div>
+  );
+
   return (
     <div className="space-y-6 pb-28">
+      {screen === "builder" && (
+        <Button
+          variant="ghost"
+          size="sm"
+          className="-ml-3 gap-2 text-muted-foreground"
+          onClick={() => switchScreen("interviews")}
+        >
+          <ArrowLeft size={14} />
+          All interviews
+        </Button>
+      )}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
@@ -989,23 +1344,31 @@ export function InterviewAuthoringPrototype() {
             Medicine interviews<span className={pillClass}>Prototype</span>
           </div>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {screen === "bank" ? "Question bank" : "Interview builder"}
+            {screen === "bank"
+              ? "Question bank"
+              : screen === "interviews"
+                ? "Interviews"
+                : interviewName || "Untitled interview"}
           </h1>
           <p className="mt-2 text-sm text-muted-foreground">
             {screen === "bank"
               ? "Build a shared collection of prompts, questions and marking guidance."
-              : "Prepare stations, order questions and check what students will read."}
+              : screen === "interviews"
+                ? "Prepare and manage your mock interviews. Open an interview to edit its stations."
+                : "Edit stations, order questions and check what students will read."}
           </p>
         </div>
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            className={cn(tutorBtnOutline, "gap-2")}
-            onClick={() => setTaxonomyOpen(true)}
-          >
-            <Settings2 size={15} />
-            Categories & tags
-          </Button>
+          {screen === "bank" && (
+            <Button
+              variant="outline"
+              className={cn(tutorBtnOutline, "gap-2")}
+              onClick={() => setTaxonomyOpen(true)}
+            >
+              <Settings2 size={15} />
+              Categories & tags
+            </Button>
+          )}
           {screen === "bank" ? (
             <Button
               className={cn(tutorBtnPrimary, "gap-2")}
@@ -1013,6 +1376,14 @@ export function InterviewAuthoringPrototype() {
             >
               <Plus size={15} />
               New question
+            </Button>
+          ) : screen === "interviews" ? (
+            <Button
+              className={cn(tutorBtnPrimary, "gap-2")}
+              onClick={createInterview}
+            >
+              <Plus size={15} />
+              New interview
             </Button>
           ) : (
             <Button
@@ -1029,15 +1400,17 @@ export function InterviewAuthoringPrototype() {
       <div className="flex flex-wrap items-center justify-between gap-3 border-b pb-3">
         <div className="flex gap-2">
           {[
+            ["interviews", "Interviews"],
             ["bank", "Question bank"],
-            ["builder", "Interview builder"],
           ].map(([key, label]) => (
             <button
               key={key}
-              aria-pressed={screen === key}
+              aria-pressed={
+                screen === key || (screen === "builder" && key === "interviews")
+              }
               className={cn(
                 "flex items-center gap-2 rounded-xl px-4 py-2 text-sm",
-                screen === key
+                screen === key || (screen === "builder" && key === "interviews")
                   ? navActiveStyles
                   : "text-muted-foreground hover:bg-muted/40",
               )}
@@ -1069,7 +1442,9 @@ export function InterviewAuthoringPrototype() {
           </button>
         </div>
       )}
-      {screen === "bank" ? (
+      {screen === "interviews" ? (
+        interviewsTable
+      ) : screen === "bank" ? (
         <>
           <div className="space-y-3">
             {filters}
@@ -1077,14 +1452,9 @@ export function InterviewAuthoringPrototype() {
               <span>
                 {filtered.length} questions · one category, multiple tags
               </span>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={showArchived}
-                  onChange={(event) => setShowArchived(event.target.checked)}
-                />
-                Show archived questions
-              </label>
+              <span>
+                {showArchived ? "Archived questions" : "Active questions"}
+              </span>
             </div>
           </div>
           {variant === "A" ? (
@@ -1206,9 +1576,11 @@ export function InterviewAuthoringPrototype() {
               questionMinutes,
               totalPoints,
               selectedStationId,
-              categoryFilter,
-              tagFilter,
-              search,
+              interviews,
+              selectedInterviewId: selectedInterview.id,
+              questionToolbar,
+              interviewToolbar,
+              searchScopes,
               showArchived,
             },
             null,
@@ -1216,7 +1588,36 @@ export function InterviewAuthoringPrototype() {
           )}
         </pre>
       </details>
-      <PrototypeSwitcher variants={variants} />
+      {screen !== "interviews" && (
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <span>
+            Chosen layout:{" "}
+            {screen === "bank"
+              ? "B · list and preview"
+              : "A · focused station editor"}
+          </span>
+          <button
+            className="hover:underline"
+            onClick={() => {
+              const query = new URLSearchParams(params.toString());
+              if (comparing) query.delete("compare");
+              else {
+                query.set("compare", "1");
+                query.set("variant", screen === "bank" ? "B" : "A");
+              }
+              router.replace(
+                `/interviews/prototype/authoring?${query.toString()}`,
+                { scroll: false },
+              );
+            }}
+          >
+            {comparing ? "Return to chosen layout" : "Compare earlier layouts"}
+          </button>
+        </div>
+      )}
+      {comparing && screen !== "interviews" && (
+        <PrototypeSwitcher variants={variants} />
+      )}
 
       <Dialog
         open={questionDraft !== null}
@@ -1369,8 +1770,8 @@ export function InterviewAuthoringPrototype() {
               </p>
               <div className="rounded-xl bg-muted/30 p-3 text-xs">
                 <strong>
-                  Used in {usedAt(questionDraft.id).length} stations in this
-                  interview
+                  Used in {usedAt(questionDraft.id).length} stations across
+                  prepared interviews
                 </strong>
                 <div className="mt-1 text-muted-foreground">
                   {usedAt(questionDraft.id)

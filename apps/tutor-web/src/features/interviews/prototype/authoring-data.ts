@@ -147,3 +147,67 @@ export const initialStations: PrototypeStation[] = [
   },
   { id: "s3", name: "Rural healthcare", maximum: 6, questionIds: ["q6"] },
 ];
+
+export type PrototypeInterview = {
+  id: string;
+  name: string;
+  readingMinutes: number;
+  questionMinutes: number;
+  stations: PrototypeStation[];
+};
+
+export const initialInterviews: PrototypeInterview[] = [
+  {
+    id: "thursday-mmi",
+    name: "Thursday MMI practice",
+    readingMinutes: 2,
+    questionMinutes: 8,
+    stations: initialStations,
+  },
+  {
+    id: "personal-practice",
+    name: "Personal questions practice",
+    readingMinutes: 1,
+    questionMinutes: 6,
+    stations: [
+      {
+        id: "personal-1",
+        name: "Motivation",
+        maximum: 6,
+        questionIds: ["q4", "q8"],
+      },
+      {
+        id: "personal-2",
+        name: "Reflection and teamwork",
+        maximum: 6,
+        questionIds: ["q3", "q5"],
+      },
+    ],
+  },
+  {
+    id: "scenario-circuit",
+    name: "Scenario skills circuit",
+    readingMinutes: 2,
+    questionMinutes: 8,
+    stations: [
+      {
+        id: "scenario-1",
+        name: "Ethical reasoning",
+        maximum: 6,
+        questionIds: ["q1", "q2"],
+      },
+      {
+        id: "scenario-2",
+        name: "Prioritisation",
+        maximum: 8,
+        questionIds: ["q7"],
+      },
+      {
+        id: "scenario-3",
+        name: "Rural healthcare",
+        maximum: 6,
+        questionIds: ["q6"],
+      },
+    ],
+  },
+];
