@@ -33,13 +33,14 @@ interface StaffTableProps {
 export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: StaffTableProps = {}) {
   useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('staff');
   const { data: allSubjects = [] } = useSubjects();
 
   const [searchFields, setSearchFields] = useState<StaffSearchField[]>(['name', 'email', 'phone']);
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['status', 'role', 'staff', 'classes'], []);
+
+  const { data: quickFilters = [] } = useQuickFilters('staff', {name:'Active',settings:{ filters:defaultFilters, sortBy:defaultSort.field, sortDirection:defaultSort.direction, groupBy:null, visibleColumns:defaultVisibleColumns }});
 
   const {
     state,

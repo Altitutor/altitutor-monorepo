@@ -1,5 +1,6 @@
 'use client';
 
+import { CalendarDetailsTooltip, type CalendarStudent, type CalendarStaff } from '@/shared/components/CalendarDetailsTooltip';
 import React, { useState, useEffect } from 'react';
 import { Users, Calendar, Clock, MoreVertical } from 'lucide-react';
 import { Badge } from '@altitutor/ui';
@@ -21,10 +22,11 @@ function getInitials(firstName: string, lastName: string): string {
 
 
 interface ClassCardProps {
+  details?: { students: CalendarStudent[]; staff: CalendarStaff[] };
   class: Tables<'classes'> | ClassWithExpandedSubject;
   subject?: Tables<'subjects'> | null;
   staff: Tables<'staff'>[];
-  students?: Tables<'students'>[];
+  students?: (Tables<'students'> & CalendarStudent)[];
   onClick?: () => void;
   
   // Optional enrollment context (when displayed in a student context)
@@ -53,6 +55,7 @@ export function ClassCard({
   staff,
   students = [],
   onClick,
+  details,
   enrollment,
   onChangeClass,
   onUnenroll,
@@ -127,6 +130,7 @@ export function ClassCard({
   const iconStrokeColor = getIconStrokeColor(subjectColorHex);
 
   return (
+    <CalendarDetailsTooltip enabled={isCalendarView} title={classData.long_name?.trim() || classData.short_name?.trim() || subjectDisplay} subtitle={<><span>{getDayOfWeek(classData.day_of_week)}</span><span>{formatTime(classData.start_time)} - {formatTime(classData.end_time)}</span></>} status={classData.status} students={details?.students ?? students} staff={details?.staff ?? staff}>
     <div
       className={cn(
         'relative border rounded-lg transition-colors w-full bg-card',
@@ -170,7 +174,7 @@ export function ClassCard({
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1 min-w-0 overflow-hidden">
               <div className="flex items-center gap-2">
-                {shouldUseCompact ? (
+                {shouldUseCompact || isCalendarView ? (
                   <span className={cn('font-semibold truncate', 'text-xs')}>
                     {subjectDisplay}
                   </span>
@@ -284,7 +288,7 @@ export function ClassCard({
                     </span>
                   );
                   
-                  if (!showFullNames) {
+                  if (!showFullNames && !isCalendarView) {
                     return (
                       <TooltipProvider key={staffMember.id} delayDuration={100}>
                         <Tooltip>
@@ -328,7 +332,7 @@ export function ClassCard({
                     </span>
                   );
                   
-                  if (!showFullNames) {
+                  if (!showFullNames && !isCalendarView) {
                     return (
                       <TooltipProvider key={student.id} delayDuration={100}>
                         <Tooltip>
@@ -367,5 +371,6 @@ export function ClassCard({
         </div>
       </div>
     </div>
+    </CalendarDetailsTooltip>
   );
 }

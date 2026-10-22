@@ -46,13 +46,14 @@ export function ParentsTable({ onRefresh: _onRefresh }: ParentsTableProps = {}) 
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('parents');
   const { openCheckInModal } = useQuickActions();
 
   const [searchFields, setSearchFields] = useState<ParentSearchField[]>(['name', 'email', 'phone']);
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'last_name', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['parent', 'students'], []);
+
+  const { data: quickFilters = [] } = useQuickFilters('parents', {name:'All parents',settings:{ filters:defaultFilters, sortBy:defaultSort.field, sortDirection:defaultSort.direction, groupBy:null, visibleColumns:defaultVisibleColumns }});
 
   const {
     state,

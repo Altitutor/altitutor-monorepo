@@ -12,7 +12,7 @@ import { SessionsCard } from './SessionsCard';
 import { shouldDimSessionInCalendar } from '../utils/attendanceDerivation';
 import { Button, SegmentedControl } from "@altitutor/ui";
 
-type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'> & {sessions:Tables<'sessions'>[]};
+type CalendarSource = Pick<import('../hooks/useSessionsTable').UseSessionsTableReturn,'classesById'|'subjectsById'|'sessionStaff'|'sessionStudents'|'tutorLogs'> & {sessions:Tables<'sessions'>[]};
 type Props = {
   source?: CalendarSource;
   visibleProperties?: string[];
@@ -267,6 +267,8 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
+                                  details={{classData:cls,subject:subj,staff:sessionStaff,students:sessionStudents}}
                                   session={s}
                                   classData={showProperty("class") ? cls : undefined}
                                   subject={showProperty("class") ? subj : undefined}
@@ -323,6 +325,8 @@ export function SessionsCalendarView({ onOpenSession, initialDate, initialViewMo
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
+                                  details={{classData:cls,subject:subj,staff:sessionStaff,students:sessionStudents}}
                                   session={s}
                                   classData={showProperty("class") ? cls : undefined}
                                   subject={showProperty("class") ? subj : undefined}

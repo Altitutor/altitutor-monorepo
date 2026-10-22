@@ -208,6 +208,7 @@ export function StudentSessionsCalendarView({
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={s}
                                   classData={cls}
                                   subject={subj}
@@ -264,6 +265,7 @@ export function StudentSessionsCalendarView({
                                 onClick={() => onOpenSession && onOpenSession(s.id)}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={s}
                                   classData={cls}
                                   subject={subj}

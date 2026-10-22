@@ -127,7 +127,6 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   useAdminUrlSync();
   const { data: currentStaff } = useCurrentStaff();
   const { data: allSubjects = [] } = useSubjects();
-  const { data: quickFilters = [] } = useQuickFilters('students');
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
@@ -135,6 +134,8 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
   const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
+
+  const { data: quickFilters = [] } = useQuickFilters('students', {name:'Active',settings:{ filters:defaultFilters, sortBy:defaultSort.field, sortDirection:defaultSort.direction, groupBy:null, visibleColumns:defaultVisibleColumns }});
 
   const {
     state,

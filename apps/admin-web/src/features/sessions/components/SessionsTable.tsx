@@ -453,7 +453,7 @@ export function SessionsTable({
         </div>
       )}
 
-      {renderMode === 'calendar' ? <SessionsCalendarView onOpenSession={onOpenSession} initialDate={calendarFrom || calendarTo || initialCalendarDate} initialViewMode={initialCalendarMode} onRangeChange={changeCalendarRange} visibleProperties={state.visibleColumns} source={{sessions:filteredSessions,classesById,subjectsById,sessionStudents,sessionStaff}} /> : <>
+      {renderMode === 'calendar' ? <SessionsCalendarView onOpenSession={onOpenSession} initialDate={calendarFrom || calendarTo || initialCalendarDate} initialViewMode={initialCalendarMode} onRangeChange={changeCalendarRange} visibleProperties={state.visibleColumns} source={{sessions:filteredSessions,classesById,subjectsById,sessionStudents,sessionStaff,tutorLogs}} /> : <>
       <div
         className={cn(
           'rounded-md border overflow-hidden',

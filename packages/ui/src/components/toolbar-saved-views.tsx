@@ -136,7 +136,7 @@ export function ToolbarSavedViews({
             key={view.id}
             type="button"
             aria-pressed={active?.id === view.id}
-            title="Click to apply; double-click to edit"
+            title={view.id.startsWith("builtin:") ? "Apply default view" : "Click to apply; double-click to edit"}
             className={cn(
               "inline-flex h-8 items-center rounded-full border px-3 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring",
               toolbarControlStyles,
@@ -149,13 +149,13 @@ export function ToolbarSavedViews({
               if (clickTimer.current) clearTimeout(clickTimer.current);
               clickTimer.current = setTimeout(() => onApply(view), 220);
             }}
-            onDoubleClick={() => service && edit(view)}
+            onDoubleClick={() => service && !view.id.startsWith("builtin:") && edit(view)}
             onKeyDown={(event) => {
               if (event.key === "Enter") {
                 event.preventDefault();
                 onApply(view);
               }
-              if (event.key === "F2" && service) {
+              if (event.key === "F2" && service && !view.id.startsWith("builtin:")) {
                 event.preventDefault();
                 edit(view);
               }

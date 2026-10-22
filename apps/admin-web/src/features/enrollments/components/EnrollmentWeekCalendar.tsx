@@ -669,6 +669,7 @@ export function EnrollmentWeekCalendar({
                                       
                                       return (
                                         <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                           session={mockSession}
                                           classData={cls}
                                           subject={subj}
@@ -686,6 +687,7 @@ export function EnrollmentWeekCalendar({
                                     
                                     return (
                                       <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                         session={s as unknown as Tables<'sessions'>}
                                         classData={cls}
                                         subject={subj}

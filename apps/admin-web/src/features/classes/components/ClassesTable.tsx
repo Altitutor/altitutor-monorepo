@@ -87,7 +87,6 @@ export function ClassesTable({
   useAdminUrlSync();
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters("classes");
 
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(
@@ -102,6 +101,8 @@ export function ClassesTable({
   const [subjectFilterSearch, setSubjectFilterSearch] = useState("");
   const [studentFilterSearch, setStudentFilterSearch] = useState("");
   const [staffFilterSearch, setStaffFilterSearch] = useState("");
+
+  const { data: quickFilters = [] } = useQuickFilters('classes', {name:'All classes',settings:{ layout:'table', filters:defaultFilters, sortBy:defaultSort.field, sortDirection:defaultSort.direction, groupBy:null, visibleColumns:defaultVisibleColumns }});
 
   const {
     state,

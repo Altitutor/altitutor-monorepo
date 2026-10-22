@@ -8,8 +8,8 @@ import {
 } from "@/features/classes";
 import { CalendarView } from "@/features/classes/components/CalendarView";
 import { Checkbox } from "@altitutor/ui";
-import { AdminPageActionButton } from "@/shared/components";
-import { Plus } from "lucide-react";
+import { ClassesAddMenu } from "@/features/classes/components/ClassesAddMenu";
+import { AddAdminShiftModal } from "@/features/admin-shifts";
 import { useAdminPageViewParam } from "@/shared/hooks/useAdminPageViewParam";
 import { useClassesWithDetails } from "@/features/classes/hooks/useClassesQuery";
 import { useAdminShiftsWithDetails } from "@/features/admin-shifts/hooks/useAdminShiftsQuery";
@@ -22,6 +22,7 @@ export default function ClassesPage() {
     "table",
   );
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
+  const [isAddAdminShiftOpen, setIsAddAdminShiftOpen] = useState(false);
   const [selectedClassId, setSelectedClassId] = useState<string | null>(null);
   const [selectedAdminShiftId, setSelectedAdminShiftId] = useState<
     string | null
@@ -74,10 +75,9 @@ export default function ClassesPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl font-bold tracking-tight">Classes</h1>
         <div className="flex items-center gap-4">
-          <AdminPageActionButton
-            icon={<Plus className="h-4 w-4" />}
-            label="Add Class"
-            onClick={() => setIsAddModalOpen(true)}
+          <ClassesAddMenu
+            onAddClass={() => setIsAddModalOpen(true)}
+            onAddAdminShift={() => setIsAddAdminShiftOpen(true)}
           />
         </div>
       </div>
@@ -142,6 +142,12 @@ export default function ClassesPage() {
           )}
         />
       </Suspense>
+
+      <AddAdminShiftModal
+        isOpen={isAddAdminShiftOpen}
+        onClose={() => setIsAddAdminShiftOpen(false)}
+        onAdminShiftAdded={() => refetchAdminShifts()}
+      />
 
       {/* Add Class Modal */}
       <AddClassModal

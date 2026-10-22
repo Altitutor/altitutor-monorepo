@@ -396,6 +396,7 @@ export function AssignStaffWeekCalendar({
                                 }}
                               >
                                 <SessionsCard
+                                  hasTutorLog={Boolean(data?.tutorLogs?.[s.id])}
                                   session={mockSession}
                                   classData={cls}
                                   subject={subj}
