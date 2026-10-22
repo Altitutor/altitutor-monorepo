@@ -314,6 +314,7 @@ export function UcatLearningModuleOrderEditor({
       created_by_first_name: null,
       created_by_last_name: null,
       deleted_at: null,
+      study_plan_journey_placement: null,
       study_plan_priority: 'recommended',
       study_plan_category_ids: [],
       study_plan_tag_ids: [],

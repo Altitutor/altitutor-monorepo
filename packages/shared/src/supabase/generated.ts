@@ -19675,6 +19675,7 @@ export type Database = {
           status: Database["public"]["Enums"]["ucat_content_status"]
           status_changed_at: string | null
           status_changed_by: string | null
+          study_plan_journey_placement: string | null
           study_plan_priority: Database["public"]["Enums"]["ucat_learning_module_study_plan_priority"]
           title: string
           ucat_section_id: string | null
@@ -19699,6 +19700,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["ucat_content_status"]
           status_changed_at?: string | null
           status_changed_by?: string | null
+          study_plan_journey_placement?: string | null
           study_plan_priority?: Database["public"]["Enums"]["ucat_learning_module_study_plan_priority"]
           title: string
           ucat_section_id?: string | null
@@ -19723,6 +19725,7 @@ export type Database = {
           status?: Database["public"]["Enums"]["ucat_content_status"]
           status_changed_at?: string | null
           status_changed_by?: string | null
+          study_plan_journey_placement?: string | null
           study_plan_priority?: Database["public"]["Enums"]["ucat_learning_module_study_plan_priority"]
           title?: string
           ucat_section_id?: string | null
@@ -29567,6 +29570,7 @@ export type Database = {
           section_number: number | null
           started_at: string | null
           status: Database["public"]["Enums"]["ucat_content_status"] | null
+          study_plan_journey_placement: string | null
           study_plan_priority:
             | Database["public"]["Enums"]["ucat_learning_module_study_plan_priority"]
             | null
@@ -38036,6 +38040,7 @@ export type Database = {
           status: Database["public"]["Enums"]["ucat_content_status"] | null
           status_changed_at: string | null
           status_changed_by: string | null
+          study_plan_journey_placement: string | null
           study_plan_priority:
             | Database["public"]["Enums"]["ucat_learning_module_study_plan_priority"]
             | null
@@ -44667,9 +44672,11 @@ export type Database = {
           p_estimated_minutes?: number
           p_icon_key?: string
           p_index?: number
+          p_journey_placement?: string
           p_kind: Database["public"]["Enums"]["ucat_learning_module_kind"]
           p_module_id: string
           p_parent_id?: string
+          p_set_journey_placement?: boolean
           p_title: string
           p_ucat_section_id?: string
         }
