@@ -53,8 +53,10 @@ describe('nested smart date filter', () => {
     await user.click(screen.getByRole('button', { name: 'Filter' }));
     await user.keyboard('{End}{ArrowRight}');
     await user.click((await screen.findAllByRole('button', { name: 'Select date' }))[0]);
-    const todayOptions = await screen.findAllByText('Today');
-    await user.click(todayOptions[todayOptions.length - 1]);
+    const today = document.querySelector<HTMLButtonElement>('button[aria-current="date"]');
+    expect(today).not.toBeNull();
+    if (!today) throw new Error('Calendar must mark today');
+    await user.click(today);
 
     expect(screen.getByText('Filters')).toBeVisible();
     expect(screen.getByText('From date')).toBeVisible();

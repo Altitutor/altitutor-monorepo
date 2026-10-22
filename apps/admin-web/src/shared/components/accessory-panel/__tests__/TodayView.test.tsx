@@ -51,9 +51,9 @@ test("clicking the date accepts a natural-language day", async () => {
   const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime });
   render(<TodayView />);
   await user.click(screen.getByRole("button", { name: "Choose calendar day" }));
-  const input = screen.getByRole("combobox");
+  const input = screen.getByRole("textbox", { name: "Type a date" });
   await user.type(input, "5 Oct");
-  await user.click(await screen.findByRole("option", { name: /Use "5 Oct"/ }));
+  await user.click(await screen.findByRole("button", { name: "Use Mon, 5 Oct 2026" }));
   expect(screen.getByTestId("calendar-date")).toHaveTextContent("2026-10-05");
   expect(useAccessoryTitle).toHaveBeenLastCalledWith("5 Oct");
 });
