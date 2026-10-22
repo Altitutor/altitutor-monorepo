@@ -1,7 +1,8 @@
 "use client";
 import { useRef, useState } from "react";
+import Link from "next/link";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Button, Badge, Input, SearchableSelect } from "@altitutor/ui";
+import { Button, Badge, Input, SearchableSelect, SmartDatePickerField } from "@altitutor/ui";
 import { CheckCircle2, Circle, User } from "lucide-react";
 import { AdminDialogShell } from "@/shared/components/dialog-shell";
 import { getSupabaseClient } from "@/shared/lib/supabase/client";
@@ -243,16 +244,21 @@ export function JourneyDetail({
       <AdminDialogShell
         open
         onClose={onClose}
-        title={journey.label}
-        subtitle={e.subjects.map((s) => s.name).join(" · ")}
-        fillHeight
-        defaultExpanded
-        headerActions={
-          <div className="flex flex-wrap gap-2">
+        title={
+          journey.student_id ? (
+            <Link href={`/students/${journey.student_id}`} className="underline-offset-4 hover:underline">
+              {journey.label}
+            </Link>
+          ) : journey.label
+        }
+        subtitle={
+          <span className="flex flex-wrap items-center gap-2">
             <Badge variant="outline">{stages[lifecycle(journey)]}</Badge>
             <ActionBadges actions={actions} />
-          </div>
+          </span>
         }
+        fillHeight
+        defaultExpanded
         bodyClassName="!p-0 !overflow-hidden"
       >
         <div className="grid h-full min-h-0 grid-cols-1 md:grid-cols-[minmax(0,1fr)_350px] overflow-y-auto md:overflow-hidden">
@@ -363,9 +369,8 @@ export function JourneyDetail({
             {!journey.closed_at && (
               <label className="block text-sm">
                 Agreed next contact date
-                <Input
-                  type="date"
-                  defaultValue={
+                <SmartDatePickerField
+                  value={
                     journey.next_contact_at
                       ? new Date(journey.next_contact_at).toLocaleDateString(
                           "en-CA",
@@ -373,8 +378,7 @@ export function JourneyDetail({
                         )
                       : ""
                   }
-                  onChange={(event) => {
-                    const value = event.target.value;
+                  onChange={(value) => {
                     void getSupabaseClient()
                       .from("onboarding_journeys")
                       .update({
