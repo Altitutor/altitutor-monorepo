@@ -18,7 +18,7 @@ Altitutor monorepo (pnpm + Turborepo).
 - **TUTOR / STUDENT**: no base tables — **read** via `vtutor_*` / `vstudent_*` views; **write** via API routes only
 - Wrap auth helpers as `(select auth.uid())`
 - **Do not** mutate remote DBs (apply migrations, push functions, ad-hoc SQL writes) unless the user explicitly says so — migrations/functions ship via **CI/CD**
-- After migration SQL: use the owned disposable database workflow in `docs/agents/local-database-tests.md`; `pnpm checkall`, `pnpm db:seed:ucat`, `pnpm db:types` and `pnpm db:committypes` automatically use a separate disposable stack; a shared lock covers startup/reset/seed/tests/cleanup while non-DB work remains concurrent. Normal Docker bindings are approved; unproven targets are rejected. Never run a bare reset against the normal shared stack.
+- After migration SQL: use the owned disposable database workflow in `docs/agents/local-database-tests.md`; `pnpm checkall`, `pnpm db:seed:ucat`, `pnpm db:types` and `pnpm db:committypes` each use a separate disposable stack and ports. Locks protect only that runtime, so independent stacks run concurrently. Normal Docker bindings are approved; unproven targets are rejected. Never run a bare reset against the normal shared stack.
 - **Do not** edit migration files after they have been applied to any remote db. If you are unsure, check the github actions or the corresponding remote db.
 
 ## Quality
@@ -37,6 +37,7 @@ Altitutor monorepo (pnpm + Turborepo).
 
 ## Development portal testing
 
+- For agent development in a Treehouse or Git worktree, use `pnpm dev:isolated --apps ucat-web` (comma-separated app directory names). Read `docs/agents/worktree-development.md` for status, environment-bound commands, cleanup and recovery.
 - For deployed web smoke tests and local-only test-account credentials, see `docs/agents/development-web-smoke-testing.md`.
 
 ## Agent skills

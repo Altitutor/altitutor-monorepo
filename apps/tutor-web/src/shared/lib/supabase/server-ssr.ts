@@ -19,6 +19,7 @@ export function createClient() {
           getAll: () => [],
           setAll: () => {},
         },
+        cookieOptions: { name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "tutor-auth" },
       }
     ));
   }
@@ -46,7 +47,7 @@ export function createClient() {
         },
       },
       cookieOptions: {
-        name: 'tutor-auth',
+        name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "tutor-auth",
       },
     }
   ));

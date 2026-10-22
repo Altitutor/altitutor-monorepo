@@ -10,6 +10,7 @@
   "scripts": {
     "dev": "turbo run dev",
     "dev-web": "turbo run dev --filter='./apps/*-web'",
+    "dev:isolated": "python3 scripts/worktree_dev.py",
     "build": "turbo run build",
     "lint": "turbo run lint",
     "lint:fix": "turbo run lint:fix",

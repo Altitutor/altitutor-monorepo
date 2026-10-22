@@ -26,7 +26,7 @@ export async function createServerComponentClient(globalFetch?: typeof fetch) {
           },
         },
         cookieOptions: {
-          name: "admin-auth",
+          name: process.env.NEXT_PUBLIC_AUTH_COOKIE_NAME || "admin-auth",
           path: "/",
           sameSite: "lax",
           secure: process.env.NODE_ENV === "production",
