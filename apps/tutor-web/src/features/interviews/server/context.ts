@@ -31,7 +31,11 @@ export async function resolveInterviewActor(
           process.env.NEXT_PUBLIC_SUPABASE_URL!,
           process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
           {
-            global: { headers: { Authorization: `Bearer ${token}` } },
+            global: {
+              headers: { Authorization: `Bearer ${token}` },
+              fetch: (input, init) =>
+                fetch(input, { ...init, cache: "no-store" }),
+            },
             auth: {
               persistSession: false,
               autoRefreshToken: false,
@@ -61,6 +65,9 @@ export function createInterviewServiceClient() {
   if (!url || !key) throw new Error("Missing interview server configuration");
   return instrumentSupabaseClient(
     createClient<Database>(url, key, {
+      global: {
+        fetch: (input, init) => fetch(input, { ...init, cache: "no-store" }),
+      },
       auth: { persistSession: false, autoRefreshToken: false },
     }),
   );
@@ -117,4 +124,4 @@ export async function requireInterviewAccess(actor: InterviewActor) {
       );
 }
 
-export { readInterviewCommandBody } from '@altitutor/shared/interviews/server';
+export { readInterviewCommandBody } from "@altitutor/shared/interviews/server";

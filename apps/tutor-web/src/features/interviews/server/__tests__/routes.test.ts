@@ -4,6 +4,10 @@ import { GET as getAccess } from "@/app/api/interviews/access/route";
 import { GET as getRounds } from "@/app/api/interviews/rounds/route";
 import { createClient as createCookieClient } from "@/shared/lib/supabase/server-ssr";
 import { createClient } from "@supabase/supabase-js";
+import {
+  resolveInterviewActor,
+  createInterviewServiceClient,
+} from "../context";
 
 jest.mock("@/shared/lib/supabase/server-ssr", () => ({
   createClient: jest.fn(),
@@ -143,5 +147,54 @@ describe("tutor interview HTTP boundary", () => {
     expect(response.status).toBe(200);
     expect(from).toHaveBeenCalledWith("vtutor_interview_rounds");
     expect(await response.json()).toEqual([{ id: roundId }]);
+  });
+});
+
+describe("fresh authenticated interview reads", () => {
+  it("never caches bearer-authenticated Supabase reads", async () => {
+    jest
+      .mocked(createClient)
+      .mockReturnValue({ auth: { getUser }, from } as unknown as ReturnType<
+        typeof createClient
+      >);
+    await resolveInterviewActor(
+      new Request("https://portal.test/api/interviews/rounds", {
+        headers: { authorization: "Bearer actor-token" },
+      }),
+    );
+    const options = jest.mocked(createClient).mock.calls[0][2];
+    expect(options?.global?.headers).toEqual({
+      Authorization: "Bearer actor-token",
+    });
+    const originalFetch = global.fetch;
+    const freshFetch = jest.fn().mockResolvedValue(new Response("{}"));
+    global.fetch = freshFetch;
+    try {
+      await options?.global?.fetch?.("https://supabase.test/rest/v1/rounds", {
+        cache: "force-cache",
+      });
+      expect(freshFetch).toHaveBeenCalledWith(
+        "https://supabase.test/rest/v1/rounds",
+        { cache: "no-store" },
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
+  });
+  it("never caches service reads used to enforce media policy", async () => {
+    createInterviewServiceClient();
+    const options = jest.mocked(createClient).mock.calls[0][2];
+    const originalFetch = global.fetch;
+    const freshFetch = jest.fn().mockResolvedValue(new Response("{}"));
+    global.fetch = freshFetch;
+    try {
+      await options?.global?.fetch?.("https://supabase.test/rest/v1/rounds");
+      expect(freshFetch).toHaveBeenCalledWith(
+        "https://supabase.test/rest/v1/rounds",
+        { cache: "no-store" },
+      );
+    } finally {
+      global.fetch = originalFetch;
+    }
   });
 });
