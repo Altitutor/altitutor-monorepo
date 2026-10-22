@@ -32,7 +32,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useToast } from '@altitutor/ui';
 import { useChatStore } from '@/features/messages/state/chatStore';
 import { ensureConversationForRelated } from '@/features/messages/api/queries';
-import { invalidateClassSurfaces } from '@/shared/lib/query-invalidation';
+import { invalidateClassSurfaces, invalidateStudentClassSurfaces } from '@/shared/lib/query-invalidation';
 import { getErrorMessage } from '@/shared/utils';
 import { isScheduledClassEnrolment } from '@/features/students/utils/classEnrollments';
 import { StudentExitRequestDialog } from '@/features/forms/components/StudentExitRequestDialog';
@@ -208,6 +208,7 @@ export function ClassStudentsTab({
       await Promise.all([
         invalidateClassSurfaces(queryClient, params.oldClassId),
         invalidateClassSurfaces(queryClient, params.newClassId),
+        invalidateStudentClassSurfaces(queryClient, params.studentId),
       ]);
       onStudentsUpdated?.();
       toast({
