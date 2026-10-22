@@ -559,7 +559,7 @@ describe("diagnostics with production Supabase Sentry instrumentation", () => {
           ]);
         if (url.searchParams.get("id") === "eq." + ownerGenerationId)
           return jsonResponse(
-            { code: "503", message: "diagnostic password=private" },
+            { code: "503", message: "diagnostic password=fixture-owner-generation-secret-9b82" },
             503,
           );
         return jsonResponse([
@@ -590,7 +590,7 @@ describe("diagnostics with production Supabase Sentry instrumentation", () => {
     expect(event.extra?.study_plan_start).toEqual(context);
     expect(messages[0]).toContain("invalid_study_plan_learning_task");
     expect(messages[0]).toContain("after_start_failure");
-    expect(messages[0]).not.toContain("private");
+    expect(messages[0]).not.toContain("fixture-owner-generation-secret-9b82");
   });
 
   it("suppresses only diagnostic 503 reports and preserves the original rejection", async () => {
