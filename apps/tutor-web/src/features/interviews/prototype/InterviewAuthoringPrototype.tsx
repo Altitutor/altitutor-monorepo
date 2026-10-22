@@ -39,6 +39,7 @@ import {
   X,
 } from "lucide-react";
 import { PrototypeSwitcher } from "@/shared/components/prototype-switcher";
+import { InterviewRoundSetupPrototype } from "./InterviewRoundSetupPrototype";
 import {
   tutorBtnOutline,
   tutorBtnPrimary,
@@ -123,9 +124,11 @@ export function InterviewAuthoringPrototype() {
   const screen =
     params.get("screen") === "bank"
       ? "bank"
-      : params.get("screen") === "builder"
-        ? "builder"
-        : "interviews";
+      : params.get("screen") === "setup"
+        ? "setup"
+        : params.get("screen") === "builder"
+          ? "builder"
+          : "interviews";
   const comparing = params.get("compare") === "1";
   const variant =
     comparing && ["A", "B", "C"].includes(params.get("variant") ?? "")
@@ -293,6 +296,10 @@ export function InterviewAuthoringPrototype() {
   const switchScreen = (next: string, interviewId?: string) => {
     const query = new URLSearchParams(params.toString());
     query.set("screen", next);
+    if (next === "setup") {
+      query.set("variant", "B");
+      query.delete("compare");
+    }
     if (interviewId) query.set("interview", interviewId);
     router.push(`/interviews/prototype/authoring?${query.toString()}`, {
       scroll: false,
@@ -1324,6 +1331,16 @@ export function InterviewAuthoringPrototype() {
     </div>
   );
 
+  if (screen === "setup") {
+    return (
+      <InterviewRoundSetupPrototype
+        key={selectedInterview.id}
+        interview={selectedInterview}
+        onBack={() => switchScreen("builder")}
+      />
+    );
+  }
+
   return (
     <div className="space-y-6 pb-28">
       {screen === "builder" && (
@@ -1359,6 +1376,14 @@ export function InterviewAuthoringPrototype() {
           </p>
         </div>
         <div className="flex gap-2">
+          {screen === "builder" && (
+            <Button
+              className={tutorBtnPrimary}
+              onClick={() => switchScreen("setup", selectedInterview.id)}
+            >
+              Set up round
+            </Button>
+          )}
           {screen === "bank" && (
             <Button
               variant="outline"

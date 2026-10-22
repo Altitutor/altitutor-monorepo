@@ -501,6 +501,8 @@
 
 - **Interview rotation** — One allocation of students across the stations of a coordinated mock interview. Any participating tutor may explicitly advance the group once the required station work is finished; losing a connection does not itself stop the interview.
 
+- **Scheduled interview round** — A coordinated mock interview arranged for a future date and time and shown in the selected students' upcoming interviews. Students may come from different interview classes while holding current interview enrolment. The scheduled time does not start the round automatically; a participating tutor explicitly starts it.
+
 - **Interview station score** — One overall assessment of a student's performance at a station, allowing non-integer values up to that station's configured maximum, which defaults to six. A student's interview total is the sum of their station scores against the sum of the station maxima.
 
 - **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
