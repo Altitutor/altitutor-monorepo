@@ -15,11 +15,18 @@ is never recorded. In-person recording uses independent 30-second audio segments
    retries durable media jobs, refreshes recording readiness and deletes expired
    recording objects. No webhook is required: recording metadata is reconciled
    from Daily, including when the initiating request was interrupted.
-4. Apply `supabase/manual/interviews_realtime_rls.sql` once using the owner of
-   `realtime.messages`, via the approved deployment bootstrap. This is the same
-   ownership constraint as the existing connector wake policy. Do not grant
-   public channel access. Until that policy exists, scoped polling recovers state
-   but private broadcast delivery is unavailable.
+4. The `interview_realtime_authorization` migration installs the private Broadcast
+   receive policy through CI/CD. Supabase permits `postgres` to manage policies on
+   `realtime.messages` through `supautils`; no owner bootstrap is required. RLS is
+   already enabled, so do not add `ALTER TABLE` statements. The policy authorizes
+   only eligible round participants, their exact requested topic and Broadcast
+   messages. It grants no client send permission or anonymous access. Both server
+   publications and client channels use `private: true`. The authorization probe
+   leaves the message row's `private` flag at its default, so the policy must not
+   require that row flag to be true. Verify private subscription and delivery
+   separately from fallback polling.
+   See [Supabase authorization](https://supabase.com/docs/guides/realtime/authorization)
+   and [the ownership distinction](https://supabase.com/docs/guides/troubleshooting/realtime-must-be-owner-of-table-messages).
 5. The private `interview-recordings` bucket is created by migration. Client
    uploads go through the tutor API; playback requests recheck scoped access,
    result release and expiry before issuing a short-lived URL.
