@@ -333,12 +333,15 @@ export function TrialStudentsPage() {
                 : a.overdue,
           ));
   const searched = journeys.filter((j) =>
+    j.student_status !== "DISCONTINUED" &&
     `${j.label} ${j.evidence.subjects.map((s) => s.name).join(" ")}`
       .toLowerCase()
       .includes(search.toLowerCase()),
   );
   const rows = searched.filter((j) => matches(j, filter));
-  const current = journeys.find((j) => j.id === selected);
+  const current = journeys.find(
+    (j) => j.id === selected && j.student_status !== "DISCONTINUED",
+  );
   const filterCounts = Object.fromEntries(
     QUEUE_FILTERS.map(([value]) => [
       value,

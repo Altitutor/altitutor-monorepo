@@ -1,3 +1,4 @@
+import { isLearningModuleJourneyPlacement } from '@altitutor/shared'
 import type { Database } from '@altitutor/shared'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { getSupabaseClient } from '@/shared/lib/supabase/client'
@@ -48,6 +49,7 @@ function mapModuleRow(row: Record<string, unknown>): UcatLearningModuleRow {
     created_by_first_name: (row.created_by_first_name as string | null) ?? null,
     created_by_last_name: (row.created_by_last_name as string | null) ?? null,
     deleted_at: (row.deleted_at as string | null) ?? null,
+    study_plan_journey_placement: isLearningModuleJourneyPlacement(row.study_plan_journey_placement) ? row.study_plan_journey_placement : null,
     study_plan_priority: (row.study_plan_priority as UcatLearningModuleRow['study_plan_priority']) ?? 'recommended',
     study_plan_category_ids: Array.isArray(row.study_plan_category_ids)
       ? row.study_plan_category_ids.filter((id): id is string => typeof id === 'string')

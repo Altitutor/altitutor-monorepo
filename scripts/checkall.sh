@@ -15,6 +15,7 @@ section() {
   printf '\n==> %s\n' "$1"
 }
 
+if [ "${1:-}" != "--database-only" ]; then
 section "Release-gate contracts"
 node --test \
   scripts/production-release-gate.test.mjs \
@@ -23,6 +24,8 @@ node --test \
   scripts/ucat-system-test-paths.test.mjs \
   scripts/ucat-production-smoke.test.mjs \
   scripts/web-system-test-paths.test.mjs
+
+python3 scripts/owned_database.test.py
 
 section "Generated email artifacts"
 pnpm email:check
@@ -50,15 +53,17 @@ deno test --config supabase/functions/deno.json --allow-env supabase/functions
 section "Build"
 pnpm turbo run build
 
-section "Local Supabase (migrations + seed)"
-bash supabase/scripts/render-email-templates.sh
-if supabase status >/dev/null 2>&1; then
-  echo "Local stack is already running; resetting so schema and seed match a fresh CI start."
-  supabase db reset
-else
-  echo "Starting a fresh local stack (applies all migrations and automatic seed)."
-  node scripts/start-local-supabase.mjs
 fi
+
+# Coding/lint/unit/build stages above can run in parallel. DB consumers must
+# enter the same owned lease across clones, including browser-server lifetime.
+if [ "${ALTITUTOR_OWNED_DB_INNER:-}" != "1" ]; then
+  exec python3 scripts/owned_database.py gate
+fi
+python3 scripts/owned_database.py verify-inner
+section "Owned disposable Supabase (migrations + seed)"
+supabase db reset --local
+python3 scripts/owned_database.py verify-inner
 bash supabase/scripts/apply-ucat-test-seed.sh
 
 section "Database contracts"
