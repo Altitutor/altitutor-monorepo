@@ -35,7 +35,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('staff');
   const { data: allSubjects = [] } = useSubjects();
-  
+
   const [searchFields, setSearchFields] = useState<StaffSearchField[]>(['name', 'email', 'phone']);
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE', 'TRIAL'] }), []);
   const defaultSort = useMemo(() => ({ field: 'role', direction: 'asc' as const }), []);
@@ -57,13 +57,13 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     defaultVisibleColumns,
     filterKeys: ['role', 'status', 'subject'],
   });
-  
-  const { 
-    data, 
-    isLoading, 
-    error, 
+
+  const {
+    data,
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useStaffMinimalPaginated({
     search: state.search,
     searchFields,
@@ -167,7 +167,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="staff"
           searchPlaceholder="Search name, email or phone..."
           searchFromOptions={[
             { label: 'Name', value: 'name' },
@@ -178,9 +178,9 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
           onSearchFromChange={(values) => setSearchFields(values as StaffSearchField[])}
           isLoading={true}
         />
-        
+
         <SkeletonTable rows={8} columns={state.visibleColumns.length} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading staff...
         </div>
@@ -193,8 +193,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
     return (
       <div className="text-red-500 p-4">
         Failed to load staff. Please try again.
-        <button 
-          onClick={() => refetch()} 
+        <button
+          onClick={() => refetch()}
           className="ml-2 text-blue-600 hover:text-blue-800 underline"
         >
           Retry
@@ -218,7 +218,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="staff"
         searchPlaceholder="Search name, email or phone..."
         searchFromOptions={[
           { label: 'Name', value: 'name' },
@@ -236,8 +236,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
           <TableHeader>
             <TableRow>
               {state.visibleColumns.includes('status') && (
-                <TableHead 
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
                   onClick={() => setSort('status', state.sortBy === 'status' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
                 >
                   <div className="flex items-center">
@@ -250,8 +250,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                 </TableHead>
               )}
               {state.visibleColumns.includes('role') && (
-                <TableHead 
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
                   onClick={() => setSort('role', state.sortBy === 'role' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
                 >
                   <div className="flex items-center">
@@ -278,8 +278,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                 </TableHead>
               )}
               {state.visibleColumns.includes('first_name') && (
-                <TableHead 
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
                   onClick={() => setSort('first_name', state.sortBy === 'first_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
                 >
                   <div className="flex items-center">
@@ -292,8 +292,8 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
                 </TableHead>
               )}
               {state.visibleColumns.includes('last_name') && (
-                <TableHead 
-                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors" 
+                <TableHead
+                  className="cursor-pointer select-none hover:bg-muted/50 transition-colors"
                   onClick={() => setSort('last_name', state.sortBy === 'last_name' && state.sortDirection === 'asc' ? 'desc' : 'asc')}
                 >
                   <div className="flex items-center">
@@ -342,7 +342,7 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
           </TableBody>
         </Table>
       </div>
-      
+
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
@@ -353,13 +353,13 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
       />
 
       {/* Modals */}
-      <AddStaffModal 
+      <AddStaffModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onStaffAdded={handleStaffUpdated}
       />
 
-      <ViewStaffModal 
+      <ViewStaffModal
         isOpen={isViewModalOpen}
         onClose={() => setIsViewModalOpen(false)}
         staffId={selectedStaffId}
@@ -379,4 +379,4 @@ export const StaffTable = memo(function StaffTable({ onRefresh: _onRefresh }: St
       )}
     </div>
   );
-}); 
+});

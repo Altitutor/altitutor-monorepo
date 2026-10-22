@@ -41,3 +41,7 @@ export * from "./session-billing/future-invoices";
 // `@altitutor/shared/pay-tiers` so server/API routes do not pull React hooks into the bundle.
 export * from './ucat-founder-offers';
 export * from './tutor-log/attendance-form';
+
+export * from "./utils/saved-views";
+
+export * from "./utils/filter-operators";

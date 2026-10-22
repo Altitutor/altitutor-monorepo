@@ -27,6 +27,7 @@ export function ToolbarSelectRow({
         {label}
       </span>
       <div className="flex shrink-0 items-center gap-1.5">
+        {accessory}
         <Popover open={open} onOpenChange={setOpen}>
           <PopoverTrigger asChild>
             <button
@@ -49,7 +50,6 @@ export function ToolbarSelectRow({
             {children}
           </PopoverContent>
         </Popover>
-        {accessory}
       </div>
     </div>
   );

@@ -1,9 +1,11 @@
 import * as React from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { KanbanBoard } from "@altitutor/ui";
+import { KanbanBoard, EntityList, ToolbarViewsProvider } from "@altitutor/ui";
 
 beforeAll(() => {
+  global.structuredClone = <T,>(value: T): T =>
+    JSON.parse(JSON.stringify(value)) as T;
   global.ResizeObserver = class {
     observe() {}
     unobserve() {}
@@ -89,7 +91,75 @@ it("keeps board date choices effective when a date pill shares the key and clear
     expect(screen.queryByText("Beta")).not.toBeInTheDocument(),
   );
   expect(screen.getByText("Alpha")).toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
   expect(
     screen.getByRole("button", { name: "Change value for Due date" }),
   ).toHaveTextContent("22 Oct");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
+});
+
+it("saves and applies a date-filtered entity View without exposing virtual toolbar keys", async () => {
+  const { getViewSettings } = await import("@altitutor/shared");
+  const saved = jest.fn(async (view) => ({
+    ...view,
+    id: "date-view",
+    created_at: "2026-10-22",
+    updated_at: "2026-10-22",
+  }));
+  const applied = jest.fn();
+  const filters = {
+    due_date: [{ type: "date_range", start: "2026-10-22", end: "2026-10-22" }],
+  };
+  render(
+    <ToolbarViewsProvider value={{ userId: "staff", save: saved }}>
+      <EntityList
+        items={[
+          { id: "a", name: "Morning", due: "2026-10-22T09:00:00" },
+          { id: "b", name: "Evening", due: "2026-10-22T22:00:00" },
+          { id: "c", name: "Next day", due: "2026-10-23T09:00:00" },
+        ]}
+        getItemId={(item) => item.id}
+        renderName={(item) => <span>{item.name}</span>}
+        rightPills={[
+          {
+            key: "due_date",
+            label: "Due date",
+            getValue: (item) => item.due,
+            renderPill: () => null,
+            filterType: "date-range",
+          },
+        ]}
+        filters={filters}
+        viewTarget="tasks"
+        onApplyQuickFilter={applied}
+      />
+    </ToolbarViewsProvider>,
+  );
+  expect(screen.getByText("Morning")).toBeVisible();
+  expect(screen.getByText("Evening")).toBeVisible();
+  expect(screen.queryByText("Next day")).not.toBeInTheDocument();
+  await userEvent.click(screen.getByRole("button", { name: "New view" }));
+  expect(
+    screen.getByRole("button", { name: "Change start date for Due date" }),
+  ).toHaveTextContent("2026-10-22");
+  await userEvent.type(
+    screen.getByRole("textbox", { name: "View name" }),
+    "Due today",
+  );
+  await userEvent.click(screen.getByRole("button", { name: "Save view" }));
+  await waitFor(() => expect(saved).toHaveBeenCalledTimes(1));
+  expect(getViewSettings(saved.mock.calls[0][0].config)?.filters).toEqual(
+    filters,
+  );
+  await userEvent.click(
+    await screen.findByRole("button", { name: "Due today" }),
+  );
+  await waitFor(() => expect(applied).toHaveBeenCalledTimes(1));
+  expect(getViewSettings(applied.mock.calls[0][0].config)?.filters).toEqual(
+    filters,
+  );
 });

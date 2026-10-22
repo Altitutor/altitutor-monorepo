@@ -54,6 +54,8 @@ export function ProjectsList({
   const embedLocked = hideToolbar && embedView != null;
 
   const {
+    visiblePillKeys,
+    setVisiblePillKeys,
     filters,
     setFilters,
     search,
@@ -313,11 +315,14 @@ export function ProjectsList({
   return (
     <>
       <EntityList<ProjectWithLead>
+        viewTarget="projects"
         items={displayProjects}
         getItemId={(p) => p.id}
         renderName={(p) => p.name ?? ''}
         statusColumn={statusColumn}
         rightPills={rightPills}
+        visiblePillKeys={visiblePillKeys}
+        onVisiblePillKeysChange={setVisiblePillKeys}
         groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
         groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}

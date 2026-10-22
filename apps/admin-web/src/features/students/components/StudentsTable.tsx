@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
-import { 
+import {
   Table,
   TableBody,
   TableCell,
@@ -131,7 +131,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const { toast } = useToast();
   const { openCheckInModal } = useQuickActions();
   const [searchFields, setSearchFields] = useState<StudentSearchField[]>(['name', 'email', 'phone']);
-  
+
   const defaultFilters = useMemo(() => ({ status: ['ACTIVE'] }), []);
   const defaultSort = useMemo(() => ({ field: 'status', direction: 'desc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['status', 'education', 'student', 'classes'], []);
@@ -153,7 +153,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     filterKeys: ['status', 'curriculum', 'yearLevel', 'subject', 'inPersonClass'],
   });
 
-  const { 
+  const {
     data,
     isLoading,
     isFetching,
@@ -261,12 +261,12 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const filteredStudents = useMemo(() => {
     const students = data?.students || [];
     if (!students.length) return students;
-    
+
     // If sorting by status, apply secondary sort by first_name
     if (state.sortBy === 'status') {
       return sortStudentsByStatus(students, state.sortDirection);
     }
-    
+
     return students;
   }, [data?.students, state.sortBy, state.sortDirection]);
 
@@ -303,7 +303,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const handlePasswordResetOrRegistration = (student: Tables<'students'>) => {
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
-    
+
     if (hasAccount) {
       handlePasswordResetRequest(student);
     } else if (isRegistered) {
@@ -318,7 +318,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
   const getPasswordResetLabel = (student: Tables<'students'>) => {
     const isRegistered = student.status === 'ACTIVE';
     const hasAccount = !!student.user_id;
-    
+
     if (hasAccount) {
       return 'Send password reset';
     } else if (isRegistered) {
@@ -414,10 +414,10 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
     return (
       <div className="text-red-500 p-4">
         Failed to load students. Please try again.
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
           className="ml-2"
         >
           Retry
@@ -440,7 +440,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="students"
         searchPlaceholder="Search name, email or phone..."
         searchFromOptions={[
           { label: 'Name', value: 'name' },
@@ -723,7 +723,7 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
           </TableBody>
         </Table>
       </div>
-      
+
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
@@ -734,13 +734,13 @@ export function StudentsTable({ onRefresh: _onRefresh, onStudentSelect: _onStude
       />
 
       {/* Modals ... */}
-      <AddStudentModal 
+      <AddStudentModal
         isOpen={isAddModalOpen}
         onClose={() => setIsAddModalOpen(false)}
         onStudentAdded={handleStudentUpdated}
       />
 
-      <ViewStudentModal 
+      <ViewStudentModal
         isOpen={isViewModalOpen}
         onClose={() => {
           setIsViewModalOpen(false);

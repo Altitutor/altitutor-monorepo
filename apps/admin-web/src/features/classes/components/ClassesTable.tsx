@@ -1,4 +1,5 @@
 'use client';
+import type { ToolbarFilterEditorContext } from '@altitutor/ui';
 
 import React, { useState, useCallback, Dispatch, SetStateAction, useEffect, useRef, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
@@ -57,7 +58,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const router = useRouter();
   const { data: currentStaff } = useCurrentStaff();
   const { data: quickFilters = [] } = useQuickFilters('classes');
-  
+
   const defaultFilters = useMemo(() => ({}), []);
   const defaultSort = useMemo(() => ({ field: 'day_of_week', direction: 'asc' as const }), []);
   const defaultVisibleColumns = useMemo(() => ['day', 'time', 'subject', 'students', 'staff'], []);
@@ -100,64 +101,21 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     [staffSearchData?.staff]
   );
 
-  const subjectIds = useMemo(
-    () => (state.filters.subject as string[]) ?? [],
-    [state.filters.subject]
-  );
-  const studentIds = useMemo(
-    () => (state.filters.student as string[]) ?? [],
-    [state.filters.student]
-  );
-  const staffIds = useMemo(
-    () => (state.filters.staff as string[]) ?? [],
-    [state.filters.staff]
-  );
-
-  const selectedSubjects = useMemo(
-    () => subjects.filter((s) => subjectIds.includes(s.id)),
-    [subjects, subjectIds]
-  );
-  const selectedStudents = useMemo(
-    () => students.filter((s) => studentIds.includes(s.id)),
-    [students, studentIds]
-  );
-  const selectedStaffList = useMemo(
-    () => staffList.filter((s) => staffIds.includes(s.id)),
-    [staffList, staffIds]
-  );
-
-  const handleSubjectFilterChange = useCallback(
-    (subjectsList: Tables<'subjects'>[]) => {
-      setFilters({ ...state.filters, subject: subjectsList.map((s) => s.id) });
-    },
-    [setFilters, state.filters]
-  );
-
-  const handleStudentFilterChange = useCallback(
-    (studentsList: Tables<'students'>[]) => {
-      setFilters({ ...state.filters, student: studentsList.map((s) => s.id) });
-    },
-    [setFilters, state.filters]
-  );
-
-  const handleStaffFilterChange = useCallback(
-    (staffListSelected: Tables<'staff'>[]) => {
-      setFilters({ ...state.filters, staff: staffListSelected.map((s) => s.id) });
-    },
-    [setFilters, state.filters]
-  );
+  const subjectIds = useMemo(() => (state.filters.subject as string[]) ?? [],[state.filters.subject]);
+  const studentIds = useMemo(() => (state.filters.student as string[]) ?? [],[state.filters.student]);
+  const staffIds = useMemo(() => (state.filters.staff as string[]) ?? [],[state.filters.staff]);
 
   const getSubjectLabel = useCallback((s: Tables<'subjects'>) => {
     const base = `${s.curriculum ?? ''} ${s.year_level ? `Year ${s.year_level}` : ''} ${s.name ?? ''}`.trim();
     return base || (s.long_name ?? s.short_name ?? s.id);
   }, []);
 
-  const { 
-    data, 
-    isLoading, 
-    error, 
+  const {
+    data,
+    isLoading,
+    error,
     refetch,
-    isFetching 
+    isFetching
   } = useClassesMinimalPaginated({
     search: state.search,
     daysOfWeek: state.filters.day as number[],
@@ -172,11 +130,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   const customFilterContent = useMemo(
     () => ({
-      subject: (
+      subject: (context:ToolbarFilterEditorContext) => (
         <SearchableSelectInline<Tables<'subjects'>>
           items={subjects}
-          value={selectedSubjects}
-          onValueChange={handleSubjectFilterChange}
+          value={subjects.filter((item) => context.filters.subject?.includes(item.id))}
+          onValueChange={(items) => {const next={...context.filters};if(items.length) next.subject=items.map((item) => item.id);else delete next.subject;context.onChange(next);}}
           getItemId={(s) => s.id}
           getItemLabel={getSubjectLabel}
           searchPlaceholder="Search subjects..."
@@ -186,11 +144,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           onSearchChange={setSubjectFilterSearch}
         />
       ),
-      student: (
+      student: (context:ToolbarFilterEditorContext) => (
         <SearchableSelectInline<Tables<'students'>>
           items={students}
-          value={selectedStudents}
-          onValueChange={handleStudentFilterChange}
+          value={students.filter((item) => context.filters.student?.includes(item.id))}
+          onValueChange={(items) => {const next={...context.filters};if(items.length) next.student=items.map((item) => item.id);else delete next.student;context.onChange(next);}}
           getItemId={(s) => s.id}
           getItemLabel={(s) => `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Unnamed'}
           searchPlaceholder="Search students..."
@@ -200,11 +158,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           onSearchChange={setStudentFilterSearch}
         />
       ),
-      staff: (
+      staff: (context:ToolbarFilterEditorContext) => (
         <SearchableSelectInline<Tables<'staff'>>
           items={staffList}
-          value={selectedStaffList}
-          onValueChange={handleStaffFilterChange}
+          value={staffList.filter((item) => context.filters.staff?.includes(item.id))}
+          onValueChange={(items) => {const next={...context.filters};if(items.length) next.staff=items.map((item) => item.id);else delete next.staff;context.onChange(next);}}
           getItemId={(s) => s.id}
           getItemLabel={(s) => `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || 'Unnamed'}
           searchPlaceholder="Search staff..."
@@ -217,17 +175,11 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     }),
     [
       subjects,
-      selectedSubjects,
-      handleSubjectFilterChange,
       getSubjectLabel,
       isSubjectSearching,
       students,
-      selectedStudents,
-      handleStudentFilterChange,
       isStudentSearching,
       staffList,
-      selectedStaffList,
-      handleStaffFilterChange,
       isStaffSearching,
     ]
   );
@@ -298,7 +250,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
   const classes: MinimalClass[] = data?.classes ?? [];
   const total = data?.total ?? 0;
-  
+
   // Modal states - manage internally and use external state only when provided
   const [internalAddModalOpen, setInternalAddModalOpen] = useState(false);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
@@ -361,7 +313,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
   const getClassStaff = (classItem: ClassWithSubject): Tables<'staff'>[] => {
     return classItem.staff ?? [];
   };
-  
+
   const handleClassClick = (cls: MinimalClass) => {
     setSelectedClass(cls);
     setIsDetailModalOpen(true);
@@ -399,14 +351,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           filterDefinitions={filterDefinitions}
           sortOptions={sortOptions}
           columnDefinitions={columnDefinitions}
-          quickFilters={quickFilters}
+          quickFilters={quickFilters} viewTarget="classes"
           customFilterContent={customFilterContent}
           searchPlaceholder="Search classes"
           isLoading={true}
         />
-        
+
         <SkeletonTable rows={8} columns={state.visibleColumns.length} />
-        
+
         <div className="text-sm text-muted-foreground">
           Loading classes...
         </div>
@@ -419,10 +371,10 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
     return (
       <div className="text-red-500 p-4">
         Failed to load classes. Please try again.
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => refetch()} 
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => refetch()}
           className="ml-2"
         >
           Retry
@@ -448,7 +400,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
         filterDefinitions={filterDefinitions}
         sortOptions={sortOptions}
         columnDefinitions={columnDefinitions}
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="classes"
         customFilterContent={customFilterContent}
         searchPlaceholder="Search classes"
         isLoading={isFetching}
@@ -506,7 +458,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
                       )}
                       {state.visibleColumns.includes('subject') && (
                         <TableCell className="font-medium">
-                          <Badge 
+                          <Badge
                             className={cn("text-xs whitespace-nowrap", (() => {
                               const { textColorClass, defaultClass } = getSubjectBadgeStyle(cls);
                               return defaultClass || textColorClass;
@@ -590,7 +542,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
             </TableBody>
           </Table>
         </div>
-      
+
       <TablePagination
         page={state.page}
         pageSize={state.pageSize}
@@ -613,14 +565,14 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
 
       {/* Class Detail Modal */}
       {selectedClass && (
-        <ViewClassModal 
+        <ViewClassModal
           isOpen={isDetailModalOpen}
           onClose={() => setIsDetailModalOpen(false)}
           classId={selectedClass.id}
           onClassUpdated={handleClassUpdated}
         />
       )}
-      
+
       {/* Staff Modal */}
       {selectedStaffId && (
         <ViewStaffModal
@@ -636,7 +588,7 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
           }}
         />
       )}
-      
+
       {/* Student Modal */}
       <ViewStudentModal
         studentId={selectedStudentId}
@@ -734,4 +686,4 @@ export function ClassesTable({ addModalState }: ClassesTableProps) {
       </AlertDialog>
     </div>
   );
-} 
+}

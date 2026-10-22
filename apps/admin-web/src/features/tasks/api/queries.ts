@@ -1,3 +1,4 @@
+import { filterQueryCandidates } from '@altitutor/shared';
 import { useQuery } from '@tanstack/react-query';
 import { tasksApi } from './tasks';
 import { tasksKeys } from './queryKeys';
@@ -19,8 +20,8 @@ export function useTasks(filters?: TaskFilters) {
   });
 
   return useQuery({
-    queryKey: tasksKeys.list(filters),
-    queryFn: () => tasksApi.list(filters),
+    queryKey: tasksKeys.list(filterQueryCandidates(filters)),
+    queryFn: () => tasksApi.list(filterQueryCandidates(filters)),
     staleTime: 1000 * 60 * 2, // 2 minutes - tasks change frequently
     gcTime: 1000 * 60 * 5, // 5 minutes
   });

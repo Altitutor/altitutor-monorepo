@@ -37,6 +37,8 @@ const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 
 
 export function ProjectsBoard({defaultFilters}:{defaultFilters?:Record<string, unknown[]>} = {}) {
   const {
+    visiblePillKeys,
+    setVisiblePillKeys,
     filters,
     setFilters,
     search,
@@ -437,6 +439,8 @@ export function ProjectsBoard({defaultFilters}:{defaultFilters?:Record<string, u
         renderCard={renderCard}
         statusColumn={statusColumn}
         rightPills={rightPills}
+        visiblePillKeys={visiblePillKeys}
+        onVisiblePillKeysChange={setVisiblePillKeys}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
         sortBy={sortBy}
@@ -478,7 +482,7 @@ export function ProjectsBoard({defaultFilters}:{defaultFilters?:Record<string, u
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search projects..."
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="projects"
         onApplyQuickFilter={(qf) => applyQuickFilter(qf, currentStaff?.id)}
       />
 

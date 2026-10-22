@@ -1,4 +1,7 @@
 'use client';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { getViewSettings } from '@altitutor/shared';
+
 
 import { useEffect, useMemo, useState } from 'react';
 import {
@@ -36,7 +39,7 @@ const INITIAL_STATE: DataTableState = {
   groupBy: null,
   page: 1,
   pageSize: 50,
-  visibleColumns: ['form', 'respondent_type', 'respondent', 'subject', 'recorded_by', 'session', 'submitted_at'],
+  visibleColumns: ['version', 'form', 'respondent_type', 'respondent', 'subject', 'recorded_by', 'session', 'submitted_at'],
 };
 
 function personKey(response: FormResponseDetail, kind: 'respondent' | 'subject') {
@@ -55,6 +58,7 @@ function dateInRange(value: string, from?: string, to?: string) {
 }
 
 export function FormResponsesPage() {
+  const {data:savedViews=[]}=useQuickFilters('form_responses');
   const [answerFilters, setAnswerFilters] = useState<AnswerFilter[]>([]);
   const [rows, setRows] = useState<FormResponseDetail[]>([]);
   const [state, setState] = useState<DataTableState>(INITIAL_STATE);
@@ -122,6 +126,7 @@ export function FormResponsesPage() {
   }, [rows]);
 
   const columnDefinitions: DataTableColumnDefinition[] = [
+    {key:'version',label:'Version',visibleByDefault:true},
     { key: 'form', label: 'Form', visibleByDefault: true },
     { key: 'version', label: 'Version', visibleByDefault: false },
     { key: 'respondent_type', label: 'Respondent type', visibleByDefault: true },
@@ -189,7 +194,9 @@ export function FormResponsesPage() {
         onSortChange={(sortBy, sortDirection) => setState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
         onGroupByChange={(groupBy) => setState((current) => ({ ...current, groupBy }))}
         onVisibleColumnsChange={(visibleColumns) => setState((current) => ({ ...current, visibleColumns }))}
-        onQuickFilterApply={() => undefined}
+        onQuickFilterApply={(view) => {const settings=getViewSettings(view.config);if(settings) setState((previous) => ({...previous,...settings,page:1}));}}
+        quickFilters={savedViews}
+        viewTarget="form_responses"
         onReset={() => { setState(INITIAL_STATE); setAnswerFilters([]); }}
         filterDefinitions={filterDefinitions}
         sortOptions={[{ key: 'submitted_at', label: 'Submitted date' }, { key: 'form', label: 'Form' }]}
@@ -199,28 +206,28 @@ export function FormResponsesPage() {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead>Form</TableHead>
-              <TableHead>Version</TableHead>
-              <TableHead>Respondent type</TableHead>
-              <TableHead>Respondent</TableHead>
-              <TableHead>Subject</TableHead>
-              <TableHead>Recorded by</TableHead>
-              <TableHead>Session</TableHead>
-              <TableHead>Submitted</TableHead>
+              {state.visibleColumns.includes('form') ? <TableHead>Form</TableHead> : null}
+              {state.visibleColumns.includes('version') ? <TableHead>Version</TableHead> : null}
+              {state.visibleColumns.includes('respondent_type') ? <TableHead>Respondent type</TableHead> : null}
+              {state.visibleColumns.includes('respondent') ? <TableHead>Respondent</TableHead> : null}
+              {state.visibleColumns.includes('subject') ? <TableHead>Subject</TableHead> : null}
+              {state.visibleColumns.includes('recorded_by') ? <TableHead>Recorded by</TableHead> : null}
+              {state.visibleColumns.includes('session') ? <TableHead>Session</TableHead> : null}
+              {state.visibleColumns.includes('submitted_at') ? <TableHead>Submitted</TableHead> : null}
               <TableHead className="w-[56px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {paged.map((row) => (
               <TableRow key={row.id}>
-                <TableCell className="font-medium">{row.forms?.name ?? 'Unknown form'}</TableCell>
-                <TableCell>{row.form_versions?.version_number ?? '-'}</TableCell>
-                <TableCell>{row.respondent_type}</TableCell>
-                <TableCell>{responsePersonLabel(row, 'respondent')}</TableCell>
-                <TableCell>{responsePersonLabel(row, 'subject')}</TableCell>
-                <TableCell>{row.recorded_by_staff ? `${row.recorded_by_staff.first_name ?? ''} ${row.recorded_by_staff.last_name ?? ''}`.trim() : '-'}</TableCell>
-                <TableCell>{row.sessions?.long_name ?? row.sessions?.short_name ?? (row.sessions?.start_at ? format(new Date(row.sessions.start_at), 'PP p') : '-')}</TableCell>
-                <TableCell>{format(new Date(row.submitted_at), 'PP p')}</TableCell>
+                {state.visibleColumns.includes('form') ? <TableCell className="font-medium">{row.forms?.name ?? 'Unknown form'}</TableCell> : null}
+                {state.visibleColumns.includes('version') ? <TableCell>{row.form_versions?.version_number ?? '-'}</TableCell> : null}
+                {state.visibleColumns.includes('respondent_type') ? <TableCell>{row.respondent_type}</TableCell> : null}
+                {state.visibleColumns.includes('respondent') ? <TableCell>{responsePersonLabel(row, 'respondent')}</TableCell> : null}
+                {state.visibleColumns.includes('subject') ? <TableCell>{responsePersonLabel(row, 'subject')}</TableCell> : null}
+                {state.visibleColumns.includes('recorded_by') ? <TableCell>{row.recorded_by_staff ? `${row.recorded_by_staff.first_name ?? ''} ${row.recorded_by_staff.last_name ?? ''}`.trim() : '-'}</TableCell> : null}
+                {state.visibleColumns.includes('session') ? <TableCell>{row.sessions?.long_name ?? row.sessions?.short_name ?? (row.sessions?.start_at ? format(new Date(row.sessions.start_at), 'PP p') : '-')}</TableCell> : null}
+                {state.visibleColumns.includes('submitted_at') ? <TableCell>{format(new Date(row.submitted_at), 'PP p')}</TableCell> : null}
                 <TableCell className="text-right">
                   <SettingsTableActions
                     actions={[
@@ -233,7 +240,7 @@ export function FormResponsesPage() {
             ))}
             {paged.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={9} className="py-8 text-center text-muted-foreground">
+                <TableCell colSpan={state.visibleColumns.length+1} className="py-8 text-center text-muted-foreground">
                   No form responses found.
                 </TableCell>
               </TableRow>

@@ -1374,3 +1374,5 @@
 
 - **Event automation trigger** — An automation trigger that matches an exact Lifecycle event name and may apply conditions to its stable event or live entity context. A relative-time trigger remains a separate scheduled trigger anchored to a Session start and is not represented as a Lifecycle event.
   _Avoid_: Row trigger, changed-column automation, scheduled event
+
+- **Saved view**: A named preset of a screen's layout, answer/metadata filters, grouping, ordering and visible properties. Applying a view replaces those display settings; draft edits do not affect the screen until saved. Existing filter-only presets remain readable with that screen's defaults. Personal and shared scope follow the existing saved-preset permissions.

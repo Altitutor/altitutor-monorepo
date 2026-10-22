@@ -1,4 +1,5 @@
 'use client';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
 import { useState, useMemo, useCallback } from 'react';
 import {
@@ -30,7 +31,11 @@ import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState'
 const ISSUE_FILTER_KEYS = ['status', 'due_date'] as const;
 
 export function IssuesBoard({defaultFilters}:{defaultFilters?:Record<string, unknown[]>} = {}) {
+  const {data:savedViews=[]}=useQuickFilters('issues');
   const {
+    visiblePillKeys,
+    setVisiblePillKeys,
+    applyQuickFilter,
     filters,
     setFilters,
     search,
@@ -256,6 +261,9 @@ export function IssuesBoard({defaultFilters}:{defaultFilters?:Record<string, unk
   return (
     <>
       <KanbanBoard<IssueWithTags>
+        viewTarget="issues"
+        quickFilters={savedViews}
+        onApplyQuickFilter={(view) => applyQuickFilter(view, currentStaff?.id)}
         items={issues}
         getItemId={(i) => i.id}
         columnDefs={columnDefs}
@@ -264,6 +272,8 @@ export function IssuesBoard({defaultFilters}:{defaultFilters?:Record<string, unk
         renderCard={renderCard}
         statusColumn={statusColumn}
         rightPills={rightPills}
+        visiblePillKeys={visiblePillKeys}
+        onVisiblePillKeysChange={setVisiblePillKeys}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
         sortBy={sortBy}

@@ -10,6 +10,10 @@ import { FormResponsesPage } from "../FormResponsesPage";
 import { FormReportsPage } from "../FormReportsPage";
 import { responses } from "./answer-filter-fixtures";
 
+jest.mock("@/features/quick-filters/hooks/useQuickFilters", () => ({
+  useQuickFilters: () => ({ data: [] }),
+}));
+
 const originalFetch = global.fetch;
 beforeAll(() => {
   global.ResizeObserver = class {
@@ -64,9 +68,6 @@ async function addTextFilter() {
     "helpful",
   );
   await userEvent.click(screen.getByRole("button", { name: "Apply filter" }));
-  await userEvent.click(
-    screen.getByRole("button", { name: "Display options" }),
-  );
 }
 
 it.each([
@@ -96,6 +97,9 @@ it.each([
     expect(
       screen.queryByRole("textbox", { name: /How was it\? contains/ }),
     ).not.toBeInTheDocument();
+    await userEvent.click(
+      screen.getByRole("button", { name: "Display options" }),
+    );
   },
 );
 
@@ -106,7 +110,7 @@ it("displays a subject name in both the choice menu and selected filter", async 
   );
   await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
   await userEvent.type(
-    screen.getByRole("textbox", { name: "Search filters" }),
+    screen.getByRole("combobox", { name: "Search filters" }),
     "Subjects",
   );
   expect(
@@ -123,16 +127,16 @@ it("displays a subject name in both the choice menu and selected filter", async 
     await screen.findByRole("option", { name: "Mathematics" }),
   );
   await userEvent.keyboard("{Escape}{Escape}");
-  if (!screen.queryByRole('dialog', {name: 'Display options'})) await userEvent.click(screen.getByRole('button', {name: 'Display options'}));
+  if (!screen.queryByRole("dialog", { name: "Display options" }))
+    await userEvent.click(
+      screen.getByRole("button", { name: "Display options" }),
+    );
   const panel = screen.getByRole("dialog", { name: "Display options" });
   expect(
     within(panel).getByRole("group", {
       name: "Student feedback · Q2: Subjects filter",
     }),
   ).toHaveTextContent("Mathematics");
-  await userEvent.click(
-    screen.getByRole("button", { name: "Display options" }),
-  );
   const pill = screen.getByRole("group", {
     name: "Student feedback · Q2: Subjects filter",
   });
@@ -140,6 +144,9 @@ it("displays a subject name in both the choice menu and selected filter", async 
     within(pill).getByRole("button", { name: /Change value/ }),
   ).toHaveTextContent("Mathematics");
   expect(screen.queryByText("subject-uuid")).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
 });
 
 it("edits the operator and field directly from the condition pill", async () => {
@@ -187,4 +194,7 @@ it("edits the operator and field directly from the condition pill", async () => 
       name: "Student feedback · Q1: How was it? filter",
     }),
   ).not.toBeInTheDocument();
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
 });

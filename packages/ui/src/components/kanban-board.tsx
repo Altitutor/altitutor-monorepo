@@ -33,6 +33,7 @@ import { cn } from '../lib/cn';
 import {
   Plus,
 } from 'lucide-react';
+import { isFilterMetadata } from '@altitutor/shared';
 import { EntityListPillColumn, EntityListStatusColumn, QuickFilter, selectedFilterMatchesValue } from './entity-list';
 
 // ---------------------------------------------------------------------------
@@ -51,7 +52,7 @@ export interface KanbanColumnDef<TItem, TValue = unknown> {
 export interface KanbanBoardProps<TItem> {
   items: TItem[];
   getItemId: (item: TItem) => string;
-  
+
   /** Configuration for what defines the kanban columns */
   columnDefs: KanbanColumnDef<TItem, unknown>[];
   activeColumnKey: string;
@@ -62,7 +63,7 @@ export interface KanbanBoardProps<TItem> {
   // Shared features with EntityList
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
-  
+
   groupByOptions?: { key: string; label: string }[];
   groupBy?: string | null;
   onGroupByChange?: (key: string | null) => void;
@@ -82,6 +83,7 @@ export interface KanbanBoardProps<TItem> {
   visiblePillKeys?: string[];
   onVisiblePillKeysChange?: (keys: string[]) => void;
 
+  viewTarget?: string;
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
 
@@ -125,10 +127,10 @@ function getPropValue<TItem>(
   }
   const pill = pills.find((p) => p.key === key);
   if (pill) return pill.getValue(item);
-  
+
   const colDef = columnDefs?.find((c) => c.key === key);
   if (colDef) return colDef.getValue(item);
-  
+
   return undefined;
 }
 
@@ -176,6 +178,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     onHideEmptyColumnsChange,
     visiblePillKeys: controlledVisiblePills,
     onVisiblePillKeysChange,
+    viewTarget,
     quickFilters = [],
     onApplyQuickFilter,
     searchValue,
@@ -205,7 +208,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
   } | null>(null);
   const [settlingColumn, setSettlingColumn] = React.useState<{ value: unknown } | null>(null);
   const settlingTimeoutRef = React.useRef<number | null>(null);
-  const groupBy = controlledGroupBy ?? internalGroupBy;
+  const groupBy = controlledGroupBy !== undefined ? controlledGroupBy : internalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
   const setSortBy = onSortChange
     ? (k: string, d: 'asc' | 'desc') => onSortChange(k, d)
@@ -242,11 +245,12 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     if (activeFilterCount > 0) {
       result = result.filter((item) => {
         for (const columnKey of Object.keys(filters)) {
+          if (isFilterMetadata(columnKey)) continue;
           const selected = filters[columnKey];
           if (!selected?.length) continue;
-          
+
           const value = getPropValue(item, columnKey, rightPills, statusColumn, columnDefs);
-          const match = selectedFilterMatchesValue(selected, value);
+          const match = selectedFilterMatchesValue(selected, value, filters[`${columnKey}__operator`]?.[0]);
           if (!match) return false;
         }
         return true;
@@ -263,14 +267,14 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     const pill = rightPills.find((p) => p.key === sortBy);
     const statusCol = statusColumn?.key === sortBy ? statusColumn : undefined;
     const colDef = columnDefs.find(c => c.key === sortBy);
-    
+
     const getVal = (item: TItem) =>
       statusCol ? statusCol.getValue(item) : pill ? pill.getValue(item) : colDef ? colDef.getValue(item) : undefined;
-      
+
     const compare = pill?.compare
       ? (a: TItem, b: TItem) => pill.compare!(getVal(a), getVal(b)) as number
       : (a: TItem, b: TItem) => compareValues(getVal(a), getVal(b));
-      
+
     sorted.sort((a, b) => {
       const cmp = compare(a, b);
       return sortDirection === 'asc' ? cmp : -cmp;
@@ -457,6 +461,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
     <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
       <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
         <EntityToolbar
+            viewTarget={viewTarget}
           statusColumn={statusColumn} rightPills={rightPills} columnDefs={columnDefs}
           filters={filters} onFiltersChange={setFilters}
           sortOptions={visibleSortByOptions} sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSortBy}
@@ -476,7 +481,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
             <span className="text-sm text-muted-foreground">Loading...</span>
           </div>
         )}
-        
+
         <DndContext
           sensors={sensors}
           collisionDetection={kanbanCollisionDetection}
@@ -514,7 +519,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
                     columnItems.splice(dragPreview.index, 0, previewItem);
                   }
                 }
-                
+
                 if (hideEmptyColumns && persistedColumnItems.length === 0) return null;
 
                 return (

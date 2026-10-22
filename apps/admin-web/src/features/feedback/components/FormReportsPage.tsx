@@ -1,4 +1,7 @@
 'use client';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+import { getViewSettings } from '@altitutor/shared';
+
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -89,6 +92,7 @@ export function FormReportsPage() {
   const [answerFilters, setAnswerFilters] = useState<AnswerFilter[]>([]);
   const [forms, setForms] = useState<AdminFormRow[]>([]);
   const [formId, setFormId] = useState<string>('');
+  const {data:savedViews=[]}=useQuickFilters(`form_reports:${formId}`);
   const [answers, setAnswers] = useState<AnswerRow[]>([]);
   const [responses, setResponses] = useState<FormResponseDetail[]>([]);
   const [responseCount, setResponseCount] = useState(0);
@@ -280,7 +284,9 @@ export function FormReportsPage() {
         onSortChange={(sortBy, sortDirection) => setFilterState((current) => ({ ...current, sortBy, sortDirection, page: 1 }))}
         onGroupByChange={(groupBy) => setFilterState((current) => ({ ...current, groupBy }))}
         onVisibleColumnsChange={(visibleColumns) => setFilterState((current) => ({ ...current, visibleColumns }))}
-        onQuickFilterApply={() => undefined}
+        onQuickFilterApply={(view) => {const settings=getViewSettings(view.config);if(settings) setFilterState((previous) => ({...previous,...settings,page:1}));}}
+        quickFilters={savedViews}
+        viewTarget={`form_reports:${formId}`}
         onReset={() => { setFilterState(REPORT_FILTER_STATE); setAnswerFilters([]); }}
         filterDefinitions={filterDefinitions}
         sortOptions={[]}

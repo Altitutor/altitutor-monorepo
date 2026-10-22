@@ -1,4 +1,5 @@
 'use client';
+import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 
 import React, { useState, useMemo, useCallback } from 'react';
 import {
@@ -47,7 +48,11 @@ export function IssuesList({
 }: IssuesListProps = {}) {
   const embedLocked = hideToolbar && embedView != null;
 
+  const {data:savedViews=[]}=useQuickFilters('issues');
   const {
+    visiblePillKeys,
+    setVisiblePillKeys,
+    applyQuickFilter,
     filters,
     setFilters,
     search,
@@ -185,11 +190,16 @@ export function IssuesList({
   return (
     <>
       <EntityList<IssueWithTags>
+        viewTarget="issues"
+        quickFilters={savedViews}
+        onApplyQuickFilter={(view) => applyQuickFilter(view, currentStaff?.id)}
         items={issues}
         getItemId={(i) => i.id}
         renderName={(i) => i.name ?? ''}
         statusColumn={statusColumn}
         rightPills={rightPills}
+        visiblePillKeys={visiblePillKeys}
+        onVisiblePillKeysChange={setVisiblePillKeys}
         groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
         groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}

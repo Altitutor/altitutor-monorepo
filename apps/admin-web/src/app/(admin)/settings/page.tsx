@@ -193,8 +193,8 @@ export default function SettingsPage() {
           icon: FileCheck,
           },
           {
-          title: "Quick Filters",
-          description: "Manage global and personal quick filters",
+          title: "Views",
+          description: "Manage global and personal views",
           href: "/settings/quick-filters",
           icon: FileText,
           },

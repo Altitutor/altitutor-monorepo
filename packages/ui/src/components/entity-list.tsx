@@ -1,5 +1,6 @@
 'use client';
 
+import { choiceFilterMatches, isFilterMetadata } from '@altitutor/shared';
 import { EntityToolbar } from './entity-toolbar';
 
 
@@ -55,7 +56,8 @@ export interface EntityListPillColumn<TItem, TValue = unknown> {
   defaultValue?: TValue;
 }
 
-export function selectedFilterMatchesValue(selected: unknown[], value: unknown): boolean {
+export function selectedFilterMatchesValue(selected: unknown[], value: unknown, mode: unknown = 'any'): boolean {
+  if (!selected.some(v => typeof v === 'object' && v !== null && 'type' in v && v.type === 'date_range')) return choiceFilterMatches(selected,value,mode);
   return selected.some((v) => {
     if (v === value) return true;
     if (Array.isArray(value) && value.includes(v)) return true;
@@ -67,13 +69,13 @@ export function selectedFilterMatchesValue(selected: unknown[], value: unknown):
       const itemTime = new Date(itemDateStr).getTime();
       if (isNaN(itemTime)) return false;
 
-      if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start).getTime();
-      if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end).getTime();
+      if (dr.operator === 'gte' && dr.start) return itemTime >= new Date(dr.start.length === 10 ? dr.start + 'T00:00:00' : dr.start).getTime();
+      if (dr.operator === 'lte' && dr.end) return itemTime <= new Date(dr.end.length === 10 ? dr.end + 'T23:59:59.999' : dr.end).getTime();
       if (dr.start && dr.end) {
-        return itemTime >= new Date(dr.start).getTime() && itemTime <= new Date(dr.end).getTime();
+        return itemTime >= new Date(dr.start.length === 10 ? dr.start + 'T00:00:00' : dr.start).getTime() && itemTime <= new Date(dr.end.length === 10 ? dr.end + 'T23:59:59.999' : dr.end).getTime();
       }
-      if (dr.start) return itemTime >= new Date(dr.start).getTime();
-      if (dr.end) return itemTime <= new Date(dr.end).getTime();
+      if (dr.start) return itemTime >= new Date(dr.start.length === 10 ? dr.start + 'T00:00:00' : dr.start).getTime();
+      if (dr.end) return itemTime <= new Date(dr.end.length === 10 ? dr.end + 'T23:59:59.999' : dr.end).getTime();
       return false;
     }
 
@@ -116,6 +118,7 @@ export interface EntityListProps<TItem> {
   onSortChange?: (key: string, direction: 'asc' | 'desc') => void;
   filters?: Record<string, unknown[]>;
   onFiltersChange?: (filters: Record<string, unknown[]>) => void;
+  viewTarget?: string;
   quickFilters?: QuickFilter[];
   onApplyQuickFilter?: (filter: QuickFilter) => void;
   searchValue?: string;
@@ -231,6 +234,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     onSortChange,
     filters: controlledFilters,
     onFiltersChange,
+    viewTarget,
     quickFilters = [],
     onApplyQuickFilter,
     searchValue,
@@ -303,7 +307,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     setAddValues(defaults);
     addRowInputRef.current?.focus();
   }, [onAdd, addName, addDescription, addValues, statusColumn, rightPills]);
-  const groupBy = controlledGroupBy ?? internalGroupBy;
+  const groupBy = controlledGroupBy !== undefined ? controlledGroupBy : internalGroupBy;
   const setGroupBy = onGroupByChange ?? setInternalGroupBy;
   const sortBy = controlledSortBy ?? internalSortBy;
   const setSortBy = onSortChange
@@ -332,6 +336,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     if (activeFilterCount === 0) return items;
     return items.filter((item) => {
       for (const columnKey of Object.keys(filters)) {
+        if (isFilterMetadata(columnKey)) continue;
         const selected = filters[columnKey];
         if (!selected?.length) continue;
         const pill = rightPills.find((p) => p.key === columnKey);
@@ -339,7 +344,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
         const value = pill ? pill.getValue(item) : statusVal;
         const hasColumn = pill !== undefined || statusColumn?.key === columnKey;
         if (!hasColumn) continue;
-        const match = selectedFilterMatchesValue(selected, value);
+        const match = selectedFilterMatchesValue(selected, value, filters[`${columnKey}__operator`]?.[0]);
         if (!match) return false;
       }
       return true;
@@ -395,6 +400,7 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     <div className="flex flex-col h-full rounded-md bg-background overflow-hidden w-full max-w-full">
       {!hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
         <EntityToolbar
+            viewTarget={viewTarget}
           statusColumn={statusColumn} rightPills={rightPills}
           filters={filters} onFiltersChange={setFilters}
           sortOptions={visibleSortByOptions} sortBy={sortBy} sortDirection={sortDirection} onSortChange={setSortBy}

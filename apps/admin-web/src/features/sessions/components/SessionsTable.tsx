@@ -2,6 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
+  type ToolbarView,
   Table,
   TableBody,
   TableCell,
@@ -21,6 +22,8 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { LogSessionModal, EditTutorLogDialog } from '@/features/tutor-logs';
 import { useRouter } from 'next/navigation';
 import { useAdminUrlSync } from '@/shared/hooks/useAdminUrlSync';
+import { SessionsCalendarView } from './SessionsCalendarView';
+import { format, startOfWeek, endOfWeek } from 'date-fns';
 import { useSessionsTable } from '../hooks/useSessionsTable';
 import { useSessionsTableModals } from '../hooks/useSessionsTableModals';
 import { useDataTable } from '@/shared/hooks/useDataTable';
@@ -42,6 +45,10 @@ const SESSION_TYPES = [
 ] as const;
 
 type SessionsTableProps = {
+  renderMode?: "table" | "calendar";
+  toolbarView?: ToolbarView;
+  initialCalendarDate?: string;
+  initialCalendarMode?: "day" | "week";
   studentId?: string;
   staffId?: string;
   parentId?: string;
@@ -89,6 +96,10 @@ type SessionsTableProps = {
 };
 
 export function SessionsTable({
+  renderMode = "table",
+  toolbarView,
+  initialCalendarDate,
+  initialCalendarMode,
   studentId,
   staffId,
   parentId,
@@ -120,6 +131,11 @@ export function SessionsTable({
   onRemoveStaffFromSession,
   onRemoveParentFromSession,
 }: SessionsTableProps) {
+  const [calendarRange,setCalendarRange] = useState(() => {
+    const anchor = initialCalendarDate && /^\d{4}-\d{2}-\d{2}$/.test(initialCalendarDate) ? new Date(initialCalendarDate+'T12:00:00') : new Date();
+    return {from:format(initialCalendarMode === 'day' ? anchor : startOfWeek(anchor,{weekStartsOn:1}),'yyyy-MM-dd'),to:format(initialCalendarMode === 'day' ? anchor : endOfWeek(anchor,{weekStartsOn:1}),'yyyy-MM-dd')};
+  });
+  const changeCalendarRange = useCallback((from:string,to:string) => setCalendarRange((previous) => previous.from === from && previous.to === to ? previous : {from,to}),[]);
   const isStudentAttendanceView = attendanceView === 'student';
   const isStaffAttendanceView = attendanceView === 'staff';
   useAdminUrlSync();
@@ -160,6 +176,10 @@ export function SessionsTable({
     skipUrlSync,
   });
 
+  const calendarFrom = String(state.filters.from?.[0] ?? '');
+  const calendarTo = String(state.filters.to?.[0] ?? '');
+  const queryRangeStart = renderMode === 'calendar' ? [calendarRange.from,calendarFrom].filter(Boolean).sort().at(-1) : rangeStart;
+  const queryRangeEnd = renderMode === 'calendar' ? [calendarRange.to,calendarTo].filter(Boolean).sort()[0] : rangeEnd;
   // Use the main hook for all business logic
   const {
     // Data
@@ -190,8 +210,8 @@ export function SessionsTable({
     classId,
     adminShiftId,
     limit,
-    rangeStart,
-    rangeEnd,
+    rangeStart: queryRangeStart,
+    rangeEnd: queryRangeEnd,
     hideStudentFilter,
     initialStudentFilters,
     studentSearchQuery: studentFilterSearch,
@@ -238,11 +258,13 @@ export function SessionsTable({
   const filterDefinitions: DataTableFilterDefinition[] = useMemo(() => [
     ...(hideTypeFilter ? [] : [{
       key: 'type',
+      choiceOperators: true,
       label: 'Session Type',
       options: SESSION_TYPES.map(t => ({ label: formatSessionType(t), value: t })),
     }]),
     {
       key: 'subject',
+      choiceOperators: true,
       label: 'Subject',
       options: subjectFilterOptions,
       searchable: true,
@@ -250,6 +272,7 @@ export function SessionsTable({
     },
     ...(hideStudentFilter ? [] : [{
       key: 'student',
+      choiceOperators: true,
       label: 'Student',
       options: filteredStudents.map(s => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
       searchable: true,
@@ -257,6 +280,7 @@ export function SessionsTable({
     }]),
     ...[{
       key: 'staff',
+      choiceOperators: true,
       label: 'Staff',
       options: filteredStaff.map(s => ({ label: `${s.first_name} ${s.last_name}`, value: s.id })),
       searchable: true,
@@ -264,6 +288,7 @@ export function SessionsTable({
     }],
     ...(hideTutorLogFilter ? [] : [{
       key: 'tutor_log',
+      choiceOperators: true,
       label: 'Tutor Log',
       options: [
         { label: 'Logged', value: 'logged' },
@@ -399,6 +424,7 @@ export function SessionsTable({
         <div className={cn('flex flex-col gap-2', fillHeight && 'shrink-0 pt-1.5')}>
           <DataTableToolbar
             state={state}
+            view={toolbarView}
             onSearchChange={setSearch}
             onFiltersChange={setFilters}
             onSortChange={setSort}
@@ -408,8 +434,8 @@ export function SessionsTable({
             onReset={resetFilters}
             filterDefinitions={filterDefinitions}
             sortOptions={sortOptions}
-            columnDefinitions={columnDefinitions}
-            quickFilters={quickFilters}
+            columnDefinitions={renderMode === "calendar" ? columnDefinitions.filter((column) => ["class","staff","students"].includes(column.key)) : columnDefinitions}
+            quickFilters={quickFilters} viewTarget="sessions"
             hideSearch={_hideSearch}
             filterSearchValues={{
               student: studentFilterSearch,
@@ -427,6 +453,7 @@ export function SessionsTable({
         </div>
       )}
 
+      {renderMode === 'calendar' ? <SessionsCalendarView onOpenSession={onOpenSession} initialDate={calendarFrom || calendarTo || initialCalendarDate} initialViewMode={initialCalendarMode} onRangeChange={changeCalendarRange} visibleProperties={state.visibleColumns} source={{sessions:filteredSessions,classesById,subjectsById,sessionStudents,sessionStaff}} /> : <>
       <div
         className={cn(
           'rounded-md border overflow-hidden',
@@ -523,7 +550,7 @@ export function SessionsTable({
           </TableBody>
         </Table>
       </div>
-      
+
       {showPagination && (
         <TablePagination
           page={state.page}
@@ -534,6 +561,8 @@ export function SessionsTable({
           onPageSizeChange={setPageSize}
         />
       )}
+
+      </>}
 
       {/* Class Modal */}
       {modals.selectedClassId && (

@@ -1,5 +1,12 @@
 "use client";
 
+import {
+  encodeViewConfig,
+  readViewSettings,
+  type DisplaySettings,
+  type SavedView,
+} from "@altitutor/shared";
+import { ToolbarSavedViews, useMatchingView } from "./toolbar-saved-views";
 import type { ToolbarView } from "./toolbar-view";
 
 import * as React from "react";
@@ -35,6 +42,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { ToolbarSelectRow } from "./toolbar-select-row";
 import { SearchableSelectInline } from "./searchable-select-inline";
+export type { ToolbarFilterEditorContext } from "./toolbar-filters";
 import { ToolbarAddFilter, ToolbarFilterPills } from "./toolbar-filters";
 import type { ToolbarConditionFilters } from "./toolbar-filter-pill";
 import { navLinkActiveStyles, navLinkInactiveStyles } from "../lib/styles";
@@ -49,6 +57,13 @@ import {
 } from "../lib/column-view-layout";
 
 export interface DataTableToolbarProps {
+  viewTarget?: string;
+  filterStateAdapter?: {
+    read: (stored: Record<string, unknown[]>) => Record<string, unknown[]>;
+    write: (toolbar: Record<string, unknown[]>) => Record<string, unknown[]>;
+  };
+  displayInline?: boolean;
+  hideViews?: boolean;
   columnHeading?: string;
   conditionFilters?: ToolbarConditionFilters;
   view?: ToolbarView;
@@ -91,7 +106,10 @@ export interface DataTableToolbarProps {
   /** Called when the user clears the "Show deleted" filter (e.g. via the X button) */
   onClearShowDeleted?: () => void;
   /** Custom filter content for specific keys - renders inside DropdownMenuSub (e.g. SearchableSelectInline) */
-  customFilterContent?: Record<string, React.ReactNode>;
+  customFilterContent?: Record<
+    string,
+    import("./toolbar-filters").ToolbarFilterEditor
+  >;
   /** When true, the search input is hidden (filters / view / sort remain) */
   hideSearch?: boolean;
   /** Optional content rendered inside the leading edge of the search field. Replaces the default search icon. */
@@ -127,52 +145,52 @@ export interface DataTableSearchFromOption {
   value: string;
 }
 
-export function DataTableToolbar({
-  state,
-  conditionFilters,
-  columnHeading = "Show columns",
-  view,
-  viewContent,
-  allowEmptyColumns = false,
-  groupByRequired = false,
-  onSearchChange,
-  onFiltersChange,
-  onSortChange,
-  onGroupByChange,
-  onVisibleColumnsChange,
-  onQuickFilterApply,
-  onReset: _onReset,
-  filterDefinitions = [],
-  sortOptions = [],
-  groupByOptions = [],
-  columnDefinitions = [],
-  defaultVisibleColumns,
-  quickFilters = [],
-  className,
-  rowClassName,
-  searchPlaceholder = "Search...",
-  searchFromOptions = [],
-  searchFromValue,
-  onSearchFromChange,
-  searchContainerClassName,
-  searchInputClassName,
-  controlClassName,
-  isLoading: _isLoading = false,
-  filterSearchValues: _filterSearchValues = {},
-  onFilterSearchChange,
-  filterFooter,
-  showDeletedActive = false,
-  onClearShowDeleted,
-  customFilterContent = {},
-  hideSearch = false,
-  searchLeadingAccessory,
-  searchAccessory,
-  compact: compactProp = false,
-  searchFromInView: _searchFromInView = false,
-  stemSearchFromOptions: _stemSearchFromOptions = [],
-  searchFromViewGroups,
-  columnViewGroups = [],
-}: DataTableToolbarProps) {
+export function DataTableToolbar(props: DataTableToolbarProps) {
+  const {
+    viewTarget,
+    filterStateAdapter,
+    displayInline = false,
+    hideViews = false,
+    state,
+    conditionFilters,
+    columnHeading = "Show columns",
+    view,
+    viewContent,
+    allowEmptyColumns = false,
+    groupByRequired = false,
+    onSearchChange,
+    onFiltersChange,
+    onSortChange,
+    onGroupByChange,
+    onVisibleColumnsChange,
+    onQuickFilterApply,
+    filterDefinitions = [],
+    sortOptions = [],
+    groupByOptions = [],
+    columnDefinitions = [],
+    defaultVisibleColumns,
+    quickFilters = [],
+    className,
+    rowClassName,
+    searchPlaceholder = "Search...",
+    searchFromOptions = [],
+    searchFromValue,
+    onSearchFromChange,
+    searchContainerClassName,
+    searchInputClassName,
+    controlClassName,
+    onFilterSearchChange,
+    filterFooter,
+    showDeletedActive = false,
+    onClearShowDeleted,
+    customFilterContent = {},
+    hideSearch = false,
+    searchLeadingAccessory,
+    searchAccessory,
+    compact: compactProp = false,
+    searchFromViewGroups,
+    columnViewGroups = [],
+  } = props;
   const narrow = !useMediaQuery("(min-width: 768px)");
   const compact = compactProp || narrow;
   const [searchValue, setSearchValue] = React.useState(state.search);
@@ -181,7 +199,7 @@ export function DataTableToolbar({
   const isInternalUpdateRef = React.useRef(false);
   const onSearchChangeRef = React.useRef(onSearchChange);
   onSearchChangeRef.current = onSearchChange;
-  const filterPersistenceKey = `data-table-toolbar:filters:${typeof window === "undefined" ? "" : window.location.pathname}`;
+  const filterPersistenceKey = `data-table-toolbar:filters:${viewTarget ?? quickFilters[0]?.target_entity ?? ""}:${displayInline ? "draft" : "live"}:${typeof window === "undefined" ? "" : window.location.pathname}`;
   const [filterOpen, setFilterOpen] = useRemountPersistentState(
     filterPersistenceKey,
     false,
@@ -425,6 +443,269 @@ export function DataTableToolbar({
     searchFromControl ??
     defaultSearchLeadingAccessory;
 
+  const currentSettings: DisplaySettings = {
+    ...(view?.value ? { layout: view.value } : {}),
+    filters: filterStateAdapter?.write(state.filters) ?? state.filters,
+    sortBy: state.sortBy,
+    sortDirection: state.sortDirection,
+    groupBy: state.groupBy,
+    visibleColumns: state.visibleColumns,
+    ...(columnViewGroups.length
+      ? {
+          columnGroups: Object.fromEntries(
+            columnViewGroups.map((group) => [
+              group.heading,
+              group.visibleColumns,
+            ]),
+          ),
+        }
+      : {}),
+    ...(conditionFilters ? { conditions: conditionFilters.value } : {}),
+  };
+  const defaultsRef = React.useRef<DisplaySettings>({
+    ...currentSettings,
+    filters: {},
+    visibleColumns:
+      resolvedDefaultVisibleColumns ?? currentSettings.visibleColumns,
+    ...(conditionFilters ? { conditions: [] } : {}),
+  });
+  const matchingView = useMatchingView(
+    quickFilters,
+    currentSettings,
+    defaultsRef.current,
+  );
+  const applySavedView = (saved: SavedView) => {
+    const settings = readViewSettings(saved.config, defaultsRef.current);
+    onQuickFilterApply({ ...saved, config: encodeViewConfig(settings) });
+    conditionFilters?.onChange(settings.conditions ?? []);
+    for (const group of columnViewGroups) {
+      const columns = settings.columnGroups?.[group.heading];
+      if (columns) group.onVisibleColumnsChange(columns);
+    }
+    view?.onPresetApply?.(settings);
+  };
+  const displayContent = (
+    <>
+      {view ? (
+        <div className="flex gap-2 border-b p-4" aria-label="View layout">
+          {view.options.map((option) => (
+            <Button
+              key={option.value}
+              type="button"
+              variant={view.value === option.value ? "secondary" : "ghost"}
+              className={cn(
+                "flex-1 rounded-full",
+                view.value === option.value
+                  ? navLinkActiveStyles
+                  : navLinkInactiveStyles,
+              )}
+              aria-pressed={view.value === option.value}
+              onClick={() => view.onChange(option.value)}
+            >
+              {option.value === "board" ? (
+                <LayoutGrid className="mr-2 h-4 w-4" />
+              ) : (
+                <List className="mr-2 h-4 w-4" />
+              )}
+              {option.label}
+            </Button>
+          ))}
+        </div>
+      ) : null}
+      {groupByOptions.length || sortOptions.length || viewContent ? (
+        <div className="border-b px-4 py-3">
+          {groupByOptions.length ? (
+            <ToolbarSelectRow
+              label="Group by"
+              summary={
+                groupByOptions.find((option) => option.key === state.groupBy)
+                  ?.label ?? "No grouping"
+              }
+              persistenceKey={`${filterPersistenceKey}:group`}
+            >
+              <SearchableSelectInline
+                items={groupByOptions}
+                value={
+                  groupByOptions.find(
+                    (option) => option.key === state.groupBy,
+                  ) ?? null
+                }
+                onValueChange={(option) => onGroupByChange(option?.key ?? null)}
+                getItemId={(option) => option.key}
+                getItemLabel={(option) => option.label}
+                searchPlaceholder="Search groups..."
+                allowClear={!groupByRequired}
+                clearLabel="No grouping"
+              />
+            </ToolbarSelectRow>
+          ) : null}
+          {sortOptions.length ? (
+            <>
+              <ToolbarSelectRow
+                label="Sort"
+                summary={
+                  sortOptions.find((option) => option.key === state.sortBy)
+                    ?.label ?? "None"
+                }
+                persistenceKey={`${filterPersistenceKey}:sort`}
+                accessory={
+                  state.sortBy ? (
+                    <button
+                      type="button"
+                      aria-label={
+                        state.sortDirection === "asc"
+                          ? "Sort descending"
+                          : "Sort ascending"
+                      }
+                      className="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                      onClick={() =>
+                        onSortChange(
+                          state.sortBy,
+                          state.sortDirection === "asc" ? "desc" : "asc",
+                        )
+                      }
+                    >
+                      {state.sortDirection === "asc" ? (
+                        <ArrowUp className="h-4 w-4" />
+                      ) : (
+                        <ArrowDown className="h-4 w-4" />
+                      )}
+                    </button>
+                  ) : null
+                }
+              >
+                <SearchableSelectInline
+                  items={sortOptions}
+                  value={
+                    sortOptions.find((option) => option.key === state.sortBy) ??
+                    null
+                  }
+                  onValueChange={(option) =>
+                    onSortChange(
+                      option?.key ?? null,
+                      option
+                        ? option.key === state.sortBy
+                          ? state.sortDirection
+                          : "asc"
+                        : "desc",
+                    )
+                  }
+                  getItemId={(option) => option.key}
+                  getItemLabel={(option) => option.label}
+                  searchPlaceholder="Search sort options..."
+                  allowClear
+                  clearLabel="None"
+                />
+              </ToolbarSelectRow>
+            </>
+          ) : null}
+          {viewContent}
+        </div>
+      ) : null}
+      {filterDefinitions.length ||
+      conditionFilters?.fields.length ||
+      filterFooter ? (
+        <div className="border-b px-4 py-3">
+          <p className="mb-1 text-xs font-medium">Filters</p>
+          <ToolbarFilterPills
+            {...filtersProps}
+            hideClear
+            trailingContent={
+              <div className="inline-flex shrink-0 items-center gap-1">
+                <ToolbarAddFilter {...filtersProps} />
+                {effectiveActiveFilterCount ? (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs"
+                    onClick={handleClearAllFilters}
+                  >
+                    Clear all filters
+                  </Button>
+                ) : null}
+              </div>
+            }
+            showDeletedActive={showDeletedActive}
+            clearDeleted={onClearShowDeleted}
+          />
+          {filterFooter}
+        </div>
+      ) : null}
+      {columnViewGroups.length || columnDefinitions.length ? (
+        <div className="px-4 py-3">
+          <p className="mb-2 text-sm text-muted-foreground">
+            Display properties
+          </p>
+          {(columnViewGroups.length
+            ? columnViewGroups
+            : [
+                {
+                  heading: columnHeading,
+                  columnDefinitions,
+                  visibleColumns: state.visibleColumns,
+                  onVisibleColumnsChange: handleVisibleColumnsChange,
+                },
+              ]
+          ).map((group) => (
+            <div key={group.heading} className="space-y-2 py-1">
+              {columnViewGroups.length ? (
+                <p className="text-xs text-muted-foreground">{group.heading}</p>
+              ) : null}
+              <div className="flex flex-wrap gap-1.5">
+                {group.columnDefinitions.map((column) => {
+                  const selected = group.visibleColumns.includes(column.key);
+                  const required =
+                    selected &&
+                    group.visibleColumns.length === 1 &&
+                    (columnViewGroups.length > 0 || !allowEmptyColumns);
+                  return (
+                    <button
+                      key={column.key}
+                      type="button"
+                      aria-pressed={selected}
+                      disabled={required}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-60",
+                        selected ? navLinkActiveStyles : navLinkInactiveStyles,
+                      )}
+                      onClick={() =>
+                        group.onVisibleColumnsChange(
+                          selected
+                            ? group.visibleColumns.filter(
+                                (key) => key !== column.key,
+                              )
+                            : [...group.visibleColumns, column.key],
+                        )
+                      }
+                    >
+                      {column.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {viewLayoutChangeCount ? (
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2 text-xs"
+              onClick={handleResetViewLayout}
+            >
+              Reset column layout to default
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+    </>
+  );
+  if (displayInline)
+    return (
+      <div className="overflow-hidden rounded-lg border">{displayContent}</div>
+    );
+
   return (
     <div
       className={cn(
@@ -485,10 +766,13 @@ export function DataTableToolbar({
             >
               <SlidersHorizontal className={iconClass()} />
               <span className={labelClass}>Display</span>
-              {effectiveActiveFilterCount ? (
-                <span className="ml-1 rounded-full bg-muted px-1.5 text-xs">
-                  {effectiveActiveFilterCount}
-                </span>
+              {!matchingView ? (
+                <span
+                  role="img"
+                  aria-label="Custom display settings"
+                  title="Custom display settings"
+                  className="ml-1 h-1.5 w-1.5 rounded-full bg-current"
+                />
               ) : null}
             </Button>
           </PopoverTrigger>
@@ -497,256 +781,86 @@ export function DataTableToolbar({
             aria-label="Display options"
             className="max-h-[min(80vh,700px)] w-[min(420px,calc(100vw-24px))] overflow-y-auto p-0"
           >
-            {view ? (
-              <div className="flex gap-2 border-b p-4" aria-label="View layout">
-                {view.options.map((option) => (
-                  <Button
-                    key={option.value}
-                    type="button"
-                    variant={
-                      view.value === option.value ? "secondary" : "ghost"
-                    }
-                    className={cn(
-                      "flex-1 rounded-full",
-                      view.value === option.value
-                        ? navLinkActiveStyles
-                        : navLinkInactiveStyles,
-                    )}
-                    aria-pressed={view.value === option.value}
-                    onClick={() => view.onChange(option.value)}
-                  >
-                    {option.value === "board" ? (
-                      <LayoutGrid className="mr-2 h-4 w-4" />
-                    ) : (
-                      <List className="mr-2 h-4 w-4" />
-                    )}
-                    {option.label}
-                  </Button>
-                ))}
-              </div>
-            ) : null}
-            {groupByOptions.length || sortOptions.length || viewContent ? (
-              <div className="border-b px-4 py-3">
-                {groupByOptions.length ? (
-                  <ToolbarSelectRow
-                    label="Group by"
-                    summary={
-                      groupByOptions.find(
-                        (option) => option.key === state.groupBy,
-                      )?.label ?? "No grouping"
-                    }
-                    persistenceKey={`${filterPersistenceKey}:group`}
-                  >
-                    <SearchableSelectInline
-                      items={groupByOptions}
-                      value={
-                        groupByOptions.find(
-                          (option) => option.key === state.groupBy,
-                        ) ?? null
-                      }
-                      onValueChange={(option) =>
-                        onGroupByChange(option?.key ?? null)
-                      }
-                      getItemId={(option) => option.key}
-                      getItemLabel={(option) => option.label}
-                      searchPlaceholder="Search groups..."
-                      allowClear={!groupByRequired}
-                      clearLabel="No grouping"
-                    />
-                  </ToolbarSelectRow>
-                ) : null}
-                {sortOptions.length ? (
-                  <>
-                    <ToolbarSelectRow
-                      label="Sort"
-                      summary={
-                        sortOptions.find(
-                          (option) => option.key === state.sortBy,
-                        )?.label ?? "None"
-                      }
-                      persistenceKey={`${filterPersistenceKey}:sort`}
-                      accessory={
-                        state.sortBy ? (
-                          <button
-                            type="button"
-                            aria-label={
-                              state.sortDirection === "asc"
-                                ? "Sort descending"
-                                : "Sort ascending"
-                            }
-                            aria-pressed={state.sortDirection === "asc"}
-                            className={cn(
-                              "inline-flex h-8 w-8 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                              state.sortDirection === "asc"
-                                ? navLinkActiveStyles
-                                : navLinkInactiveStyles,
-                            )}
-                            onClick={() =>
-                              onSortChange(
-                                state.sortBy,
-                                state.sortDirection === "asc" ? "desc" : "asc",
-                              )
-                            }
-                          >
-                            {state.sortDirection === "asc" ? (
-                              <ArrowUp className="h-4 w-4" />
-                            ) : (
-                              <ArrowDown className="h-4 w-4" />
-                            )}
-                          </button>
-                        ) : null
-                      }
-                    >
-                      <SearchableSelectInline
-                        items={sortOptions}
-                        value={
-                          sortOptions.find(
-                            (option) => option.key === state.sortBy,
-                          ) ?? null
-                        }
-                        onValueChange={(option) =>
-                          onSortChange(
-                            option?.key ?? null,
-                            option
-                              ? option.key === state.sortBy
-                                ? state.sortDirection
-                                : "asc"
-                              : "desc",
-                          )
-                        }
-                        getItemId={(option) => option.key}
-                        getItemLabel={(option) => option.label}
-                        searchPlaceholder="Search sort options..."
-                        allowClear
-                        clearLabel="None"
-                      />
-                    </ToolbarSelectRow>
-                  </>
-                ) : null}
-                {viewContent}
-              </div>
-            ) : null}
-            {filterDefinitions.length ||
-            conditionFilters?.fields.length ||
-            quickFilters.length ||
-            filterFooter ? (
-              <div className="border-b px-4 py-3">
-                <p className="mb-1 text-xs font-medium">Filters</p>
-                {quickFilters.length ? (
-                  <div className="flex flex-wrap gap-1 py-2">
-                    {quickFilters.map((filter) => (
-                      <Button
-                        key={filter.id}
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        className="h-7 text-xs"
-                        onClick={() => onQuickFilterApply(filter)}
-                      >
-                        {filter.name}
-                      </Button>
-                    ))}
-                  </div>
-                ) : null}
-                <ToolbarFilterPills
-                  {...filtersProps}
-                  hideClear
-                  trailingContent={<ToolbarAddFilter {...filtersProps} />}
-                  showDeletedActive={showDeletedActive}
-                  clearDeleted={onClearShowDeleted}
-                />
-                {filterFooter}
-                {effectiveActiveFilterCount ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 text-xs"
-                    onClick={handleClearAllFilters}
-                  >
-                    Clear all filters
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
-            {columnViewGroups.length || columnDefinitions.length ? (
-              <div className="px-4 py-3">
-                <p className="mb-1 text-xs font-medium">View properties</p>
-                {columnViewGroups.length ? (
-                  columnViewGroups.map((group) => (
-                    <ToolbarSelectRow
-                      key={group.heading}
-                      label={group.heading}
-                      summary={`${group.visibleColumns.length} selected`}
-                      persistenceKey={`${filterPersistenceKey}:columns:${group.heading}`}
-                    >
-                      <SearchableSelectInline<DataTableColumnDefinition>
-                        items={group.columnDefinitions}
-                        value={group.columnDefinitions.filter((column) =>
-                          group.visibleColumns.includes(column.key),
-                        )}
-                        onValueChange={(columns) =>
-                          group.onVisibleColumnsChange(
-                            ensureAtLeastOneVisibleColumn(
-                              columns.map((column) => column.key),
-                              group.columnDefinitions.map(
-                                (column) => column.key,
-                              ),
-                            ),
-                          )
-                        }
-                        getItemId={(column) => column.key}
-                        getItemLabel={(column) => column.label}
-                        searchPlaceholder="Search columns..."
-                        multiSelect
-                      />
-                    </ToolbarSelectRow>
-                  ))
-                ) : (
-                  <ToolbarSelectRow
-                    label={columnHeading}
-                    summary={`${state.visibleColumns.length} selected`}
-                    persistenceKey={`${filterPersistenceKey}:columns`}
-                  >
-                    <SearchableSelectInline<DataTableColumnDefinition>
-                      items={columnDefinitions}
-                      value={columnDefinitions.filter((column) =>
-                        state.visibleColumns.includes(column.key),
-                      )}
-                      onValueChange={(columns) => {
-                        if (columns.length || allowEmptyColumns)
-                          handleVisibleColumnsChange(
-                            columns.map((column) => column.key),
-                          );
-                      }}
-                      getItemId={(column) => column.key}
-                      getItemLabel={(column) => column.label}
-                      searchPlaceholder="Search columns..."
-                      multiSelect
-                    />
-                  </ToolbarSelectRow>
-                )}
-                {viewLayoutChangeCount ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className="mt-2 text-xs"
-                    onClick={handleResetViewLayout}
-                  >
-                    Reset column layout to default
-                  </Button>
-                ) : null}
-              </div>
-            ) : null}
+            {displayContent}
           </PopoverContent>
         </Popover>
       </div>
-      <ToolbarFilterPills
-        {...filtersProps}
-        showDeletedActive={showDeletedActive}
-        clearDeleted={onClearShowDeleted}
-      />
+      {!hideViews ? (
+        <ToolbarSavedViews
+          views={quickFilters}
+          target={viewTarget ?? quickFilters[0]?.target_entity}
+          current={currentSettings}
+          defaults={defaultsRef.current}
+          onApply={applySavedView}
+          renderEditor={(draft, onChange) => (
+            <DataTableToolbar
+              {...props}
+              displayInline
+              hideViews
+              hideSearch
+              filterFooter={undefined}
+              viewContent={undefined}
+              showDeletedActive={false}
+              onClearShowDeleted={undefined}
+              state={{
+                ...state,
+                ...draft,
+                filters:
+                  filterStateAdapter?.read(draft.filters) ?? draft.filters,
+              }}
+              onSearchChange={() => {}}
+              onFiltersChange={(filters) =>
+                onChange({
+                  ...draft,
+                  filters: filterStateAdapter?.write(filters) ?? filters,
+                })
+              }
+              onSortChange={(sortBy, sortDirection) =>
+                onChange({ ...draft, sortBy, sortDirection })
+              }
+              onGroupByChange={(groupBy) => onChange({ ...draft, groupBy })}
+              onVisibleColumnsChange={(visibleColumns) =>
+                onChange({ ...draft, visibleColumns })
+              }
+              onQuickFilterApply={() => {}}
+              onReset={() => {}}
+              view={
+                view
+                  ? {
+                      ...view,
+                      value: draft.layout ?? view.value,
+                      onChange: (layout) => onChange({ ...draft, layout }),
+                      onPresetApply: undefined,
+                    }
+                  : undefined
+              }
+              conditionFilters={
+                conditionFilters
+                  ? {
+                      ...conditionFilters,
+                      value: draft.conditions ?? [],
+                      onChange: (conditions) =>
+                        onChange({ ...draft, conditions }),
+                    }
+                  : undefined
+              }
+              columnViewGroups={columnViewGroups.map((group) => ({
+                ...group,
+                visibleColumns:
+                  draft.columnGroups?.[group.heading] ?? group.visibleColumns,
+                onVisibleColumnsChange: (columns) =>
+                  onChange({
+                    ...draft,
+                    columnGroups: {
+                      ...draft.columnGroups,
+                      [group.heading]: columns,
+                    },
+                  }),
+              }))}
+            />
+          )}
+        />
+      ) : null}
     </div>
   );
 }

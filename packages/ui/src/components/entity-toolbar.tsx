@@ -25,6 +25,7 @@ type StoredDateRange = {
 };
 
 export function EntityToolbar<TItem>({
+  viewTarget,
   statusColumn,
   rightPills,
   columnDefs = [],
@@ -48,6 +49,7 @@ export function EntityToolbar<TItem>({
   compact,
   viewContent,
 }: {
+  viewTarget?: string;
   statusColumn?: EntityListStatusColumn<TItem, unknown>;
   rightPills: EntityListPillColumn<TItem, unknown>[];
   columnDefs?: Column[];
@@ -79,6 +81,7 @@ export function EntityToolbar<TItem>({
         key: column.key,
         label: column.label,
         options: column.options,
+        choiceOperators: true,
       });
   }
   for (const pill of rightPills) {
@@ -96,20 +99,27 @@ export function EntityToolbar<TItem>({
         key: pill.key,
         label: pill.label,
         options: pill.filterOptions,
+        choiceOperators: true,
       });
   }
   const dateColumns = rightPills.filter(
     (pill) => definitions.get(pill.key)?.type === "date-range",
   );
-  const toolbarFilters = { ...filters };
-  for (const pill of dateColumns) {
-    const stored = filters[pill.key]?.[0] as StoredDateRange | undefined;
-    delete toolbarFilters[pill.key];
-    if (stored?.type !== "date_range") continue;
-    if (stored.start) toolbarFilters[`${pill.key}__from`] = [stored.start];
-    if (stored.end) toolbarFilters[`${pill.key}__to`] = [stored.end];
-  }
-  const changeFilters = (next: Record<string, unknown[]>) => {
+  const toToolbarFilters = (storedFilters: Record<string, unknown[]>) => {
+    const toolbarFilters = { ...storedFilters };
+    for (const pill of dateColumns) {
+      const stored = storedFilters[pill.key]?.[0] as
+        | StoredDateRange
+        | undefined;
+      delete toolbarFilters[pill.key];
+      if (stored?.type !== "date_range") continue;
+      if (stored.start) toolbarFilters[`${pill.key}__from`] = [stored.start];
+      if (stored.end) toolbarFilters[`${pill.key}__to`] = [stored.end];
+    }
+    return toolbarFilters;
+  };
+  const toolbarFilters = toToolbarFilters(filters);
+  const toStoredFilters = (next: Record<string, unknown[]>) => {
     const result = { ...next };
     for (const pill of dateColumns) {
       const start = result[`${pill.key}__from`]?.[0];
@@ -122,12 +132,19 @@ export function EntityToolbar<TItem>({
             type: "date_range",
             ...(start ? { start: String(start) } : {}),
             ...(end ? { end: String(end) } : {}),
+            ...(!start && end
+              ? { operator: "lte" as const }
+              : start && !end
+                ? { operator: "gte" as const }
+                : {}),
           } satisfies StoredDateRange,
         ];
       else delete result[pill.key];
     }
-    onFiltersChange(result);
+    return result;
   };
+  const changeFilters = (next: Record<string, unknown[]>) =>
+    onFiltersChange(toStoredFilters(next));
   const columns = rightPills
     .filter((pill) => !pill.filterOnly)
     .map((pill) => ({
@@ -137,6 +154,8 @@ export function EntityToolbar<TItem>({
     }));
   return (
     <DataTableToolbar
+      viewTarget={viewTarget}
+      filterStateAdapter={{ read: toToolbarFilters, write: toStoredFilters }}
       state={{
         search,
         filters: toolbarFilters,

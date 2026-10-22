@@ -16,7 +16,7 @@ import { useCurrentStaff } from '@/shared/hooks';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
 import { useIssues } from '@/features/issues/api/queries';
 import { useProjects } from '@/features/projects/api/queries';
-import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
+import { getViewSettings, resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
 
 const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id', 'unlinked'] as const;
@@ -60,6 +60,9 @@ interface TasksBoardProps {
 
 export function TasksBoard({ filters: initialFilters, projectId, issueId, showLinkPill = true, defaultFilters }: TasksBoardProps) {
   const {
+    visiblePillKeys,
+    setVisiblePillKeys,
+    applyQuickFilter,
     filters,
     setFilters,
     search,
@@ -90,6 +93,7 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId, showLi
   const { data: projects = [] } = useProjects();
 
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
+    if (getViewSettings(qf.config)) {applyQuickFilter(qf,currentStaffId);return;}
     const resolved = resolveQuickFilterPlaceholders(qf.config, currentStaffId);
     if (resolved.assigned_to && !resolved.assignee) {
       resolved.assignee = resolved.assigned_to;
@@ -100,7 +104,7 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId, showLi
       delete resolved.assignedTo;
     }
     setFilters(resolved);
-  }, [currentStaffId, setFilters]);
+  }, [currentStaffId, setFilters, applyQuickFilter]);
 
   const { data: tasks = [], isLoading } = useTasks({
     ...filters,
@@ -517,6 +521,8 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId, showLi
         renderCard={renderCard}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
+        visiblePillKeys={visiblePillKeys}
+        onVisiblePillKeysChange={setVisiblePillKeys}
         groupByOptions={groupByOptions}
         sortByOptions={sortByOptions}
         sortBy={sortBy}
@@ -527,7 +533,7 @@ export function TasksBoard({ filters: initialFilters, projectId, issueId, showLi
         searchValue={search}
         onSearchChange={setSearch}
         searchPlaceholder="Search tasks..."
-        quickFilters={quickFilters}
+        quickFilters={quickFilters} viewTarget="tasks"
         onApplyQuickFilter={handleApplyQuickFilter}
         getGroupLabel={getGroupLabel}
         onAdd={handleAdd}

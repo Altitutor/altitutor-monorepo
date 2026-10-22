@@ -42,7 +42,7 @@ import { cn } from '@/shared/utils';
 import { formatShortDate } from '@/shared/utils/datetime';
 import { Clock, Circle, CheckCircle, Eye, CheckSquare, Loader2 } from 'lucide-react';
 import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
+import { getViewSettings, resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
 import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
 
 const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id', 'unlinked'] as const;
@@ -356,6 +356,9 @@ export function TasksList({
   const showInlineAddRow = !hideToolbar || isLinkedTaskList;
 
   const {
+    visiblePillKeys,
+    setVisiblePillKeys,
+    applyQuickFilter,
     filters,
     setFilters,
     search,
@@ -393,6 +396,7 @@ export function TasksList({
   const { data: projects = [] } = useProjects();
 
   const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
+    if (getViewSettings(qf.config)) {applyQuickFilter(qf,currentStaffId);return;}
     const resolved = resolveQuickFilterPlaceholders(qf.config, currentStaffId);
 
     if (resolved.assigned_to && !resolved.assignee) {
@@ -405,7 +409,7 @@ export function TasksList({
     }
 
     setFilters(resolved);
-  }, [currentStaffId, setFilters]);
+  }, [currentStaffId, setFilters, applyQuickFilter]);
 
   const { data: tasks = [], isLoading } = useTasks(effectiveFilters as TaskFilters);
   const filteredTasks = useMemo(() => tasks, [tasks]);
@@ -775,11 +779,14 @@ export function TasksList({
   return (
     <>
       <EntityList<TaskWithAssignee>
+        viewTarget="tasks"
         items={filteredTasks}
         getItemId={(t) => t.id}
         renderName={(t) => t.title ?? ''}
         statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
         rightPills={rightPills}
+        visiblePillKeys={visiblePillKeys}
+        onVisiblePillKeysChange={setVisiblePillKeys}
         groupByOptions={hideToolbar ? [] : groupByOptions}
         sortByOptions={sortByOptions}
         groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}

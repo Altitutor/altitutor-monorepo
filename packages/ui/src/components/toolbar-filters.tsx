@@ -1,10 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { DATE_FILTER_OPERATORS, dateFilterBounds } from "@altitutor/shared";
+import { SmartDatePickerPopover } from "./smart-date-picker";
 import type {
   DataTableFilterDefinition,
   DataTableFilterOption,
 } from "@altitutor/shared";
+import { Command, CommandInput } from "./command";
 import { Plus } from "lucide-react";
 import { useRemountPersistentState } from "../hooks/use-remount-persistent-state";
 import {
@@ -23,6 +26,7 @@ import { Checkbox } from "./checkbox";
 import { Button } from "./button";
 import {
   FilterPill,
+  filterSegmentClass,
   InlineFilterText,
   TEXT_FILTER_OPERATORS,
   CHOICE_FILTER_OPERATORS,
@@ -31,12 +35,20 @@ import {
   type ToolbarFilterOperator,
 } from "./toolbar-filter-pill";
 
+export type ToolbarFilterEditorContext = {
+  filters: Record<string, unknown[]>;
+  onChange: (filters: Record<string, unknown[]>) => void;
+};
+export type ToolbarFilterEditor =
+  | React.ReactNode
+  | ((context: ToolbarFilterEditorContext) => React.ReactNode);
+
 export interface ToolbarFiltersProps {
   definitions: DataTableFilterDefinition[];
   filters: Record<string, unknown[]>;
   onChange: (filters: Record<string, unknown[]>) => void;
   conditions?: ToolbarConditionFilters;
-  customContent?: Record<string, React.ReactNode>;
+  customContent?: Record<string, ToolbarFilterEditor>;
   onSearchChange?: (key: string, value: string) => void;
   persistenceKey: string;
   clearVersion?: number;
@@ -45,6 +57,8 @@ export interface ToolbarFiltersProps {
 function definitionKeys(definition: DataTableFilterDefinition) {
   return [
     definition.key,
+    `${definition.key}__operator`,
+    `${definition.key}__anchor`,
     definition.minKey,
     definition.maxKey,
     definition.fromKey,
@@ -84,8 +98,13 @@ function FilterValueEditor({
   ...props
 }: ToolbarFiltersProps & { definition: DataTableFilterDefinition }) {
   const { filters, onChange, customContent, onSearchChange } = props;
-  if (customContent?.[definition.key] != null)
-    return <>{customContent[definition.key]}</>;
+  const custom = customContent?.[definition.key];
+  if (custom != null)
+    return (
+      <>
+        {typeof custom === "function" ? custom({ filters, onChange }) : custom}
+      </>
+    );
   const setValue = (key: string, value: unknown) => {
     const next = { ...filters };
     if (value == null || value === "") delete next[key];
@@ -105,6 +124,8 @@ function FilterValueEditor({
         onToChange={(value) => setValue(definition.toKey!, value)}
         onRangeChange={(from, to) => {
           const next = { ...filters };
+          delete next[`${definition.key}__operator`];
+          delete next[`${definition.key}__anchor`];
           if (from) next[definition.fromKey!] = [from];
           else delete next[definition.fromKey!];
           if (to) next[definition.toKey!] = [to];
@@ -199,6 +220,94 @@ function FilterValueEditor({
       }
     />
   );
+}
+
+function DateFilterSegments({
+  definition,
+  filters,
+  onChange,
+}: ToolbarFiltersProps & { definition: DataTableFilterDefinition }) {
+  const operator = String(
+    filters[`${definition.key}__operator`]?.[0] ?? "between",
+  );
+  const fromKey = definition.fromKey!;
+  const toKey = definition.toKey!;
+  const from = String(filters[fromKey]?.[0] ?? "");
+  const to = String(filters[toKey]?.[0] ?? "");
+  const anchor = String(
+    filters[`${definition.key}__anchor`]?.[0] ?? from ?? to,
+  );
+  const parts =
+    operator === "between"
+      ? [
+          { key: fromKey, value: from, label: "start date" },
+          { key: toKey, value: to, label: "end date" },
+        ]
+      : [{ key: fromKey, value: anchor || to, label: "date" }];
+  return (
+    <>
+      {parts.map((part) => (
+        <SmartDatePickerPopover
+          key={part.label}
+          value={part.value || null}
+          onChange={(value) => {
+            const next = { ...filters };
+            if (operator === "between") {
+              if (value) next[part.key] = [value];
+              else delete next[part.key];
+            } else {
+              delete next[fromKey];
+              delete next[toKey];
+              const bounds = dateFilterBounds(operator, value ?? "");
+              if (bounds.from) next[fromKey] = [bounds.from];
+              if (bounds.to) next[toKey] = [bounds.to];
+              if (value) next[`${definition.key}__anchor`] = [value];
+              else delete next[`${definition.key}__anchor`];
+            }
+            onChange(next);
+          }}
+        >
+          <button
+            type="button"
+            className={filterSegmentClass}
+            aria-label={`Change ${part.label} for ${definition.label}`}
+          >
+            {part.value || "Select date…"}
+          </button>
+        </SmartDatePickerPopover>
+      ))}
+    </>
+  );
+}
+
+function changeDateOperator(
+  definition: DataTableFilterDefinition,
+  filters: Record<string, unknown[]>,
+  operator: string,
+) {
+  const next = { ...filters };
+  const anchor = String(
+    filters[`${definition.key}__anchor`]?.[0] ??
+      filters[definition.fromKey!]?.[0] ??
+      filters[definition.toKey!]?.[0] ??
+      "",
+  );
+  next[`${definition.key}__operator`] = [operator];
+  if (operator === "between") {
+    delete next[`${definition.key}__anchor`];
+    if (anchor) {
+      next[definition.fromKey!] = [anchor];
+      next[definition.toKey!] = [anchor];
+    }
+  } else {
+    delete next[definition.fromKey!];
+    delete next[definition.toKey!];
+    if (anchor) next[`${definition.key}__anchor`] = [anchor];
+    const bounds = dateFilterBounds(operator, anchor);
+    if (bounds.from) next[definition.fromKey!] = [bounds.from];
+    if (bounds.to) next[definition.toKey!] = [bounds.to];
+  }
+  return next;
 }
 
 function updateCondition(
@@ -299,12 +408,11 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
     false,
   );
   const [query, setQuery] = React.useState("");
+  const [activeField, setActiveField] = useRemountPersistentState<
+    string | null
+  >(`${props.persistenceKey}:active-field`, null);
+  const listRef = React.useRef<HTMLDivElement>(null);
   const searchRef = React.useRef<HTMLInputElement>(null);
-  React.useEffect(() => {
-    if (!open) return;
-    const frame = requestAnimationFrame(() => searchRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [open]);
   const matches = (label: string) =>
     label.toLowerCase().includes(query.trim().toLowerCase());
   const definitions = props.definitions.filter(
@@ -314,7 +422,16 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
   const fields =
     props.conditions?.fields.filter((field) => matches(field.label)) ?? [];
   return (
-    <DropdownMenu open={open} onOpenChange={setOpen}>
+    <DropdownMenu
+      open={open}
+      onOpenChange={(next) => {
+        if (next && !open) {
+          setActiveField(null);
+          setQuery("");
+        }
+        setOpen(next);
+      }}
+    >
       <DropdownMenuTrigger asChild>
         <Button
           type="button"
@@ -326,73 +443,112 @@ export function ToolbarAddFilter(props: ToolbarFiltersProps) {
           Add filter
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className="w-[min(320px,90vw)] p-0">
-        <div className="border-b p-2">
-          <Input
+      <DropdownMenuContent
+        align="start"
+        className="w-[min(320px,90vw)] p-0"
+        onFocusCapture={(event) => {
+          if (event.target === event.currentTarget) searchRef.current?.focus();
+        }}
+      >
+        <Command shouldFilter={false} label="Search filters">
+          <CommandInput
             ref={searchRef}
             aria-label="Search filters"
             placeholder="Search filters…"
             value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            onKeyDown={(event) => event.stopPropagation()}
+            onValueChange={setQuery}
+            onKeyDown={(event) => {
+              if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                event.preventDefault();
+                const fields =
+                  listRef.current?.querySelectorAll<HTMLElement>(
+                    '[role="menuitem"]',
+                  );
+                (event.key === "ArrowUp"
+                  ? fields?.[fields.length - 1]
+                  : fields?.[0]
+                )?.focus();
+              }
+              if (event.key !== "Escape") event.stopPropagation();
+            }}
           />
-        </div>
-        <div className="max-h-80 overflow-y-auto p-1">
-          {definitions.map((definition) => (
-            <DropdownMenuSub
-              key={definition.key}
-              persistOpenOnRemountKey={`${props.persistenceKey}:${definition.key}`}
-            >
-              <DropdownMenuSubTrigger>
-                {definition.label}
-              </DropdownMenuSubTrigger>
-              <DropdownMenuSubContent
-                onFocusOutside={(event) => event.preventDefault()}
-                className="w-[min(320px,90vw)] p-0"
+          <div ref={listRef} className="max-h-80 overflow-y-auto p-1">
+            {definitions.map((definition) => (
+              <DropdownMenuSub
+                key={definition.key}
+                open={activeField === definition.key}
+                onOpenChange={(next) =>
+                  setActiveField((current) =>
+                    next
+                      ? definition.key
+                      : current === definition.key
+                        ? null
+                        : current,
+                  )
+                }
+                persistOpenOnRemountKey={`${props.persistenceKey}:${definition.key}`}
               >
-                <FilterValueEditor {...props} definition={definition} />
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
-          {fields.length ? (
-            <DropdownMenuLabel className="text-xs text-muted-foreground">
-              Question answers
-            </DropdownMenuLabel>
-          ) : null}
-          {fields.map((field) => (
-            <DropdownMenuSub
-              key={field.key}
-              persistOpenOnRemountKey={`${props.persistenceKey}:question:${field.key}`}
-            >
-              <DropdownMenuSubTrigger>{field.label}</DropdownMenuSubTrigger>
-              <DropdownMenuSubContent
-                onFocusOutside={(event) => event.preventDefault()}
-                className="w-[min(320px,90vw)] p-0"
+                <DropdownMenuSubTrigger>
+                  {definition.label}
+                </DropdownMenuSubTrigger>
+                <DropdownMenuSubContent
+                  onFocusOutside={(event) => event.preventDefault()}
+                  className="w-[min(320px,90vw)] p-0"
+                >
+                  <FilterValueEditor {...props} definition={definition} />
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ))}
+            {fields.length ? (
+              <DropdownMenuLabel className="text-xs text-muted-foreground">
+                Question answers
+              </DropdownMenuLabel>
+            ) : null}
+            {fields.map((field) => (
+              <DropdownMenuSub
+                key={field.key}
+                open={activeField === `question:${field.key}`}
+                onOpenChange={(next) =>
+                  setActiveField((current) =>
+                    next
+                      ? `question:${field.key}`
+                      : current === `question:${field.key}`
+                        ? null
+                        : current,
+                  )
+                }
+                persistOpenOnRemountKey={`${props.persistenceKey}:question:${field.key}`}
               >
-                {field.type === "text" ? (
-                  <TextConditionEditor
-                    field={field}
-                    conditions={props.conditions!}
-                    onDone={() => setOpen(false)}
-                  />
-                ) : (
-                  <ChoiceConditionEditor
-                    field={field}
-                    condition={props.conditions!.value.find(
-                      (condition) => condition.fieldKey === field.key,
-                    )}
-                    conditions={props.conditions!}
-                  />
-                )}
-              </DropdownMenuSubContent>
-            </DropdownMenuSub>
-          ))}
-          {!definitions.length && !fields.length ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              No filters found
-            </p>
-          ) : null}
-        </div>
+                <DropdownMenuSubTrigger>{field.label}</DropdownMenuSubTrigger>
+                <DropdownMenuSubContent
+                  onFocusOutside={(event) => event.preventDefault()}
+                  className="w-[min(320px,90vw)] p-0"
+                >
+                  {field.type === "text" ? (
+                    <TextConditionEditor
+                      field={field}
+                      conditions={props.conditions!}
+                      onDone={() => setOpen(false)}
+                    />
+                  ) : (
+                    <ChoiceConditionEditor
+                      field={field}
+                      condition={props.conditions!.value.find(
+                        (condition) => condition.fieldKey === field.key,
+                      )}
+                      conditions={props.conditions!}
+                    />
+                  )}
+                </DropdownMenuSubContent>
+              </DropdownMenuSub>
+            ))}
+            {!definitions.length && !fields.length ? (
+              <p className="py-6 text-center text-sm text-muted-foreground">
+                No filters found
+              </p>
+            ) : null}
+          </div>
+        </Command>
       </DropdownMenuContent>
     </DropdownMenu>
   );
@@ -425,12 +581,25 @@ export function ToolbarFilterPills(
       !definitionKeys(definition).some((key) => props.filters[key]?.length)
     )
       continue;
-    const operator =
-      definition.type === "date-range" || definition.type === "number-range"
-        ? "between"
-        : definition.type === "date"
-          ? "is"
-          : "contains any";
+    const isDateRange =
+      definition.type === "date-range" &&
+      !!definition.fromKey &&
+      !!definition.toKey;
+    const operators = isDateRange
+      ? DATE_FILTER_OPERATORS
+      : definition.choiceOperators
+        ? CHOICE_FILTER_OPERATORS
+        : undefined;
+    const operator = String(
+      props.filters[`${definition.key}__operator`]?.[0] ??
+        (isDateRange || definition.type === "number-range"
+          ? "between"
+          : definition.choiceOperators
+            ? "any"
+            : definition.type === "date"
+              ? "on"
+              : "contains any"),
+    );
     nodes.push(
       <FilterPill
         key={definition.key}
@@ -460,8 +629,26 @@ export function ToolbarFilterPills(
           props.onChange(next);
         }}
         operator={operator}
-        value={filterSummary(definition, props.filters) || "Select values…"}
-        valueEditor={<FilterValueEditor {...props} definition={definition} />}
+        operators={operators}
+        onOperatorChange={(value) =>
+          props.onChange(
+            isDateRange
+              ? changeDateOperator(definition, props.filters, value)
+              : { ...props.filters, [`${definition.key}__operator`]: [value] },
+          )
+        }
+        value={
+          isDateRange ? (
+            <DateFilterSegments {...props} definition={definition} />
+          ) : (
+            filterSummary(definition, props.filters) || "Select values…"
+          )
+        }
+        valueEditor={
+          isDateRange ? undefined : (
+            <FilterValueEditor {...props} definition={definition} />
+          )
+        }
         onRemove={() => {
           setDraftField(null);
           props.onChange(remove(definition));

@@ -131,7 +131,7 @@ it("edits the audit through Add filter and its active toolbar pill", async () =>
   if (
     screen
       .getByRole("button", { name: "Display options" })
-      .getAttribute("aria-expanded") === "true"
+      .getAttribute("aria-expanded") !== "true"
   )
     fireEvent.click(screen.getByRole("button", { name: "Display options" }));
   fireEvent.click(
