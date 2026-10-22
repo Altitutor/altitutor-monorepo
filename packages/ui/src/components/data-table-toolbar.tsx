@@ -35,8 +35,9 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "./popover";
 import { ToolbarSelectRow } from "./toolbar-select-row";
 import { SearchableSelectInline } from "./searchable-select-inline";
-import { ToolbarFiltersMenu, ToolbarFilterPills } from "./toolbar-filters";
+import { ToolbarAddFilter, ToolbarFilterPills } from "./toolbar-filters";
 import type { ToolbarConditionFilters } from "./toolbar-filter-pill";
+import { navLinkActiveStyles, navLinkInactiveStyles } from "../lib/styles";
 import { cn } from "../lib/cn";
 import { useRemountPersistentState } from "../hooks/use-remount-persistent-state";
 import {
@@ -239,7 +240,6 @@ export function DataTableToolbar({
     customContent: customFilterContent,
     onSearchChange: onFilterSearchChange,
     persistenceKey: filterPersistenceKey,
-    closeMenu: () => setFilterOpen(false),
     clearVersion,
   };
 
@@ -506,7 +506,12 @@ export function DataTableToolbar({
                     variant={
                       view.value === option.value ? "secondary" : "ghost"
                     }
-                    className="flex-1 rounded-full"
+                    className={cn(
+                      "flex-1 rounded-full",
+                      view.value === option.value
+                        ? navLinkActiveStyles
+                        : navLinkInactiveStyles,
+                    )}
                     aria-pressed={view.value === option.value}
                     onClick={() => view.onChange(option.value)}
                   >
@@ -560,6 +565,37 @@ export function DataTableToolbar({
                         )?.label ?? "None"
                       }
                       persistenceKey={`${filterPersistenceKey}:sort`}
+                      accessory={
+                        state.sortBy ? (
+                          <button
+                            type="button"
+                            aria-label={
+                              state.sortDirection === "asc"
+                                ? "Sort descending"
+                                : "Sort ascending"
+                            }
+                            aria-pressed={state.sortDirection === "asc"}
+                            className={cn(
+                              "inline-flex h-8 w-8 items-center justify-center rounded-md border outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                              state.sortDirection === "asc"
+                                ? navLinkActiveStyles
+                                : navLinkInactiveStyles,
+                            )}
+                            onClick={() =>
+                              onSortChange(
+                                state.sortBy,
+                                state.sortDirection === "asc" ? "desc" : "asc",
+                              )
+                            }
+                          >
+                            {state.sortDirection === "asc" ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )}
+                          </button>
+                        ) : null
+                      }
                     >
                       <SearchableSelectInline
                         items={sortOptions}
@@ -585,36 +621,6 @@ export function DataTableToolbar({
                         clearLabel="None"
                       />
                     </ToolbarSelectRow>
-                    {state.sortBy ? (
-                      <div
-                        className="flex justify-end gap-1 pb-1"
-                        aria-label="Sort direction"
-                      >
-                        {(["asc", "desc"] as const).map((direction) => (
-                          <Button
-                            key={direction}
-                            type="button"
-                            variant={
-                              state.sortDirection === direction
-                                ? "secondary"
-                                : "ghost"
-                            }
-                            size="sm"
-                            aria-pressed={state.sortDirection === direction}
-                            onClick={() =>
-                              onSortChange(state.sortBy, direction)
-                            }
-                          >
-                            {direction === "asc" ? (
-                              <ArrowUp className="mr-1 h-3.5 w-3.5" />
-                            ) : (
-                              <ArrowDown className="mr-1 h-3.5 w-3.5" />
-                            )}
-                            {direction === "asc" ? "Ascending" : "Descending"}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : null}
                   </>
                 ) : null}
                 {viewContent}
@@ -642,7 +648,13 @@ export function DataTableToolbar({
                     ))}
                   </div>
                 ) : null}
-                <ToolbarFiltersMenu {...filtersProps} />
+                <ToolbarFilterPills
+                  {...filtersProps}
+                  hideClear
+                  trailingContent={<ToolbarAddFilter {...filtersProps} />}
+                  showDeletedActive={showDeletedActive}
+                  clearDeleted={onClearShowDeleted}
+                />
                 {filterFooter}
                 {effectiveActiveFilterCount ? (
                   <Button

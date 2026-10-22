@@ -62,18 +62,29 @@ it("keeps board date choices effective when a date pill shares the key and clear
   await userEvent.click(
     screen.getByRole("button", { name: "Display options" }),
   );
-  await userEvent.click(
-    screen.getByRole("button", { name: "Choose Due date" }),
-  );
+  await userEvent.click(screen.getByRole("button", { name: "Add filter" }));
+  await userEvent.click(screen.getByRole("menuitem", { name: "Due date" }));
   await userEvent.click(await screen.findByRole("option", { name: "22 Oct" }));
   await userEvent.keyboard("{Escape}");
   expect(
-    screen.getByRole("button", { name: "Choose Due date" }),
+    screen.getAllByRole("button", { name: "Change value for Due date" })[0],
   ).toHaveTextContent("22 Oct");
+  if (
+    screen
+      .getByRole("button", { name: "Display options" })
+      .getAttribute("aria-expanded") !== "true"
+  )
+    await userEvent.click(
+      screen.getByRole("button", { name: "Display options" }),
+    );
+  await userEvent.click(screen.getByRole("button", { name: "Sort ascending" }));
+  expect(sortChanged).toHaveBeenLastCalledWith("date", "asc");
   await userEvent.click(screen.getByRole("button", { name: "Choose Sort" }));
   await userEvent.click(await screen.findByRole("option", { name: "None" }));
   expect(sortChanged).toHaveBeenLastCalledWith("name", "asc");
-  await userEvent.keyboard("{Escape}{Escape}");
+  await userEvent.click(
+    screen.getByRole("button", { name: "Display options" }),
+  );
   await waitFor(() =>
     expect(screen.queryByText("Beta")).not.toBeInTheDocument(),
   );

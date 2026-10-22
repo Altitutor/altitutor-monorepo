@@ -47,7 +47,7 @@ export const CHOICE_FILTER_OPERATORS: Array<{
 ];
 
 export const filterSegmentClass =
-  "inline-flex min-h-8 min-w-0 items-center gap-1 px-2.5 text-xs outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
+  "inline-flex whitespace-nowrap min-h-8 min-w-0 items-center gap-1 px-2.5 text-xs outline-none hover:bg-muted focus-visible:bg-muted focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring";
 
 export function FilterPill({
   field,
@@ -163,7 +163,7 @@ export function InlineFilterText({
   value: string;
   onChange: (value: string) => void;
 }) {
-  const [editing, setEditing] = React.useState(!value);
+  const [editing, setEditing] = React.useState(false);
   const previous = React.useRef(value);
   if (!editing)
     return (

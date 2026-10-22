@@ -5,7 +5,17 @@ import type {
   DataTableFilterDefinition,
   DataTableFilterOption,
 } from "@altitutor/shared";
-import { ToolbarSelectRow } from "./toolbar-select-row";
+import { Plus } from "lucide-react";
+import { useRemountPersistentState } from "../hooks/use-remount-persistent-state";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuTrigger,
+  DropdownMenuLabel,
+  DropdownMenuSub,
+  DropdownMenuSubTrigger,
+  DropdownMenuSubContent,
+} from "./dropdown-menu";
 import { SearchableSelectInline } from "./searchable-select-inline";
 import { DateRangeFilter } from "./date-range-filter";
 import { Input } from "./input";
@@ -29,7 +39,6 @@ export interface ToolbarFiltersProps {
   customContent?: Record<string, React.ReactNode>;
   onSearchChange?: (key: string, value: string) => void;
   persistenceKey: string;
-  closeMenu: () => void;
   clearVersion?: number;
 }
 
@@ -239,85 +248,160 @@ function ChoiceConditionEditor({
   );
 }
 
-export function ToolbarFiltersMenu(props: ToolbarFiltersProps) {
+function TextConditionEditor({
+  field,
+  conditions,
+  onDone,
+}: {
+  field: ToolbarConditionFilters["fields"][number];
+  conditions: ToolbarConditionFilters;
+  onDone: () => void;
+}) {
+  const existing = conditions.value.find((item) => item.fieldKey === field.key);
+  const [text, setText] = React.useState(existing?.values[0] ?? "");
+  const apply = () => {
+    if (!text.trim()) return;
+    updateCondition(conditions, {
+      fieldKey: field.key,
+      operator: existing?.operator ?? "contains",
+      values: [text],
+    });
+    onDone();
+  };
   return (
-    <>
-      {props.definitions
-        .filter((definition) => definition.filterable !== false)
-        .map((definition) => (
-          <ToolbarSelectRow
-            key={definition.key}
-            label={definition.label}
-            summary={filterSummary(definition, props.filters)}
-            persistenceKey={`${props.persistenceKey}:${definition.key}`}
-          >
-            <FilterValueEditor {...props} definition={definition} />
-          </ToolbarSelectRow>
-        ))}
-      {props.conditions?.fields.length ? (
-        <p className="pt-3 pb-1 text-xs font-medium text-muted-foreground">
-          Question answers
-        </p>
-      ) : null}
-      {props.conditions?.fields.map((field) => {
-        const condition = props.conditions!.value.find(
-          (item) => item.fieldKey === field.key,
-        );
-        return field.type === "text" ? (
-          <div
-            key={field.key}
-            className="flex items-center justify-between gap-4 py-1.5"
-          >
-            <span className="min-w-0 text-sm text-muted-foreground">
-              {field.label}
-            </span>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              aria-label={`Filter ${field.label}`}
-              onClick={() => {
-                updateCondition(
-                  props.conditions!,
-                  condition ?? {
-                    fieldKey: field.key,
-                    operator: "contains",
-                    values: [],
-                  },
-                );
-                props.closeMenu();
-              }}
+    <div className="space-y-2 p-3">
+      <Input
+        aria-label={`${field.label} contains`}
+        placeholder="Enter text…"
+        value={text}
+        onChange={(event) => setText(event.target.value)}
+        onKeyDown={(event) => {
+          event.stopPropagation();
+          if (event.key === "Enter") apply();
+        }}
+      />
+      <Button
+        type="button"
+        size="sm"
+        className="w-full"
+        disabled={!text.trim()}
+        onClick={apply}
+      >
+        Apply filter
+      </Button>
+    </div>
+  );
+}
+
+export function ToolbarAddFilter(props: ToolbarFiltersProps) {
+  const [open, setOpen] = useRemountPersistentState(
+    `${props.persistenceKey}:add`,
+    false,
+  );
+  const [query, setQuery] = React.useState("");
+  const searchRef = React.useRef<HTMLInputElement>(null);
+  React.useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => searchRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [open]);
+  const matches = (label: string) =>
+    label.toLowerCase().includes(query.trim().toLowerCase());
+  const definitions = props.definitions.filter(
+    (definition) =>
+      definition.filterable !== false && matches(definition.label),
+  );
+  const fields =
+    props.conditions?.fields.filter((field) => matches(field.label)) ?? [];
+  return (
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger asChild>
+        <Button
+          type="button"
+          variant="outline"
+          size="sm"
+          className="h-8 rounded-full text-xs"
+        >
+          <Plus className="mr-1 h-3.5 w-3.5" />
+          Add filter
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-[min(320px,90vw)] p-0">
+        <div className="border-b p-2">
+          <Input
+            ref={searchRef}
+            aria-label="Search filters"
+            placeholder="Search filters…"
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => event.stopPropagation()}
+          />
+        </div>
+        <div className="max-h-80 overflow-y-auto p-1">
+          {definitions.map((definition) => (
+            <DropdownMenuSub
+              key={definition.key}
+              persistOpenOnRemountKey={`${props.persistenceKey}:${definition.key}`}
             >
-              {condition?.values[0] || "Enter text…"}
-            </Button>
-          </div>
-        ) : (
-          <ToolbarSelectRow
-            key={field.key}
-            label={field.label}
-            summary={condition?.values
-              .map(
-                (value) =>
-                  field.options?.find((option) => option.value === value)
-                    ?.label ?? "Unavailable choice",
-              )
-              .join(", ")}
-            persistenceKey={`${props.persistenceKey}:question:${field.key}`}
-          >
-            <ChoiceConditionEditor
-              field={field}
-              condition={condition}
-              conditions={props.conditions!}
-            />
-          </ToolbarSelectRow>
-        );
-      })}
-    </>
+              <DropdownMenuSubTrigger>
+                {definition.label}
+              </DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                onFocusOutside={(event) => event.preventDefault()}
+                className="w-[min(320px,90vw)] p-0"
+              >
+                <FilterValueEditor {...props} definition={definition} />
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ))}
+          {fields.length ? (
+            <DropdownMenuLabel className="text-xs text-muted-foreground">
+              Question answers
+            </DropdownMenuLabel>
+          ) : null}
+          {fields.map((field) => (
+            <DropdownMenuSub
+              key={field.key}
+              persistOpenOnRemountKey={`${props.persistenceKey}:question:${field.key}`}
+            >
+              <DropdownMenuSubTrigger>{field.label}</DropdownMenuSubTrigger>
+              <DropdownMenuSubContent
+                onFocusOutside={(event) => event.preventDefault()}
+                className="w-[min(320px,90vw)] p-0"
+              >
+                {field.type === "text" ? (
+                  <TextConditionEditor
+                    field={field}
+                    conditions={props.conditions!}
+                    onDone={() => setOpen(false)}
+                  />
+                ) : (
+                  <ChoiceConditionEditor
+                    field={field}
+                    condition={props.conditions!.value.find(
+                      (condition) => condition.fieldKey === field.key,
+                    )}
+                    conditions={props.conditions!}
+                  />
+                )}
+              </DropdownMenuSubContent>
+            </DropdownMenuSub>
+          ))}
+          {!definitions.length && !fields.length ? (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              No filters found
+            </p>
+          ) : null}
+        </div>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 
 export function ToolbarFilterPills(
   props: ToolbarFiltersProps & {
+    trailingContent?: React.ReactNode;
+    hideClear?: boolean;
     showDeletedActive?: boolean;
     clearDeleted?: () => void;
   },
@@ -480,7 +564,7 @@ export function ToolbarFilterPills(
         </Button>
       </div>,
     );
-  if (!nodes.length) return null;
+  if (!nodes.length && !props.trailingContent) return null;
   return (
     <div
       className="flex min-w-0 flex-wrap items-center gap-2"
@@ -496,20 +580,23 @@ export function ToolbarFilterPills(
           {node}
         </React.Fragment>
       ))}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        className="h-8 text-xs"
-        onClick={() => {
-          setDraftField(null);
-          props.onChange({});
-          conditions?.onChange([]);
-          props.clearDeleted?.();
-        }}
-      >
-        Clear filters
-      </Button>
+      {props.trailingContent}
+      {nodes.length && !props.hideClear ? (
+        <Button
+          type="button"
+          variant="ghost"
+          size="sm"
+          className="h-8 text-xs"
+          onClick={() => {
+            setDraftField(null);
+            props.onChange({});
+            conditions?.onChange([]);
+            props.clearDeleted?.();
+          }}
+        >
+          Clear filters
+        </Button>
+      ) : null}
     </div>
   );
 }
