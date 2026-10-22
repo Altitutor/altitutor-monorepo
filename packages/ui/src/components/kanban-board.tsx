@@ -50,6 +50,7 @@ export interface KanbanColumnDef<TItem, TValue = unknown> {
 }
 
 export interface KanbanBoardProps<TItem> {
+  hideToolbar?: boolean;
   items: TItem[];
   getItemId: (item: TItem) => string;
 
@@ -459,7 +460,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
 
   return (
     <div className="flex h-full w-full max-w-full flex-col overflow-hidden rounded-[var(--radius)] bg-background">
-      <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
+      {!props.hideToolbar && <div data-work-item-toolbar className="w-full min-w-0 shrink-0 border-b p-2">
         <EntityToolbar
             viewTarget={viewTarget}
           statusColumn={statusColumn} rightPills={rightPills} columnDefs={columnDefs}
@@ -472,7 +473,7 @@ export function KanbanBoard<TItem>(props: KanbanBoardProps<TItem>) {
           quickFilters={quickFilters} onApplyQuickFilter={onApplyQuickFilter}
           viewContent={onHideEmptyColumnsChange ? <BoardEmptyColumnsControl checked={hideEmptyColumns} onChange={onHideEmptyColumnsChange} /> : undefined}
         />
-      </div>
+      </div>}
 
       {/* Board */}
       <div className="flex-1 min-h-0 relative">

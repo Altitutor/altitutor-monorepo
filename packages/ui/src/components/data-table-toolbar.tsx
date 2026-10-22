@@ -71,7 +71,7 @@ export interface DataTableToolbarProps {
   columnHeading?: string;
   conditionFilters?: ToolbarConditionFilters;
   view?: ToolbarView;
-  viewContent?: React.ReactNode;
+  viewContent?: import("./toolbar-filters").ToolbarFilterEditor;
   allowEmptyColumns?: boolean;
   groupByRequired?: boolean;
   state: DataTableState;
@@ -604,7 +604,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
               </ToolbarSelectRow>
             </>
           ) : null}
-          {viewContent}
+          {typeof viewContent === "function" ? viewContent({filters:state.filters,onChange:onFiltersChange}) : viewContent}
         </div>
       ) : null}
       {filterDefinitions.length ||
@@ -804,7 +804,7 @@ export function DataTableToolbar(props: DataTableToolbarProps) {
               hideViews
               hideSearch
               filterFooter={undefined}
-              viewContent={undefined}
+              viewContent={typeof viewContent === "function" ? viewContent : undefined}
               showDeletedActive={false}
               onClearShowDeleted={undefined}
               state={{

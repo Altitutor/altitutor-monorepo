@@ -1,25 +1,35 @@
-'use client';
+"use client";
+import { TaskCard } from "./TaskCard";
+import { CreateTaskDialog } from "./CreateTaskDialog";
 
-import React, { useState, useMemo, useCallback, useLayoutEffect, useRef, useEffect } from 'react';
-import { createRoot } from 'react-dom/client';
-import tippy, { type Instance as TippyInstance } from 'tippy.js';
+import React, {
+  useState,
+  useMemo,
+  useCallback,
+  useLayoutEffect,
+  useRef,
+  useEffect,
+} from "react";
+import { createRoot } from "react-dom/client";
+import tippy, { type Instance as TippyInstance } from "tippy.js";
 import {
-  EntityList,
+  EntityCollection,
+  type KanbanColumnDef,
   EntityListAddRow,
   type EntityListPillColumn,
   type EntityListStatusColumn,
   type EntityListAddRowRenderProps,
-} from '@altitutor/ui';
-import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
-import { useTasks } from '../api/queries';
-import { useUpdateTask, useCreateTask } from '../api/mutations';
-import { useStaffSearch } from '../hooks/useStaffSearch';
-import { useTaskSearch, type TaskSearchResult } from '../hooks/useTaskSearch';
-import { useCurrentStaff } from '@/shared/hooks';
-import { useMentionSuggestions } from '@/shared/hooks/useMentionSuggestions';
-import { useIssues } from '@/features/issues/api/queries';
-import { useProjects } from '@/features/projects/api/queries';
-import { EditTaskDialog } from './EditTaskDialog';
+} from "@altitutor/ui";
+import { AdminRichTextEditorWithImages } from "@/features/rich-text-images";
+import { useTasks } from "../api/queries";
+import { useUpdateTask, useCreateTask } from "../api/mutations";
+import { useStaffSearch } from "../hooks/useStaffSearch";
+import { useTaskSearch, type TaskSearchResult } from "../hooks/useTaskSearch";
+import { useCurrentStaff } from "@/shared/hooks";
+import { useMentionSuggestions } from "@/shared/hooks/useMentionSuggestions";
+import { useIssues } from "@/features/issues/api/queries";
+import { useProjects } from "@/features/projects/api/queries";
+import { EditTaskDialog } from "./EditTaskDialog";
 import {
   TaskAssigneeEntityPill,
   TaskPriorityEntityPill,
@@ -27,40 +37,67 @@ import {
   TaskLinkEntityPill,
   TaskIssueEntityPill,
   TaskProjectEntityPill,
-} from './fields/TaskEntityPills';
-import { TaskDueDateEntityPill } from './fields/TaskDueDateEntityPill';
+} from "./fields/TaskEntityPills";
+import { TaskDueDateEntityPill } from "./fields/TaskDueDateEntityPill";
 import {
   getStatusLabel,
   getStatusIconColor,
   getPriorityLabel,
   getEstimateLabel,
   ESTIMATE_OPTIONS,
-} from '../utils/taskUtils';
-import type { TaskWithAssignee } from '../types';
-import type { TaskStatus, TaskPriority, TaskFilters } from '../types';
-import { cn } from '@/shared/utils';
-import { formatShortDate } from '@/shared/utils/datetime';
-import { Clock, Circle, CheckCircle, Eye, CheckSquare, Loader2 } from 'lucide-react';
-import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
-import { getViewSettings, resolveQuickFilterPlaceholders, type QuickFilter } from '@altitutor/shared';
-import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
+  TASK_STATUS_OPTIONS,
+} from "../utils/taskUtils";
+import type { TaskWithAssignee } from "../types";
+import type {
+  TaskStatus,
+  TaskPriority,
+  TaskFilters,
+  TaskUpdate,
+  TaskFormData,
+} from "../types";
+import { cn } from "@/shared/utils";
+import { formatShortDate } from "@/shared/utils/datetime";
+import {
+  Clock,
+  Circle,
+  CheckCircle,
+  Eye,
+  CheckSquare,
+  Loader2,
+} from "lucide-react";
+import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
+import {
+  getViewSettings,
+  resolveQuickFilterPlaceholders,
+  type QuickFilter,
+} from "@altitutor/shared";
+import { useEntityListTableState } from "@/shared/hooks/useEntityListTableState";
 
-const TASK_FILTER_KEYS = ['status', 'assignee', 'priority', 'estimate', 'due_date', 'issue_id', 'project_id', 'unlinked'] as const;
+const TASK_FILTER_KEYS = [
+  "status",
+  "assignee",
+  "priority",
+  "estimate",
+  "due_date",
+  "issue_id",
+  "project_id",
+  "unlinked",
+] as const;
 
 const STATUS_OPTIONS: { value: TaskStatus; label: string }[] = [
-  { value: 'backlog', label: 'Backlog' },
-  { value: 'todo', label: 'Todo' },
-  { value: 'in_progress', label: 'In Progress' },
-  { value: 'in_review', label: 'In Review' },
-  { value: 'done', label: 'Done' },
+  { value: "backlog", label: "Backlog" },
+  { value: "todo", label: "Todo" },
+  { value: "in_progress", label: "In Progress" },
+  { value: "in_review", label: "In Review" },
+  { value: "done", label: "Done" },
 ];
 
 const PRIORITY_OPTIONS: { value: TaskPriority; label: string }[] = [
-  { value: 0, label: 'No priority' },
-  { value: 1, label: 'Urgent' },
-  { value: 2, label: 'High' },
-  { value: 3, label: 'Medium' },
-  { value: 4, label: 'Low' },
+  { value: 0, label: "No priority" },
+  { value: 1, label: "Urgent" },
+  { value: 2, label: "High" },
+  { value: 3, label: "Medium" },
+  { value: 4, label: "Low" },
 ];
 
 /** Inner content for the task link dropdown - rendered into an imperative container to avoid React/Tippy DOM ownership conflict. */
@@ -106,8 +143,10 @@ function TaskLinkDropdownContent({
                   role="option"
                   aria-selected={isSelected}
                   className={cn(
-                    'w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left',
-                    isSelected ? 'bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20' : 'hover:bg-muted'
+                    "w-full flex items-start gap-3 px-3 py-2 rounded-md cursor-pointer transition-colors text-left",
+                    isSelected
+                      ? "bg-brand-lightBlue/10 dark:bg-brand-lightBlue/20"
+                      : "hover:bg-muted",
                   )}
                   onMouseDown={(e) => {
                     e.preventDefault();
@@ -118,7 +157,9 @@ function TaskLinkDropdownContent({
                 >
                   <CheckSquare className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
                   <div className="flex-1 min-w-0 text-left">
-                    <div className="font-medium text-sm">{task.title || 'Untitled'}</div>
+                    <div className="font-medium text-sm">
+                      {task.title || "Untitled"}
+                    </div>
                     {task.status && (
                       <div className="text-xs text-muted-foreground">
                         {getStatusLabel(task.status)}
@@ -165,22 +206,22 @@ function TaskLinkAutocomplete({
   useEffect(() => {
     if (!showDropdown || tasks.length === 0) return;
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowDown') {
+      if (e.key === "ArrowDown") {
         e.preventDefault();
         setSelectedIndex((prev) => (prev < tasks.length - 1 ? prev + 1 : prev));
-      } else if (e.key === 'ArrowUp') {
+      } else if (e.key === "ArrowUp") {
         e.preventDefault();
         setSelectedIndex((prev) => (prev > 0 ? prev - 1 : 0));
-      } else if (e.key === 'Enter' && tasks[selectedIndex]) {
+      } else if (e.key === "Enter" && tasks[selectedIndex]) {
         e.preventDefault();
         onSelect(tasks[selectedIndex].id);
-      } else if (e.key === 'Escape') {
+      } else if (e.key === "Escape") {
         e.preventDefault();
         onClose();
       }
     };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [showDropdown, tasks, selectedIndex, onSelect, onClose]);
 
   useLayoutEffect(() => {
@@ -201,7 +242,7 @@ function TaskLinkAutocomplete({
     }
 
     const input = inputRef.current;
-    const container = document.createElement('div');
+    const container = document.createElement("div");
     containerRef.current = container;
 
     const root = createRoot(container);
@@ -214,7 +255,7 @@ function TaskLinkAutocomplete({
         setSelectedIndex={setSelectedIndex}
         onSelect={onSelect}
         getStatusLabel={getStatusLabel}
-      />
+      />,
     );
 
     tippyInstanceRef.current = tippy(input as Element, {
@@ -225,15 +266,20 @@ function TaskLinkAutocomplete({
       },
       showOnCreate: true,
       interactive: true,
-      trigger: 'manual',
-      placement: 'bottom-start',
+      trigger: "manual",
+      placement: "bottom-start",
       arrow: false,
       offset: [0, 4],
       getReferenceClientRect: () => {
         const rect = input.getBoundingClientRect();
         const style = input.ownerDocument.defaultView?.getComputedStyle(input);
         const paddingLeft = style ? parseFloat(style.paddingLeft) || 0 : 0;
-        return new DOMRect(rect.left + paddingLeft, rect.top, rect.width - paddingLeft, rect.height);
+        return new DOMRect(
+          rect.left + paddingLeft,
+          rect.top,
+          rect.width - paddingLeft,
+          rect.height,
+        );
       },
     });
 
@@ -251,7 +297,16 @@ function TaskLinkAutocomplete({
         });
       }
     };
-  }, [showDropdown, inputRef, tasks, isLoading, selectedIndex, setSelectedIndex, onSelect, getStatusLabel]);
+  }, [
+    showDropdown,
+    inputRef,
+    tasks,
+    isLoading,
+    selectedIndex,
+    setSelectedIndex,
+    onSelect,
+    getStatusLabel,
+  ]);
 
   useLayoutEffect(() => {
     if (!showDropdown || !rootRef.current || !containerRef.current) return;
@@ -264,7 +319,7 @@ function TaskLinkAutocomplete({
         setSelectedIndex={setSelectedIndex}
         onSelect={onSelect}
         getStatusLabel={getStatusLabel}
-      />
+      />,
     );
   }, [showDropdown, tasks, isLoading, selectedIndex, onSelect, getStatusLabel]);
 
@@ -287,22 +342,27 @@ function TaskListAddRowWithSearch({
 }) {
   const { addName, setAddName, inputRef } = addRowProps;
 
-  const { tasks, isLoading } = useTaskSearch(addName, !!(issueId || projectId), {
-    excludeLinked: true,
-  });
+  const { tasks, isLoading } = useTaskSearch(
+    addName,
+    !!(issueId || projectId),
+    {
+      excludeLinked: true,
+    },
+  );
   const suggestions = useMemo(
     () => tasks.filter((t) => !linkedTaskIds.includes(t.id)),
-    [tasks, linkedTaskIds]
+    [tasks, linkedTaskIds],
   );
 
-  const showAutocomplete = addName.trim() !== '' && (suggestions.length > 0 || isLoading);
+  const showAutocomplete =
+    addName.trim() !== "" && (suggestions.length > 0 || isLoading);
 
   const handleSelect = useCallback(
     (taskId: string) => {
       onLinkTask(taskId);
-      setAddName('');
+      setAddName("");
     },
-    [onLinkTask, setAddName]
+    [onLinkTask, setAddName],
   );
 
   return (
@@ -314,7 +374,7 @@ function TaskListAddRowWithSearch({
         isLoading={isLoading}
         showDropdown={showAutocomplete}
         onSelect={handleSelect}
-        onClose={() => setAddName('')}
+        onClose={() => setAddName("")}
         getStatusLabel={(s) => getStatusLabel(s as TaskStatus)}
       />
     </>
@@ -332,8 +392,10 @@ export function TasksList({
   showProjectPill = true,
   showLinkPill = true,
   noPadding = true,
+  layout = "list",
   defaultFilters,
 }: {
+  layout?: "list" | "board";
   issueId?: string;
   projectId?: string;
   compact?: boolean;
@@ -341,7 +403,7 @@ export function TasksList({
   embedView?: {
     groupBy?: string | null;
     sortBy?: string;
-    sortDirection?: 'asc' | 'desc';
+    sortDirection?: "asc" | "desc";
   };
   showAssigneePill?: boolean;
   showIssuePill?: boolean;
@@ -371,19 +433,25 @@ export function TasksList({
   } = useEntityListTableState({
     defaultFilters: defaultFilters ?? {},
     defaultSort: embedLocked
-      ? { field: embedView?.sortBy ?? 'priority', direction: embedView?.sortDirection ?? 'asc' }
-      : { field: 'priority', direction: 'asc' },
-    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : 'status',
+      ? {
+          field: embedView?.sortBy ?? "priority",
+          direction: embedView?.sortDirection ?? "asc",
+        }
+      : { field: "priority", direction: "asc" },
+    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : "status",
     filterKeys: [...TASK_FILTER_KEYS],
     skipUrlSync: embedLocked,
   });
 
-  const effectiveFilters = useMemo(() => ({
-    ...filters,
-    ...(issueId ? { issue_id: [issueId as unknown] } : {}),
-    ...(projectId ? { project_id: [projectId as unknown] } : {}),
-    search,
-  }), [filters, issueId, projectId, search]);
+  const effectiveFilters = useMemo(
+    () => ({
+      ...filters,
+      ...(issueId ? { issue_id: [issueId as unknown] } : {}),
+      ...(projectId ? { project_id: [projectId as unknown] } : {}),
+      search,
+    }),
+    [filters, issueId, projectId, search],
+  );
 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -391,127 +459,210 @@ export function TasksList({
   const { data: currentStaff } = useCurrentStaff();
   const currentStaffId = currentStaff?.id;
 
-  const { data: quickFilters = [] } = useQuickFilters('tasks');
+  const { data: quickFilters = [] } = useQuickFilters("tasks");
   const { data: issues = [] } = useIssues();
   const { data: projects = [] } = useProjects();
 
-  const handleApplyQuickFilter = useCallback((qf: QuickFilter) => {
-    if (getViewSettings(qf.config)) {applyQuickFilter(qf,currentStaffId);return;}
-    const resolved = resolveQuickFilterPlaceholders(qf.config, currentStaffId);
+  const handleApplyQuickFilter = useCallback(
+    (qf: QuickFilter) => {
+      if (getViewSettings(qf.config)) {
+        applyQuickFilter(qf, currentStaffId);
+        return;
+      }
+      const resolved = resolveQuickFilterPlaceholders(
+        qf.config,
+        currentStaffId,
+      );
 
-    if (resolved.assigned_to && !resolved.assignee) {
-      resolved.assignee = resolved.assigned_to;
-      delete resolved.assigned_to;
-    }
-    if (resolved.assignedTo && !resolved.assignee) {
-      resolved.assignee = resolved.assignedTo;
-      delete resolved.assignedTo;
-    }
+      if (resolved.assigned_to && !resolved.assignee) {
+        resolved.assignee = resolved.assigned_to;
+        delete resolved.assigned_to;
+      }
+      if (resolved.assignedTo && !resolved.assignee) {
+        resolved.assignee = resolved.assignedTo;
+        delete resolved.assignedTo;
+      }
 
-    setFilters(resolved);
-  }, [currentStaffId, setFilters, applyQuickFilter]);
+      setFilters(resolved);
+    },
+    [currentStaffId, setFilters, applyQuickFilter],
+  );
 
-  const { data: tasks = [], isLoading } = useTasks(effectiveFilters as TaskFilters);
+  const { data: tasks = [], isLoading } = useTasks(
+    effectiveFilters as TaskFilters,
+  );
   const filteredTasks = useMemo(() => tasks, [tasks]);
 
   const updateTask = useUpdateTask();
   const createTask = useCreateTask();
   const mentionSuggestions = useMentionSuggestions();
 
-  const handleStatusChange = useCallback((task: TaskWithAssignee, value: TaskStatus) => {
-    const updates: { status: TaskStatus; completed_by?: string | null } = { status: value };
-    if (value === 'done') {
-      updates.completed_by = currentStaff?.id ?? null;
-    }
-    updateTask.mutate({ id: task.id, updates });
-  }, [updateTask, currentStaff?.id]);
+  const handleStatusChange = useCallback(
+    (task: TaskWithAssignee, value: TaskStatus) => {
+      const updates: { status: TaskStatus; completed_by?: string | null } = {
+        status: value,
+      };
+      if (value === "done") {
+        updates.completed_by = currentStaff?.id ?? null;
+      }
+      updateTask.mutate({ id: task.id, updates });
+    },
+    [updateTask, currentStaff?.id],
+  );
 
-  const handlePriorityChange = useCallback((task: TaskWithAssignee, value: TaskPriority) => {
-    updateTask.mutate({ id: task.id, updates: { priority: value } });
-  }, [updateTask]);
+  const handlePriorityChange = useCallback(
+    (task: TaskWithAssignee, value: TaskPriority) => {
+      updateTask.mutate({ id: task.id, updates: { priority: value } });
+    },
+    [updateTask],
+  );
 
-  const handleEstimateChange = useCallback((task: TaskWithAssignee, value: number | null) => {
-    updateTask.mutate({ id: task.id, updates: { estimate: value } });
-  }, [updateTask]);
+  const handleEstimateChange = useCallback(
+    (task: TaskWithAssignee, value: number | null) => {
+      updateTask.mutate({ id: task.id, updates: { estimate: value } });
+    },
+    [updateTask],
+  );
 
-  const handleDueDateChange = useCallback((task: TaskWithAssignee, dueDate: string | null) => {
-    updateTask.mutate({ id: task.id, updates: { due_date: dueDate } });
-  }, [updateTask]);
+  const handleDueDateChange = useCallback(
+    (task: TaskWithAssignee, dueDate: string | null) => {
+      updateTask.mutate({ id: task.id, updates: { due_date: dueDate } });
+    },
+    [updateTask],
+  );
 
-  const handleAssigneeChange = useCallback((task: TaskWithAssignee, staffId: string | null) => {
-    updateTask.mutate({ id: task.id, updates: { assigned_to: staffId } });
-  }, [updateTask]);
+  const handleAssigneeChange = useCallback(
+    (task: TaskWithAssignee, staffId: string | null) => {
+      updateTask.mutate({ id: task.id, updates: { assigned_to: staffId } });
+    },
+    [updateTask],
+  );
 
-  const handleIssueChange = useCallback((task: TaskWithAssignee, nextIssueId: string | null) => {
-    updateTask.mutate({ id: task.id, updates: { issue_id: nextIssueId, project_id: nextIssueId ? null : task.project_id } });
-  }, [updateTask]);
+  const handleIssueChange = useCallback(
+    (task: TaskWithAssignee, nextIssueId: string | null) => {
+      updateTask.mutate({
+        id: task.id,
+        updates: {
+          issue_id: nextIssueId,
+          project_id: nextIssueId ? null : task.project_id,
+        },
+      });
+    },
+    [updateTask],
+  );
 
-  const handleProjectChange = useCallback((task: TaskWithAssignee, nextProjectId: string | null) => {
-    updateTask.mutate({ id: task.id, updates: { project_id: nextProjectId, issue_id: nextProjectId ? null : task.issue_id } });
-  }, [updateTask]);
+  const handleProjectChange = useCallback(
+    (task: TaskWithAssignee, nextProjectId: string | null) => {
+      updateTask.mutate({
+        id: task.id,
+        updates: {
+          project_id: nextProjectId,
+          issue_id: nextProjectId ? null : task.issue_id,
+        },
+      });
+    },
+    [updateTask],
+  );
 
   const handleLinkTaskFromSearch = useCallback(
     (taskId: string) => {
       if (issueId) {
-        updateTask.mutate({ id: taskId, updates: { issue_id: issueId, project_id: null } });
+        updateTask.mutate({
+          id: taskId,
+          updates: { issue_id: issueId, project_id: null },
+        });
       } else if (projectId) {
-        updateTask.mutate({ id: taskId, updates: { project_id: projectId, issue_id: null } });
+        updateTask.mutate({
+          id: taskId,
+          updates: { project_id: projectId, issue_id: null },
+        });
       }
     },
-    [issueId, projectId, updateTask]
+    [issueId, projectId, updateTask],
   );
 
   const showDueDatePill = true;
 
-  const handleAdd = useCallback(async (data: { name: string; description?: string } & Record<string, unknown>) => {
-    const createdTask = await createTask.mutateAsync({
-      title: data.name,
-      description: data.description,
-      status: (data.status as TaskStatus) || 'todo',
-      assigned_to: data.assignee as string | null,
-      priority: data.priority as number | null,
-      estimate: showDueDatePill ? null : (data.estimate as number | null) ?? null,
-      due_date: showDueDatePill ? ((data.due_date as string | null) ?? null) : null,
-      issue_id: issueId || null,
-      project_id: projectId || null,
-      created_by: currentStaff?.id ?? null,
-    });
+  const handleAdd = useCallback(
+    async (
+      data: { name: string; description?: string } & Record<string, unknown>,
+    ) => {
+      const createdTask = await createTask.mutateAsync({
+        title: data.name,
+        description: data.description,
+        status: (data.status as TaskStatus) || "todo",
+        assigned_to: data.assignee as string | null,
+        priority: data.priority as number | null,
+        estimate: showDueDatePill
+          ? null
+          : ((data.estimate as number | null) ?? null),
+        due_date: showDueDatePill
+          ? ((data.due_date as string | null) ?? null)
+          : null,
+        issue_id: issueId || null,
+        project_id: projectId || null,
+        created_by: currentStaff?.id ?? null,
+      });
 
-    // Enforce scoped linkage in project task tabs even if upstream add payload changes.
-    if (projectId && createdTask.project_id !== projectId) {
-      updateTask.mutate({ id: createdTask.id, updates: { project_id: projectId, issue_id: null } });
-    }
-  }, [createTask, updateTask, issueId, projectId, currentStaff?.id, showDueDatePill]);
+      // Enforce scoped linkage in project task tabs even if upstream add payload changes.
+      if (projectId && createdTask.project_id !== projectId) {
+        updateTask.mutate({
+          id: createdTask.id,
+          updates: { project_id: projectId, issue_id: null },
+        });
+      }
+    },
+    [
+      createTask,
+      updateTask,
+      issueId,
+      projectId,
+      currentStaff?.id,
+      showDueDatePill,
+    ],
+  );
 
   const statusColumn: EntityListStatusColumn<TaskWithAssignee, TaskStatus> = {
-    key: 'status',
-    label: 'Status',
+    key: "status",
+    label: "Status",
     getValue: (t) => t.status as TaskStatus,
-    defaultValue: 'todo',
+    defaultValue: "todo",
     filterable: true,
-    options: STATUS_OPTIONS.map(opt => ({
+    options: STATUS_OPTIONS.map((opt) => ({
       ...opt,
-      icon: opt.value === 'backlog'
-        ? Circle
-        : opt.value === 'todo'
+      icon:
+        opt.value === "backlog"
           ? Circle
-          : opt.value === 'in_progress'
-            ? Clock
-            : opt.value === 'in_review'
-              ? Eye
-              : CheckCircle
+          : opt.value === "todo"
+            ? Circle
+            : opt.value === "in_progress"
+              ? Clock
+              : opt.value === "in_review"
+                ? Eye
+                : CheckCircle,
     })),
     renderBubble: (value, collapsed) => {
       const label = getStatusLabel(value);
       const iconColor = getStatusIconColor(value);
-      const Icon = value === 'backlog' ? Circle : value === 'todo' ? Circle : value === 'in_progress' ? Clock : value === 'in_review' ? Eye : CheckCircle;
+      const Icon =
+        value === "backlog"
+          ? Circle
+          : value === "todo"
+            ? Circle
+            : value === "in_progress"
+              ? Clock
+              : value === "in_review"
+                ? Eye
+                : CheckCircle;
 
       if (collapsed) {
-        return <Icon className={cn('h-3 w-3', iconColor)} />;
+        return <Icon className={cn("h-3 w-3", iconColor)} />;
       }
 
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
+        <span
+          className={cn("inline-flex items-center gap-1.5 text-xs", iconColor)}
+        >
           <Icon className="h-3 w-3" />
           {label}
         </span>
@@ -520,270 +671,451 @@ export function TasksList({
     onStatusChange: handleStatusChange,
   };
 
-  const { staff: staffList } = useStaffSearch('', true);
+  const { staff: staffList } = useStaffSearch("", true);
 
   const assigneeFilterOptions = useMemo(
-    () => staffList.map((s) => ({ value: s.id as unknown, label: `${s.first_name} ${s.last_name}` })),
-    [staffList]
+    () =>
+      staffList.map((s) => ({
+        value: s.id as unknown,
+        label: `${s.first_name} ${s.last_name}`,
+      })),
+    [staffList],
   );
 
   const issueFilterOptions = useMemo(
-    () => issues.map((issue) => ({ value: issue.id as unknown, label: issue.name || 'Untitled issue' })),
-    [issues]
+    () =>
+      issues.map((issue) => ({
+        value: issue.id as unknown,
+        label: issue.name || "Untitled issue",
+      })),
+    [issues],
   );
 
   const projectFilterOptions = useMemo(
-    () => projects.map((project) => ({ value: project.id as unknown, label: project.name || 'Untitled project' })),
-    [projects]
+    () =>
+      projects.map((project) => ({
+        value: project.id as unknown,
+        label: project.name || "Untitled project",
+      })),
+    [projects],
   );
 
   // Add row passes addValues (no id); only call update mutations for existing tasks
-  const isExistingTask = (item: TaskWithAssignee) => typeof (item as { id?: string }).id === 'string';
+  const isExistingTask = (item: TaskWithAssignee) =>
+    typeof (item as { id?: string }).id === "string";
 
   // Default assignee to current user (dashboard and project/issue dialogs, same as CreateTaskDialog)
   const defaultAssignee = currentStaffId ?? null;
 
-  const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(() => [
-    ...(showAssigneePill ? [{
-      key: 'assignee',
-      label: 'Assignee',
-      visibleByDefault: true,
-      getValue: (t: TaskWithAssignee) => t.assigned_to ?? null,
-      defaultValue: defaultAssignee,
-      filterOptions: assigneeFilterOptions,
-      groupable: true,
-      sortable: false,
-      filterable: true,
-      renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
-        <TaskAssigneeEntityPill
-          task={item}
-          staffList={staffList}
-          collapsed={collapsed}
-          onChange={(id) => {
-            if (isExistingTask(item)) handleAssigneeChange(item, id);
-            onChange(id);
-          }}
-        />
-      ),
-    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
-    ...(showLinkPill ? [{
-      key: 'link_entity',
-      label: 'Link',
-      visibleByDefault: true,
-      getValue: (t: TaskWithAssignee) => t.issue_id ?? t.project_id ?? null,
-      defaultValue: null,
-      groupable: false,
-      sortable: false,
-      filterable: false,
-      renderPill: (item: TaskWithAssignee, _onChange: (value: unknown) => void, collapsed?: boolean) => (
-        <TaskLinkEntityPill
-          issue={item.issue ?? null}
-          project={item.project ?? null}
-          collapsed={collapsed}
-        />
-      ),
-    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
-    {
-      key: 'unlinked',
-      label: 'Link',
-      visibleByDefault: false,
-      filterOnly: true,
-      getValue: (t: TaskWithAssignee) => (t.issue_id || t.project_id ? 'linked' : 'none'),
-      defaultValue: null,
-      filterOptions: [{ value: 'none' as unknown, label: 'Not linked to an issue or project' }],
-      groupable: false,
-      sortable: false,
-      filterable: true,
-      renderPill: () => null,
-    } as EntityListPillColumn<TaskWithAssignee, unknown>,
-    ...(showIssuePill ? [{
-      key: 'issue_id',
-      label: 'Issue',
-      visibleByDefault: false,
-      getValue: (t: TaskWithAssignee) => t.issue_id ?? null,
-      defaultValue: null,
-      filterOptions: issueFilterOptions,
-      groupable: true,
-      sortable: false,
-      filterable: true,
-      filterSearchable: true,
-      renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
-        <TaskIssueEntityPill
-          issue={item.issue ?? null}
-          issues={issues.map((i) => ({ id: i.id, name: i.name }))}
-          collapsed={collapsed}
-          onChange={(nextIssueId) => {
-            if (isExistingTask(item)) handleIssueChange(item, nextIssueId);
-            onChange(nextIssueId);
-          }}
-        />
-      ),
-    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
-    ...(showProjectPill ? [{
-      key: 'project_id',
-      label: 'Project',
-      visibleByDefault: false,
-      getValue: (t) => t.project_id ?? null,
-      defaultValue: null,
-      filterOptions: projectFilterOptions,
-      groupable: true,
-      sortable: false,
-      filterable: true,
-      filterSearchable: true,
-      renderPill: (item, onChange, collapsed) => (
-        <TaskProjectEntityPill
-          project={item.project ?? null}
-          projects={projects.map((p) => ({ id: p.id, name: p.name }))}
-          collapsed={collapsed}
-          onChange={(nextProjectId) => {
-            if (isExistingTask(item)) handleProjectChange(item, nextProjectId);
-            onChange(nextProjectId);
-          }}
-        />
-      ),
-    } as EntityListPillColumn<TaskWithAssignee, unknown>] : []),
-    ...(showDueDatePill
-      ? [{
-          key: 'due_date',
-          label: 'Due date',
-          visibleByDefault: true,
-          getValue: (t: TaskWithAssignee) => t.due_date ?? null,
-          defaultValue: null,
-          filterType: 'date-range' as const,
-          groupable: false,
-          sortable: true,
-          filterable: true,
-          compare: (a: unknown, b: unknown) => {
-            const da = a ? new Date(a as string).getTime() : 0;
-            const db = b ? new Date(b as string).getTime() : 0;
-            return da - db;
+  const rightPills: EntityListPillColumn<TaskWithAssignee, unknown>[] = useMemo(
+    () => [
+      ...(showAssigneePill
+        ? [
+            {
+              key: "assignee",
+              label: "Assignee",
+              visibleByDefault: true,
+              getValue: (t: TaskWithAssignee) => t.assigned_to ?? null,
+              defaultValue: defaultAssignee,
+              filterOptions: assigneeFilterOptions,
+              groupable: true,
+              sortable: false,
+              filterable: true,
+              renderPill: (
+                item: TaskWithAssignee,
+                onChange: (value: unknown) => void,
+                collapsed?: boolean,
+              ) => (
+                <TaskAssigneeEntityPill
+                  task={item}
+                  staffList={staffList}
+                  collapsed={collapsed}
+                  onChange={(id) => {
+                    if (isExistingTask(item)) handleAssigneeChange(item, id);
+                    onChange(id);
+                  }}
+                />
+              ),
+            } as EntityListPillColumn<TaskWithAssignee, unknown>,
+          ]
+        : []),
+      ...(showLinkPill
+        ? [
+            {
+              key: "link_entity",
+              label: "Link",
+              visibleByDefault: true,
+              getValue: (t: TaskWithAssignee) =>
+                t.issue_id ?? t.project_id ?? null,
+              defaultValue: null,
+              groupable: false,
+              sortable: false,
+              filterable: false,
+              renderPill: (
+                item: TaskWithAssignee,
+                _onChange: (value: unknown) => void,
+                collapsed?: boolean,
+              ) => (
+                <TaskLinkEntityPill
+                  issue={item.issue ?? null}
+                  project={item.project ?? null}
+                  collapsed={collapsed}
+                />
+              ),
+            } as EntityListPillColumn<TaskWithAssignee, unknown>,
+          ]
+        : []),
+      {
+        key: "unlinked",
+        label: "Link",
+        visibleByDefault: false,
+        filterOnly: true,
+        getValue: (t: TaskWithAssignee) =>
+          t.issue_id || t.project_id ? "linked" : "none",
+        defaultValue: null,
+        filterOptions: [
+          {
+            value: "none" as unknown,
+            label: "Not linked to an issue or project",
           },
-          renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
-            <TaskDueDateEntityPill
-              task={item}
-              collapsed={collapsed}
-              onChange={(dueDate) => {
-                if (isExistingTask(item)) handleDueDateChange(item, dueDate);
-                onChange(dueDate);
-              }}
-            />
-          ),
-        } as EntityListPillColumn<TaskWithAssignee, unknown>]
-      : [{
-          key: 'estimate',
-          label: 'Estimate',
-          visibleByDefault: true,
-          getValue: (t: TaskWithAssignee) => t.estimate ?? null,
-          defaultValue: null,
-          filterOptions: ESTIMATE_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
-          groupable: true,
-          sortable: true,
-          filterable: true,
-          compare: (a: unknown, b: unknown) => (Number(a) ?? 0) - (Number(b) ?? 0),
-          renderPill: (item: TaskWithAssignee, onChange: (value: unknown) => void, collapsed?: boolean) => (
-            <TaskEstimateEntityPill
-              value={item.estimate ?? null}
-              collapsed={collapsed}
-              onChange={(v) => {
-                if (isExistingTask(item)) handleEstimateChange(item, v);
-                onChange(v);
-              }}
-            />
-          ),
-        } as EntityListPillColumn<TaskWithAssignee, unknown>]),
-    {
-      key: 'priority',
-      label: 'Priority',
-      visibleByDefault: true,
-      getValue: (t) => t.priority ?? 0,
-      defaultValue: 0,
-      filterOptions: PRIORITY_OPTIONS.map((o) => ({ value: o.value as unknown, label: o.label })),
-      groupable: true,
-      sortable: true,
-      filterable: true,
-      alwaysAtBottom: [0],
-      compare: (a, b) => {
-        const pa = Number(a) || 0;
-        const pb = Number(b) || 0;
-        if (pa === pb) return 0;
-        if (pa === 0) return 1;
-        if (pb === 0) return -1;
-        return pa - pb;
+        ],
+        groupable: false,
+        sortable: false,
+        filterable: true,
+        renderPill: () => null,
+      } as EntityListPillColumn<TaskWithAssignee, unknown>,
+      ...(showIssuePill
+        ? [
+            {
+              key: "issue_id",
+              label: "Issue",
+              visibleByDefault: false,
+              getValue: (t: TaskWithAssignee) => t.issue_id ?? null,
+              defaultValue: null,
+              filterOptions: issueFilterOptions,
+              groupable: true,
+              sortable: false,
+              filterable: true,
+              filterSearchable: true,
+              renderPill: (
+                item: TaskWithAssignee,
+                onChange: (value: unknown) => void,
+                collapsed?: boolean,
+              ) => (
+                <TaskIssueEntityPill
+                  issue={item.issue ?? null}
+                  issues={issues.map((i) => ({ id: i.id, name: i.name }))}
+                  collapsed={collapsed}
+                  onChange={(nextIssueId) => {
+                    if (isExistingTask(item))
+                      handleIssueChange(item, nextIssueId);
+                    onChange(nextIssueId);
+                  }}
+                />
+              ),
+            } as EntityListPillColumn<TaskWithAssignee, unknown>,
+          ]
+        : []),
+      ...(showProjectPill
+        ? [
+            {
+              key: "project_id",
+              label: "Project",
+              visibleByDefault: false,
+              getValue: (t) => t.project_id ?? null,
+              defaultValue: null,
+              filterOptions: projectFilterOptions,
+              groupable: true,
+              sortable: false,
+              filterable: true,
+              filterSearchable: true,
+              renderPill: (item, onChange, collapsed) => (
+                <TaskProjectEntityPill
+                  project={item.project ?? null}
+                  projects={projects.map((p) => ({ id: p.id, name: p.name }))}
+                  collapsed={collapsed}
+                  onChange={(nextProjectId) => {
+                    if (isExistingTask(item))
+                      handleProjectChange(item, nextProjectId);
+                    onChange(nextProjectId);
+                  }}
+                />
+              ),
+            } as EntityListPillColumn<TaskWithAssignee, unknown>,
+          ]
+        : []),
+      ...(showDueDatePill
+        ? [
+            {
+              key: "due_date",
+              label: "Due date",
+              visibleByDefault: true,
+              getValue: (t: TaskWithAssignee) => t.due_date ?? null,
+              defaultValue: null,
+              filterType: "date-range" as const,
+              groupable: false,
+              sortable: true,
+              filterable: true,
+              compare: (a: unknown, b: unknown) => {
+                const da = a ? new Date(a as string).getTime() : 0;
+                const db = b ? new Date(b as string).getTime() : 0;
+                return da - db;
+              },
+              renderPill: (
+                item: TaskWithAssignee,
+                onChange: (value: unknown) => void,
+                collapsed?: boolean,
+              ) => (
+                <TaskDueDateEntityPill
+                  task={item}
+                  collapsed={collapsed}
+                  onChange={(dueDate) => {
+                    if (isExistingTask(item))
+                      handleDueDateChange(item, dueDate);
+                    onChange(dueDate);
+                  }}
+                />
+              ),
+            } as EntityListPillColumn<TaskWithAssignee, unknown>,
+          ]
+        : [
+            {
+              key: "estimate",
+              label: "Estimate",
+              visibleByDefault: true,
+              getValue: (t: TaskWithAssignee) => t.estimate ?? null,
+              defaultValue: null,
+              filterOptions: ESTIMATE_OPTIONS.map((o) => ({
+                value: o.value as unknown,
+                label: o.label,
+              })),
+              groupable: true,
+              sortable: true,
+              filterable: true,
+              compare: (a: unknown, b: unknown) =>
+                (Number(a) ?? 0) - (Number(b) ?? 0),
+              renderPill: (
+                item: TaskWithAssignee,
+                onChange: (value: unknown) => void,
+                collapsed?: boolean,
+              ) => (
+                <TaskEstimateEntityPill
+                  value={item.estimate ?? null}
+                  collapsed={collapsed}
+                  onChange={(v) => {
+                    if (isExistingTask(item)) handleEstimateChange(item, v);
+                    onChange(v);
+                  }}
+                />
+              ),
+            } as EntityListPillColumn<TaskWithAssignee, unknown>,
+          ]),
+      {
+        key: "priority",
+        label: "Priority",
+        visibleByDefault: true,
+        getValue: (t) => t.priority ?? 0,
+        defaultValue: 0,
+        filterOptions: PRIORITY_OPTIONS.map((o) => ({
+          value: o.value as unknown,
+          label: o.label,
+        })),
+        groupable: true,
+        sortable: true,
+        filterable: true,
+        alwaysAtBottom: [0],
+        compare: (a, b) => {
+          const pa = Number(a) || 0;
+          const pb = Number(b) || 0;
+          if (pa === pb) return 0;
+          if (pa === 0) return 1;
+          if (pb === 0) return -1;
+          return pa - pb;
+        },
+        renderPill: (item, onChange, collapsed) => (
+          <TaskPriorityEntityPill
+            value={(item.priority ?? 0) as TaskPriority}
+            collapsed={collapsed}
+            onChange={(v) => {
+              if (isExistingTask(item)) handlePriorityChange(item, v);
+              onChange(v);
+            }}
+          />
+        ),
       },
-      renderPill: (item, onChange, collapsed) => (
-        <TaskPriorityEntityPill
-          value={(item.priority ?? 0) as TaskPriority}
-          collapsed={collapsed}
-          onChange={(v) => {
-            if (isExistingTask(item)) handlePriorityChange(item, v);
-            onChange(v);
-          }}
-        />
-      ),
-    },
-  ], [
-    defaultAssignee,
-    showDueDatePill,
-    assigneeFilterOptions,
-    issueFilterOptions,
-    projectFilterOptions,
-    staffList,
-    issues,
-    projects,
-    showAssigneePill,
-    showIssuePill,
-    showProjectPill,
-    showLinkPill,
-    handleAssigneeChange,
-    handleIssueChange,
-    handleProjectChange,
-    handleDueDateChange,
-    handleEstimateChange,
-    handlePriorityChange,
-  ]);
+    ],
+    [
+      defaultAssignee,
+      showDueDatePill,
+      assigneeFilterOptions,
+      issueFilterOptions,
+      projectFilterOptions,
+      staffList,
+      issues,
+      projects,
+      showAssigneePill,
+      showIssuePill,
+      showProjectPill,
+      showLinkPill,
+      handleAssigneeChange,
+      handleIssueChange,
+      handleProjectChange,
+      handleDueDateChange,
+      handleEstimateChange,
+      handlePriorityChange,
+    ],
+  );
 
   const groupByOptions = [
-    { key: 'assignee', label: 'Assignee' },
-    ...(showDueDatePill ? [{ key: 'due_date', label: 'Due date' }] : [{ key: 'estimate', label: 'Estimate' }]),
-    { key: 'status', label: 'Status' },
-    { key: 'priority', label: 'Priority' },
-    { key: 'project_id', label: 'Project' },
+    { key: "assignee", label: "Assignee" },
+    ...(showDueDatePill
+      ? [{ key: "due_date", label: "Due date" }]
+      : [{ key: "estimate", label: "Estimate" }]),
+    { key: "status", label: "Status" },
+    { key: "priority", label: "Priority" },
+    { key: "project_id", label: "Project" },
   ];
 
   const sortByOptions = [
-    ...(showDueDatePill ? [{ key: 'due_date', label: 'Due date' }] : [{ key: 'estimate', label: 'Estimate' }]),
-    { key: 'priority', label: 'Priority' },
-    { key: 'status', label: 'Status' },
+    ...(showDueDatePill
+      ? [{ key: "due_date", label: "Due date" }]
+      : [{ key: "estimate", label: "Estimate" }]),
+    { key: "priority", label: "Priority" },
+    { key: "status", label: "Status" },
   ];
 
-  const getGroupOrder = useCallback((columnKey: string, valueKey: string): number => {
-    if (columnKey === 'status') {
-      const statusOrder: Record<string, number> = {
-        backlog: 0,
-        todo: 1,
-        in_progress: 2,
-        in_review: 3,
-        done: 4,
-        __null__: 999,
-      };
-      return statusOrder[valueKey] ?? 999;
-    }
-    if (columnKey === 'due_date') {
-      if (valueKey === '__null__') return 99999999999999;
-      const t = new Date(valueKey).getTime();
-      return isNaN(t) ? 0 : t;
-    }
-    return 0;
-  }, []);
+  const getGroupOrder = useCallback(
+    (columnKey: string, valueKey: string): number => {
+      if (columnKey === "status") {
+        const statusOrder: Record<string, number> = {
+          backlog: 0,
+          todo: 1,
+          in_progress: 2,
+          in_review: 3,
+          done: 4,
+          __null__: 999,
+        };
+        return statusOrder[valueKey] ?? 999;
+      }
+      if (columnKey === "due_date") {
+        if (valueKey === "__null__") return 99999999999999;
+        const t = new Date(valueKey).getTime();
+        return isNaN(t) ? 0 : t;
+      }
+      return 0;
+    },
+    [],
+  );
+
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createDefaultStatus, setCreateDefaultStatus] =
+    useState<TaskStatus>("todo");
+  const [createDefaultValues, setCreateDefaultValues] = useState<
+    Partial<TaskFormData>
+  >({});
+  const handleBoardUpdate = useCallback(
+    (task: TaskWithAssignee, updates: Partial<TaskWithAssignee>) => {
+      const finalUpdates = { ...updates } as TaskUpdate;
+      if (updates.status === "done") {
+        finalUpdates.completed_by = currentStaff?.id ?? null;
+      }
+      updateTask.mutate({ id: task.id, updates: finalUpdates });
+    },
+    [updateTask, currentStaff?.id],
+  );
+  const columnDefs: KanbanColumnDef<TaskWithAssignee, unknown>[] = useMemo(
+    () => [
+      {
+        key: "status",
+        label: "Status",
+        getValue: (t) => t.status,
+        options: TASK_STATUS_OPTIONS.map((o) => ({
+          value: o.value,
+          label: o.label,
+        })),
+        onValueChange: (t, v) =>
+          handleBoardUpdate(t, { status: v as TaskStatus }),
+      },
+      {
+        key: "priority",
+        label: "Priority",
+        getValue: (t) => t.priority ?? 0,
+        options: PRIORITY_OPTIONS,
+        onValueChange: (t, v) =>
+          handleBoardUpdate(t, { priority: v as number }),
+      },
+      {
+        key: "assignee",
+        label: "Assignee",
+        getValue: (t) => t.assigned_to ?? "__null__",
+        options: [
+          { value: "__null__", label: "Unassigned" },
+          ...staffList.map((s) => ({
+            value: s.id,
+            label: `${s.first_name} ${s.last_name}`,
+          })),
+        ],
+        onValueChange: (t, v) =>
+          handleBoardUpdate(t, {
+            assigned_to: v === "__null__" ? null : (v as string),
+          }),
+      },
+    ],
+    [handleBoardUpdate, staffList],
+  );
+
+  const activeColumnKey =
+    groupBy && columnDefs.some((column) => column.key === groupBy)
+      ? groupBy
+      : "status";
+  const handleBoardAdd = useCallback(
+    (columnValue: unknown) => {
+      const defaults: Partial<TaskFormData> = { status: "todo" as TaskStatus };
+      if (activeColumnKey === "status") {
+        defaults.status = columnValue as TaskStatus;
+      } else if (activeColumnKey === "priority") {
+        defaults.priority = columnValue as number;
+      } else if (activeColumnKey === "assignee") {
+        defaults.assignedTo =
+          columnValue === "__null__" ? null : (columnValue as string);
+      }
+
+      if (issueId) defaults.issueId = issueId;
+      if (projectId) defaults.projectId = projectId;
+
+      setCreateDefaultStatus(defaults.status ?? "todo");
+      setCreateDefaultValues(defaults);
+      setIsCreateDialogOpen(true);
+    },
+    [activeColumnKey, issueId, projectId],
+  );
 
   return (
     <>
-      <EntityList<TaskWithAssignee>
+      <EntityCollection<TaskWithAssignee>
         viewTarget="tasks"
+        layout={layout}
+        board={{
+          columnDefs,
+          renderCard: (item, keys) => (
+            <TaskCard
+              task={item}
+              rightPills={rightPills}
+              visiblePillKeys={keys}
+              onOpen={(id) => {
+                setSelectedTaskId(id);
+                setIsEditDialogOpen(true);
+              }}
+            />
+          ),
+          onAdd: handleBoardAdd,
+        }}
         items={filteredTasks}
         getItemId={(t) => t.id}
-        renderName={(t) => t.title ?? ''}
-        statusColumn={statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>}
+        renderName={(t) => t.title ?? ""}
+        statusColumn={
+          statusColumn as EntityListStatusColumn<TaskWithAssignee, unknown>
+        }
         rightPills={rightPills}
         visiblePillKeys={visiblePillKeys}
         onVisiblePillKeysChange={setVisiblePillKeys}
@@ -791,8 +1123,10 @@ export function TasksList({
         sortByOptions={sortByOptions}
         groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}
         onGroupByChange={embedLocked ? undefined : setGroupBy}
-        sortBy={embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
-        sortDirection={embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
+        sortBy={embedLocked ? (embedView?.sortBy ?? "name") : sortBy}
+        sortDirection={
+          embedLocked ? (embedView?.sortDirection ?? "asc") : sortDirection
+        }
         onSortChange={embedLocked ? undefined : handleSortChange}
         onAdd={showInlineAddRow ? handleAdd : undefined}
         onRowClick={(t) => {
@@ -802,7 +1136,7 @@ export function TasksList({
         addButtonLabel="Add task"
         addButtonVariant="default"
         addButtonShowLabel={true}
-        emptyMessage={isLinkedTaskList ? '' : 'No tasks match your filters'}
+        emptyMessage={isLinkedTaskList ? "" : "No tasks match your filters"}
         isLoading={isLoading}
         filters={filters}
         onFiltersChange={hideToolbar ? undefined : setFilters}
@@ -813,39 +1147,41 @@ export function TasksList({
         onApplyQuickFilter={hideToolbar ? undefined : handleApplyQuickFilter}
         getGroupOrder={getGroupOrder}
         getGroupLabel={(columnKey, valueKey) => {
-          if (columnKey === 'assignee') {
-            if (valueKey === '__null__') return 'Unassigned';
+          if (columnKey === "assignee") {
+            if (valueKey === "__null__") return "Unassigned";
             const s = staffList.find((x) => x.id === valueKey);
-            return s ? `${s.first_name ?? ''} ${s.last_name ?? ''}`.trim() || valueKey : valueKey;
+            return s
+              ? `${s.first_name ?? ""} ${s.last_name ?? ""}`.trim() || valueKey
+              : valueKey;
           }
-          if (columnKey === 'estimate') {
-            if (valueKey === '__null__') return 'No estimate';
+          if (columnKey === "estimate") {
+            if (valueKey === "__null__") return "No estimate";
             const label = getEstimateLabel(Number(valueKey));
             return label ?? valueKey;
           }
-          if (columnKey === 'due_date') {
-            if (valueKey === '__null__') return 'No due date';
+          if (columnKey === "due_date") {
+            if (valueKey === "__null__") return "No due date";
             return formatShortDate(valueKey);
           }
-          if (columnKey === 'status') {
-            if (valueKey === '__null__') return 'No status';
+          if (columnKey === "status") {
+            if (valueKey === "__null__") return "No status";
             return getStatusLabel(valueKey as TaskStatus);
           }
-          if (columnKey === 'priority') {
-            if (valueKey === '__null__') return 'No priority';
+          if (columnKey === "priority") {
+            if (valueKey === "__null__") return "No priority";
             return getPriorityLabel(Number(valueKey) as TaskPriority);
           }
-          if (columnKey === 'issue_id') {
-            if (valueKey === '__null__') return 'No issue';
+          if (columnKey === "issue_id") {
+            if (valueKey === "__null__") return "No issue";
             const issue = issues.find((i) => i.id === valueKey);
             return issue?.name || valueKey;
           }
-          if (columnKey === 'project_id') {
-            if (valueKey === '__null__') return 'No project';
+          if (columnKey === "project_id") {
+            if (valueKey === "__null__") return "No project";
             const project = projects.find((p) => p.id === valueKey);
             return project?.name || valueKey;
           }
-          return valueKey === '__null__' ? 'No value' : valueKey;
+          return valueKey === "__null__" ? "No value" : valueKey;
         }}
         descriptionConfig={
           hideToolbar
@@ -854,7 +1190,11 @@ export function TasksList({
                 enabled: true,
                 renderEditor: ({ value, onChange, placeholder, ref }) => (
                   <AdminRichTextEditorWithImages
-                    ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
+                    ref={
+                      ref as React.RefObject<
+                        import("@altitutor/ui").RichTextEditorRef
+                      >
+                    }
                     content={value}
                     onChange={onChange}
                     placeholder={placeholder}
@@ -863,7 +1203,7 @@ export function TasksList({
                     mentionSuggestions={mentionSuggestions}
                   />
                 ),
-                placeholder: 'Add task description...',
+                placeholder: "Add task description...",
               }
         }
         renderAddRow={
@@ -894,6 +1234,16 @@ export function TasksList({
           taskId={selectedTaskId}
         />
       )}
+      <CreateTaskDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        defaultStatus={createDefaultStatus}
+        defaultValues={createDefaultValues}
+        issue={issueId ? issues.find((i) => i.id === issueId) || null : null}
+        project={
+          projectId ? projects.find((p) => p.id === projectId) || null : null
+        }
+      />
     </>
   );
 }

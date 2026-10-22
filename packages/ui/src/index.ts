@@ -107,3 +107,5 @@ export * from './lib/stored-image-html-renderer';
 export { DialogScope, DialogScopeProvider, DialogScopePane } from "./components/dialog-scope";
 
 export * from "./components/toolbar-saved-views";
+
+export * from "./components/entity-collection";

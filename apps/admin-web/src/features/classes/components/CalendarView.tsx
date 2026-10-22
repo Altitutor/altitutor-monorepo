@@ -1,25 +1,28 @@
-'use client';
+"use client";
 
-import { useState, useMemo } from 'react';
-import { Card, Button, Input, Switch, Label } from '@altitutor/ui';
-import { expandProjectedClassScheduleRows } from '@altitutor/shared';
-import type { ProjectedClassScheduleRow, Tables } from '@altitutor/shared';
-import { ClassCard } from '@/shared/components/ClassCard';
-import { AdminShiftCard } from '@/shared/components/AdminShiftCard';
-import { Search, X } from 'lucide-react';
-import { classMatchesSelectedDays } from '../lib/class-day-filter';
+import { useState, useMemo } from "react";
+import { Card, Button, Input, Switch, Label } from "@altitutor/ui";
+import { expandProjectedClassScheduleRows } from "@altitutor/shared";
+import type { ProjectedClassScheduleRow, Tables } from "@altitutor/shared";
+import { ClassCard } from "@/shared/components/ClassCard";
+import { AdminShiftCard } from "@/shared/components/AdminShiftCard";
+import { Search, X } from "lucide-react";
+import { classMatchesSelectedDays } from "../lib/class-day-filter";
 
 interface CalendarViewProps {
-  classes: Tables<'classes'>[];
-  classSubjects?: Record<string, Tables<'subjects'>>;
-  classStudents?: Record<string, Tables<'students'>[]>;
-  classStaff?: Record<string, Tables<'staff'>[]>;
-  onClassClick: (cls: Tables<'classes'>) => void;
+  classes: Tables<"classes">[];
+  classSubjects?: Record<string, Tables<"subjects">>;
+  classStudents?: Record<string, Tables<"students">[]>;
+  classStaff?: Record<string, Tables<"staff">[]>;
+  onClassClick: (cls: Tables<"classes">) => void;
+  searchValue?: string;
+  selectedDays?: number[];
+  visibleProperties?: string[];
   showFilters?: boolean; // Show/hide search bar and day filters
   // Optional admin shifts data for toggle
-  adminShifts?: Tables<'admin_shifts'>[];
-  adminShiftStaff?: Record<string, Tables<'staff'>[]>;
-  onAdminShiftClick?: (shift: Tables<'admin_shifts'>) => void;
+  adminShifts?: Tables<"admin_shifts">[];
+  adminShiftStaff?: Record<string, Tables<"staff">[]>;
+  onAdminShiftClick?: (shift: Tables<"admin_shifts">) => void;
   showAdminShifts?: boolean; // Toggle to show/hide admin shifts
   onShowAdminShiftsChange?: (show: boolean) => void;
 }
@@ -41,10 +44,10 @@ interface ClassPosition {
   totalOverlaps: number;
 }
 
-type TimetableClass = Tables<'classes'> & ProjectedClassScheduleRow;
+type TimetableClass = Tables<"classes"> & ProjectedClassScheduleRow;
 
 interface AdminShiftPosition {
-  adminShift: Tables<'admin_shifts'>;
+  adminShift: Tables<"admin_shifts">;
   top: number;
   height: number;
   left: number;
@@ -53,120 +56,162 @@ interface AdminShiftPosition {
   totalOverlaps: number;
 }
 
-export function CalendarView({ 
-  classes, 
-  classSubjects, 
-  classStudents, 
-  classStaff, 
+export function CalendarView({
+  classes,
+  classSubjects,
+  classStudents,
+  classStaff,
   onClassClick,
+  searchValue,
+  selectedDays,
+  visibleProperties,
   showFilters = true, // Default to showing filters
   adminShifts = [],
   adminShiftStaff,
   onAdminShiftClick,
   showAdminShifts = false,
-  onShowAdminShiftsChange
+  onShowAdminShiftsChange,
 }: CalendarViewProps) {
-  const [dayFilter, setDayFilter] = useState<number[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [internalDayFilter, setDayFilter] = useState<number[]>([]);
+  const dayFilter = selectedDays ?? internalDayFilter;
+  const [internalSearchTerm, setSearchTerm] = useState("");
+  const searchTerm = searchValue ?? internalSearchTerm;
 
   const days = [
-    { name: 'Monday', value: 1, short: 'Mon' },
-    { name: 'Tuesday', value: 2, short: 'Tue' },
-    { name: 'Wednesday', value: 3, short: 'Wed' },
-    { name: 'Thursday', value: 4, short: 'Thu' },
-    { name: 'Friday', value: 5, short: 'Fri' },
-    { name: 'Saturday', value: 6, short: 'Sat' },
-    { name: 'Sunday', value: 0, short: 'Sun' },
+    { name: "Monday", value: 1, short: "Mon" },
+    { name: "Tuesday", value: 2, short: "Tue" },
+    { name: "Wednesday", value: 3, short: "Wed" },
+    { name: "Thursday", value: 4, short: "Thu" },
+    { name: "Friday", value: 5, short: "Fri" },
+    { name: "Saturday", value: 6, short: "Sat" },
+    { name: "Sunday", value: 0, short: "Sun" },
   ];
 
   // Filter classes based on search term and day filter
   const filteredClasses = useMemo(() => {
     let result = [...classes];
-    
+
     // Helper function to get subject display name
-    const getSubjectDisplay = (classItem: Tables<'classes'>): string => {
+    const getSubjectDisplay = (classItem: Tables<"classes">): string => {
       const subject = classSubjects?.[classItem.id];
       if (subject) {
-        return subject?.long_name ?? '';
+        return subject?.long_name ?? "";
       }
-      return '-';
+      return "-";
     };
-    
+
     // Apply search term
     if (searchTerm) {
       const searchLower = searchTerm.toLowerCase();
-      result = result.filter(cls => {
+      result = result.filter((cls) => {
+        // The shared table search is defined by class display names.
+        if (searchValue !== undefined) {
+          return [cls.short_name, cls.long_name].some((name) =>
+            name?.toLowerCase().includes(searchLower),
+          );
+        }
         const subject = classSubjects?.[cls.id];
-        
+
         // Search in subject short name
-        const subjectShortName = subject ? (subject.short_name ?? subject.long_name ?? subject.name ?? '').toLowerCase() : '';
+        const subjectShortName = subject
+          ? (
+              subject.short_name ??
+              subject.long_name ??
+              subject.name ??
+              ""
+            ).toLowerCase()
+          : "";
         const subjectShortMatch = subjectShortName.includes(searchLower);
-        
+
         // Search in subject long name (display name)
         const subjectDisplay = getSubjectDisplay(cls).toLowerCase();
         const subjectLongMatch = subjectDisplay.includes(searchLower);
-        
+
         // Search in student names (concatenated first_name + last_name)
         const students = classStudents?.[cls.id] || [];
-        const studentMatch = students.some(student => {
-          const fullName = `${student.first_name || ''} ${student.last_name || ''}`.trim().toLowerCase();
-          return fullName.includes(searchLower) ||
-            (student.first_name || '').toLowerCase().includes(searchLower) ||
-            (student.last_name || '').toLowerCase().includes(searchLower);
+        const studentMatch = students.some((student) => {
+          const fullName =
+            `${student.first_name || ""} ${student.last_name || ""}`
+              .trim()
+              .toLowerCase();
+          return (
+            fullName.includes(searchLower) ||
+            (student.first_name || "").toLowerCase().includes(searchLower) ||
+            (student.last_name || "").toLowerCase().includes(searchLower)
+          );
         });
-        
+
         // Search in staff names (concatenated first_name + last_name)
         const staff = classStaff?.[cls.id] || [];
-        const staffMatch = staff.some(staffMember => {
-          const fullName = `${staffMember.first_name || ''} ${staffMember.last_name || ''}`.trim().toLowerCase();
-          return fullName.includes(searchLower) ||
-            (staffMember.first_name || '').toLowerCase().includes(searchLower) ||
-            (staffMember.last_name || '').toLowerCase().includes(searchLower);
+        const staffMatch = staff.some((staffMember) => {
+          const fullName =
+            `${staffMember.first_name || ""} ${staffMember.last_name || ""}`
+              .trim()
+              .toLowerCase();
+          return (
+            fullName.includes(searchLower) ||
+            (staffMember.first_name || "")
+              .toLowerCase()
+              .includes(searchLower) ||
+            (staffMember.last_name || "").toLowerCase().includes(searchLower)
+          );
         });
-        
-        return subjectShortMatch || subjectLongMatch || studentMatch || staffMatch;
+
+        return (
+          subjectShortMatch || subjectLongMatch || studentMatch || staffMatch
+        );
       });
     }
-    
+
     // Apply day filter (multi-select). search_classes_admin does not return
     // schedule_weekdays, so this falls back to the primary day_of_week.
     if (dayFilter.length > 0) {
       result = result.filter((cls) => classMatchesSelectedDays(cls, dayFilter));
     }
-    
+
     return result;
-  }, [classes, searchTerm, dayFilter, classSubjects, classStudents, classStaff]);
+  }, [
+    classes,
+    searchTerm,
+    searchValue,
+    dayFilter,
+    classSubjects,
+    classStudents,
+    classStaff,
+  ]);
 
   const timetableClasses = useMemo(
     () => expandProjectedClassScheduleRows(filteredClasses),
-    [filteredClasses]
+    [filteredClasses],
   );
 
   // Filter admin shifts if showing admin shifts
   const filteredAdminShifts = useMemo(() => {
     if (!showAdminShifts || adminShifts.length === 0) return [];
-    
+
     let result = [...adminShifts];
-    
+
     // Apply day filter (multi-select)
     if (dayFilter.length > 0) {
-      result = result.filter(shift => dayFilter.includes(shift.day_of_week));
+      result = result.filter((shift) => dayFilter.includes(shift.day_of_week));
     }
-    
+
     return result;
   }, [adminShifts, dayFilter, showAdminShifts]);
 
   // Filter days that have classes or admin shifts (from filtered data)
-  const activeDays = days.filter(day => 
-    timetableClasses.some(cls => cls.day_of_week === day.value) ||
-    (showAdminShifts && filteredAdminShifts.some(shift => shift.day_of_week === day.value))
+  const activeDays = days.filter(
+    (day) =>
+      timetableClasses.some((cls) => cls.day_of_week === day.value) ||
+      (showAdminShifts &&
+        filteredAdminShifts.some((shift) => shift.day_of_week === day.value)),
   );
 
   // Day filter toggle function
   const toggleDay = (day: number) => {
-    setDayFilter(prev => {
+    setDayFilter((prev) => {
       if (prev.includes(day)) {
-        return prev.filter(d => d !== day);
+        return prev.filter((d) => d !== day);
       } else {
         return [...prev, day];
       }
@@ -180,14 +225,14 @@ export function CalendarView({
   // Convert time string to minutes from start of day
   const timeToMinutes = (timeString: string): number => {
     if (!timeString) return 0;
-    const [hours, minutes] = timeString.split(':').map(Number);
+    const [hours, minutes] = timeString.split(":").map(Number);
     return hours * 60 + minutes;
   };
 
   // Calculate dynamic time range based on filtered classes and admin shifts
   const calculateTimeRange = (): { startHour: number; endHour: number } => {
     const allItems = [...timetableClasses, ...filteredAdminShifts];
-    
+
     if (allItems.length === 0) {
       // Default to 9am-8pm if no items
       return { startHour: 9, endHour: 20 };
@@ -196,10 +241,10 @@ export function CalendarView({
     let earliestStartMinutes = Infinity;
     let latestEndMinutes = -Infinity;
 
-    allItems.forEach(item => {
+    allItems.forEach((item) => {
       const startMinutes = timeToMinutes(item.start_time);
       const endMinutes = timeToMinutes(item.end_time);
-      
+
       earliestStartMinutes = Math.min(earliestStartMinutes, startMinutes);
       latestEndMinutes = Math.max(latestEndMinutes, endMinutes);
     });
@@ -221,11 +266,11 @@ export function CalendarView({
   const generateTimeSlots = (): TimeSlot[] => {
     const slots: TimeSlot[] = [];
     for (let hour = startHour; hour <= endHour; hour++) {
-      const ampm = hour >= 12 ? 'PM' : 'AM';
+      const ampm = hour >= 12 ? "PM" : "AM";
       const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
       const label = `${displayHour}:00 ${ampm}`;
-      const value = `${hour.toString().padStart(2, '0')}:00`;
-      
+      const value = `${hour.toString().padStart(2, "0")}:00`;
+
       slots.push({ hour, minute: 0, label, value });
     }
     return slots;
@@ -236,29 +281,29 @@ export function CalendarView({
   // Calculate position of a class block relative to the calendar grid
   const calculateClassPosition = (
     cls: TimetableClass,
-    overlappingClasses: TimetableClass[]
+    overlappingClasses: TimetableClass[],
   ): ClassPosition => {
     const startMinutes = timeToMinutes(cls.start_time);
     const endMinutes = timeToMinutes(cls.end_time);
     const duration = endMinutes - startMinutes;
-    
+
     // Position from dynamic start hour - each hour slot is 75px
     const calendarStartMinutes = startHour * 60;
     const minutesFromCalendarStart = startMinutes - calendarStartMinutes;
     const slotHeight = 75; // pixels per hour slot
-    
+
     // Calculate position in the grid
     const top = Math.max(0, (minutesFromCalendarStart / 60) * slotHeight);
     const height = Math.max((duration / 60) * slotHeight, 30); // Minimum 30px height
-    
+
     // Calculate overlapping positions
     const overlapIndex = overlappingClasses.findIndex(
-      (candidate) => candidate.schedule_row_id === cls.schedule_row_id
+      (candidate) => candidate.schedule_row_id === cls.schedule_row_id,
     );
     const totalOverlaps = overlappingClasses.length;
     const columnWidth = totalOverlaps > 1 ? 95 / totalOverlaps : 95; // Leave some margin
-    const left = (overlapIndex * columnWidth) + 2.5; // Add small left margin
-    
+    const left = overlapIndex * columnWidth + 2.5; // Add small left margin
+
     return {
       class: cls,
       top,
@@ -266,67 +311,69 @@ export function CalendarView({
       left,
       width: columnWidth,
       overlapIndex,
-      totalOverlaps
+      totalOverlaps,
     };
   };
 
   // Find overlapping classes for a specific day and time range
-  const findOverlappingClasses = (dayClasses: TimetableClass[]): TimetableClass[][] => {
+  const findOverlappingClasses = (
+    dayClasses: TimetableClass[],
+  ): TimetableClass[][] => {
     const groups: TimetableClass[][] = [];
     const processed = new Set<string>();
-    
-    dayClasses.forEach(cls => {
+
+    dayClasses.forEach((cls) => {
       if (processed.has(cls.schedule_row_id)) return;
-      
+
       const group = [cls];
       processed.add(cls.schedule_row_id);
-      
+
       const clsStart = timeToMinutes(cls.start_time);
       const clsEnd = timeToMinutes(cls.end_time);
-      
-      dayClasses.forEach(otherCls => {
+
+      dayClasses.forEach((otherCls) => {
         if (processed.has(otherCls.schedule_row_id)) return;
-        
+
         const otherStart = timeToMinutes(otherCls.start_time);
         const otherEnd = timeToMinutes(otherCls.end_time);
-        
+
         // Check if classes overlap
         if (clsStart < otherEnd && clsEnd > otherStart) {
           group.push(otherCls);
           processed.add(otherCls.schedule_row_id);
         }
       });
-      
+
       groups.push(group);
     });
-    
+
     return groups;
   };
 
   // Calculate position of an admin shift block relative to the calendar grid
   const calculateAdminShiftPosition = (
-    shift: Tables<'admin_shifts'>, 
-    overlappingShifts: Tables<'admin_shifts'>[]
+    shift: Tables<"admin_shifts">,
+    overlappingShifts: Tables<"admin_shifts">[],
   ): AdminShiftPosition => {
     const startMinutes = timeToMinutes(shift.start_time);
     const endMinutes = timeToMinutes(shift.end_time);
     const duration = endMinutes - startMinutes;
-    
+
     // Position from dynamic start hour - each hour slot is 75px
     const calendarStartMinutes = startHour * 60;
     const minutesFromCalendarStart = startMinutes - calendarStartMinutes;
     const slotHeight = 75; // pixels per hour slot
-    
+
     // Calculate position in the grid
     const top = Math.max(0, (minutesFromCalendarStart / 60) * slotHeight);
     const height = Math.max((duration / 60) * slotHeight, 30); // Minimum 30px height
-    
+
     // Calculate overlapping positions
-    const overlapIndex = overlappingShifts.findIndex(s => s.id === shift.id);
+    const overlapIndex = overlappingShifts.findIndex((s) => s.id === shift.id);
     const totalOverlaps = overlappingShifts.length;
     const columnWidth = totalOverlaps > 1 ? 95 / totalOverlaps : 95; // Leave some margin
-    const left = (overlapIndex * columnWidth) + 2.5; // Add small left margin
-    
+    const left = overlapIndex * columnWidth + 2.5; // Add small left margin
+
     return {
       adminShift: shift,
       top,
@@ -334,85 +381,94 @@ export function CalendarView({
       left,
       width: columnWidth,
       overlapIndex,
-      totalOverlaps
+      totalOverlaps,
     };
   };
 
   // Find overlapping admin shifts for a specific day and time range
-  const findOverlappingAdminShifts = (dayShifts: Tables<'admin_shifts'>[]): Tables<'admin_shifts'>[][] => {
-    const groups: Tables<'admin_shifts'>[][] = [];
+  const findOverlappingAdminShifts = (
+    dayShifts: Tables<"admin_shifts">[],
+  ): Tables<"admin_shifts">[][] => {
+    const groups: Tables<"admin_shifts">[][] = [];
     const processed = new Set<string>();
-    
-    dayShifts.forEach(shift => {
+
+    dayShifts.forEach((shift) => {
       if (processed.has(shift.id)) return;
-      
+
       const group = [shift];
       processed.add(shift.id);
-      
+
       const shiftStart = timeToMinutes(shift.start_time);
       const shiftEnd = timeToMinutes(shift.end_time);
-      
-      dayShifts.forEach(otherShift => {
+
+      dayShifts.forEach((otherShift) => {
         if (processed.has(otherShift.id)) return;
-        
+
         const otherStart = timeToMinutes(otherShift.start_time);
         const otherEnd = timeToMinutes(otherShift.end_time);
-        
+
         // Check if shifts overlap
         if (shiftStart < otherEnd && shiftEnd > otherStart) {
           group.push(otherShift);
           processed.add(otherShift.id);
         }
       });
-      
+
       groups.push(group);
     });
-    
+
     return groups;
   };
 
   // Get classes for each visible day
   const getClassesForDay = (dayValue: number): ClassPosition[] => {
     const dayClasses = timetableClasses
-      .filter(cls => cls.day_of_week === dayValue)
-      .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
-    
+      .filter((cls) => cls.day_of_week === dayValue)
+      .sort(
+        (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time),
+      );
+
     const overlapGroups = findOverlappingClasses(dayClasses);
     const positions: ClassPosition[] = [];
-    
-    overlapGroups.forEach(group => {
-      group.forEach(cls => {
+
+    overlapGroups.forEach((group) => {
+      group.forEach((cls) => {
         const position = calculateClassPosition(cls, group);
         positions.push(position);
       });
     });
-    
+
     return positions;
   };
 
   // Get admin shifts for each visible day
   const getAdminShiftsForDay = (dayValue: number): AdminShiftPosition[] => {
     if (!showAdminShifts) return [];
-    
+
     const dayShifts = filteredAdminShifts
-      .filter(shift => shift.day_of_week === dayValue)
-      .sort((a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time));
-    
+      .filter((shift) => shift.day_of_week === dayValue)
+      .sort(
+        (a, b) => timeToMinutes(a.start_time) - timeToMinutes(b.start_time),
+      );
+
     const overlapGroups = findOverlappingAdminShifts(dayShifts);
     const positions: AdminShiftPosition[] = [];
-    
-    overlapGroups.forEach(group => {
-      group.forEach(shift => {
+
+    overlapGroups.forEach((group) => {
+      group.forEach((shift) => {
         const position = calculateAdminShiftPosition(shift, group);
         positions.push(position);
       });
     });
-    
+
     return positions;
   };
 
   return (
-    <div className="flex flex-col h-full space-y-4">
+    <div
+      aria-label="Classes calendar"
+      className="flex flex-col h-full space-y-4"
+    >
       {/* Search and Day Filter */}
       {showFilters && (
         <div className="flex justify-between items-center flex-wrap gap-4">
@@ -421,11 +477,11 @@ export function CalendarView({
             <Input
               placeholder="Search classes"
               className="pl-8"
-              value={searchTerm || ''}
+              value={searchTerm || ""}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
           </div>
-          
+
           <div className="flex items-center gap-4">
             {/* Toggle for admin shifts */}
             {onShowAdminShiftsChange && (
@@ -440,23 +496,21 @@ export function CalendarView({
                 </Label>
               </div>
             )}
-            
+
             <div className="flex items-center gap-2">
               {dayFilter.length > 0 && (
-                <Button 
-                  variant="ghost" 
-                  size="sm"
-                  onClick={clearDayFilter}
-                >
+                <Button variant="ghost" size="sm" onClick={clearDayFilter}>
                   <X className="h-4 w-4 mr-2" />
                   Clear
                 </Button>
               )}
               <div className="flex items-center gap-1">
                 {days.map((day) => (
-                  <Button 
+                  <Button
                     key={day.value}
-                    variant={dayFilter.includes(day.value) ? 'default' : 'outline'} 
+                    variant={
+                      dayFilter.includes(day.value) ? "default" : "outline"
+                    }
                     size="sm"
                     onClick={() => toggleDay(day.value)}
                   >
@@ -473,134 +527,164 @@ export function CalendarView({
         <div className="flex items-center justify-center h-full">
           <Card className="p-8 text-center">
             <p className="text-muted-foreground">
-              {showAdminShifts 
-                ? 'No classes or admin shifts found for the selected filters'
-                : 'No classes found for the selected filters'}
+              {showAdminShifts
+                ? "No classes or admin shifts found for the selected filters"
+                : "No classes found for the selected filters"}
             </p>
           </Card>
         </div>
       ) : (
         /* Calendar Grid */
         <div className="flex-1 overflow-auto">
-        <div 
-          className="grid gap-0 min-h-full relative bg-background"
-          style={{ 
-            gridTemplateColumns: `minmax(80px, 120px) repeat(${activeDays.length}, minmax(200px, 1fr))`,
-          }}
-        >
-          {/* Headers */}
-          <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r">
-            Time
-          </div>
-          
-          {activeDays.map((day) => (
-            <div key={day.value} className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r">
-              {day.name}
+          <div
+            className="grid gap-0 min-h-full relative bg-background"
+            style={{
+              gridTemplateColumns: `minmax(80px, 120px) repeat(${activeDays.length}, minmax(200px, 1fr))`,
+            }}
+          >
+            {/* Headers */}
+            <div className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r">
+              Time
             </div>
-          ))}
-          
-          {/* Time slots and day columns */}
-          {timeSlots.map((timeSlot, timeIndex) => (
-            <div key={timeSlot.value} className="contents">
-              {/* Time label */}
-              <div className="sticky left-0 z-20 p-2 text-sm bg-background border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
-                {timeSlot.label}
+
+            {activeDays.map((day) => (
+              <div
+                key={day.value}
+                className="sticky top-0 z-20 p-2 text-center font-medium bg-background border-b border-r"
+              >
+                {day.name}
               </div>
-              
-              {/* Day columns */}
-              {activeDays.map((day, _dayIndex) => (
-                <div 
-                  key={`${day.value}-${timeSlot.value}`} 
-                  className="relative border-b border-r bg-background h-[75px]"
-                  style={{
-                    position: 'relative'
-                  }}
-                >
-                  {/* Only render items in the first time slot to avoid duplicates */}
-                  {timeIndex === 0 && (
-                    <div className="absolute inset-0" style={{ height: `${timeSlots.length * 75}px` }}>
-                      {/* Admin Shifts (if enabled) - Render FIRST (behind) with lower z-index */}
-                      {showAdminShifts && getAdminShiftsForDay(day.value).map((position) => {
-                        const shiftStaff = adminShiftStaff?.[position.adminShift.id] || [];
-                        const cardHeight = Math.max(position.height, 45);
-                        const estimatedColumnWidth = 250;
-                        const cardWidth = (position.width / 100) * estimatedColumnWidth;
-                        
-                        return (
-                          <div
-                            key={position.adminShift.id}
-                            className="absolute"
-                            style={{
-                              top: `${position.top}px`,
-                              height: `${cardHeight}px`,
-                              left: `${position.left}%`,
-                              width: `${position.width}%`,
-                              zIndex: 5,
-                              minHeight: '45px'
-                            }}
-                            onClick={() => onAdminShiftClick?.(position.adminShift)}
-                          >
-                            <AdminShiftCard
-                              adminShift={position.adminShift}
-                              staff={shiftStaff}
-                              onClick={() => {}}
-                              isCalendarView={true}
-                              cardHeight={cardHeight}
-                              cardWidth={cardWidth}
-                            />
-                          </div>
-                        );
-                      })}
-                      
-                      {/* Classes - Render AFTER (on top) with higher z-index */}
-                      {getClassesForDay(day.value).map((position) => {
-                        const classStudentsList = classStudents?.[position.class.id] || [];
-                        const classStaffList = classStaff?.[position.class.id] || [];
-                        const classSubject = classSubjects?.[position.class.id];
-                        
-                        // Calculate actual pixel dimensions for smart sizing
-                        // Width is percentage of parent, need to estimate based on column width
-                        // For simplicity, we'll use the height and estimate width
-                        const cardHeight = Math.max(position.height, 45);
-                        // Estimate width: assume column is ~200-300px wide, calculate from percentage
-                        const estimatedColumnWidth = 250; // Approximate column width
-                        const cardWidth = (position.width / 100) * estimatedColumnWidth;
-                        
-                        return (
-                          <div
-                            key={`${position.class.id}-${position.class.schedule_row_id}`}
-                            className="absolute"
-                            style={{
-                              top: `${position.top}px`,
-                              height: `${cardHeight}px`,
-                              left: `${position.left}%`,
-                              width: `${position.width}%`,
-                              zIndex: 15,
-                              minHeight: '45px'
-                            }}
-                            onClick={() => onClassClick(position.class)}
-                          >
-                            <ClassCard
-                              class={position.class}
-                              subject={classSubject}
-                              staff={classStaffList}
-                              students={classStudentsList}
-                              onClick={() => {}}
-                              isCalendarView={true}
-                              cardHeight={cardHeight}
-                              cardWidth={cardWidth}
-                            />
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+            ))}
+
+            {/* Time slots and day columns */}
+            {timeSlots.map((timeSlot, timeIndex) => (
+              <div key={timeSlot.value} className="contents">
+                {/* Time label */}
+                <div className="sticky left-0 z-20 p-2 text-sm bg-background border-b border-r text-center font-medium h-[75px] flex items-center justify-center">
+                  {timeSlot.label}
                 </div>
-              ))}
-            </div>
-          ))}
+
+                {/* Day columns */}
+                {activeDays.map((day, _dayIndex) => (
+                  <div
+                    key={`${day.value}-${timeSlot.value}`}
+                    className="relative border-b border-r bg-background h-[75px]"
+                    style={{
+                      position: "relative",
+                    }}
+                  >
+                    {/* Only render items in the first time slot to avoid duplicates */}
+                    {timeIndex === 0 && (
+                      <div
+                        className="absolute inset-0"
+                        style={{ height: `${timeSlots.length * 75}px` }}
+                      >
+                        {/* Admin Shifts (if enabled) - Render FIRST (behind) with lower z-index */}
+                        {showAdminShifts &&
+                          getAdminShiftsForDay(day.value).map((position) => {
+                            const shiftStaff =
+                              adminShiftStaff?.[position.adminShift.id] || [];
+                            const cardHeight = Math.max(position.height, 45);
+                            const estimatedColumnWidth = 250;
+                            const cardWidth =
+                              (position.width / 100) * estimatedColumnWidth;
+
+                            return (
+                              <div
+                                key={position.adminShift.id}
+                                className="absolute"
+                                style={{
+                                  top: `${position.top}px`,
+                                  height: `${cardHeight}px`,
+                                  left: `${position.left}%`,
+                                  width: `${position.width}%`,
+                                  zIndex: 5,
+                                  minHeight: "45px",
+                                }}
+                                onClick={() =>
+                                  onAdminShiftClick?.(position.adminShift)
+                                }
+                              >
+                                <AdminShiftCard
+                                  adminShift={position.adminShift}
+                                  staff={shiftStaff}
+                                  onClick={() => {}}
+                                  isCalendarView={true}
+                                  cardHeight={cardHeight}
+                                  cardWidth={cardWidth}
+                                />
+                              </div>
+                            );
+                          })}
+
+                        {/* Classes - Render AFTER (on top) with higher z-index */}
+                        {getClassesForDay(day.value).map((position) => {
+                          const classStudentsList =
+                            classStudents?.[position.class.id] || [];
+                          const classStaffList =
+                            classStaff?.[position.class.id] || [];
+                          const classSubject =
+                            classSubjects?.[position.class.id];
+
+                          // Calculate actual pixel dimensions for smart sizing
+                          // Width is percentage of parent, need to estimate based on column width
+                          // For simplicity, we'll use the height and estimate width
+                          const cardHeight = Math.max(position.height, 45);
+                          // Estimate width: assume column is ~200-300px wide, calculate from percentage
+                          const estimatedColumnWidth = 250; // Approximate column width
+                          const cardWidth =
+                            (position.width / 100) * estimatedColumnWidth;
+
+                          return (
+                            <div
+                              key={`${position.class.id}-${position.class.schedule_row_id}`}
+                              className="absolute"
+                              style={{
+                                top: `${position.top}px`,
+                                height: `${cardHeight}px`,
+                                left: `${position.left}%`,
+                                width: `${position.width}%`,
+                                zIndex: 15,
+                                minHeight: "45px",
+                              }}
+                              onClick={() => onClassClick(position.class)}
+                            >
+                              <ClassCard
+                                class={position.class}
+                                subject={
+                                  !visibleProperties ||
+                                  visibleProperties.includes("subject")
+                                    ? classSubject
+                                    : undefined
+                                }
+                                staff={
+                                  !visibleProperties ||
+                                  visibleProperties.includes("staff")
+                                    ? classStaffList
+                                    : []
+                                }
+                                students={
+                                  !visibleProperties ||
+                                  visibleProperties.includes("students")
+                                    ? classStudentsList
+                                    : []
+                                }
+                                onClick={() => {}}
+                                isCalendarView={true}
+                                cardHeight={cardHeight}
+                                cardWidth={cardWidth}
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            ))}
+          </div>
         </div>
-      </div>
       )}
     </div>
   );

@@ -96,6 +96,8 @@ export interface QuickFilter {
 }
 
 export interface EntityListProps<TItem> {
+  collapsedGroupKeys?: ReadonlySet<string>;
+  onCollapsedGroupKeysChange?: (keys:Set<string>)=>void;
   items: TItem[];
   getItemId: (item: TItem) => string;
   renderName: (item: TItem) => React.ReactNode;
@@ -371,13 +373,14 @@ export function EntityList<TItem>(props: EntityListProps<TItem>) {
     return sorted;
   }, [filteredItems, sortBy, sortDirection, rightPills, statusColumn]);
 
-  const [collapsedGroups, setCollapsedGroups] = React.useState<Set<string>>(() => new Set());
+  const [internalCollapsedGroups, setInternalCollapsedGroups] = React.useState<Set<string>>(() => new Set());
+  const collapsedGroups=props.collapsedGroupKeys??internalCollapsedGroups;
   const groupCollapseKey = (key: string | null) => `${groupBy}:${key}`;
-  const toggleGroup = (key: string | null) => setCollapsedGroups(previous => {
-    const next = new Set(previous);const id = groupCollapseKey(key);
+  const toggleGroup = (key: string | null) => {
+    const next = new Set(collapsedGroups);const id = groupCollapseKey(key);
     if(next.has(id)) next.delete(id); else next.add(id);
-    return next;
-  });
+    if(props.onCollapsedGroupKeysChange)props.onCollapsedGroupKeysChange(next);else setInternalCollapsedGroups(next);
+  };
   const grouped = React.useMemo(() => {
     if (!groupBy) {
       return [{ key: null as string | null, label: null, items: sortedItems }];

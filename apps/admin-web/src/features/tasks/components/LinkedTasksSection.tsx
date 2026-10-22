@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { ToolbarViewProvider } from '@altitutor/ui';
-import { TasksBoard } from './TasksBoard';
 import { TasksList } from './TasksList';
 
 type LinkedTasksView = 'list' | 'board';
@@ -23,23 +22,9 @@ export function LinkedTasksSection({ issueId, projectId }: LinkedTasksSectionPro
 
       </div>
 
-      {view === 'list' ? (
-        <div className="border-y bg-background overflow-hidden w-full min-w-0 max-w-full">
-          <TasksList
-            issueId={issueId}
-            projectId={projectId}
-            compact
-            showIssuePill={!issueId}
-            showProjectPill={!projectId}
-            showLinkPill={false}
-            noPadding
-          />
-        </div>
-      ) : (
-        <div className="h-[32rem] min-h-0 overflow-hidden rounded-md border bg-background">
-          <TasksBoard issueId={issueId} projectId={projectId} showLinkPill={false} />
-        </div>
-      )}
+      <div className="h-[32rem] min-h-0 overflow-hidden rounded-md border bg-background">
+        <TasksList layout={view} issueId={issueId} projectId={projectId} compact showIssuePill={!issueId} showProjectPill={!projectId} showLinkPill={false} noPadding />
+      </div>
     </div>
     </ToolbarViewProvider>
   );

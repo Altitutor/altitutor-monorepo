@@ -1,21 +1,25 @@
-'use client';
+"use client";
+import type { ProjectUpdate } from "../types";
+import { ProjectCard } from "./ProjectCard";
+import { CreateProjectDialog } from "./CreateProjectDialog";
 
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback } from "react";
 import {
-  EntityList,
+  EntityCollection,
+  type KanbanColumnDef,
   type EntityListStatusColumn,
   type EntityListPillColumn,
-} from '@altitutor/ui';
-import { AdminRichTextEditorWithImages } from '@/features/rich-text-images';
-import { useProjects } from '../api/queries';
-import { useUpdateProject, useCreateProject } from '../api/mutations';
-import { EditProjectDialog } from './EditProjectDialog';
-import { ProjectPriorityEntityPill } from './fields/ProjectPriorityEntityPill';
-import { ProjectDueDateEntityPill } from './fields/ProjectDueDateEntityPill';
-import { cn } from '@/shared/utils';
-import { useCurrentStaff } from '@/shared/hooks';
-import { useStaffSearch } from '@/features/tasks/hooks/useStaffSearch';
-import type { ProjectWithLead, ProjectStatus, ProjectPriority } from '../types';
+} from "@altitutor/ui";
+import { AdminRichTextEditorWithImages } from "@/features/rich-text-images";
+import { useProjects } from "../api/queries";
+import { useUpdateProject, useCreateProject } from "../api/mutations";
+import { EditProjectDialog } from "./EditProjectDialog";
+import { ProjectPriorityEntityPill } from "./fields/ProjectPriorityEntityPill";
+import { ProjectDueDateEntityPill } from "./fields/ProjectDueDateEntityPill";
+import { cn } from "@/shared/utils";
+import { useCurrentStaff } from "@/shared/hooks";
+import { useStaffSearch } from "@/features/tasks/hooks/useStaffSearch";
+import type { ProjectWithLead, ProjectStatus, ProjectPriority } from "../types";
 import {
   getProjectStatusIcon,
   getProjectStatusIconColor,
@@ -25,13 +29,20 @@ import {
   formatProjectDate,
   PRIORITY_OPTIONS,
   PROJECT_STATUS_OPTIONS,
-} from '../utils/projectUtils';
-import { useEntityListTableState } from '@/shared/hooks/useEntityListTableState';
-import { useQuickFilters } from '@/features/quick-filters/hooks/useQuickFilters';
+} from "../utils/projectUtils";
+import { useEntityListTableState } from "@/shared/hooks/useEntityListTableState";
+import { useQuickFilters } from "@/features/quick-filters/hooks/useQuickFilters";
 
-const PROJECT_FILTER_KEYS = ['status', 'priority', 'start_date', 'target_date', 'member'] as const;
+const PROJECT_FILTER_KEYS = [
+  "status",
+  "priority",
+  "start_date",
+  "target_date",
+  "member",
+] as const;
 
 export interface ProjectsListProps {
+  layout?: "list" | "board";
   /** Initial filter values (e.g. dashboard: projects where current user is a member) */
   defaultFilters?: Record<string, unknown[]>;
   /** Force collapsed pill layout (e.g. dashboard cards) */
@@ -40,12 +51,13 @@ export interface ProjectsListProps {
   embedView?: {
     groupBy?: string | null;
     sortBy?: string;
-    sortDirection?: 'asc' | 'desc';
+    sortDirection?: "asc" | "desc";
     secondarySortBy?: string;
   };
 }
 
 export function ProjectsList({
+  layout = "list",
   defaultFilters,
   compact = false,
   hideToolbar = false,
@@ -69,45 +81,57 @@ export function ProjectsList({
   } = useEntityListTableState({
     defaultFilters: defaultFilters ?? {},
     defaultSort: embedLocked
-      ? { field: embedView?.sortBy ?? 'name', direction: embedView?.sortDirection ?? 'asc' }
-      : { field: 'name', direction: 'asc' },
-    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : 'status',
+      ? {
+          field: embedView?.sortBy ?? "name",
+          direction: embedView?.sortDirection ?? "asc",
+        }
+      : { field: "name", direction: "asc" },
+    defaultGroupBy: embedLocked ? (embedView?.groupBy ?? null) : "status",
     filterKeys: [...PROJECT_FILTER_KEYS],
     skipUrlSync: embedLocked,
   });
 
-  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(
+    null,
+  );
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
-  const { data: projects = [], isLoading } = useProjects({ ...filters, search } as import('../types').ProjectFilters);
+  const { data: projects = [], isLoading } = useProjects({
+    ...filters,
+    search,
+  } as import("../types").ProjectFilters);
   const displayProjects = useMemo(() => {
     if (!embedLocked || !embedView.secondarySortBy) return projects;
 
     const secondaryKey = embedView.secondarySortBy;
-    const primaryKey = embedView.sortBy ?? 'name';
-    const direction = embedView.sortDirection ?? 'asc';
+    const primaryKey = embedView.sortBy ?? "name";
+    const direction = embedView.sortDirection ?? "asc";
 
     const getPrimaryValue = (project: ProjectWithLead) => {
-      if (primaryKey === 'priority') return Number(project.priority ?? 0);
-      if (primaryKey === 'target_date') {
-        return project.target_date ? new Date(project.target_date).getTime() : Number.POSITIVE_INFINITY;
+      if (primaryKey === "priority") return Number(project.priority ?? 0);
+      if (primaryKey === "target_date") {
+        return project.target_date
+          ? new Date(project.target_date).getTime()
+          : Number.POSITIVE_INFINITY;
       }
-      return project.name ?? '';
+      return project.name ?? "";
     };
 
     const getSecondaryValue = (project: ProjectWithLead) => {
-      if (secondaryKey === 'target_date') {
-        return project.target_date ? new Date(project.target_date).getTime() : Number.POSITIVE_INFINITY;
+      if (secondaryKey === "target_date") {
+        return project.target_date
+          ? new Date(project.target_date).getTime()
+          : Number.POSITIVE_INFINITY;
       }
-      if (secondaryKey === 'priority') return Number(project.priority ?? 0);
-      return project.name ?? '';
+      if (secondaryKey === "priority") return Number(project.priority ?? 0);
+      return project.name ?? "";
     };
 
     return [...projects].sort((a, b) => {
       const primaryA = getPrimaryValue(a);
       const primaryB = getPrimaryValue(b);
-      if (primaryA < primaryB) return direction === 'asc' ? -1 : 1;
-      if (primaryA > primaryB) return direction === 'asc' ? 1 : -1;
+      if (primaryA < primaryB) return direction === "asc" ? -1 : 1;
+      if (primaryA > primaryB) return direction === "asc" ? 1 : -1;
 
       const secondaryA = getSecondaryValue(a);
       const secondaryB = getSecondaryValue(b);
@@ -119,45 +143,52 @@ export function ProjectsList({
   const updateProject = useUpdateProject();
   const createProject = useCreateProject();
   const { data: currentStaff } = useCurrentStaff();
-  const { data: quickFilters = [] } = useQuickFilters('projects');
-  const { staff: staffList } = useStaffSearch('', true);
+  const { data: quickFilters = [] } = useQuickFilters("projects");
+  const { staff: staffList } = useStaffSearch("", true);
 
   const memberFilterOptions = useMemo(
     () =>
       staffList.map((staff) => ({
         value: staff.id as unknown,
-        label: `${staff.first_name || ''} ${staff.last_name || ''}`.trim() || 'Unnamed',
+        label:
+          `${staff.first_name || ""} ${staff.last_name || ""}`.trim() ||
+          "Unnamed",
       })),
-    [staffList]
+    [staffList],
   );
 
   const handleAdd = useCallback(
-    async (data: { name: string; description?: string } & Record<string, unknown>) => {
+    async (
+      data: { name: string; description?: string } & Record<string, unknown>,
+    ) => {
       await createProject.mutateAsync({
         name: data.name,
         description: data.description ?? null,
-        status: (data.status as ProjectStatus) ?? 'backlog',
+        status: (data.status as ProjectStatus) ?? "backlog",
         priority: (data.priority as number) ?? 0,
         target_date:
-          data.target_date != null && data.target_date !== ''
+          data.target_date != null && data.target_date !== ""
             ? new Date(data.target_date as string).toISOString()
             : null,
         project_lead_id: currentStaff?.id ?? null,
         created_by: currentStaff?.id ?? null,
       });
     },
-    [createProject, currentStaff?.id]
+    [createProject, currentStaff?.id],
   );
 
-  const handleStatusChange = useCallback((project: ProjectWithLead, value: ProjectStatus) => {
-    updateProject.mutate({ id: project.id, updates: { status: value } });
-  }, [updateProject]);
+  const handleStatusChange = useCallback(
+    (project: ProjectWithLead, value: ProjectStatus) => {
+      updateProject.mutate({ id: project.id, updates: { status: value } });
+    },
+    [updateProject],
+  );
 
   const statusColumn: EntityListStatusColumn<ProjectWithLead, unknown> = {
-    key: 'status',
-    label: 'Status',
+    key: "status",
+    label: "Status",
     getValue: (p) => p.status as ProjectStatus,
-    defaultValue: 'backlog',
+    defaultValue: "backlog",
     filterable: true,
     options: PROJECT_STATUS_OPTIONS.map((opt) => ({
       value: opt.value,
@@ -166,20 +197,25 @@ export function ProjectsList({
     })),
     renderBubble: (value: unknown, collapsed) => {
       const status = value as ProjectStatus;
-      const option = PROJECT_STATUS_OPTIONS.find((o) => o.value === status) ?? PROJECT_STATUS_OPTIONS[0];
+      const option =
+        PROJECT_STATUS_OPTIONS.find((o) => o.value === status) ??
+        PROJECT_STATUS_OPTIONS[0];
       const Icon = getProjectStatusIcon(status);
       const iconColor = getProjectStatusIconColor(status);
 
-      if (collapsed) return <Icon className={cn('h-3 w-3', iconColor)} />;
+      if (collapsed) return <Icon className={cn("h-3 w-3", iconColor)} />;
 
       return (
-        <span className={cn('inline-flex items-center gap-1.5 text-xs', iconColor)}>
+        <span
+          className={cn("inline-flex items-center gap-1.5 text-xs", iconColor)}
+        >
           <Icon className="h-3 w-3" />
           {option.label}
         </span>
       );
     },
-    onStatusChange: (project, value) => handleStatusChange(project, value as ProjectStatus),
+    onStatusChange: (project, value) =>
+      handleStatusChange(project, value as ProjectStatus),
   };
 
   const priorityFilterOptions = useMemo(
@@ -188,14 +224,14 @@ export function ProjectsList({
         value: opt.value as unknown,
         label: opt.label,
       })),
-    []
+    [],
   );
 
   const rightPills: EntityListPillColumn<ProjectWithLead, unknown>[] = useMemo(
     () => [
       {
-        key: 'priority',
-        label: 'Priority',
+        key: "priority",
+        label: "Priority",
         visibleByDefault: true,
         getValue: (p) => (p.priority ?? 0) as ProjectPriority,
         defaultValue: 0,
@@ -219,33 +255,39 @@ export function ProjectsList({
         ),
       },
       {
-        key: 'start_date',
-        label: 'Start date',
+        key: "start_date",
+        label: "Start date",
         visibleByDefault: false,
         getValue: (p) => p.start_date ?? null,
         defaultValue: null,
-        filterType: 'date-range',
+        filterType: "date-range",
         groupable: true,
         sortable: true,
         filterable: true,
         compare: (a, b) => {
-          const aTime = a ? new Date(String(a)).getTime() : Number.POSITIVE_INFINITY;
-          const bTime = b ? new Date(String(b)).getTime() : Number.POSITIVE_INFINITY;
+          const aTime = a
+            ? new Date(String(a)).getTime()
+            : Number.POSITIVE_INFINITY;
+          const bTime = b
+            ? new Date(String(b)).getTime()
+            : Number.POSITIVE_INFINITY;
           return aTime - bTime;
         },
         renderPill: (item, _onChange, collapsed) => (
-          <span className={cn('text-xs', collapsed && 'truncate max-w-[80px]')}>
-            {item.start_date ? formatProjectDate(item.start_date) : 'No start date'}
+          <span className={cn("text-xs", collapsed && "truncate max-w-[80px]")}>
+            {item.start_date
+              ? formatProjectDate(item.start_date)
+              : "No start date"}
           </span>
         ),
       },
       {
-        key: 'target_date',
-        label: 'Due date',
+        key: "target_date",
+        label: "Due date",
         visibleByDefault: true,
         getValue: (p) => p.target_date ?? null,
         defaultValue: null,
-        filterType: 'date-range',
+        filterType: "date-range",
         groupable: true,
         sortable: true,
         filterable: true,
@@ -276,8 +318,8 @@ export function ProjectsList({
         ),
       },
       {
-        key: 'member',
-        label: 'Member',
+        key: "member",
+        label: "Member",
         visibleByDefault: false,
         filterOnly: true,
         getValue: (p) => (p.members ?? []).map((member) => member.id),
@@ -290,35 +332,133 @@ export function ProjectsList({
         renderPill: () => null,
       },
     ],
-    [priorityFilterOptions, memberFilterOptions, updateProject]
+    [priorityFilterOptions, memberFilterOptions, updateProject],
   );
 
   const groupByOptions = useMemo(
     () => [
-      { key: 'status', label: 'Status' },
-      { key: 'priority', label: 'Priority' },
-      { key: 'start_date', label: 'Start date' },
-      { key: 'target_date', label: 'Due date' },
+      { key: "status", label: "Status" },
+      { key: "priority", label: "Priority" },
+      { key: "start_date", label: "Start date" },
+      { key: "target_date", label: "Due date" },
     ],
-    []
+    [],
   );
   const sortByOptions = useMemo(
     () => [
-      { key: 'status', label: 'Status' },
-      { key: 'priority', label: 'Priority' },
-      { key: 'start_date', label: 'Start date' },
-      { key: 'target_date', label: 'Due date' },
+      { key: "status", label: "Status" },
+      { key: "priority", label: "Priority" },
+      { key: "start_date", label: "Start date" },
+      { key: "target_date", label: "Due date" },
     ],
-    []
+    [],
   );
 
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [createColumnValue, setCreateColumnValue] =
+    useState<ProjectStatus>("backlog");
+  const [createDefaultPriority, setCreateDefaultPriority] =
+    useState<ProjectPriority | null>(null);
+  const [createDefaultLeadId, setCreateDefaultLeadId] = useState<string | null>(
+    null,
+  );
+  const handleBoardUpdate = useCallback(
+    (
+      project: ProjectWithLead,
+      updates: Partial<ProjectUpdate>,
+    ) => {
+      updateProject.mutate({ id: project.id, updates });
+    },
+    [updateProject],
+  );
+  const columnDefs: KanbanColumnDef<ProjectWithLead, unknown>[] = useMemo(
+    () => [
+      {
+        key: "status",
+        label: "Status",
+        getValue: (p) => p.status,
+        options: PROJECT_STATUS_OPTIONS,
+        onValueChange: (p, v) =>
+          handleBoardUpdate(p, { status: v as ProjectStatus }),
+      },
+      {
+        key: "priority",
+        label: "Priority",
+        getValue: (p) => p.priority ?? 0,
+        options: PRIORITY_OPTIONS,
+        onValueChange: (p, v) =>
+          handleBoardUpdate(p, { priority: v as number }),
+      },
+      {
+        key: "project_lead",
+        label: "Project lead",
+        getValue: (p) => p.project_lead_id ?? "__null__",
+        options: [
+          { value: "__null__", label: "No lead" },
+          ...staffList.map((s) => ({
+            value: s.id,
+            label:
+              `${s.first_name || ""} ${s.last_name || ""}`.trim() || "Unnamed",
+          })),
+        ],
+        onValueChange: (p, v) =>
+          handleBoardUpdate(p, {
+            project_lead_id: v === "__null__" ? null : (v as string),
+          }),
+        filterable: false,
+      },
+    ],
+    [handleBoardUpdate, staffList],
+  );
+
+  const activeColumnKey =
+    groupBy && columnDefs.some((column) => column.key === groupBy)
+      ? groupBy
+      : "status";
+  const handleBoardAdd = useCallback(
+    (columnValue: unknown) => {
+      if (activeColumnKey === "status") {
+        setCreateColumnValue(columnValue as ProjectStatus);
+        setCreateDefaultPriority(null);
+        setCreateDefaultLeadId(null);
+      } else if (activeColumnKey === "priority") {
+        setCreateColumnValue("backlog");
+        setCreateDefaultPriority(columnValue as ProjectPriority);
+        setCreateDefaultLeadId(null);
+      } else if (activeColumnKey === "project_lead") {
+        setCreateColumnValue("backlog");
+        setCreateDefaultPriority(null);
+        setCreateDefaultLeadId(
+          columnValue === "__null__" ? null : (columnValue as string),
+        );
+      }
+      setIsCreateDialogOpen(true);
+    },
+    [activeColumnKey],
+  );
   return (
     <>
-      <EntityList<ProjectWithLead>
+      <EntityCollection<ProjectWithLead>
         viewTarget="projects"
+        layout={layout}
+        board={{
+          columnDefs,
+          renderCard: (item, keys) => (
+            <ProjectCard
+              project={item}
+              rightPills={rightPills}
+              visiblePillKeys={keys}
+              onOpen={(id) => {
+                setSelectedProjectId(id);
+                setIsEditDialogOpen(true);
+              }}
+            />
+          ),
+          onAdd: handleBoardAdd,
+        }}
         items={displayProjects}
         getItemId={(p) => p.id}
-        renderName={(p) => p.name ?? ''}
+        renderName={(p) => p.name ?? ""}
         statusColumn={statusColumn}
         rightPills={rightPills}
         visiblePillKeys={visiblePillKeys}
@@ -327,38 +467,49 @@ export function ProjectsList({
         sortByOptions={sortByOptions}
         groupBy={embedLocked ? (embedView?.groupBy ?? null) : groupBy}
         onGroupByChange={embedLocked ? undefined : setGroupBy}
-        sortBy={embedLocked && embedView?.secondarySortBy ? 'name' : embedLocked ? (embedView?.sortBy ?? 'name') : sortBy}
-        sortDirection={embedLocked && embedView?.secondarySortBy ? 'asc' : embedLocked ? (embedView?.sortDirection ?? 'asc') : sortDirection}
+        sortBy={
+          embedLocked && embedView?.secondarySortBy
+            ? "name"
+            : embedLocked
+              ? (embedView?.sortBy ?? "name")
+              : sortBy
+        }
+        sortDirection={
+          embedLocked && embedView?.secondarySortBy
+            ? "asc"
+            : embedLocked
+              ? (embedView?.sortDirection ?? "asc")
+              : sortDirection
+        }
         onSortChange={embedLocked ? undefined : handleSortChange}
         getGroupOrder={(columnKey, valueKey) => {
-          if (columnKey === 'status') return getProjectStatusOrder(valueKey);
-          if (columnKey === 'priority')
-            return 999 - (Number(valueKey) ?? 0);
-          if (columnKey === 'start_date' || columnKey === 'target_date') {
-            if (valueKey === '__null__') return 99999999999999;
+          if (columnKey === "status") return getProjectStatusOrder(valueKey);
+          if (columnKey === "priority") return 999 - (Number(valueKey) ?? 0);
+          if (columnKey === "start_date" || columnKey === "target_date") {
+            if (valueKey === "__null__") return 99999999999999;
             const t = new Date(valueKey).getTime();
             return isNaN(t) ? 0 : t;
           }
           return 0;
         }}
         getGroupLabel={(columnKey, valueKey) => {
-          if (columnKey === 'status') {
-            if (valueKey === '__null__') return 'No status';
+          if (columnKey === "status") {
+            if (valueKey === "__null__") return "No status";
             return getProjectStatusLabel(valueKey as ProjectStatus);
           }
-          if (columnKey === 'priority') {
-            if (valueKey === '__null__') return 'No priority';
+          if (columnKey === "priority") {
+            if (valueKey === "__null__") return "No priority";
             return getProjectPriorityLabel(Number(valueKey) as ProjectPriority);
           }
-          if (columnKey === 'start_date') {
-            if (valueKey === '__null__') return 'No start date';
+          if (columnKey === "start_date") {
+            if (valueKey === "__null__") return "No start date";
             return formatProjectDate(String(valueKey));
           }
-          if (columnKey === 'target_date') {
-            if (valueKey === '__null__') return 'No due date';
+          if (columnKey === "target_date") {
+            if (valueKey === "__null__") return "No due date";
             return formatProjectDate(String(valueKey));
           }
-          return valueKey === '__null__' ? 'No value' : valueKey;
+          return valueKey === "__null__" ? "No value" : valueKey;
         }}
         onAdd={hideToolbar ? undefined : handleAdd}
         onRowClick={(p) => {
@@ -379,7 +530,11 @@ export function ProjectsList({
         onSearchChange={hideToolbar ? undefined : setSearch}
         searchPlaceholder="Search projects..."
         quickFilters={hideToolbar ? [] : quickFilters}
-        onApplyQuickFilter={hideToolbar ? undefined : (qf) => applyQuickFilter(qf, currentStaff?.id)}
+        onApplyQuickFilter={
+          hideToolbar
+            ? undefined
+            : (qf) => applyQuickFilter(qf, currentStaff?.id)
+        }
         descriptionConfig={
           hideToolbar
             ? undefined
@@ -387,7 +542,11 @@ export function ProjectsList({
                 enabled: true,
                 renderEditor: ({ value, onChange, placeholder, ref }) => (
                   <AdminRichTextEditorWithImages
-                    ref={ref as React.RefObject<import('@altitutor/ui').RichTextEditorRef>}
+                    ref={
+                      ref as React.RefObject<
+                        import("@altitutor/ui").RichTextEditorRef
+                      >
+                    }
                     content={value}
                     onChange={onChange}
                     placeholder={placeholder}
@@ -395,7 +554,7 @@ export function ProjectsList({
                     context="projects"
                   />
                 ),
-                placeholder: 'Add project description...',
+                placeholder: "Add project description...",
               }
         }
       />
@@ -410,6 +569,17 @@ export function ProjectsList({
           projectId={selectedProjectId}
         />
       )}
+      <CreateProjectDialog
+        isOpen={isCreateDialogOpen}
+        onClose={() => setIsCreateDialogOpen(false)}
+        initialStatus={createColumnValue}
+        initialPriority={createDefaultPriority}
+        initialProjectLeadId={createDefaultLeadId}
+        onProjectCreated={(projectId) => {
+          setSelectedProjectId(projectId);
+          setIsEditDialogOpen(true);
+        }}
+      />
     </>
   );
 }
