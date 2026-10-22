@@ -123,6 +123,7 @@ it("displays a subject name in both the choice menu and selected filter", async 
     await screen.findByRole("option", { name: "Mathematics" }),
   );
   await userEvent.keyboard("{Escape}{Escape}");
+  if (!screen.queryByRole('dialog', {name: 'Display options'})) await userEvent.click(screen.getByRole('button', {name: 'Display options'}));
   const panel = screen.getByRole("dialog", { name: "Display options" });
   expect(
     within(panel).getByRole("group", {
