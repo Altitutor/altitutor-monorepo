@@ -9,6 +9,9 @@ import subprocess
 import sys
 import time
 import unittest
+from unittest.mock import patch
+
+import worktree_dev
 
 spec = importlib.util.spec_from_file_location('owned_tests', Path(__file__).with_name('owned_database.test.py'))
 owned_tests = importlib.util.module_from_spec(spec)
@@ -30,6 +33,14 @@ if name=='pnpm' and '--port' in args:
 
 
 class WorktreeDevelopmentTests(unittest.TestCase):
+    def test_process_receipts_are_independent_of_caller_timezone(self):
+        for identity in (worktree_dev.process_identity, worktree_dev.group_identity):
+            with self.subTest(identity=identity.__name__):
+                with patch.dict(os.environ, TZ='UTC', LC_ALL='C'):
+                    original = identity(os.getpid())
+                with patch.dict(os.environ, TZ='Australia/Adelaide', LC_ALL='C'):
+                    self.assertEqual(identity(os.getpid()), original)
+
     def setUp(self):
         self.fixture = owned_tests.OwnedDatabaseTests()
         self.fixture.setUp()
@@ -152,8 +163,10 @@ class WorktreeDevelopmentTests(unittest.TestCase):
         self.assertTrue(json.loads(self.fixture.state.read_text())['stopped'])
 
     def test_killed_supervisor_can_be_recovered_from_exact_receipts(self):
+        self.environment['TZ'] = 'UTC'
         process = self.start()
         self.wait_ready(process)
+        self.environment['TZ'] = 'Australia/Adelaide'
         process.kill()
         process.communicate(timeout=5)
         self.assertEqual(json.loads(self.call('status').stdout)['phase'], 'interrupted')
@@ -179,8 +192,10 @@ class WorktreeDevelopmentTests(unittest.TestCase):
         self.assertEqual(json.loads(other.call('status').stdout)['phase'], 'ready')
 
     def test_stop_joins_exec_consumer_before_removing_database(self):
+        self.environment['TZ'] = 'UTC'
         process = self.start()
         self.wait_ready(process)
+        self.environment['TZ'] = 'Australia/Adelaide'
         marker = self.fixture.base / 'exec-running'
         observed = self.fixture.base / 'exec-stopped-before-database'
         consumer = self.fixture.base / 'consumer.py'
