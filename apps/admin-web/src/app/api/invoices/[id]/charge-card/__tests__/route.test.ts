@@ -91,54 +91,94 @@ describe('POST /api/invoices/[id]/charge-card', () => {
     recordInvoiceOperatorEventMock.mockResolvedValue(undefined);
   });
 
-  it('returns an expected Stripe card decline without capturing it as an application error', async () => {
-    mockPayInvoice.mockRejectedValue({
-      type: 'StripeCardError',
-      code: 'card_declined',
-      statusCode: 402,
-      message: 'Your card was declined.',
-    });
+  it.each(['charge_automatically', 'send_invoice'])(
+    'returns an expected %s card decline without capturing it as an application error',
+    async (collectionMethod) => {
+      mockInvoiceSingle.mockResolvedValue({
+        data: {
+          stripe_invoice_id: 'in_test',
+          collection_method: collectionMethod,
+          student_id: 'student-1',
+        },
+      });
+      mockPayInvoice.mockRejectedValue({
+        type: 'StripeCardError',
+        code: 'card_declined',
+        statusCode: 402,
+        message: 'Your card was declined.',
+      });
 
-    const response = await POST({} as never, { params: { id: 'invoice-id' } });
+      const response = await POST({} as never, {
+        params: { id: 'invoice-id' },
+      });
 
-    expect(response.status).toBe(402);
-    await expect(response.json()).resolves.toEqual({
-      error: 'Your card was declined.',
-      code: 'card_declined',
-    });
-    expect(captureApiErrorMock).not.toHaveBeenCalled();
-    expect(recordInvoiceOperatorEventMock).toHaveBeenCalledWith({
-      invoiceId: 'invoice-id',
-      studentId: 'student-1',
-      eventName: 'invoice.payment_attempted',
-      actorStaffId: 'staff-1',
-      payload: {
-        outcome: 'declined',
-        error_code: 'card_declined',
-      },
-    });
-  });
+      expect(response.status).toBe(402);
+      await expect(response.json()).resolves.toEqual({
+        error: 'Your card was declined.',
+        code: 'card_declined',
+      });
+      expect(captureApiErrorMock).not.toHaveBeenCalled();
+      expect(recordInvoiceOperatorEventMock).toHaveBeenCalledWith({
+        invoiceId: 'invoice-id',
+        studentId: 'student-1',
+        eventName: 'invoice.payment_attempted',
+        actorStaffId: 'staff-1',
+        payload: {
+          outcome: 'declined',
+          error_code: 'card_declined',
+        },
+      });
+    },
+  );
 
-  it('records a staff charge attempt when Stripe accepts the payment', async () => {
-    mockPayInvoice.mockResolvedValue({
-      id: 'in_test',
-      status: 'paid',
-    });
+  it.each(['TUTOR', 'STUDENT'])(
+    'rejects a %s without attempting payment',
+    async (role) => {
+      mockStaffSingle.mockResolvedValue({
+        data: { id: 'staff-1', role, status: 'ACTIVE' },
+      });
+      const response = await POST({} as never, {
+        params: { id: 'invoice-id' },
+      });
+      expect(response.status).toBe(403);
+      expect(mockPayInvoice).not.toHaveBeenCalled();
+    },
+  );
 
-    const response = await POST({} as never, { params: { id: 'invoice-id' } });
+  it.each(['charge_automatically', 'send_invoice'])(
+    'attempts payment on the existing %s invoice',
+    async (collectionMethod) => {
+      mockInvoiceSingle.mockResolvedValue({
+        data: {
+          stripe_invoice_id: 'in_test',
+          collection_method: collectionMethod,
+          student_id: 'student-1',
+        },
+        error: null,
+      });
+      mockPayInvoice.mockResolvedValue({
+        id: 'in_test',
+        status: 'paid',
+      });
 
-    expect(response.status).toBe(200);
-    expect(recordInvoiceOperatorEventMock).toHaveBeenCalledWith({
-      invoiceId: 'invoice-id',
-      studentId: 'student-1',
-      eventName: 'invoice.payment_attempted',
-      actorStaffId: 'staff-1',
-      payload: {
-        outcome: 'succeeded',
-        stripe_status: 'paid',
-      },
-    });
-  });
+      const response = await POST({} as never, {
+        params: { id: 'invoice-id' },
+      });
+
+      expect(response.status).toBe(200);
+      expect(mockPayInvoice).toHaveBeenCalledWith('in_test');
+      expect(recordInvoiceOperatorEventMock).toHaveBeenCalledWith({
+        invoiceId: 'invoice-id',
+        studentId: 'student-1',
+        eventName: 'invoice.payment_attempted',
+        actorStaffId: 'staff-1',
+        payload: {
+          outcome: 'succeeded',
+          stripe_status: 'paid',
+        },
+      });
+    },
+  );
 
   it('continues to capture unexpected Stripe failures as server errors', async () => {
     const error = new Error('Stripe unavailable');

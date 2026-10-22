@@ -380,8 +380,8 @@ export function StudentInvoicesTable({ studentId }: StudentInvoicesTableProps) {
                           onDownloadPdf={invoice.invoice_pdf ? () => {
                             window.open(invoice.invoice_pdf!, '_blank', 'noopener,noreferrer');
                           } : undefined}
-                          onSendInvoice={invoice.collection_method === 'send_invoice' && invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
-                          onChargeCard={invoice.collection_method === 'charge_automatically' && invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
+                          onSendInvoice={invoice.status !== 'paid' ? () => handleSendInvoiceEmail(invoice.id) : undefined}
+                          onChargeCard={invoice.status !== 'paid' ? () => handleChargeCard(invoice.id) : undefined}
                           onAddCreditNote={
                             canInvoiceAcceptCreditNote
                               ? () => {
