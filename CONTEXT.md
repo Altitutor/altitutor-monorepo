@@ -493,6 +493,18 @@
 - **Flashcard import row** — One row in an Anki flashcard import. The row must provide cloze text and may provide a title, order, and extra answer-side context.
   _Avoid_: Anki note model, front/back row
 
+## Medicine interview practice
+
+- **Interview exam mode** — A coordinated mock interview mode in which the tutor can see and hear the student during reading time, while the student sees only their own video preview and the prompt. Communication becomes two-way during question time and stops in both directions during marking; when recording is enabled, it covers question time only.
+
+- **Interview feedback mode** — A coordinated mock interview mode with two-way communication throughout reading, question and feedback time. When recording is enabled, it covers question time and verbal feedback, excluding reading time.
+
+- **Interview rotation** — One allocation of students across the stations of a coordinated mock interview. Any participating tutor may explicitly advance the group once the required station work is finished; losing a connection does not itself stop the interview.
+
+- **Interview station score** — One overall assessment of a student's performance at a station, allowing non-integer values up to that station's configured maximum, which defaults to six. A student's interview total is the sum of their station scores against the sum of the station maxima.
+
+- **Interview result release** — The explicit action that makes a mock interview's scores and feedback visible to its students. Viewing released results requires current interview enrolment, including when viewing a past attempt.
+
 ## UCAT content
 
 - **UCAT question difficulty** — The proportion of the target UCAT candidate cohort expected to answer a question incorrectly on first exposure under realistic section timing and without assistance. It ranges from 0 to 1, with higher values meaning harder; `null` means unknown. Before representative response data exists it is an authored estimate, and once sufficient data exists it may be updated from observed first-exposure performance without changing its meaning.

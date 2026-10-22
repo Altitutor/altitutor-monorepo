@@ -151,6 +151,11 @@ function useTutorPrimaryNavItems(isUcatTutor: boolean): NavItem[] {
       });
     }
 
+    // DEV-8 throwaway entry: keep the new section beside UCAT during UI exploration.
+    if (process.env.NODE_ENV !== 'production') {
+      items.push({ title: 'Interviews · prototype', href: '/interviews/prototype', icon: Users });
+    }
+
     return items;
   }, [subjects, isUcatTutor]);
 }
