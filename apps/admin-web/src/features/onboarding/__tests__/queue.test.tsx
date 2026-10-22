@@ -298,6 +298,6 @@ it("sets and clears the next contact date using the shared date picker", async (
   });
   await waitFor(() => expect(selected).toHaveTextContent("24 Oct 2026"));
   fireEvent.click(selected);
-  fireEvent.click(await screen.findByRole("option", { name: /Clear/ }));
+  fireEvent.click(await screen.findByRole("button", { name: "Clear date" }));
   await waitFor(() => expect(selected).toHaveTextContent("Select date"));
 });
